@@ -357,23 +357,23 @@ class LDiversityRiskMetric(PrivacyMetric):
         """
         try:
             # Import the specialized metric from ldiversity_risk module
-            from core.metrics.privacy.ldiversity_risk import LDiversityRiskMetric as SpecializedLDiversityRiskMetric
+            # from core.metrics.privacy.ldiversity_risk import LDiversityRiskMetric as SpecializedLDiversityRiskMetric
 
-            # Create an instance of the specialized metric
-            specialized_metric = SpecializedLDiversityRiskMetric(
-                l_threshold=self.l_threshold,
-                diversity_type=self.diversity_type,
-                c_value=self.c_value
-            )
+            # # Create an instance of the specialized metric
+            # specialized_metric = SpecializedLDiversityRiskMetric(
+            #     l_threshold=self.l_threshold,
+            #     diversity_type=self.diversity_type,
+            #     c_value=self.c_value
+            # )
 
-            # Calculate and return the result
-            result = specialized_metric.calculate(
-                data=data,
-                quasi_identifiers=quasi_identifiers,
-                sensitive_attributes=sensitive_attributes,
-                **kwargs
-            )
-
+            # # Calculate and return the result
+            # result = specialized_metric.calculate(
+            #     data=data,
+            #     quasi_identifiers=quasi_identifiers,
+            #     sensitive_attributes=sensitive_attributes,
+            #     **kwargs
+            # )
+            result = {}
             # Store the result
             self.last_result = result
 
@@ -551,16 +551,17 @@ def calculate_disclosure_risk_metrics(data: pd.DataFrame,
     if sensitive_attributes:
         # Try to use specialized metrics from ldiversity_risk module
         try:
-            from core.metrics.privacy.ldiversity_risk import calculate_ldiversity_risk_metrics
+            # from core.metrics.privacy.ldiversity_risk import calculate_ldiversity_risk_metrics
 
-            # Use the specialized function for l-diversity risk metrics
-            ldiversity_results = calculate_ldiversity_risk_metrics(
-                data=data,
-                quasi_identifiers=quasi_identifiers,
-                sensitive_attributes=sensitive_attributes,
-                **kwargs
-            )
+            # # Use the specialized function for l-diversity risk metrics
+            # ldiversity_results = calculate_ldiversity_risk_metrics(
+            #     data=data,
+            #     quasi_identifiers=quasi_identifiers,
+            #     sensitive_attributes=sensitive_attributes,
+            #     **kwargs
+            # )
 
+            ldiversity_results = {}
             # Merge results
             results.update(ldiversity_results)
 

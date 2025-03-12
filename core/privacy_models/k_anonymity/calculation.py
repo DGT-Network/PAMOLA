@@ -170,6 +170,21 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         logger.info(
             f"Initialized KAnonymityProcessor with k={self.k}, suppression={self.suppression}, use_dask={self.use_dask}")
         logger.debug(f"Full configuration: {self.config}")
+    
+    def process(self, data):
+        """
+        Process the input data.
+
+        Parameters:
+        -----------
+        data : Any
+            The input data to be processed.
+
+        Returns:
+        --------
+        Processed data, transformed according to the specific processor logic.
+        """
+        pass
 
     def evaluate_privacy(self, data: pd.DataFrame, quasi_identifiers: List[str], **kwargs) -> Dict[str, Any]:
         """

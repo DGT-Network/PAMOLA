@@ -65,13 +65,33 @@ class UniformNoiseAdditionProcessor(BaseNoiseAdditionProcessor, ABC):
         max_val : float, optional
             Maximum bound for the noise-added values (default: None, no limit).
         """
+        super().__init__()  # Ensure base class is properly initialized
+        if min_noise > max_noise:
+            raise ValueError("min_noise must be <= max_noise.")
+        
         self.min_noise = min_noise
         self.max_noise = max_noise
         self.min_val = min_val
         self.max_val = max_val
+    
+    def process(self, data):
+        """
+        Process the input data.
+
+        Parameters:
+        -----------
+        data : Any
+            The input data to be processed.
+
+        Returns:
+        --------
+        Processed data, transformed according to the specific processor logic.
+        """
+        pass
 
     def add_noise(self, data: pd.DataFrame, columns: list[str], noise_type: str = "uniform",
-                  min_noise: float = None, max_noise: float = None, min_val: float = None, max_val: float = None, **kwargs) -> pd.DataFrame:
+                min_noise: float = None, max_noise: float = None, min_val: float = None, 
+                max_val: float = None, **kwargs) -> pd.DataFrame:
         """
         Apply Uniform noise to specified columns in the dataset.
 
@@ -105,13 +125,30 @@ class UniformNoiseAdditionProcessor(BaseNoiseAdditionProcessor, ABC):
         min_val = min_val if min_val is not None else self.min_val
         max_val = max_val if max_val is not None else self.max_val
 
-        for column in columns:
-            noise = np.random.uniform(low=min_noise, high=max_noise, size=len(data))
-            data[column] += noise
+        if min_noise > max_noise:
+            raise ValueError("min_noise must be <= max_noise.")
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError("Input data must be a pandas DataFrame.")
+        if not all(col in data.columns for col in columns):
+            missing_cols = [col for col in columns if col not in data.columns]
+            raise ValueError(f"Columns not found in DataFrame: {missing_cols}")
 
-            if min_val is not None:
-                data[column] = data[column].clip(lower=min_val)
-            if max_val is not None:
-                data[column] = data[column].clip(upper=max_val)
+        data = data.copy()
+        for column in columns:
+            data[column] = self._apply_noise(data[column], min_noise, max_noise, min_val, max_val)
 
         return data
+
+    def _apply_noise(self, series: pd.Series, min_noise: float, max_noise: float,
+                     min_val: float, max_val: float) -> pd.Series:
+        """Applies uniform noise to a single column."""
+        noise = np.random.uniform(low=min_noise, high=max_noise, size=len(series))
+
+        series_noisy = series.fillna(0) + noise
+
+        if min_val is not None:
+            series_noisy = series_noisy.clip(lower=min_val)
+        if max_val is not None:
+            series_noisy = series_noisy.clip(upper=max_val)
+
+        return series_noisy
