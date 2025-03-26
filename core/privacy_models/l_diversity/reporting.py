@@ -1116,155 +1116,152 @@ class LDiversityReport(PrivacyReport):
             raise
 
 
-# Standalone utility functions
+    # Standalone utility functions
 
-def generate_report(
-        processor,
-        data: Optional[pd.DataFrame] = None,
-        quasi_identifiers: Optional[List[str]] = None,
-        sensitive_attributes: Optional[List[str]] = None,
-        output_path: Optional[Union[str, Path]] = None,
-        format: str = 'json',
-        include_visualizations: bool = True
-) -> Dict[str, Any]:
-    """
-    Convenience function for generating and exporting l-diversity report
+    def generate_report(
+            processor,
+            data: Optional[pd.DataFrame] = None,
+            quasi_identifiers: Optional[List[str]] = None,
+            sensitive_attributes: Optional[List[str]] = None,
+            output_path: Optional[Union[str, Path]] = None,
+            format: str = 'json',
+            include_visualizations: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Convenience function for generating and exporting l-diversity report
 
-    Parameters:
-    -----------
-    processor : object
-        L-Diversity processor instance
-    data : pd.DataFrame, optional
-        Input dataset (if not already processed by processor)
-    quasi_identifiers : List[str], optional
-        Quasi-identifier columns (required if data provided)
-    sensitive_attributes : List[str], optional
-        Sensitive attribute columns (required if data provided)
-    output_path : str or Path, optional
-        Path to save report (if None, report is only returned)
-    format : str, optional
-        Format to save report (json or csv, default: json)
-    include_visualizations : bool, optional
-        Whether to include visualization paths (default: True)
+        Parameters:
+        -----------
+        processor : object
+            L-Diversity processor instance
+        data : pd.DataFrame, optional
+            Input dataset (if not already processed by processor)
+        quasi_identifiers : List[str], optional
+            Quasi-identifier columns (required if data provided)
+        sensitive_attributes : List[str], optional
+            Sensitive attribute columns (required if data provided)
+        output_path : str or Path, optional
+            Path to save report (if None, report is only returned)
+        format : str, optional
+            Format to save report (json or csv, default: json)
+        include_visualizations : bool, optional
+            Whether to include visualization paths (default: True)
 
-    Returns:
-    --------
-    Dict[str, Any]
-        Generated report
-    """
-    # Create reporter instance
-    reporter = LDiversityReport(processor)
+        Returns:
+        --------
+        Dict[str, Any]
+            Generated report
+        """
+        # Create reporter instance
+        reporter = LDiversityReport(processor)
 
-    # Generate report
-    report = reporter.generate(
-        data,
-        quasi_identifiers,
-        sensitive_attributes,
-        include_visualizations
-    )
+        # Generate report
+        report = reporter.generate(
+            data,
+            quasi_identifiers,
+            sensitive_attributes,
+            include_visualizations
+        )
 
-    # Export report if path provided
-    if output_path:
-        reporter.export_report(report, output_path, format)
+        # Export report if path provided
+        if output_path:
+            reporter.export_report(report, output_path, format)
 
-    return report
-
-
-def generate_compliance_report(
-        processor,
-        regulation: str = "GDPR",
-        data: Optional[pd.DataFrame] = None,
-        quasi_identifiers: Optional[List[str]] = None,
-        sensitive_attributes: Optional[List[str]] = None,
-        output_path: Optional[Union[str, Path]] = None
-) -> Dict[str, Any]:
-    """
-    Convenience function for generating and exporting compliance report
-
-    Parameters:
-    -----------
-    processor : object
-        L-Diversity processor instance
-    regulation : str, optional
-        Regulatory framework (default: GDPR)
-    data : pd.DataFrame, optional
-        Input dataset (if not already processed by processor)
-    quasi_identifiers : List[str], optional
-        Quasi-identifier columns (required if data provided)
-    sensitive_attributes : List[str], optional
-        Sensitive attribute columns (required if data provided)
-    output_path : str or Path, optional
-        Path to save report (if None, report is only returned)
-
-    Returns:
-    --------
-    Dict[str, Any]
-        Generated compliance report
-    """
-    # Create reporter instance
-    reporter = LDiversityReport(processor)
-
-    # Generate compliance report
-    report = reporter.generate_compliance_report(
-        data,
-        quasi_identifiers,
-        sensitive_attributes,
-        regulation
-    )
-
-    # Export report if path provided
-    if output_path:
-        reporter.export_report(report, output_path, 'json')
-
-    return report
+        return report
 
 
-def generate_technical_report(
-        processor,
-        data: Optional[pd.DataFrame] = None,
-        quasi_identifiers: Optional[List[str]] = None,
-        sensitive_attributes: Optional[List[str]] = None,
-        output_path: Optional[Union[str, Path]] = None
-) -> Dict[str, Any]:
-    """
-    Convenience function for generating and exporting technical report
+    def generate_compliance_report(
+            processor,
+            regulation: str = "GDPR",
+            data: Optional[pd.DataFrame] = None,
+            quasi_identifiers: Optional[List[str]] = None,
+            sensitive_attributes: Optional[List[str]] = None,
+            output_path: Optional[Union[str, Path]] = None
+    ) -> Dict[str, Any]:
+        """
+        Convenience function for generating and exporting compliance report
 
-    Parameters:
-    -----------
-    processor : object
-        L-Diversity processor instance
-    data : pd.DataFrame, optional
-        Input dataset (if not already processed by processor)
-    quasi_identifiers : List[str], optional
-        Quasi-identifier columns (required if data provided)
-    sensitive_attributes : List[str], optional
-        Sensitive attribute columns (required if data provided)
-    output_path : str or Path, optional
-        Path to save report (if None, report is only returned)
+        Parameters:
+        -----------
+        processor : object
+            L-Diversity processor instance
+        regulation : str, optional
+            Regulatory framework (default: GDPR)
+        data : pd.DataFrame, optional
+            Input dataset (if not already processed by processor)
+        quasi_identifiers : List[str], optional
+            Quasi-identifier columns (required if data provided)
+        sensitive_attributes : List[str], optional
+            Sensitive attribute columns (required if data provided)
+        output_path : str or Path, optional
+            Path to save report (if None, report is only returned)
 
-    Returns:
-    --------
-    Dict[str, Any]
-        Generated technical report
-    """
-    # Create reporter instance
-    reporter = LDiversityReport(processor)
+        Returns:
+        --------
+        Dict[str, Any]
+            Generated compliance report
+        """
+        # Create reporter instance
+        reporter = LDiversityReport(processor)
 
-    # Generate technical report
-    report = reporter.generate_technical_report(
-        data,
-        quasi_identifiers,
-        sensitive_attributes
-    )
+        # Generate compliance report
+        report = reporter.generate_compliance_report(
+            data,
+            quasi_identifiers,
+            sensitive_attributes,
+            regulation
+        )
 
-    # Export report if path provided
-    if output_path:
-        reporter.export_report(report, output_path, 'json')
+        # Export report if path provided
+        if output_path:
+            reporter.export_report(report, output_path, 'json')
 
-    return report)
-    metrics["compliant"] = all(l >= l_threshold for l in min_l_values)
+        return report
 
-    return metrics
+
+    def generate_technical_report(
+            processor,
+            data: Optional[pd.DataFrame] = None,
+            quasi_identifiers: Optional[List[str]] = None,
+            sensitive_attributes: Optional[List[str]] = None,
+            output_path: Optional[Union[str, Path]] = None
+    ) -> Dict[str, Any]:
+        """
+        Convenience function for generating and exporting technical report
+
+        Parameters:
+        -----------
+        processor : object
+            L-Diversity processor instance
+        data : pd.DataFrame, optional
+            Input dataset (if not already processed by processor)
+        quasi_identifiers : List[str], optional
+            Quasi-identifier columns (required if data provided)
+        sensitive_attributes : List[str], optional
+            Sensitive attribute columns (required if data provided)
+        output_path : str or Path, optional
+            Path to save report (if None, report is only returned)
+
+        Returns:
+        --------
+        Dict[str, Any]
+            Generated technical report
+        """
+        # Create reporter instance
+        reporter = LDiversityReport(processor)
+
+        # Generate technical report
+        report = reporter.generate_technical_report(
+            data,
+            quasi_identifiers,
+            sensitive_attributes
+        )
+
+        # Export report if path provided
+        if output_path:
+            reporter.export_report(report, output_path, 'json')
+
+        return report
 
     def _extract_entropy_metrics(self,
                                  group_diversity: pd.DataFrame,
@@ -1441,11 +1438,11 @@ def generate_technical_report(
         return metrics
 
     def _calculate_entropy_metrics(self,
-                                   data: pd.DataFrame,
-                                   quasi_identifiers: List[str],
-                                   sensitive_attributes: List[str]) -> Dict[str, Any]:
+                               data: pd.DataFrame,
+                               quasi_identifiers: List[str],
+                               sensitive_attributes: List[str]) -> Dict[str, Any]:
         """
-        Calculate entropy diversity metrics directly from data
+        Calculate entropy diversity metrics directly from data.
 
         Parameters:
         -----------
@@ -1461,29 +1458,29 @@ def generate_technical_report(
         Dict[str, Any]
             Entropy diversity metrics
         """
-        metrics = {
-            "attribute_entropy": {}
-        }
+        metrics = {"attribute_entropy": {}}
+
+        if not quasi_identifiers or not sensitive_attributes:
+            return metrics  # Return empty metrics if no attributes are provided
 
         # Group data by quasi-identifiers
-        groups = data.groupby(quasi_identifiers)
+        groups = data.groupby(quasi_identifiers, dropna=False)
 
         for sa in sensitive_attributes:
             if sa in data.columns:
-                # Calculate entropy for each group
                 entropy_values = []
 
                 for _, group in groups:
-                    if sa in group.columns:
+                    if sa in group.columns and not group[sa].isna().all():
                         # Calculate value frequencies
-                        value_counts = group[sa].value_counts(normalize=True)
+                        value_counts = group[sa].value_counts(normalize=True, dropna=True)
 
                         # Calculate entropy
                         entropy = -sum(p * np.log(p) for p in value_counts if p > 0)
                         entropy_values.append(entropy)
 
                 if entropy_values:
-                    # Calculate metrics
+                    # Calculate entropy-based metrics
                     min_entropy = min(entropy_values)
                     max_entropy = max(entropy_values)
                     avg_entropy = sum(entropy_values) / len(entropy_values)
@@ -1504,22 +1501,25 @@ def generate_technical_report(
                         "entropy_values": entropy_values
                     }
 
-        # Calculate overall metrics
-        min_entropy_values = [metrics["attribute_entropy"][sa]["min_entropy"]
-                              for sa in metrics["attribute_entropy"]]
+        if metrics["attribute_entropy"]:
+            # Calculate overall entropy statistics
+            min_entropy_values = [m["min_entropy"] for m in metrics["attribute_entropy"].values()]
+            max_entropy_values = [m["max_entropy"] for m in metrics["attribute_entropy"].values()]
+            avg_entropy_values = [m["avg_entropy"] for m in metrics["attribute_entropy"].values()]
 
-        if min_entropy_values:
             metrics["min_entropy"] = min(min_entropy_values)
-            metrics["max_entropy"] = max([metrics["attribute_entropy"][sa]["max_entropy"]
-                                          for sa in metrics["attribute_entropy"]])
-            metrics["avg_entropy"] = sum([metrics["attribute_entropy"][sa]["avg_entropy"]
-                                          for sa in metrics["attribute_entropy"]]) / len(min_entropy_values)
+            metrics["max_entropy"] = max(max_entropy_values)
+            metrics["avg_entropy"] = sum(avg_entropy_values) / len(avg_entropy_values)
 
-            # Calculate effective values
+            # Compute effective l-diversity values
             metrics["effective_min_l"] = np.exp(metrics["min_entropy"]) if metrics["min_entropy"] > 0 else 1
             metrics["effective_max_l"] = np.exp(metrics["max_entropy"]) if metrics["max_entropy"] > 0 else 1
             metrics["effective_avg_l"] = np.exp(metrics["avg_entropy"]) if metrics["avg_entropy"] > 0 else 1
 
-            # Calculate compliance
-            l_threshold = self.report_data.get(
-                "l_diversity_configuration", {}).get("l_value", 3
+            # Compliance check
+            l_threshold = self.report_data.get("l_diversity_configuration", {}).get("l_value", 3)
+            metrics["compliance"] = {
+                "meets_l_diversity": metrics["effective_min_l"] >= l_threshold
+            }
+
+        return metrics

@@ -57,6 +57,22 @@ class BasePrivacyModelProcessor(BaseProcessor, ABC):
     - evaluate_privacy(): Assesses anonymization risks and model compliance.
     - apply_model(): Applies the anonymization model to a dataset.
     """
+    
+    @abstractmethod
+    def process(self, data):
+        """
+        Process the input data.
+
+        Parameters:
+        -----------
+        data : Any
+            The input data to be processed.
+
+        Returns:
+        --------
+        Processed data, transformed according to the specific processor logic.
+        """
+        pass
 
     @abstractmethod
     def evaluate_privacy(self, data: pd.DataFrame, quasi_identifiers: list[str], **kwargs) -> dict:

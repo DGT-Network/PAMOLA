@@ -38,6 +38,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
 # Required libraries
+from typing import Dict, Optional
 import pandas as pd
 from abc import ABC
 from core.anonymization.generalization.base import BaseGeneralizationProcessor
@@ -55,20 +56,20 @@ class CategoricalGeneralizationProcessor(BaseGeneralizationProcessor, ABC):
     - apply_hierarchy(): Uses a predefined hierarchy for generalization.
     """
 
-    def __init__(self, hierarchy: dict = None, min_group_size: int = 5):
+    def __init__(self, hierarchy: Optional[Dict] = None, min_group_size: int = 5):
         """
-        Initializes the categorical generalization processor.
+        Initialize the categorical generalization processor.
 
         Parameters:
         -----------
         hierarchy : dict, optional
             A predefined hierarchy for categorical values (default: None).
         min_group_size : int
-            Minimum occurrences for a category to remain unchanged.
-            Categories below this threshold will be grouped (default: 5).
+            Minimum occurrences for a category to remain unchanged (default: 5).
         """
-        self.hierarchy = hierarchy
-        self.min_group_size = min_group_size
+        super().__init__()  # Ensure base class is properly initialized
+        self.hierarchy = hierarchy or {}
+        self.min_group_size = max(1, min_group_size)  # Ensure min_group_size is at least 1
 
     def generalize(self, data: pd.DataFrame, column: str, method: str = "grouping") -> pd.DataFrame:
         """
@@ -92,7 +93,7 @@ class CategoricalGeneralizationProcessor(BaseGeneralizationProcessor, ABC):
             return self.group_values(data, column)
         elif method == "smoothing":
             return self.smooth_frequencies(data, column)
-        elif method == "hierarchy" and self.hierarchy:
+        elif method == "hierarchy":
             return self.apply_hierarchy(data, column)
         else:
             raise ValueError(f"Invalid generalization method: {method}")
@@ -113,9 +114,9 @@ class CategoricalGeneralizationProcessor(BaseGeneralizationProcessor, ABC):
         pd.DataFrame
             The dataset with grouped categorical values.
         """
-        value_counts = data[column].value_counts()
-        rare_values = value_counts[value_counts < self.min_group_size].index
-        data[column] = data[column].replace(rare_values, "Other")
+        data = data.copy()
+        rare_values = self._get_rare_values(data[column], self.min_group_size)
+        data.loc[data[column].isin(rare_values), column] = "Other"
         return data
 
     def smooth_frequencies(self, data: pd.DataFrame, column: str, threshold: float = 0.05) -> pd.DataFrame:
@@ -136,10 +137,9 @@ class CategoricalGeneralizationProcessor(BaseGeneralizationProcessor, ABC):
         pd.DataFrame
             The dataset with frequency-smoothed categorical values.
         """
-        total_count = len(data)
-        value_counts = data[column].value_counts(normalize=True)
-        rare_values = value_counts[value_counts < threshold].index
-        data[column] = data[column].replace(rare_values, "Other")
+        data = data.copy()
+        rare_values = data[column].value_counts(normalize=True).loc[lambda x: x < threshold].index
+        data.loc[data[column].isin(rare_values), column] = "Other"
         return data
 
     def apply_hierarchy(self, data: pd.DataFrame, column: str) -> pd.DataFrame:
@@ -160,5 +160,25 @@ class CategoricalGeneralizationProcessor(BaseGeneralizationProcessor, ABC):
         """
         if not self.hierarchy:
             raise ValueError("Hierarchy mapping is required for this method.")
-        data[column] = data[column].map(self.hierarchy).fillna(data[column])
+
+        data = data.copy()
+        data[column] = data[column].astype(str).map(self.hierarchy).fillna(data[column])
         return data
+    
+    def _get_rare_values(self, data: pd.Series, threshold: int) -> pd.Index:
+        """
+        Identify rare categorical values in a Pandas Series based on a specified frequency threshold.
+
+        Parameters:
+        -----------
+        data : pd.Series
+            The input data series containing categorical values to analyze.
+        threshold : int
+            The maximum frequency a value can have to be considered rare. Values occurring fewer times than this threshold are deemed rare.
+
+        Returns:
+        --------
+        pd.Index
+            An index object containing the rare values that occur less frequently than the specified threshold.
+        """
+        return data.value_counts().loc[lambda x: x < threshold].index

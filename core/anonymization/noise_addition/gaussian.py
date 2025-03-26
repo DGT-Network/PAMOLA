@@ -67,14 +67,34 @@ class GaussianNoiseAdditionProcessor(BaseNoiseAdditionProcessor, ABC):
         max_val : float, optional
             Maximum bound for the noise-added values (default: None, no limit).
         """
+        super().__init__()  # Ensure base class is properly initialized
+
+        if std_dev <= 0:
+            raise ValueError("Standard deviation must be greater than zero.")
+
         self.mean = mean
         self.std_dev = std_dev
         self.min_val = min_val
         self.max_val = max_val
 
+    def process(self, data):
+        """
+        Process the input data.
+
+        Parameters:
+        -----------
+        data : Any
+            The input data to be processed.
+
+        Returns:
+        --------
+        Processed data, transformed according to the specific processor logic.
+        """
+        pass
+
     def add_noise(self, data: pd.DataFrame, columns: list[str], noise_type: str = "gaussian",
-                  mean: float = None, std_dev: float = None, min_val: float = None, max_val: float = None,
-                  **kwargs) -> pd.DataFrame:
+                mean: float = None, std_dev: float = None, min_val: float = None,
+                max_val: float = None, **kwargs) -> pd.DataFrame:
         """
         Apply Gaussian noise to specified columns in the dataset.
 
@@ -108,13 +128,32 @@ class GaussianNoiseAdditionProcessor(BaseNoiseAdditionProcessor, ABC):
         min_val = min_val if min_val is not None else self.min_val
         max_val = max_val if max_val is not None else self.max_val
 
+        if std_dev <= 0:
+            raise ValueError("Standard deviation must be greater than zero.")
+        
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError("Input data must be a pandas DataFrame.")
+        if not all(col in data.columns for col in columns):
+            missing_cols = [col for col in columns if col not in data.columns]
+            raise ValueError(f"Columns not found in DataFrame: {missing_cols}")
+        
+        # Clone dataset to avoid modifying original
+        data = data.copy()
+        
         for column in columns:
-            noise = np.random.normal(loc=mean, scale=std_dev, size=len(data))
-            data[column] += noise
-
-            if min_val is not None:
-                data[column] = data[column].clip(lower=min_val)
-            if max_val is not None:
-                data[column] = data[column].clip(upper=max_val)
-
+            data[column] = self._apply_noise(data[column], mean, std_dev, min_val, max_val)
+        
         return data
+    
+    def _apply_noise(self, series: pd.Series, mean: float, std_dev: float, min_val: float, max_val: float) -> pd.Series:
+        """Apply Gaussian noise to a single Pandas Series."""
+        noise = np.random.normal(loc=mean, scale=std_dev, size=len(series))
+        
+        series_noisy = series.fillna(0) + noise
+        
+        if min_val is not None:
+            series_noisy = series_noisy.clip(lower=min_val)
+        if max_val is not None:
+            series_noisy = series_noisy.clip(upper=max_val)
+        
+        return series_noisy
