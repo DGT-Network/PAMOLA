@@ -44,7 +44,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 import re
 from abc import ABC
-from pamola.pamola_core.anonymization.masking.base import BaseMaskingProcessor
+from pamola_core.anonymization.masking.base import BaseMaskingProcessor
 
 class PartialMaskingProcessor(BaseMaskingProcessor, ABC):
     """

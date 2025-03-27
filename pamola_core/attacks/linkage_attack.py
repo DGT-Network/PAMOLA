@@ -29,7 +29,7 @@ import pandas as pd
 import recordlinkage
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
-from pamola.pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.attacks.preprocess_data import PreprocessData
 
 
 

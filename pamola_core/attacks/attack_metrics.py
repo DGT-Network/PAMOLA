@@ -26,7 +26,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-from pamola.pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.attacks.preprocess_data import PreprocessData
 
 
 

@@ -28,7 +28,7 @@ from sklearn.metrics import r2_score
 import pandas as pd
 from typing import Dict, Any
 
-from pamola.pamola_core.metrics.base import UtilityMetric
+from pamola_core.metrics.base import UtilityMetric
 
 import logging
 

@@ -27,9 +27,9 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
-from pamola.pamola_core.attacks.distance_to_closest_record import DistanceToClosestRecord
-from pamola.pamola_core.attacks.nearest_neighbor_distance_ratio import NearestNeighborDistanceRatio
-from pamola.pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.attacks.distance_to_closest_record import DistanceToClosestRecord
+from pamola_core.attacks.nearest_neighbor_distance_ratio import NearestNeighborDistanceRatio
+from pamola_core.attacks.preprocess_data import PreprocessData
 
 
 

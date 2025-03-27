@@ -34,8 +34,8 @@ from datetime import datetime
 from typing import Dict, Optional, Any, List
 
 from pamola_core import config
-from pamola.pamola_core.utils.base_reporting import PrivacyReport
-from pamola.pamola_core.utils.file_io import write_json, write_csv
+from pamola_core.utils.base_reporting import PrivacyReport
+from pamola_core.utils.file_io import write_json, write_csv
 
 # Configure logging
 logger = logging.getLogger(__name__)

@@ -30,7 +30,7 @@ import numpy as np
 import logging
 from typing import Dict, List, Tuple, Optional, Any, Union
 
-from pamola.pamola_core.metrics.base import UtilityMetric, round_metric_values
+from pamola_core.metrics.base import UtilityMetric, round_metric_values
 
 # Configure logging
 logger = logging.getLogger(__name__)

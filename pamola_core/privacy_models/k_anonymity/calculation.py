@@ -53,18 +53,18 @@ from dask import dataframe as dd
 # PAMOLA imports
 from pamola_core import config
 # Import reporting modules
-from pamola.pamola_core.privacy_models.k_anonymity.ka_reporting import (
+from pamola_core.privacy_models.k_anonymity.ka_reporting import (
     generate_compliance_report
 )
-from pamola.pamola_core.utils.file_io import write_json, write_csv
-from pamola.pamola_core.privacy_models.base import BasePrivacyModelProcessor
-from pamola.pamola_core.metrics.fidelity.statistical_fidelity import StatisticalFidelityMetric, calculate_fidelity_metrics
+from pamola_core.utils.file_io import write_json, write_csv
+from pamola_core.privacy_models.base import BasePrivacyModelProcessor
+from pamola_core.metrics.fidelity.statistical_fidelity import StatisticalFidelityMetric, calculate_fidelity_metrics
 # Import metrics modules
-from pamola.pamola_core.metrics.privacy.disclosure_risk import DisclosureRiskMetric, KAnonymityRiskMetric, \
+from pamola_core.metrics.privacy.disclosure_risk import DisclosureRiskMetric, KAnonymityRiskMetric, \
     calculate_disclosure_risk_metrics
-from pamola.pamola_core.metrics.utility.information_loss import InformationLossMetric, calculate_information_loss_metrics
-from pamola.pamola_core.utils import progress
-from pamola.pamola_core.utils.group_processing import compute_group_sizes, adaptive_k_lookup, validate_anonymity_inputs, \
+from pamola_core.metrics.utility.information_loss import InformationLossMetric, calculate_information_loss_metrics
+from pamola_core.utils import progress
+from pamola_core.utils.group_processing import compute_group_sizes, adaptive_k_lookup, validate_anonymity_inputs, \
     optimize_memory_usage
 
 # Visualization libraries
@@ -680,7 +680,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         save_format = kwargs.get('save_format', self.viz_config.get('save_format', 'png'))
 
         try:
-            from pamola.pamola_core.privacy_models.k_anonymity.ka_visualization import visualize_k_distribution
+            from pamola_core.privacy_models.k_anonymity.ka_visualization import visualize_k_distribution
 
             # Call the visualization utility
             fig, saved_path = visualize_k_distribution(
@@ -733,7 +733,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         save_format = kwargs.get('save_format', self.viz_config.get('save_format', 'png'))
 
         try:
-            from pamola.pamola_core.privacy_models.k_anonymity.ka_visualization import visualize_risk_heatmap
+            from pamola_core.privacy_models.k_anonymity.ka_visualization import visualize_risk_heatmap
 
             # Call the visualization utility
             fig, saved_path = visualize_risk_heatmap(

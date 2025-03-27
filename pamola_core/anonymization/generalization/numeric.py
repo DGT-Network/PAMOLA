@@ -38,7 +38,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 # Required libraries
 import pandas as pd
 from abc import ABC
-from pamola.pamola_core.anonymization.generalization.base import BaseGeneralizationProcessor
+from pamola_core.anonymization.generalization.base import BaseGeneralizationProcessor
 
 
 class NumericGeneralizationProcessor(BaseGeneralizationProcessor, ABC):

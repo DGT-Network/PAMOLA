@@ -39,7 +39,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import os
 import json
-from pamola.pamola_core.base_processor import BaseProcessor  # Убедимся, что BaseProcessor импортируется корректно
+from pamola_core.base_processor import BaseProcessor
 
 class BasePseudonymizationProcessor(BaseProcessor, ABC):
     """

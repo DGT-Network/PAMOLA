@@ -41,7 +41,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 from typing import Dict, Optional
 import pandas as pd
 from abc import ABC
-from pamola.pamola_core.anonymization.generalization.base import BaseGeneralizationProcessor
+from pamola_core.anonymization.generalization.base import BaseGeneralizationProcessor
 
 class CategoricalGeneralizationProcessor(BaseGeneralizationProcessor, ABC):
     """

@@ -38,7 +38,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 import numpy as np
 from abc import ABC
-from pamola.pamola_core.anonymization.noise_addition.base import BaseNoiseAdditionProcessor
+from pamola_core.anonymization.noise_addition.base import BaseNoiseAdditionProcessor
 
 class LaplaceNoiseAdditionProcessor(BaseNoiseAdditionProcessor, ABC):
     """

@@ -25,7 +25,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
 from abc import abstractmethod
-from pamola.pamola_core.base_processor import BaseProcessor
+from pamola_core.base_processor import BaseProcessor
 
 
 

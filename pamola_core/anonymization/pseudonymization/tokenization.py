@@ -44,7 +44,7 @@ import uuid
 import json
 import os
 from abc import ABC
-from pamola.pamola_core.anonymization.pseudonymization.base import BasePseudonymizationProcessor
+from pamola_core.anonymization.pseudonymization.base import BasePseudonymizationProcessor
 
 class TokenizationPseudonymizationProcessor(BasePseudonymizationProcessor, ABC):
     """

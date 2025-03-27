@@ -29,8 +29,8 @@ import pandas as pd
 import logging
 from typing import Dict, List, Optional, Any
 
-from pamola.pamola_core.metrics.base import PrivacyMetric, round_metric_values
-from pamola.pamola_core.utils.group_processing import compute_group_sizes
+from pamola_core.metrics.base import PrivacyMetric, round_metric_values
+from pamola_core.utils.group_processing import compute_group_sizes
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -357,7 +357,7 @@ class LDiversityRiskMetric(PrivacyMetric):
         """
         try:
             # Import the specialized metric from ldiversity_risk module
-            # from pamola.pamola_core.metrics.privacy.ldiversity_risk import LDiversityRiskMetric as SpecializedLDiversityRiskMetric
+            # from pamola_core.metrics.privacy.ldiversity_risk import LDiversityRiskMetric as SpecializedLDiversityRiskMetric
 
             # # Create an instance of the specialized metric
             # specialized_metric = SpecializedLDiversityRiskMetric(
@@ -551,7 +551,7 @@ def calculate_disclosure_risk_metrics(data: pd.DataFrame,
     if sensitive_attributes:
         # Try to use specialized metrics from ldiversity_risk module
         try:
-            # from pamola.pamola_core.metrics.privacy.ldiversity_risk import calculate_ldiversity_risk_metrics
+            # from pamola_core.metrics.privacy.ldiversity_risk import calculate_ldiversity_risk_metrics
 
             # # Use the specialized function for l-diversity risk metrics
             # ldiversity_results = calculate_ldiversity_risk_metrics(

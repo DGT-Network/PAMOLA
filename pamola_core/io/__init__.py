@@ -1,23 +1,31 @@
 """
-PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
-This file is part of the PAMOLA ecosystem, a comprehensive suite for
-anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
-foundation for anonymization-preserving data processing.
+    PAMOLA Core - IO Package Base Module
+    -----------------------------------
+    This module provides base interfaces and protocols for all IO operations in the PAMOLA Core
+    library. It defines the standard contracts that all format-specific handlers must implement.
 
-(C) 2024 Realm Inveo Inc. and DGT Network Inc.
+    Key features:
+    - DataReader protocol for standardized data reading
+    - DataWriter protocol for standardized data writing
+    - Common parameter definitions and defaults
+    - Error type definitions for IO operations
+    - Configuration integration points
 
-This software is licensed under the BSD 3-Clause License.
-For details, see the LICENSE file or visit:
+    This module serves as the foundation for all IO operations in PAMOLA Core, ensuring
+    consistency across different data formats and storage methods.
 
-    https://opensource.org/licenses/BSD-3-Clause
-    https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
+    (C) 2024 Realm Inveo Inc. and DGT Network Inc.
 
-Package: core
------------------------
-This is the public core package of PAMOLA.CORE, an open-source anonymization-preserving data processing library.
-It contains all essential modules for data transformation, anonymization, metrics, and interfaces.
+    This software is licensed under the BSD 3-Clause License.
+    For details, see the LICENSE file or visit:
+        https://opensource.org/licenses/BSD-3-Clause
+        https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
-
-Author: Realm Inveo Inc. & DGT Network Inc.
+    Author: Realm Inveo Inc. & DGT Network Inc.
 """
+
+from .paths import PathManager
+from .csv import read_csv, write_csv
+from .excel import read_excel, write_excel
+from .json import read_json, write_json
+from .parquet import read_parquet, write_parquet

@@ -43,7 +43,7 @@ import pandas as pd
 import json
 import os
 from abc import ABC
-from pamola.pamola_core.anonymization.pseudonymization.base import BasePseudonymizationProcessor
+from pamola_core.anonymization.pseudonymization.base import BasePseudonymizationProcessor
 
 class ReplacementPseudonymizationProcessor(BasePseudonymizationProcessor, ABC):
     """

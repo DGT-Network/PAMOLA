@@ -33,7 +33,7 @@ import logging
 from typing import Dict, List, Tuple, Optional, Any, Union
 from scipy import stats
 
-from pamola.pamola_core.metrics.base import FidelityMetric, round_metric_values
+from pamola_core.metrics.base import FidelityMetric, round_metric_values
 
 # Configure logging
 logger = logging.getLogger(__name__)

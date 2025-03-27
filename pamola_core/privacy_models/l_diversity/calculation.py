@@ -43,13 +43,13 @@ import numpy as np
 import pandas as pd
 from dask import dataframe as dd
 
-from pamola.pamola_core.config import L_DIVERSITY_DEFAULTS
+from pamola_core.config import L_DIVERSITY_DEFAULTS
 # PAMOLA core imports
-from pamola.pamola_core.privacy_models.base import BasePrivacyModelProcessor
-from pamola.pamola_core.utils.group_processing import (
+from pamola_core.privacy_models.base import BasePrivacyModelProcessor
+from pamola_core.utils.group_processing import (
     validate_anonymity_inputs
 )
-from pamola.pamola_core.utils.progress import progress_logger
+from pamola_core.utils.progress import progress_logger
 
 class LDiversityCalculator(BasePrivacyModelProcessor):
     """
@@ -252,7 +252,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
             Comprehensive privacy risk metrics
         """
         # Import privacy module implementation
-        from pamola.pamola_core.privacy_models.l_diversity.privacy import LDiversityPrivacyRiskAssessor
+        from pamola_core.privacy_models.l_diversity.privacy import LDiversityPrivacyRiskAssessor
 
         # Create a risk assessor with self as processor for cache access
         risk_assessor = LDiversityPrivacyRiskAssessor(processor=self)

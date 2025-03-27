@@ -36,7 +36,7 @@ import pandas as pd
 import seaborn as sns
 
 from pathlib import Path
-from pamola.pamola_core.utils.file_io import save_plot  # Use centralized function
+from pamola_core.utils.file_io import save_plot  # Use centralized function
 
 
 # Configure logging

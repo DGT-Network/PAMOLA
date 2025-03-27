@@ -25,7 +25,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 from scipy.stats import ks_2samp
 from typing import List, Dict
-from pamola.pamola_core.metrics.base import QualityMetric
+from pamola_core.metrics.base import QualityMetric
 
 # Configure logging
 import logging

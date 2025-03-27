@@ -29,7 +29,7 @@ from typing import List, Dict, Any
 from scipy.stats import wasserstein_distance
 import logging
 
-from pamola.pamola_core.metrics.base import BasePrivacyModelProcessor
+from pamola_core.metrics.base import BasePrivacyModelProcessor
 
 # Set up logging configuration
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')

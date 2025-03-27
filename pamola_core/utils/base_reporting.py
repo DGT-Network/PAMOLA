@@ -35,7 +35,7 @@ from datetime import datetime
 from typing import Dict, List, Any
 
 from pamola_core import config
-from pamola.pamola_core.utils.file_io import write_json
+from pamola_core.utils.file_io import write_json
 
 # Configure logging
 logger = logging.getLogger(__name__)

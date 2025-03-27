@@ -26,7 +26,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 import numpy as np
 from scipy.spatial import KDTree, distance
-from pamola.pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.attacks.preprocess_data import PreprocessData
 
 
 

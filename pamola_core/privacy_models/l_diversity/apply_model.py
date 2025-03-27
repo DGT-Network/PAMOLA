@@ -21,12 +21,12 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 
-from pamola.pamola_core.utils.group_processing import (
+from pamola_core.utils.group_processing import (
     validate_anonymity_inputs,
     optimize_memory_usage
 )
-from pamola.pamola_core.config import L_DIVERSITY_DEFAULTS
-from pamola.pamola_core.privacy_models.l_diversity.calculation import LDiversityCalculator
+from pamola_core.config import L_DIVERSITY_DEFAULTS
+from pamola_core.privacy_models.l_diversity.calculation import LDiversityCalculator
 
 
 class AnonymizationStrategy:

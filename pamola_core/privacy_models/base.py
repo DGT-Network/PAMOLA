@@ -41,7 +41,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 # Required libraries
 from abc import ABC, abstractmethod
 import pandas as pd
-from pamola.pamola_core.base_processor import BaseProcessor
+from pamola_core.base_processor import BaseProcessor
 
 class BasePrivacyModelProcessor(BaseProcessor, ABC):
     """

@@ -27,10 +27,10 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import os
 import numpy as np
 import pandas as pd
-from pamola.pamola_core.attacks.attack_metrics import AttackMetrics
-from pamola.pamola_core.attacks.attribute_inference import AttributeInference
-from pamola.pamola_core.attacks.membership_inference import MembershipInference
-from pamola.pamola_core.attacks.linkage_attack import LinkageAttack
+from pamola_core.attacks.attack_metrics import AttackMetrics
+from pamola_core.attacks.attribute_inference import AttributeInference
+from pamola_core.attacks.membership_inference import MembershipInference
+from pamola_core.attacks.linkage_attack import LinkageAttack
 
 
 
@@ -358,7 +358,7 @@ class AttacksTest:
 
         # Call the membership_inference_attack_dcr function and get return value as a list containing the inferred values of data_test
         prediction_values = self.membership_inference.membership_inference_attack_dcr(data_train, data_test)
-        self.save_membership_inference_attack_results(actual_values, prediction_values, "pamola/pamola_core/attacks/results/mia_dcr.txt")
+        self.save_membership_inference_attack_results(actual_values, prediction_values, "pamola_core/attacks/results/mia_dcr.txt")
 
 
     def run_test_membership_inference_attack_nndr(self, data_train, data_test):
@@ -367,7 +367,7 @@ class AttacksTest:
 
         # Call the membership_inference_attack_nndr function and get return value as a list containing the inferred values of data_test
         prediction_values = self.membership_inference.membership_inference_attack_nndr(data_train, data_test)
-        self.save_membership_inference_attack_results(actual_values, prediction_values, "pamola/pamola_core/attacks/results/mia_nndr.txt")
+        self.save_membership_inference_attack_results(actual_values, prediction_values, "pamola_core/attacks/results/mia_nndr.txt")
 
 
     def run_test_membership_inference_attack_model(self, data_train, data_test):
@@ -376,7 +376,7 @@ class AttacksTest:
 
         # Call the membership_inference_attack_model function and get return value as a list containing the inferred values of data_test
         prediction_values = self.membership_inference.membership_inference_attack_model(data_train, data_test)
-        self.save_membership_inference_attack_results(actual_values, prediction_values, "pamola/pamola_core/attacks/results/mia_model.txt")
+        self.save_membership_inference_attack_results(actual_values, prediction_values, "pamola_core/attacks/results/mia_model.txt")
 
 
     def run_test_attribute_inference_attack(self, data_train, data_test):
@@ -387,25 +387,25 @@ class AttacksTest:
 
         # Call the attribute_inference_attack function and get the return value as a list containing the inferred values of the "State" column of data_test
         prediction_values = self.attribute_inference.attribute_inference_attack(data_train, data_test_not_target, "RACE")
-        self.save_attribute_inference_attack_results(actual_values, prediction_values, "pamola/pamola_core/attacks/results/attribute_inference_attack.txt")
+        self.save_attribute_inference_attack_results(actual_values, prediction_values, "pamola_core/attacks/results/attribute_inference_attack.txt")
 
 
     def run_test_record_linkage_attack(self, data1, data2):
         # Call the function recover_linkage_attack and get the return value as a list of matching record pairs of the two datasets
         results = self.linkage_attack.record_linkage_attack(data1, data2, keys=["AGE", "SEX", "RACE"])
-        self.save_linkage_attack_results(results, "pamola/pamola_core/attacks/results/record_linkage_attack.txt", "Record Linkage Attack results")
+        self.save_linkage_attack_results(results, "pamola_core/attacks/results/record_linkage_attack.txt", "Record Linkage Attack results")
 
 
     def run_test_probabilistic_linkage_attack(self, data1, data2):
         # Call the probabilistic_linkage_attack function and get the return value as a list contains pairs of records that match the Fellegi-Sunter score
         results = self.linkage_attack.probabilistic_linkage_attack(data1, data2, keys=["FULLNAME", "AGE", "SEX", "RACE", "CITY"])
-        self.save_linkage_attack_results(results, "pamola/pamola_core/attacks/results/probabilistic_linkage_attack.txt", "Probabilistic Linkage Attack results")
+        self.save_linkage_attack_results(results, "pamola_core/attacks/results/probabilistic_linkage_attack.txt", "Probabilistic Linkage Attack results")
 
 
     def run_test_cluster_vector_linkage_attack(self, data1, data2):
         # Call the probabilistic_linkage_attack function and get the return value as a list contains pairs of records that match the PCA & Cosine Similarity score
         results = self.linkage_attack.cluster_vector_linkage_attack(data1, data2)
-        self.save_linkage_attack_results(results, "pamola/pamola_core/attacks/results/cluster_vector_linkage_attack.txt", "Cluster Vector Linkage Attack results")
+        self.save_linkage_attack_results(results, "pamola_core/attacks/results/cluster_vector_linkage_attack.txt", "Cluster Vector Linkage Attack results")
 
 
     def run_test(self):

@@ -25,7 +25,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
 import numpy as np
-from pamola.pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.attacks.preprocess_data import PreprocessData
 
 
 

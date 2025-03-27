@@ -28,7 +28,7 @@ import pandas as pd
 import seaborn as sns
 
 # Import file saving utility
-from pamola.pamola_core.utils.file_io import save_plot
+from pamola_core.utils.file_io import save_plot
 
 # Configure logging
 logger = logging.getLogger(__name__)

@@ -33,7 +33,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from pamola.pamola_core.metrics.base import UtilityMetric
+from pamola_core.metrics.base import UtilityMetric
 
 # Configure logging
 logger = logging.getLogger(__name__)

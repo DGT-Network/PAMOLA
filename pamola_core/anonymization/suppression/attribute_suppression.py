@@ -41,7 +41,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 # Required libraries
 import pandas as pd
 from abc import ABC
-from pamola.pamola_core.anonymization.suppression.base import BaseSuppressionProcessor
+from pamola_core.anonymization.suppression.base import BaseSuppressionProcessor
 
 class AttributeSuppressionProcessor(BaseSuppressionProcessor, ABC):
     """

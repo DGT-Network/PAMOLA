@@ -31,7 +31,7 @@ import pandas as pd
 from typing import Dict, Any, List
 import logging
 
-from pamola.pamola_core.privacy_models.base import BasePrivacyModelProcessor
+from pamola_core.privacy_models.base import BasePrivacyModelProcessor
 
 # Set up logging configuration
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')

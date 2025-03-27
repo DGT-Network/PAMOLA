@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Any
 
-from pamola.pamola_core.metrics.base import UtilityMetric
+from pamola_core.metrics.base import UtilityMetric
 
 class MeanSquaredError(UtilityMetric):
     """Class to calculate Mean Squared Error (MSE) between real and synthetic data"""

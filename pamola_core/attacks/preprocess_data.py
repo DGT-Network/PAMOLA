@@ -26,7 +26,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
-from pamola.pamola_core.attacks.base import AttackInitialization
+from pamola_core.attacks.base import AttackInitialization
 
 
 
