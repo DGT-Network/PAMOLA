@@ -25,11 +25,10 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
 # Required libraries
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import pandas as pd
-from pamola_core.base_processor import BaseProcessor
 
-class BaseGeneralizationProcessor(BaseProcessor):
+class BaseGeneralizationProcessor(ABC):
     """
     Abstract base class for generalization processors in PAMOLA.CORE.
     This class extends BaseProcessor and defines methods specific to

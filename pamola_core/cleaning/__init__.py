@@ -19,7 +19,6 @@
     Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-from .null_handling import NullHandlingOperation
-from .null_inputation import NullInputationOperation
-from .null_pattern_analysis import NullPatternAnalysisOperation
-from .conditional_null_handling import ConditionalNullHandlingOperation
+from pamola_core.cleaning.null_handling.null_removal import NullDetectionAndRemoval
+from pamola_core.cleaning.null_imputation.statistical_imputation import BasicStatisticalImputation
+from pamola_core.cleaning.null_imputation.ml_imputation import MachineLearningImputation

@@ -32,9 +32,9 @@ from typing import Dict, Any, List, Optional
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
-from pamola_core.profiling.base import BaseProfilingProcessor
+from pamola_core.profiling.values.base import BaseDataFieldProfilingProcessor
 
-class NumericFieldsProfilingProcessor(BaseProfilingProcessor, ABC):
+class NumericFieldsProfilingProcessor(BaseDataFieldProfilingProcessor, ABC):
     """
     Processor for analyzing numeric fields in datasets.
     """

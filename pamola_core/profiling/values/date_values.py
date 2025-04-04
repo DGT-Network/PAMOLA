@@ -26,15 +26,14 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
 from abc import ABC
-from typing import Any, Dict, List, Optional
 import pandas as pd
 import numpy as np
 from scipy.stats import linregress
-import dask.dataframe as dd
+from typing import Any, Dict, List, Optional
 
-from pamola_core.profiling.base import BaseProfilingProcessor
+from pamola_core.profiling.values.base import BaseDataFieldProfilingProcessor
 
-class DateValuesProfilingProcessor(BaseProfilingProcessor, ABC):
+class DateValuesProfilingProcessor(BaseDataFieldProfilingProcessor, ABC):
     """
     Processor for analyzing date and timestamp fields.
     Identifies date distributions, trends, and seasonality.
@@ -70,7 +69,7 @@ class DateValuesProfilingProcessor(BaseProfilingProcessor, ABC):
         self.time_series_analysis = time_series_analysis
         self.min_data_points = min_data_points
         self.ignore_non_date = ignore_non_date
-    
+
     def execute(self, df: pd.DataFrame, columns: Optional[List[str]] = None, **kwargs) -> Dict[str, Any]:
         """
         Perform advanced analysis on specific date columns or all detected date fields.
@@ -118,6 +117,7 @@ class DateValuesProfilingProcessor(BaseProfilingProcessor, ABC):
         date_cols = columns if columns else self._identify_date_columns(df, ignore_non_date)
 
         for col in date_cols:
+
             if col not in df.columns:
                 continue  # Skip if column is missing
 
@@ -128,11 +128,12 @@ class DateValuesProfilingProcessor(BaseProfilingProcessor, ABC):
                 date_series = date_series.dropna()
 
             if ignore_non_date:
-                date_series = pd.to_datetime(date_series, errors="coerce").dropna()
+                date_series = date_series.dropna()
 
             if date_series.empty:
                 continue  # Skip empty columns after processing
-
+            
+            date_series = pd.to_datetime(date_series, errors="coerce").dropna()
             # Compute date statistics
             min_date = date_series.min()
             max_date = date_series.max()
@@ -157,8 +158,8 @@ class DateValuesProfilingProcessor(BaseProfilingProcessor, ABC):
 
             # Store results
             results[col] = {
-                "min_date": min_date.strftime('%Y-%m-%d') if format_dates else min_date,
-                "max_date": max_date.strftime('%Y-%m-%d') if format_dates else max_date,
+                "min_date": min_date.strftime('%Y-%m-%d') if format_dates else str(min_date),
+                "max_date": max_date.strftime('%Y-%m-%d') if format_dates else str(max_date),
                 "date_range": {
                     "days": date_range_days,
                     "months": date_range_months,
@@ -251,7 +252,18 @@ class DateValuesProfilingProcessor(BaseProfilingProcessor, ABC):
             "monthly": df["count"].resample("ME").sum(),
         }
 
-        def compute_trend(series: pd.Series) -> Dict[str, Any]:
+        # Generate final trend analysis dictionary
+        trend_analysis = {
+            f"{freq}_trend": {
+                "counts": str(trends[freq].to_dict()),
+                "analysis": self._compute_trend(trends[freq], min_data_points)
+            }
+            for freq in trends
+        }
+
+        return trend_analysis
+    
+    def _compute_trend(self, series: pd.Series, min_data_points) -> Dict[str, Any]:
             """Computes trend using linear regression."""
             series = series.dropna()  # Remove any NaN values
             if len(series) < min_data_points:
@@ -268,17 +280,6 @@ class DateValuesProfilingProcessor(BaseProfilingProcessor, ABC):
                 "trend_direction": "increasing" if slope > 0 else "decreasing" if slope < 0 else "stable",
                 "significant": p_value < 0.05,
             }
-
-        # Generate final trend analysis dictionary
-        trend_analysis = {
-            f"{freq}_trend": {
-                "counts": trends[freq].to_dict(),
-                "analysis": compute_trend(trends[freq])
-            }
-            for freq in trends
-        }
-
-        return trend_analysis
 
     def _analyze_seasonality(self, date_series: pd.Series, min_data_points: int) -> Dict[str, Any]:
         """
@@ -383,3 +384,4 @@ class DateValuesProfilingProcessor(BaseProfilingProcessor, ABC):
             },
             "total_gaps_detected": len(gap_days)
         }
+    

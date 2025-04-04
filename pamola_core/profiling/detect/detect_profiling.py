@@ -25,10 +25,10 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 import re
 from typing import List, Tuple
-import numpy as np
 import pandas as pd
 from abc import ABC
 
+from pamola_core.common.regex.patterns import Patterns
 from pamola_core.profiling.base import BaseProfilingProcessor
 
 
@@ -122,9 +122,9 @@ class DetectProfilingProcessor(BaseProfilingProcessor, ABC):
 
         # Regex patterns for common identifiers
         patterns = {
-            "email": re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"),
-            "phone": re.compile(r"^\+?(\d[\d\-. ]+)?(\([\d\-. ]+\))?[\d\-. ]+\d$"),
-            "credit_card": re.compile(r"^\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}$"),
+            "email": re.compile(Patterns.EMAIL_REGEX),
+            "phone": re.compile(Patterns.PHONE_REGEX),
+            "credit_card": re.compile(Patterns.CREDIT_CARD),
         }
 
         row_count = len(df)

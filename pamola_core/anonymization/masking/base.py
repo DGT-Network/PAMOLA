@@ -39,11 +39,10 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
 # Required libraries
-from abc import ABC, abstractmethod
 import pandas as pd
-from pamola_core.base_processor import BaseProcessor
+from abc import ABC, abstractmethod
 
-class BaseMaskingProcessor(BaseProcessor, ABC):
+class BaseMaskingProcessor(ABC):
     """
     Abstract base class for masking processors in PAMOLA.CORE.
     This class extends BaseProcessor and defines methods specific to
@@ -55,16 +54,18 @@ class BaseMaskingProcessor(BaseProcessor, ABC):
     """
 
     @abstractmethod
-    def mask(self, data: pd.DataFrame, columns: list, **kwargs) -> pd.DataFrame:
+    def mask(
+            self,
+            df: pd.DataFrame,
+            **kwargs
+    ) -> pd.DataFrame:
         """
         Apply masking techniques to specified columns in the dataset.
 
         Parameters:
         -----------
-        data : pd.DataFrame
+        df : pd.DataFrame
             The input dataset to be masked.
-        columns : list
-            List of column names that should be masked.
         kwargs : dict
             Additional parameters for masking, such as mask character,
             format preservation settings, or regex patterns.

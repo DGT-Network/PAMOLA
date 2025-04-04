@@ -29,9 +29,9 @@ from abc import ABC
 from typing import Any, Dict, List, Optional
 import pandas as pd
 
-from pamola_core.profiling.base import BaseProfilingProcessor
+from pamola_core.profiling.values.base import BaseDataFieldProfilingProcessor
 
-class NullValuesProfilingProcessor(BaseProfilingProcessor, ABC):
+class NullValuesProfilingProcessor(BaseDataFieldProfilingProcessor, ABC):
     """
     Processor for analyzing null values in datasets.
     Identifies and quantifies missing data occurrences.
