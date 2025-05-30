@@ -1,0 +1,75 @@
+# =====================================================================
+# Project-wide configuration for PAMOLA
+# =====================================================================
+
+# --- Basic paths -----------------------------------------------------
+project_root: "D:\\VK\\_DEVEL\\PAMOLA"           # Root of the code repository
+data_repository: "D:\\VK\\_DEVEL\\PAMOLA\\DATA"  # Root of all data files
+
+# --- Directory structure (relative to data_repository) --------------
+directory_structure:
+  raw:       raw
+  processed: processed
+  logs:      logs
+  reports:   reports
+  # Add checkpoints directory for storing task checkpoints
+  checkpoints: checkpoints
+
+# --- Global logging settings ----------------------------------------
+logging:
+  level: INFO                          # Use DEBUG during active development
+  format: "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
+  file_rotation_mb: 10                 # Rotate log files every 10 MB
+
+# --- Default parameters for all tasks --------------------------------
+task_defaults:
+  continue_on_error: false             # Stop on first exception
+  encoding: UTF-8                     # Default I/O encoding
+  separator: ","                       # CSV field delimiter
+  text_qualifier: '"'                  # CSV text qualifier
+  use_vectorization: false             # Disable heavy features by default
+  parallel_processes: 1                # Increase for more powerful machines
+  enable_checkpoints: false            # Disable checkpoint restoration by default
+
+# ---------------------------------------------------------------------
+# Individual task settings
+# ---------------------------------------------------------------------
+tasks:
+
+  # --- t_1I: vertical slicing of resumes -----------------------------
+  t_1I:
+    description: "Vertical slicing of raw resume dataset"
+    input_dir: "{data_repository}/raw/resumes"
+    output_dir: "{data_repository}/processed/t_1I/output"
+    subsets:
+      - ADDITIONAL_EDU
+      - ATTESTATION
+      - CONTACTS
+      - DETAILS
+      - EXPIRIENCE
+      - IDENT
+      - PRIMARY_EDU
+      - SPECS
+    save_intermediate: false             # Persist per‐subset outputs for debugging
+
+  # --- t_1P1: group variability analysis ----------------------------
+  t_1P1:
+    description: "Group variability analysis across vertical slices"
+    dependencies: [t_1I]                 # Declare dependency on t_1I
+    input_dir: "{dependency:t_1I}/output"
+    output_dir: "{data_repository}/processed/t_1P1/output"
+    threshold: 0.70                      # Business threshold for variance
+    subsets:
+      - ADDITIONAL_EDU
+      - ATTESTATION
+      - CONTACTS
+      - DETAILS
+      - EXPIRIENCE
+      - IDENT
+      - PRIMARY_EDU
+      - SPECS
+    continue_on_error: true              # Continue through all files
+
+# =====================================================================
+# End of file
+# =====================================================================

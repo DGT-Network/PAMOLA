@@ -1,0 +1,31 @@
+{
+  "encoding": "UTF-16",
+  "separator": ",",
+  "text_qualifier": "\"",
+  "id_field_name": "ID",
+  "grouping_field": "resume_id",
+  "short_tables": [
+    "IDENT",
+    "DETAILS",
+    "CONTACTS"
+  ],
+  "long_tables": [
+    "EXPIRIENCE",
+    "PRIMARY_EDU",
+    "ADDITIONAL_EDU",
+    "ATTESTATION",
+    "SPECS"
+  ],
+  "field_type_weights": {
+    "numeric": 3,
+    "list": 2,
+    "text": 1
+  },
+  "variation_threshold_long_tables": 0.2,
+  "aggregation_method": "last_non_null",
+  "exclude_from_variance": [
+    "ID",
+    "resume_id",
+    "IDS"
+  ]
+}
