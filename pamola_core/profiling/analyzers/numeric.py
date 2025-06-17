@@ -18,7 +18,7 @@ from pamola_core.profiling.commons.numeric_utils import (
     calculate_extended_stats, calculate_percentiles, calculate_histogram,
     detect_outliers, test_normality, create_empty_stats
 )
-from pamola_core.utils.io import write_json, get_timestamped_filename
+from pamola_core.utils.io import write_json, get_timestamped_filename, load_data_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -81,7 +81,7 @@ class NumericAnalyzer:
         near_zero_threshold = kwargs.get('near_zero_threshold', 1e-10)
         track_progress = kwargs.get('track_progress', True)
         use_chunks = kwargs.get('use_chunks', True)
-        chunk_size = kwargs.get('chunk_size', 10000)
+        chunk_size = kwargs.get('chunk_size', 10000)  
         is_large_df = use_chunks and len(df) > chunk_size
         semantic_analysis = kwargs.get('semantic_analysis', True)
         normality_test_method = kwargs.get('normality_test_method', 'all')
@@ -294,6 +294,10 @@ class NumericOperation(FieldOperation):
                  bins: int = 10,
                  detect_outliers: bool = True,
                  test_normality: bool = True,
+                 near_zero_threshold: int = 1e-10,
+                 generate_plots: bool = True,
+                 include_timestamp: bool = True,
+                 profile_type: str = 'numeric',
                  description: str = ""):
         """
         Initialize a numeric field operation.
@@ -316,6 +320,10 @@ class NumericOperation(FieldOperation):
         self.detect_outliers = detect_outliers
         self.test_normality = test_normality
         self.analyzer = NumericAnalyzer()
+        self.near_zero_threshold = near_zero_threshold
+        self.generate_plots = generate_plots
+        self.include_timestamp = include_timestamp
+        self.profile_type = profile_type
 
     def execute(self,
                 data_source: DataSource,
@@ -349,10 +357,10 @@ class NumericOperation(FieldOperation):
             Results of the operation
         """
         # Extract parameters from kwargs
-        near_zero_threshold = kwargs.get('near_zero_threshold', 1e-10)
-        generate_plots = kwargs.get('generate_plots', True)
-        include_timestamp = kwargs.get('include_timestamp', True)
-        profile_type = kwargs.get('profile_type', 'numeric')
+        near_zero_threshold = kwargs.get('near_zero_threshold', self.near_zero_threshold)
+        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        profile_type = kwargs.get('profile_type', self.profile_type)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -368,7 +376,7 @@ class NumericOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -650,7 +658,7 @@ def analyze_numeric_fields(data_source: DataSource,
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = data_source.get_dataframe("main")
+    df = load_data_operation(data_source)
     if df is None:
         reporter.add_operation("Numeric fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})

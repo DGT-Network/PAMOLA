@@ -13,7 +13,8 @@ from typing import Dict, Any, Optional, Union, List
 
 import psutil
 
-from pamola_core.utils.io import get_data_repository, ensure_directory
+from pamola_core.config.settings import get_data_repository
+from pamola_core.utils.io import ensure_directory
 
 # Конфигурация логгера
 logger = logging.getLogger("hhr.utils.task_reporting")

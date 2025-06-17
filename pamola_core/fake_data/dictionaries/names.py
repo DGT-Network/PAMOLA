@@ -422,7 +422,7 @@ def get_ru_male_middle_names() -> List[str]:
             "Юлианович", "Юлиевич", "Юнусович", "Юрьевич", "Юстинианович", "Юстусович", "Яковлевич", "Янович",
             "Яромирович", "Ярославович"
         ]
-        return _dictionary_cache['ru_m_middle']
+    return _dictionary_cache['ru_m_middle']
 
 
 # Russian female middle names (patronymics)
@@ -487,7 +487,7 @@ def get_ru_female_middle_names() -> List[str]:
             "Юлиановна", "Юлиевна", "Юнусовна", "Юрьевна", "Юстиниановна", "Юстусовна", "Яковлевна", "Яновна",
             "Яромировна", "Ярославовна"
         ]
-        return _dictionary_cache['ru_f_middle']
+    return _dictionary_cache['ru_f_middle']
 
 
 # ----------------------- ENGLISH NAMES (EN) -----------------------

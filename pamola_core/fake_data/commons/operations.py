@@ -12,10 +12,9 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import pandas as pd
-
+from pamola_core.fake_data.commons.mapping_store import MappingStore
 from pamola_core.fake_data.commons.base import (
     BaseGenerator,
-    MappingStore,
     FieldOperation as BaseFieldOperation,
     NullStrategy,
     ValidationError
@@ -31,7 +30,7 @@ from pamola_core.utils.io import (
 from pamola_core.utils.ops.op_base import BaseOperation as HHRBaseOperation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import ProgressBar
-
+from pamola_core.utils.progress import ProgressTracker
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ class BaseOperation(HHRBaseOperation):
             description=self.description
         )
 
-    def execute(self, data_source: Any, task_dir: Path, reporter: Any, **kwargs) -> OperationResult:
+    def execute(self, data_source: Any, task_dir: Path, reporter: Any, progress_tracker: Optional[ProgressTracker] = None, **kwargs) -> OperationResult:
         """
         Executes the operation.
 
@@ -145,7 +144,7 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
         # Create a metrics collector
         self._metrics_collector = create_metrics_collector()
 
-    def execute(self, data_source: Any, task_dir: Path, reporter: Any, **kwargs) -> OperationResult:
+    def execute(self, data_source: Any, task_dir: Path, reporter: Any, progress_tracker: Optional[ProgressTracker] = None, **kwargs) -> OperationResult:
         """
         Executes the field operation.
 
@@ -168,8 +167,8 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
         start_time = time.time()
 
         logger.info(f"Executing {self.name} operation on field {self.field_name}")
-        if reporter:
-            reporter.update_progress(0, f"Starting {self.name} operation")
+        # if reporter:
+            # reporter.update_progress(0, f"Starting {self.name} operation")
 
         try:
             # Create output directory for data output and maps
@@ -198,8 +197,8 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             total_batches = (total_records + self.batch_size - 1) // self.batch_size
 
             logger.info(f"Processing {total_records} records in {total_batches} batches")
-            if reporter:
-                reporter.update_progress(5, f"Preprocessing data")
+            # if reporter:
+                # reporter.update_progress(5, f"Preprocessing data")
 
             # Preprocess data
             df = self.preprocess_data(df)
@@ -243,18 +242,18 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 # Fix: Use dictionary for postfix
                 progress_bar.update(len(batch), {"message": batch_progress_message})
 
-                if reporter:
-                    reporter.update_progress(
-                        progress,
-                        batch_progress_message
-                    )
+                # if reporter:
+                #     reporter.update_progress(
+                #         progress,
+                #         batch_progress_message
+                #     )
 
             # Close progress bar
             progress_bar.close()
 
             # Postprocess data
-            if reporter:
-                reporter.update_progress(95, "Postprocessing data")
+            # if reporter:
+            #     reporter.update_progress(95, "Postprocessing data")
             df = self.postprocess_data(df)
 
             # Calculate execution time
@@ -264,8 +263,8 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             records_per_second = int(total_records / execution_time) if execution_time > 0 else 0
 
             # Collect metrics
-            if reporter:
-                reporter.update_progress(96, "Collecting metrics")
+            # if reporter:
+            #     reporter.update_progress(96, "Collecting metrics")
             metrics = self._collect_metrics(df)
 
             # Add performance metrics
@@ -282,8 +281,8 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 logger.warning(f"Error collecting memory usage: {str(e)}")
 
             # Generate visualizations
-            if reporter:
-                reporter.update_progress(97, "Generating visualizations")
+            # if reporter:
+            #     reporter.update_progress(97, "Generating visualizations")
 
             try:
                 # Extract original and generated data series for visualization
@@ -310,8 +309,8 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 logger.warning(f"Error generating visualizations: {str(e)}")
 
             # Save result
-            if reporter:
-                reporter.update_progress(98, "Saving results")
+            # if reporter:
+            #     reporter.update_progress(98, "Saving results")
 
             # Save data if required
             save_data = kwargs.get("save_data", True)
@@ -335,8 +334,8 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 logger.warning(f"Error generating metrics report: {str(e)}")
 
             # Create result
-            if reporter:
-                reporter.update_progress(100, "Operation completed")
+            # if reporter:
+            #     reporter.update_progress(100, "Operation completed")
 
             # Исправленное создание OperationResult, т.к. 'output' не является ожидаемым аргументом
             result = OperationResult(
@@ -752,7 +751,7 @@ class GeneratorOperation(FieldOperation):
 
         return metrics
 
-    def execute(self, data_source: Any, task_dir: Path, reporter: Any, **kwargs) -> OperationResult:
+    def execute(self, data_source: Any, task_dir: Path, reporter: Any, progress_tracker: Optional[ProgressTracker] = None, **kwargs) -> OperationResult:
         """
         Executes the generator operation.
 
@@ -772,7 +771,7 @@ class GeneratorOperation(FieldOperation):
         OperationResult
             Operation result
         """
-        result = super().execute(data_source, task_dir, reporter, **kwargs)
+        result = super().execute(data_source, task_dir, reporter, progress_tracker, **kwargs)
 
         # If operation was successful and we're using mapping mechanism, save mappings
         if result.status == OperationStatus.SUCCESS and self.consistency_mechanism == "mapping":

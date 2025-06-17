@@ -27,7 +27,7 @@ from pamola_core.profiling.commons.email_utils import (
     create_domain_dictionary,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -141,6 +141,10 @@ class EmailOperation(FieldOperation):
                  field_name: str,
                  top_n: int = 20,
                  min_frequency: int = 1,
+                 generate_plots: bool = True,
+                 include_timestamp: bool  = True,
+                 profile_type: str  = 'email',
+                 analyze_privacy_risk: bool = True,
                  description: str = ""):
         """
         Initialize the email operation.
@@ -159,6 +163,10 @@ class EmailOperation(FieldOperation):
         super().__init__(field_name, description or f"Analysis of email field '{field_name}'")
         self.top_n = top_n
         self.min_frequency = min_frequency
+        self.generate_plots = generate_plots
+        self.include_timestamp = include_timestamp
+        self.profile_type = profile_type
+        self.analyze_privacy_risk = analyze_privacy_risk
 
     def execute(self,
                 data_source: DataSource,
@@ -192,10 +200,10 @@ class EmailOperation(FieldOperation):
             Results of the operation
         """
         # Extract parameters from kwargs
-        generate_plots = kwargs.get('generate_plots', True)
-        include_timestamp = kwargs.get('include_timestamp', True)
-        profile_type = kwargs.get('profile_type', 'email')
-        analyze_privacy_risk = kwargs.get('analyze_privacy_risk', True)
+        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        profile_type = kwargs.get('profile_type', self.profile_type)
+        analyze_privacy_risk = kwargs.get('analyze_privacy_risk', self.analyze_privacy_risk)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -212,7 +220,7 @@ class EmailOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -522,7 +530,7 @@ def analyze_email_fields(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = data_source.get_dataframe("main")
+    df = load_data_operation(data_source)
     if df is None:
         reporter.add_operation("Email fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})

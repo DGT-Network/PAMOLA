@@ -17,7 +17,7 @@ from pamola_core.profiling.commons.date_utils import (
     analyze_date_field,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, get_timestamped_filename
+from pamola_core.utils.io import write_json, get_timestamped_filename, load_data_operation
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -207,7 +207,11 @@ class DateOperation(FieldOperation):
                  max_year: int = 2005,
                  id_column: Optional[str] = None,
                  uid_column: Optional[str] = None,
-                 description: str = ""):
+                 description: str = "",
+                 generate_plots: bool = True,
+                 include_timestamp: bool = True,
+                 profile_type: str = "date",
+                 is_birth_date: Optional[bool] = None):
         """
         Initialize the date operation.
 
@@ -225,12 +229,30 @@ class DateOperation(FieldOperation):
             The column to use for UID analysis
         description : str
             Description of the operation (optional)
+        generate_plots : bool
+            Whether to generate visualizations
+        include_timestamp : bool
+            Whether to include timestamps in filenames
+        profile_type : str
+            Type of profiling for organizing artifacts
+        is_birth_date : bool, optional
+            Whether the field is a birth date field
         """
         super().__init__(field_name, description or f"Analysis of date field '{field_name}'")
         self.min_year = min_year
         self.max_year = max_year
         self.id_column = id_column
         self.uid_column = uid_column
+        self.generate_plots = generate_plots
+        self.include_timestamp = include_timestamp
+        self.profile_type = profile_type
+        
+        # Set is_birth_date based on the provided value or field name
+        if is_birth_date is None:
+            self.is_birth_date = self.field_name.lower() in ['birth_day', 'birthdate', 'birth_date', 'dob']
+        else:
+            self.is_birth_date = is_birth_date
+
         self.analyzer = DateAnalyzer()
 
     def execute(self,
@@ -264,12 +286,11 @@ class DateOperation(FieldOperation):
         OperationResult
             Results of the operation
         """
-        # Extract parameters from kwargs
-        generate_plots = kwargs.get('generate_plots', True)
-        include_timestamp = kwargs.get('include_timestamp', True)
-        profile_type = kwargs.get('profile_type', 'date')
-        is_birth_date = kwargs.get('is_birth_date',
-                                   self.field_name.lower() in ['birth_day', 'birthdate', 'birth_date', 'dob'])
+        # Extract parameters from kwargs, defaulting to instance variables
+        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        profile_type = kwargs.get('profile_type', self.profile_type)
+        is_birth_date = kwargs.get('is_birth_date', self.is_birth_date)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -285,7 +306,7 @@ class DateOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -647,7 +668,7 @@ def analyze_date_fields(data_source: DataSource,
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = data_source.get_dataframe("main")
+    df = load_data_operation(data_source)
     if df is None:
         reporter.add_operation("Date fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})

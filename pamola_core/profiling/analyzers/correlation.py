@@ -26,7 +26,7 @@ from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation_matrix,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation, BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -151,7 +151,11 @@ class CorrelationOperation(FieldOperation):
                  field1: str,
                  field2: str,
                  method: Optional[str] = None,
-                 description: str = ""):
+                 description: str = "",
+                 generate_plots: bool = True,
+                 include_timestamp: bool = True,
+                 profile_type: str = "correlation",
+                 null_handling: str = "drop"):
         """
         Initialize the correlation operation.
 
@@ -165,12 +169,24 @@ class CorrelationOperation(FieldOperation):
             Correlation method to use. If None, automatically selected based on data types.
         description : str
             Description of the operation (optional)
+        generate_plots : bool
+            Whether to generate visualizations (default: True)
+        include_timestamp : bool
+            Whether to include timestamps in filenames (default: True)
+        profile_type : str
+            Type of profiling for organizing artifacts (default: "correlation")
+        null_handling : str
+            Method for handling nulls ('drop', 'fill', 'pairwise')    
         """
         # Use field1 as the primary field for the parent class
         super().__init__(field1, description or f"Correlation analysis between '{field1}' and '{field2}'")
         self.field1 = field1
         self.field2 = field2
         self.method = method
+        self.generate_plots = generate_plots
+        self.include_timestamp = include_timestamp
+        self.profile_type = profile_type
+        self.null_handling = null_handling
 
     def execute(self,
                 data_source: DataSource,
@@ -203,11 +219,11 @@ class CorrelationOperation(FieldOperation):
         OperationResult
             Results of the operation
         """
-        # Extract parameters from kwargs
-        generate_plots = kwargs.get('generate_plots', True)
-        include_timestamp = kwargs.get('include_timestamp', True)
-        profile_type = kwargs.get('profile_type', 'correlation')
-        null_handling = kwargs.get('null_handling', 'drop')
+        # Extract parameters from kwargs, defaulting to instance variables
+        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        profile_type = kwargs.get('profile_type', self.profile_type)
+        null_handling = kwargs.get('null_handling', self.null_handling)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -223,7 +239,7 @@ class CorrelationOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -436,7 +452,12 @@ class CorrelationMatrixOperation(BaseOperation):
     def __init__(self,
                  fields: List[str],
                  methods: Optional[Dict[str, str]] = None,
-                 description: str = ""):
+                 description: str = "",
+                 generate_plots: bool = True,
+                 include_timestamp: bool = True,
+                 profile_type: str = "correlation",
+                 min_threshold: float = 0.3,
+                 null_handling: str = "drop"):
         """
         Initialize the correlation matrix operation.
 
@@ -448,10 +469,25 @@ class CorrelationMatrixOperation(BaseOperation):
             Dictionary mapping field pairs to correlation methods
         description : str
             Description of the operation (optional)
+        generate_plots : bool
+            Whether to generate visualizations
+        include_timestamp : bool
+            Whether to include timestamps in filenames
+        profile_type : str
+            Type of profiling for organizing artifacts
+        min_threshold : float
+            Minimum correlation threshold for significant correlations
+        null_handling : str
+            Method for handling nulls ('drop', 'fill', 'pairwise')
         """
         super().__init__(description or f"Correlation matrix analysis for {len(fields)} fields")
         self.fields = fields
         self.methods = methods
+        self.generate_plots = generate_plots
+        self.include_timestamp = include_timestamp
+        self.profile_type = profile_type
+        self.min_threshold = min_threshold
+        self.null_handling = null_handling
 
     def execute(self,
                 data_source: DataSource,
@@ -485,12 +521,12 @@ class CorrelationMatrixOperation(BaseOperation):
         OperationResult
             Results of the operation
         """
-        # Extract parameters from kwargs
-        generate_plots = kwargs.get('generate_plots', True)
-        include_timestamp = kwargs.get('include_timestamp', True)
-        profile_type = kwargs.get('profile_type', 'correlation')
-        null_handling = kwargs.get('null_handling', 'drop')
-        min_threshold = kwargs.get('min_threshold', 0.3)
+        # Extract parameters from kwargs, defaulting to instance variables
+        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        profile_type = kwargs.get('profile_type', self.profile_type)
+        min_threshold = kwargs.get('min_threshold', self.min_threshold)
+        null_handling = kwargs.get('null_handling', self.null_handling)
 
         # Set up directories
         output_dir = task_dir / 'output'
@@ -507,7 +543,7 @@ class CorrelationMatrixOperation(BaseOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -675,7 +711,7 @@ def analyze_correlations(
         Dictionary mapping pair names to their operation results
     """
     # Get DataFrame from data source to check fields
-    df = data_source.get_dataframe("main")
+    df = load_data_operation(data_source)
     if df is None:
         reporter.add_operation("Correlation analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})

@@ -30,7 +30,7 @@ from pamola_core.profiling.commons.phone_utils import (
     create_messenger_dictionary,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -211,10 +211,15 @@ class PhoneOperation(FieldOperation):
     """
 
     def __init__(self,
-                 field_name: str,
-                 min_frequency: int = 1,
-                 patterns_csv: Optional[str] = None,
-                 description: str = ""):
+                field_name: str,
+                min_frequency: int = 1,
+                patterns_csv: Optional[str] = None,
+                generate_plots: bool = True,
+                include_timestamp: bool = True,
+                profile_type: str = 'phone',
+                track_progress: bool = True,
+                country_code: Any = None,
+                description: str = ""):
         """
         Initialize the phone operation.
 
@@ -232,6 +237,11 @@ class PhoneOperation(FieldOperation):
         super().__init__(field_name, description or f"Analysis of phone field '{field_name}'")
         self.min_frequency = min_frequency
         self.patterns_csv = patterns_csv
+        self.generate_plots = generate_plots
+        self.include_timestamp = include_timestamp
+        self.profile_type = profile_type
+        self.track_progress = track_progress
+        self.country_code = country_code
 
     def execute(self,
                 data_source: DataSource,
@@ -265,10 +275,10 @@ class PhoneOperation(FieldOperation):
             Results of the operation
         """
         # Extract parameters from kwargs
-        generate_plots = kwargs.get('generate_plots', True)
-        include_timestamp = kwargs.get('include_timestamp', True)
-        profile_type = kwargs.get('profile_type', 'phone')
-        country_code = kwargs.get('country_code', None)
+        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        profile_type = kwargs.get('profile_type', self.profile_type)
+        country_code = kwargs.get('country_code', self.country_code)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -285,7 +295,7 @@ class PhoneOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -365,7 +375,7 @@ class PhoneOperation(FieldOperation):
                     viz_path = visualizations_dir / viz_filename
 
                     # Create visualization using the visualization module
-                    from core.utils.visualization import plot_value_distribution
+                    from pamola_core.utils.visualization import plot_value_distribution
                     title = f"Country Code Distribution in {self.field_name}"
 
                     viz_result = plot_value_distribution(
@@ -392,7 +402,7 @@ class PhoneOperation(FieldOperation):
                     viz_path = visualizations_dir / viz_filename
 
                     # Create visualization using the visualization module
-                    from core.utils.visualization import plot_value_distribution
+                    from pamola_core.utils.visualization import plot_value_distribution
                     title = f"Operator Code Distribution in {self.field_name}"
 
                     viz_result = plot_value_distribution(
@@ -419,7 +429,7 @@ class PhoneOperation(FieldOperation):
                     viz_path = visualizations_dir / viz_filename
 
                     # Create visualization using the visualization module
-                    from core.utils.visualization import plot_value_distribution
+                    from pamola_core.utils.visualization import plot_value_distribution
                     title = f"Messenger Mentions in {self.field_name}"
 
                     viz_result = plot_value_distribution(
@@ -648,7 +658,7 @@ def analyze_phone_fields(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = data_source.get_dataframe("main")
+    df = load_data_operation(data_source)
     if df is None:
         reporter.add_operation("Phone fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})
@@ -680,7 +690,7 @@ def analyze_phone_fields(
     overall_tracker = None
 
     if track_progress and phone_fields:
-        from core.utils.progress import ProgressTracker
+        from pamola_core.utils.progress import ProgressTracker
         overall_tracker = ProgressTracker(
             total=len(phone_fields),
             description=f"Analyzing {len(phone_fields)} phone fields",

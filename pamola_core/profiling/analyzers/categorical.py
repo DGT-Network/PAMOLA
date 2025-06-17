@@ -22,7 +22,7 @@ from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -112,6 +112,10 @@ class CategoricalOperation(FieldOperation):
                  field_name: str,
                  top_n: int = 15,
                  min_frequency: int = 1,
+                 include_timestamp: bool = True,
+                 generate_plots: bool = True,
+                 profile_type: str = "categorical",
+                 analyze_anomalies: bool = True,
                  description: str = ""):
         """
         Initialize the categorical operation.
@@ -124,12 +128,24 @@ class CategoricalOperation(FieldOperation):
             Number of top values to include in the results
         min_frequency : int
             Minimum frequency for inclusion in the dictionary
+        include_timestamp : bool
+            Whether to include timestamps in filenames
+        generate_plots : bool
+            Whether to generate visualizations
+        profile_type : str
+            Type of profiling for organizing artifacts
+        analyze_anomalies : bool
+            Whether to analyze anomalies
         description : str
             Description of the operation (optional)
         """
         super().__init__(field_name, description or f"Analysis of categorical field '{field_name}'")
         self.top_n = top_n
         self.min_frequency = min_frequency
+        self.include_timestamp = include_timestamp
+        self.generate_plots = generate_plots
+        self.profile_type = profile_type
+        self.analyze_anomalies = analyze_anomalies
 
     def execute(self,
                 data_source: DataSource,
@@ -162,11 +178,11 @@ class CategoricalOperation(FieldOperation):
         OperationResult
             Results of the operation
         """
-        # Extract parameters from kwargs
-        generate_plots = kwargs.get('generate_plots', True)
-        include_timestamp = kwargs.get('include_timestamp', True)
-        profile_type = kwargs.get('profile_type', 'categorical')
-        analyze_anomalies = kwargs.get('analyze_anomalies', True)
+        # Extract parameters from kwargs, defaulting to instance variables
+        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        profile_type = kwargs.get('profile_type', self.profile_type)
+        analyze_anomalies = kwargs.get('analyze_anomalies', self.analyze_anomalies)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -183,7 +199,7 @@ class CategoricalOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -492,7 +508,7 @@ def analyze_categorical_fields(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = data_source.get_dataframe("main")
+    df = load_data_operation(data_source)
     # Use get_dataframe safely
     if df is None:
         reporter.add_operation("Categorical fields analysis", status="error",

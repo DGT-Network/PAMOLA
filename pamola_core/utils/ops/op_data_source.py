@@ -85,7 +85,7 @@ class DataSource:
         if name in self._schema_cache:
             del self._schema_cache[name]
 
-    def get_dataframe(self, name: str, load_if_path: bool = True) -> Optional[pd.DataFrame]:
+    def get_dataframe(self, name: str = 'main', load_if_path: bool = True) -> Optional[pd.DataFrame]:
         """
         Get a DataFrame by name.
 

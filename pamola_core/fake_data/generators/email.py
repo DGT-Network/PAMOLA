@@ -60,7 +60,7 @@ class EmailGenerator(BaseGenerator):
         self.max_domain_length = self.config.get('max_domain_length', 255)  # RFC 1035 limit
 
         # New configuration parameters
-        self.separator_options = self.config.get('separator_options', [".", "_", "-", ""])
+        self.separator_options = self.config.get('separator_options') or [".", "_", "-", ""]
         self.number_suffix_probability = self.config.get('number_suffix_probability', 0.4)
         self.preserve_domain_ratio = self.config.get('preserve_domain_ratio', 0.5)
         self.business_domain_ratio = self.config.get('business_domain_ratio', 0.2)
@@ -746,6 +746,11 @@ class EmailGenerator(BaseGenerator):
             # Return combined email
             return f"{local_part}@{domain}"
 
+        params["first_name"] = first_name
+        params["last_name"] = last_name
+        params["format"] = format_to_use
+        params["original_email"] = original_value
+
         # For other cases or invalid emails, generate new email
         if not is_valid:
             # Handle invalid email according to configuration
@@ -754,28 +759,12 @@ class EmailGenerator(BaseGenerator):
             elif self.handle_invalid_email == "generate_with_default_domain":
                 # Generate with default domain
                 params["domain"] = self._domain_list[0] if self._domain_list else "example.com"
-                return self._generate_email(
-                    first_name=first_name,
-                    last_name=last_name,
-                    format=format_to_use,
-                    **params
-                )
+                return self._generate_email(**params)
             else:  # generate_new (default)
-                return self._generate_email(
-                    first_name=first_name,
-                    last_name=last_name,
-                    format=format_to_use,
-                    **params
-                )
+                return self._generate_email(**params)
 
         # For valid emails with other formats, generate as normal
-        return self._generate_email(
-            first_name=first_name,
-            last_name=last_name,
-            format=format_to_use,
-            original_email=original_value,
-            **params
-        )
+        return self._generate_email(**params)
 
     def _parse_full_name(self, full_name: str, name_format: Optional[str] = None) -> Dict[str, str]:
         """

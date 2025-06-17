@@ -9,6 +9,7 @@ across different categories.
 import logging
 from typing import Dict, List, Optional, Union
 
+from matplotlib.colors import to_rgba
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -145,7 +146,7 @@ class PlotlySpiderChart(PlotlyFigure):
                 # Add fill if requested
                 if fill_area:
                     trace_params['fill'] = 'toself'
-                    trace_params['fillcolor'] = f'rgba({color.lstrip("rgb(").rstrip(")")}, 0.2)'
+                    trace_params['fillcolor'] = f'rgba({to_rgba(color.lstrip("rgb(").rstrip(")"))}, 0.2)'
 
                 # Add any additional parameters
                 for key, value in kwargs.items():

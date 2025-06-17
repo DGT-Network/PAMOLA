@@ -20,7 +20,8 @@ from pamola_core.utils.io import (
     write_json,
     write_dataframe_to_csv,
     get_timestamped_filename,
-    read_json
+    read_json, 
+    load_data_operation
 )
 from pamola_core.utils.logging import get_logger
 from pamola_core.utils.nlp.category_matching import CategoryDictionary, analyze_hierarchy
@@ -42,8 +43,8 @@ from pamola_core.utils.visualization import (
 logger = get_logger(__name__)
 
 # Get cache instances
-file_cache = get_cache('file')
-memory_cache = get_cache('memory')
+# file_cache = get_cache('file')
+# memory_cache = get_cache('memory')
 
 
 @register()
@@ -68,6 +69,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                  chunk_size: int = 10000,
                  use_cache: bool = True,
                  cache_dir: Optional[Path] = None,
+                 include_timestamp: Any = None,
                  description: str = ""):
         """
         Initialize the text semantic categorizer operation.
@@ -117,6 +119,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         self.chunk_size = chunk_size
         self.use_cache = use_cache
         self.cache_dir = cache_dir
+        self.include_timestamp = include_timestamp
 
     def execute(self,
                 data_source: DataSource,
@@ -159,7 +162,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             params = self._prepare_execution_parameters(kwargs, task_dir, dirs)
 
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -359,7 +362,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         # Extract parameters from kwargs with defaults from instance
         params = {
             "dictionary_path": kwargs.get('dictionary_path', self.dictionary_path),
-            "include_timestamp": kwargs.get('include_timestamp', True),
+            "include_timestamp": kwargs.get('include_timestamp', self.include_timestamp),
             "min_word_length": kwargs.get('min_word_length', self.min_word_length),
             "clustering_threshold": kwargs.get('clustering_threshold', self.clustering_threshold),
             "use_ner": kwargs.get('use_ner', self.use_ner),
@@ -1358,7 +1361,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         # Prepare parameters for the visualization function
         params = {
-            "data": data,
+            "length_data": data,
             "output_path": str(output_path),
             "title": title
         }

@@ -21,13 +21,14 @@ from pamola_core.fake_data.generators.base_generator import BaseGenerator
 from pamola_core.fake_data.generators.phone import PhoneGenerator
 from pamola_core.utils import io
 from pamola_core.utils.ops.op_registry import register
+from pamola_core.utils.progress import ProgressTracker
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 
 @register()
-class PhoneOperation(GeneratorOperation):
+class FakePhoneOperation(GeneratorOperation):
     """
     Operation for generating synthetic phone numbers.
 
@@ -137,7 +138,7 @@ class PhoneOperation(GeneratorOperation):
 
         # Create a temporary BaseGenerator to pass to parent constructor
         # We'll replace it with the real PhoneGenerator after initialization
-        base_generator = BaseGenerator()
+        base_generator = PhoneGenerator(config=generator_params)
 
         # Initialize parent class first with the base generator
         super().__init__(
@@ -149,9 +150,6 @@ class PhoneOperation(GeneratorOperation):
             null_strategy=null_strategy,
             consistency_mechanism=consistency_mechanism
         )
-
-        # Now create and store the real phone generator
-        self.generator = PhoneGenerator(config=generator_params)
 
         # Set up performance metrics
         self.start_time = None
@@ -200,7 +198,7 @@ class PhoneOperation(GeneratorOperation):
             logger.warning(f"Failed to initialize mapping store: {str(e)}")
             self.mapping_store = None
 
-    def execute(self, data_source, task_dir, reporter, **kwargs):
+    def execute(self, data_source, task_dir, reporter, progress_tracker: Optional[ProgressTracker] = None, **kwargs):
         """
         Execute the phone number generation operation.
 
@@ -225,7 +223,7 @@ class PhoneOperation(GeneratorOperation):
             pass
 
         # Call parent execute method
-        result = super().execute(data_source, task_dir, reporter, **kwargs)
+        result = super().execute(data_source, task_dir, reporter, progress_tracker, **kwargs)
 
         # If we didn't set _original_df earlier and the parent loaded it, get it now
         if self._original_df is None and hasattr(self, "_df"):
@@ -812,6 +810,6 @@ class PhoneOperation(GeneratorOperation):
         # Save metrics to file
         with open(metrics_path, 'w', encoding='utf-8') as f:
             import json
-            json.dump(metrics_data, f, indent=2, ensure_ascii=False)
+            json.dump(metrics_data, f, indent=2, ensure_ascii=False, default=str)
 
         return metrics_path

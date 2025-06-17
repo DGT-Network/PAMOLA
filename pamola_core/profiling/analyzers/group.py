@@ -27,7 +27,8 @@ from pamola_core.profiling.commons.group_utils import (
 from pamola_core.utils.io import (
     write_json,
     get_timestamped_filename,
-    save_dataframe
+    save_dataframe, 
+    load_data_operation
 )
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -582,7 +583,17 @@ class GroupOperation(BaseOperation):
                  min_group_size: int = 2, set_name: str = "",
                  description: str = "", timestamp_field: Optional[str] = None,
                  analyze_personal_fields: bool = True,
-                 analyze_changes: bool = True):
+                 analyze_changes: bool = True,
+                 title_prefix: str = 'Group',
+                 generate_plots: bool = True,
+                 save_details: bool = True,
+                 handle_nulls: str = 'as_value',
+                 analyze_cross_groups_flag: bool = False,
+                 secondary_identifier_fields: List = [],
+                 analyze_collapsibility: bool = True,
+                 collapsibility_threshold: float = 0.2,
+                 metadata_fields: List = [],
+                 include_timestamp: bool = True):
         """
         Initialize a group analysis operation.
 
@@ -616,6 +627,16 @@ class GroupOperation(BaseOperation):
         self.timestamp_field = timestamp_field
         self.analyze_personal_fields = analyze_personal_fields
         self.analyze_changes = analyze_changes
+        self.title_prefix = title_prefix
+        self.generate_plots = generate_plots
+        self.save_details = save_details
+        self.handle_nulls = handle_nulls
+        self.analyze_cross_groups_flag = analyze_cross_groups_flag
+        self.secondary_identifier_fields = secondary_identifier_fields
+        self.analyze_collapsibility = analyze_collapsibility
+        self.collapsibility_threshold = collapsibility_threshold
+        self.metadata_fields = metadata_fields
+        self.include_timestamp = include_timestamp
 
     def _generate_visualizations(self,
                                  df: pd.DataFrame,
@@ -789,16 +810,16 @@ class GroupOperation(BaseOperation):
         dictionaries_dir = dirs['dictionaries']
 
         # Extract parameters from kwargs
-        title_prefix = kwargs.get('title_prefix', 'Group')
-        generate_plots = kwargs.get('generate_plots', True)
-        save_details = kwargs.get('save_details', True)
-        handle_nulls = kwargs.get('handle_nulls', 'as_value')
-        analyze_cross_groups_flag = kwargs.get('analyze_cross_groups', False)
-        secondary_identifier_fields = kwargs.get('secondary_identifier_fields', [])
-        analyze_collapsibility = kwargs.get('analyze_collapsibility', True)
-        collapsibility_threshold = kwargs.get('collapsibility_threshold', 0.2)
-        metadata_fields = kwargs.get('metadata_fields', [])
-        include_timestamp = kwargs.get('include_timestamp', True)
+        title_prefix = kwargs.get('title_prefix', self.title_prefix)
+        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        save_details = kwargs.get('save_details', self.save_details)
+        handle_nulls = kwargs.get('handle_nulls', self.handle_nulls)
+        analyze_cross_groups_flag = kwargs.get('analyze_cross_groups', self.analyze_cross_groups_flag)
+        secondary_identifier_fields = kwargs.get('secondary_identifier_fields', self.secondary_identifier_fields)
+        analyze_collapsibility = kwargs.get('analyze_collapsibility', self.analyze_collapsibility)
+        collapsibility_threshold = kwargs.get('collapsibility_threshold', self.collapsibility_threshold)
+        metadata_fields = kwargs.get('metadata_fields', self.metadata_fields)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
 
         # Use instance variables if provided
         analyze_changes = kwargs.get('analyze_changes', self.analyze_changes)
@@ -812,7 +833,7 @@ class GroupOperation(BaseOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,

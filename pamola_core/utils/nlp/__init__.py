@@ -13,7 +13,7 @@ from pamola_core.utils.nlp.language import (
     is_multilingual,
     analyze_language_structure,
     get_supported_languages,
-    normalize_language_code,
+    # normalize_language_code,
     is_cyrillic,
     is_latin,
     detect_languages
@@ -36,15 +36,15 @@ from pamola_core.utils.nlp.tokenization import (
     normalize_tokens,
     TextProcessor,
     TokenizerFactory,
-    NGramExtractor,
+    # NGramExtractor,
     batch_tokenize,
     batch_tokenize_and_lemmatize
 )
 
 from pamola_core.utils.nlp.compatibility import (
     check_dependency,
-    get_module,
-    get_nlp_status,
+    # get_module,
+    # get_nlp_status,
     log_nlp_status,
     dependency_info,
     get_best_available_module
@@ -59,7 +59,7 @@ __all__ = [
     'is_multilingual',
     'analyze_language_structure',
     'get_supported_languages',
-    'normalize_language_code',
+    # 'normalize_language_code',
     'is_cyrillic',
     'is_latin',
     'detect_languages',
@@ -80,14 +80,14 @@ __all__ = [
     'normalize_tokens',
     'TextProcessor',
     'TokenizerFactory',
-    'NGramExtractor',
+    # 'NGramExtractor',
     'batch_tokenize',
     'batch_tokenize_and_lemmatize',
 
     # Compatibility
     'check_dependency',
-    'get_module',
-    'get_nlp_status',
+    # 'get_module',
+    # 'get_nlp_status',
     'log_nlp_status',
     'dependency_info',
     'get_best_available_module'

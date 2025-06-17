@@ -13,7 +13,7 @@ from typing import Dict, List, Set, Any, Optional
 import numpy as np
 import pandas as pd
 
-from pamola_core.utils.io import write_json, ensure_directory
+from pamola_core.utils.io import write_json
 from pamola_core.utils.progress import ProgressTracker
 
 # Configure logger
@@ -495,7 +495,6 @@ def save_ka_index_map(ka_index_map: Dict[str, List[str]], output_path: str) -> s
         df = pd.DataFrame(data)
 
         # Save to CSV
-        ensure_directory('output')
         df.to_csv(output_path, index=False)
 
         return output_path
@@ -544,7 +543,6 @@ def save_ka_metrics(ka_metrics: Dict[str, Dict[str, Any]], output_path: str, ka_
         df = pd.DataFrame(data)
 
         # Save to CSV
-        ensure_directory(output_path)
         df.to_csv(output_path, index=False)
 
         return output_path
@@ -582,7 +580,6 @@ def save_vulnerable_records(vulnerable_records: Dict[str, Dict[str, Any]], outpu
             })
 
         # Save to JSON
-        ensure_directory(output_path)
         write_json(data, output_path)
 
         return output_path

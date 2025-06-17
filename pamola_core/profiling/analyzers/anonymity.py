@@ -23,7 +23,7 @@ from pamola_core.profiling.commons.anonymity_utils import (
     save_ka_metrics,
     save_vulnerable_records
 )
-from pamola_core.utils.io import ensure_directory, write_json, get_timestamped_filename
+from pamola_core.utils.io import ensure_directory, write_json, get_timestamped_filename, load_data_operation
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -55,7 +55,11 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                  description: str = "Preliminary profiling for k-anonymity analysis",
                  min_combination_size: int = 2,
                  max_combination_size: int = 4,
-                 treshold_k: int = 5):
+                 treshold_k: int = 5,
+                 fields_combinations: List = None,
+                 excluded_combinations: List = None,
+                 id_fields: List = [],
+                 include_timestamp: bool = True):
         """
         Initialize the k-anonymity profiling operation.
 
@@ -76,6 +80,10 @@ class PreKAnonymityProfilingOperation(BaseOperation):
         self.min_combination_size = min_combination_size
         self.max_combination_size = max_combination_size
         self.treshold_k = treshold_k
+        self.fields_combinations = fields_combinations
+        self.excluded_combinations = excluded_combinations
+        self.id_fields = id_fields
+        self.include_timestamp = include_timestamp
 
     def execute(self,
                 data_source: DataSource,
@@ -109,12 +117,12 @@ class PreKAnonymityProfilingOperation(BaseOperation):
         OperationResult
             Results of the operation
         """
-        # Extract parameters from kwargs
-        fields_combinations = kwargs.get('fields_combinations', None)
-        excluded_combinations = kwargs.get('excluded_combinations', None)
-        id_fields = kwargs.get('id_fields', [])
+        # Extract parameters from kwargs, defaulting to instance variables
+        fields_combinations = kwargs.get('fields_combinations', self.fields_combinations)
+        excluded_combinations = kwargs.get('excluded_combinations', self.excluded_combinations)
+        id_fields = kwargs.get('id_fields', self.id_fields)
         treshold_k = kwargs.get('treshold_k', self.treshold_k)
-        include_timestamp = kwargs.get('include_timestamp', True)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -132,7 +140,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,

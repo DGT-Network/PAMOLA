@@ -42,7 +42,7 @@ from pamola_core.utils.io_helpers import csv_utils
 from pamola_core.utils.io_helpers import json_utils
 
 # Configure module logger
-logger = logging.get_logger("hhr.utils.io")
+logger = logging.get_logger("pamola_core.utils.io")
 
 # Type variables for generic functions
 T = TypeVar('T')
@@ -305,7 +305,7 @@ def read_csv_in_chunks(file_path: Union[str, Path],
 
 
 def read_full_csv(file_path: Union[str, Path],
-                  encoding: str = "utf-16",
+                  encoding: str = "utf-8",
                   delimiter: str = ",",
                   quotechar: str = '"',
                   show_progress: bool = True,
@@ -320,7 +320,7 @@ def read_full_csv(file_path: Union[str, Path],
     file_path : str or Path
         Path to the CSV file
     encoding : str
-        File encoding (default: "utf-16")
+        File encoding (default: "utf-8")
     delimiter : str
         Field delimiter (default: ",")
     quotechar : str
@@ -442,7 +442,7 @@ def read_full_csv(file_path: Union[str, Path],
 
 def write_dataframe_to_csv(df: pd.DataFrame,
                            file_path: Union[str, Path],
-                           encoding: str = "utf-16",
+                           encoding: str = "utf-8",
                            delimiter: str = ",",
                            quotechar: str = '"',
                            index: bool = False,
@@ -1410,3 +1410,30 @@ def read_dataframe(file_path: Union[str, Path],
     logger.info(f"Read {len(df)} rows from {file_path} in {duration:.2f}s")
 
     return df
+
+def load_data_operation(data_source: Any) -> pd.DataFrame:
+    """
+    Loads data from the data source.
+
+    Parameters:
+    -----------
+    data_source : Any
+    Source of data
+
+    Returns:
+    --------
+    pd.DataFrame
+    Loaded data
+    """
+    if hasattr(data_source, "get_dataframe"):
+        return data_source.get_dataframe()
+    elif isinstance(data_source, pd.DataFrame):
+        return data_source
+    elif isinstance(data_source, str) or isinstance(data_source, Path):
+        # Load from file path
+        try:
+            return read_full_csv(data_source)
+        except Exception as e:
+            raise ValueError(f"Unable to load data from path {data_source}: {str(e)}")
+    else:
+        raise ValueError(f"Unsupported data source type: {type(data_source)}")

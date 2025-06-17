@@ -31,7 +31,7 @@ from pamola_core.profiling.commons.mvf_utils import (
     analyze_value_count_distribution,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -258,6 +258,11 @@ class MVFOperation(FieldOperation):
                  field_name: str,
                  top_n: int = 20,
                  min_frequency: int = 1,
+                 generate_plots: bool = True,
+                 include_timestamp: bool = True,
+                 profile_type: str = 'mvf',
+                 format_type: Any = None,
+                 parse_kwargs: Any = {},
                  description: str = ""):
         """
         Initialize the MVF operation.
@@ -275,6 +280,12 @@ class MVFOperation(FieldOperation):
         """
         super().__init__(field_name, description or f"Analysis of multi-valued field '{field_name}'")
         self.top_n = top_n
+        self.min_frequency = min_frequency
+        self.generate_plots = generate_plots
+        self.include_timestamp = include_timestamp
+        self.profile_type = profile_type
+        self.format_type = format_type
+        self.parse_kwargs = parse_kwargs
         self.min_frequency = min_frequency
 
     def execute(self,
@@ -310,11 +321,11 @@ class MVFOperation(FieldOperation):
             Results of the operation
         """
         # Extract parameters from kwargs
-        generate_plots = kwargs.get('generate_plots', True)
-        include_timestamp = kwargs.get('include_timestamp', True)
-        profile_type = kwargs.get('profile_type', 'mvf')
-        format_type = kwargs.get('format_type', None)
-        parse_kwargs = kwargs.get('parse_kwargs', {})
+        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        profile_type = kwargs.get('profile_type', self.profile_type)
+        format_type = kwargs.get('format_type', self.format_type)
+        parse_kwargs = kwargs.get('parse_kwargs', self.parse_kwargs)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -331,7 +342,7 @@ class MVFOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -627,7 +638,7 @@ def analyze_mvf_fields(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = data_source.get_dataframe("main")
+    df = load_data_operation(data_source)
     if df is None:
         reporter.add_operation("MVF fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})
@@ -653,7 +664,7 @@ def analyze_mvf_fields(
     overall_tracker = None
 
     if track_progress and mvf_fields:
-        from core.utils.progress import ProgressTracker
+        from pamola_core.utils.progress import ProgressTracker
         overall_tracker = ProgressTracker(
             total=len(mvf_fields),
             description=f"Analyzing {len(mvf_fields)} MVF fields",

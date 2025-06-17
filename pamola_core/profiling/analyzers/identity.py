@@ -24,7 +24,7 @@ from pamola_core.profiling.commons.identity_utils import (
     find_cross_matches,
     compute_identifier_stats
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -165,6 +165,11 @@ class IdentityAnalysisOperation(FieldOperation):
                  uid_field: str,
                  reference_fields: List[str],
                  id_field: Optional[str] = None,
+                 top_n: int = 15,
+                 check_cross_matches: bool = None,
+                 include_timestamps: bool = None,
+                 min_similarity: float = 0.8,
+                 fuzzy_matching: bool = None,
                  description: str = ""):
         """
         Initialize the identity analysis operation.
@@ -186,6 +191,11 @@ class IdentityAnalysisOperation(FieldOperation):
         )
         self.reference_fields = reference_fields
         self.id_field = id_field
+        self.top_n = top_n
+        self.check_cross_matches = check_cross_matches
+        self.include_timestamps = include_timestamps
+        self.min_similarity = min_similarity
+        self.fuzzy_matching = fuzzy_matching
 
     def execute(self,
                 data_source: DataSource,
@@ -221,11 +231,11 @@ class IdentityAnalysisOperation(FieldOperation):
         """
         # Extract parameters from kwargs
         global distribution_analysis, cross_match_analysis
-        top_n = kwargs.get('top_n', 15)
-        check_cross_matches = kwargs.get('check_cross_matches', True)
-        include_timestamps = kwargs.get('include_timestamps', True)
-        min_similarity = kwargs.get('min_similarity', 0.8)
-        fuzzy_matching = kwargs.get('fuzzy_matching', False)
+        top_n = kwargs.get('top_n', self.top_n)
+        check_cross_matches = kwargs.get('check_cross_matches', self.check_cross_matches)
+        include_timestamps = kwargs.get('include_timestamps', self.include_timestamps)
+        min_similarity = kwargs.get('min_similarity', self.min_similarity)
+        fuzzy_matching = kwargs.get('fuzzy_matching', self.fuzzy_matching)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -241,7 +251,7 @@ class IdentityAnalysisOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -551,7 +561,6 @@ def analyze_identities(
         - top_n: int, number of top entries to include (default: 15)
         - check_cross_matches: bool, whether to analyze cross matches (default: True)
         - include_timestamps: bool, whether to include timestamps (default: True)
-        - track_progress: bool, whether to track progress (default: True)
 
     Returns:
     --------
@@ -559,7 +568,7 @@ def analyze_identities(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = data_source.get_dataframe("main")
+    df = load_data_operation(data_source)
     # Use get_dataframe safely
     if df is None:
         reporter.add_operation("Identity fields analysis", status="error",

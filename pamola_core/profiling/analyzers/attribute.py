@@ -21,7 +21,9 @@ from pamola_core.utils.io import (
     ensure_directory,
     write_json,
     write_dataframe_to_csv,
-    get_timestamped_filename
+    get_timestamped_filename, 
+    load_data_operation
+    
 )
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -55,7 +57,8 @@ class DataAttributeProfilerOperation(BaseOperation):
                  language: str = "en",
                  sample_size: int = 10,
                  max_columns: Optional[int] = None,
-                 id_column: Optional[str] = None):
+                 id_column: Optional[str] = None,
+                 include_timestamp: bool = True):
         """
         Initialize the attribute profiler operation.
 
@@ -76,6 +79,8 @@ class DataAttributeProfilerOperation(BaseOperation):
             Maximum number of columns to analyze (for large datasets)
         id_column : str, optional
             Name of ID column for record-level analysis
+        include_timestamp : bool
+            Whether to include timestamps in filenames
         """
         super().__init__(name, description)
         self.dictionary_path = dictionary_path
@@ -83,6 +88,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         self.sample_size = sample_size
         self.max_columns = max_columns
         self.id_column = id_column
+        self.include_timestamp = include_timestamp
 
     def execute(self,
                 data_source: DataSource,
@@ -116,7 +122,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         sample_size = kwargs.get('sample_size', self.sample_size)
         max_columns = kwargs.get('max_columns', self.max_columns)
         id_column = kwargs.get('id_column', self.id_column)
-        include_timestamp = kwargs.get('include_timestamp', True)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
 
         # Prepare output directories for artifacts
         dirs = self._prepare_directories(task_dir)
@@ -134,7 +140,7 @@ class DataAttributeProfilerOperation(BaseOperation):
 
         try:
             # Retrieve DataFrame from data source
-            df = data_source.get_dataframe("main")
+            df = load_data_operation(data_source)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
