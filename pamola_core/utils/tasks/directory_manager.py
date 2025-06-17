@@ -584,7 +584,7 @@ class TaskDirectoryManager:
                     return False
                 else:
                     self.progress_manager.log_info(
-                        f"Successfully cleaned {items_removed} items from temp directory: {temp_dir}")
+                        f"Successfully cleaned {items_removed} items from temp directory: {Path(temp_dir).name}")
                     return True
 
         except Exception as e:
@@ -622,7 +622,7 @@ class TaskDirectoryManager:
                 f"Cleaned {items_removed} items from temp directory with {errors} errors: {temp_dir}")
             return False
         else:
-            self.logger.info(f"Successfully cleaned {items_removed} items from temp directory: {temp_dir}")
+            self.logger.info(f"Successfully cleaned {items_removed} items from temp directory: {Path(temp_dir).name}")
             return True
 
     def get_timestamped_filename(self, base_name: str, extension: str = "json") -> str:

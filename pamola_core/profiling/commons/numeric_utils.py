@@ -806,3 +806,76 @@ def handle_large_dataframe(df: pd.DataFrame, field_name: str,
 
     # Combine results from all chunks
     return combine_chunk_results(chunk_results)
+
+def process_with_dask(df: pd.DataFrame, field_name: str, analyze_func,
+                      npartitions: int = 2, chunk_size: int = 10000, **kwargs) -> Dict[str, Any]:
+    """
+    Process a large DataFrame use dask to analyze numeric data.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The DataFrame to analyze
+    field_name : str
+        The name of the field to analyze
+    analyze_func : callable
+        Function to analyze each chunk
+    chunk_size : int
+        Size of chunks to process
+    **kwargs :
+        Additional parameters to pass to the analyze function
+
+    Returns:
+    --------
+    Dict[str, Any]
+        Combined results of the analysis
+    """
+    import dask.dataframe as dd
+
+    # Convert the Pandas DataFrame to a Dask DataFrame
+    dask_df = dd.from_pandas(df, npartitions=npartitions)
+
+    # Apply the analyze_numeric_chunk function in parallel to each partition (chunk)
+    chunk_results = dask_df.map_partitions(analyze_numeric_chunk, field_name, **kwargs).compute()
+
+    # Filter out empty results (optional)
+    chunk_results = [result for result in chunk_results if result]
+
+    # Combine results from all chunks
+    return combine_chunk_results(chunk_results)
+
+def process_with_joblib(df: pd.DataFrame, field_name: str, analyze_func,
+                        n_jobs: int = 2, chunk_size: int = 10000, **kwargs) -> Dict[str, Any]:
+    """
+    Process a large DataFrame use joblib to analyze numeric data.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The DataFrame to analyze
+    field_name : str
+        The name of the field to analyze
+    analyze_func : callable
+        Function to analyze each chunk
+    chunk_size : int
+        Size of chunks to process
+    **kwargs :
+        Additional parameters to pass to the analyze function
+
+    Returns:
+    --------
+    Dict[str, Any]
+        Combined results of the analysis
+    """
+    from joblib import Parallel, delayed
+
+    # Split the DataFrame into chunks manually
+    n_chunks = (len(df) + chunk_size - 1) // chunk_size
+    chunks = [df.iloc[i * chunk_size: (i + 1) * chunk_size] for i in range(n_chunks)]
+
+    # Use Joblib's Parallel and delayed to process chunks in parallel
+    chunk_results = Parallel(n_jobs=n_jobs)(
+        delayed(analyze_numeric_chunk)(chunk, field_name, **kwargs) for chunk in chunks)
+
+    # Combine results from all chunks
+    return combine_chunk_results(chunk_results)

@@ -47,7 +47,8 @@ class DataSource:
     def __init__(self,
                  dataframes: Dict[str, pd.DataFrame] = None,
                  file_paths: Dict[str, Union[Path, List[Path]]] = None,
-                 encryption_keys: Dict[str, Union[str, Path]] = None):
+                 encryption_keys: Dict[str, Union[str, Path]] = None,
+                 encryption_modes: Dict[str, Union[str, Path]] = None):
         """
         Initialize a data source.
 
@@ -61,6 +62,7 @@ class DataSource:
         self.dataframes = dataframes or {}
         self.file_paths = file_paths or {}
         self.encryption_keys = encryption_keys or {}
+        self.encryption_modes = encryption_modes or {}
 
         # Initialize logger using the custom logging module
         self.logger = custom_logging.get_logger(f"{__name__}.{self.__class__.__name__}")
@@ -132,6 +134,21 @@ class DataSource:
         else:
             self.logger.debug(f"encryption_key '{name}' is existed.")
             
+    def add_encryption_mode(self, name: str, path: Union[str, Path]):
+        existed_encryption_mode = self.encryption_modes.get(name)
+        if not existed_encryption_mode:
+            from pamola_core.utils.io_helpers.crypto_utils import detect_encryption_mode
+            encryption_mode = detect_encryption_mode(path)
+            self.encryption_modes[name] = encryption_mode
+            self.logger.debug(f"Added encryption_mode '{name}': {encryption_mode}")
+
+            # Clear cached schema for this file
+            if name in self._schema_cache:
+                del self._schema_cache[name]
+                self.logger.debug(f"Cleared schema cache for '{name}'")
+        else:
+            self.logger.debug(f"encryption_mode '{name}' is existed.")
+            
     def add_file_path(self, name: str, path: Union[str, Path]):
         """
         Add a file path to the data source.
@@ -167,7 +184,9 @@ class DataSource:
             encryption_key: Optional[str] = None,
             show_progress: bool = True,
             validate_schema: Optional[Dict[str, Any]] = None,
-            detect_parameters: bool = True
+            detect_parameters: bool = True,
+            use_encryption: bool = False,
+            encryption_mode: Optional[str] = None,
     ) -> ResultWithError:
         """
         Get a DataFrame by name with enhanced error reporting and schema validation.
@@ -226,7 +245,8 @@ class DataSource:
         if load_if_path:
             df, error_info = self._get_dataframe_from_file(
                 name, columns, nrows, skiprows, encoding, delimiter, quotechar,
-                use_dask, memory_limit, encryption_key, show_progress, detect_parameters=detect_parameters
+                use_dask, memory_limit, encryption_key, show_progress, detect_parameters=detect_parameters,
+                use_encryption=use_encryption, encryption_mode=encryption_mode
             )
 
             if df is not None:
@@ -371,7 +391,9 @@ class DataSource:
                                  encryption_key: Optional[str] = None,
                                  show_progress: bool = True,
                                  auto_optimize: bool = True,
-                                 detect_parameters: bool = True) -> ResultWithError:
+                                 detect_parameters: bool = True,
+                                 use_encryption: bool = False,
+                                 encryption_mode: Optional[str] = None) -> ResultWithError:
         """
         Load a DataFrame from a file using DataReader.
 
@@ -460,7 +482,9 @@ class DataSource:
                     encryption_key=encryption_key,
                     auto_optimize=auto_optimize,
                     show_progress=show_progress,
-                    detect_parameters=detect_parameters
+                    detect_parameters=detect_parameters,
+                    use_encryption=use_encryption,
+                    encryption_mode=encryption_mode
                 )
             except Exception as e:
                 error_info = {

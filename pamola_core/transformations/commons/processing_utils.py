@@ -51,6 +51,7 @@ def process_dataframe_with_config(
     use_vectorization: bool = False,
     parallel_processes: int = 1,
     progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    task_logger: Optional[logging.Logger] = None,
     **kwargs,
 ) -> Union[pd.DataFrame, None, Any]:
     """
@@ -76,6 +77,8 @@ def process_dataframe_with_config(
         Number of processes use with vectorized (parallel) (default: 1).
     progress_tracker : Optional[HierarchicalProgressTracker]
         Progress tracker for monitoring the operation.
+    task_logger : Optional[logging.Logger]
+        Logger for tracking task progress and debugging.
     **kwargs : dict
         Additional arguments to pass to the process_function.
 
@@ -84,6 +87,10 @@ def process_dataframe_with_config(
     pd.DataFrame
         The processed DataFrame.
     """
+    # Initialize task logger
+    if task_logger:
+        logger = task_logger
+        
     if len(df) == 0:
         logger.warning("Empty DataFrame provided! Returning as is")
         return df
@@ -98,6 +105,9 @@ def process_dataframe_with_config(
     logger.info("Process with config")
 
     if not flag_processed and use_dask:
+        logger.info("Parallel Enabled")
+        logger.info("Parallel Engine: Dask")
+        logger.info(f"Parallel Workers: {npartitions}")
         logger.info(f"Using dask processing with chunk size {chunk_size}")
         if progress_tracker:
             progress_tracker.update(0, {"step": "Setting up dask processing"})
@@ -114,7 +124,13 @@ def process_dataframe_with_config(
             **kwargs,
         )
 
+        if flag_processed:
+            logger.info("Completed using Dask")
+
     if not flag_processed and use_vectorization:
+        logger.info("Parallel Enabled")
+        logger.info("Parallel Engine: Joblib")
+        logger.info(f"Parallel Workers: {parallel_processes}")
         logger.info(f"Using vectorized processing with chunk size {chunk_size}")
         if progress_tracker:
             progress_tracker.update(0, {"step": "Setting up vectorized processing"})
@@ -130,11 +146,15 @@ def process_dataframe_with_config(
             **kwargs,
         )
 
+        if flag_processed:
+            logger.info("Completed using Joblib")
+
     if not flag_processed and chunk_size > 1:
         # Regular chunk processing
         logger.info(f"Processing in chunks with chunk size {chunk_size}")
+        total_chunks = (len(df) + chunk_size - 1) // chunk_size
+        logger.info(f"Total chunks to process: {total_chunks}")
         if progress_tracker:
-            total_chunks = (len(df) + chunk_size - 1) // chunk_size
             progress_tracker.update(
                 0, {"step": "Processing in chunks", "total_chunks": total_chunks}
             )
@@ -148,6 +168,9 @@ def process_dataframe_with_config(
             progress_tracker=progress_tracker,
             **kwargs,
         )
+
+        if flag_processed:
+            logger.info("Completed using chunk")
 
     if not flag_processed:
         logger.info("Fallback process as usual")
@@ -242,19 +265,19 @@ def _process_dataframe_using_dask(
     )
 
     try:
-        # Update progress if tracker is provided
-        if progress_tracker:
-            progress_tracker.total = nparts
-            progress_tracker.update(
-                1, {"step": "Dask processing setup", "total_parts": nparts}
-            )
-
         # Convert to Dask DataFrame
         total_rows = len(df)
         if npartitions is None or npartitions < 1:
             nparts = (total_rows + chunksize - 1) // chunksize
         else:
             nparts = npartitions
+
+        # Update progress if tracker is provided
+        if progress_tracker:
+            progress_tracker.total = nparts
+            progress_tracker.update(
+                1, {"step": "Dask processing setup", "total_parts": nparts}
+            )
 
         ddf = dd.from_pandas(df, npartitions=nparts)
 
@@ -541,7 +564,8 @@ def process_in_chunks(
             0, {"step": "Processing in chunks", "total_chunks": total_chunks}
         )
 
-    result = pd.DataFrame(columns=df.columns)
+    # Initialize result with DataFrame structure but no rows
+    result = df.iloc[0:0].copy()
     processed_rows = 0
     start_time = time.time()
 
@@ -821,8 +845,11 @@ def merge_dataframes(
     suffixes: Tuple[str, str] = ("_x", "_y"),
     left_index: bool = False,
     right_index: bool = False,
+    chunk_size: int = 10000,
     use_dask: bool = False,
     npartitions: Optional[int] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    task_logger: Optional[logging.Logger] = None,
 ) -> pd.DataFrame:
     """
     Merge two DataFrames with proper error handling and optional Dask support.
@@ -850,6 +877,10 @@ def merge_dataframes(
         If True, perform the merge using Dask for parallel/distributed execution.
     npartitions : Optional[int], default=None
         Number of Dask partitions to use. If None, will auto-determine based on data size.
+    progress_tracker : Optional[HierarchicalProgressTracker], default=None
+        Progress tracker for monitoring the merge operation.
+    task_logger : Optional[logging.Logger], default=None
+        Logger for tracking task progress and debugging.
 
     Returns
     -------
@@ -861,6 +892,9 @@ def merge_dataframes(
     Exception
         If the merge operation fails due to invalid keys or data incompatibility.
     """
+    # Initialize task logger
+    if task_logger:
+        logger = task_logger
 
     def _resolve_keys():
         return right_key if right_key is not None else left_key
@@ -875,11 +909,30 @@ def merge_dataframes(
                     "Install with: pip install dask[dataframe]"
                 )
 
-            left_parts = _determine_partitions(left_df, npartitions)
-            right_parts = _determine_partitions(right_df, npartitions)
+            left_parts = _determine_partitions(left_df, chunk_size, npartitions)
+            right_parts = _determine_partitions(right_df, chunk_size, npartitions)
             d_left = dd.from_pandas(left_df, npartitions=left_parts)
             d_right = dd.from_pandas(right_df, npartitions=right_parts)
-            return d_left.merge(
+            
+            logger.info("Parallel Enabled")
+            logger.info("Parallel Engine: Dask")
+            logger.info(f"Parallel Workers: left_parts {left_parts}")
+            logger.info(f"Parallel Workers: right_parts {right_parts}")
+            logger.info(f"Using dask merging datasets processing with chunk size {chunk_size}")
+            # Update progress for Dask processing
+            if progress_tracker:
+                progress_tracker.update(
+                    2,
+                    {
+                        "step": "Dask merging processing",
+                        "left_parts": left_parts,
+                        "right_parts": right_parts,
+                        "chunk_size": chunk_size,
+                    },
+                )
+
+            # Perform the merge operation
+            ddf_result = d_left.merge(
                 d_right,
                 left_on=left_key,
                 right_on=resolved_right_key,
@@ -887,9 +940,42 @@ def merge_dataframes(
                 suffixes=suffixes,
                 left_index=left_index,
                 right_index=right_index,
-            ).compute()
+            )
+
+            # Compute elapsed time
+            elapsed_time = time.time() - start_time
+            logger.info(f"Dask merging processing completed in {elapsed_time:.2f} seconds")
+            if progress_tracker:
+                progress_tracker.update(
+                    3,
+                    {
+                        "step": "Dask merging finalization",
+                        "left_parts": left_parts,
+                        "right_parts": right_parts,
+                        "chunk_size": chunk_size,
+                    },
+                )
+            return ddf_result.compute()
         else:
-            return pd.merge(
+            logger.info(f"Using pandas to merge datasets processing!!!")
+            logger.info("Parallel Disabled")
+            logger.info("Parallel Engine: None")
+            logger.info(f"Parallel Workers: {npartitions}")
+            logger.info(f"Using pandas merging datasets processing with chunk size {chunk_size}")
+            # Update progress for Dask processing
+            if progress_tracker:
+                progress_tracker.update(
+                    2,
+                    {
+                        "step": "Pandas processing",
+                        "left_key": left_key,
+                        "right_key": right_key,
+                        "chunk_size": chunk_size,
+                    },
+                )
+
+            # Perform the merge operation
+            df_result = pd.merge(
                 left_df,
                 right_df,
                 left_on=left_key,
@@ -899,6 +985,22 @@ def merge_dataframes(
                 left_index=left_index,
                 right_index=right_index,
             )
+
+            # Compute elapsed time
+            elapsed_time = time.time() - start_time
+            logger.info(f"Pandas merging processing completed in {elapsed_time:.2f} seconds")
+            if progress_tracker:
+                progress_tracker.update(
+                    3,
+                    {
+                        "step": "Pandas merging finalization",
+                        "left_key": left_key,
+                        "right_key": right_key,
+                        "chunk_size": chunk_size,
+                    },
+                )
+
+            return df_result
 
     resolved_right_key = _resolve_keys()
 
@@ -910,10 +1012,13 @@ def merge_dataframes(
         f"Merging DataFrames with {join_type} join on keys '{left_key}' and '{resolved_right_key}'"
     )
 
+    if progress_tracker:
+        progress_tracker.total = 3  # Setup, Processing, Finalization
+        progress_tracker.update(1, {"step": "Setting up merge datasets processing"})
+
     start_time = time.time()
     try:
         result = _do_merge()
-        logger.info(f"Merge completed in {time.time() - start_time:.4f} seconds")
         return result
     except Exception as e:
         logger.error(f"Error during DataFrame merge: {e}")
@@ -925,8 +1030,11 @@ def aggregate_dataframe(
     group_by_fields: List[str],
     aggregations: Optional[Dict[str, List[str]]] = None,
     custom_aggregations: Optional[Dict[str, Callable]] = None,
+    chunk_size: int = 10000,
     use_dask: bool = False,
     npartitions: Optional[int] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    task_logger: Optional[logging.Logger] = None
 ) -> pd.DataFrame:
     """
     Aggregate DataFrame by grouping fields, supporting both pandas and Dask.
@@ -941,26 +1049,43 @@ def aggregate_dataframe(
         Dictionary mapping column names to a list of aggregation function names (e.g., "mean", "sum").
     custom_aggregations : Optional[Dict[str, Callable]], optional
         Dictionary mapping column names to a list of custom aggregation functions (e.g., lambda, numpy functions).
+    chunk_size : int, optional
+        Chunk size for processing large DataFrames (default is 10000).
     use_dask : bool, optional
         Whether to use Dask instead of pandas for processing (default is False).
     npartitions : Optional[int], optional
         Number of partitions to use for Dask DataFrame if applicable (default is None).
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    task_logger : Optional[logging.Logger], default=None
+        Logger for tracking task progress and debugging.
 
     Returns
     -------
     pd.DataFrame
         The aggregated DataFrame with flattened column names if necessary.
     """
+    # Initialize task logger
+    if task_logger:
+        logger = task_logger
+
     validate_group_and_aggregation_fields(
         df, group_by_fields, aggregations, custom_aggregations
     )
     start_time = time.time()
-    logger.info(f"Aggregating DataFrame by {group_by_fields} (use_dask={use_dask})")
+    logger.info(f"Aggregating DataFrame by {group_by_fields})")
+
+    # Initialize progress tracker
+    if progress_tracker:
+        progress_tracker.total = 3  # Setup, Processing, Finalization
+        progress_tracker.update(1, {"step": "Setting up aggregate records processing"})
 
     agg_dict = build_aggregation_dict(aggregations, custom_aggregations)
 
     try:
         if use_dask:
+            logger.info("Parallel Enabled")
+            logger.info("Parallel Engine: Dask")
+            logger.info(f"Parallel Workers: {npartitions}")
             try:
                 import dask.dataframe as dd
             except ImportError:
@@ -968,7 +1093,11 @@ def aggregate_dataframe(
                     "Dask is required for distributed processing but not installed. "
                     "Install with: pip install dask[dataframe]"
                 )
-
+            
+            logger.info("Parallel Enabled")
+            logger.info("Parallel Engine: Dask")
+            logger.info(f"Parallel Workers: {npartitions}")
+            logger.info(f"Using dask to aggregate records processing with chunk size {chunk_size}")
             # Warn about custom aggregations with Dask
             if custom_aggregations:
                 logger.warning(
@@ -995,8 +1124,18 @@ def aggregate_dataframe(
 
             # Convert to Dask DataFrame if needed
             if not isinstance(df, dd.DataFrame):
-                df_parts = _determine_partitions(df, npartitions)
-                dask_df = dd.from_pandas(df, npartitions=df_parts)
+                nparts = _determine_partitions(df, chunk_size, npartitions)
+                # Update progress for Dask processing
+                if progress_tracker:
+                    progress_tracker.update(
+                        2,
+                        {
+                            "step": "Dask aggregation processing",
+                            "nparts": nparts,
+                            "chunk_size": chunk_size,
+                        },
+                    )
+                dask_df = dd.from_pandas(df, npartitions=nparts)
             else:
                 dask_df = df
 
@@ -1022,14 +1161,55 @@ def aggregate_dataframe(
                     custom_agg_dict=custom_agg_dict,
                     group_by_fields=group_by_fields,
                 )
+
+            # Compute elapsed time
+            elapsed_time = time.time() - start_time
+            logger.info(f"Dask aggregation processing completed in {elapsed_time:.2f} seconds")
+            if progress_tracker:
+                progress_tracker.update(
+                    3,
+                    {
+                        "step": "Dask aggregation finalization",
+                        "nparts": nparts,
+                        "chunk_size": chunk_size,
+                    },
+                )
         else:
+            logger.info(f"Using pandas to aggregation records processing!!!")
+            logger.info("Parallel Disabled")
+            logger.info("Parallel Engine: None")
+            logger.info(f"Parallel Workers: {npartitions}")
+            logger.info(f"Using pandas aggregation records processing with chunk size {chunk_size}")
+            # Update progress for Dask processing
+            if progress_tracker:
+                progress_tracker.update(
+                    2,
+                    {
+                        "step": "Pandas aggregation processing",
+                        "group_by_fields": group_by_fields,
+                        "chunk_size": chunk_size,
+                    },
+                )
+
+            # Perform aggregation
             result = df.groupby(group_by_fields).agg(agg_dict).reset_index()
+
+            # Compute elapsed time
+            elapsed_time = time.time() - start_time
+            logger.info(f"Pandas aggregation processing completed in {elapsed_time:.2f} seconds")
+            if progress_tracker:
+                progress_tracker.update(
+                    3,
+                    {
+                        "step": "Pandas aggregation finalization",
+                        "group_by_fields": group_by_fields,
+                        "chunk_size": chunk_size,
+                    },
+                )
 
         if isinstance(result.columns, pd.MultiIndex):
             result.columns = flatten_multiindex_columns(result.columns)
 
-        elapsed_time = time.time() - start_time
-        logger.info(f"Aggregation completed in {elapsed_time:.4f} seconds")
         return result
 
     except Exception as e:
@@ -1037,15 +1217,24 @@ def aggregate_dataframe(
         raise
 
 
-def _determine_partitions(df: pd.DataFrame, npartitions: Optional[int] = None) -> int:
+def _determine_partitions(
+    df: pd.DataFrame, chunk_size: int = 10000, npartitions: Optional[int] = None
+) -> int:
     """
     Determine the number of partitions for Dask DataFrame.
 
     Args:
         df: The input DataFrame.
+        chunk_size: The size of each chunk (default is 10000).
         npartitions: Optional number of partitions.
 
     Returns:
         int: The number of partitions.
     """
-    return npartitions if npartitions is not None else max(1, len(df) // 100_000)
+    # Convert to Dask DataFrame
+    total_rows = len(df)
+    if npartitions is None or npartitions < 1:
+        nparts = (total_rows + chunk_size - 1) // chunk_size
+    else:
+        nparts = npartitions
+    return nparts

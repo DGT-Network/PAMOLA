@@ -17,15 +17,17 @@ from typing import Optional, Dict, Any, Union, List
 from pamola_core.utils.crypto_helpers.audit import log_key_access
 from pamola_core.utils.crypto_helpers.errors import KeyStoreError, MasterKeyError, TaskKeyError
 from pamola_core.utils.crypto_helpers.providers.simple_provider import SimpleProvider
+from dotenv import load_dotenv
+load_dotenv()
 
 # Configure logger
 logger = logging.getLogger("pamola_core.utils.crypto_helpers.key_store")
 
 # Constants
-DEFAULT_KEYS_DB_PATH = "pamola_datasets/configs/keys.db"
-DEFAULT_MASTER_KEY_PATH = "pamola_datasets/configs/master.key"
+DEFAULT_KEYS_DB_PATH = os.environ.get("KEY_STORE_PATH", "pamola_datasets/configs/keys.db")
+DEFAULT_MASTER_KEY_PATH = os.environ.get("MASTER_KEY_PATH", "pamola_datasets/configs/master.key")
 MASTER_KEY_LENGTH = 32  # 256 bits
-
+DEFAULT_CONFIGS_PATH = os.environ.get("CONFIGS_PATH", "pamola_datasets/configs/")
 
 class EncryptedKeyStore:
     """
@@ -493,11 +495,21 @@ def get_key_for_task(task_id: str) -> str:
     KeyStoreError
         If there's an error accessing the key store
     """
-    key_store = EncryptedKeyStore()
-
+        
+    configs_path = Path(DEFAULT_CONFIGS_PATH)
+    os.makedirs(configs_path, exist_ok=True)
+    from filelock import FileLock, Timeout
+    keys_db_lock = configs_path / "keys_db_path.lock"
     try:
-        # Try to load the key
-        return key_store.load_task_key(task_id)
-    except TaskKeyError:
-        # Generate a new key if it doesn't exist
-        return key_store.generate_task_key(task_id)
+        with FileLock(keys_db_lock, timeout=30): # Waits max 30 seconds
+            key_store = EncryptedKeyStore()
+            try:
+                # Try to load the key
+                return key_store.load_task_key(task_id)
+            except TaskKeyError:
+                # Generate a new key if it doesn't exist
+                logger.warning(f"task_id is not existed - generate a new key for: {task_id}")
+                return key_store.generate_task_key(task_id)
+    except Timeout:
+        logger.error(f"Could not acquire lock for task {task_id} after waiting.")
+        raise

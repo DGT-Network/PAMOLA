@@ -18,6 +18,7 @@ from pamola_core.utils.io import (
     write_dataframe_to_csv
     )
 from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -470,7 +471,9 @@ def prepare_field_uniqueness_data(df: pd.DataFrame, fields: List[str]) -> Dict[s
     return results
 
 
-def save_ka_index_map(ka_index_map: Dict[str, List[str]], output_path: str, encryption_key: Optional[str] = None) -> str:
+def save_ka_index_map(ka_index_map: Dict[str, List[str]], output_path: str, encryption_key: Optional[str] = None,
+                      use_encryption: bool = False,
+                      encryption_mode: Optional[str] = None) -> str:
     """
     Save KA index mapping to a CSV file.
 
@@ -498,7 +501,7 @@ def save_ka_index_map(ka_index_map: Dict[str, List[str]], output_path: str, encr
         df = pd.DataFrame(data)
 
         # Save to CSV
-        write_dataframe_to_csv(df=df, file_path=output_path, encryption_key=encryption_key)
+        write_dataframe_to_csv(df=df, file_path=output_path, encryption_key=encryption_key, use_encryption=use_encryption, encryption_mode=encryption_mode)
 
         return output_path
     except Exception as e:
@@ -547,8 +550,9 @@ def save_ka_metrics(ka_metrics: Dict[str, Dict[str, Any]], output_path: str, ka_
 
         # Save to CSV
         use_encryption = kwargs.get('use_encryption', False)
-        encryption_key= kwargs.get('encryption_key', None) if use_encryption else None
-        write_dataframe_to_csv(df=df, file_path=output_path, encryption_key=encryption_key)
+        encryption_key= kwargs.get('encryption_key', None)
+        encryption_mode = get_encryption_mode(df, **kwargs)
+        write_dataframe_to_csv(df=df, file_path=output_path, encryption_key=encryption_key, use_encryption=use_encryption, encryption_mode=encryption_mode)
         
         return output_path
     except Exception as e:
@@ -556,7 +560,9 @@ def save_ka_metrics(ka_metrics: Dict[str, Dict[str, Any]], output_path: str, ka_
         return str(e)
 
 
-def save_vulnerable_records(vulnerable_records: Dict[str, Dict[str, Any]], output_path: str, encryption_key: Optional[str] = None) -> str:
+def save_vulnerable_records(vulnerable_records: Dict[str, Dict[str, Any]], output_path: str, encryption_key: Optional[str] = None,
+                            use_encryption: bool = False,
+                            encryption_mode: Optional[str] = None) -> str:
     """
     Save information about vulnerable records to a JSON file.
 
@@ -585,7 +591,7 @@ def save_vulnerable_records(vulnerable_records: Dict[str, Dict[str, Any]], outpu
             })
 
         # Save to JSON
-        write_json(data, output_path, encryption_key=encryption_key)
+        write_json(data, output_path, encryption_key=encryption_key, use_encryption=use_encryption, encryption_mode=encryption_mode)
 
         return output_path
     except Exception as e:

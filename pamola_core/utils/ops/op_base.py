@@ -138,7 +138,8 @@ class BaseOperation(ABC):
                  config: Optional[OperationConfig] = None,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
-                 use_vectorization: bool = False):
+                 use_vectorization: bool = False,
+                 encryption_mode: Optional[str] = None):
         """
         Initialize the operation.
 
@@ -165,6 +166,7 @@ class BaseOperation(ABC):
         self.config = config or OperationConfig()
         self.use_encryption = use_encryption
         self.encryption_key = encryption_key
+        self.encryption_mode = encryption_mode
         self.use_vectorization = use_vectorization
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
@@ -220,7 +222,7 @@ class BaseOperation(ABC):
 
             # Atomic replace
             os.replace(temp_path, config_path)
-            self.logger.info(f"Saved operation configuration to {config_path}")
+            self.logger.info(f"Saved operation configuration to {Path(config_path).name}")
         except Exception as e:
             self.logger.error(f"Failed to save configuration: {str(e)}")
             raise ConfigSaveError(f"Failed to save configuration: {str(e)}") from e
@@ -528,7 +530,8 @@ class FieldOperation(BaseOperation):
                  config: Optional[OperationConfig] = None,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
-                 use_vectorization: bool = False):
+                 use_vectorization: bool = False,
+                 encryption_mode: Optional[str] = None):
         """
         Initialize a field-specific operation.
 
@@ -557,7 +560,8 @@ class FieldOperation(BaseOperation):
             config=config,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
-            use_vectorization=use_vectorization
+            use_vectorization=use_vectorization,
+            encryption_mode=encryption_mode
         )
         self.field_name = field_name
 

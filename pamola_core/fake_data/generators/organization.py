@@ -446,10 +446,7 @@ class OrganizationGenerator(BaseGenerator):
 
         # If using PRGN, ensure deterministic selection
         if self.prgn_generator:
-            rng = self.prgn_generator.get_random_by_value(
-                f"{org_type}_{region}",
-                salt="org-name-selection"
-            )
+            rng = self.prgn_generator.get_random_by_value(self.original_value, salt=self.context_salt)
             index = rng.randint(0, len(names) - 1)
             name = names[index]
         else:
@@ -697,6 +694,9 @@ class OrganizationGenerator(BaseGenerator):
 
         # Allow override via params
         region = params.get('region', region)
+
+        self.original_value = original_value
+        self.context_salt = params.get("context_salt", None)
 
         # Generate base name with detected properties
         new_name = self.generate_organization_name(org_type, region)

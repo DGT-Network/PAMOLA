@@ -18,7 +18,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 class Patterns:
     EMAIL_REGEX = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    PHONE_REGEX = r"^\+?(\d[\d\-. ]+)?(\([\d\-. ]+\))?[\d\-. ]+\d$"
+    PHONE_REGEX = r"^\+?(?:\d[\d\-. ]+)?(?:\([\d\-. ]+\))?[\d\-. ]+\d$"
     CREDIT_CARD = r"^\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}$"
     DOMAIN_REGEX = r"@([\w.-]+)"
     PCI_PATTERNS = r'^\d{16}$|^(\d{4}[ ]{1}){3}\d{4}$|^(\d{4}[-]{1}){3}\d{4}$'

@@ -42,7 +42,7 @@ class NameGenerator(BaseGenerator):
 
         Args:
             config: Dictionary with configuration parameters
-                - language: Language code (e.g., "ru", "en", "vn")
+                - language: Language code (e.g., "ru", "en", "vi")
                 - gender: Gender code ("M", "F", None for neutral)
                 - format: Format for full names (e.g., "FML", "FL", "LF")
                 - use_faker: Whether to use Faker library if available
@@ -106,7 +106,7 @@ class NameGenerator(BaseGenerator):
             'en_us': 'en', 'en_US': 'en', 'en_uk': 'en', 'en_UK': 'en',
             'en_gb': 'en', 'en_GB': 'en', 'eng': 'en', 'english': 'en',
             # Vietnamese
-            'vi': 'vn', 'vi_VN': 'vn', 'vie': 'vn', 'vietnamese': 'vn'
+            'vn': 'vi', 'vi_VN': 'vi', 'vie': 'vi', 'vietnamese': 'vi'
         }
 
         # Normalize to lowercase
@@ -145,7 +145,7 @@ class NameGenerator(BaseGenerator):
         self._middle_names_female = {}
 
         # Load dictionaries for supported languages
-        for lang in ["en", "ru", "vn"]:
+        for lang in ["en", "ru", "vi"]:
             # Try to load from explicit paths first
             dict_paths = self.dictionaries.get(lang, {})
 
@@ -213,7 +213,7 @@ class NameGenerator(BaseGenerator):
                 self._middle_names_female[lang] = []
 
         # Log dictionary sizes for debugging
-        for lang in ["en", "ru", "vn"]:
+        for lang in ["en", "ru", "vi"]:
             logger.debug(f"Loaded dictionaries for {lang}:")
             logger.debug(f"  - Male first names: {len(self._first_names_male.get(lang, []))} items")
             logger.debug(f"  - Female first names: {len(self._first_names_female.get(lang, []))} items")
@@ -765,7 +765,7 @@ class NameGenerator(BaseGenerator):
                 result["first_name"] = parts[0]
             elif len(parts) == 2:
                 # Two parts, assume first+last
-                if language in ["ru", "vn"]:
+                if language in ["ru", "vi"]:
                     # In Russian and Vietnamese, last name comes first
                     result["last_name"] = parts[0]
                     result["first_name"] = parts[1]
@@ -780,7 +780,7 @@ class NameGenerator(BaseGenerator):
                     result["last_name"] = parts[0]
                     result["first_name"] = parts[1]
                     result["middle_name"] = " ".join(parts[2:])
-                elif language == "vn":
+                elif language in ["vn", "vi"]:
                     # In Vietnamese: last_name middle_name(s) first_name
                     result["last_name"] = parts[0]
                     result["first_name"] = parts[-1]

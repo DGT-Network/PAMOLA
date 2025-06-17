@@ -20,12 +20,12 @@ Key features:
 import logging
 from pathlib import Path
 from typing import Union, Dict, Any, Optional
-
+from decouple import config
+import pandas as pd
 # Import register providers function to break circular imports
+from pamola_core.common.enum.encryption_mode import EncryptionMode
 from pamola_core.utils.crypto_helpers.register_providers import register_all_providers
 
-# Register all providers on module import
-register_all_providers()
 
 from pamola_core.utils.crypto_helpers.audit import log_crypto_operation
 from pamola_core.utils.io_helpers.crypto_router import (
@@ -35,9 +35,16 @@ from pamola_core.utils.io_helpers.crypto_router import (
     decrypt_data_router,
     detect_encryption_mode
 )
+from dotenv import load_dotenv
+
+# Register all providers on module import
+register_all_providers()
+load_dotenv()
 
 # Configure logger
 logger = logging.getLogger("pamola_core.utils.io_helpers.crypto_utils")
+default_data_size: int = config('DATA_SIZE', default=1000000, cast=int)
+auto_choose_provider_encryption: bool = config('AUTO_CHOOSE_PROVIDER_ENCRYPTION', default=True, cast=bool)
 
 
 def encrypt_file(source_path: Union[str, Path],
@@ -461,3 +468,34 @@ def get_encryption_info(data_or_path: Union[str, bytes, Dict[str, Any], Path]) -
                 info[key] = value
 
     return info
+
+def get_encryption_mode(df, **kwargs) -> str:
+    """
+    Determines and returns the encryption mode to use based on the provided DataFrame and keyword arguments.
+    Parameters:
+        df: The data structure (typically a DataFrame) whose size may influence the encryption mode.
+        **kwargs: Arbitrary keyword arguments. Recognized keys:
+            - use_encryption (bool): Whether to use encryption. Defaults to False.
+            - encryption_mode (str): Will be set to the chosen encryption mode.
+    Returns:
+        str: The selected encryption mode.
+    Notes:
+        - If 'use_encryption' is False, sets encryption mode to EncryptionMode.NONE.
+        - If 'use_encryption' is True and 'auto_choose_provider_encryption' is enabled,
+          chooses between EncryptionMode.SIMPLE and EncryptionMode.AGE based on the length of df and 'default_data_size'.
+        - If df does not have a length, defaults to EncryptionMode.SIMPLE.
+        - Assumes 'EncryptionMode', 'auto_choose_provider_encryption', and 'default_data_size' are defined elsewhere.
+    """
+    use_encryption = kwargs.get('use_encryption', False)
+    
+    if not use_encryption:
+        kwargs['encryption_mode'] = EncryptionMode.NONE.value
+    else:
+        if auto_choose_provider_encryption:
+            if hasattr(df, '__len__'):
+                length_df = df.__len__()
+                kwargs['encryption_mode'] = EncryptionMode.SIMPLE.value if length_df <= default_data_size else EncryptionMode.AGE.value
+            else:
+                kwargs['encryption_mode'] = EncryptionMode.SIMPLE.value
+        
+    return kwargs['encryption_mode']

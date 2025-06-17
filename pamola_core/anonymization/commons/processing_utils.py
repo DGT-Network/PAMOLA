@@ -72,7 +72,7 @@ def process_in_chunks(
         )
 
     # Initialize result with DataFrame structure but no rows
-    result = pd.DataFrame(columns=df.columns)
+    result = df.iloc[0:0].copy()
 
     # Process in chunks with logging and progress tracking
     start_time = time.time()
@@ -721,23 +721,109 @@ def generate_output_field_name(
         return output_field
 
 
-def prepare_output_directory(task_dir: Path, subdirectory: str) -> Path:
+def process_partition_static(
+    partition: pd.DataFrame,
+    global_bins: Optional[np.ndarray],
+    field_name: str,
+    output_field_name: str,
+    mode: str,
+    strategy: str,
+    precision: Optional[int],
+    bin_count: Optional[int],
+    range_limits: Optional[Tuple[float, float]],
+) -> pd.DataFrame:
     """
-    Prepare an output directory within the task directory.
+    Process a single Dask partition using a generalization strategy.
 
     Parameters:
     -----------
-    task_dir : Path
-        The task directory
-    subdirectory : str
-        Name of the subdirectory to create
+    partition : pd.DataFrame
+        A Dask partition (Pandas DataFrame).
+    global_bins : Optional[np.ndarray]
+        Precomputed bin edges (used in 'binning' strategy).
+    field_name : str
+        Name of the field to generalize.
+    output_field_name : str
+        Column name to store the generalized output.
+    mode : str
+        "REPLACE" or "ENRICH" to determine whether to replace original field.
+    strategy : str
+        Generalization strategy to apply ("binning", "rounding", "range").
+    precision : Optional[int]
+        Decimal places for rounding (used in 'rounding').
+    bin_count : Optional[int]
+        Number of bins (used in 'binning').
+    range_limits : Optional[Tuple[float, float]]
+        Min-max limits for range mapping.
 
     Returns:
     --------
-    Path
-        Path to the created subdirectory
+    pd.DataFrame
+        Partition with generalized values.
     """
-    output_dir = task_dir / subdirectory
-    output_dir.mkdir(parents=True, exist_ok=True)
-    logger.debug(f"Created directory: {output_dir}")
-    return output_dir
+    if strategy == "binning" and global_bins is not None:
+        # Use precomputed global bin edges for consistency across partitions
+        partition[output_field_name] = pd.cut(
+            partition[field_name], bins=global_bins, include_lowest=True
+        ).astype(str)
+    else:
+        # Apply generalization strategy
+        partition[output_field_name] = apply_generalization_strategy_static(
+            partition[field_name],
+            strategy=strategy,
+            precision=precision,
+            bin_count=bin_count,
+            range_limits=range_limits,
+        ).astype(str)
+
+    if mode == "REPLACE":
+        partition[field_name] = partition[output_field_name]
+
+    return partition
+
+
+def apply_generalization_strategy_static(
+    field_values: pd.Series,
+    strategy: str,
+    precision: int = 0,
+    bin_count: int = 10,
+    range_limits: Optional[Tuple[float, float]] = None,
+) -> pd.Series:
+    """
+    Apply the selected generalization strategy to a numeric pandas Series.
+
+    Parameters:
+    -----------
+    field_values : pd.Series
+        Input numeric series to generalize.
+    strategy : str
+        Generalization strategy: 'rounding', 'binning', or 'range'.
+    precision : int
+        Precision for rounding strategy.
+    bin_count : int
+        Number of bins for binning strategy.
+    range_limits : Optional[Tuple[float, float]]
+        (min, max) tuple for range mapping.
+
+    Returns:
+    --------
+    pd.Series
+        Generalized numeric series.
+    """
+    if strategy == "binning":
+        return numeric_generalization_binning(
+            field_values, bin_count, handle_nulls=True
+        )
+
+    elif strategy == "rounding":
+        return numeric_generalization_rounding(
+            field_values, precision, handle_nulls=True
+        )
+
+    elif strategy == "range":
+        return numeric_generalization_range(
+            field_values, range_limits, handle_nulls=True
+        )
+
+    logger.warning(f"No generalized values produced for unknown strategy '{strategy}'")
+    return field_values

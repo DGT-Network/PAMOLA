@@ -6,25 +6,17 @@ properties of generated fake data, including distribution comparison,
 format validation, and performance assessment.
 """
 
-import time
 import logging
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Dict, Any, Optional, Union
 from pathlib import Path
-import statistics
-import json
-from collections import Counter
-
 import pandas as pd
 import numpy as np
 
 from pamola_core.utils.visualization import (
     create_bar_plot,
-    create_histogram,
-    create_line_plot,
     create_combined_chart,
     create_pie_chart
 )
-from pamola_core.utils.io import ensure_directory
 
 # Configure logger
 logger = logging.getLogger(__name__)

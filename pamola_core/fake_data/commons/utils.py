@@ -21,13 +21,9 @@ import os
 import random
 import re
 import string
-from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable
-
-import pandas as pd
-import numpy as np
+from typing import Any, Dict, List, Optional, Union
 
 # Import from pamola_core utils
 from pamola_core.utils import io

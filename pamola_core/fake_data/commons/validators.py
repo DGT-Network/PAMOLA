@@ -293,11 +293,17 @@ def validate_id_number(id_number: str, id_type: str, region: str = "RU") -> Dict
             if not re.match(r'^\d{12}$', id_number):
                 result["errors"].append("Russian INN should be 12 digits")
 
+        else:
+            result["errors"].append(f"Region: {region}. Unsupported id_type: {id_type}")
+
     elif region == "US":
         if id_type == "ssn":
             # US Social Security Number: 9 digits, often written as XXX-XX-XXXX
             if not re.match(r'^\d{3}-?\d{2}-?\d{4}$', id_number):
                 result["errors"].append("US SSN should have format: 123-45-6789")
+
+        else:
+            result["errors"].append(f"Region: {region}. Unsupported id_type: {id_type}")
 
     # Set valid flag if no errors
     result["valid"] = len(result["errors"]) == 0

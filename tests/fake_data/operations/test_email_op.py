@@ -22,7 +22,7 @@ class TestFakeEmailOperationInit(unittest.TestCase):
         # Check default attributes of FakeEmailOperation
         self.assertEqual(op.field_name, "email")
         self.assertEqual(op.mode, "ENRICH")
-        self.assertEqual(op.batch_size, 10000)
+        self.assertEqual(op.chunk_size, 10000)
         self.assertEqual(op.null_strategy, NullStrategy.PRESERVE)
         self.assertEqual(op.consistency_mechanism, "prgn")
         self.assertFalse(op.save_mapping)
@@ -71,7 +71,7 @@ class TestFakeEmailOperationInit(unittest.TestCase):
             "handle_invalid_email": "generate_new",
             "nicknames_dict": None,
             "max_length": 254,
-            "batch_size": 10000,
+            "chunk_size": 10000,
             "null_strategy": "PRESERVE",
             "consistency_mechanism": "abcd",
             "mapping_store_path": "C:/fake_data/email_operation/mappings.json",
@@ -95,7 +95,7 @@ class TestFakeEmailOperationInit(unittest.TestCase):
         self.assertEqual(op.field_name, "email")
         self.assertEqual(op.mode, "ENRICH")
         self.assertEqual(op.output_field_name, "email_enriched")
-        self.assertEqual(op.batch_size, 10000)
+        self.assertEqual(op.chunk_size, 10000)
         self.assertEqual(op.null_strategy, NullStrategy.PRESERVE)
         self.assertEqual(op.consistency_mechanism, "abcd")
         self.assertTrue(op.save_mapping)
@@ -335,10 +335,10 @@ class PrepareData:
             "handle_invalid_email": "generate_new",
             "nicknames_dict": None,
             "max_length": 254,
-            "batch_size": 10000,
+            "chunk_size": 3,
             "null_strategy": "PRESERVE",
-            "consistency_mechanism": "abcd",
-            "mapping_store_path": "C:/fake_data/email_operation/mappings.json",
+            "consistency_mechanism": "prgn",   # "prgn", "mapping"
+            "mapping_store_path": "C:/operation/fake_data/email/maps/mappings.json",
             "id_field": "id",
             "key": None,
             "context_salt": "email-context-001",
@@ -350,7 +350,18 @@ class PrepareData:
             "business_domain_ratio": 0.2,
             "detailed_metrics": True,
             "error_logging_level": "WARNING",
-            "max_retries": 3
+            "max_retries": 3,
+            "use_cache": True,
+            "force_recalculation": True,
+            "use_dask": False,
+            "npartitions": 2,
+            "use_vectorization": False,
+            "parallel_processes": 2,
+            "use_encryption": False,
+            "encryption_key":  None,
+            "visualization_backend": "plotly",
+            "visualization_theme": None,
+            "visualization_strict": False
         }
 
     def create_task_dir(self):
@@ -407,7 +418,7 @@ class TestFakeEmailOperationExecute(unittest.TestCase):
                 msg=f"Unexpected artifact file type: {artifact.path}"
             )
             self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metric", "visualization"])
+            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
             self.assertIsInstance(artifact.tags, list)
             self.assertIsInstance(artifact.creation_time, str)
             self.assertIsInstance(artifact.size, int)
@@ -461,7 +472,7 @@ class TestFakeEmailOperationExecute(unittest.TestCase):
                 msg=f"Unexpected artifact file type: {artifact.path}"
             )
             self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metric", "visualization"])
+            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
             self.assertIsInstance(artifact.tags, list)
             self.assertIsInstance(artifact.creation_time, str)
             self.assertIsInstance(artifact.size, int)

@@ -395,6 +395,7 @@ class TestPhoneGeneratorFormatPhone(unittest.TestCase):
             number='3456',
             format_template=template
         )
+        # Expect padded operator_code -> "1200"
         self.assertEqual(formatted, "+44-1200-3456")
 
     def test_format_with_long_operator_code_truncating(self):

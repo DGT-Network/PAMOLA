@@ -1252,7 +1252,7 @@ def get_names(language: str = "ru",
             return get_en_last_names()
 
     # Vietnamese names
-    elif language == "vn":
+    elif language in ["vn", "vi"]:
         if name_type == "full_name":
             if gender_normalized == "M":
                 return get_vn_male_names()

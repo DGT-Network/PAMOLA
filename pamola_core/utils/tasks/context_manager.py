@@ -278,7 +278,7 @@ class TaskContextManager:
 
                 # Log successful completion
                 self.logger.info(
-                    f"Successfully cleared checkpoints from {checkpoint_dir}. Initially found {existing_count}.")
+                    f"Successfully cleared checkpoints. Initially found {existing_count}.")
 
                 # Log through progress manager if available
                 if self.progress_manager:
@@ -552,7 +552,7 @@ class TaskContextManager:
                 if self.progress_manager:
                     self.progress_manager.log_info(f"Saved checkpoint: {checkpoint_name}")
                 else:
-                    self.logger.info(f"Saved execution state to checkpoint: {checkpoint_path}")
+                    self.logger.info(f"Saved execution state to checkpoint: {Path(checkpoint_path).name}")
 
                 return checkpoint_path
 

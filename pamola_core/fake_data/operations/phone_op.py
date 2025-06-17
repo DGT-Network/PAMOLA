@@ -20,8 +20,6 @@ from pamola_core.utils import io
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
-# Configure logger
-logger = logging.getLogger(__name__)
 
 
 @register()
@@ -49,7 +47,7 @@ class FakePhoneOperation(GeneratorOperation):
                  preserve_country_code: bool = True,
                  preserve_operator_code: bool = False,
                  region: Optional[str] = None,
-                 batch_size: int = 10000,
+                 chunk_size: int = 10000,
                  null_strategy: str = "PRESERVE",
                  consistency_mechanism: str = "prgn",
                  mapping_store_path: Optional[str] = None,
@@ -74,8 +72,9 @@ class FakePhoneOperation(GeneratorOperation):
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
                  visualization_backend: Optional[str] = None,
-                 vis_theme: Optional[str] = None,
-                 vis_strict: bool = False):
+                 visualization_theme: Optional[str] = None,
+                 visualization_strict: bool = False,
+                 encryption_mode: Optional[str] = None):
         """
         Initialize phone number generation operation.
 
@@ -92,7 +91,7 @@ class FakePhoneOperation(GeneratorOperation):
             preserve_country_code: Whether to preserve country code from original
             preserve_operator_code: Whether to preserve operator code from original
             region: Region/country for formatting
-            batch_size: Number of records to process in one batch
+            chunk_size: Number of records to process in one batch
             null_strategy: Strategy for handling NULL values
             consistency_mechanism: Method for ensuring consistency (mapping or prgn)
             mapping_store_path: Path to store mappings
@@ -117,16 +116,13 @@ class FakePhoneOperation(GeneratorOperation):
         self.international_format = international_format
         self.local_formatting = local_formatting
         self.country_code_field = country_code_field
-        self.batch_size = batch_size
+        self.chunk_size = chunk_size
         self.use_cache = use_cache
         self.force_recalculation = force_recalculation
         self.use_dask = use_dask
         self.npartitions = npartitions
         self.use_vectorization = use_vectorization
         self.parallel_processes = parallel_processes
-
-        # Configure logging level
-        self._configure_logging()
 
         # Store attributes locally that we need to access directly
         self.column_prefix = column_prefix
@@ -163,7 +159,7 @@ class FakePhoneOperation(GeneratorOperation):
             generator=base_generator,
             mode=mode,
             output_field_name=output_field_name,
-            batch_size=batch_size,
+            chunk_size=chunk_size,
             null_strategy=null_strategy,
             consistency_mechanism=consistency_mechanism,
             use_cache=use_cache,
@@ -174,9 +170,10 @@ class FakePhoneOperation(GeneratorOperation):
             parallel_processes=parallel_processes,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
+            encryption_mode=encryption_mode,
             visualization_backend=visualization_backend,
-            vis_theme=vis_theme,
-            vis_strict=vis_strict
+            visualization_theme=visualization_theme,
+            visualization_strict=visualization_strict
         )
 
         # Set up performance metrics
@@ -198,13 +195,6 @@ class FakePhoneOperation(GeneratorOperation):
             self._format_stats = Counter()
             self._generation_times = []
 
-    def _configure_logging(self):
-        """
-        Configure logging based on error_logging_level.
-        """
-        log_level = getattr(logging, self.error_logging_level, logging.WARNING)
-        logger.setLevel(log_level)
-
     def _initialize_mapping_store(self, path: Union[str, Path]) -> None:
         """
         Initialize the mapping store if needed.
@@ -221,9 +211,9 @@ class FakePhoneOperation(GeneratorOperation):
             path_obj = Path(path)
             if path_obj.exists():
                 self.mapping_store.load(path_obj)
-                logger.info(f"Loaded mapping store from {path}")
+                self.logger.info(f"Loaded mapping store from {path_obj.name}")
         except Exception as e:
-            logger.warning(f"Failed to initialize mapping store: {str(e)}")
+            self.logger.warning(f"Failed to initialize mapping store: {str(e)}")
             self.mapping_store = None
 
     def execute(self, data_source, task_dir, reporter, progress_tracker: Optional[HierarchicalProgressTracker] = None, **kwargs):
@@ -239,6 +229,9 @@ class FakePhoneOperation(GeneratorOperation):
         Returns:
             Operation result with processed data and metrics
         """
+        # Config logger task for operatiions
+        self.logger = kwargs.get('logger', self.logger)
+        
         # Start timing for performance metrics
         self.start_time = time.time()
         self.process_count = 0
@@ -263,7 +256,7 @@ class FakePhoneOperation(GeneratorOperation):
             io.ensure_directory(mapping_dir)
             mapping_path = mapping_dir / f"{self.name}_{self.field_name}_mapping.json"
             self.mapping_store.save_json(mapping_path)
-            logger.info(f"Saved mapping to {mapping_path}")
+            self.logger.info(f"Saved mapping to {Path(mapping_path).name}")
 
         return result
 
@@ -343,7 +336,7 @@ class FakePhoneOperation(GeneratorOperation):
                 generated_values.append(synthetic_value)
                 self.process_count += 1
             except Exception as e:
-                logger.error(f"Error generating phone number for value '{value}': {str(e)}")
+                self.logger.error(f"Error generating phone number for value '{value}': {str(e)}")
                 generated_values.append(value if pd.notna(value) else np.nan)
 
         # Update the dataframe with generated values
@@ -448,9 +441,9 @@ class FakePhoneOperation(GeneratorOperation):
 
                 # Log error with appropriate level
                 if retries <= self.max_retries:
-                    logger.debug(f"Retry {retries}/{self.max_retries} generating phone for value '{value}': {str(e)}")
+                    self.logger.debug(f"Retry {retries}/{self.max_retries} generating phone for value '{value}': {str(e)}")
                 else:
-                    logger.error(
+                    self.logger.error(
                         f"Failed to generate phone for value '{value}' after {self.max_retries} retries: {str(e)}")
                     self.error_count += 1
 
@@ -644,7 +637,7 @@ class FakePhoneOperation(GeneratorOperation):
             if country_metrics:
                 metrics_data["phone_generator"]["country_distribution"] = country_metrics
         except Exception as e:
-            logger.warning(f"Error collecting country distribution: {str(e)}")
+            self.logger.warning(f"Error collecting country distribution: {str(e)}")
 
         # Add format distribution
         try:
@@ -653,7 +646,7 @@ class FakePhoneOperation(GeneratorOperation):
             if format_metrics:
                 metrics_data["phone_generator"]["format_distribution"] = format_metrics
         except Exception as e:
-            logger.warning(f"Error collecting format distribution: {str(e)}")
+            self.logger.warning(f"Error collecting format distribution: {str(e)}")
 
         # Add quality metrics if we can collect them
         if self.mode == "ENRICH" and hasattr(self, "_original_df") and self._original_df is not None:
@@ -668,7 +661,7 @@ class FakePhoneOperation(GeneratorOperation):
                     )
                     metrics_data["quality_metrics"] = quality_metrics
             except Exception as e:
-                logger.warning(f"Error calculating quality metrics: {str(e)}")
+                self.logger.warning(f"Error calculating quality metrics: {str(e)}")
 
         return metrics_data
 
@@ -828,7 +821,7 @@ class FakePhoneOperation(GeneratorOperation):
                         name: str(path) for name, path in visualizations.items()
                     }
             except Exception as e:
-                logger.warning(f"Error generating visualizations: {str(e)}")
+                self.logger.warning(f"Error generating visualizations: {str(e)}")
 
         # Save metrics to file
         use_encryption = kwargs.get('use_encryption', False)

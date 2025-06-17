@@ -158,9 +158,12 @@ def create_bar_plot(
         fig_creator = factory.create_figure("bar")
 
         try:
+            # Convert pandas Series to dict to avoid ambiguous truth value errors
+            plot_data = data.to_dict() if isinstance(data, pd.Series) else data
+
             # Create the figure
             fig = fig_creator.create(
-                data=data,
+                data=plot_data,
                 title=title,
                 orientation=orientation,
                 x_label=x_label,
@@ -1782,3 +1785,112 @@ def plot_multiple_fields(
     except Exception as e:
         logger.error(f"Error creating multiple fields plot: {e}")
         return f"Error creating multiple fields plot: {e}"
+
+def plot_field_subset_network(
+    output_data: Dict[str, pd.DataFrame],
+    output_path: Path,
+    title: str = "Field Distribution Across Subsets (Network Diagram)",
+    theme: str = None,
+    backend: str = None,
+    strict: bool = False,
+    **kwargs,
+) -> str:
+    """
+    Create a network diagram showing how fields are distributed across subsets using Plotly,
+    and save it as a PNG file.
+
+    Parameters:
+    -----------
+    output_data : Dict[str, pd.DataFrame]
+        Dictionary mapping subset names to their corresponding DataFrames.
+    output_path : Path
+        Path where the PNG file will be saved.
+    title : str
+        Title of the network plot.
+    theme : str, optional
+        Visualization theme to apply.
+    backend : str, optional
+        Visualization backend (overrides global setting).
+    strict : bool
+        If True, exceptions will be raised on errors; otherwise errors are logged.
+    **kwargs:
+        Additional arguments passed to the figure saving function.
+
+    Returns:
+    --------
+    str
+        Path to the saved PNG file or error message.
+    """
+    try:
+        # Context manager for visualization settings
+        with visualization_context(backend=backend, theme=theme, strict=strict) as context_info:
+            nodes = set()
+            edges = []
+            node_types = {}
+
+            for subset_name, df in output_data.items():
+                nodes.add(subset_name)
+                node_types[subset_name] = "subset"
+                for col in df.columns:
+                    nodes.add(col)
+                    node_types[col] = "field"
+                    edges.append((subset_name, col))
+
+            subset_nodes = [n for n in nodes if node_types[n] == "subset"]
+            field_nodes = [n for n in nodes if node_types[n] == "field"]
+
+            positions = {n: (0, i * -1.5) for i, n in enumerate(subset_nodes)}
+            positions.update({n: (3, i * -1.2) for i, n in enumerate(field_nodes)})
+
+            edge_x, edge_y = [], []
+            for src, tgt in edges:
+                x0, y0 = positions[src]
+                x1, y1 = positions[tgt]
+                edge_x += [x0, x1, None]
+                edge_y += [y0, y1, None]
+
+            edge_trace = go.Scatter(
+                x=edge_x, y=edge_y,
+                line=dict(width=1, color='gray'),
+                hoverinfo='none',
+                mode='lines'
+            )
+
+            node_x, node_y, node_text, node_color = [], [], [], []
+            for node in nodes:
+                x, y = positions[node]
+                node_x.append(x)
+                node_y.append(y)
+                node_text.append(node)
+                node_color.append("skyblue" if node_types[node] == "subset" else "lightgreen")
+
+            node_trace = go.Scatter(
+                x=node_x, y=node_y,
+                mode='markers+text',
+                marker=dict(size=20, color=node_color, line=dict(width=1, color='black')),
+                text=node_text,
+                textposition="top center",
+                hoverinfo='text'
+            )
+
+            fig = go.Figure(data=[edge_trace, node_trace],
+                            layout=go.Layout(
+                                title=dict(text=title, font=dict(size=16)),
+                                showlegend=False,
+                                hovermode='closest',
+                                margin=dict(b=20, l=20, r=20, t=40),
+                                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                                plot_bgcolor='white'
+                            ))
+
+            register_figure(fig, context_info)
+
+            # Save the figure
+            return _save_figure(fig, output_path, **kwargs)
+
+    except Exception as e:
+        if strict:
+            raise
+        logger.error(f"Error creating field-subset network plot: {e}")
+        return f"Error creating field-subset network plot: {e}"

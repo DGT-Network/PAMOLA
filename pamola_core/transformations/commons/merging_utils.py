@@ -111,6 +111,9 @@ def generate_record_overlap_vis(
     operation_name: str,
     task_dir: Path,
     timestamp: str,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
     **kwargs
 ) -> Dict[str, Any]:
@@ -135,8 +138,16 @@ def generate_record_overlap_vis(
         Directory where the Venn diagram image will be saved.
     timestamp : str
         Timestamp string for uniquely naming output files.
+    theme : Optional[str]
+        Visualization theme to use.
+    backend : Optional[str]
+        Visualization backend to use.
+    strict : Optional[bool]
+        Whether to enforce strict visualization rules.
     visualization_paths : Optional[Dict[str, Any]]
-        Dictionary to store visualization output paths. Will be updated with the new Venn diagram path.
+        Dictionary to store paths to generated visualizations. If None, a new one is created.
+    **kwargs : Any
+        Additional keyword arguments for visualization functions.
 
     Returns
     -------
@@ -165,6 +176,9 @@ def generate_record_overlap_vis(
         set1_label="Left",
         set2_label="Right",
         title="Record Overlap (Key Fields)",
+        theme=theme,
+        backend=backend,
+        strict=strict,
         **kwargs
     )
     logger.debug("Venn diagram saved to: %s", venn_diagram_result_path)
@@ -230,6 +244,9 @@ def generate_dataset_size_comparison_vis(
     operation_name: str,
     task_dir: Path,
     timestamp: str,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
     **kwargs
 ) -> Dict[str, Any]:
@@ -252,9 +269,16 @@ def generate_dataset_size_comparison_vis(
         Directory path where the output image will be saved.
     timestamp : str
         Timestamp string used to uniquely name the output file.
+    theme : Optional[str]
+        Visualization theme to use.
+    backend : Optional[str]
+        Visualization backend to use.
+    strict : Optional[bool]
+        Whether to enforce strict visualization rules.
     visualization_paths : Optional[Dict[str, Any]]
-        Dictionary storing paths to previously generated visualizations.
-        Will be updated with the new bar chart path if not None.
+        Dictionary to store paths to generated visualizations. If None, a new one is created.
+    **kwargs : Any
+        Additional keyword arguments for visualization functions.
 
     Returns
     -------
@@ -291,6 +315,9 @@ def generate_dataset_size_comparison_vis(
         orientation="v",
         sort_by="key",
         showlegend=False,
+        theme=theme,
+        backend=backend,
+        strict=strict,
         **kwargs
     )
     logger.debug("Bar chart saved to: %s", bar_chart_result_path)
@@ -367,6 +394,9 @@ def generate_field_overlap_vis(
     operation_name: str,
     task_dir: Path,
     timestamp: str,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
     **kwargs
 ) -> Dict[str, Any]:
@@ -387,9 +417,16 @@ def generate_field_overlap_vis(
         Directory where the generated image should be saved.
     timestamp : str
         Timestamp string for uniquely naming the visualization file.
-    visualization_paths : Optional[Dict[str, Any]], optional
-        Dictionary to store the path to generated visualizations. Will be updated with
-        the field overlap Venn diagram path.
+    theme : Optional[str]
+        Visualization theme to use.
+    backend : Optional[str]
+        Visualization backend to use.
+    strict : Optional[bool]
+        Whether to enforce strict visualization rules.
+    visualization_paths : Optional[Dict[str, Any]]
+        Dictionary to store paths to generated visualizations. If None, a new one is created.
+    **kwargs : Any
+        Additional keyword arguments for visualization functions.
 
     Returns
     -------
@@ -418,6 +455,9 @@ def generate_field_overlap_vis(
         set1_label="Left Fields",
         set2_label="Right Fields",
         title="Field Overlap",
+        theme=theme,
+        backend=backend,
+        strict=strict,
         **kwargs
     )
     logger.debug("Field overlap Venn diagram saved to: %s", venn_diagram_result_path)
@@ -496,6 +536,9 @@ def generate_join_type_distribution_vis(
     operation_name: str,
     task_dir: Path,
     timestamp: str,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
     **kwargs
 ) -> Dict[str, Any]:
@@ -520,8 +563,16 @@ def generate_join_type_distribution_vis(
         Directory path where the output pie chart will be saved.
     timestamp : str
         Timestamp string to help uniquely name the output file.
+    theme : Optional[str], optional
+        Visualization theme to use (if any).
+    backend : Optional[str], optional
+        Visualization backend to use (if any).
+    strict : Optional[bool], optional
+        Whether to enforce strict visualization rules.
     visualization_paths : Optional[Dict[str, Any]], optional
         Dictionary to store and return paths to visualization outputs. If None, a new one is created.
+    **kwargs : Any
+        Additional keyword arguments for the pie chart creation function.
 
     Returns
     -------
@@ -555,6 +606,9 @@ def generate_join_type_distribution_vis(
         output_path=join_path,
         title=f"Join Result Distribution ({join_type} join)",
         show_percentages=True,
+        theme=theme,
+        backend=backend,
+        strict=strict,
         **kwargs
     )
     logger.debug("Pie chart saved to: %s", pie_chart_result_path)

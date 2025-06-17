@@ -31,8 +31,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 # Import PAMOLA Core modules
+from pamola_core.common.enum.encryption_mode import EncryptionMode
 from pamola_core.utils.tasks.base_task import BaseTask
-from pamola_core.utils.tasks.task_config import EncryptionMode
 from pamola_core.utils.tasks.task_utils import ensure_secure_directory
 
 # Safe import of utility functions - moved to module level

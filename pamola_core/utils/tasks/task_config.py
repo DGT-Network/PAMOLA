@@ -31,6 +31,7 @@ from typing import Dict, Any, Optional, Union, List, Tuple
 
 import yaml
 
+from pamola_core.common.enum.encryption_mode import EncryptionMode
 from pamola_core.utils.io import read_json, ensure_directory, write_json
 from pamola_core.utils.tasks.path_security import validate_path_security, PathSecurityError
 from pamola_core.utils.tasks.project_config_loader import (
@@ -54,29 +55,6 @@ DEFAULT_CONFIG_DIR = "configs"
 DEFAULT_DATA_REPOSITORY = "DATA"
 DEFAULT_LOG_LEVEL = "INFO"
 ENV_PREFIX = "PAMOLA_"
-
-
-class EncryptionMode(Enum):
-    """
-    Encryption modes supported by the task framework.
-
-    - NONE: No encryption
-    - SIMPLE: Simple symmetric encryption
-    - AGE: Age encryption (more secure, supports key rotation)
-    """
-    NONE = "none"
-    SIMPLE = "simple"
-    AGE = "age"
-
-    @classmethod
-    def from_string(cls, value: str) -> 'EncryptionMode':
-        """Convert string to EncryptionMode enum value."""
-        try:
-            return cls(value.lower())
-        except (ValueError, AttributeError):
-            logger.warning(f"Invalid encryption mode '{value}', defaulting to 'simple'")
-            return cls.SIMPLE
-
 
 class ConfigurationError(Exception):
     """Exception raised for configuration-related errors."""
@@ -1075,7 +1053,8 @@ def load_task_config(
         task_type: str,
         args: Optional[Dict[str, Any]] = None,
         default_config: Optional[Dict[str, Any]] = None,
-        progress_manager: Optional[Any] = None
+        progress_manager: Optional[Any] = None,
+        force_recreate_config_file: Optional[bool] = False
 ) -> 'TaskConfig':
     """
     Load task configuration from project configuration file and override
@@ -1138,7 +1117,7 @@ def load_task_config(
                 task_config_path = project_root / DEFAULT_CONFIG_DIR / f"{task_id}.json"
                 should_bootstrap = True
 
-                if task_config_path.exists():
+                if not force_recreate_config_file and task_config_path.exists():
                     # JSON exists - attempt to load and use it exclusively for this task
                     try:
                         task_specific_config = read_json(task_config_path)
@@ -1265,7 +1244,7 @@ def load_task_config(
             should_bootstrap = True
 
             # Try to load task-specific config JSON
-            if task_config_path.exists():
+            if not force_recreate_config_file and task_config_path.exists():
                 # JSON exists - attempt to load and use it exclusively for this task
                 try:
                     task_specific_config = read_json(task_config_path)

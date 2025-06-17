@@ -10,6 +10,7 @@ from datetime import datetime
 import json
 import logging
 from pathlib import Path
+import time
 from typing import Dict, List, Any, Optional, Union
 
 import pandas as pd
@@ -31,7 +32,7 @@ from pamola_core.utils.io import (
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import OperationArtifact, OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import (
     create_pie_chart,
@@ -39,6 +40,7 @@ from pamola_core.utils.visualization import (
     create_scatter_plot
 )
 from pamola_core.common.constants import Constants
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -61,13 +63,19 @@ class DataAttributeProfilerOperation(BaseOperation):
                  sample_size: int = 10,
                  max_columns: Optional[int] = None,
                  id_column: Optional[str] = None,
-                 include_timestamp: bool = True,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
-                 chunk_size: int = 10000,
                  use_dask: bool = False,
                  use_cache: bool = True,
-                 use_vectorization: bool = False):
+                 use_vectorization: bool = False,
+                 chunk_size: int = 10000,
+                 parallel_processes: int = 1,
+                 npartitions: int = 1,
+                 visualization_theme: Optional[str] = None,
+                 visualization_backend: Optional[str] = None,
+                 visualization_strict: bool = False,
+                 visualization_timeout: int = 120,
+                 encryption_mode: Optional[str] = None):
         """
         Initialize the attribute profiler operation.
 
@@ -88,26 +96,37 @@ class DataAttributeProfilerOperation(BaseOperation):
             Maximum number of columns to analyze (for large datasets)
         id_column : str, optional
             Name of ID column for record-level analysis
-        include_timestamp : bool
-            Whether to include timestamps in filenames
         use_encryption : bool
             Whether to use encryption for output files
         encryption_key : str or Path, optional
             Encryption key for output files
-        chunk_size : int
-            Chunk size for processing large datasets
         use_dask : bool
-            Whether to use Dask for large datasets
+            Whether to use Dask for processing (default: False)
         use_cache : bool
-            Whether to use cache for operation results
-        use_vectorization : bool
-            Whether to use vectorized operations
+            Whether to use operation caching (default: True)
+        use_vectorization : bool, optional
+            Whether to use vectorized (parallel) processing (default: False)
+        chunk_size : int
+            Batch size for processing large datasets (default: 10000)
+        parallel_processes : int, optional
+            Number of processes use with vectorized (parallel) (default: 1)
+        npartitions : int, optional
+            Number of partitions for Dask processing (default: None)
+        visualization_theme : str, optional
+            Theme for visualizations (default: None, uses PAMOLA default)
+        visualization_backend : str, optional
+            Backend for visualizations (default: None, uses PAMOLA default)
+        visualization_strict : bool, optional
+            Whether to enforce strict visualization rules (default: False)
+        visualization_timeout : int, optional
+            Timeout for visualization generation in seconds (default: 120)
         """
         super().__init__(
             name=name,
             description=description,
             use_encryption=use_encryption,
-            encryption_key=encryption_key
+            encryption_key=encryption_key,
+            encryption_mode=encryption_mode
         )
         # Store configuration parameters
         self.dictionary_path = dictionary_path
@@ -115,12 +134,17 @@ class DataAttributeProfilerOperation(BaseOperation):
         self.sample_size = sample_size
         self.max_columns = max_columns
         self.id_column = id_column
-        self.include_timestamp = include_timestamp
-        self.chunk_size = chunk_size
         self.use_dask = use_dask
-        self.include_timestamp = include_timestamp
         self.use_cache = use_cache
         self.use_vectorization = use_vectorization
+        self.chunk_size = chunk_size
+        self.parallel_processes = parallel_processes
+        self.npartitions = npartitions
+
+        self.visualization_theme = visualization_theme
+        self.visualization_backend = visualization_backend
+        self.visualization_strict = visualization_strict
+        self.visualization_timeout = visualization_timeout
 
     def execute(self,
                 data_source: DataSource,
@@ -147,10 +171,14 @@ class DataAttributeProfilerOperation(BaseOperation):
             Additional parameters:
                 - npartitions: Number of partitions for Dask
                 - force_recalculation: bool - Skip cache check
+                - include_timestamp : bool - Whether to include timestamps in output filenames
 
         Returns:
             OperationResult: Detailed results of the attribute profiling operation
         """
+        if kwargs.get('logger'):
+            self.logger = kwargs['logger']
+            
         # Extract operation parameters with fallback to default values
         dataset_name = kwargs.get('dataset_name', "main")
         dictionary_path = kwargs.get('dictionary_path', self.dictionary_path)
@@ -158,14 +186,19 @@ class DataAttributeProfilerOperation(BaseOperation):
         sample_size = kwargs.get('sample_size', self.sample_size)
         max_columns = kwargs.get('max_columns', self.max_columns)
         id_column = kwargs.get('id_column', self.id_column)
-        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        include_timestamp = kwargs.get('include_timestamp', True)
         encryption_key = kwargs.get('encryption_key', self.encryption_key)
-        use_dask = kwargs.get('use_dask', self.use_dask)
-        use_vectorization= kwargs.get('use_dask', self.use_vectorization)
-        chunk_size = kwargs.get('chunk_size', self.chunk_size)
+        self.use_dask = kwargs.get('use_dask', self.use_dask)
+        self.use_vectorization= kwargs.get('use_dask', self.use_vectorization)
+        self.chunk_size = kwargs.get('chunk_size', self.chunk_size)
+        self.parallel_processes = kwargs.get("parallel_processes", self.parallel_processes)
+        npartitions = kwargs.get('npartitions', self.npartitions)
         force_recalculation = kwargs.get("force_recalculation", False)
-        parallel_processes = kwargs.get("parallel_processes", 1)
-        npartitions = kwargs.get('npartitions', 1)
+
+        self.visualization_theme = kwargs.get("visualization_theme", self.visualization_theme)
+        self.visualization_backend = kwargs.get("visualization_backend", self.visualization_backend)
+        self.visualization_strict = kwargs.get("visualization_strict", self.visualization_strict)
+        self.visualization_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
 
         # Prepare output directories for artifacts
         dirs = self._prepare_directories(task_dir)
@@ -192,7 +225,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Checking Cache"})
 
-            self.logger.info("Checking operation cache...")
+            logger.info("Checking operation cache...")
             cache_result = self._check_cache(data_source, dataset_name, **kwargs)
 
             if cache_result:
@@ -221,7 +254,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                 )
 
             # Log initial dataset information
-            logger.info(f"Starting attribute profiling on DataFrame with {len(df)} rows and {len(df.columns)} columns")
+            self.logger.info(f"Starting attribute profiling on DataFrame with {len(df)} rows and {len(df.columns)} columns")
 
             # Report operation details
             if reporter:
@@ -241,23 +274,23 @@ class DataAttributeProfilerOperation(BaseOperation):
             dictionary = load_attribute_dictionary(dictionary_path)
 
             # Log attribute analysis start
-            logger.info("Analyzing dataset attributes")
+            self.logger.info("Analyzing dataset attributes")
             
             total_rows = len(df)
-            is_large_df = total_rows > chunk_size
+            is_large_df = total_rows > self.chunk_size
             # Analyzer processes entire dataset, so bypass parallel and chunked processing
             if self.use_dask and is_large_df:
-                # TODO: Implement Dask-based processing for large datasets
-                logger.warning("Dask processing not yet implemented, falling back to normal processing")
+                # TODO: Implement Dask-based processing
+                self.logger.warning("Dask processing not yet implemented, falling back to normal processing")
                 pass
-            # Chunked processing with vectorization and parallel processing
-            if use_vectorization and parallel_processes > 1:
-                # TODO: Implement parallel vectorized processing
-                logger.warning("Parallel vectorized processing not yet implemented, falling back to normal processing")
+            
+            if self.use_vectorization and self.parallel_processes > 1:
+                # TODO: Implement joblib
+                self.logger.warning("Joblib vectorized processing not yet implemented, falling back to normal processing")
                 pass
-            elif use_vectorization and not use_dask:
-                # TODO: Implement vectorized processing without Dask
-                logger.warning("Vectorized processing not yet implemented, falling back to normal processing")
+            elif self.use_vectorization and not self.use_dask:
+                # TODO: Implement chunk
+                self.logger.warning("Vectorized processing not yet implemented, falling back to normal processing")
                 pass
 
             # Perform comprehensive attribute analysis
@@ -278,7 +311,8 @@ class DataAttributeProfilerOperation(BaseOperation):
             # Save attribute roles to JSON
             roles_filename = get_timestamped_filename("attribute_roles", "json", include_timestamp)
             roles_path = output_dir / roles_filename
-            write_json(analysis_results, roles_path, encryption_key=encryption_key)
+            encryption_mode_analysis = get_encryption_mode(analysis_results, **kwargs)
+            write_json(analysis_results, roles_path, encryption_key=encryption_key, encryption_mode=encryption_mode_analysis)
 
             # Register artifacts
             result.add_artifact("json", roles_path, "Attribute roles analysis", category=Constants.Artifact_Category_Output)
@@ -307,7 +341,8 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             if entropy_data:
                 entropy_df = pd.DataFrame(entropy_data)
-                write_dataframe_to_csv(entropy_df, entropy_path, encryption_key=encryption_key)
+                encryption_mode_entropy = get_encryption_mode(entropy_df, **kwargs)
+                write_dataframe_to_csv(entropy_df, entropy_path, encryption_key=encryption_key, encryption_mode=encryption_mode_entropy)
                 result.add_artifact("csv", entropy_path, "Attribute entropy and uniqueness", category=Constants.Artifact_Category_Output)
                 
                 if reporter:
@@ -327,7 +362,8 @@ class DataAttributeProfilerOperation(BaseOperation):
                 if "statistics" in col_data and "samples" in col_data["statistics"]
             }
 
-            write_json(sample_data, sample_path, encryption_key=encryption_key)
+            encryption_mode_sample_data = get_encryption_mode(sample_data, **kwargs)
+            write_json(sample_data, sample_path, encryption_key=encryption_key, encryption_mode=encryption_mode_sample_data)
             result.add_artifact("json", sample_path, "Attribute sample values", category=Constants.Artifact_Category_Dictionary)
             if reporter:
                 reporter.add_artifact("json", str(sample_path), "Attribute sample values")
@@ -347,18 +383,19 @@ class DataAttributeProfilerOperation(BaseOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Creating Visualizations"})
 
-            self._create_visualizations(
-                analysis_results,
-                visualizations_dir,
-                include_timestamp,
-                result,
-                reporter,
-                **kwargs_encryption
-            )
-
-            # Update progress
-            if progress_tracker:
-                progress_tracker.update(1, {"step": "Creating visualizations"})
+            self._handle_visualizations(
+                    analysis_results = analysis_results,
+                    vis_dir = visualizations_dir,
+                    include_timestamp = include_timestamp,
+                    result = result,
+                    reporter = reporter,
+                    vis_theme = self.visualization_theme,
+                    vis_backend = self.visualization_backend,
+                    vis_strict = self.visualization_strict,
+                    vis_timeout = self.visualization_timeout,
+                    progress_tracker = progress_tracker,
+                    **kwargs_encryption
+                )
 
             # Process quasi-identifiers
             quasi_identifiers = analysis_results["column_groups"]["QUASI_IDENTIFIER"]
@@ -368,8 +405,9 @@ class DataAttributeProfilerOperation(BaseOperation):
 
                 quasi_filename = get_timestamped_filename("quasi_identifiers", "json", include_timestamp)
                 quasi_path = output_dir / quasi_filename
-
-                write_json({"quasi_identifiers": quasi_identifiers}, quasi_path, encryption_key=encryption_key)
+                
+                encryption_mode_quasi_identifier = get_encryption_mode(quasi_identifiers, **kwargs)
+                write_json({"quasi_identifiers": quasi_identifiers}, quasi_path, encryption_key=encryption_key, encryption_mode=encryption_mode_quasi_identifier)
                 result.add_artifact("json", quasi_path, "Quasi-identifiers list", category=Constants.Artifact_Category_Metrics)
                 if reporter:
                     reporter.add_artifact("json", str(quasi_path), "Quasi-identifiers list")
@@ -422,7 +460,7 @@ class DataAttributeProfilerOperation(BaseOperation):
 
         except Exception as e:
             # Comprehensive error handling
-            logger.exception(f"Error in attribute profiling operation: {e}")
+            self.logger.exception(f"Error in attribute profiling operation: {e}")
 
             if progress_tracker:
                 progress_tracker.update(0, {"step": "Error", "error": str(e)})
@@ -471,6 +509,9 @@ class DataAttributeProfilerOperation(BaseOperation):
                                include_timestamp: bool,
                                result: OperationResult,
                                reporter: Any,
+                               visualization_theme: Optional[str] = None,
+                               visualization_backend: Optional[str] = None,
+                               visualization_strict: bool = False,
                                **kwargs):
         """
         Create visualizations for attribute profiling.
@@ -487,6 +528,12 @@ class DataAttributeProfilerOperation(BaseOperation):
             Operation result to add artifacts to
         reporter : Any
             Reporter to add artifacts to
+        visualization_theme : str, optional
+            Theme to use for visualizations
+        visualization_backend : str, optional
+            Backend to use: "plotly" or "matplotlib"
+        visualization_strict : bool, optional
+            If True, raise exceptions for configuration errors
         """
         try:
             # 1. Create attribute role pie chart
@@ -503,6 +550,9 @@ class DataAttributeProfilerOperation(BaseOperation):
                     title="Attribute Role Distribution",
                     show_percentages=True,
                     hole=0.3,  # Create a donut chart
+                    theme=visualization_theme,
+                    backend=visualization_backend,
+                    strict=visualization_strict,
                     **kwargs
                 )
 
@@ -548,6 +598,9 @@ class DataAttributeProfilerOperation(BaseOperation):
                     #color=df_entropy["role"].map(color_map),
                     text=df_entropy["column_name"],
                     add_trendline=False,
+                    theme=self.visualization_theme,
+                    backend=self.visualization_backend,
+                    strict=self.visualization_strict,
                     **kwargs
                 )
 
@@ -573,6 +626,9 @@ class DataAttributeProfilerOperation(BaseOperation):
                     orientation="h",
                     x_label="Count",
                     y_label="Data Type",
+                    theme=self.visualization_theme,
+                    backend=self.visualization_backend,
+                    strict=self.visualization_strict,
                     **kwargs
                 )
 
@@ -581,7 +637,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                     reporter.add_artifact("png", str(types_path), "Inferred data type distribution")
 
         except Exception as e:
-            logger.error(f"Error creating visualizations: {e}", exc_info=True)
+            self.logger.error(f"Error creating visualizations: {e}", exc_info=True)
             reporter.add_operation("Creating visualizations", status="warning",
                                    details={"warning": f"Error creating some visualizations: {str(e)}"})
         
@@ -616,7 +672,8 @@ class DataAttributeProfilerOperation(BaseOperation):
             from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 self.logger.warning("No valid DataFrame found in data source")
                 return None
@@ -671,7 +728,7 @@ class DataAttributeProfilerOperation(BaseOperation):
     def _save_to_cache(
             self,
             original_df: pd.DataFrame,
-            artifacts: List[Any],
+            artifacts: List[OperationArtifact],
             metrics: Dict[str, Any],
             task_dir: Path
     ) -> bool:
@@ -694,7 +751,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         bool
             True if successfully saved to cache, False otherwise
         """
-        if not self.use_cache:
+        if not self.use_cache or (not artifacts and not metrics):
             return False
 
         try:
@@ -835,3 +892,199 @@ class DataAttributeProfilerOperation(BaseOperation):
             json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
 
         return hashlib.md5(json_str.encode()).hexdigest()
+
+    
+    def _handle_visualizations(
+            self,
+            analysis_results: Dict[str, Any],
+            vis_dir: Path,
+            include_timestamp: bool,
+            result: OperationResult,
+            reporter: Any,
+            vis_theme: Optional[str] = None,
+            vis_backend: Optional[str] = None,
+            vis_strict: bool = False,
+            vis_timeout: int = 120,
+            progress_tracker: Optional[HierarchicalProgressTracker] = None,
+            **kwargs
+    ) -> Dict[str, Path]:
+        """
+        Generate and save visualizations.
+
+        Parameters:
+        -----------
+        analysis_results : Dict[str, Any]
+            Results of attribute analysis
+        vis_dir : Path
+            The task directory
+        include_timestamp : bool
+            Whether to include a timestamp in output filenames.
+        result : OperationResult
+            The operation result to add artifacts to
+        reporter : Any
+            The reporter to log artifacts to
+        vis_theme : str, optional
+            Theme to use for visualizations
+        vis_backend : str, optional
+            Backend to use: "plotly" or "matplotlib"
+        vis_strict : bool, optional
+            If True, raise exceptions for configuration errors
+        vis_timeout : int, optional
+            Timeout for visualization generation (default: 120 seconds)
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Optional progress tracker
+
+        Returns:
+        --------
+        Dict[str, Path]
+            Dictionary with visualization types and paths
+        """
+        if progress_tracker:
+            progress_tracker.update(0, {"step": "Generating visualizations"})
+
+        logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+
+        try:
+            import threading
+            import contextvars
+
+            visualization_paths = {}
+            visualization_error = None
+
+            def generate_viz_with_diagnostics():
+                nonlocal visualization_paths, visualization_error
+                thread_id = threading.current_thread().ident
+                thread_name = threading.current_thread().name
+
+                logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
+                logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+
+                start_time = time.time()
+
+                try:
+                    # Log context variables
+                    logger.info(f"[DIAG] Checking context variables...")
+                    try:
+                        current_context = contextvars.copy_context()
+                        logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                    except Exception as ctx_e:
+                        logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+
+                    # Generate visualizations with visualization context parameters
+                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    # Create child progress tracker for visualization if available
+                    total_steps = 3  # prepare data, create viz, save
+                    viz_progress = None
+                    if progress_tracker and hasattr(progress_tracker, "create_subtask"):
+                        try:
+                            viz_progress = progress_tracker.create_subtask(
+                                total=total_steps,
+                                description="Generating visualizations",
+                                unit="steps",
+                            )
+                        except Exception as e:
+                            logger.debug(f"Could not create child progress tracker: {e}")
+
+                    # Generate visualizations
+                    self._create_visualizations(
+                        analysis_results,
+                        vis_dir,
+                        include_timestamp,
+                        result,
+                        reporter,
+                        vis_theme,
+                        vis_backend,
+                        vis_strict,
+                        **kwargs
+                    )
+                    # self._create_visualizations(
+                    #     ka_metrics,
+                    #     field_uniqueness,
+                    #     field_combinations,
+                    #     vis_dir,
+                    #     include_timestamp,
+                    #     result,
+                    #     reporter,
+                    #     vis_theme,
+                    #     vis_backend,
+                    #     vis_strict,
+                    #     **kwargs
+                    # )
+
+                    # Close visualization progress tracker
+                    if viz_progress:
+                        try:
+                            viz_progress.close()
+                        except:
+                            pass
+
+                    elapsed = time.time() - start_time
+                    logger.info(
+                        f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
+                    )
+                except Exception as e:
+                    elapsed = time.time() - start_time
+                    visualization_error = e
+                    logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+
+            # Copy context for the thread
+            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            ctx = contextvars.copy_context()
+
+            # Create thread with context
+            viz_thread = threading.Thread(
+                target=ctx.run,
+                args=(generate_viz_with_diagnostics,),
+                name=f"VizThread-",
+                daemon=False,  # Changed from True to ensure proper cleanup
+            )
+
+            logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            thread_start_time = time.time()
+            viz_thread.start()
+
+            # Log periodic status while waiting
+            check_interval = 5  # seconds
+            elapsed = 0
+            while viz_thread.is_alive() and elapsed < vis_timeout:
+                viz_thread.join(timeout=check_interval)
+                elapsed = time.time() - thread_start_time
+                if viz_thread.is_alive():
+                    logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+
+            if viz_thread.is_alive():
+                logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
+                logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                visualization_paths = {}
+            elif visualization_error:
+                logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                visualization_paths = {}
+            else:
+                total_time = time.time() - thread_start_time
+                logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
+                logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+        except Exception as e:
+            logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            visualization_paths = {}
+
+        # Register visualization artifacts
+        for viz_type, path in visualization_paths.items():
+            # Add to result
+            result.add_artifact(
+                artifact_type="png",
+                path=path,
+                description=f"{viz_type} visualization",
+                category=Constants.Artifact_Category_Visualization
+            )
+
+            # Report to reporter
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="png",
+                    path=str(path),
+                    description=f"{viz_type} visualization"
+                )
+
+        return visualization_paths

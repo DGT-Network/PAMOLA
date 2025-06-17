@@ -6,6 +6,8 @@ with support for entity extraction, semantic categorization, and clustering.
 """
 
 import json
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union, Tuple
 
@@ -13,6 +15,8 @@ import pandas as pd
 
 from pamola_core.profiling.commons.text_utils import (
     analyze_null_and_empty,
+    analyze_null_and_empty_in_chunks_joblib,
+    analyze_null_and_empty_in_chunks_dask,
     calculate_length_stats
 )
 from pamola_core.utils.io import (
@@ -34,13 +38,14 @@ from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import (
     create_pie_chart,
     create_bar_plot,
     plot_text_length_distribution
 )
 from pamola_core.common.constants import Constants
+from pamola_core.profiling.commons.helpers import filter_used_kwargs
 # Configure logger
 logger = get_logger(__name__)
 
@@ -68,13 +73,22 @@ class TextSemanticCategorizerOperation(FieldOperation):
                  perform_categorization: bool = True,
                  perform_clustering: bool = True,
                  match_strategy: str = "specific_first",
+                 visualization_theme: Optional[str] = None,
+                 visualization_backend: Optional[str] = None,
+                 visualization_strict: bool = False,
+                 visualization_timeout: int = 120,
                  chunk_size: int = 10000,
+                 use_dask: bool = False,
+                 npartitions: int = 2,
+                 use_vectorization: bool = False,
+                 parallel_processes: int = 2,
                  use_cache: bool = True,
                  cache_dir: Optional[Path] = None,
                  include_timestamp: Any = None,
                  description: str = "",
                  use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None):
+                 encryption_key: Optional[Union[str, Path]] = None,
+                 encryption_mode: Optional[str] = None):
         """
         Initialize the text semantic categorizer operation.
 
@@ -99,8 +113,24 @@ class TextSemanticCategorizerOperation(FieldOperation):
         match_strategy : str
             Strategy for resolving category conflicts:
             "specific_first" (default), "domain_prefer", "alias_only", "user_override"
+        visualization_theme : str, optional
+            Theme to use for visualizations (default: None - uses system default)
+        visualization_backend : str, optional
+            Backend to use for visualizations: "plotly" or "matplotlib" (default: None - uses system default)
+        visualization_strict : bool, optional
+            If True, raise exceptions for visualization config errors (default: False)
+        visualization_timeout : int, optional
+            Timeout in seconds for visualization generation (default: 120)
         chunk_size : int
             Size of data chunks for processing large datasets
+        use_dask : bool, optional
+            Whether to use Dask for processing (default: False).
+        npartitions : int, optional
+            Number of partitions use with Dask (default: 1).
+        use_vectorization : bool, optional
+            Whether to use vectorized (parallel) processing (default: False).
+        parallel_processes : int, optional
+            Number of processes use with vectorized (parallel) (default: 1).
         use_cache : bool
             Whether to use caching for intermediate results
         cache_dir : Path, optional
@@ -112,7 +142,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
             field_name=field_name,
             description=description or f"Semantic categorization of text field '{field_name}'",
             use_encryption=use_encryption,
-            encryption_key=encryption_key
+            encryption_key=encryption_key,
+            encryption_mode=encryption_mode
         )
         self.entity_type = entity_type
         self.dictionary_path = dictionary_path
@@ -122,16 +153,31 @@ class TextSemanticCategorizerOperation(FieldOperation):
         self.perform_categorization = perform_categorization
         self.perform_clustering = perform_clustering
         self.match_strategy = match_strategy
+        self.visualization_theme = visualization_theme
+        self.visualization_backend = visualization_backend
+        self.visualization_strict = visualization_strict
+        self.visualization_timeout = visualization_timeout
         self.chunk_size = chunk_size
+        self.use_dask = use_dask
+        self.npartitions = npartitions
+        self.use_vectorization = use_vectorization
+        self.parallel_processes = parallel_processes
         self.use_cache = use_cache
         self.cache_dir = cache_dir
         self.include_timestamp = include_timestamp
+
+        # Set up performance tracking variables
+        self.is_encryption_required = False
+        self.start_time = None
+        self.end_time = None
+        self.execution_time = 0
+        self.process_count = 0
 
     def execute(self,
                 data_source: DataSource,
                 task_dir: Path,
                 reporter: Any,
-                progress_tracker: Optional[ProgressTracker] = None,
+                progress_tracker: Optional[HierarchicalProgressTracker] = None,
                 **kwargs) -> OperationResult:
         """
         Execute the text semantic categorization operation.
@@ -144,22 +190,64 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : ProgressTracker, optional
+        progress_tracker : HierarchicalProgressTracker, optional
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for customizing the operation
+            - dataset_name: str - Name of dataset - main
+            - force_recalculation: bool - Force operation even if cached results exist - False
+            - use_dask: bool - Use Dask for large dataset processing - False
+            - parallel_processes: int - Number of parallel processes to use - 1
+            - generate_visualization: bool - Create visualizations - True
+            - include_timestamp: bool - Include timestamp in filenames - True
+            - save_output: bool - Save processed data to output directory - True
+            - encrypt_output: bool - Override encryption setting for outputs - False
+            - visualization_theme: str - Override theme for visualizations - None
+            - visualization_backend: str - Override backend for visualizations - None
+            - visualization_strict: bool - Override strict mode for visualizations - False
+            - visualization_timeout: int - Override timeout for visualizations - 120
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-        # Initialize result with success status
-        global cache_key
-        result = OperationResult(status=OperationStatus.SUCCESS)
-        encryption_key = kwargs.get('encryption_key', None)
+        global logger
+        if kwargs.get("logger"):
+            logger = kwargs.get("logger")
 
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.process_count = 0
+            result = OperationResult(status=OperationStatus.SUCCESS)
+
+            # Decompose kwargs and introduce variables for clarity
+            force_recalculation = kwargs.get("force_recalculation", False)
+            use_dask = kwargs.get("use_dask", self.use_dask)
+            parallel_processes = kwargs.get("parallel_processes", 1)
+            generate_visualization = kwargs.get("generate_visualization", True)
+            include_timestamp = kwargs.get("include_timestamp", True)
+            save_output = kwargs.get("save_output", True)
+            is_encryption_required = (kwargs.get("encrypt_output", False) or self.use_encryption)
+            encryption_key = kwargs.get('encryption_key', None)
+
+            self.use_dask = use_dask
+            self.parallel_processes = parallel_processes
+            self.include_timestamp = include_timestamp
+            self.is_encryption_required = is_encryption_required
+
+            # Extract visualization parameters
+            self.visualization_theme = kwargs.get("visualization_theme", self.visualization_theme)
+            self.visualization_backend = kwargs.get("visualization_backend", self.visualization_backend)
+            self.visualization_strict = kwargs.get("visualization_strict", self.visualization_strict)
+            self.visualization_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
+
+            logger.info(
+                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
+                f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
+            )
+
             # Update progress if tracker provided
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Initialization", "field": self.field_name})
@@ -193,9 +281,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
             })
 
             # Check for cached results if caching is enabled
-            if self.use_cache:
-                cache_key = self._get_cache_key(data_source, task_dir)
-                cached_result = self._load_cache(cache_key, self.cache_dir)
+            if self.use_cache and not force_recalculation:
+                cached_result = self._check_cache(df, reporter, task_dir, **kwargs)
                 if cached_result:
                     logger.info(f"Using cached results for {self.field_name}")
 
@@ -203,28 +290,16 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     if progress_tracker:
                         progress_tracker.update(5, {"step": "Loaded from cache", "field": self.field_name})
 
-                    # Generate visualizations from cached results
-                    self._generate_visualizations(
-                        cached_result,
-                        dirs['visualizations'],
-                        params["include_timestamp"],
-                        result,
-                        reporter,
-                        **kwargs
-                    )
-
-                    # Add metrics from cached result
-                    for key, value in cached_result.get("metrics", {}).items():
-                        result.add_metric(key, value)
-
-                    return result
+                    return cached_result
 
             # Update progress
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Basic text analysis", "field": self.field_name})
 
             # Step 1: Perform basic text analysis (always executed)
-            basic_analysis = self._perform_basic_analysis(df, self.field_name, params["chunk_size"])
+            basic_analysis = self._perform_basic_analysis(df, self.field_name, params["chunk_size"],
+                                                          self.use_dask,self.npartitions,
+                                                          self.use_vectorization,self.parallel_processes)
 
             # Get text values and record IDs
             text_values, record_ids = self._extract_text_and_ids(df, self.field_name, params.get("id_field"))
@@ -249,7 +324,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     params["match_strategy"],
                     params["use_ner"],
                     params["perform_clustering"],
-                    params["clustering_threshold"]
+                    params["clustering_threshold"],
+                    self.chunk_size,
+                    self.use_dask,
+                    self.npartitions,
+                    self.use_vectorization,
+                    self.parallel_processes
                 )
 
             # Update progress
@@ -263,12 +343,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 self.field_name
             )
 
-            # Cache results if caching is enabled
-            if self.use_cache:
-                self._save_cache(analysis_results, cache_key, self.cache_dir, encryption_key=encryption_key)
-
             # Save main artifacts
-            self._save_main_artifacts(
+            analysis_result_path = self._save_main_artifacts(
                 analysis_results,
                 dirs,
                 params["include_timestamp"],
@@ -277,8 +353,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
             )
 
             # Save categorization artifacts if categorization was performed
+            categorization_result_paths = []
             if params["perform_categorization"]:
-                self._save_categorization_artifacts(
+                categorization_result_paths = self._save_categorization_artifacts(
                     categorization_results,
                     record_ids,
                     text_values,
@@ -289,24 +366,46 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 )
 
             # Generate visualizations
-            self._generate_visualizations(
-                analysis_results,
-                dirs['visualizations'],
-                params["include_timestamp"],
-                result,
-                reporter,
-                **kwargs
-            )
+            visualization_paths = []
+            if generate_visualization and self.visualization_backend is not None:
+                safe_kwargs = filter_used_kwargs(kwargs, self._handle_visualizations)
+                visualization_paths = self._handle_visualizations(
+                    analysis_results=analysis_results,
+                    visualizations_dir=dirs['visualizations'],
+                    include_timestamp=params["include_timestamp"],
+                    result=result,
+                    reporter=reporter,
+                    vis_theme=self.visualization_theme,
+                    vis_backend=self.visualization_backend,
+                    vis_strict=self.visualization_strict,
+                    vis_timeout=self.visualization_timeout,
+                    progress_tracker=progress_tracker,
+                    **safe_kwargs
+                )
 
             # Add metrics to result
             self._add_metrics_to_result(analysis_results, result)
+
+            # Cache results if caching is enabled
+            if self.use_cache:
+                self._save_to_cache(
+                    df=df,
+                    analysis_results=analysis_results,
+                    analysis_result_path=analysis_result_path,
+                    categorization_result_paths=categorization_result_paths,
+                    visualization_paths=visualization_paths,
+                    task_dir=task_dir
+                )
 
             # Update progress
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Completed", "field": self.field_name})
 
-            return result
+            self.end_time = time.time()
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
+            return result
         except Exception as e:
             logger.exception(f"Error in text semantic categorization for {self.field_name}: {e}")
 
@@ -497,6 +596,309 @@ class TextSemanticCategorizerOperation(FieldOperation):
             logger.warning(f"Failed to save cache to {cache_file}: {e}")
             return False
 
+    def _check_cache(
+            self,
+            df: pd.DataFrame,
+            reporter: Any,
+            task_dir: Path,
+            **kwargs
+    ) -> Optional[OperationResult]:
+        """
+        Check if a cached result exists for operation.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            Input data for the operation
+        reporter : Any
+            The reporter to log artifacts to
+        task_dir : Path
+            Task directory
+
+        Returns:
+        --------
+        Optional[OperationResult]
+            Cached result if found, None otherwise
+        """
+        if not self.use_cache:
+            return None
+
+        try:
+            # Import and get global cache manager
+            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
+
+            operation_cache_dir = OperationCache(cache_dir=task_dir/"cache")
+
+            # Generate cache key
+            cache_key = self._generate_cache_key(df)
+
+            # Check for cached result
+            logger.debug(f"Checking cache for key: {cache_key}")
+            cached_data = operation_cache_dir.get_cache(
+                cache_key=cache_key,
+                operation_type=self.__class__.__name__
+            )
+
+            if cached_data:
+                logger.info(f"Using cached result.")
+
+                # Create result object from cached data
+                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+
+                # Restore artifacts from cache
+                artifacts_restored = 0
+
+                # Add analysis result path
+                analysis_result_path = cached_data.get("analysis_result_path")
+                if analysis_result_path and isinstance(analysis_result_path, dict):
+                    if Path(analysis_result_path.get("path")).exists():
+                        artifacts_restored += 1
+                        self._create_and_register_artifact(
+                            artifact_type=analysis_result_path.get("artifact_type"),
+                            path=analysis_result_path.get("path"),
+                            description=analysis_result_path.get("description"),
+                            result=cached_result,
+                            reporter=reporter,
+                            category=analysis_result_path.get("category")
+                        )
+
+                # Add categorization result paths
+                categorization_result_paths = cached_data.get("categorization_result_paths", [])
+                for categorization_result_path in categorization_result_paths:
+                    if categorization_result_path and isinstance(categorization_result_path, dict):
+                        if Path(categorization_result_path.get("path")).exists():
+                            artifacts_restored += 1
+                            self._create_and_register_artifact(
+                                artifact_type=categorization_result_path.get("artifact_type"),
+                                path=categorization_result_path.get("path"),
+                                description=categorization_result_path.get("description"),
+                                result=cached_result,
+                                reporter=reporter,
+                                category=categorization_result_path.get("category")
+                            )
+
+                # Add categorization result paths
+                visualization_paths = cached_data.get("visualization_paths", [])
+                for visualization_path in visualization_paths:
+                    if visualization_path and isinstance(visualization_path, dict):
+                        if (Path(visualization_path.get("path")).exists()
+                                and visualization_path.get("is_create_and_register_artifact")):
+                            artifacts_restored += 1
+                            self._create_and_register_artifact(
+                                artifact_type=visualization_path.get("artifact_type"),
+                                path=visualization_path.get("path"),
+                                description=visualization_path.get("description"),
+                                result=cached_result,
+                                reporter=reporter,
+                                category=visualization_path.get("category")
+                            )
+
+                # Add cached metrics to result
+                analysis_results = cached_data.get("analysis_results")
+                self._add_metrics_to_result(analysis_results, cached_result)
+
+                # Add cache information to result
+                cached_result.add_metric("cached", True)
+                cached_result.add_metric("cache_key", cache_key)
+                cached_result.add_metric("cache_timestamp", cached_data.get("timestamp", "unknown"))
+                cached_result.add_metric("artifacts_restored", artifacts_restored)
+
+                return cached_result
+
+            logger.debug(f"No cache found for key: {cache_key}")
+            return None
+        except Exception as e:
+            logger.warning(f"Error checking cache: {str(e)}")
+            return None
+
+    def _save_to_cache(
+            self,
+            df: pd.DataFrame,
+            analysis_results: Dict[str, Any],
+            analysis_result_path: Dict[str, str],
+            categorization_result_paths: List[Dict[str, str]],
+            visualization_paths: List[Dict[str, str]],
+            task_dir: Path
+    ) -> bool:
+        """
+        Save operation results to cache.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            Input data for the operation
+        analysis_results : dict
+            Analysis results to cache
+        analysis_result_path : dict
+            Analysis result path
+        categorization_result_paths : list of dict
+            Categorization result paths
+        visualization_paths : list of dict
+            Visualizations paths
+        task_dir : Path
+            Task directory
+
+        Returns:
+        --------
+        bool
+            True if successfully saved to cache, False otherwise
+        """
+        if not self.use_cache:
+            return False
+
+        try:
+            # Import and get global cache manager
+            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
+
+            # Generate operation cache
+            operation_cache_dir = OperationCache(cache_dir=task_dir/"cache")
+
+            # Generate cache key
+            cache_key = self._generate_cache_key(df)
+
+            # Prepare metadata for cache
+            operation_parameters = self._get_operation_parameters()
+
+            cache_data = {
+                "timestamp": datetime.now().isoformat(),
+                "parameters": operation_parameters,
+                "analysis_results": analysis_results,
+                "analysis_result_path": analysis_result_path,
+                "categorization_result_paths": categorization_result_paths,
+                "visualization_paths": visualization_paths,
+                "data_info": {
+                    "df_length": len(df)
+                }
+            }
+
+            # Save to cache
+            logger.debug(f"Saving to cache with key: {cache_key}")
+            success = operation_cache_dir.save_cache(
+                data=cache_data,
+                cache_key=cache_key,
+                operation_type=self.__class__.__name__,
+                metadata={"task_dir": str(task_dir)}
+            )
+
+            if success:
+                logger.info(f"Successfully saved results to cache")
+            else:
+                logger.warning(f"Failed to save results to cache")
+
+            return success
+        except Exception as e:
+            logger.warning(f"Error saving to cache: {str(e)}")
+            return False
+
+    def _generate_cache_key(
+            self,
+            df: pd.DataFrame
+    ) -> str:
+        """
+        Generate a deterministic cache key based on operation parameters and data characteristics.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            Input data for the operation
+
+        Returns:
+        --------
+        str
+            Unique cache key
+        """
+        from pamola_core.utils.ops.op_cache import operation_cache
+
+        # Get operation parameters
+        parameters = self._get_operation_parameters()
+
+        # Generate data hash based on key characteristics
+        data_hash = self._generate_data_hash(df)
+
+        # Use the operation_cache utility to generate a consistent cache key
+        return operation_cache.generate_cache_key(
+            operation_name=self.__class__.__name__,
+            parameters=parameters,
+            data_hash=data_hash
+        )
+
+    def _get_operation_parameters(
+            self
+    ) -> Dict[str, Any]:
+        """
+        Get operation parameters for cache key generation.
+
+        Returns:
+        --------
+        Dict[str, Any]
+            Parameters for cache key generation
+        """
+        # Get basic operation parameters
+        parameters = {
+            "field_name": self.field_name,
+            "entity_type": self.entity_type,
+            "dictionary_path": self.dictionary_path,
+            "min_word_length": self.min_word_length,
+            "clustering_threshold": self.clustering_threshold,
+            "use_ner": self.use_ner,
+            "perform_categorization": self.perform_categorization,
+            "perform_clustering": self.perform_clustering,
+            "match_strategy": self.match_strategy,
+            "version": self.version
+        }
+
+        # Add operation-specific parameters
+        parameters.update(self._get_cache_parameters())
+
+        return parameters
+
+    def _get_cache_parameters(
+            self
+    ) -> Dict[str, Any]:
+        """
+        Get operation-specific parameters for cache key generation.
+
+        Returns:
+        --------
+        Dict[str, Any]
+            Parameters for cache key generation
+        """
+        return {}
+
+    def _generate_data_hash(
+            self,
+            df: pd.DataFrame
+    ) -> str:
+        """
+        Generate a hash representing the key characteristics of the data.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            Input data for the operation
+
+        Returns:
+        --------
+        str
+            Hash string representing the data
+        """
+        import json
+        import hashlib
+
+        try:
+            # Create data characteristics
+            characteristics = df.describe(include="all")
+
+            # Convert to JSON string and hash
+            json_str = characteristics.to_json(date_format='iso')
+        except Exception as e:
+            logger.warning(f"Error generating data hash: {str(e)}")
+
+            # Fallback to a simple hash of the data length and type
+            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
+
+        return hashlib.md5(json_str.encode()).hexdigest()
+
     def _extract_text_and_ids(self, df: pd.DataFrame, field_name: str, id_field: Optional[str]) -> Tuple[
         List[str], List[str]]:
         """
@@ -527,8 +929,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         return text_values, record_ids
 
-    def _perform_basic_analysis(self, df: pd.DataFrame, field_name: str, chunk_size: Optional[int] = None) -> Dict[
-        str, Any]:
+    def _perform_basic_analysis(self, df: pd.DataFrame, field_name: str, chunk_size: Optional[int] = None,
+                                use_dask: bool = False, npartitions: int = 2,
+                                use_vectorization: bool = False,parallel_processes: int = 2
+    ) -> Dict[str, Any]:
         """
         Perform basic analysis of text field.
 
@@ -547,7 +951,72 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Results of basic analysis
         """
         # Basic text analysis
-        null_empty_analysis = analyze_null_and_empty(df, field_name, chunk_size)
+        null_empty_analysis ={}
+        flag_processed = False
+        try:
+            if not flag_processed and use_dask and npartitions > 1:
+                logger.info("Parallel Enabled")
+                logger.info("Parallel Engine: Dask")
+                logger.info(f"Parallel Workers: {npartitions}")
+                logger.info(f"Using dask processing with chunk size {chunk_size}")
+
+                null_empty_analysis = analyze_null_and_empty_in_chunks_dask(
+                    df,
+                    field_name,
+                    npartitions,
+                    chunk_size
+                )
+
+                flag_processed = True
+        except Exception as e:
+            logger.exception(f"Error in using dask processing: {e}")
+            flag_processed = False
+
+        try:
+            if not flag_processed and use_vectorization and parallel_processes > 1:
+                logger.info("Parallel Enabled")
+                logger.info("Parallel Engine: Joblib")
+                logger.info(f"Parallel Workers: {parallel_processes}")
+                logger.info(f"Using vectorized processing with chunk size {chunk_size}")
+
+                null_empty_analysis = analyze_null_and_empty_in_chunks_joblib(
+                    df,
+                    field_name,
+                    parallel_processes,
+                    chunk_size
+                )
+
+                flag_processed = True
+        except Exception as e:
+            logger.exception(f"Error in using joblib processing: {e}")
+            flag_processed = False
+
+        try:
+            if not flag_processed and len(df) > chunk_size:
+                logger.info(f"Processing in chunks with chunk size {chunk_size}")
+                total_chunks = (len(df) + chunk_size - 1) // chunk_size
+                logger.info(f"Total chunks to process: {total_chunks}")
+
+                null_empty_analysis = analyze_null_and_empty(df, field_name, chunk_size)
+
+                flag_processed = True
+        except Exception as e:
+            logger.exception(f"Error in using chunks processing: {e}")
+            flag_processed = False
+
+        try:
+            if not flag_processed:
+                logger.info("Fallback process as usual")
+
+                null_empty_analysis = analyze_null_and_empty(df, field_name, chunk_size)
+
+                flag_processed = True
+        except Exception as e:
+            logger.exception(f"Error in processing: {e}")
+            flag_processed = False
+
+        if not flag_processed:
+            logger.exception(f"Error in processing")
 
         # Get text values
         text_values = df[field_name].fillna("").astype(str).tolist()
@@ -702,7 +1171,13 @@ class TextSemanticCategorizerOperation(FieldOperation):
                                          match_strategy: str,
                                          use_ner: bool,
                                          perform_clustering: bool,
-                                         clustering_threshold: float) -> Dict[str, Any]:
+                                         clustering_threshold: float,
+                                         chunk_size: Optional[int] = None,
+                                         use_dask: bool = False,
+                                         npartitions: int = 2,
+                                         use_vectorization: bool = False,
+                                         parallel_processes: int = 2
+                                         ) -> Dict[str, Any]:
         """
         Perform semantic categorization using the entity extraction framework.
 
@@ -731,10 +1206,13 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Categorization results
         """
         # Process in chunks if dataset is large
-        if self.chunk_size and len(text_values) > self.chunk_size:
+        if ((use_dask and npartitions > 1)
+                or (use_vectorization and parallel_processes > 1)
+                or (chunk_size and len(text_values) > chunk_size)):
             return self._categorize_texts_in_chunks(
                 text_values, record_ids, dictionary_path, language,
-                match_strategy, use_ner, perform_clustering, clustering_threshold
+                match_strategy, use_ner, perform_clustering, clustering_threshold,
+                chunk_size, use_dask, npartitions, use_vectorization, parallel_processes
             )
 
         # Create entity extractor using the factory method
@@ -896,7 +1374,13 @@ class TextSemanticCategorizerOperation(FieldOperation):
                                     match_strategy: str,
                                     use_ner: bool,
                                     perform_clustering: bool,
-                                    clustering_threshold: float) -> Dict[str, Any]:
+                                    clustering_threshold: float,
+                                    chunk_size: int = 10000,
+                                    use_dask: bool = False,
+                                    npartitions: int = 2,
+                                    use_vectorization: bool = False,
+                                    parallel_processes: int = 2
+                                    ) -> Dict[str, Any]:
         """
         Process large text datasets in chunks to improve memory efficiency.
 
@@ -924,6 +1408,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
         Dict[str, Any]
             Combined categorization results
         """
+        import dask
+        import joblib
+
         # Split texts and IDs into chunks
         chunks = []
         for i in range(0, len(text_values), self.chunk_size):
@@ -935,18 +1422,86 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         logger.info(f"Processing {len(text_values)} texts in {len(chunks)} chunks")
 
-        # Process each chunk
+        # For large datasets, process in chunks
         chunk_results = []
-        for i, (chunk_texts, chunk_ids) in enumerate(chunks):
-            logger.info(f"Processing chunk {i + 1}/{len(chunks)} ({len(chunk_texts)} texts)")
+        flag_processed = False
+        try:
+            if not flag_processed and use_dask and npartitions > 1:
+                logger.info("Parallel Enabled")
+                logger.info("Parallel Engine: Dask")
+                logger.info(f"Parallel Workers: {npartitions}")
+                logger.info(f"Using dask processing with chunk size {chunk_size}")
 
-            # Process chunk
-            chunk_result = self._perform_semantic_categorization(
-                chunk_texts, chunk_ids, dictionary_path, language,
-                match_strategy, use_ner, perform_clustering, clustering_threshold
-            )
+                tasks = [
+                    dask.delayed(self._perform_semantic_categorization)(
+                        chunk_texts, chunk_ids, dictionary_path, language,
+                        match_strategy, use_ner, perform_clustering, clustering_threshold
+                    )
+                    for chunk_texts, chunk_ids in chunks
+                ]
 
-            chunk_results.append(chunk_result)
+                chunk_results = dask.compute(*tasks, scheduler="processes")
+
+                flag_processed = True
+        except Exception as e:
+            logger.exception(f"Error in using dask processing: {e}")
+            flag_processed = False
+
+        try:
+            if not flag_processed and use_vectorization and parallel_processes > 1:
+                logger.info("Parallel Enabled")
+                logger.info("Parallel Engine: Joblib")
+                logger.info(f"Parallel Workers: {parallel_processes}")
+                logger.info(f"Using vectorized processing with chunk size {chunk_size}")
+
+                chunk_results = joblib.Parallel(n_jobs=-parallel_processes)(
+                    joblib.delayed(self._perform_semantic_categorization)(
+                        chunk_texts, chunk_ids, dictionary_path, language,
+                        match_strategy, use_ner, perform_clustering, clustering_threshold
+                    )
+                    for chunk_texts, chunk_ids in chunks
+                )
+
+                flag_processed = True
+        except Exception as e:
+            logger.exception(f"Error in using joblib processing: {e}")
+            flag_processed = False
+
+        try:
+            if not flag_processed and len(text_values) > chunk_size:
+                logger.info(f"Processing in chunks with chunk size {chunk_size}")
+                total_chunks = (len(text_values) + chunk_size - 1) // chunk_size
+                logger.info(f"Total chunks to process: {total_chunks}")
+
+                for i, (chunk_texts, chunk_ids) in enumerate(chunks):
+                    chunk_result = self._perform_semantic_categorization(
+                        chunk_texts, chunk_ids, dictionary_path, language,
+                        match_strategy, use_ner, perform_clustering, clustering_threshold
+                    )
+
+                    chunk_results.append(chunk_result)
+
+                flag_processed = True
+        except Exception as e:
+            logger.exception(f"Error in using chunks processing: {e}")
+            flag_processed = False
+
+        try:
+            if not flag_processed:
+                logger.info("Fallback process as usual")
+
+                chunk_results = self._perform_semantic_categorization(
+                    text_values, record_ids, dictionary_path, language,
+                    match_strategy, use_ner, perform_clustering, clustering_threshold
+                )
+
+                flag_processed = True
+        except Exception as e:
+            logger.exception(f"Error in processing: {e}")
+            flag_processed = False
+
+        if not flag_processed:
+            logger.exception(f"Error in processing")
 
         # Merge results
         merged_results = {
@@ -1068,7 +1623,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                              include_timestamp: bool,
                              result: OperationResult,
                              reporter: Any,
-                             encryption_key: Optional[str] = None) -> None:
+                             encryption_key: Optional[str] = None) -> Dict[str, str]:
         """
         Save main analysis artifacts.
 
@@ -1084,6 +1639,11 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Operation result to add artifacts to
         reporter : Any
             Reporter to add artifacts to
+
+        Returns:
+        --------
+        Dict[str, str]
+            Information of artifact
         """
         # Save results as JSON
         results_filename = get_timestamped_filename(
@@ -1104,13 +1664,20 @@ class TextSemanticCategorizerOperation(FieldOperation):
             category=Constants.Artifact_Category_Output
         )
 
+        return {
+            "artifact_type": "json",
+            "path": results_path,
+            "description": f"Semantic analysis of {self.field_name}",
+            "category": Constants.Artifact_Category_Output
+        }
+
     def _save_categorization_artifacts(self, categorization_results: Dict[str, Any],
                                        record_ids: List[str],
                                        text_values: List[str],
                                        dirs: Dict[str, Path],
                                        result: OperationResult,
                                        reporter: Any,
-                                       encryption_key: Optional[str] = None) -> None:
+                                       encryption_key: Optional[str] = None) -> List[Dict[str, str]]:
         """
         Save artifacts specific to categorization.
 
@@ -1128,7 +1695,14 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Operation result to add artifacts to
         reporter : Any
             Reporter to add artifacts to
+
+        Returns:
+        --------
+        List[Dict[str, str]]
+            Information of artifacts
         """
+        categorization_result_paths = []
+
         # Save semantic roles mapping
         semantic_roles_filename = f"{self.field_name}_semantic_roles.json"
         semantic_roles_path = dirs["dictionaries"] / semantic_roles_filename
@@ -1143,6 +1717,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
             reporter=reporter,
             category=Constants.Artifact_Category_Dictionary
         )
+        categorization_result_paths.append({
+            "artifact_type": "json",
+            "path": semantic_roles_path,
+            "description": f"Semantic roles for {self.field_name}",
+            "category": Constants.Artifact_Category_Dictionary
+        })
 
         # Save category mappings CSV
         category_mappings_filename = f"{self.field_name}_category_mappings.csv"
@@ -1183,6 +1763,13 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 category=Constants.Artifact_Category_Dictionary
             )
 
+            categorization_result_paths.append({
+                "artifact_type": "csv",
+                "path": category_mappings_path,
+                "description": f"Category mappings for {self.field_name}",
+                "category": Constants.Artifact_Category_Dictionary
+            })
+
         # Save unresolved terms CSV
         if categorization_results["unresolved"]:
             unresolved_filename = f"{self.field_name}_unresolved_terms.csv"
@@ -1201,6 +1788,15 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 reporter=reporter,
                 category=Constants.Artifact_Category_Dictionary
             )
+
+            categorization_result_paths.append({
+                "artifact_type": "csv",
+                "path": unresolved_path,
+                "description": f"Unresolved terms for {self.field_name}",
+                "category": Constants.Artifact_Category_Dictionary
+            })
+
+        return categorization_result_paths
 
     def _add_metrics_to_result(self, analysis_results: Dict[str, Any], result: OperationResult) -> None:
         """
@@ -1270,13 +1866,198 @@ class TextSemanticCategorizerOperation(FieldOperation):
             description
         )
 
+    def _handle_visualizations(
+            self,
+            analysis_results: Dict[str, Any],
+            visualizations_dir: Path,
+            include_timestamp: bool,
+            result: OperationResult,
+            reporter: Any,
+            vis_theme: Optional[str],
+            vis_backend: Optional[str],
+            vis_strict: bool,
+            vis_timeout: int,
+            progress_tracker: Optional[HierarchicalProgressTracker],
+            **safe_kwargs
+    ) -> List[Dict[str, Path]]:
+        """
+        Generate and save visualizations.
+
+        Parameters:
+        -----------
+        analysis_results : Dict[str, Any]
+            Results of the analysis
+        vis_dir : Path
+            Directory to save visualizations
+        include_timestamp : bool
+            Whether to include timestamps in filenames
+        result : OperationResult
+            The operation result to add artifacts to
+        reporter : Any
+            The reporter to log artifacts to
+        vis_theme : str, optional
+            Theme to use for visualizations
+        vis_backend : str, optional
+            Backend to use: "plotly" or "matplotlib"
+        vis_strict : bool, optional
+            If True, raise exceptions for configuration errors
+        vis_timeout : int, optional
+            Timeout for visualization generation (default: 120 seconds)
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Optional progress tracker
+
+        Returns:
+        --------
+        List[Dict[str, Path]]
+            Dictionary with visualization types and paths
+        """
+        if progress_tracker:
+            progress_tracker.update(0, {"step": "Generating visualizations"})
+
+        logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+
+        try:
+            import threading
+            import contextvars
+
+            visualization_paths = []
+            visualization_error = None
+
+            def generate_viz_with_diagnostics():
+                nonlocal visualization_paths, visualization_error
+                thread_id = threading.current_thread().ident
+                thread_name = threading.current_thread().name
+
+                logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
+                logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+
+                start_time = time.time()
+
+                try:
+                    # Log context variables
+                    logger.info(f"[DIAG] Checking context variables...")
+                    try:
+                        current_context = contextvars.copy_context()
+                        logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                    except Exception as ctx_e:
+                        logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+
+                    # Generate visualizations with visualization context parameters
+                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    # Create child progress tracker for visualization if available
+                    total_steps = 3  # prepare data, create viz, save
+                    viz_progress = None
+                    if progress_tracker and hasattr(progress_tracker, "create_subtask"):
+                        try:
+                            viz_progress = progress_tracker.create_subtask(
+                                total=total_steps,
+                                description="Generating visualizations",
+                                unit="steps",
+                            )
+                        except Exception as e:
+                            logger.debug(f"Could not create child progress tracker: {e}")
+
+                    # Generate visualizations
+                    visualization_paths = self._generate_visualizations(
+                        analysis_results=analysis_results,
+                        visualizations_dir=visualizations_dir,
+                        include_timestamp=include_timestamp,
+                        result=result,
+                        reporter=reporter,
+                        vis_theme=vis_theme,
+                        vis_backend=vis_backend,
+                        vis_strict=vis_strict,
+                        **safe_kwargs
+                    )
+
+                    # Close visualization progress tracker
+                    if viz_progress:
+                        try:
+                            viz_progress.close()
+                        except:
+                            pass
+
+                    elapsed = time.time() - start_time
+                    logger.info(
+                        f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
+                    )
+                except Exception as e:
+                    elapsed = time.time() - start_time
+                    visualization_error = e
+                    logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+
+            # Copy context for the thread
+            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            ctx = contextvars.copy_context()
+
+            # Create thread with context
+            viz_thread = threading.Thread(
+                target=ctx.run,
+                args=(generate_viz_with_diagnostics,),
+                name=f"VizThread-",
+                daemon=False,  # Changed from True to ensure proper cleanup
+            )
+
+            logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            thread_start_time = time.time()
+            viz_thread.start()
+
+            # Log periodic status while waiting
+            check_interval = 5  # seconds
+            elapsed = 0
+            while viz_thread.is_alive() and elapsed < vis_timeout:
+                viz_thread.join(timeout=check_interval)
+                elapsed = time.time() - thread_start_time
+                if viz_thread.is_alive():
+                    logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+
+            if viz_thread.is_alive():
+                logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
+                logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                visualization_paths = {}
+            elif visualization_error:
+                logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                visualization_paths = {}
+            else:
+                total_time = time.time() - thread_start_time
+                logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
+                logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+        except Exception as e:
+            logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            visualization_paths = {}
+
+        # Register visualization artifacts
+        for viz_type, path in visualization_paths.items():
+            # Add to result
+            result.add_artifact(
+                artifact_type="png",
+                path=path,
+                description=f"{viz_type} visualization",
+                category=Constants.Artifact_Category_Visualization
+            )
+
+            # Report to reporter
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="png",
+                    path=str(path),
+                    description=f"{viz_type} visualization"
+                )
+
+        return visualization_paths
+
     def _generate_visualizations(self,
                                  analysis_results: Dict[str, Any],
                                  visualizations_dir: Path,
                                  include_timestamp: bool,
                                  result: OperationResult,
                                  reporter: Any,
-                                 **kwargs):
+                                 vis_theme: Optional[str],
+                                 vis_backend: Optional[str],
+                                 vis_strict: bool,
+                                 **kwargs) -> List[Dict[str, str]]:
         """
         Generate visualizations for the text analysis.
 
@@ -1292,10 +2073,23 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Operation result to add artifacts to
         reporter : Any
             Reporter to add artifacts to
+        vis_theme : str, optional
+            Theme to use for visualizations
+        vis_backend : str, optional
+            Backend to use: "plotly" or "matplotlib"
+        vis_strict : bool, optional
+            If True, raise exceptions for configuration errors
+
+        Returns:
+        --------
+        List[Dict[str, str]]
+            Information of visualizations
         """
+        visualization_paths = []
+
         # Generate category distribution pie chart
         if analysis_results.get("category_distribution"):
-            self._create_visualization(
+            visualization_path, is_create_and_register_artifact = self._create_visualization(
                 data=analysis_results["category_distribution"],
                 vis_func=create_pie_chart,
                 filename=f"{self.field_name}_category_distribution",
@@ -1305,16 +2099,26 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 result=result,
                 reporter=reporter,
                 description=f"Category distribution for {self.field_name}",
+                vis_theme=vis_theme,
+                vis_backend=vis_backend,
+                vis_strict=vis_strict,
                 additional_params={
                     "show_percentages": True,
                     "use_encryption": kwargs.get('use_encryption', False),
                     "encryption_key": kwargs.get('encryption_key', None)
                     }
             )
+            visualization_paths.append({
+                "artifact_type": "png",
+                "path": visualization_path,
+                "description": f"Category distribution for {self.field_name}",
+                "category": Constants.Artifact_Category_Visualization,
+                "is_create_and_register_artifact": is_create_and_register_artifact
+            })
 
         # Generate alias distribution bar chart
         if analysis_results.get("aliases_distribution"):
-            self._create_visualization(
+            visualization_path, is_create_and_register_artifact = self._create_visualization(
                 data=analysis_results["aliases_distribution"],
                 vis_func=create_bar_plot,
                 filename=f"{self.field_name}_alias_distribution",
@@ -1324,6 +2128,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 result=result,
                 reporter=reporter,
                 description=f"Alias distribution for {self.field_name}",
+                vis_theme=vis_theme,
+                vis_backend=vis_backend,
+                vis_strict=vis_strict,
                 additional_params={
                     "orientation": "h",
                     "max_items": 15,
@@ -1331,10 +2138,17 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     "encryption_key": kwargs.get('encryption_key', None)
                     }
             )
+            visualization_paths.append({
+                "artifact_type": "png",
+                "path": visualization_path,
+                "description": f"Alias distribution for {self.field_name}",
+                "category": Constants.Artifact_Category_Visualization,
+                "is_create_and_register_artifact": is_create_and_register_artifact
+            })
 
         # Generate text length distribution
         if analysis_results.get("length_stats") and analysis_results["length_stats"].get("length_distribution"):
-            self._create_visualization(
+            visualization_path, is_create_and_register_artifact = self._create_visualization(
                 data=analysis_results["length_stats"]["length_distribution"],
                 vis_func=plot_text_length_distribution,
                 filename=f"{self.field_name}_length_distribution",
@@ -1344,16 +2158,32 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 result=result,
                 reporter=reporter,
                 description=f"Length distribution for {self.field_name}",
+                vis_theme=vis_theme,
+                vis_backend=vis_backend,
+                vis_strict=vis_strict,
                 additional_params={
                     "use_encryption": kwargs.get('use_encryption', False),
                     "encryption_key": kwargs.get('encryption_key', None)
                     }
             )
+            visualization_paths.append({
+                "artifact_type": "png",
+                "path": visualization_path,
+                "description": f"Length distribution for {self.field_name}",
+                "category": Constants.Artifact_Category_Visualization,
+                "is_create_and_register_artifact": is_create_and_register_artifact
+            })
+
+        return visualization_paths
 
     def _create_visualization(self, data: Dict[str, Any], vis_func: callable,
                               filename: str, title: str, output_dir: Path,
                               include_timestamp: bool, result: OperationResult,
-                              reporter: Any, description: str, additional_params: Dict[str, Any] = None):
+                              reporter: Any, description: str,
+                              vis_theme: Optional[str],
+                              vis_backend: Optional[str],
+                              vis_strict: bool,
+                              additional_params: Dict[str, Any] = None) -> Tuple[str, bool]:
         """
         Create a visualization and register it as an artifact.
 
@@ -1377,9 +2207,22 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Reporter to add artifact to
         description : str
             Description of the visualization
+        vis_theme : str, optional
+            Theme to use for visualizations
+        vis_backend : str, optional
+            Backend to use: "plotly" or "matplotlib"
+        vis_strict : bool, optional
+            If True, raise exceptions for configuration errors
         additional_params : Dict[str, Any], optional
             Additional parameters for the visualization function
+
+        Returns:
+        --------
+        Tuple[str, bool]
+            Information of visualization
         """
+        is_create_and_register_artifact = False
+
         # Get timestamped filename
         output_filename = get_timestamped_filename(
             filename,
@@ -1392,7 +2235,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
         params = {
             "length_data": data,
             "output_path": str(output_path),
-            "title": title
+            "title": title,
+            "theme": vis_theme,
+            "backend": vis_backend,
+            "strict": vis_strict
         }
 
         # Add additional parameters if provided
@@ -1404,6 +2250,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         # Register artifact if visualization was successful
         if vis_result and (not isinstance(vis_result, str) or not vis_result.startswith("Error")):
+            is_create_and_register_artifact = True
             self._create_and_register_artifact(
                 artifact_type="png",
                 path=output_path,
@@ -1412,3 +2259,5 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 reporter=reporter,
                 category=Constants.Artifact_Category_Visualization
             )
+
+        return str(output_path), is_create_and_register_artifact

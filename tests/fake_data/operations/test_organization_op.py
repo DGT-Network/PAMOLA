@@ -21,7 +21,7 @@ class TestFakeOrganizationOperationInit(unittest.TestCase):
         # Check default attributes
         self.assertEqual(op.field_name, "organization")
         self.assertEqual(op.mode, "ENRICH")
-        self.assertEqual(op.batch_size, 10000)
+        self.assertEqual(op.chunk_size, 10000)
         self.assertEqual(op.null_strategy, NullStrategy.PRESERVE)
         self.assertEqual(op.consistency_mechanism, "prgn")
         self.assertFalse(op.save_mapping)
@@ -83,7 +83,7 @@ class TestFakeOrganizationOperationInit(unittest.TestCase):
             "region": "en",
             "preserve_type": True,
             "industry": "technology",
-            "batch_size": 10000,
+            "chunk_size": 10000,
             "null_strategy": "PRESERVE",
             "consistency_mechanism": "abcd",
             "mapping_store_path": "C:/fake_data/operation/mappings.json",
@@ -106,7 +106,7 @@ class TestFakeOrganizationOperationInit(unittest.TestCase):
         self.assertEqual(op.field_name, "organization_name")
         self.assertEqual(op.mode, "ENRICH")
         self.assertEqual(op.output_field_name, "organization_enriched")
-        self.assertEqual(op.batch_size, 10000)
+        self.assertEqual(op.chunk_size, 10000)
         self.assertEqual(op.null_strategy, NullStrategy.PRESERVE)
         self.assertEqual(op.consistency_mechanism, "abcd")
         self.assertEqual(op.mapping_store_path, "C:/fake_data/operation/mappings.json")
@@ -347,7 +347,7 @@ class PrepareData:
             "region": "en",
             "preserve_type": True,
             "industry": None,
-            "batch_size": 10000,
+            "chunk_size": 10000,
             "null_strategy": "PRESERVE",
             "consistency_mechanism": "abcd",
             "mapping_store_path": "C:/fake_data/operation/mappings.json",
@@ -418,7 +418,7 @@ class TestFakeOrganzationOperationExecute(unittest.TestCase):
                 msg=f"Unexpected artifact file type: {artifact.path}"
             )
             self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metric", "visualization"])
+            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
             self.assertIsInstance(artifact.tags, list)
             self.assertIsInstance(artifact.creation_time, str)
             self.assertIsInstance(artifact.size, int)
@@ -472,7 +472,7 @@ class TestFakeOrganzationOperationExecute(unittest.TestCase):
                 msg=f"Unexpected artifact file type: {artifact.path}"
             )
             self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metric", "visualization"])
+            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
             self.assertIsInstance(artifact.tags, list)
             self.assertIsInstance(artifact.creation_time, str)
             self.assertIsInstance(artifact.size, int)

@@ -53,16 +53,16 @@ from pamola_core.anonymization.commons.processing_utils import (
     process_in_chunks,
 )
 from pamola_core.anonymization.commons.visualization_utils import sample_large_dataset
-from pamola_core.utils.io import load_data_operation
+from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.utils.ops.op_base import BaseOperation
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import create_histogram, create_bar_plot
 from pamola_core.common.constants import Constants
-
-logger = logging.getLogger(__name__)
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 
 class AnonymizationOperation(BaseOperation):
@@ -94,6 +94,7 @@ class AnonymizationOperation(BaseOperation):
         visualization_strict: bool = False,
         visualization_timeout: int = 120,
         output_format: str = "csv",
+        encryption_mode: Optional[str] = None
     ):
         """
         Initialize the anonymization operation.
@@ -137,7 +138,7 @@ class AnonymizationOperation(BaseOperation):
         visualization_timeout : int, optional
             Timeout for visualization generation in seconds (default: 120)
         output_format : str, optional
-            Format for output files ("csv", "parquet", or "arrow", default: "csv")
+            Format for output files ("csv", "parquet", or "json", default: "csv")
         """
         # Use a default description if none provided
         if not description:
@@ -149,6 +150,7 @@ class AnonymizationOperation(BaseOperation):
             description=description,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
+            encryption_mode=encryption_mode
         )
 
         # Store parameters
@@ -165,6 +167,7 @@ class AnonymizationOperation(BaseOperation):
         self.use_cache = use_cache
         self.use_encryption = use_encryption
         self.encryption_key = encryption_key
+        self.encryption_mode = encryption_mode
         self.visualization_theme = visualization_theme
         self.visualization_backend = visualization_backend
         self.visualization_strict = visualization_strict
@@ -178,6 +181,12 @@ class AnonymizationOperation(BaseOperation):
         self.start_time = None
         self.end_time = None
         self.process_count = 0
+
+        # Set up common variables
+        self.force_recalculation = False  # Skip cache check
+        self.generate_visualization = True  # Create visualizations
+        self.encrypt_output = False  # Override encryption setting
+        self.save_output = True  # Save processed data to output directory
 
         # Initialize logger
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -221,38 +230,65 @@ class AnonymizationOperation(BaseOperation):
         """
         # Start timing
         self.start_time = time.time()
+        self.logger = kwargs.get("logger", self.logger)
+        self.logger.info(f"Starting {self.name} operation at {self.start_time}")
         self.process_count = 0
         df = None
 
         # Initialize result object
         result = OperationResult(status=OperationStatus.PENDING)
 
-        # Save operation configuration
-        self.save_config(task_dir)
+        # Prepare directories for artifacts
+        directories = self._prepare_directories(task_dir)
+
+        # Initialize operation cache
+        self.operation_cache = OperationCache(
+            cache_dir=task_dir / "cache",
+        )
 
         # Create writer for consistent output handling
         writer = DataWriter(
-            task_dir=task_dir, logger=logger, progress_tracker=progress_tracker
+            task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
         )
 
+        # Save operation configuration
+        self.save_config(task_dir)
+
         # Decompose kwargs and introduce variables for clarity
-        is_encryption_required = (
-            kwargs.get("encrypt_output", False) or self.use_encryption
-        )
-        generate_visualization = kwargs.get("generate_visualization", True)
-        save_output = kwargs.get("save_output", True)
-        force_recalculation = kwargs.get("force_recalculation", False)
+        self.encrypt_output = kwargs.get("encrypt_output", False) or self.use_encryption
+        self.generate_visualization = kwargs.get("generate_visualization", True)
+        self.save_output = kwargs.get("save_output", True)
+        self.force_recalculation = kwargs.get("force_recalculation", False)
         dataset_name = kwargs.get("dataset_name", "main")
 
         # Extract visualization parameters
-        vis_theme = kwargs.get("visualization_theme", self.visualization_theme)
-        vis_backend = kwargs.get("visualization_backend", self.visualization_backend)
-        vis_strict = kwargs.get("visualization_strict", self.visualization_strict)
-        vis_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
+        self.visualization_theme = kwargs.get(
+            "visualization_theme", self.visualization_theme
+        )
+        self.visualization_backend = kwargs.get(
+            "visualization_backend", self.visualization_backend
+        )
+        self.visualization_strict = kwargs.get(
+            "visualization_strict", self.visualization_strict
+        )
+        self.visualization_timeout = kwargs.get(
+            "visualization_timeout", self.visualization_timeout
+        )
+
+        self.logger.info(
+            f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
+        )
+
+        # Load settings operation
+        settings_operation = load_settings_operation(
+            data_source, dataset_name, **kwargs
+        )
 
         # Set up progress tracking with proper steps
         # Main steps: 1. Cache check, 2. Data loading, 3. Validation, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
-        TOTAL_MAIN_STEPS = 6 + (1 if self.use_cache and not force_recalculation else 0)
+        TOTAL_MAIN_STEPS = 6 + (
+            1 if self.use_cache and not self.force_recalculation else 0
+        )
         main_progress = progress_tracker
         current_steps = 0
         if main_progress:
@@ -273,7 +309,7 @@ class AnonymizationOperation(BaseOperation):
 
         try:
             # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not force_recalculation:
+            if self.use_cache and not self.force_recalculation:
                 if main_progress:
                     current_steps += 1
                     main_progress.update(
@@ -281,13 +317,15 @@ class AnonymizationOperation(BaseOperation):
                         {"step": "Checking cache", "field": self.field_name},
                     )
                 # Load data for cache check
-                df = load_data_operation(data_source, dataset_name)
+                df = load_data_operation(data_source, dataset_name, **settings_operation)
 
                 self.logger.info("Checking operation cache...")
                 cache_result = self._check_cache(df, reporter)
 
                 if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
+                    self.logger.info(
+                        f"Using cached result for {self.field_name} generalization"
+                    )
 
                     # Update progress
                     if main_progress:
@@ -315,7 +353,7 @@ class AnonymizationOperation(BaseOperation):
             # Validate and get dataframe
             try:
                 if df is None:
-                    df = self._validate_and_get_dataframe(data_source, dataset_name)
+                    df = self._validate_and_get_dataframe(data_source, dataset_name, **settings_operation)
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
@@ -353,11 +391,10 @@ class AnonymizationOperation(BaseOperation):
                 data_tracker = None
                 if main_progress and hasattr(main_progress, "create_subtask"):
                     try:
-                        total_chunks = (len(df) - 1) // self.chunk_size + 1
                         data_tracker = main_progress.create_subtask(
-                            total=total_chunks,
-                            description="Chunk processing",
-                            unit="Chunk",
+                            total=3,
+                            description="Processing dataframe",
+                            unit="steps",
                         )
                     except Exception as e:
                         self.logger.debug(
@@ -382,7 +419,7 @@ class AnonymizationOperation(BaseOperation):
                     status=OperationStatus.ERROR, error_message=error_message
                 )
 
-            # Collect final metrics before using them
+            # Record end time after processing
             self.end_time = time.time()
 
             # Generate single timestamp for all artifacts
@@ -411,7 +448,7 @@ class AnonymizationOperation(BaseOperation):
                     name=metrics_file_name,
                     timestamp_in_name=False,
                     encryption_key=(
-                        self.encryption_key if is_encryption_required else None
+                        self.encryption_key if self.encrypt_output else None
                     ),
                 )
 
@@ -453,8 +490,12 @@ class AnonymizationOperation(BaseOperation):
             # Generate visualizations if required
             # Initialize visualization paths dictionary
             visualization_paths = {}
-            if generate_visualization and vis_backend is not None:
+            if self.generate_visualization and self.visualization_backend is not None:
                 try:
+                    kwargs_encryption = {
+                        "use_encryption": self.encrypt_output,
+                        "encryption_key": self.encryption_key,
+                    }
                     visualization_paths = self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
@@ -462,11 +503,12 @@ class AnonymizationOperation(BaseOperation):
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
-                        vis_theme=vis_theme,
-                        vis_backend=vis_backend,
-                        vis_strict=vis_strict,
-                        vis_timeout=vis_timeout,
+                        vis_theme=self.visualization_theme,
+                        vis_backend=self.visualization_backend,
+                        vis_strict=self.visualization_strict,
+                        vis_timeout=self.visualization_timeout,
                         operation_timestamp=operation_timestamp,
+                        **kwargs_encryption,
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
@@ -485,11 +527,11 @@ class AnonymizationOperation(BaseOperation):
                     {"step": "Save Output Data", "field": self.field_name},
                 )
             # Save output data if required
-            if save_output:
+            if self.save_output:
                 try:
                     output_result_path = self._save_output_data(
                         result_df=result_df,
-                        is_encryption_required=is_encryption_required,
+                        is_encryption_required=self.encrypt_output,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -520,6 +562,14 @@ class AnonymizationOperation(BaseOperation):
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
+            ## Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                processed_df=result_df,
+                original_data=original_data,
+                anonymized_data=anonymized_data,
+            )
+
             # Report completion
             if reporter:
                 # Create the details dictionary with checks for all values
@@ -543,12 +593,8 @@ class AnonymizationOperation(BaseOperation):
                     f"Anonymization of {self.field_name} completed", details=details
                 )
 
-            ## Clean up memory AFTER all write operations are complete
-            self.logger.info("Cleaning up memory after all file operations")
-            self._cleanup_memory(
-                processed_df=result_df,
-                original_data=original_data,
-                anonymized_data=anonymized_data,
+            self.logger.info(
+                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
             )
 
             # Set success status
@@ -564,7 +610,7 @@ class AnonymizationOperation(BaseOperation):
             )
 
     def _validate_and_get_dataframe(
-        self, data_source: DataSource, dataset_name: str
+        self, data_source: DataSource, dataset_name: str, **kwargs: Any
     ) -> pd.DataFrame:
         """
         Validate data source and retrieve the main dataframe.
@@ -573,6 +619,10 @@ class AnonymizationOperation(BaseOperation):
         -----------
         data_source : DataSource
             The data source to validate
+        dataset_name : str
+            The name of the dataset to retrieve
+        **kwargs : Any
+            Additional keyword arguments to pass to the data loading function
 
         Returns:
         --------
@@ -585,7 +635,7 @@ class AnonymizationOperation(BaseOperation):
             If no valid dataframe is found or the field is missing
         """
         # Get DataFrame from the data source
-        df = load_data_operation(data_source, dataset_name)
+        df = load_data_operation(data_source, dataset_name, **kwargs)
         if df is None:
             error_message = f"Failed to load input data!"
             self.logger.error(error_message)
@@ -681,17 +731,26 @@ class AnonymizationOperation(BaseOperation):
         if len(df) == 0:
             self.logger.warning("Empty DataFrame provided, returning as is")
             return df
+        
+        processed_df = None
+        flag_processed = False
+        self.logger.info("Process with config")
 
         # For larger dataframes, check if we should use parallel processing
-        if self.use_dask:
+        if not flag_processed and self.use_dask:
             try:
+                self.logger.info("Parallel Enabled")
+                self.logger.info("Parallel Engine: Dask")
+                self.logger.info(f"Parallel Workers: {self.npartitions}")
                 self.logger.info(
                     f"Using dask processing with chunk size {self.chunk_size}"
                 )
                 if progress_tracker:
                     progress_tracker.update(0, {"step": "Setting up dask processing"})
 
-                return process_dataframe_dask(
+                self.logger.info("Process using Dask")
+
+                processed_df = process_dataframe_dask(
                     df=df,
                     process_function=self.process_with_dask,
                     process_function_backup=self.process_batch,
@@ -699,12 +758,21 @@ class AnonymizationOperation(BaseOperation):
                     npartitions=self.npartitions,
                     progress_tracker=progress_tracker,
                 )
+
+                if processed_df is not None:
+                    flag_processed = True
+                    self.logger.info("Completed using Dask")
+
             except Exception as e:
                 self.logger.warning(
                     f"Error in dask processing: {e}, falling back to chunk processing"
                 )
-        elif self.use_vectorization:
+
+        if not flag_processed and self.use_vectorization:
             try:
+                self.logger.info("Parallel Enabled")
+                self.logger.info("Parallel Engine: Joblib")
+                self.logger.info(f"Parallel Workers: {self.parallel_processes}")
                 self.logger.info(
                     f"Using vectorized processing with chunk size {self.chunk_size}"
                 )
@@ -713,7 +781,9 @@ class AnonymizationOperation(BaseOperation):
                         0, {"step": "Setting up vectorized processing"}
                     )
 
-                return process_dataframe_parallel(
+                self.logger.info("Process using Joblib")
+
+                processed_df = process_dataframe_parallel(
                     df=df,
                     process_function=self.process_batch,
                     n_jobs=self.parallel_processes
@@ -721,25 +791,55 @@ class AnonymizationOperation(BaseOperation):
                     chunk_size=self.chunk_size,
                     progress_tracker=progress_tracker,
                 )
+
+                if processed_df is not None:
+                    flag_processed = True
+                    self.logger.info("Completed using Joblib")
+
             except Exception as e:
                 self.logger.warning(
                     f"Error in vectorized processing: {e}, falling back to chunk processing"
                 )
 
-        # Regular chunk processing
-        self.logger.info(f"Processing in chunks with chunk size {self.chunk_size}")
-        if progress_tracker:
-            total_chunks = (len(df) + self.chunk_size - 1) // self.chunk_size
-            progress_tracker.update(
-                0, {"step": "Processing in chunks", "total_chunks": total_chunks}
-            )
+            if not flag_processed and self.chunk_size > 1:
+                try:
+                    # Regular chunk processing
+                    self.logger.info(
+                        f"Processing in chunks with chunk size {self.chunk_size}"
+                    )
+                    total_chunks = (len(df) + self.chunk_size - 1) // self.chunk_size
+                    self.logger.info(f"Total chunks to process: {total_chunks}")
+                    if progress_tracker:
+                        progress_tracker.update(
+                            0,
+                            {
+                                "step": "Processing in chunks",
+                                "total_chunks": total_chunks,
+                            },
+                        )
 
-        return process_in_chunks(
-            df=df,
-            process_function=self.process_batch,
-            chunk_size=self.chunk_size,
-            progress_tracker=progress_tracker,
-        )
+                    self.logger.info("Process using chunk")
+
+                    processed_df = process_in_chunks(
+                        df=df,
+                        process_function=self.process_batch,
+                        chunk_size=self.chunk_size,
+                        progress_tracker=progress_tracker,
+                    )
+
+                    if processed_df is not None:
+                        flag_processed = True
+                        self.logger.info("Completed using chunk")
+
+                except Exception as e:
+                    self.logger.warning(f"Error in chunk processing: {e}")
+                    
+            if not flag_processed:
+                self.logger.info("Fallback process as usual")
+                processed_df = self.process_batch(df)
+                flag_processed = True
+
+        return processed_df
 
     def _calculate_all_metrics(
         self, original_data: pd.Series, anonymized_data: pd.Series
@@ -796,6 +896,7 @@ class AnonymizationOperation(BaseOperation):
         vis_strict: bool = False,
         vis_timeout: int = 120,
         operation_timestamp: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Generate and save visualizations with thread-safe context support.
@@ -824,6 +925,8 @@ class AnonymizationOperation(BaseOperation):
             Timeout for visualization generation (default: 120 seconds)
         operation_timestamp : str, optional
             Timestamp for the operation (default: current time)
+        **kwargs : dict
+            Additional parameters for the operation
         """
         self.logger.info(
             f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
@@ -889,6 +992,7 @@ class AnonymizationOperation(BaseOperation):
                         vis_strict=vis_strict,
                         progress_tracker=viz_progress,
                         timestamp=operation_timestamp,  # Pass the same timestamp
+                        **kwargs,
                     )
 
                     # Close visualization progress tracker
@@ -1006,7 +1110,7 @@ class AnonymizationOperation(BaseOperation):
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
-        encrypt_output : bool
+        is_encryption_required : bool
             Whether to encrypt the output
         writer : DataWriter
             The writer to use for saving data
@@ -1024,6 +1128,8 @@ class AnonymizationOperation(BaseOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Saving output data"})
 
+        custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
+
         # Generate standardized output filename with timestamp
         field_name_output = (
             f"{self.field_name}_{self.__class__.__name__}_output_{timestamp}"
@@ -1037,7 +1143,7 @@ class AnonymizationOperation(BaseOperation):
             subdir="output",
             timestamp_in_name=False,
             encryption_key=self.encryption_key if is_encryption_required else None,
-            **kwargs,
+            **custom_kwargs,
         )
 
         # Register output artifact with the result
@@ -1159,6 +1265,14 @@ class AnonymizationOperation(BaseOperation):
             # Fallback to a simple hash of the data length and type
             return hashlib.md5(f"{len(data)}_{str(data.dtype)}".encode()).hexdigest()
 
+    def _get_basic_parameters(self) -> Dict[str, str]:
+        """Get the basic parameters for the cache key generation."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "version": self.version,
+        }
+
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for cache key generation.
@@ -1188,15 +1302,8 @@ class AnonymizationOperation(BaseOperation):
         str
             Unique cache key
         """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
         # Get basic operation parameters
-        parameters = {
-            "field_name": self.field_name,
-            "mode": self.mode,
-            "null_strategy": self.null_strategy,
-            "version": self.version,
-        }
+        parameters = self._get_basic_parameters()
 
         # Add operation-specific parameters through method that subclasses can override
         parameters.update(self._get_cache_parameters())
@@ -1205,7 +1312,7 @@ class AnonymizationOperation(BaseOperation):
         data_hash = self._generate_data_hash(data)
 
         # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
+        return self.operation_cache.generate_cache_key(
             operation_name=self.__class__.__name__,
             parameters=parameters,
             data_hash=data_hash,
@@ -1233,8 +1340,6 @@ class AnonymizationOperation(BaseOperation):
             return None
 
         try:
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             if self.field_name not in df.columns:
                 self.logger.warning(
                     f"Field '{self.field_name}' not found in DataFrame."
@@ -1244,7 +1349,7 @@ class AnonymizationOperation(BaseOperation):
             cache_key = self._generate_cache_key(df[self.field_name])
             self.logger.debug(f"Checking cache for key: {cache_key}")
 
-            cached_result = operation_cache.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.__class__.__name__
             )
 
@@ -1435,23 +1540,12 @@ class AnonymizationOperation(BaseOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             # Generate cache key
             cache_key = self._generate_cache_key(original_data)
 
             # Prepare metadata for cache
-            operation_params = self._get_cache_parameters()
-            operation_params.update(
-                {
-                    "field_name": self.field_name,
-                    "mode": self.mode,
-                    "null_strategy": self.null_strategy,
-                    "operation_class": self.__class__.__name__,
-                    "version": self.version,
-                }
-            )
+            operation_params = self._get_basic_parameters()
+            operation_params.update(self._get_cache_parameters())
             self.logger.debug(f"Operation parameters for cache: {operation_params}")
 
             # Prepare cache data
@@ -1478,7 +1572,7 @@ class AnonymizationOperation(BaseOperation):
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
 
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,
@@ -1688,6 +1782,7 @@ class AnonymizationOperation(BaseOperation):
         vis_strict: bool = False,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         timestamp: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Path]:
         """
         Generate visualizations using the core visualization utilities with thread-safe context support.
@@ -1713,6 +1808,8 @@ class AnonymizationOperation(BaseOperation):
             Backend to use: "plotly" or "matplotlib"
         vis_strict : bool, optional
             If True, raise exceptions for configuration errors
+        **kwargs : dict
+            Additional parameters for the operation
 
         Returns:
         --------
@@ -1831,6 +1928,7 @@ class AnonymizationOperation(BaseOperation):
                         theme=vis_theme,
                         backend=vis_backend or "plotly",
                         strict=vis_strict,
+                        **kwargs,
                     )
 
                     call_time = time.time() - call_start
@@ -1891,6 +1989,7 @@ class AnonymizationOperation(BaseOperation):
                     theme=vis_theme,
                     backend=vis_backend or "plotly",
                     strict=vis_strict,
+                    **kwargs,
                 )
 
                 call_time = time.time() - call_start
@@ -1977,3 +2076,23 @@ class AnonymizationOperation(BaseOperation):
             directory.mkdir(parents=True, exist_ok=True)
 
         return directories
+    
+    def _get_custom_kwargs(self, df, **kwargs):
+        custom_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k
+            not in [
+                "df",
+                "name",
+                "format",
+                "subdir",
+                "timestamp_in_name",
+                "encryption_key",
+            ]
+        }
+        custom_kwargs["encryption_mode"] = get_encryption_mode(
+            df, **kwargs
+        )
+        
+        return custom_kwargs
