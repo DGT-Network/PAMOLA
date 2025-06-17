@@ -28,9 +28,9 @@ POLICY_TTL = 'ttl'   # Time To Live
 POLICY_TLRU = 'tlru' # Time-aware Least Recently Used
 
 # Global cache settings from environment
-MAX_CACHE_SIZE = int(os.environ.get('HHR_MAX_CACHE_SIZE', '100'))
-DEFAULT_CACHE_TTL = int(os.environ.get('HHR_CACHE_TTL', '3600'))  # 1 hour
-CACHE_ENABLED = os.environ.get('HHR_DISABLE_CACHE', '0') != '1'
+MAX_CACHE_SIZE = int(os.environ.get('PAMOLA_MAX_CACHE_SIZE', '100'))
+DEFAULT_CACHE_TTL = int(os.environ.get('PAMOLA_CACHE_TTL', '3600'))  # 1 hour
+CACHE_ENABLED = os.environ.get('PAMOLA_DISABLE_CACHE', '0') != '1'
 
 
 class MemoryCache(CacheBase, Generic[T]):

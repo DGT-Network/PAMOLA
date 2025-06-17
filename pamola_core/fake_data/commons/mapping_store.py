@@ -14,11 +14,11 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
-from pamola_core.utils import io as hhr_io
-from pamola_core.utils import logging as hhr_logging
+from pamola_core.utils import io as pamola_io
+from pamola_core.utils import logging as pamola_logging
 
 # Configure module logger
-logger = hhr_logging.get_logger("pamola_core.fake_data.mapping_store")
+logger = pamola_logging.get_logger("pamola_core.fake_data.mapping_store")
 
 
 class MappingStore:
@@ -516,7 +516,7 @@ class MappingStore:
             io_module.write_json(serializable_data, path)
         else:
             # Use standard io module from pamola_core.utils
-            hhr_io.write_json(serializable_data, path)
+            pamola_io.write_json(serializable_data, path)
 
         logger.info(f"Saved mapping store to JSON: {path}")
 
@@ -538,7 +538,7 @@ class MappingStore:
             data = io_module.read_json(path)
         else:
             # Use standard io module from pamola_core.utils
-            data = hhr_io.read_json(path)
+            data = pamola_io.read_json(path)
 
         # Process the loaded data
         self._process_loaded_data(data)
@@ -575,7 +575,7 @@ class MappingStore:
             data = io_module.read_json(path)
         else:
             # Use standard io module from pamola_core.utils
-            data = hhr_io.read_json(path)
+            data = pamola_io.read_json(path)
 
         # Process the data
         update_stats = {}
@@ -628,7 +628,7 @@ class MappingStore:
         path = Path(path)
 
         # Ensure directory exists
-        hhr_io.ensure_directory(path.parent)
+        pamola_io.ensure_directory(path.parent)
 
         # Prepare data to pickle
         data_to_pickle = {
@@ -773,7 +773,7 @@ class MappingStore:
         df = pd.DataFrame(all_records)
 
         # Save using io utility
-        hhr_io.write_dataframe_to_csv(df, path)
+        pamola_io.write_dataframe_to_csv(df, path)
 
         logger.info(f"Saved mapping store to CSV: {path} ({len(all_records)} mappings)")
 
@@ -800,7 +800,7 @@ class MappingStore:
         logger.info(f"Loading mapping store from CSV: {path}")
 
         # Read the CSV file
-        df = hhr_io.read_full_csv(path)
+        df = pamola_io.read_full_csv(path)
 
         load_stats = {}
         processed_fields = set()
@@ -862,7 +862,7 @@ class MappingStore:
         path = Path(path)
 
         # Ensure directory exists
-        hhr_io.ensure_directory(path.parent)
+        pamola_io.ensure_directory(path.parent)
 
         if format.lower() == "json":
             self.save_json(path)

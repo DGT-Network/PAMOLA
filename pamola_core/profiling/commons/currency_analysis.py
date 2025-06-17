@@ -1,5 +1,5 @@
 """
-Currency and salary analysis utilities for the HHR anonymization project.
+Currency and salary analysis utilities for the anonymization project.
 
 This module provides specialized functions for analyzing currency and salary fields,
 including currency conversion, distribution analysis, and specialized statistics.
@@ -63,7 +63,7 @@ def analyze_currency_field(
         return {'error': f"Field {value_field} not found in DataFrame"}
 
     # Import NumericAnalyzer for basic analysis
-    from core.profiling.analyzers.numeric import NumericAnalyzer
+    from pamola_core.profiling.analyzers.numeric import NumericAnalyzer
 
     # Create analyzer instance
     analyzer = NumericAnalyzer()

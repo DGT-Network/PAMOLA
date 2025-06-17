@@ -1,5 +1,5 @@
 """
-Extended tokenization utilities that build upon the core tokenization module.
+Extended tokenization utilities that build upon the pamola_core tokenization module.
 
 This module provides specialized functionality including n-gram extraction,
 advanced token filtering, and other text processing extensions.
@@ -8,7 +8,7 @@ advanced token filtering, and other text processing extensions.
 import logging
 from typing import Dict, List, Any, Optional, Union, Set
 
-# Import from base module for core functionality
+# Import from base module for pamola_core functionality
 from pamola_core.utils.nlp.base import batch_process
 from pamola_core.utils.nlp.cache import get_cache, cache_function
 # Import necessary functions from tokenization
@@ -547,7 +547,7 @@ class NGramExtractor:
 class AdvancedTextProcessor:
     """
     Extended text processor with additional capabilities beyond the
-    core TextProcessor in the main tokenization module.
+    pamola_core TextProcessor in the main tokenization module.
     """
 
     def __init__(
@@ -580,7 +580,7 @@ class AdvancedTextProcessor:
         preserve_case : bool
             Whether to preserve case
         """
-        # Import TextProcessor from core tokenization
+        # Import TextProcessor from pamola_core tokenization
         from pamola_core.utils.nlp.tokenization import TextProcessor
 
         # Create underlying TextProcessor

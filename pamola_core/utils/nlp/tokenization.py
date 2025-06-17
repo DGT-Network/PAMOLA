@@ -1,18 +1,36 @@
 """
-Text tokenization utilities.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module: Text Tokenization Utilities
+Description: Classes and functions for tokenizing text across multiple libraries
+Author: PAMOLA Core Team
+Created: 2024
+License: BSD 3-Clause
 
 This module provides classes and functions for tokenizing text with support for
-multiple libraries (spaCy, NLTK, transformers), lemmatization, and a fallback
-simple tokenizer.
+multiple libraries (spaCy, NLTK, transformers), lemmatization, n-gram extraction,
+and a fallback simple tokenizer.
+
+Key features:
+- Multiple tokenization backends (spaCy, NLTK, transformers) with fallbacks
+- Customizable tokenization pipeline with preprocessing and filtering
+- N-gram extraction with configurable parameters
+- Lemmatization across multiple languages
+- Token normalization and synonym mapping
+- Caching for improved performance
 """
 
 import logging
 import re
 import string
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any, Union, Tuple, Set
+from typing import List, Optional, Dict, Any, Union, Tuple, Set, Iterator
 
-# Import from base module for core functionality
+import inspect
+if not hasattr(inspect, "getargspec"):
+    inspect.getargspec = inspect.getfullargspec
+
+# Import from base module for pamola core functionality
 from pamola_core.utils.nlp.base import (
     DependencyManager,
     normalize_language_code,
@@ -41,10 +59,17 @@ if _PYMORPHY_AVAILABLE:
     try:
         pymorphy2 = DependencyManager.get_module('pymorphy2')
         if pymorphy2:
-            _LEMMATIZERS['ru'] = pymorphy2.MorphAnalyzer()
-            logger.debug("Initialized pymorphy2 MorphAnalyzer for Russian")
+            try:
+                _LEMMATIZERS['ru'] = pymorphy2.MorphAnalyzer()
+                logger.debug("Initialized pymorphy2 MorphAnalyzer for Russian")
+            except Exception as e:
+                # Catch ANY exception during MorphAnalyzer initialization
+                # and downgrade to INFO level to avoid failing the whole process
+                logger.info(f"Could not initialize pymorphy2 MorphAnalyzer: {e}")
+                # Optional: set a fallback if needed
+                # _LEMMATIZERS['ru'] = SomeFallbackStemmer()
     except Exception as e:
-        logger.warning(f"Error initializing pymorphy2 for Russian: {e}")
+        logger.warning(f"Error loading pymorphy2 module: {e}")
 
 # If NLTK is available, set up WordNetLemmatizer for English and optional SnowballStemmer
 if _NLTK_AVAILABLE:
@@ -97,6 +122,384 @@ if _NLTK_AVAILABLE:
 
 if _SPACY_AVAILABLE:
     logger.debug("spaCy is available (SpacyTokenizer can be used).")
+
+
+class NGramExtractor:
+    """
+    Class for extracting n-grams (sequences of n consecutive items) from text or tokens.
+
+    This class provides efficient methods for extracting character or token n-grams
+    with various configuration options for handling overlap, padding, and filtering.
+    """
+
+    def __init__(
+            self,
+            n: int = 3,
+            lowercase: bool = True,
+            min_length: int = 1,
+            pad_text: bool = True,
+            pad_char: str = "_",
+            skip_punctuation: bool = True,
+            skip_stopwords: bool = False,
+            language: Optional[str] = None,
+            stopwords: Optional[Set[str]] = None
+    ):
+        """
+        Initialize the n-gram extractor.
+
+        Parameters:
+        -----------
+        n : int
+            Size of n-grams to extract (default: 3)
+        lowercase : bool
+            Whether to convert text to lowercase (default: True)
+        min_length : int
+            Minimum length of tokens to consider (default: 1)
+        pad_text : bool
+            Whether to pad text with pad_char when extracting character n-grams (default: True)
+        pad_char : str
+            Character to use for padding (default: "_")
+        skip_punctuation : bool
+            Whether to skip punctuation when extracting token n-grams (default: True)
+        skip_stopwords : bool
+            Whether to skip stopwords when extracting token n-grams (default: False)
+        language : str, optional
+            Language code for stopwords (default: None)
+        stopwords : Set[str], optional
+            Set of stopwords to skip (default: None)
+        """
+        self.n = n
+        self.lowercase = lowercase
+        self.min_length = min_length
+        self.pad_text = pad_text
+        self.pad_char = pad_char
+        self.skip_punctuation = skip_punctuation
+        self.skip_stopwords = skip_stopwords
+
+        self.language = language
+        self._stopwords: Optional[Set[str]] = stopwords
+
+        if self.skip_stopwords and self._stopwords is None:
+            self._load_stopwords()
+
+    def _load_stopwords(self) -> None:
+        """
+        Load stopwords for the specified language.
+        """
+        if self.language is None:
+            return
+
+        # Try to load stopwords for the language
+        try:
+            if _NLTK_AVAILABLE:
+                nltk = DependencyManager.get_module('nltk')
+                if nltk:
+                    try:
+                        from nltk.corpus import stopwords
+                        try:
+                            nltk.data.find('corpora/stopwords')
+                        except LookupError:
+                            logger.info("Downloading NLTK 'stopwords' resource.")
+                            nltk.download('stopwords', quiet=True)
+
+                        normalized_lang = normalize_language_code(self.language)
+                        lang_map = {
+                            'en': 'english',
+                            'ru': 'russian',
+                            'de': 'german',
+                            'fr': 'french',
+                            'es': 'spanish',
+                            'it': 'italian',
+                            'pt': 'portuguese'
+                        }
+                        nltk_lang = lang_map.get(normalized_lang, normalized_lang)
+
+                        if nltk_lang in stopwords.fileids():
+                            self._stopwords = set(stopwords.words(nltk_lang))
+                            logger.debug(f"Loaded {len(self._stopwords)} stopwords for {nltk_lang}")
+                    except Exception as e:
+                        logger.debug(f"Error loading NLTK stopwords: {e}")
+
+            # If still no stopwords, try to load from local resources
+            if not self._stopwords:
+                # Attempt to load from language resources
+                normalized_lang = normalize_language_code(self.language)
+                from pamola_core.utils.nlp.language import get_language_resources_path
+
+                resources_path = get_language_resources_path(normalized_lang, 'stopwords')
+                if resources_path:
+                    try:
+                        stopwords_file = f"{resources_path}/stopwords.txt"
+                        import os
+                        if os.path.exists(stopwords_file):
+                            with open(stopwords_file, 'r', encoding='utf-8') as f:
+                                self._stopwords = set(line.strip() for line in f if line.strip())
+                            logger.debug(f"Loaded {len(self._stopwords)} stopwords from {stopwords_file}")
+                    except Exception as e:
+                        logger.debug(f"Error loading stopwords from language resources: {e}")
+
+        except Exception as e:
+            logger.warning(f"Could not load stopwords for language '{self.language}': {e}")
+
+    def extract_character_ngrams(self, text: str) -> List[str]:
+        """
+        Extract character n-grams from text.
+
+        Parameters:
+        -----------
+        text : str
+            Text to extract n-grams from
+
+        Returns:
+        --------
+        List[str]
+            List of character n-grams
+        """
+        if not text:
+            return []
+
+        if self.lowercase:
+            text = text.lower()
+
+        if self.pad_text:
+            # Pad text to generate n-grams that include start and end
+            text = self.pad_char * (self.n - 1) + text + self.pad_char * (self.n - 1)
+
+        # Extract n-grams
+        ngrams = []
+        for i in range(len(text) - self.n + 1):
+            ngram = text[i:i + self.n]
+            ngrams.append(ngram)
+
+        return ngrams
+
+    def extract_token_ngrams(self, tokens: List[str]) -> List[List[str]]:
+        """
+        Extract token n-grams from a list of tokens.
+
+        Parameters:
+        -----------
+        tokens : List[str]
+            List of tokens to extract n-grams from
+
+        Returns:
+        --------
+        List[List[str]]
+            List of token n-grams, where each n-gram is a list of tokens
+        """
+        if not tokens or len(tokens) < self.n:
+            return []
+
+        if self.lowercase:
+            tokens = [t.lower() for t in tokens]
+
+        # Filter tokens by length and type if needed
+        filtered_tokens = []
+        for token in tokens:
+            if len(token) < self.min_length:
+                continue
+
+            if self.skip_punctuation and all(c in string.punctuation for c in token):
+                continue
+
+            if self.skip_stopwords and self._stopwords and token.lower() in self._stopwords:
+                continue
+
+            filtered_tokens.append(token)
+
+        # Extract n-grams
+        ngrams = []
+        for i in range(len(filtered_tokens) - self.n + 1):
+            ngram = filtered_tokens[i:i + self.n]
+            ngrams.append(ngram)
+
+        return ngrams
+
+    def extract_token_ngrams_as_strings(self, tokens: List[str], separator: str = ' ') -> List[str]:
+        """
+        Extract token n-grams and join them with a separator.
+
+        Parameters:
+        -----------
+        tokens : List[str]
+            List of tokens to extract n-grams from
+        separator : str
+            Separator to join tokens in each n-gram (default: ' ')
+
+        Returns:
+        --------
+        List[str]
+            List of token n-grams as strings
+        """
+        ngrams = self.extract_token_ngrams(tokens)
+        return [separator.join(ngram) for ngram in ngrams]
+
+    def extract_ngrams_from_text(self, text: str, tokenizer=None) -> List[str]:
+        """
+        Extract token n-grams from text, first tokenizing then extracting n-grams.
+
+        Parameters:
+        -----------
+        text : str
+            Text to extract n-grams from
+        tokenizer : callable, optional
+            Function to tokenize the text (default: None, uses simple whitespace splitting)
+
+        Returns:
+        --------
+        List[str]
+            List of token n-grams as strings
+        """
+        if not text:
+            return []
+
+        # Tokenize the text
+        if tokenizer:
+            tokens = tokenizer(text)
+        else:
+            # Simple whitespace tokenization
+            tokens = text.split()
+
+        return self.extract_token_ngrams_as_strings(tokens)
+
+    def iter_character_ngrams(self, text: str) -> Iterator[str]:
+        """
+        Iterate over character n-grams from text (memory-efficient).
+
+        Parameters:
+        -----------
+        text : str
+            Text to extract n-grams from
+
+        Yields:
+        -------
+        str
+            Character n-grams
+        """
+        if not text:
+            return
+
+        if self.lowercase:
+            text = text.lower()
+
+        if self.pad_text:
+            # Pad text to generate n-grams that include start and end
+            text = self.pad_char * (self.n - 1) + text + self.pad_char * (self.n - 1)
+
+        for i in range(len(text) - self.n + 1):
+            yield text[i:i + self.n]
+
+    def get_unique_ngrams(self, text_or_tokens: Union[str, List[str]],
+                          is_tokens: bool = False) -> Set[str]:
+        """
+        Get a set of unique n-grams from text or tokens.
+
+        Parameters:
+        -----------
+        text_or_tokens : str or List[str]
+            Text or list of tokens to extract n-grams from
+        is_tokens : bool
+            Whether input is already tokenized (default: False)
+
+        Returns:
+        --------
+        Set[str]
+            Set of unique n-grams
+        """
+        if is_tokens:
+            if isinstance(text_or_tokens, list):
+                ngrams = self.extract_token_ngrams_as_strings(text_or_tokens)
+            else:
+                raise ValueError("is_tokens=True but input is not a list")
+        else:
+            if isinstance(text_or_tokens, str):
+                ngrams = self.extract_character_ngrams(text_or_tokens)
+            else:
+                raise ValueError("is_tokens=False but input is not a string")
+
+        return set(ngrams)
+
+    def count_ngrams(self, text_or_tokens: Union[str, List[str]],
+                     is_tokens: bool = False) -> Dict[str, int]:
+        """
+        Count occurrences of n-grams in text or tokens.
+
+        Parameters:
+        -----------
+        text_or_tokens : str or List[str]
+            Text or list of tokens to extract n-grams from
+        is_tokens : bool
+            Whether input is already tokenized (default: False)
+
+        Returns:
+        --------
+        Dict[str, int]
+            Dictionary mapping n-grams to their counts
+        """
+        if is_tokens:
+            if isinstance(text_or_tokens, list):
+                ngrams = self.extract_token_ngrams_as_strings(text_or_tokens)
+            else:
+                raise ValueError("is_tokens=True but input is not a list")
+        else:
+            if isinstance(text_or_tokens, str):
+                ngrams = self.extract_character_ngrams(text_or_tokens)
+            else:
+                raise ValueError("is_tokens=False but input is not a string")
+
+        # Count occurrences
+        counts = {}
+        for ngram in ngrams:
+            counts[ngram] = counts.get(ngram, 0) + 1
+
+        return counts
+
+    @staticmethod
+    def create_ngram_vocabulary(texts: List[str], n: int,
+                                min_count: int = 2,
+                                max_vocab_size: Optional[int] = None) -> Dict[str, int]:
+        """
+        Create a vocabulary of n-grams from multiple texts.
+
+        Parameters:
+        -----------
+        texts : List[str]
+            List of texts to analyze
+        n : int
+            Size of n-grams to extract
+        min_count : int
+            Minimum count to include n-gram in vocabulary (default: 2)
+        max_vocab_size : int, optional
+            Maximum vocabulary size (default: None, no limit)
+
+        Returns:
+        --------
+        Dict[str, int]
+            Dictionary mapping n-grams to their counts in the corpus
+        """
+        extractor = NGramExtractor(n=n)
+
+        # Extract n-grams from all texts and count them
+        ngram_counts = {}
+        for text in texts:
+            if not text:
+                continue
+
+            text_ngrams = extractor.extract_character_ngrams(text)
+            for ngram in text_ngrams:
+                ngram_counts[ngram] = ngram_counts.get(ngram, 0) + 1
+
+        # Filter by minimum count
+        ngram_counts = {ng: count for ng, count in ngram_counts.items() if count >= min_count}
+
+        # Sort by frequency (descending)
+        sorted_counts = sorted(ngram_counts.items(), key=lambda x: x[1], reverse=True)
+
+        # Limit vocabulary size if specified
+        if max_vocab_size and len(sorted_counts) > max_vocab_size:
+            sorted_counts = sorted_counts[:max_vocab_size]
+
+        return dict(sorted_counts)
 
 
 class LemmatizerRegistry:
@@ -275,7 +678,7 @@ class BaseTokenizer(ABC):
     @abstractmethod
     def _core_tokenize(self, text: str, **kwargs) -> List[str]:
         """
-        Core tokenization logic to be implemented by subclasses.
+        Pamola Core tokenization logic to be implemented by subclasses.
 
         Parameters
         ----------
@@ -319,7 +722,7 @@ class BaseTokenizer(ABC):
         # Preprocess text
         processed_text, protected_map = self.preprocess_text(text, preserve_case, preserve_patterns)
 
-        # Core tokenize
+        # Pamola Core tokenize
         tokens = self._core_tokenize(processed_text, **kwargs)
 
         # Restore placeholders
@@ -1251,6 +1654,7 @@ def calculate_term_frequencies(texts: List[str], language: str = "auto",
 
     return dict(sorted_counts)
 
+
 @cache_function(ttl=3600, cache_type='memory')
 def tokenize_and_lemmatize(
         text: str,
@@ -1556,25 +1960,108 @@ class TextProcessor:
 
         # 3) Extract n-grams if requested
         if extract_ngrams_flag and tokens:
-            try:
-                # Try to import from tokenization_ext
-                from pamola_core.utils.nlp.tokenization_ext import extract_ngrams # type: ignore
-                ngram_sizes = kwargs.get('ngram_sizes', [2, 3])
-                result['ngrams'] = {}
-                for n in ngram_sizes:
-                    # Make sure language is always a string
-                    lang_str = str(lang) if lang is not None else None
-                    ngrams = extract_ngrams(tokens, n=n, language=lang_str, **kwargs)
-                    result['ngrams'][n] = ngrams
-            except ImportError:
-                logger.warning(
-                    "N-gram extraction requested but tokenization_ext module not available. "
-                    "Skipping n-gram extraction."
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Error during n-gram extraction: {str(e)}. "
-                    "Skipping n-gram extraction."
+            # Extract n-grams using our internal NGramExtractor
+            ngram_sizes = kwargs.get('ngram_sizes', [2, 3])
+            result['ngrams'] = {}
+
+            for n in ngram_sizes:
+                # Create extractor with the right size
+                extractor = NGramExtractor(
+                    n=n,
+                    language=lang,
+                    lowercase=not kwargs.get('preserve_case', False),
+                    skip_stopwords=kwargs.get('skip_stopwords', False)
                 )
 
+                # Get n-grams as strings
+                ngrams = extractor.extract_token_ngrams_as_strings(tokens)
+                result['ngrams'][n] = ngrams
+
         return result
+
+
+# Helper functions for NGram extraction that can be used directly without creating an extractor
+
+def extract_ngrams(
+       tokens: List[str],
+       n: int = 3,
+       language: Optional[str] = None,
+       lowercase: bool = True,
+       min_length: int = 1,
+       as_strings: bool = True,
+       separator: str = ' ',
+       skip_stopwords: bool = False
+) -> Union[List[str], List[List[str]]]:
+   """
+   Extract n-grams from a list of tokens.
+
+   This is a convenience function that uses NGramExtractor internally.
+
+   Parameters:
+   -----------
+   tokens : List[str]
+       List of tokens to extract n-grams from
+   n : int
+       Size of n-grams to extract (default: 3)
+   language : str, optional
+       Language code for stopwords (default: None)
+   lowercase : bool
+       Whether to convert tokens to lowercase (default: True)
+   min_length : int
+       Minimum length of tokens to consider (default: 1)
+   as_strings : bool
+       Whether to return n-grams as strings or token lists (default: True)
+   separator : str
+       Separator to join tokens in each n-gram if as_strings=True (default: ' ')
+   skip_stopwords : bool
+       Whether to skip stopwords when extracting n-grams (default: False)
+
+   Returns:
+   --------
+   Union[List[str], List[List[str]]]
+       List of n-grams (as strings or token lists)
+   """
+   extractor = NGramExtractor(
+       n=n,
+       lowercase=lowercase,
+       min_length=min_length,
+       skip_stopwords=skip_stopwords,
+       language=language
+   )
+
+   if as_strings:
+       return extractor.extract_token_ngrams_as_strings(tokens, separator)
+   else:
+       return extractor.extract_token_ngrams(tokens)
+
+
+def extract_character_ngrams(text: str, n: int = 3, lowercase: bool = True,
+                            pad_text: bool = True) -> List[str]:
+   """
+   Extract character n-grams from text.
+
+   This is a convenience function that uses NGramExtractor internally.
+
+   Parameters:
+   -----------
+   text : str
+       Text to extract n-grams from
+   n : int
+       Size of n-grams to extract (default: 3)
+   lowercase : bool
+       Whether to convert text to lowercase (default: True)
+   pad_text : bool
+       Whether to pad text with underscore characters (default: True)
+
+   Returns:
+   --------
+   List[str]
+       List of character n-grams
+   """
+   extractor = NGramExtractor(
+       n=n,
+       lowercase=lowercase,
+       pad_text=pad_text
+   )
+
+   return extractor.extract_character_ngrams(text)

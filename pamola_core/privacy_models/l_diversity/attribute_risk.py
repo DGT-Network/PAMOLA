@@ -12,7 +12,7 @@ Key Features:
 - Value distribution analysis
 - Detailed attribute risk profiling
 
-This module extends the core privacy risk assessment with attribute-specific
+This module extends the pamola_core privacy risk assessment with attribute-specific
 analysis capabilities.
 
 (C) 2024 Realm Inveo Inc. and DGT Network Inc.

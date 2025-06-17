@@ -13,7 +13,7 @@ For details, see the LICENSE file or visit:
     https://opensource.org/licenses/BSD-3-Clause
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
-Package: core.metrics
+Package: pamola_core.metrics
 -----------------------
 This package implements statistical, anonymization, and data quality metrics to evaluate
 transformations and anonymization in PAMOLA.CORE.

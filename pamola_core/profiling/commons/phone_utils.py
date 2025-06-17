@@ -1,5 +1,5 @@
 """
-Phone number analysis utilities for the HHR anonymization project.
+Phone number analysis utilities for the anonymization project.
 
 This module provides analytical functions for phone number data fields,
 including phone validation, component extraction, and messenger detection.

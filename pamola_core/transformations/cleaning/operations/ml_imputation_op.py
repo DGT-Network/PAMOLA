@@ -14,7 +14,7 @@ The operation is configurable, allowing users to:
 - Collect detailed performance metrics.
 
 This class is registered as a DataCleanerOperation and uses MachineLearningImputationCleaner
-as the core imputation engine.
+as the pamola core imputation engine.
 
 Typical use cases include cleaning datasets with missing numerical values
 in preparation for downstream data analysis or machine learning pipelines.

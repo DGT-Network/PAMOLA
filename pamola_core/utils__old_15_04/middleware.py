@@ -1,5 +1,5 @@
 from django.http import Http404, HttpResponse
-from django.core.exceptions import PermissionDenied, SuspiciousFileOperation, RequestDataTooBig
+from django.pamola_core.exceptions import PermissionDenied, SuspiciousFileOperation, RequestDataTooBig
 from loguru import logger
 import sys
 import os

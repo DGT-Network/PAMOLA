@@ -1,5 +1,5 @@
 """
-Phone data analyzer for the HHR anonymization project.
+Phone data analyzer for the anonymization project.
 
 This module provides analyzers and operations for phone number fields,
 following the new operation architecture. It includes phone number validation,
@@ -295,7 +295,8 @@ class PhoneOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -658,7 +659,8 @@ def analyze_phone_fields(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = load_data_operation(data_source)
+    dataset_name = kwargs.get('dataset_name', "main")
+    df = load_data_operation(data_source, dataset_name)
     if df is None:
         reporter.add_operation("Phone fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})

@@ -1,10 +1,20 @@
 """
-Utilities for integration with Dask distributed computing framework.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module: Dask Integration Utilities
+Description: Utilities for leveraging Dask distributed computing with PAMOLA I/O modules
+Author: PAMOLA Core Team
+Created: 2025
+License: BSD 3-Clause
 
-This module provides functions for using Dask with the HHR I/O system,
-enabling processing of larger-than-memory datasets. It isolates Dask-specific
-code to avoid dependencies in the main I/O module when Dask is not being used.
+Key features:
+- Chunked CSV reading and writing using Dask for large-scale datasets
+- Partition-aware progress tracking with integration into the PAMOLA progress system
+- Conditional Dask usage to avoid hard dependencies if Dask is not installed
+- Computation of Dask-specific dataset statistics
+
 """
+
 
 from pathlib import Path
 from typing import Iterator, Union, Dict, Any
@@ -15,7 +25,7 @@ from pamola_core.utils import logging
 from pamola_core.utils import progress
 
 # Configure module logger
-logger = logging.get_logger("hhr.utils.io_helpers.dask_utils")
+logger = logging.get_logger("pamola_core.utils.io_helpers.dask_utils")
 
 
 def is_dask_available() -> bool:

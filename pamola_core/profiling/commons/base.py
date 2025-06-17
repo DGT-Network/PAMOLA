@@ -1,7 +1,7 @@
 """
 Base classes and interfaces for the profiling package.
 
-This module defines the core abstractions used throughout the profiling system:
+This module defines the pamola_core abstractions used throughout the profiling system:
 - BaseAnalyzer: Abstract base class for all data analyzers
 - BaseOperation: Abstract base class for profiling operations
 - AnalysisResult: Class representing results of analysis operations
@@ -268,7 +268,7 @@ class DataFrameProfiler:
         str
             The inferred data type
         """
-        from core.profiling.commons.helpers import infer_data_type
+        from pamola_core.profiling.commons.helpers import infer_data_type
         return infer_data_type(series)
 
     def _get_analyzer_for_type(self, data_type: str) -> Optional[BaseAnalyzer]:

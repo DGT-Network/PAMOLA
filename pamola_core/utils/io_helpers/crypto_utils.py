@@ -1,37 +1,243 @@
 """
-Utilities for encryption and decryption of file content.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module: Crypto Utilities
+Description: Pamola Core cryptographic operations supporting file and in-memory data encryption/decryption
+Author: PAMOLA Core Team
+Created: 2025
+License: BSD 3-Clause
 
-This module provides helper functions for encrypting and decrypting
-data when reading from or writing to files, isolating the crypto-specific
-code from the main I/O module.
+Key features:
+- Pluggable provider-based crypto system with standardized interface
+- File-level encryption and decryption with secure temporary handling
+- In-memory data encryption for sensitive payloads
+- Audit logging of cryptographic operations for compliance
+- Extensible design for adding new encryption algorithms
+
 """
 
-import json
+
+import logging
 from pathlib import Path
 from typing import Union, Dict, Any, Optional
 
-from pamola_core.utils import logging
-from pamola_core.utils.crypto import encrypt_data, decrypt_data, EncryptionError, DecryptionError
+# Import register providers function to break circular imports
+from pamola_core.utils.crypto_helpers.register_providers import register_all_providers
 
-# Configure module logger
-logger = logging.get_logger("hhr.utils.io_helpers.crypto_utils")
+# Register all providers on module import
+register_all_providers()
+
+from pamola_core.utils.crypto_helpers.audit import log_crypto_operation
+from pamola_core.utils.io_helpers.crypto_router import (
+    encrypt_file_router,
+    decrypt_file_router,
+    encrypt_data_router,
+    decrypt_data_router,
+    detect_encryption_mode
+)
+
+# Configure logger
+logger = logging.getLogger("pamola_core.utils.io_helpers.crypto_utils")
 
 
-def encrypt_file_content(data: Union[str, bytes],
-                         encryption_key: str) -> Union[str, bytes, Dict]:
+def encrypt_file(source_path: Union[str, Path],
+                 destination_path: Union[str, Path],
+                 key: Optional[str] = None,
+                 mode: str = "simple",
+                 task_id: Optional[str] = None,
+                 description: Optional[str] = None,
+                 **kwargs) -> Path:
     """
-    Encrypt data with proper error handling.
+    Encrypt a file and save it to a new location.
+
+    Parameters:
+    -----------
+    source_path : str or Path
+        Path to the file to encrypt
+    destination_path : str or Path
+        Path where to save the encrypted file
+    key : str, optional
+        Encryption key. If not provided, a task-specific key will be used
+        or generated depending on the mode. Required for 'simple' mode,
+        ignored for 'age' mode (which uses keypair).
+    mode : str
+        Encryption mode to use: "none", "simple", or "age"
+    task_id : str, optional
+        Identifier for the task associated with this operation
+    description : str, optional
+        Human-readable description of the file or operation
+    **kwargs : dict
+        Additional mode-specific parameters
+
+    Returns:
+    --------
+    Path
+        Path to the encrypted file
+
+    Raises:
+    -------
+    EncryptionError
+        If encryption fails
+    """
+    try:
+        source_path = Path(source_path)
+        destination_path = Path(destination_path)
+
+        # Add description to metadata if provided
+        if description:
+            kwargs["file_info"] = {"description": description}
+
+        # Call the router to perform the encryption
+        result = encrypt_file_router(
+            source_path=source_path,
+            destination_path=destination_path,
+            key=key,
+            mode=mode,
+            **kwargs
+        )
+
+        # Log the operation for audit
+        log_crypto_operation(
+            operation="encrypt_file",
+            mode=mode,
+            status="success",
+            source=source_path,
+            destination=destination_path,
+            task_id=task_id,
+            metadata={"description": description} if description else None
+        )
+
+        return result
+
+    except Exception as e:
+        # Log the failure
+        log_crypto_operation(
+            operation="encrypt_file",
+            mode=mode,
+            status="failure",
+            source=source_path,
+            destination=destination_path,
+            task_id=task_id,
+            metadata={"error": str(e)}
+        )
+
+        logger.error(f"Error encrypting file {source_path}: {e}")
+        raise
+
+
+def decrypt_file(source_path: Union[str, Path],
+                 destination_path: Union[str, Path],
+                 key: Optional[str] = None,
+                 mode: Optional[str] = None,
+                 task_id: Optional[str] = None,
+                 **kwargs) -> Path:
+    """
+    Decrypt a file and save it to a new location.
+
+    Parameters:
+    -----------
+    source_path : str or Path
+        Path to the encrypted file
+    destination_path : str or Path
+        Path where to save the decrypted file
+    key : str, optional
+        Decryption key. Required for 'simple' mode, ignored for 'age' mode
+        (which uses keypair).
+    mode : str, optional
+        Encryption mode to use. If not provided, will be auto-detected.
+    task_id : str, optional
+        Identifier for the task associated with this operation
+    **kwargs : dict
+        Additional mode-specific parameters
+
+    Returns:
+    --------
+    Path
+        Path to the decrypted file
+
+    Raises:
+    -------
+    DecryptionError
+        If decryption fails
+    """
+    try:
+        source_path = Path(source_path)
+        destination_path = Path(destination_path)
+
+        # Auto-detect mode if not specified
+        detected_mode = mode or detect_encryption_mode(source_path)
+
+        # Call the router to perform the decryption
+        result = decrypt_file_router(
+            source_path=source_path,
+            destination_path=destination_path,
+            key=key,
+            mode=detected_mode,
+            **kwargs
+        )
+
+        # Log the operation for audit
+        log_crypto_operation(
+            operation="decrypt_file",
+            mode=detected_mode,
+            status="success",
+            source=source_path,
+            destination=destination_path,
+            task_id=task_id
+        )
+
+        return result
+
+    except Exception as e:
+        # Try to detect the mode for logging purposes
+        try:
+            detected_mode = mode or detect_encryption_mode(source_path)
+        except:
+            detected_mode = "unknown"
+
+        # Log the failure
+        log_crypto_operation(
+            operation="decrypt_file",
+            mode=detected_mode,
+            status="failure",
+            source=source_path,
+            destination=destination_path,
+            task_id=task_id,
+            metadata={"error": str(e)}
+        )
+
+        logger.error(f"Error decrypting file {source_path}: {e}")
+        raise
+
+
+def encrypt_data(data: Union[str, bytes],
+                 key: Optional[str] = None,
+                 mode: str = "simple",
+                 task_id: Optional[str] = None,
+                 description: Optional[str] = None,
+                 **kwargs) -> Union[str, bytes, Dict[str, Any]]:
+    """
+    Encrypt data in memory.
 
     Parameters:
     -----------
     data : str or bytes
         Data to encrypt
-    encryption_key : str
-        Encryption key
+    key : str, optional
+        Encryption key. Required for 'simple' mode, ignored for 'age' mode
+        (which uses keypair).
+    mode : str
+        Encryption mode to use: "none", "simple", or "age"
+    task_id : str, optional
+        Identifier for the task associated with this operation
+    description : str, optional
+        Human-readable description of the data or operation
+    **kwargs : dict
+        Additional mode-specific parameters
 
     Returns:
     --------
-    Union[str, bytes, Dict]
+    Union[str, bytes, Dict[str, Any]]
         Encrypted data
 
     Raises:
@@ -39,33 +245,75 @@ def encrypt_file_content(data: Union[str, bytes],
     EncryptionError
         If encryption fails
     """
-    if not encryption_key:
-        return data
-
     try:
-        if isinstance(data, bytes):
-            return encrypt_data(data, encryption_key)
-        elif isinstance(data, str):
-            return encrypt_data(data, encryption_key)
-        else:
-            # Convert to string if not already string or bytes
-            return encrypt_data(str(data), encryption_key)
-    except EncryptionError as e:
-        logger.error(f"Encryption failed: {e}")
+        # Add description to metadata if provided
+        if description:
+            kwargs["data_info"] = {"description": description}
+
+        # Call the router to perform the encryption
+        result = encrypt_data_router(
+            data=data,
+            key=key,
+            mode=mode,
+            **kwargs
+        )
+
+        # Log the operation for audit
+        log_crypto_operation(
+            operation="encrypt_data",
+            mode=mode,
+            status="success",
+            task_id=task_id,
+            metadata={
+                "description": description,
+                "data_type": type(data).__name__,
+                "result_type": type(result).__name__
+            } if description else {
+                "data_type": type(data).__name__,
+                "result_type": type(result).__name__
+            }
+        )
+
+        return result
+
+    except Exception as e:
+        # Log the failure
+        log_crypto_operation(
+            operation="encrypt_data",
+            mode=mode,
+            status="failure",
+            task_id=task_id,
+            metadata={
+                "error": str(e),
+                "data_type": type(data).__name__
+            }
+        )
+
+        logger.error(f"Error encrypting data: {e}")
         raise
 
 
-def decrypt_file_content(data: Union[str, bytes, Dict],
-                         encryption_key: str) -> Union[str, bytes]:
+def decrypt_data(data: Union[str, bytes, Dict[str, Any]],
+                 key: Optional[str] = None,
+                 mode: Optional[str] = None,
+                 task_id: Optional[str] = None,
+                 **kwargs) -> Union[str, bytes]:
     """
-    Decrypt data with proper error handling.
+    Decrypt data in memory.
 
     Parameters:
     -----------
-    data : str, bytes, or Dict
+    data : str, bytes, or Dict[str, Any]
         Data to decrypt
-    encryption_key : str
-        Decryption key
+    key : str, optional
+        Decryption key. Required for 'simple' mode, ignored for 'age' mode
+        (which uses keypair).
+    mode : str, optional
+        Encryption mode to use. If not provided, will be auto-detected.
+    task_id : str, optional
+        Identifier for the task associated with this operation
+    **kwargs : dict
+        Additional mode-specific parameters
 
     Returns:
     --------
@@ -77,258 +325,139 @@ def decrypt_file_content(data: Union[str, bytes, Dict],
     DecryptionError
         If decryption fails
     """
-    if not encryption_key:
-        return data
-
     try:
-        # Try to decrypt the data, handling different types appropriately in decrypt_data
-        return decrypt_data(data, encryption_key)
-    except (TypeError, ValueError, AttributeError) as e:
-        # If we get here, the data format probably isn't what decrypt_data expects
-        logger.warning(f"Unknown data format for decryption: {type(data)}, error: {e}")
-        return data
-    except DecryptionError as e:
-        logger.error(f"Decryption failed: {e}")
-        raise
+        # Call the router to perform the decryption
+        result = decrypt_data_router(
+            data=data,
+            key=key,
+            mode=mode,
+            **kwargs
+        )
 
+        # Determine the mode that was used (for logging)
+        detected_mode = mode
+        if mode is None and isinstance(data, dict) and "mode" in data:
+            detected_mode = data["mode"]
+        elif mode is None:
+            detected_mode = "auto"
 
-def decrypt_file(file_path: Union[str, Path],
-                 encryption_key: str) -> Union[str, bytes]:
-    """
-    Read and decrypt a file.
+        # Log the operation for audit
+        log_crypto_operation(
+            operation="decrypt_data",
+            mode=detected_mode,
+            status="success",
+            task_id=task_id,
+            metadata={
+                "data_type": type(data).__name__,
+                "result_type": type(result).__name__
+            }
+        )
 
-    Parameters:
-    -----------
-    file_path : str or Path
-        Path to the encrypted file
-    encryption_key : str
-        Decryption key
-
-    Returns:
-    --------
-    Union[str, bytes]
-        Decrypted content
-
-    Raises:
-    -------
-    DecryptionError
-        If decryption fails
-    FileNotFoundError
-        If file does not exist
-    """
-    file_path = Path(file_path)
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    logger.info(f"Reading and decrypting file: {file_path}")
-
-    try:
-        # Try reading as JSON first (for metadata-based encryption)
-        try:
-            with open(file_path, 'r') as f:
-                data = json.load(f)
-
-            if isinstance(data, dict) and "data" in data and "algorithm" in data:
-                # This looks like our encryption format
-                return decrypt_file_content(data, encryption_key)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            # Not JSON, try as binary
-            pass
-
-        # Read as binary if not a valid JSON
-        with open(file_path, 'rb') as f:
-            binary_data = f.read()
-
-        return decrypt_file_content(binary_data, encryption_key)
+        return result
 
     except Exception as e:
-        logger.error(f"Error decrypting file {file_path}: {e}")
+        # Determine the mode that was used (for logging)
+        detected_mode = mode
+        if mode is None and isinstance(data, dict) and "mode" in data:
+            detected_mode = data["mode"]
+        elif mode is None:
+            detected_mode = "auto"
+
+        # Log the failure
+        log_crypto_operation(
+            operation="decrypt_data",
+            mode=detected_mode,
+            status="failure",
+            task_id=task_id,
+            metadata={
+                "error": str(e),
+                "data_type": type(data).__name__
+            }
+        )
+
+        logger.error(f"Error decrypting data: {e}")
         raise
 
 
-def encrypt_file(source_path: Union[str, Path],
-                 destination_path: Union[str, Path],
-                 encryption_key: str) -> Path:
+def is_encrypted(data_or_path: Union[str, bytes, Dict[str, Any], Path]) -> bool:
     """
-    Encrypt a file and save it to a new location.
+    Check if data or a file appears to be encrypted.
 
     Parameters:
     -----------
-    source_path : str or Path
-        Path to the file to encrypt
-    destination_path : str or Path
-        Path where to save the encrypted file
-    encryption_key : str
-        Encryption key
-
-    Returns:
-    --------
-    Path
-        Path to the encrypted file
-
-    Raises:
-    -------
-    EncryptionError
-        If encryption fails
-    FileNotFoundError
-        If source file does not exist
-    """
-    source_path = Path(source_path)
-    destination_path = Path(destination_path)
-
-    if not source_path.exists():
-        raise FileNotFoundError(f"Source file not found: {source_path}")
-
-    logger.info(f"Encrypting file from {source_path} to {destination_path}")
-
-    try:
-        # Read source file
-        with open(source_path, 'rb') as f:
-            data = f.read()
-
-        # Encrypt data
-        encrypted_data = encrypt_file_content(data, encryption_key)
-
-        # Save encrypted data
-        if isinstance(encrypted_data, dict):
-            # Save as JSON if it's a metadata structure
-            with open(destination_path, 'w') as f:
-                json.dump(encrypted_data, f) # type: ignore
-        else:
-            # Save as binary otherwise
-            with open(destination_path, 'wb') as f:
-                if isinstance(encrypted_data, str):
-                    f.write(encrypted_data.encode('utf-8'))
-                else:
-                    f.write(encrypted_data)
-
-        return destination_path
-
-    except Exception as e:
-        logger.error(f"Error encrypting file {source_path}: {e}")
-        raise
-
-
-def encrypt_content_to_file(content: Union[str, bytes],
-                            file_path: Union[str, Path],
-                            encryption_key: str) -> Path:
-    """
-    Encrypt content and save it to a file.
-
-    Parameters:
-    -----------
-    content : str or bytes
-        Content to encrypt
-    file_path : str or Path
-        Path where to save the encrypted file
-    encryption_key : str
-        Encryption key
-
-    Returns:
-    --------
-    Path
-        Path to the encrypted file
-
-    Raises:
-    -------
-    EncryptionError
-        If encryption fails
-    """
-    file_path = Path(file_path)
-
-    logger.info(f"Encrypting content and saving to {file_path}")
-
-    try:
-        # Encrypt data
-        encrypted_data = encrypt_file_content(content, encryption_key)
-
-        # Save encrypted data
-        if isinstance(encrypted_data, dict):
-            # Save as JSON if it's a metadata structure
-            with open(file_path, 'w') as f:
-                json.dump(encrypted_data, f) # type: ignore
-        else:
-            # Save as binary otherwise
-            with open(file_path, 'wb') as f:
-                if isinstance(encrypted_data, str):
-                    f.write(encrypted_data.encode('utf-8'))
-                else:
-                    f.write(encrypted_data)
-
-        return file_path
-
-    except Exception as e:
-        logger.error(f"Error encrypting content to {file_path}: {e}")
-        raise
-
-
-def is_encrypted_data(data: Any) -> bool:
-    """
-    Check if data appears to be in the encrypted format.
-
-    Parameters:
-    -----------
-    data : Any
-        Data to check
+    data_or_path : str, bytes, Dict[str, Any], or Path
+        Data or file path to check
 
     Returns:
     --------
     bool
-        True if the data appears to be encrypted
+        True if the data or file appears to be encrypted, False otherwise
     """
-    if isinstance(data, dict):
-        # Check for our encryption metadata format
-        return "data" in data and "algorithm" in data
+    # Check if it's a Path or string path
+    if isinstance(data_or_path, (str, Path)) and Path(data_or_path).exists():
+        try:
+            mode = detect_encryption_mode(data_or_path)
+            return mode != "none"
+        except Exception:
+            return False
 
-    # Could add additional heuristics here, but for now just check dict format
+    # If it's a dictionary, check for encryption indicators
+    if isinstance(data_or_path, dict):
+        return ("mode" in data_or_path and data_or_path["mode"] != "none") or \
+            ("algorithm" in data_or_path and "data" in data_or_path)
+
+    # For other types, we can't easily determine
     return False
 
 
-def get_encryption_metadata(data: Dict) -> Dict[str, Any]:
+def get_encryption_info(data_or_path: Union[str, bytes, Dict[str, Any], Path]) -> Dict[str, Any]:
     """
-    Extract metadata from encrypted data structure.
+    Get information about encrypted data or file.
 
     Parameters:
     -----------
-    data : Dict
-        Encrypted data structure
+    data_or_path : str, bytes, Dict[str, Any], or Path
+        Data or file path to check
 
     Returns:
     --------
     Dict[str, Any]
-        Encryption metadata
+        Information about the encryption, empty if not encrypted
     """
-    if not is_encrypted_data(data):
-        return {}
+    info = {}
 
-    metadata = {
-        "algorithm": data.get("algorithm"),
-        "timestamp": data.get("timestamp"),
-    }
-
-    # Include any other metadata fields except the actual encrypted data
-    for key, value in data.items():
-        if key not in ["data", "algorithm", "timestamp"]:
-            metadata[key] = value
-
-    return metadata
-
-
-def safe_remove_temp_file(temp_file_path: Optional[Union[str, Path]], logger):
-    """
-    Safely removes a temporary file if it exists.
-
-    Parameters:
-    -----------
-    temp_file_path : str, Path, or None
-        Path to the temporary file to remove
-    logger : logging.Logger
-        Logger to record warnings
-    """
-    if temp_file_path is not None:
+    # Check if it's a Path or string path
+    if isinstance(data_or_path, (str, Path)) and Path(data_or_path).exists():
         try:
-            import os
-            os.remove(temp_file_path)
-        except Exception as e:
-            logger.warning(f"Could not remove temporary file: {e}")
+            mode = detect_encryption_mode(data_or_path)
+            info["mode"] = mode
+
+            # If it's not encrypted, return minimal info
+            if mode == "none":
+                return info
+
+            # Try to read file to get more info for 'simple' mode
+            if mode == "simple":
+                import json
+                try:
+                    with open(data_or_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+
+                    # Extract metadata while avoiding sensitive fields
+                    for key, value in data.items():
+                        if key not in ["data", "iv"]:
+                            info[key] = value
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
+
+        except Exception:
+            return info
+
+    # If it's a dictionary, extract metadata
+    elif isinstance(data_or_path, dict):
+        # Extract metadata while avoiding sensitive fields
+        for key, value in data_or_path.items():
+            if key not in ["data", "iv"]:
+                info[key] = value
+
+    return info

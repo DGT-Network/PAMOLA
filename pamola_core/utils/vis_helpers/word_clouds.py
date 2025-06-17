@@ -1,5 +1,5 @@
 """
-Word cloud implementation for the HHR profiling system.
+Word cloud implementation for the profiling system.
 
 This module provides a focused implementation for word clouds using the wordcloud library
 and PIL.Image. It's designed specifically for integration with the text profiler

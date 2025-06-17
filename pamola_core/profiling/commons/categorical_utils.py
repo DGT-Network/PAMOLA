@@ -1,5 +1,5 @@
 """
-Utility functions for analyzing categorical fields in the HHR project.
+Utility functions for analyzing categorical fields in the project.
 
 This module provides pure analytical functions for categorical data analysis,
 separate from operation logic, focusing on metrics calculation, pattern extraction,

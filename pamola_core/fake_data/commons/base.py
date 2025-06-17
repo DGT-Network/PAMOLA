@@ -1,7 +1,7 @@
 """
 Base abstract classes for the fake_data module.
 
-This module provides the core abstractions and interfaces for fake data generation,
+This module provides the pamola_core abstractions and interfaces for fake data generation,
 mapping, and operations.
 """
 

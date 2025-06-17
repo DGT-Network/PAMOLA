@@ -1,5 +1,5 @@
 """
-Date analyzer module for the HHR project.
+Date analyzer module for the project.
 
 This module provides analyzers and operations for date fields, following the
 new operation architecture. It includes validation, distribution analysis,
@@ -306,7 +306,8 @@ class DateOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -668,7 +669,8 @@ def analyze_date_fields(data_source: DataSource,
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = load_data_operation(data_source)
+    dataset_name = kwargs.get('dataset_name', "main")
+    df = load_data_operation(data_source, dataset_name)
     if df is None:
         reporter.add_operation("Date fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})

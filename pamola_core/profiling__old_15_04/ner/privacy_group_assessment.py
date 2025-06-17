@@ -248,7 +248,7 @@ class PrivacyGroupAssessmentProfilingProcessor(BaseProfilingProcessor):
 
         Parameters:
         -----------
-        grouped : pandas.core.groupby.DataFrameGroupBy
+        grouped : pandas.pamola_core.groupby.DataFrameGroupBy
             Grouped DataFrame object created using `groupby` on quasi-identifiers.
         sensitive_attributes : List[str]
             List of sensitive attributes to analyze for diversity.

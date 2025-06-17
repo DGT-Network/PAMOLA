@@ -1,5 +1,5 @@
 """
-Attribute utilities for data profiling in the HHR project.
+Attribute utilities for data profiling in the project.
 
 This module provides utility functions for analyzing and categorizing attributes
 of datasets based on their names, content, and statistical properties.
@@ -128,7 +128,7 @@ def load_attribute_dictionary(file_path: Optional[Union[str, Path]] = None) -> D
         Path(__file__).parent.parent.parent / 'data' / 'external_dictionaries' / 'attribute_roles_dictionary.json',
 
         # Other potential locations
-        Path.home() / 'HHR_PROJECT' / 'DATA' / 'external_dictionaries' / 'attribute_roles_dictionary.json'
+        Path.home() / 'PAMOLA_PROJECT' / 'DATA' / 'external_dictionaries' / 'attribute_roles_dictionary.json'
     ]
 
     for path in possible_paths:
@@ -366,7 +366,7 @@ def is_mvf_field(series: pd.Series) -> bool:
 
     # Sample the data to avoid processing very large series
     sample = non_null.sample(min(100, len(non_null)))
-    mvf_count = sample.str.contains(mvf_pattern, regex=True, na=False).sum()
+    mvf_count = sample.astype(str).str.contains(mvf_pattern, regex=True, na=False).sum()
 
     # If at least 50% match MVF pattern
     if mvf_count >= len(sample) * 0.5:

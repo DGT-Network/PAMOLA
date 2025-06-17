@@ -1,5 +1,5 @@
 """
-Data processing utilities for the HHR anonymization project.
+Data processing utilities for the anonymization project.
 
 This module provides functions for preparing and preprocessing data before analysis,
 including handling of missing values, type conversion, and chunked processing.
@@ -80,7 +80,7 @@ def prepare_field_for_analysis(
         - Series of prepared data
         - Inferred data type
     """
-    from core.profiling.commons.data_types import DataType
+    from pamola_core.profiling.commons.data_types import DataType
 
     # Check if field exists
     if field_name not in df.columns:
@@ -132,7 +132,7 @@ def handle_large_dataframe(
     Dict[str, Any]
         Combined results of the chunked processing
     """
-    from core.profiling.commons.numeric_utils import combine_chunk_results
+    from pamola_core.profiling.commons.numeric_utils import combine_chunk_results
 
     # Create DataFrame with only the needed field
     field_df = df[[field_name]].copy()
@@ -141,7 +141,7 @@ def handle_large_dataframe(
     description = f"Processing {field_name} in chunks"
 
     # Get the function from process_dataframe_in_chunks
-    from core.utils.progress import process_dataframe_in_chunks
+    from pamola_core.utils.progress import process_dataframe_in_chunks
 
     chunk_results = process_dataframe_in_chunks(
         field_df,

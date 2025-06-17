@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Значения по умолчанию
 DEFAULT_CONFIG = {
     "project": {
-        "name": "HeadHunter Resume Anonymization",
+        "name": "PAMOLA.CORE (Privacy-Preserving AI Data Processors) Anonymization",
         "description": "Анализ и анонимизация данных резюме для обезличивания",
         "version": "1.0.0",
         "created": datetime.now().strftime("%Y-%m-%d"),
@@ -43,22 +43,22 @@ def get_config_path() -> Path:
         Путь к файлу конфигурации
     """
     # Сначала ищем в переменной окружения
-    if os.environ.get("HHR_CONFIG_PATH"):
-        return Path(os.environ["HHR_CONFIG_PATH"])
+    if os.environ.get("PAMOLA_CONFIG_PATH"):
+        return Path(os.environ["PAMOLA_CONFIG_PATH"])
 
     # Ищем в стандартных местах
     config_search_paths = [
-        Path("hhr_config.json"),
-        Path("configs/hhr_config.json"),
-        Path("config/hhr_config.json"),
-        Path(os.path.expanduser("~")) / ".hhr" / "config.json"
+        Path("prj_config.json"),
+        Path("configs/prj_config.json"),
+        Path("config/prj_config.json"),
+        Path(os.path.expanduser("~")) / ".pamola_core" / "config.json"
     ]
 
     # Проверяем текущую директорию проекта
     try:
         from pamola_core.utils.io import get_data_repository
         repo_dir = get_data_repository()
-        config_search_paths.insert(0, repo_dir / "configs" / "hhr_config.json")
+        config_search_paths.insert(0, repo_dir / "configs" / "prj_config.json")
     except (ImportError, Exception):
         logger.warning("Не удалось получить директорию репозитория данных")
 
@@ -68,7 +68,7 @@ def get_config_path() -> Path:
             return path
 
     # Возвращаем путь по умолчанию, если ничего не найдено
-    return Path("hhr_config.json")
+    return Path("prj_config.json")
 
 
 def load_config() -> Dict[str, Any]:

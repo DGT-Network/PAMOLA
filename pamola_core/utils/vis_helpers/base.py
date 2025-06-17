@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 _CURRENT_BACKEND = "plotly"  # Default to plotly
 _AVAILABLE_BACKENDS = ["plotly", "matplotlib"]
 
+# Map legacy backend names to supported backends
+_BACKEND_ALIASES = {
+    "default": "plotly",  # Map 'default' to plotly since it's our primary backend
+    "mpl": "matplotlib",
+    "matplot": "matplotlib"
+}
+
 
 def set_backend(backend: str) -> None:
     """
@@ -33,11 +40,22 @@ def set_backend(backend: str) -> None:
         Backend to use: "plotly" or "matplotlib"
     """
     global _CURRENT_BACKEND
-    if backend.lower() not in _AVAILABLE_BACKENDS:
+
+    # Normalize backend name
+    backend_lower = backend.lower()
+
+    # Check if it's an alias and map it to a supported backend
+    if backend_lower in _BACKEND_ALIASES:
+        actual_backend = _BACKEND_ALIASES[backend_lower]
+        logger.debug(f"Mapping backend alias '{backend}' to '{actual_backend}'")
+        backend_lower = actual_backend
+
+    # Set the backend if supported
+    if backend_lower not in _AVAILABLE_BACKENDS:
         logger.warning(f"Unsupported backend: {backend}. Falling back to plotly.")
         _CURRENT_BACKEND = "plotly"
     else:
-        _CURRENT_BACKEND = backend.lower()
+        _CURRENT_BACKEND = backend_lower
 
 
 def get_backend() -> str:
@@ -210,11 +228,23 @@ class FigureRegistry:
         implementation : Type[BaseFigure]
             Class that implements the figure type
         """
-        if backend not in cls._registry:
-            logger.warning(f"Unknown backend: {backend}. Registration skipped.")
+        # Normalize backend name and handle aliases
+        backend_lower = backend.lower()
+        if backend_lower in _BACKEND_ALIASES:
+            backend_lower = _BACKEND_ALIASES[backend_lower]
+            logger.debug(f"Mapped backend alias '{backend}' to '{backend_lower}'")
+
+        # Check if the backend is supported
+        if backend_lower not in _AVAILABLE_BACKENDS:
+            # Don't log warning for known aliases to reduce noise
+            if backend.lower() not in _BACKEND_ALIASES:
+                logger.warning(f"Cannot register for unknown backend: {backend}. Registration skipped.")
+            else:
+                logger.debug(f"Mapping alias '{backend}' to '{backend_lower}' for figure type '{figure_type}'")
             return
 
-        cls._registry[backend][figure_type] = implementation
+        cls._registry[backend_lower][figure_type] = implementation
+        logger.debug(f"Registered {figure_type} implementation for {backend_lower} backend")
 
     @classmethod
     def get(cls, figure_type: str, backend: str) -> Type[BaseFigure]:
@@ -237,26 +267,32 @@ class FigureRegistry:
         if figure_type == 'base':
             return PlotlyFigure if backend == 'plotly' else MatplotlibFigure
 
+        # Normalize backend name and handle aliases
+        backend_lower = backend.lower()
+        if backend_lower in _BACKEND_ALIASES:
+            backend_lower = _BACKEND_ALIASES[backend_lower]
+            logger.debug(f"Using '{backend_lower}' backend for alias '{backend}'")
+
         # Check if the requested backend is available
-        if backend not in cls._registry:
+        if backend_lower not in cls._registry:
             logger.warning(f"Unknown backend: {backend}. Falling back to plotly.")
-            backend = 'plotly'
+            backend_lower = 'plotly'
 
         # Check if the figure type is implemented for the backend
-        if figure_type not in cls._registry[backend]:
+        if figure_type not in cls._registry[backend_lower]:
             # First try the other backend if available
-            other_backend = 'matplotlib' if backend == 'plotly' else 'plotly'
+            other_backend = 'matplotlib' if backend_lower == 'plotly' else 'plotly'
             if figure_type in cls._registry[other_backend]:
-                logger.warning(f"Figure type '{figure_type}' not found for backend '{backend}'. "
+                logger.warning(f"Figure type '{figure_type}' not found for backend '{backend_lower}'. "
                                f"Falling back to '{other_backend}'.")
                 return cls._registry[other_backend][figure_type]
 
             # If neither backend has the implementation, use a base implementation
             logger.warning(f"Figure type '{figure_type}' not implemented for any backend. "
                            f"Using base implementation.")
-            return PlotlyFigure if backend == 'plotly' else MatplotlibFigure
+            return PlotlyFigure if backend_lower == 'plotly' else MatplotlibFigure
 
-        return cls._registry[backend][figure_type]
+        return cls._registry[backend_lower][figure_type]
 
 
 class FigureFactory:

@@ -1,5 +1,5 @@
 """
-Report generation utilities for the HHR anonymization project.
+Report generation utilities for the anonymization project.
 
 This module provides functions for generating and formatting analysis reports
 and artifacts, including JSON reports, CSV dictionaries, and metadata formatting.
@@ -51,7 +51,7 @@ def save_profiling_results(
     str
         Path to the saved file
     """
-    from core.utils.io import save_json, save_csv
+    from pamola_core.utils.io import save_json, save_csv
 
     try:
         # Add timestamp if requested
@@ -65,7 +65,7 @@ def save_profiling_results(
         if output_dir:
             base_dir = Path(output_dir)
         else:
-            from core.utils.io import get_output_dir
+            from pamola_core.utils.io import get_output_dir
             base_dir = get_output_dir() / profile_type
 
         ensure_directory(base_dir)
@@ -140,7 +140,7 @@ def save_value_dictionary(
         if output_dir:
             dict_dir = Path(output_dir) / "dictionaries"
         else:
-            from core.utils.io import get_output_dir
+            from pamola_core.utils.io import get_output_dir
             dict_dir = get_output_dir() / profile_type / "dictionaries"
 
         ensure_directory(dict_dir)

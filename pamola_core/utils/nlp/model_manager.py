@@ -1,5 +1,5 @@
 """
-NLP model management module for the HHR project.
+NLP model management module for the project.
 
 This module provides centralized management for NLP models with support for
 caching, memory optimization, and graceful degradation when models are unavailable.
@@ -60,8 +60,8 @@ class NLPModelManager:
         Sets up caches, reads environment variables, and detects available libraries.
         """
         self._model_cache = get_cache('model')
-        self._max_models = int(os.environ.get('HHR_MAX_MODELS', '5'))
-        self._model_expiry = int(os.environ.get('HHR_MODEL_EXPIRY', '3600'))  # 1 hour in seconds
+        self._max_models = int(os.environ.get('PAMOLA_MAX_MODELS', '5'))
+        self._model_expiry = int(os.environ.get('PAMOLA_MODEL_EXPIRY', '3600'))  # 1 hour in seconds
         self._nlp_libraries = self._check_available_libraries()
 
         # A dictionary mapping model_type strings to loader methods.

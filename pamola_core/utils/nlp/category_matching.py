@@ -1,5 +1,5 @@
 """
-Category matching module for the HHR project.
+Category matching module for the project.
 
 This module provides functionality for matching text to predefined categories,
 with support for hierarchical dictionaries and conflict resolution strategies.

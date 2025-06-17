@@ -146,7 +146,8 @@ class PlotlySpiderChart(PlotlyFigure):
                 # Add fill if requested
                 if fill_area:
                     trace_params['fill'] = 'toself'
-                    trace_params['fillcolor'] = f'rgba({to_rgba(color.lstrip("rgb(").rstrip(")"))}, 0.2)'
+                    r, g, b, _ = to_rgba(color) 
+                    trace_params['fillcolor'] = f'rgba({int(r*255)}, {int(g*255)}, {int(b*255)}, 0.2)'
 
                 # Add any additional parameters
                 for key, value in kwargs.items():

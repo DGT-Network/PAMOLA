@@ -37,8 +37,8 @@ def get_dictionaries_path() -> Path:
     Get the path to the entity dictionaries directory.
 
     Tries to find the path in the following order:
-    1. HHR_ENTITIES_DIR environment variable
-    2. Data repository from HHR config under external_dictionaries/entities
+    1. PAMOLA_ENTITIES_DIR environment variable
+    2. Data repository from PAMOLA.CORE config under external_dictionaries/entities
     3. Default path in package resources
 
     Returns:
@@ -47,15 +47,15 @@ def get_dictionaries_path() -> Path:
         Path to the entity dictionaries directory
     """
     # Check environment variable
-    env_dir = os.environ.get('HHR_ENTITIES_DIR')
+    env_dir = os.environ.get('PAMOLA_ENTITIES_DIR')
     if env_dir and os.path.exists(env_dir):
         return Path(env_dir)
 
-    # Check for HHR config
+    # Check for PAMOLA.CORE config
     try:
         # Try to determine the project root
         current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-        config_path = os.path.join(current_dir, 'configs', 'hhr_config.json')
+        config_path = os.path.join(current_dir, 'configs', 'prj_config.json')
 
         if os.path.exists(config_path):
             with open(config_path, 'r', encoding='utf-8') as f:
@@ -72,7 +72,7 @@ def get_dictionaries_path() -> Path:
                 os.makedirs(entities_dir, exist_ok=True)
                 return Path(entities_dir)
     except Exception as e:
-        logger.warning(f"Error reading HHR config: {e}")
+        logger.warning(f"Error reading PAMOLA.CORE config: {e}")
 
     # Default path in package resources
     package_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

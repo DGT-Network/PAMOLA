@@ -13,7 +13,7 @@ For details, see the LICENSE file or visit:
     https://opensource.org/licenses/BSD-3-Clause
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
-Package: core.interface
+Package: pamola_core.interface
 Author: <NAME> <<EMAIL>>
 -----------------------
 This package defines command-line interfaces (CLI) and API handlers for

@@ -13,7 +13,7 @@ For details, see the LICENSE file or visit:
     https://opensource.org/licenses/BSD-3-Clause
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
-Package: core/utils
+Package: pamola_core/utils
 -----------------------
 This package contains utility functions such as logging, vectorization, configuration management,
 and type checking, supporting the entire PAMOLA.CORE framework.

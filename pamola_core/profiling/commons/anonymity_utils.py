@@ -1,5 +1,5 @@
 """
-K-anonymity utilities for the HHR project.
+K-anonymity utilities for the project.
 
 This module provides utilities for analyzing k-anonymity in data, including
 functions for generating KA indices, calculating k-anonymity metrics,

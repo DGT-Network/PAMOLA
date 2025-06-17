@@ -9,10 +9,10 @@ analyzes mapping relationships, and ensures data consistency.
 from typing import Any, Dict, List, Set
 
 from pamola_core.fake_data.commons.mapping_store import MappingStore
-from pamola_core.utils import logging as hhr_logging
+from pamola_core.utils import logging as pamola_logging
 
 # Configure logger
-logger = hhr_logging.get_logger("pamola_core.fake_data.mappers.transitivity_handler")
+logger = pamola_logging.get_logger("pamola_core.fake_data.mappers.transitivity_handler")
 
 
 class TransitivityHandler:

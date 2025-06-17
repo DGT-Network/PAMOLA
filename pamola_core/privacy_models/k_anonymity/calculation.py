@@ -21,7 +21,7 @@ based on a set of quasi-identifiers.
 
 Features:
 - **Efficient Pandas operations (`groupby()`, `value_counts()`)**.
-- **Modular functions extracted into `core.utils.anonymization` for reuse**.
+- **Modular functions extracted into `pamola_core.utils.anonymization` for reuse**.
 - **Masking & suppression options** for anonymization.
 - **Adaptive k-levels** for different groups.
 - **Tracking `k` values per row** in a new column.
@@ -56,7 +56,7 @@ from pamola_core import config
 from pamola_core.privacy_models.k_anonymity.ka_reporting import (
     generate_compliance_report
 )
-from pamola_core.utils.file_io import write_json, write_csv
+from pamola_core.utils__old_15_04.file_io import write_json, write_csv
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
 from pamola_core.metrics.fidelity.statistical_fidelity import StatisticalFidelityMetric, calculate_fidelity_metrics
 # Import metrics modules
@@ -64,7 +64,7 @@ from pamola_core.metrics.privacy.disclosure_risk import DisclosureRiskMetric, KA
     calculate_disclosure_risk_metrics
 from pamola_core.metrics.utility.information_loss import InformationLossMetric, calculate_information_loss_metrics
 from pamola_core.utils import progress
-from pamola_core.utils.group_processing import compute_group_sizes, adaptive_k_lookup, validate_anonymity_inputs, \
+from pamola_core.utils__old_15_04.group_processing import compute_group_sizes, adaptive_k_lookup, validate_anonymity_inputs, \
     optimize_memory_usage
 
 # Visualization libraries

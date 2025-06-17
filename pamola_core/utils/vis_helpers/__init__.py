@@ -1,11 +1,11 @@
 """
-Visualization Helpers Package for HHR Project.
+Visualization Helpers Package for project.
 
 This package provides implementation details for the visualization system,
 including various plotting engines, themes, and specialized visualizations.
 """
 
-# Import core functionality
+# Import pamola_core functionality
 from pamola_core.utils.vis_helpers.base import (
     BaseFigure,
     PlotlyFigure,
@@ -70,7 +70,7 @@ __all__ = [
     'FigureFactory',
     'FigureRegistry',
 
-    # Core functions
+    # Pamola Core functions
     'set_backend',
     'get_backend',
     'ensure_series',

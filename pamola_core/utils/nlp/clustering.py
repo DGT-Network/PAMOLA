@@ -1,5 +1,5 @@
 """
-Text clustering module for the HHR project.
+Text clustering module for the project.
 
 This module provides functionality for clustering similar texts,
 with support for different similarity metrics and algorithms.

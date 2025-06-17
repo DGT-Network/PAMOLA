@@ -1,11 +1,27 @@
 """
-Base classes for task operations in the HHR project.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module: Operation Base Classes
+Description: Base operation classes for defining modular privacy-enhancing tasks
+Author: PAMOLA Core Team
+Created: 2025
+License: BSD 3-Clause
 
 This module provides base classes for defining operations that can be used
 across different domains like profiling, anonymization, security, etc.
+
+Key features:
+- Standardized operation lifecycle (initialization, execution, result collection)
+- Progress tracking with hierarchical reporting
+- Configuration management and serialization
+- Atomic artifact management
+- Integrated logging and error handling
+- Support for encryption of outputs
 """
 
+import json
 import logging
+import os
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -16,10 +32,19 @@ import pandas as pd
 from pamola_core.utils.ops.op_data_source import DataSource
 # Import OperationResult directly to ensure type checker recognizes the class and its methods
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.ops.op_registry import register_operation
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+
+class ConfigSaveError(Exception):
+    """
+    Error raised when saving operation configuration fails.
+    """
+    pass
 
 
 class OperationScope:
@@ -50,17 +75,17 @@ class OperationScope:
         self.datasets = datasets or []
         self.field_groups = field_groups or {}
 
-    def add_field(self, field_name: str):
+    def add_field(self, field_name: str) -> None:
         """Add a field to the scope."""
         if field_name not in self.fields:
             self.fields.append(field_name)
 
-    def add_dataset(self, dataset_name: str):
+    def add_dataset(self, dataset_name: str) -> None:
         """Add a dataset to the scope."""
         if dataset_name not in self.datasets:
             self.datasets.append(dataset_name)
 
-    def add_field_group(self, group_name: str, fields: List[str]):
+    def add_field_group(self, group_name: str, fields: List[str]) -> None:
         """Add a named group of fields."""
         self.field_groups[group_name] = fields
 
@@ -110,6 +135,7 @@ class BaseOperation(ABC):
                  name: str,
                  description: str = "",
                  scope: Optional[OperationScope] = None,
+                 config: Optional[OperationConfig] = None,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
                  use_vectorization: bool = False):
@@ -124,6 +150,8 @@ class BaseOperation(ABC):
             Description of what the operation does
         scope : OperationScope, optional
             The scope of the operation (fields, datasets, etc.)
+        config : OperationConfig, optional
+            Configuration parameters for the operation
         use_encryption : bool
             Whether to encrypt output files
         encryption_key : str or Path, optional
@@ -134,6 +162,7 @@ class BaseOperation(ABC):
         self.name = name
         self.description = description
         self.scope = scope or OperationScope()
+        self.config = config or OperationConfig()
         self.use_encryption = use_encryption
         self.encryption_key = encryption_key
         self.use_vectorization = use_vectorization
@@ -145,12 +174,63 @@ class BaseOperation(ABC):
         # Internal state
         self._execution_time = None
 
+        # Register operation in the registry
+        register_operation(self.__class__)
+
+    def save_config(self, task_dir: Path) -> None:
+        """
+        Serialize this operation's config to JSON.
+
+        Writes the configuration to {task_dir}/config.json atomically,
+        including operation name and version information.
+
+        Parameters:
+        -----------
+        task_dir : Path
+            Directory where the configuration file should be saved
+
+        Raises:
+        -------
+        ConfigSaveError
+            If the configuration cannot be saved
+
+        Satisfies:
+        ----------
+        REQ-OPS-004: BaseOperation.save_config(task_dir) writes config.json
+                    atomically before execution begins.
+        """
+        # Create configuration dictionary with operation metadata
+        config_dict = self.config.to_dict()
+        config_dict.update({
+            "operation_name": self.name,
+            "version": self.version
+        })
+
+        # Ensure task directory exists
+        task_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create temporary filename for atomic write
+        config_path = task_dir / "config.json"
+        temp_path = config_path.with_suffix(".json.tmp")
+
+        try:
+            # Write to temporary file first
+            with open(temp_path, 'w') as f:
+                json.dump(config_dict, f, indent=2) # type: ignore
+
+            # Atomic replace
+            os.replace(temp_path, config_path)
+            self.logger.info(f"Saved operation configuration to {config_path}")
+        except Exception as e:
+            self.logger.error(f"Failed to save configuration: {str(e)}")
+            raise ConfigSaveError(f"Failed to save configuration: {str(e)}") from e
+
     @abstractmethod
     def execute(self,
                 data_source: DataSource,
                 task_dir: Path,
                 reporter: Any,
-                progress_tracker: Optional[ProgressTracker] = None,
+                progress_tracker: Optional[HierarchicalProgressTracker] = None,
                 **kwargs) -> OperationResult:
         """
         Execute the operation.
@@ -163,7 +243,7 @@ class BaseOperation(ABC):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : ProgressTracker, optional
+        progress_tracker : HierarchicalProgressTracker, optional
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for the operation
@@ -194,7 +274,7 @@ class BaseOperation(ABC):
             "output": task_dir / "output",
             "dictionaries": task_dir / "dictionaries",
             "visualizations": task_dir / "visualizations",
-            "logs": task_dir.parent / "logs"
+            "logs": task_dir / "logs"  # Changed to be inside task_dir
         }
 
         # Ensure directories exist
@@ -203,27 +283,61 @@ class BaseOperation(ABC):
 
         return directories
 
-    def _log_operation_start(self, **kwargs):
-        """Log the start of an operation with parameters."""
+    def _log_operation_start(self, **kwargs) -> None:
+        """
+        Log the start of an operation with parameters.
+
+        Logs operation name and all parameters, except sensitive ones.
+        """
         self.logger.info(f"Starting operation: {self.name}")
+
+        # List of sensitive parameters that should not be logged
+        sensitive_params = ['encryption_key', 'password', 'token', 'secret', 'api_key']
+
+        # Log parameters, skipping sensitive ones
         for key, value in kwargs.items():
-            self.logger.debug(f"Parameter {key}: {value}")
+            if key in sensitive_params:
+                self.logger.debug(f"Parameter {key}: [REDACTED]")
+            else:
+                # Truncate long values for readability
+                if isinstance(value, str) and len(value) > 100:
+                    self.logger.debug(f"Parameter {key}: {value[:100]}... [truncated]")
+                else:
+                    self.logger.debug(f"Parameter {key}: {value}")
 
-    def _log_operation_end(self, result: OperationResult):
-        """Log the end of an operation with results."""
+    def _log_operation_end(self, result: OperationResult) -> None:
+        """
+        Log the end of an operation with results.
+
+        Safely handles missing attributes in result objects.
+        """
+        if not hasattr(result, 'status'):
+            self.logger.error(f"Invalid OperationResult object: missing status attribute")
+            return
+
         self.logger.info(f"Operation {self.name} completed with status: {result.status.name}")
-        if result.execution_time:
-            self.logger.info(f"Execution time: {result.execution_time:.2f} seconds")
-        if result.status == OperationStatus.ERROR:
-            self.logger.error(f"Error: {result.error_message}")
 
-    def run(self,
+        # Safely get execution time
+        execution_time = getattr(result, 'execution_time', None)
+        if execution_time is not None:
+            self.logger.info(f"Execution time: {execution_time:.2f} seconds")
+
+        # Safely get error message
+        if result.status == OperationStatus.ERROR:
+            error_message = getattr(result, 'error_message', 'Unknown error')
+            self.logger.error(f"Error: {error_message}")
+
+    def run(
+            self,
+            *,  # Force keyword-only arguments for clarity
             data_source: DataSource,
             task_dir: Path,
             reporter: Any,
+            progress_tracker: Optional[HierarchicalProgressTracker] = None,
             track_progress: bool = True,
             parallel_processes: int = 1,
-            **kwargs) -> OperationResult:
+            **kwargs
+    ) -> OperationResult:
         """
         Run the operation with timing and error handling.
 
@@ -238,6 +352,8 @@ class BaseOperation(ABC):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
+        progress_tracker : HierarchicalProgressTracker, optional
+            Progress tracker for this operation
         track_progress : bool
             Whether to track and report progress
         parallel_processes : int
@@ -250,6 +366,16 @@ class BaseOperation(ABC):
         OperationResult
             Results of the operation
         """
+        # Handle potential duplicate progress_tracker in kwargs
+        # This prevents the "got multiple values for keyword argument" error
+        if "progress_tracker" in kwargs:
+            # If progress_tracker parameter is None, use the one from kwargs
+            if progress_tracker is None:
+                progress_tracker = kwargs.pop("progress_tracker")
+            else:
+                # Otherwise, remove the duplicate from kwargs to avoid TypeError
+                kwargs.pop("progress_tracker")
+
         # Check if encryption is requested but key is not provided
         if self.use_encryption and not self.encryption_key:
             self.logger.warning("Encryption requested but no key provided, disabling encryption")
@@ -260,14 +386,20 @@ class BaseOperation(ABC):
             self.logger.warning("Vectorization requested but parallel_processes <= 1, disabling vectorization")
             self.use_vectorization = False
 
+        # Save configuration
+        try:
+            self.save_config(task_dir)
+        except ConfigSaveError as e:
+            self.logger.error(f"Failed to save operation configuration: {str(e)}")
+            # Continue execution despite config save failure
+
         # Log operation start
         self._log_operation_start(**kwargs)
 
-        # Create progress tracker if requested
-        progress_tracker = None
-        if track_progress:
+        # Create progress tracker if requested and not already provided
+        if track_progress and progress_tracker is None:
             total_steps = kwargs.get('total_steps', 3)
-            progress_tracker = ProgressTracker(
+            progress_tracker = HierarchicalProgressTracker(
                 total=total_steps,
                 description=f"Operation: {self.name}",
                 unit="steps"
@@ -302,7 +434,7 @@ class BaseOperation(ABC):
             # Combine all params for execution
             execution_params = {**kwargs, **io_params, **vectorization_params}
 
-            # Execute the operation
+            # Execute the operation with the correct progress_tracker
             result: OperationResult = self.execute(
                 data_source=data_source,
                 task_dir=task_dir,
@@ -317,17 +449,21 @@ class BaseOperation(ABC):
 
             # Add final operation status to reporter
             if reporter:
-                # Explicitly get details dictionary rather than calling method directly
-                details_dict = {}
+                # Create standardized details dictionary
+                details_dict = {
+                    "status": result.status.value,
+                    "execution_time": f"{result.execution_time:.2f} seconds" if result.execution_time else None,
+                }
+
+                # Add error message if present
+                if hasattr(result, 'error_message') and result.error_message:
+                    details_dict["error_message"] = result.error_message
+
+                # Add additional details from result if available
                 if hasattr(result, 'to_reporter_details') and callable(getattr(result, 'to_reporter_details')):
-                    details_dict = result.to_reporter_details()
-                else:
-                    # Fallback if method doesn't exist
-                    details_dict = {
-                        "status": result.status.value,
-                        "execution_time": f"{result.execution_time:.2f} seconds" if result.execution_time else None,
-                        "error_message": result.error_message if hasattr(result, 'error_message') else None
-                    }
+                    additional_details = result.to_reporter_details()
+                    if additional_details:
+                        details_dict.update(additional_details)
 
                 reporter.add_operation(
                     f"{self.name} completed",
@@ -371,6 +507,15 @@ class BaseOperation(ABC):
         """Get the version of the operation."""
         return self.version
 
+    def __enter__(self):
+        """Support for context manager protocol."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Clean up resources when exiting context."""
+        # Nothing to clean up in the base class
+        return False  # Don't suppress exceptions
+
 
 class FieldOperation(BaseOperation):
     """
@@ -380,6 +525,7 @@ class FieldOperation(BaseOperation):
     def __init__(self,
                  field_name: str,
                  description: str = "",
+                 config: Optional[OperationConfig] = None,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
                  use_vectorization: bool = False):
@@ -392,6 +538,8 @@ class FieldOperation(BaseOperation):
             Name of the field to process
         description : str
             Description of what the operation does
+        config : OperationConfig, optional
+            Configuration parameters for the operation
         use_encryption : bool
             Whether to encrypt output files
         encryption_key : str or Path, optional
@@ -406,13 +554,14 @@ class FieldOperation(BaseOperation):
             name=f"{field_name} analysis",
             description=description or f"Analysis of {field_name} field",
             scope=scope,
+            config=config,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
             use_vectorization=use_vectorization
         )
         self.field_name = field_name
 
-    def add_related_field(self, field_name: str):
+    def add_related_field(self, field_name: str) -> None:
         """
         Add a related field to the operation's scope.
 
@@ -452,6 +601,7 @@ class DataFrameOperation(BaseOperation):
                  name: str,
                  description: str = "",
                  scope: Optional[OperationScope] = None,
+                 config: Optional[OperationConfig] = None,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
                  use_vectorization: bool = False):
@@ -466,6 +616,8 @@ class DataFrameOperation(BaseOperation):
             Description of what the operation does
         scope : OperationScope, optional
             The scope of the operation (datasets, field groups, etc.)
+        config : OperationConfig, optional
+            Configuration parameters for the operation
         use_encryption : bool
             Whether to encrypt output files
         encryption_key : str or Path, optional
@@ -477,12 +629,13 @@ class DataFrameOperation(BaseOperation):
             name=name,
             description=description,
             scope=scope or OperationScope(),
+            config=config,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
             use_vectorization=use_vectorization
         )
 
-    def add_field_group(self, group_name: str, fields: List[str]):
+    def add_field_group(self, group_name: str, fields: List[str]) -> None:
         """
         Add a group of fields to process together.
 

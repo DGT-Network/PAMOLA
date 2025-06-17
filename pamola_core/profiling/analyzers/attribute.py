@@ -1,5 +1,5 @@
 """
-Attribute profiler operation for the HHR project.
+Attribute profiler operation for the project.
 
 This module provides operations for automatically profiling attributes of input datasets
 to categorize each column by its role in anonymization and synthesis tasks. It supports
@@ -140,7 +140,8 @@ class DataAttributeProfilerOperation(BaseOperation):
 
         try:
             # Retrieve DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,

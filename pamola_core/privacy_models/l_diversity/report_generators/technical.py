@@ -25,8 +25,8 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 
-# Import from core utilities
-from pamola_core.utils.file_io import write_json, write_csv
+# Import from pamola_core utilities
+from pamola_core.utils__old_15_04.file_io import write_json, write_csv
 
 # Configure logging
 logger = logging.getLogger(__name__)

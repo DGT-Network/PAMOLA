@@ -1,5 +1,5 @@
 """
-Utility functions for analyzing multi-valued fields (MVF) in the HHR project.
+Utility functions for analyzing multi-valued fields (MVF) in the project.
 
 This module provides pure analytical functions for MVF analysis,
 separate from operation logic, focusing on parsing, metrics calculation,

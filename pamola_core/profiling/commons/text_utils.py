@@ -1,5 +1,5 @@
 """
-Utility functions for text analysis in the HHR project.
+Utility functions for text analysis in the project.
 
 This module provides helper functions for text processing, analysis,
 and frequency calculation with support for large datasets and caching.
@@ -302,7 +302,7 @@ def process_texts_in_chunks(texts: List[str], process_func: callable,
         Combined results from all chunks
     """
     # Use batch_process from the nlp.base module
-    from core.utils.nlp.base import batch_process
+    from pamola_core.utils.nlp.base import batch_process
 
     return batch_process(
         texts,

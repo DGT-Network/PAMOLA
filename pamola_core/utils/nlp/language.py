@@ -1,8 +1,22 @@
 """
-Language detection utilities.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module: Language Detection and Processing
+Description: Utilities for language detection, normalization, and multilingual text analysis
+Author: PAMOLA Core Team
+Created: 2024
+License: BSD 3-Clause
 
 This module provides enhanced functions for detecting text language with
 graceful degradation when specialized libraries are not available.
+
+Key features:
+- Multi-layer language detection (FastText, langdetect, heuristics)
+- Confidence scoring for detected languages
+- Mixed language analysis and multilingual text detection
+- Script detection (Latin, Cyrillic, CJK, etc.)
+- Language code normalization and standardization
+- Cached results for improved performance
 """
 
 import logging
@@ -48,6 +62,80 @@ _LANGUAGE_WORDS = {
     'fr': {'le', 'la', 'les', 'des', 'un', 'une', 'et', 'est', 'pour', 'dans'},
     'es': {'el', 'la', 'que', 'de', 'y', 'a', 'en', 'un', 'ser', 'por'}
 }
+
+# Language code mappings for normalization
+_LANGUAGE_CODE_MAP = {
+    # ISO 639-1 to standard two-letter codes
+    'eng': 'en', 'rus': 'ru', 'deu': 'de', 'fra': 'fr', 'spa': 'es',
+    'ita': 'it', 'jpn': 'ja', 'zho': 'zh', 'kor': 'ko', 'ara': 'ar',
+    'hin': 'hi', 'por': 'pt', 'ben': 'bn', 'nld': 'nl', 'tur': 'tr',
+
+    # Common alternative codes
+    'english': 'en', 'russian': 'ru', 'german': 'de', 'french': 'fr', 'spanish': 'es',
+    'italian': 'it', 'japanese': 'ja', 'chinese': 'zh', 'korean': 'ko', 'arabic': 'ar',
+    'hindi': 'hi', 'portuguese': 'pt', 'bengali': 'bn', 'dutch': 'nl', 'turkish': 'tr',
+
+    # Handle regional variants
+    'en_us': 'en', 'en_gb': 'en', 'en_ca': 'en', 'en_au': 'en',
+    'fr_ca': 'fr', 'fr_be': 'fr', 'fr_ch': 'fr',
+    'de_at': 'de', 'de_ch': 'de',
+    'pt_br': 'pt', 'pt_pt': 'pt',
+    'zh_cn': 'zh', 'zh_tw': 'zh', 'zh_hk': 'zh'
+}
+
+
+def normalize_language_code(language_code: str, default_code: str = 'en') -> str:
+    """
+    Normalize a language code to a standard ISO 639-1 format.
+
+    Handles various input formats including ISO 639-1, ISO 639-2, country-specific
+    codes (en-US, fr-CA), and converts them to standard two-letter codes.
+
+    Parameters:
+    -----------
+    language_code : str
+        Language code to normalize (e.g., 'en-US', 'en_us', 'eng', etc.)
+    default_code : str
+        Default language code to return if input is invalid
+
+    Returns:
+    --------
+    str
+        Normalized language code (e.g., 'en', 'ru', 'de')
+    """
+    if not language_code:
+        return default_code
+
+    # Convert to lowercase and strip whitespace
+    code = language_code.lower().strip()
+
+    # Check direct mapping first
+    if code in _LANGUAGE_CODE_MAP:
+        return _LANGUAGE_CODE_MAP[code]
+
+    # Remove country code if present using standard separators
+    for separator in ['-', '_']:
+        if separator in code:
+            code = code.split(separator)[0]
+            break
+
+    # Now check if the base code is in our map
+    if code in _LANGUAGE_CODE_MAP:
+        return _LANGUAGE_CODE_MAP[code]
+
+    # If it's already a standard two-letter code, return it
+    if len(code) == 2 and code.isalpha():
+        return code
+
+    # If code is in ISO 639-2 format (3 letters), try to convert
+    if len(code) == 3 and code.isalpha():
+        for iso2, iso3 in [('en', 'eng'), ('ru', 'rus'), ('de', 'deu'),
+                           ('fr', 'fra'), ('es', 'spa')]:
+            if code == iso3:
+                return iso2
+
+    # Return as-is if we couldn't normalize, or use default
+    return code if code else default_code
 
 
 # Function to load FastText model when needed
@@ -396,7 +484,7 @@ def get_language_resources_path(language: str, resource_type: str = 'general') -
     """
     # Base directory for language resources
     base_dir = os.environ.get(
-        'HHR_LANGUAGE_RESOURCES_DIR',
+        'PAMOLA_LANGUAGE_RESOURCES_DIR',
         os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'languages')
     )
 
@@ -428,7 +516,7 @@ def get_supported_languages() -> List[str]:
 
     # Check for additional languages with resources
     base_dir = os.environ.get(
-        'HHR_LANGUAGE_RESOURCES_DIR',
+        'PAMOLA_LANGUAGE_RESOURCES_DIR',
         os.path.join(os.path.dirname(os.path.dirname(__file__)), 'resources', 'languages')
     )
 

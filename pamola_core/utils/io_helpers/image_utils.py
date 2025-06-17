@@ -1,9 +1,20 @@
 """
-Image and plot handling utilities.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module: Image and Plot Utilities
+Description: Helpers for managing, saving, and formatting visualizations and image outputs
+Author: PAMOLA Core Team
+Created: 2025
+License: BSD 3-Clause
 
-This module provides utilities for working with images and plots,
-particularly for saving matplotlib figures to various formats.
+Key features:
+- Unified interface for saving matplotlib figures and other plots using the pamola core I/O system
+- Automatic format detection from file extensions
+- Utilities for calculating optimal figure sizes for grid-based visualizations
+- Preparation of customizable figure creation options (dpi, size, etc.)
+
 """
+
 
 from pathlib import Path
 from typing import Union, Optional, Dict, Any, Tuple
@@ -11,7 +22,7 @@ from typing import Union, Optional, Dict, Any, Tuple
 from pamola_core.utils import logging
 
 # Configure module logger
-logger = logging.get_logger("hhr.utils.io_helpers.image_utils")
+logger = logging.get_logger("pamola_core.utils.io_helpers.image_utils")
 
 
 def save_plot(plot_fig, file_path: Union[str, Path], dpi: int = 300, **kwargs) -> Path:

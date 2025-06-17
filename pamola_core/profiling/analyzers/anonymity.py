@@ -1,5 +1,5 @@
 """
-K-anonymity profiling operation for the HHR project.
+K-anonymity profiling operation for the project.
 
 This module provides operations for analyzing k-anonymity in data, identifying
 quasi-identifiers that may compromise privacy, and generating visualizations
@@ -140,7 +140,8 @@ class PreKAnonymityProfilingOperation(BaseOperation):
 
         try:
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,

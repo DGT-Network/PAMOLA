@@ -21,9 +21,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 RESOURCES_DIR = os.path.join(BASE_DIR, 'resources')
 
 # Resource subdirectories
-STOPWORDS_DIR = os.environ.get('HHR_STOPWORDS_DIR', os.path.join(RESOURCES_DIR, 'stopwords'))
-TOKENIZATION_DIR = os.environ.get('HHR_TOKENIZATION_DIR', os.path.join(RESOURCES_DIR, 'tokenization'))
-DICTIONARIES_DIR = os.environ.get('HHR_DICTIONARIES_DIR', os.path.join(RESOURCES_DIR, 'dictionaries'))
+STOPWORDS_DIR = os.environ.get('PAMOLA_STOPWORDS_DIR', os.path.join(RESOURCES_DIR, 'stopwords'))
+TOKENIZATION_DIR = os.environ.get('PAMOLA_TOKENIZATION_DIR', os.path.join(RESOURCES_DIR, 'tokenization'))
+DICTIONARIES_DIR = os.environ.get('PAMOLA_DICTIONARIES_DIR', os.path.join(RESOURCES_DIR, 'dictionaries'))
 
 # Ensure resource directories exist
 for directory in [RESOURCES_DIR, STOPWORDS_DIR, TOKENIZATION_DIR, DICTIONARIES_DIR]:

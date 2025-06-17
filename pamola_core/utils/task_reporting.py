@@ -17,7 +17,7 @@ from pamola_core.config.settings import get_data_repository
 from pamola_core.utils.io import ensure_directory
 
 # Конфигурация логгера
-logger = logging.getLogger("hhr.utils.task_reporting")
+logger = logging.getLogger("pamola_core.utils.task_reporting")
 
 
 def get_reports_directory() -> Path:
@@ -407,7 +407,7 @@ def generate_html_report_after_task(task_id: str) -> None:
 
         logger.info(f"HTML report generated at {output_path}")
     except ImportError:
-        logger.warning("Module hhr.utils.reporting not found. HTML report generation skipped.")
+        logger.warning("Module pamola_core.utils.reporting not found. HTML report generation skipped.")
     except Exception as e:
         logger.error(f"Error generating HTML report: {e}")
 

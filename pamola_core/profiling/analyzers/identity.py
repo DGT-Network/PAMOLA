@@ -1,5 +1,5 @@
 """
-Identity analysis module for the HHR project.
+Identity analysis module for the project.
 
 This module provides analyzers and operations for identity fields, following the
 operation architecture. It includes analysis of identifier consistency, distribution
@@ -251,7 +251,8 @@ class IdentityAnalysisOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -568,7 +569,8 @@ def analyze_identities(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = load_data_operation(data_source)
+    dataset_name = kwargs.get('dataset_name', "main")
+    df = load_data_operation(data_source, dataset_name)
     # Use get_dataframe safely
     if df is None:
         reporter.add_operation("Identity fields analysis", status="error",

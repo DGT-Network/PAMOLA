@@ -4,7 +4,7 @@ Utility functions for the fake_data module.
 This module provides enhanced utility functions for common tasks in the fake_data module,
 including string processing, dictionary loading, deterministic generation, etc.
 The functions are designed for performance, error resilience, and seamless integration
-with the core utils package.
+with the pamola_core utils package.
 
 Key functionality:
 - String normalization and manipulation
@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable
 import pandas as pd
 import numpy as np
 
-# Import from core utils
+# Import from pamola_core utils
 from pamola_core.utils import io
 from pamola_core.utils import progress
 
@@ -42,7 +42,7 @@ try:
 
     LANGUAGE_MODULE_AVAILABLE = True
 except ImportError:
-    logger.warning("core.utils.nlp.language not available, using basic language detection")
+    logger.warning("pamola_core.utils.nlp.language not available, using basic language detection")
     LANGUAGE_MODULE_AVAILABLE = False
 
 # Dictionary cache
@@ -194,7 +194,7 @@ def detect_language(text: Optional[str], default_language: str = "en") -> str:
     Detects the language of a text.
 
     This function is a wrapper around the language detection functionality
-    in core.utils.nlp.language. If that module is not available, it falls
+    in pamola_core.utils.nlp.language. If that module is not available, it falls
     back to a basic implementation.
 
     Parameters:

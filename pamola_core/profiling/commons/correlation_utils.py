@@ -1,5 +1,5 @@
 """
-Utility functions for analyzing correlations between fields in the HHR project.
+Utility functions for analyzing correlations between fields in the project.
 
 This module provides pure analytical functions for correlation calculation,
 separate from operation logic, focusing on metrics calculation, relationship

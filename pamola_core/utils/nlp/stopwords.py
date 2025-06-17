@@ -55,14 +55,14 @@ def get_config_paths() -> Dict[str, str]:
         Dictionary with configuration paths
     """
     # Cache the result to avoid repeated file operations
-    cache_key = "hhr_config_paths"
+    cache_key = "pamola_config_paths"
     cached_paths = memory_cache.get(cache_key)
     if cached_paths:
         return cached_paths
 
     # Try to determine the project root
     current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    config_path = os.path.join(current_dir, 'configs', 'hhr_config.json')
+    config_path = os.path.join(current_dir, 'configs', 'prj_config.json')
 
     # Default paths
     paths = {
@@ -104,7 +104,7 @@ def get_stopwords_dirs() -> List[str]:
     default_resources_dir = os.path.join(package_dir, 'resources', 'stopwords')
 
     # Override with environment variables if present
-    env_stopwords_dir = os.environ.get('HHR_STOPWORDS_DIR', default_resources_dir)
+    env_stopwords_dir = os.environ.get('PAMOLA_STOPWORDS_DIR', default_resources_dir)
 
     # Get data repository paths
     config_paths = get_config_paths()

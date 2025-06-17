@@ -121,7 +121,7 @@ class ProfileReporter:
         Path
             The path to the saved report
         """
-        from core.utils.io import save_profiling_results
+        from pamola_core.utils.io import save_profiling_results
         report = self.collect_report()
 
         if output_path:
@@ -155,14 +155,14 @@ class ProfileReporter:
         """
         try:
             # Try to import the reporting module
-            from core.utils.reporting import generate_report
+            from pamola_core.utils.reporting import generate_report
 
             # Generate report
             if output_path:
                 return generate_report(self.task_id, output_path=output_path)
             else:
                 # Use default path
-                from core.utils.io import get_profiling_directory
+                from pamola_core.utils.io import get_profiling_directory
                 html_dir = get_profiling_directory(self.task_id) / 'html'
                 html_dir.mkdir(parents=True, exist_ok=True)
 
@@ -172,7 +172,7 @@ class ProfileReporter:
 
                 return generate_report(self.taреаsk_id, output_path=output_path)
         except ImportError:
-            logger.warning("Module hhr.utils.reporting not found. HTML report generation skipped.")
+            logger.warning("Module pamola_core.utils.reporting not found. HTML report generation skipped.")
             return Path()
         except Exception as e:
             logger.error(f"Error generating HTML report: {e}")

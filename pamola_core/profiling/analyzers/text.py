@@ -1,5 +1,5 @@
 """
-Text semantic categorization operation for the HHR project.
+Text semantic categorization operation for the project.
 
 This module provides operations for analyzing and categorizing text fields
 with support for entity extraction, semantic categorization, and clustering.
@@ -20,10 +20,11 @@ from pamola_core.utils.io import (
     write_json,
     write_dataframe_to_csv,
     get_timestamped_filename,
-    read_json, 
+    read_json,
     load_data_operation
 )
 from pamola_core.utils.logging import get_logger
+from pamola_core.utils.nlp.cache import get_cache
 from pamola_core.utils.nlp.category_matching import CategoryDictionary, analyze_hierarchy
 from pamola_core.utils.nlp.clustering import cluster_by_similarity
 from pamola_core.utils.nlp.entity import create_entity_extractor
@@ -43,8 +44,8 @@ from pamola_core.utils.visualization import (
 logger = get_logger(__name__)
 
 # Get cache instances
-# file_cache = get_cache('file')
-# memory_cache = get_cache('memory')
+file_cache = get_cache('file')
+memory_cache = get_cache('memory')
 
 
 @register()
@@ -162,7 +163,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
             params = self._prepare_execution_parameters(kwargs, task_dir, dirs)
 
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -623,10 +625,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         # 3. Check in global data repository from config
         try:
-            # Try to find the HHR config file
+            # Try to find the PAMOLA.CORE config file
             config_paths = [
-                Path("configs/hhr_config.json"),  # Relative to working directory
-                Path("D:/VK/_DEVEL/HHR/configs/hhr_config.json")  # Hardcoded path from example
+                Path("configs/prj_config.json"),  # Relative to working directory
+                Path("D:/VK/_DEVEL/PAMOLA.CORE/configs/prj_config.json")  # Hardcoded path from example
             ]
 
             config_file = None
@@ -1361,7 +1363,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         # Prepare parameters for the visualization function
         params = {
-            "length_data": data,
+            "data": data,
             "output_path": str(output_path),
             "title": title
         }

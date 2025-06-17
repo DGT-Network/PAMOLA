@@ -128,10 +128,10 @@ class PlotlyBoxPlot(PlotlyFigure):
             # Set data and orientation
             if orientation == "v":
                 box_args['y'] = values_array
-                box_args['x'] = str(column)
+                box_args['x'] = [column] * len(values_array)
             else:
                 box_args['x'] = values_array
-                box_args['y'] = str(column)
+                box_args['y'] = [column] * len(values_array)
                 box_args['orientation'] = 'h'
 
             # Handle optional parameters

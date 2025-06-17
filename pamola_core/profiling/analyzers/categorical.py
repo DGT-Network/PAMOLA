@@ -1,5 +1,11 @@
 """
-Categorical field analyzer module for the HHR project.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module: Categorical Field Analyzer
+Description: Operation for analyzing categorical fields and generating distribution statistics
+Author: PAMOLA Core Team
+Created: 2024
+License: BSD 3-Clause
 
 This module provides analyzers and operations for categorical fields, following the
 new operation architecture. It includes distribution analysis, dictionary creation,
@@ -26,7 +32,7 @@ from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_f
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_registry import register
+from pamola_core.utils.ops.op_registry import register_operation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.visualization import (
     plot_value_distribution
@@ -97,6 +103,33 @@ class CategoricalAnalyzer:
             Estimated resource requirements
         """
         return estimate_resources(df, field_name)
+
+
+# Use register_operation as a decorator by making a function
+def register(override=False, dependencies=None, version=None):
+    """
+    Decorator to register an operation class.
+
+    Parameters:
+    -----------
+    override : bool
+        Whether to override an existing registration
+    dependencies : List[Dict[str, str]], optional
+        List of dependencies for the operation
+    version : str, optional
+        Version of the operation
+
+    Returns:
+    --------
+    callable
+        Decorator function
+    """
+
+    def decorator(cls):
+        register_operation(cls, override=override, dependencies=dependencies, version=version)
+        return cls
+
+    return decorator
 
 
 @register(override=True)
@@ -198,12 +231,30 @@ class CategoricalOperation(FieldOperation):
             progress_tracker.update(1, {"step": "Preparation", "field": self.field_name})
 
         try:
-            # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            # Get DataFrame from data source safely
+            dataset_name = kwargs.get('dataset_name', "main")
+            df_result = load_data_operation(data_source, dataset_name)
+            error_info = None  # Initialize error_info to avoid reference before assignment
+
+            if isinstance(df_result, tuple) and len(df_result) >= 2:
+                df, error_info = df_result
+            else:
+                df = df_result
+
             if df is None:
+                error_message = "No valid DataFrame found in data source"
+                if error_info is not None and isinstance(error_info, dict):
+                    error_message += f": {error_info.get('message', '')}"
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source"
+                    error_message=error_message
+                )
+
+            # Check if DataFrame has columns attribute and if field exists
+            if not hasattr(df, 'columns'):
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message="DataFrame does not have expected structure (missing columns attribute)"
                 )
 
             # Check if field exists
@@ -231,13 +282,20 @@ class CategoricalOperation(FieldOperation):
                 progress_tracker.update(0, {"status": "Analyzing field"})
 
             # Execute the analyzer
-            analysis_results = CategoricalAnalyzer.analyze(
-                df=df,
-                field_name=self.field_name,
-                top_n=self.top_n,
-                min_frequency=self.min_frequency,
-                detect_anomalies=analyze_anomalies
-            )
+            try:
+                analysis_results = CategoricalAnalyzer.analyze(
+                    df=df,
+                    field_name=self.field_name,
+                    top_n=self.top_n,
+                    min_frequency=self.min_frequency,
+                    detect_anomalies=analyze_anomalies
+                )
+            except Exception as analyzer_error:
+                logger.error(f"Error in analyzer for {self.field_name}: {str(analyzer_error)}")
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=f"Error analyzing field {self.field_name}: {str(analyzer_error)}"
+                )
 
             # Check for errors
             if 'error' in analysis_results:
@@ -507,12 +565,22 @@ def analyze_categorical_fields(
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results
     """
-    # Get DataFrame from data source
-    df = load_data_operation(data_source)
-    # Use get_dataframe safely
+    # Get DataFrame from data source safely
+    df_result = data_source.get_dataframe("main")
+    error_info = None  # Initialize error_info to avoid reference before assignment
+
+    if isinstance(df_result, tuple) and len(df_result) >= 2:
+        df, error_info = df_result
+    else:
+        df = df_result
+
+    # Check if DataFrame is valid
     if df is None:
+        error_message = "No valid DataFrame found in data source"
+        if error_info is not None and isinstance(error_info, dict):
+            error_message += f": {error_info.get('message', '')}"
         reporter.add_operation("Categorical fields analysis", status="error",
-                               details={"error": "No valid DataFrame found in data source"})
+                               details={"error": error_message})
         return {}
 
     # Extract operation parameters from kwargs
@@ -523,13 +591,21 @@ def analyze_categorical_fields(
     if cat_fields is None:
         cat_fields = []
         # Simple heuristic: select fields with string type or moderate number of unique values
-        for col in df.columns:
-            # Check if column is object type (usually string)
-            if df[col].dtype == 'object':
-                cat_fields.append(col)
-            # Or check number of unique values relative to dataset size
-            elif pd.api.types.is_numeric_dtype(df[col]) and df[col].nunique() <= min(100, int(len(df) * 0.1)):
-                cat_fields.append(col)
+        if hasattr(df, 'columns'):
+            for col in df.columns:
+                try:
+                    # Check if column is object type (usually string)
+                    if df[col].dtype == 'object':
+                        cat_fields.append(col)
+                    # Or check number of unique values relative to dataset size
+                    elif pd.api.types.is_numeric_dtype(df[col]) and df[col].nunique() <= min(100, int(len(df) * 0.1)):
+                        cat_fields.append(col)
+                except Exception as e:
+                    logger.warning(f"Error checking column {col}: {str(e)}")
+        else:
+            logger.error("DataFrame does not have columns attribute")
+            reporter.add_operation("Categorical fields detection", status="error",
+                                   details={"error": "DataFrame doesn't have expected structure"})
 
     # Report on fields to be analyzed
     reporter.add_operation("Categorical fields analysis", details={
@@ -557,7 +633,8 @@ def analyze_categorical_fields(
 
     # Process each field
     for i, field in enumerate(cat_fields):
-        if field in df.columns:
+        # Check if field exists in DataFrame
+        if hasattr(df, 'columns') and field in df.columns:
             try:
                 # Update overall progress tracker
                 if overall_tracker:
@@ -609,3 +686,7 @@ def analyze_categorical_fields(
     })
 
     return results
+
+
+# Register the operation so it's discoverable
+register_operation(CategoricalOperation)

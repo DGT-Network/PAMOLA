@@ -15,7 +15,7 @@ from typing import Dict, Any
 
 # L-Diversity Configuration with Environment Variable Support
 L_DIVERSITY_DEFAULTS: Dict[str, Any] = {
-    # Core l-diversity parameters
+    # Pamola Core l-diversity parameters
     "l": int(os.getenv("PAMOLA_L_DIVERSITY_L", 3)),  # Minimum diversity level
     "diversity_type": os.getenv("PAMOLA_L_DIVERSITY_TYPE", "distinct"),
     "c_value": float(os.getenv("PAMOLA_L_DIVERSITY_C_VALUE", 1.0)),

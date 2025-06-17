@@ -17,7 +17,7 @@ Provides flexible and performance-optimized data privacy transformations with a 
 - **Scalability**: Dynamic configuration overrides, horizontal scaling support, memory efficiency.
 - **Logging & Monitoring**: Configurable logging, error tracking, progress visualization with `tqdm`.
 - **Modular Design**:
-  - `calculation.py`: Core diversity calculations.
+  - `calculation.py`: Pamola Core diversity calculations.
   - `apply_model.py`: Model application and transformation.
   - `metrics.py`: Privacy, utility, and fidelity metric assessments.
   - `privacy.py`: Risk and privacy evaluations.
@@ -44,12 +44,12 @@ import pandas as pd
 from dask import dataframe as dd
 
 from pamola_core.config import L_DIVERSITY_DEFAULTS
-# PAMOLA core imports
+# PAMOLA pamola core imports
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
-from pamola_core.utils.group_processing import (
+from pamola_core.utils__old_15_04.group_processing import (
     validate_anonymity_inputs
 )
-from pamola_core.utils.progress import progress_logger
+from pamola_core.utils__old_15_04.progress import progress_logger
 
 class LDiversityCalculator(BasePrivacyModelProcessor):
     """
@@ -75,7 +75,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         if config_override:
             self.config.update(config_override)
 
-        # Core parameters
+        # Pamola Core parameters
         self.l = l
         self.diversity_type = diversity_type
         self.c_value = c_value

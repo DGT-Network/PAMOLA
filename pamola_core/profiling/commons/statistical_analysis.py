@@ -1,5 +1,5 @@
 """
-Statistical analysis utilities for the HHR anonymization project.
+Statistical analysis utilities for the anonymization project.
 
 This module provides functions for statistical analysis, including normality testing,
 outlier detection, and distribution analysis that can be applied to various types of data.
@@ -32,7 +32,7 @@ def calculate_distribution_metrics(data: pd.Series) -> Dict[str, float]:
         Dictionary with distribution metrics
     """
     try:
-        from core.profiling.commons.numeric_utils import calculate_skewness, calculate_kurtosis
+        from pamola_core.profiling.commons.numeric_utils import calculate_skewness, calculate_kurtosis
 
         result = {
             'mean': float(data.mean()),
@@ -88,7 +88,7 @@ def test_normality(
 
     try:
         # Import needed functions
-        from core.profiling.commons.numeric_utils import calculate_skewness, calculate_kurtosis
+        from pamola_core.profiling.commons.numeric_utils import calculate_skewness, calculate_kurtosis
 
         # Shapiro-Wilk test
         if test_method in ('shapiro', 'all'):

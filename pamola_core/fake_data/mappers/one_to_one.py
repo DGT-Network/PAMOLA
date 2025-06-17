@@ -11,11 +11,11 @@ from typing import Dict, List, Optional
 from pamola_core.fake_data.commons.base import BaseMapper, MappingError
 from pamola_core.fake_data.mappers.transitivity_handler import TransitivityHandler
 from pamola_core.fake_data.commons.mapping_store import MappingStore
-from pamola_core.utils import logging as hhr_logging
+from pamola_core.utils import logging as pamola_logging
 from typing import Callable, Any
 
 # Configure logger
-logger = hhr_logging.get_logger("pamola_core.fake_data.mappers.one_to_one")
+logger = pamola_logging.get_logger("pamola_core.fake_data.mappers.one_to_one")
 
 
 class OneToOneMapper(BaseMapper):

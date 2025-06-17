@@ -1,5 +1,5 @@
 """
-Date analysis utilities for the HHR project.
+Date analysis utilities for the project.
 
 This module provides utility functions for analyzing date fields, including
 validation, distribution analysis, anomaly detection, and group analysis.

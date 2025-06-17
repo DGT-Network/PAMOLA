@@ -115,7 +115,7 @@ def group_by_dataframe(df: pd.DataFrame, group_by_columns: list):
         group_by_columns (list): List of columns to group by.
 
     Returns:
-        pd.core.groupby.DataFrameGroupBy: Grouped DataFrame.
+        pd.pamola_core.groupby.DataFrameGroupBy: Grouped DataFrame.
     """
     if not isinstance(df, pd.DataFrame):
         return ValueError("Input must be a Pandas DataFrame.")

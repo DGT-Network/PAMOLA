@@ -24,9 +24,9 @@ from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 import pandas as pd
 
-# Import from core utilities
+# Import from pamola_core utilities
 from pamola_core import config
-from pamola_core.utils.file_io import write_json
+from pamola_core.utils__old_15_04.file_io import write_json
 
 # Configure logging
 logger = logging.getLogger(__name__)

@@ -12,7 +12,7 @@ Key Features:
 - Integration with visualization module
 - Standardized file I/O through central utilities
 
-This module extends the base reporting functionality in core.utils.base_reporting
+This module extends the base reporting functionality in pamola_core.utils.base_reporting
 to provide specialized reporting for l-diversity anonymization.
 
 (C) 2024 Realm Inveo Inc. and DGT Network Inc.
@@ -26,10 +26,10 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 
-# Import from core utilities
+# Import from pamola_core utilities
 from pamola_core import config
-from pamola_core.utils.base_reporting import PrivacyReport
-from pamola_core.utils.file_io import write_json, write_csv
+from pamola_core.utils__old_15_04.base_reporting import PrivacyReport
+from pamola_core.utils__old_15_04.file_io import write_json, write_csv
 
 # Configure logging
 logger = logging.getLogger(__name__)

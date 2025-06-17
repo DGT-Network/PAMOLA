@@ -330,7 +330,7 @@ def create_html_report(task_reports: Dict[str, Dict[str, Any]],
 
         # Создаем контекст для шаблона
         context = {
-            "title": "Отчет по проекту HeadHunter Data Anonymization",
+            "title": "Отчет по проекту PAMOLA.CORE (Privacy-Preserving AI Data Processors) - Data Anonymization",
             "page_title": "Отчет по проекту",
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "tasks": list(prepared_reports.values()),
@@ -340,7 +340,7 @@ def create_html_report(task_reports: Dict[str, Dict[str, Any]],
             "dependency_data": json.dumps(dependency_data),
             "dashboard": dashboard_data,
             "project_info": {
-                "name": "HeadHunter Data Anonymization",
+                "name": "PAMOLA.CORE (Privacy-Preserving AI Data Processors) - Data Anonymization",
                 "description": "Анализ и анонимизация данных резюме для обезличивания",
                 "version": "1.0.0",
                 "created": datetime.now().strftime("%Y-%m-%d"),

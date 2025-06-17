@@ -5,21 +5,82 @@ This module provides utility functions for data preparation, type inference,
 and other common operations used across different profiling modules.
 """
 
-import re
 import json
 import logging
+import os
+import re
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union, Tuple, Set
+from typing import Dict, List, Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from datetime import datetime
 
 from pamola_core.profiling.commons.data_types import DataType, DataTypeDetection, ProfilerConfig
-from pamola_core.utils.io import ensure_directory #, get_profiling_directory, save_profiling_result, convert_numpy_types
+# Import our custom dtype helpers instead of using pd.api.types directly
+from pamola_core.profiling.commons.dtype_helpers import (
+    is_numeric_dtype, is_bool_dtype, is_object_dtype, is_string_dtype,
+    is_datetime64_dtype, is_categorical_dtype
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+
+# Define our own utility functions to avoid io.py dependency
+def convert_numpy_types(obj):
+    """Convert numpy types to Python native types for serialization."""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    else:
+        return obj
+
+
+def ensure_directory(directory_path):
+    """Ensure a directory exists, creating it if necessary."""
+    Path(directory_path).mkdir(parents=True, exist_ok=True)
+    return directory_path
+
+
+def get_profiling_directory(profile_type=None):
+    """Get the directory path for storing profiling results."""
+    base_dir = Path(os.environ.get('PROFILING_OUTPUT_DIR', 'profiling_output'))
+    if profile_type:
+        return base_dir / profile_type
+    return base_dir
+
+
+def save_profiling_result(result, field_name, output_name, format="json", include_timestamp=True):
+    """Save profiling results to a file."""
+    directory = get_profiling_directory(field_name)
+    ensure_directory(directory)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") if include_timestamp else ""
+    filename = f"{output_name}_{timestamp}.{format}" if timestamp else f"{output_name}.{format}"
+    file_path = directory / filename
+
+    if format.lower() == "json":
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(result, f, indent=2)
+    elif format.lower() == "csv":
+        # Convert result to DataFrame and save as CSV
+        pd.DataFrame(result).to_csv(file_path, index=False)
+    else:
+        raise ValueError(f"Unsupported format: {format}")
+
+    return file_path
 
 
 def infer_data_type(series: pd.Series) -> DataType:
@@ -45,15 +106,15 @@ def infer_data_type(series: pd.Series) -> DataType:
         return DataType.UNKNOWN
 
     # Check if numeric
-    if pd.api.types.is_numeric_dtype(series):
+    if is_numeric_dtype(series):
         return DataType.NUMERIC
 
     # Check if boolean
-    if pd.api.types.is_bool_dtype(series):
+    if is_bool_dtype(series):
         return DataType.BOOLEAN
 
     # For object or string types, perform more detailed analysis
-    if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+    if is_object_dtype(series) or is_string_dtype(series):
         # Sample non-null values for analysis
         non_null_values = series.dropna()
         if len(non_null_values) == 0:
@@ -142,11 +203,11 @@ def infer_data_type(series: pd.Series) -> DataType:
         return DataType.TEXT
 
     # For datetime types
-    if pd.api.types.is_datetime64_dtype(series):
+    if is_datetime64_dtype(series):
         return DataType.DATETIME
 
     # For categorical types
-    if pd.api.types.is_categorical_dtype(series):
+    if is_categorical_dtype(series):
         return DataType.CATEGORICAL
 
     # Default to unknown
@@ -181,7 +242,7 @@ def prepare_field_for_analysis(df: pd.DataFrame, field_name: str) -> Tuple[pd.Se
         pass
     elif data_type == DataType.CATEGORICAL:
         # Convert to category if not already
-        if not pd.api.types.is_categorical_dtype(series):
+        if not is_categorical_dtype(series):
             series = series.astype('category')
     elif data_type == DataType.DATE or data_type == DataType.DATETIME:
         # Try to convert to datetime
@@ -521,7 +582,7 @@ def save_profiling_results(result: Dict[str, Any],
     # Convert result to standard Python types for JSON serialization
     converted_result = convert_numpy_types(result)
 
-    # Use existing save_profiling_result from io.py
+    # Use our own function defined above
     file_path = save_profiling_result(
         result=converted_result,
         field_name=profile_type,

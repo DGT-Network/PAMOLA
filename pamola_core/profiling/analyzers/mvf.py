@@ -1,5 +1,5 @@
 """
-Multi-valued field analyzer module for the HHR project.
+Multi-valued field analyzer module for the project.
 
 This module provides analyzers and operations for multi-valued fields (MVF),
 following the operation architecture. It includes parsing, distribution analysis,
@@ -342,7 +342,8 @@ class MVFOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -638,7 +639,8 @@ def analyze_mvf_fields(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = load_data_operation(data_source)
+    dataset_name = kwargs.get('dataset_name', "main")
+    df = load_data_operation(data_source, dataset_name)
     if df is None:
         reporter.add_operation("MVF fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})

@@ -30,7 +30,7 @@ import logging
 from typing import Dict, List, Optional, Any
 
 from pamola_core.metrics.base import PrivacyMetric, round_metric_values
-from pamola_core.utils.group_processing import compute_group_sizes
+from pamola_core.utils__old_15_04.group_processing import compute_group_sizes
 
 # Configure logging
 logger = logging.getLogger(__name__)

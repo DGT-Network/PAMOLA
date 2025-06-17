@@ -1,5 +1,5 @@
 """
-Numeric data analyzer for the HHR project.
+Numeric data analyzer for the project.
 
 This module provides analyzers and operations for numeric fields,
 including statistical analysis, distribution analysis, outlier detection,
@@ -26,7 +26,7 @@ from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.visualization import (
     create_histogram, create_boxplot, create_correlation_pair
 )
-
+from pamola_core.utils.ops.op_registry import register
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -281,7 +281,7 @@ class NumericAnalyzer:
                 'error': f"Field {field_name} not found in DataFrame"
             }
 
-
+@register(override=True)
 class NumericOperation(FieldOperation):
     """
     Operation for analyzing numeric fields.
@@ -376,7 +376,8 @@ class NumericOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -658,7 +659,8 @@ def analyze_numeric_fields(data_source: DataSource,
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = load_data_operation(data_source)
+    dataset_name = kwargs.get('dataset_name', "main")
+    df = load_data_operation(data_source, dataset_name)
     if df is None:
         reporter.add_operation("Numeric fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})

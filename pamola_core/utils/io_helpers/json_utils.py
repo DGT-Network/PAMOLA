@@ -1,19 +1,30 @@
 """
-JSON file format specific utilities.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module: JSON Utilities
+Description: Tools for JSON validation, merging, transformation, and preparation for serialization
+Author: PAMOLA Core Team
+Created: 2025
+License: BSD 3-Clause
 
-This module provides utilities for working with JSON files, including
-validation, merging, and data transformation.
+Key features:
+- Recursive conversion of NumPy types to standard Python types for safe JSON export
+- Schema-aware validation of JSON structures
+- In-memory merging of nested JSON objects with overwrite and recursion controls
+- Preparation of consistent JSON writer options with prettification support
+- JSON Schema validation using the jsonschema library (with graceful fallback)
+
 """
 
 import json
+from typing import Dict, Any, Optional, List, Tuple, Type
+
 import numpy as np
-from pathlib import Path
-from typing import Dict, Union, Any, Optional, List, Tuple
 
 from pamola_core.utils import logging
 
 # Configure module logger
-logger = logging.get_logger("hhr.utils.io_helpers.json_utils")
+logger = logging.get_logger("pamola_core.utils.io_helpers.json_utils")
 
 
 def convert_numpy_types(obj: Any) -> Any:
@@ -109,6 +120,45 @@ def validate_json_structure(data: Any,
                     errors.extend([f"In '{key}': {err}" for err in nested_errors])
 
     return len(errors) == 0, errors
+
+
+def validate_json_schema(data: Dict[str, Any],
+                         schema: Dict[str, Any],
+                         error_class: Optional[Type[Exception]] = None) -> None:
+    """
+    Validate data against a JSON schema with graceful fallback.
+
+    Parameters:
+    -----------
+    data : Dict[str, Any]
+        Data to validate
+    schema : Dict[str, Any]
+        JSON schema to validate against
+    error_class : Type[Exception], optional
+        Exception class to raise on validation failure (defaults to ValueError)
+
+    Raises:
+    -------
+    error_class
+        If validation fails
+
+    Notes:
+    ------
+    If jsonschema is not installed, logs a warning and skips validation.
+    This function supports the operation configuration validation requirements.
+    """
+    # Use provided error class or default to ValueError
+    if error_class is None:
+        error_class = ValueError
+
+    try:
+        import jsonschema
+        jsonschema.validate(instance=data, schema=schema)
+    except ImportError:
+        # jsonschema not installed, log warning and continue
+        logger.warning("jsonschema package not installed. Schema validation skipped.")
+    except jsonschema.exceptions.ValidationError as e:
+        raise error_class(f"Schema validation failed: {e.message}") from e
 
 
 def merge_json_objects_in_memory(base_obj: Dict[str, Any],

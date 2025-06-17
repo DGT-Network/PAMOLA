@@ -1,5 +1,5 @@
 """
-Email data analyzer for the HHR anonymization project.
+Email data analyzer for the anonymization project.
 
 This module provides analyzers and operations for email data fields,
 following the new operation architecture. It includes email validation,
@@ -220,7 +220,8 @@ class EmailOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -530,7 +531,8 @@ def analyze_email_fields(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    df = load_data_operation(data_source)
+    dataset_name = kwargs.get('dataset_name', "main")
+    df = load_data_operation(data_source, dataset_name)
     if df is None:
         reporter.add_operation("Email fields analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})

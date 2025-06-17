@@ -1,5 +1,5 @@
 """
-Email data analysis utilities for the HHR anonymization project.
+Email data analysis utilities for the anonymization project.
 
 This module provides analytical functions for email data fields,
 including email validation, domain extraction, and pattern detection.

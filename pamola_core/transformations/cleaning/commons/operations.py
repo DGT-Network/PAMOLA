@@ -29,6 +29,7 @@ from pamola_core.utils.io import (
     write_dataframe_to_csv,
     write_json,
     get_timestamped_filename,
+    load_data_operation
 )
 from pamola_core.utils.ops.op_base import BaseOperation as PamolaBaseOperation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -165,7 +166,8 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
 
         try:
             # Setup and validation
-            df = self._load_data(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             self._original_df = df.copy()
 
             if self.field_name not in df.columns:

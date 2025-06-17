@@ -1,5 +1,5 @@
 """
-Identity analysis utilities for the HHR project.
+Identity analysis utilities for the project.
 
 This module provides utility functions for identity analysis, including
 identifier distribution analysis, consistency checking, and cross-matching.

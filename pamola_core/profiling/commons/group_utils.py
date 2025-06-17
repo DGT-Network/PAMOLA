@@ -1,7 +1,7 @@
 """
-Analytical utilities for group analysis in the HHR project.
+Analytical utilities for group analysis in the project.
 
-This module provides core analytical functions for evaluating variation within groups,
+This module provides pamola_core analytical functions for evaluating variation within groups,
 analyzing cross-group relationships, and supporting anonymization algorithms.
 Separates analytical logic from operational components.
 """

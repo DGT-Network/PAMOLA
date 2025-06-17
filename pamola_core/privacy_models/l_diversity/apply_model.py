@@ -21,7 +21,7 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 
-from pamola_core.utils.group_processing import (
+from pamola_core.utils__old_15_04.group_processing import (
     validate_anonymity_inputs,
     optimize_memory_usage
 )

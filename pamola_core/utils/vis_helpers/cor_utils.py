@@ -2,7 +2,7 @@
 Utility functions for correlation visualizations.
 
 This module provides utility functions for processing and transforming data
-for correlation visualizations in the hhr system.
+for correlation visualizations in the system.
 """
 
 import logging

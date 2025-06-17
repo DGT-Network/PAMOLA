@@ -1,7 +1,7 @@
 """
 Base abstract classes for the clean_data module.
 
-This module provides the core abstractions and interfaces for clean data generation,
+This module provides the pamola_core abstractions and interfaces for clean data generation,
 mapping, and operations.
 """
 

@@ -2,7 +2,7 @@
 Operations module for fake data generation.
 
 This module provides standardized operation classes for fake data generation
-that integrate with HHR's operation system to generate synthetic data while
+that integrate with PAMOLA's operation system to generate synthetic data while
 maintaining statistical properties of the original data.
 """
 
@@ -25,9 +25,10 @@ from pamola_core.utils.io import (
     ensure_directory,
     write_dataframe_to_csv,
     write_json,
-    get_timestamped_filename
+    get_timestamped_filename,
+    load_data_operation
 )
-from pamola_core.utils.ops.op_base import BaseOperation as HHRBaseOperation
+from pamola_core.utils.ops.op_base import BaseOperation as PAMOLABaseOperation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import ProgressBar
 from pamola_core.utils.progress import ProgressTracker
@@ -35,7 +36,7 @@ from pamola_core.utils.progress import ProgressTracker
 logger = logging.getLogger(__name__)
 
 
-class BaseOperation(HHRBaseOperation):
+class BaseOperation(PAMOLABaseOperation):
     """
     Base class for fake data operations.
 
@@ -176,7 +177,8 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             maps_dir = ensure_directory(task_dir / "maps")
 
             # Load data
-            df = self._load_data(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
 
             # Store original data for metrics comparison
             self._original_df = df.copy()
@@ -404,7 +406,7 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             Loaded data
         """
         if hasattr(data_source, "get_dataframe"):
-            return data_source.get_dataframe()
+            return data_source.get_dataframe("maim")
         elif isinstance(data_source, pd.DataFrame):
             return data_source
         elif isinstance(data_source, str) or isinstance(data_source, Path):
@@ -543,7 +545,7 @@ class GeneratorOperation(FieldOperation):
     """
     Operation that uses a generator to create fake data.
 
-    This operation integrates with the HHR operation system and uses a generator
+    This operation integrates with the PAMOLA operation system and uses a generator
     to create synthetic data for specific fields.
     """
 
@@ -867,4 +869,4 @@ try:
         category = "fake_data"
 
 except ImportError:
-    logger.warning("HHR operation registry not available. Operations will not be registered.")
+    logger.warning("PAMOLA operation registry not available. Operations will not be registered.")

@@ -1,5 +1,5 @@
 """
-Main visualization API module for the HHR project.
+Main visualization API module for the project.
 
 This module provides a unified interface for creating various types of visualizations
 primarily using Plotly. It coordinates with other modules in the vis_helpers package

@@ -32,7 +32,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM, ChaCha20Poly1305
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 # Configure logger
-logger = logging.getLogger("hhr.utils.crypto")
+logger = logging.getLogger("pamola_core.utils.crypto")
 
 # Default settings
 DEFAULT_ALGORITHM = "AES-GCM"  # Alternatives: "ChaCha20-Poly1305"
@@ -258,7 +258,7 @@ def encrypt_file(input_path: Union[str, Path],
                  output_path: Union[str, Path],
                  key: Union[str, bytes],
                  algorithm: str = DEFAULT_ALGORITHM,
-                 chunk_size: int = 1024 * 1024) -> None:
+                 chunk_size: int = 1024 * 1024) -> Path:
     """
     Encrypt a file using the specified algorithm.
 
@@ -275,6 +275,11 @@ def encrypt_file(input_path: Union[str, Path],
     chunk_size : int
         Size of chunks for large files (default: 1MB)
 
+    Returns:
+    --------
+    Path
+        Path to the encrypted file
+
     Raises:
     -------
     EncryptionError
@@ -288,6 +293,9 @@ def encrypt_file(input_path: Union[str, Path],
         input_path = Path(input_path)
         output_path = Path(output_path)
 
+        # Ensure output directory exists
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
         # Read the entire file
         with open(input_path, 'rb') as f:
             data = f.read()
@@ -296,10 +304,19 @@ def encrypt_file(input_path: Union[str, Path],
         encrypted = encrypt_data(data, key, algorithm)
 
         # Write the encrypted data
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(encrypted, f) # type: ignore
+        with open(output_path, 'wb') as f:
+            if isinstance(encrypted, dict):
+                # if the encryption format returns a dictionary (e.g. with IV),
+                # save it as JSON
+                f.write(json.dumps(encrypted).encode('utf-8'))
+            else:
+                # Otherwise, we save binary data directly
+                f.write(encrypted)
 
         logger.info(f"Encrypted {input_path} to {output_path}")
+
+        # Возвращаем путь к зашифрованному файлу
+        return output_path
 
     except Exception as e:
         logger.error(f"Error encrypting file: {e}")

@@ -1,5 +1,5 @@
 """
-Correlation analysis module for the HHR project.
+Correlation analysis module for the project.
 
 This module provides analyzers and operations for calculating correlations between
 fields, following the new operation architecture. It supports various correlation types:
@@ -239,7 +239,8 @@ class CorrelationOperation(FieldOperation):
 
         try:
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -543,7 +544,8 @@ class CorrelationMatrixOperation(BaseOperation):
 
         try:
             # Get DataFrame from data source
-            df = load_data_operation(data_source)
+            dataset_name = kwargs.get('dataset_name', "main")
+            df = load_data_operation(data_source, dataset_name)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -711,7 +713,8 @@ def analyze_correlations(
         Dictionary mapping pair names to their operation results
     """
     # Get DataFrame from data source to check fields
-    df = load_data_operation(data_source)
+    dataset_name = kwargs.get('dataset_name', "main")
+    df = load_data_operation(data_source, dataset_name)
     if df is None:
         reporter.add_operation("Correlation analysis", status="error",
                                details={"error": "No valid DataFrame found in data source"})
