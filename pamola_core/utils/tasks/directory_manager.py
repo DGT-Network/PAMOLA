@@ -784,8 +784,8 @@ class TaskDirectoryManager:
         # Convert to Path object if string
         path_obj = Path(path) if isinstance(path, str) else path
 
-        # If not absolute, resolve relative to task directory
-        if not path_obj.is_absolute():
+        # If not exists and not absolute, resolve relative to task directory
+        if not path_obj.exists() and not path_obj.is_absolute():
             path_obj = self.task_dir / path_obj
 
         # Validate the path

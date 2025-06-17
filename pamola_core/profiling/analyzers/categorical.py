@@ -20,7 +20,7 @@ It integrates with the new utility modules:
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 
 import pandas as pd
 
@@ -28,7 +28,7 @@ from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation, write_dataframe_to_csv, load_settings_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -37,7 +37,7 @@ from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.visualization import (
     plot_value_distribution
 )
-
+from pamola_core.common.constants import Constants
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -149,7 +149,9 @@ class CategoricalOperation(FieldOperation):
                  generate_plots: bool = True,
                  profile_type: str = "categorical",
                  analyze_anomalies: bool = True,
-                 description: str = ""):
+                 description: str = "",
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None):
         """
         Initialize the categorical operation.
 
@@ -172,7 +174,13 @@ class CategoricalOperation(FieldOperation):
         description : str
             Description of the operation (optional)
         """
-        super().__init__(field_name, description or f"Analysis of categorical field '{field_name}'")
+        super().__init__(
+            field_name=field_name,
+            description=description or f"Analysis of categorical field '{field_name}'",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
+            )
+        
         self.top_n = top_n
         self.min_frequency = min_frequency
         self.include_timestamp = include_timestamp
@@ -216,6 +224,7 @@ class CategoricalOperation(FieldOperation):
         include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
         profile_type = kwargs.get('profile_type', self.profile_type)
         analyze_anomalies = kwargs.get('analyze_anomalies', self.analyze_anomalies)
+        encryption_key = kwargs.get('encryption_key', None)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -233,7 +242,8 @@ class CategoricalOperation(FieldOperation):
         try:
             # Get DataFrame from data source safely
             dataset_name = kwargs.get('dataset_name', "main")
-            df_result = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df_result = load_data_operation(data_source, dataset_name, **settings_operation)
             error_info = None  # Initialize error_info to avoid reference before assignment
 
             if isinstance(df_result, tuple) and len(df_result) >= 2:
@@ -310,10 +320,10 @@ class CategoricalOperation(FieldOperation):
 
             # Save analysis results to JSON in the task root directory
             stats_filename = get_timestamped_filename(f"{self.field_name}_stats", "json", include_timestamp)
-            stats_path = task_dir / stats_filename
+            stats_path = output_dir / stats_filename
 
-            write_json(analysis_results, stats_path)
-            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis")
+            write_json(analysis_results, stats_path, encryption_key=encryption_key)
+            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis", category=Constants.Artifact_Category_Output)
 
             # Add to reporter
             reporter.add_artifact("json", str(stats_path), f"{self.field_name} statistical analysis")
@@ -331,9 +341,9 @@ class CategoricalOperation(FieldOperation):
                 dict_records = analysis_results['value_dictionary']['dictionary_data']
                 if isinstance(dict_records, list) and len(dict_records) > 0:
                     dict_df = pd.DataFrame(dict_records)
-                    dict_df.to_csv(dict_path, index=False, encoding='utf-8')
+                    write_dataframe_to_csv(df=dict_df, file_path=dict_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
-                    result.add_artifact("csv", dict_path, f"{self.field_name} value dictionary")
+                    result.add_artifact("csv", dict_path, f"{self.field_name} value dictionary", category=Constants.Artifact_Category_Dictionary)
                     reporter.add_artifact("csv", str(dict_path), f"{self.field_name} value dictionary")
                 else:
                     logger.warning(f"Empty dictionary data for {self.field_name}")
@@ -358,11 +368,12 @@ class CategoricalOperation(FieldOperation):
                     data=analysis_results['top_values'],
                     output_path=str(viz_path),
                     title=title,
-                    max_items=self.top_n
+                    max_items=self.top_n,
+                    **kwargs
                 )
 
                 if not viz_result.startswith("Error"):
-                    result.add_artifact("png", viz_path, f"{self.field_name} distribution visualization")
+                    result.add_artifact("png", viz_path, f"{self.field_name} distribution visualization", category=Constants.Artifact_Category_Visualization)
                     reporter.add_artifact("png", str(viz_path), f"{self.field_name} distribution visualization")
                 else:
                     logger.warning(f"Error creating visualization: {viz_result}")
@@ -378,7 +389,8 @@ class CategoricalOperation(FieldOperation):
                     dictionaries_dir,
                     include_timestamp,
                     result,
-                    reporter
+                    reporter,
+                    encryption_key=encryption_key
                 )
 
             # Add metrics to the result
@@ -456,7 +468,8 @@ class CategoricalOperation(FieldOperation):
                                dict_dir: Path,
                                include_timestamp: bool,
                                result: OperationResult,
-                               reporter: Any):
+                               reporter: Any,
+                               encryption_key: Optional[str] = None):
         """
         Save anomalies to CSV file.
 
@@ -521,10 +534,10 @@ class CategoricalOperation(FieldOperation):
 
                 # Create DataFrame and save to CSV
                 anomalies_df = pd.DataFrame(anomaly_records)
-                anomalies_df.to_csv(anomalies_path, index=False, encoding='utf-8')
+                write_dataframe_to_csv(df=anomalies_df, file_path=anomalies_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
                 # Add artifact to result and reporter
-                result.add_artifact("csv", anomalies_path, f"{self.field_name} anomalies")
+                result.add_artifact("csv", anomalies_path, f"{self.field_name} anomalies", category=Constants.Artifact_Category_Dictionary)
                 reporter.add_artifact("csv", str(anomalies_path), f"{self.field_name} anomalies")
 
         except Exception as e:

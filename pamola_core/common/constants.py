@@ -54,3 +54,11 @@ class Constants:
         "gini_generated": "Gini Coefficient (Generated)",
         "top_value_overlap@10": "Top-10 Value Overlap",
     }
+
+    # Artifact Category
+    Artifact_Category_Dictionary = 'dictionary'
+    Artifact_Category_Output = 'output'
+    Artifact_Category_Visualization = 'visualization'
+    Artifact_Category_Metrics = 'metrics'
+    Artifact_Category_Mapping = 'mapping'
+

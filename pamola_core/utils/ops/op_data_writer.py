@@ -131,6 +131,7 @@ class DataWriter:
         ensure_directory(self.task_dir / "output")
         ensure_directory(self.task_dir / "dictionaries")
         ensure_directory(self.task_dir / "logs")
+        ensure_directory(self.task_dir / "visualizations")
 
         self.logger.debug(f"Initialized directory structure under {self.task_dir}")
 
@@ -158,15 +159,15 @@ class DataWriter:
         Path
             Complete path for the output file
         """
-        # Ensure extension starts with a dot
-        if not extension.startswith('.'):
-            extension = f".{extension}"
+        # Ensure extension not starts with a dot
+        if extension.startswith('.'):
+            extension = extension.lstrip('.')
 
         # Add timestamp if requested
         if timestamp_in_name:
             filename = get_timestamped_filename(name, extension)
         else:
-            filename = f"{name}{extension}"
+            filename = f"{name}.{extension}"
 
         # Determine base directory
         if subdir:
@@ -276,6 +277,13 @@ class DataWriter:
             elif format.lower() in ("parquet", "pq"):
                 written_path = write_parquet(
                     df,
+                    output_path,
+                    encryption_key=encryption_key,
+                    **kwargs
+                )
+            elif format.lower() == "json":
+                written_path = write_json(
+                    df.to_dict(orient="records"),
                     output_path,
                     encryption_key=encryption_key,
                     **kwargs
@@ -943,7 +951,7 @@ class DataWriter:
         return self.write_json(
             enriched_metrics,
             name,
-            subdir=None,  # Root directory
+            subdir="metrics",  # Root directory
             timestamp_in_name=timestamp_in_name,
             encryption_key=encryption_key,
             overwrite=overwrite,

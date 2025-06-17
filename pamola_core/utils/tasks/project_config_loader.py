@@ -345,7 +345,8 @@ def apply_default_values(config_data: Dict[str, Any]) -> Dict[str, Any]:
             "default_delimiter": ",",
             "default_quotechar": "\"",  # Added missing parameter
             "memory_limit_mb": 1000,
-            "use_dask": False
+            "use_dask": False,  
+            "npartitions": 4
         },
         "encryption": {
             "use_encryption": False,
@@ -354,7 +355,8 @@ def apply_default_values(config_data: Dict[str, Any]) -> Dict[str, Any]:
         },
         "task_defaults": {
             "continue_on_error": True,
-            "parallel_processes": 4
+            "parallel_processes": 4,
+            "use_vectorization": False
         }
     }
 

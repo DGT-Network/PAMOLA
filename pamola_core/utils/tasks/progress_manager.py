@@ -438,7 +438,7 @@ class TaskProgressManager:
         self.quiet = quiet
 
         # Thread safety
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
 
         # Ensure logger doesn't write to stdout
         self._check_logger_handlers()

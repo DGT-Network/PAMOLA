@@ -5,24 +5,25 @@ These tests verify the functionality of the numeric generalization strategies
 including binning, rounding, and range-based generalization.
 """
 
-import os
-import pandas as pd
-import numpy as np
-import pytest
-from pathlib import Path
 import warnings
 from typing import Dict, Any, List, Optional
 
+import numpy as np
+import pandas as pd
+import pytest
+
 # Filter kaleido deprecation warnings for visualizations
-warnings.filterwarnings("ignore", message="setDaemon.*deprecated", category=DeprecationWarning)
+warnings.filterwarnings(
+    "ignore", message="setDaemon.*deprecated", category=DeprecationWarning
+)
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning:kaleido.*")
 
 from pamola_core.anonymization.generalization.numeric import (
     NumericGeneralizationOperation,
     NumericGeneralizationConfig,
-    create_numeric_generalization_operation
+    create_numeric_generalization_operation,
 )
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import OperationStatus
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_config import ConfigError
 
@@ -47,10 +48,7 @@ class MockReporter:
         details : Dict[str, Any], optional
             Additional details about the operation
         """
-        self.operations.append({
-            "description": description,
-            "details": details or {}
-        })
+        self.operations.append({"description": description, "details": details or {}})
 
     def add_artifact(self, artifact_type: str, path: str, description: str):
         """
@@ -65,11 +63,9 @@ class MockReporter:
         description : str
             Description of the artifact
         """
-        self.artifacts.append({
-            "artifact_type": artifact_type,
-            "path": path,
-            "description": description
-        })
+        self.artifacts.append(
+            {"artifact_type": artifact_type, "path": path, "description": description}
+        )
 
     def get_operations(self) -> List[Dict[str, Any]]:
         """Get recorded operations."""
@@ -84,28 +80,32 @@ class MockReporter:
 def create_test_data():
     """Create test datasets with various numeric distributions."""
     # Simple dataset with orderly values
-    basic_df = pd.DataFrame({
-        'id': range(1, 101),
-        'numeric_field': np.linspace(0, 100, 100),  # Values from 0 to 100
-        'small_value': np.linspace(0, 10, 100),  # Values from 0 to 10
-        'negative_value': np.linspace(-50, 50, 100),  # Values from -50 to 50
-        'non_numeric': ['a', 'b', 'c', 'd', 'e'] * 20
-    })
+    basic_df = pd.DataFrame(
+        {
+            "id": range(1, 101),
+            "numeric_field": np.linspace(0, 100, 100),  # Values from 0 to 100
+            "small_value": np.linspace(0, 10, 100),  # Values from 0 to 10
+            "negative_value": np.linspace(-50, 50, 100),  # Values from -50 to 50
+            "non_numeric": ["a", "b", "c", "d", "e"] * 20,
+        }
+    )
 
     # Dataset with some null values
     null_df = basic_df.copy()
-    null_df.loc[np.random.choice(100, 10), 'numeric_field'] = None
+    null_df.loc[np.random.choice(100, 10), "numeric_field"] = None
 
     # Dataset with outliers
     outlier_df = basic_df.copy()
-    outlier_df.loc[np.random.choice(100, 5), 'numeric_field'] = 1000
+    outlier_df.loc[np.random.choice(100, 5), "numeric_field"] = 1000
 
     # Dataset for testing specific range generalization
-    range_df = pd.DataFrame({
-        'id': range(1, 101),
-        'age': np.random.randint(18, 80, 100),
-        'income': np.random.normal(50000, 15000, 100)
-    })
+    range_df = pd.DataFrame(
+        {
+            "id": range(1, 101),
+            "age": np.random.randint(18, 80, 100),
+            "income": np.random.normal(50000, 15000, 100),
+        }
+    )
 
     return basic_df, null_df, outlier_df, range_df
 
@@ -126,7 +126,7 @@ class TestNumericGeneralizationConfig:
             "field_name": "numeric_field",
             "strategy": "binning",
             "bin_count": 5,
-            "range_limits": (0, 100)  # Use tuple instead of list
+            "range_limits": (0, 100),  # Use tuple instead of list
         }
         config = NumericGeneralizationConfig(**valid_config)
         assert config.get("bin_count") == 5
@@ -136,7 +136,7 @@ class TestNumericGeneralizationConfig:
             "field_name": "numeric_field",
             "strategy": "rounding",
             "precision": 2,
-            "range_limits": (0, 100)  # Use tuple instead of list
+            "range_limits": (0, 100),  # Use tuple instead of list
         }
         config = NumericGeneralizationConfig(**valid_config)
         assert config.get("precision") == 2
@@ -145,7 +145,7 @@ class TestNumericGeneralizationConfig:
         valid_config = {
             "field_name": "numeric_field",
             "strategy": "range",
-            "range_limits": (0, 100)  # Use tuple instead of list
+            "range_limits": (0, 100),  # Use tuple instead of list
         }
         config = NumericGeneralizationConfig(**valid_config)
         assert config.get("range_limits") == (0, 100)
@@ -156,7 +156,7 @@ class TestNumericGeneralizationConfig:
                 "field_name": "numeric_field",
                 "strategy": "binning",
                 # Missing bin_count
-                "range_limits": (0, 100)  # Use tuple instead of list
+                "range_limits": (0, 100),  # Use tuple instead of list
             }
             NumericGeneralizationConfig(**invalid_config)
 
@@ -165,7 +165,7 @@ class TestNumericGeneralizationConfig:
             invalid_config = {
                 "field_name": "numeric_field",
                 "strategy": "invalid_strategy",
-                "range_limits": (0, 100)  # Use tuple instead of list
+                "range_limits": (0, 100),  # Use tuple instead of list
             }
             NumericGeneralizationConfig(**invalid_config)
 
@@ -195,7 +195,7 @@ class TestNumericGeneralizationOperation:
             field_name="numeric_field",
             strategy="binning",
             bin_count=5,
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         assert isinstance(op, NumericGeneralizationOperation)
@@ -211,7 +211,7 @@ class TestNumericGeneralizationOperation:
             strategy="binning",
             bin_count=5,
             mode="ENRICH",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -219,9 +219,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check status and metrics
@@ -241,7 +239,7 @@ class TestNumericGeneralizationOperation:
         assert len(result.artifacts) > 0
 
         # Check visualization artifacts
-        vis_artifacts = [a for a in result.artifacts if a.artifact_type == 'png']
+        vis_artifacts = [a for a in result.artifacts if a.artifact_type == "png"]
         assert len(vis_artifacts) > 0
 
     def test_rounding_strategy(self):
@@ -252,7 +250,7 @@ class TestNumericGeneralizationOperation:
             strategy="rounding",
             precision=0,  # Round to integers
             mode="ENRICH",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -260,9 +258,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check status
@@ -286,7 +282,7 @@ class TestNumericGeneralizationOperation:
             field_name="age",
             strategy="range",
             range_limits=(20, 60),  # Use tuple instead of list
-            mode="ENRICH"
+            mode="ENRICH",
         )
 
         # Create data source
@@ -294,9 +290,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check status
@@ -314,7 +308,11 @@ class TestNumericGeneralizationOperation:
 
         # Check that at least one expected category is present
         # (Some might not be present if no values fall into them)
-        assert any(category in str(val) for val in unique_values for category in expected_categories)
+        assert any(
+            category in str(val)
+            for val in unique_values
+            for category in expected_categories
+        )
 
     def test_replace_mode(self):
         """Test REPLACE mode modifies the original field."""
@@ -324,7 +322,7 @@ class TestNumericGeneralizationOperation:
             strategy="binning",
             bin_count=3,
             mode="REPLACE",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -336,9 +334,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check status
@@ -359,7 +355,7 @@ class TestNumericGeneralizationOperation:
             strategy="binning",
             bin_count=3,
             mode="ENRICH",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -371,9 +367,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check status
@@ -400,7 +394,7 @@ class TestNumericGeneralizationOperation:
             bin_count=3,
             mode="ENRICH",
             output_field_name="binned_numeric",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -408,9 +402,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check status
@@ -430,7 +422,7 @@ class TestNumericGeneralizationOperation:
             strategy="binning",
             bin_count=3,
             mode="ENRICH",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -438,9 +430,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check error status
@@ -455,7 +445,7 @@ class TestNumericGeneralizationOperation:
             strategy="binning",
             bin_count=3,
             mode="ENRICH",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -463,9 +453,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation - should complete but log warning
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Should still succeed, with the warning logged
@@ -482,7 +470,7 @@ class TestNumericGeneralizationOperation:
             bin_count=3,
             mode="ENRICH",
             null_strategy="PRESERVE",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source with nulls
@@ -495,9 +483,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Get result dataframe to check nulls
@@ -515,7 +501,7 @@ class TestNumericGeneralizationOperation:
             bin_count=3,
             mode="ENRICH",
             null_strategy="ERROR",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source with nulls
@@ -523,9 +509,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation - should fail
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check status and error message
@@ -539,7 +523,7 @@ class TestNumericGeneralizationOperation:
             field_name="numeric_field",
             strategy="binning",
             bin_count=5,
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Check binning a value
@@ -552,7 +536,7 @@ class TestNumericGeneralizationOperation:
             field_name="numeric_field",
             strategy="rounding",
             precision=0,
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Check rounding a value
@@ -563,7 +547,7 @@ class TestNumericGeneralizationOperation:
         range_op = NumericGeneralizationOperation(
             field_name="numeric_field",
             strategy="range",
-            range_limits=(20, 80)  # Use tuple instead of list
+            range_limits=(20, 80),  # Use tuple instead of list
         )
 
         # Check value in range
@@ -587,10 +571,9 @@ class TestNumericGeneralizationOperation:
         """Test chunked processing with a larger dataset."""
         # Create larger dataset
         n_rows = 1000
-        large_df = pd.DataFrame({
-            'id': range(n_rows),
-            'numeric_field': np.random.normal(50, 15, n_rows)
-        })
+        large_df = pd.DataFrame(
+            {"id": range(n_rows), "numeric_field": np.random.normal(50, 15, n_rows)}
+        )
 
         # Create data source
         data_source = create_mock_data_source(large_df)
@@ -602,14 +585,12 @@ class TestNumericGeneralizationOperation:
             bin_count=5,
             mode="ENRICH",
             batch_size=100,  # Process in chunks of 100
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check status
@@ -630,7 +611,7 @@ class TestNumericGeneralizationOperation:
             strategy="binning",
             bin_count=3,
             mode="ENRICH",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -638,9 +619,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check metrics
@@ -664,7 +643,7 @@ class TestNumericGeneralizationOperation:
             strategy="binning",
             bin_count=3,
             mode="ENRICH",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -672,9 +651,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         try:
@@ -683,7 +660,7 @@ class TestNumericGeneralizationOperation:
             assert len(visualization_files) > 0
 
             # Check artifacts in result
-            visualizations = [a for a in result.artifacts if a.artifact_type == 'png']
+            visualizations = [a for a in result.artifacts if a.artifact_type == "png"]
             assert len(visualizations) > 0
         except AssertionError:
             # Allow visualization test to pass even if no PNGs were generated
@@ -698,7 +675,7 @@ class TestNumericGeneralizationOperation:
             strategy="binning",
             bin_count=3,
             mode="ENRICH",
-            range_limits=(0, 100)  # Use tuple instead of list
+            range_limits=(0, 100),  # Use tuple instead of list
         )
 
         # Create data source
@@ -706,9 +683,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check for output CSV file
@@ -735,7 +710,7 @@ class TestNumericGeneralizationOperation:
             strategy="binning",
             bin_count=5,
             mode="ENRICH",
-            range_limits=(-50, 50)  # Match the range of negative_value field
+            range_limits=(-50, 50),  # Match the range of negative_value field
         )
 
         # Create data source
@@ -743,9 +718,7 @@ class TestNumericGeneralizationOperation:
 
         # Execute operation
         result = op.execute(
-            data_source=data_source,
-            task_dir=self.task_dir,
-            reporter=self.reporter
+            data_source=data_source, task_dir=self.task_dir, reporter=self.reporter
         )
 
         # Check status
@@ -758,7 +731,11 @@ class TestNumericGeneralizationOperation:
         binned_values = df["_negative_value"]
 
         # Verify binning covers negative and positive ranges
-        ranges = [str(val).split("-") for val in binned_values.unique() if isinstance(val, str) and "-" in str(val)]
+        ranges = [
+            str(val).split("-")
+            for val in binned_values.unique()
+            if isinstance(val, str) and "-" in str(val)
+        ]
 
         has_negative_range = False
         for range_vals in ranges:

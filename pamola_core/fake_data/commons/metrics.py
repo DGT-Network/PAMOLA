@@ -303,7 +303,8 @@ class MetricsCollector:
                           metrics: Dict[str, Any],
                           field_name: str,
                           output_dir: Union[str, Path],
-                          op_type: str) -> Dict[str, Path]:
+                          op_type: str,
+                          **kwargs) -> Dict[str, Path]:
         """
         Creates visualizations for metrics data.
 
@@ -362,7 +363,8 @@ class MetricsCollector:
                         primary_y_label="Original Frequency",
                         secondary_y_label="Generated Frequency",
                         primary_color="royalblue",
-                        secondary_color="crimson"
+                        secondary_color="crimson",
+                        **kwargs
                     )
                     visualizations["value_distribution"] = Path(vis_path)
                 except Exception as e:
@@ -393,7 +395,8 @@ class MetricsCollector:
                         output_path=length_path,
                         title=f"Length Statistics for {field_name}",
                         x_label="Statistic",
-                        y_label="Value"
+                        y_label="Value",
+                        **kwargs
                     )
                     visualizations["length_stats"] = Path(vis_path)
                 except Exception as e:
@@ -420,7 +423,8 @@ class MetricsCollector:
                         data=pie_data,
                         output_path=replace_path,
                         title=f"Value Replacement Rate for {field_name}",
-                        show_percentages=True
+                        show_percentages=True,
+                        **kwargs
                     )
                     visualizations["replacement_rate"] = Path(vis_path)
                 except Exception as e:

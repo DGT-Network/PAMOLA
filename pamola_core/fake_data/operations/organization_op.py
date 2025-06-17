@@ -10,18 +10,15 @@ import logging
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Dict, Any, Optional, Union, List
-
+from typing import Dict, Any, Optional, Union
 import numpy as np
 import pandas as pd
-
 from pamola_core.fake_data.commons import metrics
 from pamola_core.fake_data.commons.operations import GeneratorOperation
-from pamola_core.fake_data.generators.base_generator import BaseGenerator
 from pamola_core.fake_data.generators.organization import OrganizationGenerator
 from pamola_core.utils import io
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -68,7 +65,18 @@ class FakeOrganizationOperation(GeneratorOperation):
                  region_field: Optional[str] = None,
                  detailed_metrics: bool = False,
                  error_logging_level: str = "WARNING",
-                 max_retries: int = 3):
+                 max_retries: int = 3,
+                 use_cache: bool = True,
+                 force_recalculation: bool = False,
+                 use_dask: bool = False,
+                 npartitions: int = 1,
+                 use_vectorization: bool = False,
+                 parallel_processes: int = 1,
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None,
+                 visualization_backend: Optional[str] = None,
+                 vis_theme: Optional[str] = None,
+                 vis_strict: bool = False):
         """
         Initialize organization name generation operation.
 
@@ -100,6 +108,8 @@ class FakeOrganizationOperation(GeneratorOperation):
             detailed_metrics: Whether to collect detailed metrics
             error_logging_level: Level for error logging (ERROR, WARNING, INFO)
             max_retries: Maximum number of retries for generation on error
+            use_dask: Whether to use Dask for large datasets
+            npartitions: Number of partitions for Dask processing (if use_dask=True)
         """
         # Save new parameters
         self.detailed_metrics = detailed_metrics
@@ -108,6 +118,13 @@ class FakeOrganizationOperation(GeneratorOperation):
         self.collect_type_distribution = collect_type_distribution
         self.type_field = type_field
         self.region_field = region_field
+        self.batch_size = batch_size
+        self.use_cache = use_cache
+        self.force_recalculation = force_recalculation
+        self.use_dask = use_dask
+        self.npartitions = npartitions
+        self.use_vectorization = use_vectorization
+        self.parallel_processes = parallel_processes
 
         # Configure logging level
         self._configure_logging()
@@ -150,7 +167,18 @@ class FakeOrganizationOperation(GeneratorOperation):
             output_field_name=output_field_name,
             batch_size=batch_size,
             null_strategy=null_strategy,
-            consistency_mechanism=consistency_mechanism
+            consistency_mechanism=consistency_mechanism,
+            use_cache=use_cache,
+            force_recalculation=force_recalculation,
+            use_dask=use_dask,
+            npartitions=npartitions,
+            use_vectorization=use_vectorization,
+            parallel_processes=parallel_processes,
+            use_encryption=use_encryption,
+            encryption_key=encryption_key,
+            visualization_backend=visualization_backend,
+            vis_theme=vis_theme,
+            vis_strict=vis_strict
         )
 
         # Set up performance metrics
@@ -206,7 +234,7 @@ class FakeOrganizationOperation(GeneratorOperation):
             logger.warning(f"Failed to initialize mapping store: {str(e)}")
             self.mapping_store = None
 
-    def execute(self, data_source, task_dir, reporter, progress_tracker: Optional[ProgressTracker] = None, **kwargs):
+    def execute(self, data_source, task_dir, reporter, progress_tracker: Optional[HierarchicalProgressTracker] = None, **kwargs):
         """
         Execute the organization name generation operation.
 
@@ -754,7 +782,7 @@ class FakeOrganizationOperation(GeneratorOperation):
 
         return metrics
 
-    def _save_metrics(self, metrics_data: Dict[str, Any], task_dir: Path) -> Path:
+    def _save_metrics(self, metrics_data: Dict[str, Any], task_dir: Path, **kwargs) -> Path:
         """
         Save metrics to a file and generate visualizations.
 
@@ -790,12 +818,17 @@ class FakeOrganizationOperation(GeneratorOperation):
                     orig_series = self._original_df[self.field_name]
                     gen_series = self._original_df[output_field]
 
+                    kwargs_encryption = {
+                        "use_encryption": kwargs.get('use_encryption', False),
+                        "encryption_key": kwargs.get('encryption_key', None)
+                    }
                     # Create visualizations
                     visualizations = collector.visualize_metrics(
                         metrics_data,
                         self.field_name,
                         vis_dir,
-                        self.name
+                        self.name,
+                        **kwargs_encryption
                     )
 
                     # Add visualization paths to metrics
@@ -805,19 +838,9 @@ class FakeOrganizationOperation(GeneratorOperation):
             except Exception as e:
                 logger.warning(f"Error generating visualizations: {str(e)}")
 
-        # Generate metrics report
-        report_dir = task_dir / "reports"
-        io.ensure_directory(report_dir)
-        report = metrics.generate_metrics_report(
-            metrics_data,
-            report_dir / f"{self.name}_{self.field_name}_report.md",
-            self.name,
-            self.field_name
-        )
-
         # Save metrics to file
-        with open(metrics_path, 'w', encoding='utf-8') as f:
-            import json
-            json.dump(metrics_data, f, indent=2, ensure_ascii=False, default=str)
+        use_encryption = kwargs.get('use_encryption', False)
+        encryption_key= kwargs.get('encryption_key', None) if use_encryption else None
+        io.write_json(metrics_data, metrics_path, encryption_key=encryption_key)
 
         return metrics_path

@@ -191,7 +191,7 @@ The script `t_1p_scissors.py` is designed to **vertically split a raw dataset in
     
 - Focus on modular, well-documented code with clear input/output pathways.
     
-- Maintain consistency with the broader PAMOLA.CORE and PAMOLA CORE project conventions.
+- Maintain consistency with the broader PAMOLA CORE project conventions.
     
 
 Would you like me to draft the helper module or example config file next?

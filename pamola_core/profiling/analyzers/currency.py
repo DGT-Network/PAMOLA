@@ -16,7 +16,7 @@ The module supports:
 
 import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ from pamola_core.profiling.commons.numeric_utils import (
     calculate_percentiles, calculate_histogram
 )
 from pamola_core.utils.io import (
-    load_data_operation, write_dataframe_to_csv, write_json
+    load_data_operation, write_dataframe_to_csv, write_json, load_settings_operation
 )
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -40,7 +40,7 @@ from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.visualization import (
     create_histogram, create_boxplot, create_correlation_pair
 )
-
+from pamola_core.common.constants import Constants
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -592,6 +592,8 @@ class CurrencyOperation(FieldOperation):
                  use_dask: bool = False,
                  generate_plots: bool = True,
                  include_timestamp: bool = True,
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None,
                  **kwargs):
         """
         Initialize a currency field operation.
@@ -614,8 +616,10 @@ class CurrencyOperation(FieldOperation):
             Additional parameters passed to the base class
         """
         super().__init__(
-            field_name,
-            description or f"Analysis of currency field '{field_name}'"
+            field_name=field_name,
+            description=description or f"Analysis of currency field '{field_name}'",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
         )
         self.locale = locale
         self.bins = bins
@@ -665,6 +669,7 @@ class CurrencyOperation(FieldOperation):
         include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
         chunk_size = kwargs.get('chunk_size', self.chunk_size)
         use_dask = kwargs.get('use_dask', self.use_dask)
+        encryption_key = kwargs.get('encryption_key', None)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -678,7 +683,8 @@ class CurrencyOperation(FieldOperation):
         try:
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -727,20 +733,25 @@ class CurrencyOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats.json"
             stats_path = output_dir / stats_filename
 
-            write_json(analysis_results, stats_path)
-            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis")
+            write_json(analysis_results, stats_path, encryption_key=encryption_key)
+            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis", category=Constants.Artifact_Category_Output)
 
             # Add to reporter
             reporter.add_artifact("json", str(stats_path), f"{self.field_name} currency analysis")
 
             # Generate visualizations if requested
             if generate_plots:
+                kwargs_encryption = {
+                    "use_encryption": kwargs.get('use_encryption', False),
+                    "encryption_key": encryption_key
+                }
                 self._generate_visualizations(
                     df,
                     analysis_results,
                     visualizations_dir,
                     result,
-                    reporter
+                    reporter,
+                    **kwargs_encryption
                 )
 
             # Save sample records with original currency values
@@ -749,7 +760,8 @@ class CurrencyOperation(FieldOperation):
                 analysis_results,
                 dictionaries_dir,
                 result,
-                reporter
+                reporter,
+                encryption_key=encryption_key
             )
 
             # Add metrics to the result
@@ -783,7 +795,8 @@ class CurrencyOperation(FieldOperation):
                                  analysis_results: Dict[str, Any],
                                  vis_dir: Path,
                                  result: OperationResult,
-                                 reporter: Any):
+                                 reporter: Any,
+                                 **kwargs):
         """
         Generate visualizations for the currency field analysis.
 
@@ -838,11 +851,12 @@ class CurrencyOperation(FieldOperation):
                     title=title,
                     x_label=f"{self.field_name} Value",
                     y_label="Frequency",
-                    bins=self.bins
+                    bins=self.bins,
+                    **kwargs
                 )
 
                 if not hist_result.startswith("Error"):
-                    result.add_artifact("png", hist_path, f"{self.field_name} distribution histogram")
+                    result.add_artifact("png", hist_path, f"{self.field_name} distribution histogram", category=Constants.Artifact_Category_Visualization)
                     reporter.add_artifact("png", str(hist_path), f"{self.field_name} distribution histogram")
             except Exception as e:
                 logger.warning(f"Error creating histogram for {self.field_name}: {e}")
@@ -859,11 +873,12 @@ class CurrencyOperation(FieldOperation):
                     output_path=str(boxplot_path),
                     title=f"Boxplot of {self.field_name}",
                     y_label=self.field_name,
-                    show_points=True
+                    show_points=True,
+                    **kwargs
                 )
 
                 if not boxplot_result.startswith("Error"):
-                    result.add_artifact("png", boxplot_path, f"{self.field_name} boxplot")
+                    result.add_artifact("png", boxplot_path, f"{self.field_name} boxplot", category=Constants.Artifact_Category_Visualization)
                     reporter.add_artifact("png", str(boxplot_path), f"{self.field_name} boxplot")
             except Exception as e:
                 logger.warning(f"Error creating boxplot for {self.field_name}: {e}")
@@ -900,11 +915,12 @@ class CurrencyOperation(FieldOperation):
                     title=title,
                     x_label="Theoretical Quantiles",
                     y_label="Sample Quantiles",
-                    add_trendline=True
+                    add_trendline=True,
+                    **kwargs
                 )
 
                 if not qq_result.startswith("Error"):
-                    result.add_artifact("png", qq_path, f"{self.field_name} Q-Q plot (normality test)")
+                    result.add_artifact("png", qq_path, f"{self.field_name} Q-Q plot (normality test)", category=Constants.Artifact_Category_Visualization)
                     reporter.add_artifact("png", str(qq_path), f"{self.field_name} Q-Q plot")
             except Exception as e:
                 logger.warning(f"Error creating Q-Q plot for {self.field_name}: {e}")
@@ -914,7 +930,8 @@ class CurrencyOperation(FieldOperation):
                              analysis_results: Dict[str, Any],
                              dict_dir: Path,
                              result: OperationResult,
-                             reporter: Any):
+                             reporter: Any,
+                             encryption_key: Optional[str] = None):
         """
         Save sample records with original currency values.
 
@@ -1013,10 +1030,10 @@ class CurrencyOperation(FieldOperation):
             sample_filename = f"{self.field_name}_sample.csv"
             sample_path = dict_dir / sample_filename
 
-            write_dataframe_to_csv(sample_df, sample_path)
+            write_dataframe_to_csv(sample_df, sample_path, encryption_key=encryption_key)
 
             # Add to result
-            result.add_artifact("csv", sample_path, f"{self.field_name} sample records", category="dictionary")
+            result.add_artifact("csv", sample_path, f"{self.field_name} sample records", category=Constants.Artifact_Category_Dictionary)
             reporter.add_artifact("csv", str(sample_path), f"{self.field_name} sample records")
 
         except Exception as e:

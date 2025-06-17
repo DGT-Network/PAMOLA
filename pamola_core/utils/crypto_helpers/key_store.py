@@ -22,8 +22,8 @@ from pamola_core.utils.crypto_helpers.providers.simple_provider import SimplePro
 logger = logging.getLogger("pamola_core.utils.crypto_helpers.key_store")
 
 # Constants
-DEFAULT_KEYS_DB_PATH = "configs/keys.db"
-DEFAULT_MASTER_KEY_PATH = "configs/master.key"
+DEFAULT_KEYS_DB_PATH = "pamola_datasets/configs/keys.db"
+DEFAULT_MASTER_KEY_PATH = "pamola_datasets/configs/master.key"
 MASTER_KEY_LENGTH = 32  # 256 bits
 
 

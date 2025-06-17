@@ -19,16 +19,18 @@ from typing import List, Optional, Tuple, Union, Any, Callable, Iterator
 import numpy as np
 import pandas as pd
 
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker, ProgressTracker
 
 logger = logging.getLogger(__name__)
 
 
-def process_in_chunks(df: pd.DataFrame,
-                      process_function: Callable,
-                      batch_size: int = 10000,
-                      progress_tracker: Optional[ProgressTracker] = None,
-                      **kwargs) -> Union[pd.DataFrame, None, Any]:
+def process_in_chunks(
+    df: pd.DataFrame,
+    process_function: Callable,
+    chunk_size: int = 10000,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    **kwargs,
+) -> Union[pd.DataFrame, None, Any]:
     """
     Process a DataFrame in chunks to handle large datasets efficiently.
 
@@ -38,9 +40,9 @@ def process_in_chunks(df: pd.DataFrame,
         The DataFrame to process
     process_function : Callable
         Function to apply to each chunk, should take a DataFrame chunk as the first argument
-    batch_size : int, optional
+    chunk_size : int, optional
         Number of rows to process in each chunk (default: 10000)
-    progress_tracker : Optional[ProgressTracker]
+    progress_tracker : Optional[HierarchicalProgressTracker]
         Progress tracker for monitoring the operation
     **kwargs : dict
         Additional arguments to pass to the process_function
@@ -50,22 +52,24 @@ def process_in_chunks(df: pd.DataFrame,
     pd.DataFrame
         The processed DataFrame
     """
-    # Check if DataFrame is empty or smaller than batch size
+    # Check if DataFrame is empty or smaller than chunk size
     if len(df) == 0:
         logger.warning("Empty DataFrame provided, returning as is")
         return df
 
-    if len(df) <= batch_size:
-        # If DataFrame is smaller than batch size, process it directly
+    if len(df) <= chunk_size:
+        # If DataFrame is smaller than chunk size, process it directly
         return process_function(df, **kwargs)
 
     # Calculate total number of chunks
-    total_chunks = (len(df) + batch_size - 1) // batch_size
+    total_chunks = (len(df) + chunk_size - 1) // chunk_size
 
     # Update progress if tracker is provided
     if progress_tracker:
         progress_tracker.total = total_chunks
-        progress_tracker.update(0, {"step": "Processing in chunks", "total_chunks": total_chunks})
+        progress_tracker.update(
+            0, {"step": "Processing in chunks", "total_chunks": total_chunks}
+        )
 
     # Initialize result with DataFrame structure but no rows
     result = pd.DataFrame(columns=df.columns)
@@ -75,13 +79,15 @@ def process_in_chunks(df: pd.DataFrame,
     processed_rows = 0
 
     try:
-        for i in range(0, len(df), batch_size):
-            chunk_num = i // batch_size
+        for i in range(0, len(df), chunk_size):
+            chunk_num = i // chunk_size
             chunk_start = i
-            chunk_end = min(i + batch_size, len(df))
+            chunk_end = min(i + chunk_size, len(df))
             chunk_size = chunk_end - chunk_start
 
-            logger.debug(f"Processing chunk {chunk_num + 1}/{total_chunks} (rows {chunk_start}-{chunk_end - 1})")
+            logger.debug(
+                f"Processing chunk {chunk_num + 1}/{total_chunks} (rows {chunk_start}-{chunk_end - 1})"
+            )
 
             # Extract and process chunk
             chunk = df.iloc[chunk_start:chunk_end].copy()
@@ -91,7 +97,9 @@ def process_in_chunks(df: pd.DataFrame,
 
                 # Validate processed chunk
                 if not isinstance(processed_chunk, pd.DataFrame):
-                    logger.error(f"Chunk {chunk_num + 1} processing failed: function did not return a DataFrame")
+                    logger.error(
+                        f"Chunk {chunk_num + 1} processing failed: function did not return a DataFrame"
+                    )
                     continue
 
                 if len(processed_chunk) != len(chunk):
@@ -110,14 +118,19 @@ def process_in_chunks(df: pd.DataFrame,
 
             # Update progress
             if progress_tracker:
-                progress_tracker.update(chunk_num + 1, {
-                    "step": "Processing chunks",
-                    "chunk": chunk_num + 1,
-                    "processed_rows": processed_rows,
-                    "total_rows": len(df)
-                })
+                progress_tracker.update(
+                    chunk_num + 1,
+                    {
+                        "step": "Processing chunks",
+                        "chunk": chunk_num + 1,
+                        "processed_rows": processed_rows,
+                        "total_rows": len(df),
+                    },
+                )
 
-        logger.info(f"Processed {processed_rows}/{len(df)} rows in {total_chunks} chunks")
+        logger.info(
+            f"Processed {processed_rows}/{len(df)} rows in {total_chunks} chunks"
+        )
 
     except Exception as e:
         logger.error(f"Error during chunk processing: {str(e)}")
@@ -131,7 +144,9 @@ def process_in_chunks(df: pd.DataFrame,
     return result
 
 
-def get_dataframe_chunks(df: pd.DataFrame, chunk_size: int = 10000) -> Iterator[pd.DataFrame]:
+def get_dataframe_chunks(
+    df: pd.DataFrame, chunk_size: int = 10000
+) -> Iterator[pd.DataFrame]:
     """
     Generate chunks of a DataFrame for efficient processing of large datasets.
 
@@ -163,16 +178,20 @@ def get_dataframe_chunks(df: pd.DataFrame, chunk_size: int = 10000) -> Iterator[
         chunk_end = min(i + chunk_size, len(df))
         chunk_num = i // chunk_size
 
-        logger.debug(f"Yielding chunk {chunk_num + 1}/{total_chunks} (rows {chunk_start}-{chunk_end - 1})")
+        logger.debug(
+            f"Yielding chunk {chunk_num + 1}/{total_chunks} (rows {chunk_start}-{chunk_end - 1})"
+        )
         yield df.iloc[chunk_start:chunk_end].copy()
 
 
-def process_dataframe_parallel(df: pd.DataFrame,
-                               process_function: Callable,
-                               n_jobs: int = -1,
-                               batch_size: int = 10000,
-                               progress_tracker: Optional[ProgressTracker] = None,
-                               **kwargs) -> pd.DataFrame:
+def process_dataframe_parallel(
+    df: pd.DataFrame,
+    process_function: Callable,
+    n_jobs: int = -1,
+    chunk_size: int = 10000,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    **kwargs,
+) -> pd.DataFrame:
     """
     Process a DataFrame in parallel using joblib for large datasets.
 
@@ -184,9 +203,9 @@ def process_dataframe_parallel(df: pd.DataFrame,
         Function to apply to each chunk
     n_jobs : int, optional
         Number of jobs to run in parallel (-1 to use all processors) (default: -1)
-    batch_size : int, optional
+    chunk_size : int, optional
         Number of rows in each chunk (default: 10000)
-    progress_tracker : Optional[ProgressTracker]
+    progress_tracker : Optional[HierarchicalProgressTracker]
         Progress tracker for monitoring the operation
     **kwargs : dict
         Additional arguments to pass to the process_function
@@ -200,27 +219,33 @@ def process_dataframe_parallel(df: pd.DataFrame,
         from joblib import Parallel, delayed
     except ImportError:
         logger.warning("joblib not installed, falling back to sequential processing")
-        return process_in_chunks(df, process_function, batch_size, progress_tracker, **kwargs)
+        return process_in_chunks(
+            df, process_function, chunk_size, progress_tracker, **kwargs
+        )
 
-    # Check if DataFrame is empty or smaller than batch size
+    # Check if DataFrame is empty or smaller than chunk size
     if len(df) == 0:
         logger.warning("Empty DataFrame provided, returning as is")
         return df
 
-    if len(df) <= batch_size:
-        # If DataFrame is smaller than batch size, process it directly
+    if len(df) <= chunk_size:
+        # If DataFrame is smaller than chunk size, process it directly
         return process_function(df, **kwargs)
 
     # Split DataFrame into chunks
-    chunks = [chunk for chunk in get_dataframe_chunks(df, chunk_size=batch_size)]
+    chunks = [chunk for chunk in get_dataframe_chunks(df, chunk_size=chunk_size)]
     total_chunks = len(chunks)
 
     # Update progress if tracker is provided
     if progress_tracker:
         progress_tracker.total = total_chunks
-        progress_tracker.update(0, {"step": "Parallel processing setup", "total_chunks": total_chunks})
+        progress_tracker.update(
+            0, {"step": "Parallel processing setup", "total_chunks": total_chunks}
+        )
 
-    logger.info(f"Processing {len(df)} rows in {total_chunks} chunks with {n_jobs} workers")
+    logger.info(
+        f"Processing {len(df)} rows in {total_chunks} chunks with {n_jobs} workers"
+    )
 
     try:
         # Process chunks in parallel
@@ -231,12 +256,19 @@ def process_dataframe_parallel(df: pd.DataFrame,
             try:
                 result = process_function(chunk, **kwargs)
                 if progress_tracker:
-                    progress_tracker.update(chunk_idx + 1, {
-                        "step": "Parallel processing",
-                        "chunk": chunk_idx + 1,
-                        "processed_rows": (chunk_idx + 1) * batch_size if chunk_idx < total_chunks - 1 else len(df),
-                        "total_rows": len(df)
-                    })
+                    progress_tracker.update(
+                        chunk_idx + 1,
+                        {
+                            "step": "Parallel processing",
+                            "chunk": chunk_idx + 1,
+                            "processed_rows": (
+                                (chunk_idx + 1) * chunk_size
+                                if chunk_idx < total_chunks - 1
+                                else len(df)
+                            ),
+                            "total_rows": len(df),
+                        },
+                    )
                 return result
             except Exception as e:
                 logger.error(f"Error processing chunk {chunk_idx + 1}: {str(e)}")
@@ -259,19 +291,142 @@ def process_dataframe_parallel(df: pd.DataFrame,
 
         elapsed_time = time.time() - start_time
         logger.info(f"Parallel processing completed in {elapsed_time:.2f} seconds")
+        # Compute final result
+        if progress_tracker:
+            progress_tracker.update(
+                3,
+                {
+                    "step": "Parallel finalization",
+                    "total_chunks": total_chunks,
+                },
+            )
 
         return result
 
     except Exception as e:
         logger.error(f"Error during parallel processing: {str(e)}")
         logger.warning("Falling back to sequential processing")
-        return process_in_chunks(df, process_function, batch_size, progress_tracker, **kwargs)
+        return process_in_chunks(
+            df, process_function, chunk_size, progress_tracker, **kwargs
+        )
 
 
-def numeric_generalization_binning(series: pd.Series,
-                                   bin_count: int,
-                                   labels: Optional[List[str]] = None,
-                                   handle_nulls: bool = True) -> pd.Series:
+def process_dataframe_dask(
+    df: pd.DataFrame,
+    process_function: Callable,
+    process_function_backup: Callable,
+    chunk_size: int = 10000,
+    npartitions: Optional[int] = None,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    **kwargs,
+) -> pd.DataFrame:
+    """
+    Process a DataFrame in dask using dask for large datasets.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The DataFrame to process
+    process_function : Callable
+        Function to apply to each chunk
+    chunk_size : int, optional
+        Number of rows in each chunk (default: 10000)
+    npartitions : Optional[int]
+        Number of partitions to use with Dask (default: None)
+    progress_tracker : Optional[HierarchicalProgressTracker]
+        Progress tracker for monitoring the operation
+    **kwargs : dict
+        Additional arguments to pass to the process_function
+
+    Returns:
+    --------
+    pd.DataFrame
+        The processed DataFrame
+    """
+    try:
+        import dask.dataframe as dd
+    except ImportError:
+        logger.warning("dask not installed, falling back to sequential processing")
+        return process_in_chunks(
+            df, process_function, chunk_size, progress_tracker, **kwargs
+        )
+
+    # Check if DataFrame is empty or smaller than chunk size
+    if len(df) == 0:
+        logger.warning("Empty DataFrame provided, returning as is")
+        return df
+
+    # Convert to Dask DataFrame
+    total_rows = len(df)
+    if npartitions is None or npartitions < 1:
+        nparts = (total_rows + chunk_size - 1) // chunk_size
+    else:
+        nparts = npartitions
+
+    ddf = dd.from_pandas(df, npartitions=nparts)
+
+    # Update progress if tracker is provided
+    if progress_tracker:
+        progress_tracker.total = nparts
+        progress_tracker.update(
+            1, {"step": "Dask processing setup", "total_parts": nparts}
+        )
+
+    logger.info(f"Processing {total_rows} rows in {nparts} chunks with Dask")
+
+    try:
+        # Process dask DataFrame
+        start_time = time.time()
+
+        # Update progress for Dask processing
+        if progress_tracker:
+            progress_tracker.update(
+                2,
+                {
+                    "step": "Dask processing",
+                    "total_parts": nparts,
+                },
+            )
+
+        # Execute the processing function
+        result = process_function(ddf, **kwargs)
+
+        # Compute elapsed time
+        elapsed_time = time.time() - start_time
+        logger.info(f"Dask processing completed in {elapsed_time:.2f} seconds")
+        # Combine results
+        if result is not None:
+            # Compute final result
+            if progress_tracker:
+                progress_tracker.update(
+                    3,
+                    {
+                        "step": "Dask finalization",
+                        "total_parts": nparts,
+                    },
+                )
+            return result
+        else:
+            logger.error("Dask processing failed, returning empty DataFrame")
+            return pd.DataFrame(columns=df.columns)
+    except Exception as e:
+        logger.error(f"Error during parallel processing: {str(e)}")
+        logger.warning("Falling back to sequential processing")
+        return process_in_chunks(
+            df,
+            process_function=process_function_backup,
+            chunk_size=chunk_size,
+            progress_tracker=progress_tracker,
+            **kwargs,
+        )
+
+
+def numeric_generalization_binning(
+    series: pd.Series,
+    bin_count: int,
+    labels: Optional[List[str]] = None,
+    handle_nulls: bool = True,
+) -> pd.Series:
     """
     Generalize numeric values by binning them into intervals.
 
@@ -320,10 +475,14 @@ def numeric_generalization_binning(series: pd.Series,
 
         # Create default labels if not provided
         if labels is None:
-            labels = [f"{bin_edges[i]:.2f}-{bin_edges[i + 1]:.2f}" for i in range(bin_count)]
+            labels = [
+                f"{bin_edges[i]:.2f}-{bin_edges[i + 1]:.2f}" for i in range(bin_count)
+            ]
 
         # Apply binning to non-null values
-        binned = pd.cut(non_null_series, bins=bin_edges, labels=labels, include_lowest=True)
+        binned = pd.cut(
+            non_null_series, bins=bin_edges, labels=labels, include_lowest=True
+        )
 
         if handle_nulls:
             # Create result Series with same index as original
@@ -342,9 +501,9 @@ def numeric_generalization_binning(series: pd.Series,
         return series
 
 
-def numeric_generalization_rounding(series: pd.Series,
-                                    precision: int,
-                                    handle_nulls: bool = True) -> pd.Series:
+def numeric_generalization_rounding(
+    series: pd.Series, precision: int, handle_nulls: bool = True
+) -> pd.Series:
     """
     Generalize numeric values by rounding to a specified precision.
 
@@ -403,9 +562,9 @@ def numeric_generalization_rounding(series: pd.Series,
         return series
 
 
-def numeric_generalization_range(series: pd.Series,
-                                 range_limits: Tuple[float, float],
-                                 handle_nulls: bool = True) -> pd.Series:
+def numeric_generalization_range(
+    series: pd.Series, range_limits: Tuple[float, float], handle_nulls: bool = True
+) -> pd.Series:
     """
     Generalize numeric values by mapping to custom range intervals.
 
@@ -444,14 +603,14 @@ def numeric_generalization_range(series: pd.Series,
         in_range = (non_null_series >= min_val) & (non_null_series < max_val)
 
         # Create result labels
-        result_values = pd.Series(index=non_null_series.index, dtype='object')
+        result_values = pd.Series(index=non_null_series.index, dtype="object")
         result_values[in_range] = f"{min_val}-{max_val}"
         result_values[~in_range & (non_null_series < min_val)] = f"<{min_val}"
         result_values[~in_range & (non_null_series >= max_val)] = f">={max_val}"
 
         if handle_nulls:
             # Create result Series with same index as original
-            result = pd.Series(index=series.index, dtype='object')
+            result = pd.Series(index=series.index, dtype="object")
             # Fill in values for non-null positions
             result[~null_mask] = result_values
             # Keep nulls as nulls
@@ -504,7 +663,9 @@ def process_nulls(series: pd.Series, null_strategy: str) -> pd.Series:
 
     elif null_strategy == "ERROR":
         # Raise error if nulls found
-        error_message = f"Field contains {null_count} null values, and null_strategy is 'ERROR'"
+        error_message = (
+            f"Field contains {null_count} null values, and null_strategy is 'ERROR'"
+        )
         logger.error(error_message)
         raise ValueError(error_message)
 
@@ -514,12 +675,20 @@ def process_nulls(series: pd.Series, null_strategy: str) -> pd.Series:
         raise ValueError(error_message)
 
 
-def generate_output_field_name(field_name: str, mode: str, output_field_name: Optional[str], column_prefix: str) -> str:
+def generate_output_field_name(
+    df: pd.DataFrame,
+    field_name: str,
+    mode: str,
+    output_field_name: Optional[str],
+    column_prefix: str,
+) -> str:
     """
     Generate the appropriate output field name based on mode and parameters.
 
     Parameters:
     -----------
+    df : pd.DataFrame
+        The dataframe to check field names against
     field_name : str
         Original field name
     mode : str
@@ -534,12 +703,22 @@ def generate_output_field_name(field_name: str, mode: str, output_field_name: Op
     str
         The output field name to use
     """
+    # Determine output field name based on mode
     if mode == "REPLACE":
-        # Use the original field name
         return field_name
-    else:  # mode == "ENRICH"
-        # Use specified output name or create one with prefix
-        return output_field_name if output_field_name else f"{column_prefix}{field_name}"
+    else:  # ENRICH mode
+        if output_field_name:
+            output_field = output_field_name
+        else:
+            output_field = f"{column_prefix}{field_name}"
+
+        # Check if output field already exists in DataFrame
+        if output_field in df.columns:
+            logger.warning(
+                f"Output field '{output_field}' already exists and will be overwritten"
+            )
+
+        return output_field
 
 
 def prepare_output_directory(task_dir: Path, subdirectory: str) -> Path:

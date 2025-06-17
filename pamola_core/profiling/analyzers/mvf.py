@@ -19,7 +19,7 @@ MVF fields contain multiple values per record, typically stored as:
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 
 import pandas as pd
 
@@ -31,7 +31,7 @@ from pamola_core.profiling.commons.mvf_utils import (
     analyze_value_count_distribution,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation, write_dataframe_to_csv, load_settings_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -41,7 +41,7 @@ from pamola_core.utils.visualization import (
     plot_value_distribution,
     create_bar_plot
 )
-
+from pamola_core.common.constants import Constants
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -263,7 +263,9 @@ class MVFOperation(FieldOperation):
                  profile_type: str = 'mvf',
                  format_type: Any = None,
                  parse_kwargs: Any = {},
-                 description: str = ""):
+                 description: str = "",
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None):
         """
         Initialize the MVF operation.
 
@@ -278,7 +280,13 @@ class MVFOperation(FieldOperation):
         description : str
             Description of the operation (optional)
         """
-        super().__init__(field_name, description or f"Analysis of multi-valued field '{field_name}'")
+        super().__init__(
+            field_name=field_name,
+            description=description or f"Analysis of multi-valued field '{field_name}'",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
+            )
+        
         self.top_n = top_n
         self.min_frequency = min_frequency
         self.generate_plots = generate_plots
@@ -326,6 +334,7 @@ class MVFOperation(FieldOperation):
         profile_type = kwargs.get('profile_type', self.profile_type)
         format_type = kwargs.get('format_type', self.format_type)
         parse_kwargs = kwargs.get('parse_kwargs', self.parse_kwargs)
+        encryption_key = kwargs.get('encryption_key', None)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -343,7 +352,8 @@ class MVFOperation(FieldOperation):
         try:
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -396,8 +406,8 @@ class MVFOperation(FieldOperation):
             stats_filename = get_timestamped_filename(f"{self.field_name}_stats", "json", include_timestamp)
             stats_path = output_dir / stats_filename
 
-            write_json(analysis_results, stats_path)
-            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis")
+            write_json(analysis_results, stats_path, encryption_key=encryption_key)
+            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis", category=Constants.Artifact_Category_Output)
 
             # Add to reporter
             reporter.add_artifact("json", str(stats_path), f"{self.field_name} statistical analysis")
@@ -419,9 +429,9 @@ class MVFOperation(FieldOperation):
                 values_dict_filename = get_timestamped_filename(f"{self.field_name}_values_dictionary", "csv",
                                                                 include_timestamp)
                 values_dict_path = dictionaries_dir / values_dict_filename
-                values_dict.to_csv(values_dict_path, index=False, encoding='utf-8')
+                write_dataframe_to_csv(df=values_dict, file_path=values_dict_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
-                result.add_artifact("csv", values_dict_path, f"{self.field_name} values dictionary")
+                result.add_artifact("csv", values_dict_path, f"{self.field_name} values dictionary", category=Constants.Artifact_Category_Dictionary)
                 reporter.add_artifact("csv", str(values_dict_path), f"{self.field_name} values dictionary")
 
             # Create and save combinations dictionary
@@ -437,9 +447,9 @@ class MVFOperation(FieldOperation):
                 combinations_dict_filename = get_timestamped_filename(f"{self.field_name}_combinations_dictionary",
                                                                       "csv", include_timestamp)
                 combinations_dict_path = dictionaries_dir / combinations_dict_filename
-                combinations_dict.to_csv(combinations_dict_path, index=False, encoding='utf-8')
+                write_dataframe_to_csv(df=combinations_dict, file_path=combinations_dict_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
-                result.add_artifact("csv", combinations_dict_path, f"{self.field_name} combinations dictionary")
+                result.add_artifact("csv", combinations_dict_path, f"{self.field_name} combinations dictionary", category=Constants.Artifact_Category_Dictionary)
                 reporter.add_artifact("csv", str(combinations_dict_path), f"{self.field_name} combinations dictionary")
 
             # Update progress
@@ -460,11 +470,12 @@ class MVFOperation(FieldOperation):
                         data=analysis_results['values_analysis'],
                         output_path=str(values_viz_path),
                         title=title,
-                        max_items=self.top_n
+                        max_items=self.top_n,
+                        **kwargs
                     )
 
                     if not viz_result.startswith("Error"):
-                        result.add_artifact("png", values_viz_path, f"{self.field_name} values distribution")
+                        result.add_artifact("png", values_viz_path, f"{self.field_name} values distribution", category=Constants.Artifact_Category_Visualization)
                         reporter.add_artifact("png", str(values_viz_path), f"{self.field_name} values distribution")
                     else:
                         logger.warning(f"Error creating values visualization: {viz_result}")
@@ -481,11 +492,12 @@ class MVFOperation(FieldOperation):
                         data=analysis_results['combinations_analysis'],
                         output_path=str(combos_viz_path),
                         title=title,
-                        max_items=min(10, len(analysis_results['combinations_analysis']))
+                        max_items=min(10, len(analysis_results['combinations_analysis'])),
+                        **kwargs
                     )
 
                     if not viz_result.startswith("Error"):
-                        result.add_artifact("png", combos_viz_path, f"{self.field_name} combinations distribution")
+                        result.add_artifact("png", combos_viz_path, f"{self.field_name} combinations distribution", category=Constants.Artifact_Category_Visualization)
                         reporter.add_artifact("png", str(combos_viz_path),
                                               f"{self.field_name} combinations distribution")
                     else:
@@ -520,11 +532,12 @@ class MVFOperation(FieldOperation):
                         title=title,
                         orientation="v",
                         x_label="Number of values per record",
-                        y_label="Frequency"
+                        y_label="Frequency",
+                        **kwargs
                     )
 
                     if not viz_result.startswith("Error"):
-                        result.add_artifact("png", counts_viz_path, f"{self.field_name} value counts distribution")
+                        result.add_artifact("png", counts_viz_path, f"{self.field_name} value counts distribution", category=Constants.Artifact_Category_Visualization)
                         reporter.add_artifact("png", str(counts_viz_path),
                                               f"{self.field_name} value counts distribution")
                     else:

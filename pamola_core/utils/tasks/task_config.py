@@ -287,6 +287,10 @@ class TaskConfig:
             'use_dask',
             project_performance.get('use_dask', False)
         )
+        self.npartitions = task_config.get(
+            'npartitions',
+            project_performance.get('npartitions', 4)
+        )
 
         # Extract scope configuration
         self.scope = task_config.get('scope', {})
@@ -533,6 +537,9 @@ class TaskConfig:
         if 'use_dask' in args:
             self.use_dask = args['use_dask']
 
+        if 'npartitions' in args:
+            self.npartitions = args['npartitions']
+
         if 'chunk_size' in args:
             self.chunk_size = args['chunk_size']
 
@@ -568,7 +575,7 @@ class TaskConfig:
                 'encryption_key_path', 'encryption_mode', 'use_vectorization',
                 'parallel_processes', 'fields', 'datasets',
                 'continue_on_error', 'use_dask', 'chunk_size',
-                'allow_external', 'allowed_external_paths'
+                'npartitions', 'allow_external', 'allowed_external_paths'
             ] and value is not None:
                 setattr(self, key, value)
 

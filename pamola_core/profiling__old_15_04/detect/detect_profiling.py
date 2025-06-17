@@ -129,6 +129,15 @@ class DetectProfilingProcessor(BaseProfilingProcessor, ABC):
 
         row_count = len(df)
 
+        if row_count == 0:
+            return (
+                direct_identifiers,
+                quasi_identifiers,
+                sensitive_attributes,
+                indirect_identifiers,
+                non_sensitive_attributes,
+            )
+
         for col in df.columns:
             unique_values = df[col].nunique(dropna=True)
             cardinality_ratio = unique_values / row_count

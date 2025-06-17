@@ -14,7 +14,8 @@ operations, simplifying interactions with the pamola_core visualization system.
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any, Tuple, Union
+from pamola_core.common.constants import Constants
 
 import numpy as np
 import pandas as pd
@@ -24,11 +25,11 @@ logger = logging.getLogger(__name__)
 
 
 def generate_visualization_filename(
-        field_name: str,
-        operation_name: str,
-        visualization_type: str,
-        timestamp: Optional[str] = None,
-        extension: str = "png"
+    field_name: str,
+    operation_name: str,
+    visualization_type: str,
+    timestamp: Optional[str] = None,
+    extension: str = "png",
 ) -> str:
     """
     Generate a standardized filename for a visualization.
@@ -58,12 +59,12 @@ def generate_visualization_filename(
 
 
 def register_visualization_artifact(
-        result: Any,
-        reporter: Any,
-        path: Path,
-        field_name: str,
-        visualization_type: str,
-        description: Optional[str] = None
+    result: Any,
+    reporter: Any,
+    path: Path,
+    field_name: str,
+    visualization_type: str,
+    description: Optional[str] = None,
 ) -> None:
     """
     Register a visualization artifact with the result and reporter.
@@ -87,56 +88,55 @@ def register_visualization_artifact(
         description = f"{field_name} {visualization_type} visualization"
 
     # Add to result
-    if hasattr(result, 'add_artifact'):
+    if hasattr(result, "add_artifact"):
         result.add_artifact(
             artifact_type="png",
             path=path,
             description=description,
-            category="visualization"
+            category=Constants.Artifact_Category_Visualization,
         )
 
     # Add to reporter
-    if reporter and hasattr(reporter, 'add_artifact'):
-        reporter.add_artifact(
-            "png",
-            str(path),
-            description
-        )
+    if reporter and hasattr(reporter, "add_artifact"):
+        reporter.add_artifact("png", str(path), description)
 
 
 def sample_large_dataset(
-        data: pd.Series,
-        max_samples: int = 10000,
-        random_state: int = 42
-) -> pd.Series:
+    data: Union[pd.Series, pd.DataFrame],
+    max_samples: int = 10000,
+    random_state: int = 42,
+) -> Union[pd.Series, pd.DataFrame]:
     """
-    Sample a large dataset to a manageable size for visualization.
+    Sample a large Series or DataFrame to a manageable size for visualization.
 
-    Parameters:
-    -----------
-    data : pd.Series
+    Parameters
+    ----------
+    data : Union[pd.Series, pd.DataFrame]
         Original large dataset
     max_samples : int, optional
-        Maximum number of samples to return
+        Maximum number of samples to return (default: 10000)
     random_state : int, optional
-        Random seed for reproducibility
+        Random seed for reproducibility (default: 42)
 
-    Returns:
-    --------
-    pd.Series
-        Sampled dataset
+    Returns
+    -------
+    Union[pd.Series, pd.DataFrame]
+        Sampled subset of the original data
     """
+    if not isinstance(data, (pd.Series, pd.DataFrame)):
+        raise ValueError("Input must be a pandas Series or DataFrame")
+
     if len(data) <= max_samples:
         return data
 
-    return data.sample(max_samples, random_state=random_state)
+    return data.sample(n=max_samples, random_state=random_state)
 
 
 def prepare_comparison_data(
-        original_data: pd.Series,
-        anonymized_data: pd.Series,
-        data_type: str = "auto",
-        max_categories: int = 10
+    original_data: pd.Series,
+    anonymized_data: pd.Series,
+    data_type: str = "auto",
+    max_categories: int = 10,
 ) -> Tuple[Dict[str, Any], str]:
     """
     Prepare data for comparison visualizations based on data type.
@@ -173,7 +173,7 @@ def prepare_comparison_data(
         # For numeric data, simple conversion to list
         return {
             "Original": original_clean.tolist(),
-            "Anonymized": anonymized_clean.tolist()
+            "Anonymized": anonymized_clean.tolist(),
         }, data_type
 
     elif data_type == "categorical":
@@ -183,23 +183,24 @@ def prepare_comparison_data(
 
         # Combine categories
         all_categories = set(orig_counts.index) | set(anon_counts.index)
-        all_categories = list(all_categories)[:max_categories]  # Limit to max_categories
+        all_categories = list(all_categories)[
+            :max_categories
+        ]  # Limit to max_categories
 
         # Create aligned dictionaries
         orig_dict = {str(cat): int(orig_counts.get(cat, 0)) for cat in all_categories}
         anon_dict = {str(cat): int(anon_counts.get(cat, 0)) for cat in all_categories}
 
-        return {
-            "Original": orig_dict,
-            "Anonymized": anon_dict
-        }, data_type
+        return {"Original": orig_dict, "Anonymized": anon_dict}, data_type
 
     else:
         logger.warning(f"Unknown data type: {data_type}")
         return {}, "unknown"
 
 
-def calculate_optimal_bins(data: pd.Series, min_bins: int = 5, max_bins: int = 30) -> int:
+def calculate_optimal_bins(
+    data: pd.Series, min_bins: int = 5, max_bins: int = 30
+) -> int:
     """
     Calculate optimal number of bins for histograms using square root rule.
 
@@ -240,8 +241,8 @@ def create_visualization_path(task_dir: Path, filename: str) -> Path:
         Full path to the visualization file
     """
     # Create visualization directory if it doesn't exist
-    vis_dir = task_dir
-    vis_dir.mkdir(parents=True, exist_ok=True)
+    viz_dir = task_dir / "visualizations"
+    viz_dir.mkdir(parents=True, exist_ok=True)
 
     # Return full path
-    return vis_dir / filename
+    return viz_dir / filename

@@ -19,7 +19,7 @@ Operations:
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 
 import pandas as pd
 
@@ -30,13 +30,13 @@ from pamola_core.profiling.commons.phone_utils import (
     create_messenger_dictionary,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation, write_dataframe_to_csv, load_settings_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-
+from pamola_core.common.constants import Constants
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -219,7 +219,9 @@ class PhoneOperation(FieldOperation):
                 profile_type: str = 'phone',
                 track_progress: bool = True,
                 country_code: Any = None,
-                description: str = ""):
+                description: str = "",
+                use_encryption: bool = False,
+                encryption_key: Optional[Union[str, Path]] = None):
         """
         Initialize the phone operation.
 
@@ -234,7 +236,13 @@ class PhoneOperation(FieldOperation):
         description : str
             Description of the operation (optional)
         """
-        super().__init__(field_name, description or f"Analysis of phone field '{field_name}'")
+        super().__init__(
+            field_name=field_name,
+            description=description or f"Analysis of phone field '{field_name}'",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
+            )
+        
         self.min_frequency = min_frequency
         self.patterns_csv = patterns_csv
         self.generate_plots = generate_plots
@@ -279,6 +287,7 @@ class PhoneOperation(FieldOperation):
         include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
         profile_type = kwargs.get('profile_type', self.profile_type)
         country_code = kwargs.get('country_code', self.country_code)
+        encryption_key = kwargs.get('encryption_key', None)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -296,7 +305,8 @@ class PhoneOperation(FieldOperation):
         try:
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -349,8 +359,8 @@ class PhoneOperation(FieldOperation):
             stats_filename = get_timestamped_filename(f"{self.field_name}_stats", "json", include_timestamp)
             stats_path = output_dir / stats_filename
 
-            write_json(analysis_results, stats_path)
-            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis")
+            write_json(analysis_results, stats_path, encryption_key=encryption_key)
+            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis", category=Constants.Artifact_Category_Output)
 
             # Add to reporter
             reporter.add_artifact("json", str(stats_path), f"{self.field_name} statistical analysis")
@@ -383,11 +393,12 @@ class PhoneOperation(FieldOperation):
                         data=analysis_results['country_codes'],
                         output_path=str(viz_path),
                         title=title,
-                        max_items=15
+                        max_items=15,
+                        **kwargs
                     )
 
                     if not viz_result.startswith("Error"):
-                        result.add_artifact("png", viz_path, f"{self.field_name} country codes distribution")
+                        result.add_artifact("png", viz_path, f"{self.field_name} country codes distribution", category=Constants.Artifact_Category_Visualization)
                         reporter.add_artifact("png", str(viz_path), f"{self.field_name} country codes distribution")
                     else:
                         logger.warning(f"Error creating country code visualization: {viz_result}")
@@ -410,11 +421,12 @@ class PhoneOperation(FieldOperation):
                         data=analysis_results['operator_codes'],
                         output_path=str(viz_path),
                         title=title,
-                        max_items=15
+                        max_items=15,
+                        **kwargs
                     )
 
                     if not viz_result.startswith("Error"):
-                        result.add_artifact("png", viz_path, f"{self.field_name} operator codes distribution")
+                        result.add_artifact("png", viz_path, f"{self.field_name} operator codes distribution", category=Constants.Artifact_Category_Visualization)
                         reporter.add_artifact("png", str(viz_path), f"{self.field_name} operator codes distribution")
                     else:
                         logger.warning(f"Error creating operator code visualization: {viz_result}")
@@ -437,11 +449,12 @@ class PhoneOperation(FieldOperation):
                         data=analysis_results['messenger_mentions'],
                         output_path=str(viz_path),
                         title=title,
-                        max_items=10
+                        max_items=10,
+                        **kwargs
                     )
 
                     if not viz_result.startswith("Error"):
-                        result.add_artifact("png", viz_path, f"{self.field_name} messenger mentions")
+                        result.add_artifact("png", viz_path, f"{self.field_name} messenger mentions", category=Constants.Artifact_Category_Visualization)
                         reporter.add_artifact("png", str(viz_path), f"{self.field_name} messenger mentions")
                     else:
                         logger.warning(f"Error creating messenger mentions visualization: {viz_result}")
@@ -468,16 +481,16 @@ class PhoneOperation(FieldOperation):
                 import pandas as pd
                 import pandas as pd
                 dict_df = pd.DataFrame(country_dict['country_codes'])
-                dict_df.to_csv(dict_path, index=False, encoding='utf-8')
+                write_dataframe_to_csv(df=dict_df, file_path=dict_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
                 # Save detailed dictionary as JSON
                 json_dict_filename = get_timestamped_filename(f"{self.field_name}_country_codes_dictionary", "json",
                                                               include_timestamp)
                 json_dict_path = output_dir / json_dict_filename
-                write_json(country_dict, json_dict_path)
+                write_json(country_dict, json_dict_path, encryption_key=encryption_key)
 
-                result.add_artifact("csv", dict_path, f"{self.field_name} country codes dictionary (CSV)")
-                result.add_artifact("json", json_dict_path, f"{self.field_name} country codes dictionary (JSON)")
+                result.add_artifact("csv", dict_path, f"{self.field_name} country codes dictionary (CSV)", category=Constants.Artifact_Category_Dictionary)
+                result.add_artifact("json", json_dict_path, f"{self.field_name} country codes dictionary (JSON)", category=Constants.Artifact_Category_Output)
 
                 reporter.add_artifact("csv", str(dict_path), f"{self.field_name} country codes dictionary (CSV)")
                 reporter.add_artifact("json", str(json_dict_path), f"{self.field_name} country codes dictionary (JSON)")
@@ -500,16 +513,16 @@ class PhoneOperation(FieldOperation):
                 # Create DataFrame and save to CSV
                 import pandas as pd
                 dict_df = pd.DataFrame(operator_dict['operator_codes'])
-                dict_df.to_csv(dict_path, index=False, encoding='utf-8')
+                write_dataframe_to_csv(df=dict_df, file_path=dict_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
                 # Save detailed dictionary as JSON
                 json_dict_filename = get_timestamped_filename(f"{self.field_name}_operator_codes_dictionary", "json",
                                                               include_timestamp)
                 json_dict_path = output_dir / json_dict_filename
-                write_json(operator_dict, json_dict_path)
+                write_json(operator_dict, json_dict_path, encryption_key=encryption_key)
 
-                result.add_artifact("csv", dict_path, f"{self.field_name} operator codes dictionary (CSV)")
-                result.add_artifact("json", json_dict_path, f"{self.field_name} operator codes dictionary (JSON)")
+                result.add_artifact("csv", dict_path, f"{self.field_name} operator codes dictionary (CSV)", category=Constants.Artifact_Category_Dictionary)
+                result.add_artifact("json", json_dict_path, f"{self.field_name} operator codes dictionary (JSON)", category=Constants.Artifact_Category_Output)
 
                 reporter.add_artifact("csv", str(dict_path), f"{self.field_name} operator codes dictionary (CSV)")
                 reporter.add_artifact("json", str(json_dict_path),
@@ -533,16 +546,16 @@ class PhoneOperation(FieldOperation):
                 # Create DataFrame and save to CSV
                 import pandas as pd
                 dict_df = pd.DataFrame(messenger_dict['messengers'])
-                dict_df.to_csv(dict_path, index=False, encoding='utf-8')
+                write_dataframe_to_csv(df=dict_df, file_path=dict_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
                 # Save detailed dictionary as JSON
                 json_dict_filename = get_timestamped_filename(f"{self.field_name}_messenger_dictionary", "json",
                                                               include_timestamp)
                 json_dict_path = output_dir / json_dict_filename
-                write_json(messenger_dict, json_dict_path)
+                write_json(messenger_dict, json_dict_path, encryption_key=encryption_key)
 
-                result.add_artifact("csv", dict_path, f"{self.field_name} messenger dictionary (CSV)")
-                result.add_artifact("json", json_dict_path, f"{self.field_name} messenger dictionary (JSON)")
+                result.add_artifact("csv", dict_path, f"{self.field_name} messenger dictionary (CSV)", category=Constants.Artifact_Category_Dictionary)
+                result.add_artifact("json", json_dict_path, f"{self.field_name} messenger dictionary (JSON)", category=Constants.Artifact_Category_Output)
 
                 reporter.add_artifact("csv", str(dict_path), f"{self.field_name} messenger dictionary (CSV)")
                 reporter.add_artifact("json", str(json_dict_path), f"{self.field_name} messenger dictionary (JSON)")

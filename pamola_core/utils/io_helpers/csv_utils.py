@@ -368,7 +368,7 @@ def filter_csv_columns(df: pd.DataFrame,
 
 
 def detect_csv_dialect(file_path: Union[str, Path],
-                       sample_size: int = 1000,
+                       max_lines: int = 5,
                        encoding: str = "utf-8") -> Dict[str, Any]:
     """
     Detects the dialect of a CSV file (delimiter, quotechar, etc.).
@@ -377,8 +377,8 @@ def detect_csv_dialect(file_path: Union[str, Path],
     -----------
     file_path : str or Path
         Path to the CSV file
-    sample_size : int
-        Number of bytes to sample for detection
+    max_lines : int
+        Number of rows to sample for detection
     encoding : str
         File encoding to try first
 
@@ -397,15 +397,22 @@ def detect_csv_dialect(file_path: Union[str, Path],
             f"File not found: {file_path}",
             "Check the file path"
         )
+    
+    # Common delimiters to restrict sniffer from guessing random characters
+    common_delimiters = [',', ';', '\t', '|']
 
-    # Try to read a sample using the specified encoding
+    def read_lines_with_encoding(encoding):
+        with open(file_path, 'r', encoding=encoding, errors='ignore') as f:
+            return ''.join([f.readline() for _ in range(max_lines)])
+
     try:
-        with open(file_path, 'r', encoding=encoding) as f:
-            sample = f.read(sample_size)
+        # Try to read a sample using the specified encoding
+        sample = read_lines_with_encoding(encoding)
+        if len(sample.strip()) < 10:
+            raise csv.Error("Sample too small to sniff")
 
-        # Use csv.Sniffer to detect dialect
         sniffer = csv.Sniffer()
-        dialect = sniffer.sniff(sample)
+        dialect = sniffer.sniff(sample, delimiters=common_delimiters)
         has_header = sniffer.has_header(sample)
 
         return {
@@ -420,11 +427,9 @@ def detect_csv_dialect(file_path: Union[str, Path],
         alternative_encodings = ["utf-8", "latin-1", "cp1252"]
         for alt_encoding in alternative_encodings:
             try:
-                with open(file_path, 'r', encoding=alt_encoding) as f:
-                    sample = f.read(sample_size)
-
+                sample = read_lines_with_encoding(alt_encoding)
                 sniffer = csv.Sniffer()
-                dialect = sniffer.sniff(sample)
+                dialect = sniffer.sniff(sample, delimiters=common_delimiters)
                 has_header = sniffer.has_header(sample)
 
                 return {
@@ -440,11 +445,15 @@ def detect_csv_dialect(file_path: Union[str, Path],
     except Exception as e:
         # Fall back to common defaults
         with open(file_path, 'rb') as f:
-            sample = f.read(sample_size).decode('latin-1', errors='ignore')
-
+            lines = []
+            for _ in range(max_lines):
+                line = f.readline().decode('latin-1', errors='ignore')
+                if not line:
+                    break
+                lines.append(line)
+        sample = ''.join(lines)
         # Check for common delimiters
-        delimiters = [',', '\t', ';', '|']
-        delimiter_counts = {d: sample.count(d) for d in delimiters}
+        delimiter_counts = {d: sample.count(d) for d in common_delimiters}
         most_common = max(delimiter_counts.items(), key=lambda x: x[1])
 
         return {

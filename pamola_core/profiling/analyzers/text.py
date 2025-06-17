@@ -21,7 +21,8 @@ from pamola_core.utils.io import (
     write_dataframe_to_csv,
     get_timestamped_filename,
     read_json,
-    load_data_operation
+    load_data_operation,
+    load_settings_operation
 )
 from pamola_core.utils.logging import get_logger
 from pamola_core.utils.nlp.cache import get_cache
@@ -39,7 +40,7 @@ from pamola_core.utils.visualization import (
     create_bar_plot,
     plot_text_length_distribution
 )
-
+from pamola_core.common.constants import Constants
 # Configure logger
 logger = get_logger(__name__)
 
@@ -71,7 +72,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
                  use_cache: bool = True,
                  cache_dir: Optional[Path] = None,
                  include_timestamp: Any = None,
-                 description: str = ""):
+                 description: str = "",
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None):
         """
         Initialize the text semantic categorizer operation.
 
@@ -107,7 +110,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         super().__init__(
             field_name=field_name,
-            description=description or f"Semantic categorization of text field '{field_name}'"
+            description=description or f"Semantic categorization of text field '{field_name}'",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
         )
         self.entity_type = entity_type
         self.dictionary_path = dictionary_path
@@ -152,6 +157,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         # Initialize result with success status
         global cache_key
         result = OperationResult(status=OperationStatus.SUCCESS)
+        encryption_key = kwargs.get('encryption_key', None)
 
         try:
             # Update progress if tracker provided
@@ -164,7 +170,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -202,7 +209,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                         dirs['visualizations'],
                         params["include_timestamp"],
                         result,
-                        reporter
+                        reporter,
+                        **kwargs
                     )
 
                     # Add metrics from cached result
@@ -257,7 +265,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             # Cache results if caching is enabled
             if self.use_cache:
-                self._save_cache(analysis_results, cache_key, self.cache_dir)
+                self._save_cache(analysis_results, cache_key, self.cache_dir, encryption_key=encryption_key)
 
             # Save main artifacts
             self._save_main_artifacts(
@@ -276,7 +284,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     text_values,
                     dirs,
                     result,
-                    reporter
+                    reporter,
+                    encryption_key=encryption_key
                 )
 
             # Generate visualizations
@@ -285,7 +294,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 dirs['visualizations'],
                 params["include_timestamp"],
                 result,
-                reporter
+                reporter,
+                **kwargs
             )
 
             # Add metrics to result
@@ -455,7 +465,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             logger.warning(f"Failed to load cache from {cache_file}: {e}")
             return None
 
-    def _save_cache(self, results: Dict[str, Any], cache_key: str, cache_dir: Optional[Path]) -> bool:
+    def _save_cache(self, results: Dict[str, Any], cache_key: str, cache_dir: Optional[Path], encryption_key: Optional[str] = None) -> bool:
         """
         Save results to cache.
 
@@ -480,7 +490,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         cache_file = cache_dir / f"{cache_key}.json"
 
         try:
-            write_json(results, cache_file)
+            write_json(results, cache_file, encryption_key=encryption_key)
             logger.info(f"Saved cache to {cache_file}")
             return True
         except Exception as e:
@@ -1057,7 +1067,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                              dirs: Dict[str, Path],
                              include_timestamp: bool,
                              result: OperationResult,
-                             reporter: Any) -> None:
+                             reporter: Any,
+                             encryption_key: Optional[str] = None) -> None:
         """
         Save main analysis artifacts.
 
@@ -1081,7 +1092,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             include_timestamp=include_timestamp
         )
         results_path = dirs["output"] / results_filename
-        write_json(analysis_results, results_path)
+        write_json(analysis_results, results_path, encryption_key=encryption_key)
 
         # Add artifact to result and reporter
         self._create_and_register_artifact(
@@ -1089,7 +1100,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
             path=results_path,
             description=f"Semantic analysis of {self.field_name}",
             result=result,
-            reporter=reporter
+            reporter=reporter,
+            category=Constants.Artifact_Category_Output
         )
 
     def _save_categorization_artifacts(self, categorization_results: Dict[str, Any],
@@ -1097,7 +1109,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                                        text_values: List[str],
                                        dirs: Dict[str, Path],
                                        result: OperationResult,
-                                       reporter: Any) -> None:
+                                       reporter: Any,
+                                       encryption_key: Optional[str] = None) -> None:
         """
         Save artifacts specific to categorization.
 
@@ -1119,7 +1132,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         # Save semantic roles mapping
         semantic_roles_filename = f"{self.field_name}_semantic_roles.json"
         semantic_roles_path = dirs["dictionaries"] / semantic_roles_filename
-        write_json(categorization_results["categorization"], semantic_roles_path)
+        write_json(categorization_results["categorization"], semantic_roles_path, encryption_key=encryption_key)
 
         # Add semantic roles artifact
         self._create_and_register_artifact(
@@ -1128,7 +1141,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             description=f"Semantic roles for {self.field_name}",
             result=result,
             reporter=reporter,
-            category="dictionary"
+            category=Constants.Artifact_Category_Dictionary
         )
 
         # Save category mappings CSV
@@ -1158,7 +1171,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         # Convert to DataFrame and save
         if mapping_data:
             mapping_df = pd.DataFrame(mapping_data)
-            write_dataframe_to_csv(mapping_df, category_mappings_path)
+            write_dataframe_to_csv(mapping_df, category_mappings_path, encryption_key=encryption_key)
 
             # Add category mappings artifact
             self._create_and_register_artifact(
@@ -1167,7 +1180,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 description=f"Category mappings for {self.field_name}",
                 result=result,
                 reporter=reporter,
-                category="dictionary"
+                category=Constants.Artifact_Category_Dictionary
             )
 
         # Save unresolved terms CSV
@@ -1177,7 +1190,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             # Convert to DataFrame and save
             unresolved_df = pd.DataFrame(categorization_results["unresolved"])
-            write_dataframe_to_csv(unresolved_df, unresolved_path)
+            write_dataframe_to_csv(unresolved_df, unresolved_path, encryption_key=encryption_key)
 
             # Add unresolved terms artifact
             self._create_and_register_artifact(
@@ -1186,7 +1199,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 description=f"Unresolved terms for {self.field_name}",
                 result=result,
                 reporter=reporter,
-                category="dictionary"
+                category=Constants.Artifact_Category_Dictionary
             )
 
     def _add_metrics_to_result(self, analysis_results: Dict[str, Any], result: OperationResult) -> None:
@@ -1262,7 +1275,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                                  visualizations_dir: Path,
                                  include_timestamp: bool,
                                  result: OperationResult,
-                                 reporter: Any):
+                                 reporter: Any,
+                                 **kwargs):
         """
         Generate visualizations for the text analysis.
 
@@ -1291,7 +1305,11 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 result=result,
                 reporter=reporter,
                 description=f"Category distribution for {self.field_name}",
-                additional_params={"show_percentages": True}
+                additional_params={
+                    "show_percentages": True,
+                    "use_encryption": kwargs.get('use_encryption', False),
+                    "encryption_key": kwargs.get('encryption_key', None)
+                    }
             )
 
         # Generate alias distribution bar chart
@@ -1306,7 +1324,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 result=result,
                 reporter=reporter,
                 description=f"Alias distribution for {self.field_name}",
-                additional_params={"orientation": "h", "max_items": 15}
+                additional_params={
+                    "orientation": "h",
+                    "max_items": 15,
+                    "use_encryption": kwargs.get('use_encryption', False),
+                    "encryption_key": kwargs.get('encryption_key', None)
+                    }
             )
 
         # Generate text length distribution
@@ -1320,7 +1343,11 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 include_timestamp=include_timestamp,
                 result=result,
                 reporter=reporter,
-                description=f"Length distribution for {self.field_name}"
+                description=f"Length distribution for {self.field_name}",
+                additional_params={
+                    "use_encryption": kwargs.get('use_encryption', False),
+                    "encryption_key": kwargs.get('encryption_key', None)
+                    }
             )
 
     def _create_visualization(self, data: Dict[str, Any], vis_func: callable,
@@ -1363,7 +1390,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         # Prepare parameters for the visualization function
         params = {
-            "data": data,
+            "length_data": data,
             "output_path": str(output_path),
             "title": title
         }
@@ -1383,5 +1410,5 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 description=description,
                 result=result,
                 reporter=reporter,
-                category="visualization"
+                category=Constants.Artifact_Category_Visualization
             )

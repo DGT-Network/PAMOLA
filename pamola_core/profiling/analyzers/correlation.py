@@ -17,7 +17,7 @@ It integrates with the new utility modules:
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Tuple, Optional, Union
 
 import pandas as pd
 
@@ -26,7 +26,7 @@ from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation_matrix,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation, load_settings_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation, BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -38,7 +38,7 @@ from pamola_core.utils.visualization import (
     create_heatmap,
     create_correlation_matrix
 )
-
+from pamola_core.common.constants import Constants
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -155,7 +155,9 @@ class CorrelationOperation(FieldOperation):
                  generate_plots: bool = True,
                  include_timestamp: bool = True,
                  profile_type: str = "correlation",
-                 null_handling: str = "drop"):
+                 null_handling: str = "drop",
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None):
         """
         Initialize the correlation operation.
 
@@ -179,7 +181,12 @@ class CorrelationOperation(FieldOperation):
             Method for handling nulls ('drop', 'fill', 'pairwise')    
         """
         # Use field1 as the primary field for the parent class
-        super().__init__(field1, description or f"Correlation analysis between '{field1}' and '{field2}'")
+        super().__init__(
+            field_name=field1,
+            description=description or f"Correlation analysis between '{field1}' and '{field2}'",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
+            )
         self.field1 = field1
         self.field2 = field2
         self.method = method
@@ -224,6 +231,7 @@ class CorrelationOperation(FieldOperation):
         include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
         profile_type = kwargs.get('profile_type', self.profile_type)
         null_handling = kwargs.get('null_handling', self.null_handling)
+        encryption_key = kwargs.get('encryption_key', None)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -240,7 +248,8 @@ class CorrelationOperation(FieldOperation):
         try:
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -298,8 +307,8 @@ class CorrelationOperation(FieldOperation):
             stats_filename = get_timestamped_filename(correlation_name, "json", include_timestamp)
             stats_path = output_dir / stats_filename
 
-            write_json(analysis_results, stats_path)
-            result.add_artifact("json", stats_path, f"Correlation analysis between {self.field1} and {self.field2}")
+            write_json(analysis_results, stats_path, encryption_key=encryption_key)
+            result.add_artifact("json", stats_path, f"Correlation analysis between {self.field1} and {self.field2}", category=Constants.Artifact_Category_Output)
 
             # Add to reporter
             reporter.add_artifact("json", str(stats_path),
@@ -341,7 +350,8 @@ class CorrelationOperation(FieldOperation):
                         y_label=plot_data['y_label'],
                         add_trendline=True,
                         correlation=correlation_value,
-                        method=method_display
+                        method=method_display,
+                        **kwargs
                     )
 
                 elif plot_type == "boxplot":
@@ -354,7 +364,8 @@ class CorrelationOperation(FieldOperation):
                         output_path=str(viz_path),
                         title=title,
                         x_label=plot_data['x_label'],
-                        y_label=plot_data['y_label']
+                        y_label=plot_data['y_label'],
+                        *kwargs
                     )
 
                 elif plot_type == "heatmap":
@@ -366,12 +377,13 @@ class CorrelationOperation(FieldOperation):
                         title=title,
                         x_label=plot_data['x_label'],
                         y_label=plot_data['y_label'],
-                        annotate=True
+                        annotate=True,
+                        **kwargs
                     )
 
                 # Add visualization to result if successful
                 if viz_result and not viz_result.startswith("Error"):
-                    result.add_artifact("png", viz_path, f"Correlation plot for {self.field1} and {self.field2}")
+                    result.add_artifact("png", viz_path, f"Correlation plot for {self.field1} and {self.field2}", category=Constants.Artifact_Category_Visualization)
                     reporter.add_artifact("png", str(viz_path), f"Correlation plot for {self.field1} and {self.field2}")
                 else:
                     logger.warning(f"Error creating visualization: {viz_result}")
@@ -458,7 +470,9 @@ class CorrelationMatrixOperation(BaseOperation):
                  include_timestamp: bool = True,
                  profile_type: str = "correlation",
                  min_threshold: float = 0.3,
-                 null_handling: str = "drop"):
+                 null_handling: str = "drop",
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None):
         """
         Initialize the correlation matrix operation.
 
@@ -481,7 +495,12 @@ class CorrelationMatrixOperation(BaseOperation):
         null_handling : str
             Method for handling nulls ('drop', 'fill', 'pairwise')
         """
-        super().__init__(description or f"Correlation matrix analysis for {len(fields)} fields")
+        super().__init__(
+            description or f"Correlation matrix analysis for {len(fields)} fields",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
+            )
+        
         self.fields = fields
         self.methods = methods
         self.generate_plots = generate_plots
@@ -528,6 +547,7 @@ class CorrelationMatrixOperation(BaseOperation):
         profile_type = kwargs.get('profile_type', self.profile_type)
         min_threshold = kwargs.get('min_threshold', self.min_threshold)
         null_handling = kwargs.get('null_handling', self.null_handling)
+        encryption_key = kwargs.get('encryption_key', None)
 
         # Set up directories
         output_dir = task_dir / 'output'
@@ -545,7 +565,8 @@ class CorrelationMatrixOperation(BaseOperation):
         try:
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -601,8 +622,8 @@ class CorrelationMatrixOperation(BaseOperation):
             stats_filename = get_timestamped_filename("correlation_matrix", "json", include_timestamp)
             stats_path = output_dir / stats_filename
 
-            write_json(analysis_results, stats_path)
-            result.add_artifact("json", stats_path, "Correlation matrix analysis")
+            write_json(analysis_results, stats_path, encryption_key=encryption_key)
+            result.add_artifact("json", stats_path, "Correlation matrix analysis", category=Constants.Artifact_Category_Output)
 
             # Add to reporter
             reporter.add_artifact("json", str(stats_path), "Correlation matrix analysis")
@@ -632,12 +653,13 @@ class CorrelationMatrixOperation(BaseOperation):
                     annotate=True,
                     annotation_format=".2f",
                     mask_diagonal=False,
-                    mask_upper=False
+                    mask_upper=False,
+                    **kwargs
                 )
 
                 # Add visualization to result if successful
                 if viz_result and not viz_result.startswith("Error"):
-                    result.add_artifact("png", viz_path, "Correlation matrix visualization")
+                    result.add_artifact("png", viz_path, "Correlation matrix visualization", category=Constants.Artifact_Category_Visualization)
                     reporter.add_artifact("png", str(viz_path), "Correlation matrix visualization")
                 else:
                     logger.warning(f"Error creating visualization: {viz_result}")

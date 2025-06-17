@@ -39,7 +39,8 @@ from pamola_core.utils.ops.op_registry import register_operation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.visualization import create_histogram, create_heatmap
-from pamola_core.utils.io import load_data_operation
+from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.common.constants import Constants
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ class GroupAnalyzerConfig(OperationConfig):
     schema = {
         "type": "object",
         "properties": {
-            "subset_name": {"type": "string"},
+            "field_name": {"type": "string"},
             "fields_config": {
                 "type": "object",
                 "additionalProperties": {"type": "number"}
@@ -63,9 +64,8 @@ class GroupAnalyzerConfig(OperationConfig):
             "hash_algorithm": {"type": "string", "enum": ["md5", "minhash"]},
             "minhash_similarity_threshold": {"type": "number", "minimum": 0, "maximum": 1.0},
             "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]}
-        },
-        "required": ["subset_name", "fields_config"]
+            "encryption_key": {"type": ["string", "null"]}           
+        }
     }
 
 
@@ -79,7 +79,7 @@ class GroupAnalyzerOperation(BaseOperation):
     """
 
     def __init__(self,
-                 subset_name: str,
+                 field_name: str,
                  fields_config: Dict[str, int],
                  text_length_threshold: int = 100,
                  variance_threshold: float = 0.2,
@@ -96,8 +96,6 @@ class GroupAnalyzerOperation(BaseOperation):
 
         Parameters:
         -----------
-        subset_name : str
-            Name of the data subset to analyze
         fields_config : Dict[str, int]
             Dictionary mapping field names to their weights
         text_length_threshold : int, optional
@@ -116,6 +114,8 @@ class GroupAnalyzerOperation(BaseOperation):
             Whether to encrypt output files (default: False)
         encryption_key : Optional[Union[str, Path]], optional
             Encryption key for securing outputs (default: None)
+        field_name : str
+            Field name to group data by
         name : str, optional
             Operation name (default: "group_analyzer")
         description : str, optional
@@ -123,7 +123,7 @@ class GroupAnalyzerOperation(BaseOperation):
         """
         # Create configuration
         config = GroupAnalyzerConfig(
-            subset_name=subset_name,
+            field_name=field_name,
             fields_config=fields_config,
             text_length_threshold=text_length_threshold,
             variance_threshold=variance_threshold,
@@ -132,12 +132,12 @@ class GroupAnalyzerOperation(BaseOperation):
             hash_algorithm=hash_algorithm,
             minhash_similarity_threshold=minhash_similarity_threshold,
             use_encryption=use_encryption,
-            encryption_key=encryption_key
+            encryption_key=encryption_key,     
         )
 
         # Use a default description if none provided
         if not description:
-            description = f"Group variance analysis for subset '{subset_name}'"
+            description = f"Group variance analysis for field '{field_name}'"
 
         # Initialize base class
         super().__init__(
@@ -148,7 +148,7 @@ class GroupAnalyzerOperation(BaseOperation):
         )
 
         # Store parameters
-        self.subset_name = subset_name
+        self.field_name = field_name
         self.fields_config = fields_config
         self.text_length_threshold = text_length_threshold
         self.variance_threshold = variance_threshold
@@ -156,7 +156,7 @@ class GroupAnalyzerOperation(BaseOperation):
         self.large_group_variance_threshold = large_group_variance_threshold
         self.hash_algorithm = hash_algorithm.lower()
         self.minhash_similarity_threshold = minhash_similarity_threshold
-        self.use_minhash = self.hash_algorithm == "minhash"
+        self.use_minhash = self.hash_algorithm == "minhash"     
 
         # Cache for MinHash signatures to avoid recomputation - only initialized if needed
         self.minhash_cache = {}
@@ -165,7 +165,7 @@ class GroupAnalyzerOperation(BaseOperation):
         self.version = "1.1.0"  # Bumped version due to improvements
 
         # Initialize logger
-        self.logger = logging.getLogger(f"{__name__}.{subset_name}")
+        self.logger = logging.getLogger(f"{__name__}")
 
     def execute(self,
                 data_source: DataSource,
@@ -194,7 +194,7 @@ class GroupAnalyzerOperation(BaseOperation):
         OperationResult
             Results of the operation
         """
-        self.logger.info(f"Starting group analysis for subset: {self.subset_name}")
+        self.logger.info(f"Starting group analysis for field: {self.field_name}")
 
         # Initialize result object
         result = OperationResult(status=OperationStatus.PENDING)
@@ -206,24 +206,29 @@ class GroupAnalyzerOperation(BaseOperation):
         total_steps = 5  # Data loading, grouping, analysis, visualization, saving
         if progress_tracker:
             progress_tracker.total = total_steps
-            progress_tracker.update(0, {"step": "Starting group analysis", "subset": self.subset_name})
+            progress_tracker.update(0, {"step": "Starting group analysis", "field": self.field_name})
 
         try:
+            dirs = self._prepare_directories(task_dir)
+            visualizations_dir = dirs['visualizations']
+            output_dir = dirs['output']
+
             # Step 1: Load data
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Loading data"})
 
-            self.logger.info(f"Loading data for subset: {self.subset_name}")
+            self.logger.info(f"Loading data for: {self.field_name}")
             # Use the subset name instead of "main" to get the correct dataframe
-            self.subset_name = kwargs.get('dataset_name', self.subset_name)
-            df = load_data_operation(data_source, self.subset_name)
+            dataset_name = kwargs.get('dataset_name', 'main')
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
 
             # Save configuration
             self.save_config(task_dir)
 
-            # Check if resume_id exists
-            if 'resume_id' not in df.columns:
-                error_message = "Field 'resume_id' not found in DataFrame"
+            # Check if field_name exists
+            if self.field_name not in df.columns:
+                error_message = f"Field '{self.field_name}' not found in DataFrame"
                 self.logger.error(error_message)
                 return OperationResult(status=OperationStatus.ERROR, error_message=error_message)
 
@@ -238,17 +243,17 @@ class GroupAnalyzerOperation(BaseOperation):
 
             # Step 2: Group data
             if progress_tracker:
-                progress_tracker.update(2, {"step": "Grouping data"})
+                progress_tracker.update(1, {"step": "Grouping data"})
 
-            self.logger.info(f"Grouping data by resume_id")
+            self.logger.info(f"Grouping data by field: {self.field_name}")
 
-            # Group data by resume_id
-            grouped = df.groupby('resume_id')
+            # Group data by field_name
+            grouped = df.groupby(self.field_name)
             group_keys = list(grouped.groups.keys())
 
             # Step 3: Analyze groups
             if progress_tracker:
-                progress_tracker.update(3, {"step": "Analyzing groups"})
+                progress_tracker.update(1, {"step": "Analyzing groups"})
 
             self.logger.info(f"Analyzing {len(group_keys)} groups")
 
@@ -270,7 +275,7 @@ class GroupAnalyzerOperation(BaseOperation):
             # Calculate metrics for each group
             for i, group_key in enumerate(group_keys):
                 if progress_tracker and i % 100 == 0:
-                    progress_tracker.update(3, {"step": "Analyzing groups", "processed": i, "total": len(group_keys)})
+                    progress_tracker.update(0, {"step": "Analyzing groups", "processed": i, "total": len(group_keys)})
 
                 group_df = grouped.get_group(group_key)
                 group_metrics[str(group_key)] = self._analyze_group(group_df, fields_to_analyze)
@@ -311,7 +316,7 @@ class GroupAnalyzerOperation(BaseOperation):
 
             # Build metrics object
             metrics = {
-                "subset": self.subset_name,
+                "field": self.field_name,
                 "total_groups": len(group_keys),
                 "total_records": len(df),
                 "avg_variance": float(avg_variance),
@@ -333,28 +338,28 @@ class GroupAnalyzerOperation(BaseOperation):
 
             # Step 4: Generate visualizations
             if progress_tracker:
-                progress_tracker.update(4, {"step": "Generating visualizations"})
+                progress_tracker.update(1, {"step": "Generating visualizations"})
 
             self.logger.info(f"Generating visualizations")
 
             # Generate variance distribution histogram
-            variance_dist_path = task_dir / f"{self.subset_name}_variance_dist.png"
-            self._generate_variance_distribution(variance_distribution, variance_dist_path)
+            variance_dist_path = visualizations_dir / f"{self.__class__.__name__}_{self.field_name}_variance_dist.png"
+            self._generate_variance_distribution(variance_distribution, variance_dist_path, **kwargs)
 
             # Generate field variability heatmap
-            field_heatmap_path = task_dir / f"{self.subset_name}_field_heatmap.png"
-            self._generate_field_heatmap(field_metrics, field_heatmap_path)
+            field_heatmap_path = visualizations_dir / f"{self.__class__.__name__}_{self.field_name}_field_heatmap.png"
+            self._generate_field_heatmap(field_metrics, field_heatmap_path, **kwargs)
 
             # Step 5: Save results
             if progress_tracker:
-                progress_tracker.update(5, {"step": "Saving results"})
+                progress_tracker.update(1, {"step": "Saving results"})
 
             self.logger.info(f"Saving metrics")
 
             # Save metrics
             metrics_result = writer.write_metrics(
                 metrics=metrics,
-                name=f"{self.subset_name}_metrics",
+                name=f"{self.__class__.__name__}_{self.field_name}_metrics",
                 timestamp_in_name=False,
                 encryption_key=self.encryption_key if self.use_encryption else None
             )
@@ -368,33 +373,33 @@ class GroupAnalyzerOperation(BaseOperation):
             result.add_artifact(
                 artifact_type="json",
                 path=metrics_result.path,
-                description=f"{self.subset_name} group analysis metrics",
-                category="metrics"
+                description=f"{self.__class__.__name__} {self.field_name} group analysis metrics",
+                category=Constants.Artifact_Category_Metrics
             )
 
             result.add_artifact(
                 artifact_type="png",
                 path=variance_dist_path,
-                description=f"{self.subset_name} variance distribution histogram",
-                category="visualization"
+                description=f"{self.__class__.__name__} {self.field_name} variance distribution histogram",
+                category=Constants.Artifact_Category_Visualization
             )
 
             result.add_artifact(
                 artifact_type="png",
                 path=field_heatmap_path,
-                description=f"{self.subset_name} field variability heatmap",
-                category="visualization"
+                description=f"{self.__class__.__name__} {self.field_name} field variability heatmap",
+                category=Constants.Artifact_Category_Visualization
             )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
 
-            self.logger.info(f"Group analysis for {self.subset_name} completed successfully")
+            self.logger.info(f"Group analysis for {self.field_name} completed successfully")
 
             # Report to reporter if available
             if reporter:
                 reporter.add_operation(
-                    f"Group analysis for {self.subset_name}",
+                    f"Group analysis for {self.field_name}",
                     details={
                         "total_groups": len(group_keys),
                         "groups_to_aggregate": groups_to_aggregate,
@@ -405,19 +410,19 @@ class GroupAnalyzerOperation(BaseOperation):
                 reporter.add_artifact(
                     "json",
                     str(metrics_result.path),
-                    f"{self.subset_name} group analysis metrics"
+                    f"{self.__class__.__name__} {self.field_name} group analysis metrics"
                 )
 
                 reporter.add_artifact(
                     "png",
                     str(variance_dist_path),
-                    f"{self.subset_name} variance distribution histogram"
+                    f"{self.__class__.__name__} {self.field_name} variance distribution histogram"
                 )
 
                 reporter.add_artifact(
                     "png",
                     str(field_heatmap_path),
-                    f"{self.subset_name} field variability heatmap"
+                    f"{self.__class__.__name__} {self.field_name} field variability heatmap"
                 )
 
             return result
@@ -797,7 +802,7 @@ class GroupAnalyzerOperation(BaseOperation):
 
         return field_metrics
 
-    def _generate_variance_distribution(self, variance_distribution: Dict[str, int], output_path: Path):
+    def _generate_variance_distribution(self, variance_distribution: Dict[str, int], output_path: Path, **kwargs):
         """
         Generate a histogram of variance distribution.
 
@@ -834,17 +839,18 @@ class GroupAnalyzerOperation(BaseOperation):
                 create_histogram(
                     data=data,
                     output_path=str(output_path),
-                    title=f"Variability Distribution ({self.subset_name})",
+                    title=f"Variability Distribution ({self.field_name})",
                     x_label="Variability Range",
                     y_label="Number of Groups",
                     bins=len(categories),
-                    kde=False
+                    kde=False,
+                    **kwargs
                 )
             except (TypeError, ValueError) as e:
                 # Fallback to matplotlib for proper histogram
                 plt.figure(figsize=(10, 6))
                 plt.bar(list(data.keys()), list(data.values()), color='skyblue')
-                plt.title(f"Variability Distribution ({self.subset_name})")
+                plt.title(f"Variability Distribution ({self.field_name})")
                 plt.xlabel("Variability Range")
                 plt.ylabel("Number of Groups")
                 plt.xticks(rotation=45)
@@ -860,7 +866,7 @@ class GroupAnalyzerOperation(BaseOperation):
             try:
                 plt.figure(figsize=(10, 6))
                 plt.bar(list(data.keys()), list(data.values()), color='skyblue')
-                plt.title(f"Variability Distribution ({self.subset_name})")
+                plt.title(f"Variability Distribution ({self.field_name})")
                 plt.xlabel("Variability Range")
                 plt.ylabel("Number of Groups")
                 plt.xticks(rotation=45)
@@ -871,7 +877,7 @@ class GroupAnalyzerOperation(BaseOperation):
             except Exception as e2:
                 self.logger.error(f"Failed to generate fallback visualization: {str(e2)}")
 
-    def _generate_field_heatmap(self, field_metrics: Dict[str, Dict[str, float]], output_path: Path):
+    def _generate_field_heatmap(self, field_metrics: Dict[str, Dict[str, float]], output_path: Path, **kwargs):
         """
         Generate a heatmap of field variances.
 
@@ -908,12 +914,13 @@ class GroupAnalyzerOperation(BaseOperation):
                 create_heatmap(
                     data=df_data,
                     output_path=str(output_path),
-                    title=f"Field Variability Metrics ({self.subset_name})",
+                    title=f"Field Variability Metrics ({self.field_name})",
                     x_label="Metrics",
                     y_label="Fields",
                     colorscale="Viridis",
                     annotate=True,
-                    annotation_format=".3f"
+                    annotation_format=".3f",
+                    **kwargs
                 )
             except (TypeError, ValueError) as e:
                 # Fallback to matplotlib for the heatmap
@@ -925,7 +932,7 @@ class GroupAnalyzerOperation(BaseOperation):
                 plt.xticks(range(len(metric_types)), metric_types, rotation=45)
                 plt.yticks(range(len(field_names)), field_names)
 
-                plt.title(f"Field Variability Metrics ({self.subset_name})")
+                plt.title(f"Field Variability Metrics ({self.field_name})")
 
                 # Add annotations
                 for i in range(len(field_names)):
@@ -948,7 +955,7 @@ class GroupAnalyzerOperation(BaseOperation):
 
                 plt.figure(figsize=(10, 6))
                 plt.bar(field_avg_variances.keys(), field_avg_variances.values(), color='skyblue')
-                plt.title(f"Field Average Variances ({self.subset_name})")
+                plt.title(f"Field Average Variances ({self.field_name})")
                 plt.xlabel("Field")
                 plt.ylabel("Average Variance")
                 plt.xticks(rotation=45)

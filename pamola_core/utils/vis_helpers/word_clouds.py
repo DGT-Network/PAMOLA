@@ -84,7 +84,7 @@ class WordCloudGenerator(BaseFigure):
             else:
                 # Get word frequencies from text data
                 # Delegate to external text processing module
-                from pamola_core.utils.text_processor import generate_word_frequencies
+                from pamola_core.utils.io import generate_word_frequencies
 
                 # Convert to a single string if it's a list of strings
                 if isinstance(text_data, list):

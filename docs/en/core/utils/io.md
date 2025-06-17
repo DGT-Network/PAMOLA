@@ -212,7 +212,7 @@ flowchart TD
 | `estimate_file_memory()` | Estimates memory needed to load a file | `file_path` | `Dict[str, Any]` |
 | `get_file_metadata()` | Gets comprehensive file metadata | `file_path` | `Dict[str, Any]` |
 | `optimize_dataframe_memory()` | Optimizes DataFrame memory usage | `df`, `categorical_threshold`, `inplace` | `Tuple[pd.DataFrame, Dict[str, Any]]` |
-| `detect_csv_dialect()` | Detects CSV delimiter, encoding, etc. | `file_path`, `sample_size`, `encoding` | `Dict[str, Any]` |
+| `detect_csv_dialect()` | Detects CSV delimiter, encoding, etc. | `file_path`, `max_lines`, `encoding` | `Dict[str, Any]` |
 | `validate_file_format()` | Validates a file's format | `file_path`, `expected_format` | `Dict[str, Any]` |
 | `is_encrypted_file()` | Checks if a file is encrypted | `file_path` | `bool` |
 | `get_system_memory()` | Gets system memory information | None | `Dict[str, float]` |

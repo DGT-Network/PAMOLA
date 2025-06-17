@@ -14,7 +14,7 @@ It integrates with the utility modules:
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 
 import pandas as pd
 
@@ -24,7 +24,7 @@ from pamola_core.profiling.commons.identity_utils import (
     find_cross_matches,
     compute_identifier_stats
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation
+from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation, load_settings_operation
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -34,7 +34,7 @@ from pamola_core.utils.visualization import (
     plot_value_distribution,
     create_bar_plot  # Using bar plot instead of pie chart
 )
-
+from pamola_core.common.constants import Constants
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -167,10 +167,12 @@ class IdentityAnalysisOperation(FieldOperation):
                  id_field: Optional[str] = None,
                  top_n: int = 15,
                  check_cross_matches: bool = None,
-                 include_timestamps: bool = None,
+                 include_timestamp: bool = None,
                  min_similarity: float = 0.8,
                  fuzzy_matching: bool = None,
-                 description: str = ""):
+                 description: str = "",
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None):
         """
         Initialize the identity analysis operation.
 
@@ -187,13 +189,15 @@ class IdentityAnalysisOperation(FieldOperation):
         """
         super().__init__(
             field_name=uid_field,
-            description=description or f"Analysis of identity field '{uid_field}'"
+            description=description or f"Analysis of identity field '{uid_field}'",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
         )
         self.reference_fields = reference_fields
         self.id_field = id_field
         self.top_n = top_n
         self.check_cross_matches = check_cross_matches
-        self.include_timestamps = include_timestamps
+        self.include_timestamp = include_timestamp
         self.min_similarity = min_similarity
         self.fuzzy_matching = fuzzy_matching
 
@@ -220,7 +224,7 @@ class IdentityAnalysisOperation(FieldOperation):
             Additional parameters for the operation:
             - top_n : int, number of top entries to include (default: 15)
             - check_cross_matches : bool, whether to analyze cross matches (default: True)
-            - include_timestamps : bool, whether to include timestamps (default: True)
+            - include_timestamp : bool, whether to include timestamps (default: True)
             - min_similarity : float, similarity threshold for fuzzy matching (default: 0.8)
             - fuzzy_matching : bool, whether to use fuzzy matching (default: False)
 
@@ -233,9 +237,10 @@ class IdentityAnalysisOperation(FieldOperation):
         global distribution_analysis, cross_match_analysis
         top_n = kwargs.get('top_n', self.top_n)
         check_cross_matches = kwargs.get('check_cross_matches', self.check_cross_matches)
-        include_timestamps = kwargs.get('include_timestamps', self.include_timestamps)
+        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
         min_similarity = kwargs.get('min_similarity', self.min_similarity)
         fuzzy_matching = kwargs.get('fuzzy_matching', self.fuzzy_matching)
+        encryption_key = kwargs.get('encryption_key', None)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -252,7 +257,8 @@ class IdentityAnalysisOperation(FieldOperation):
         try:
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -331,11 +337,11 @@ class IdentityAnalysisOperation(FieldOperation):
 
             # Save consistency analysis results
             consistency_filename = get_timestamped_filename(f"{self.field_name}_consistency", "json",
-                                                            include_timestamps)
+                                                            include_timestamp)
             consistency_path = output_dir / consistency_filename
 
-            write_json(consistency_analysis, consistency_path)
-            result.add_artifact("json", consistency_path, f"{self.field_name} consistency analysis")
+            write_json(consistency_analysis, consistency_path, encryption_key=encryption_key)
+            result.add_artifact("json", consistency_path, f"{self.field_name} consistency analysis", category=Constants.Artifact_Category_Output)
             reporter.add_artifact("json", str(consistency_path), f"{self.field_name} consistency analysis")
 
             # Create visualization for consistency analysis
@@ -346,7 +352,7 @@ class IdentityAnalysisOperation(FieldOperation):
                     'Inconsistent': 100 - consistency_analysis['match_percentage']
                 }
 
-                viz_filename = get_timestamped_filename(f"{self.field_name}_consistency", "png", include_timestamps)
+                viz_filename = get_timestamped_filename(f"{self.field_name}_consistency", "png", include_timestamp)
                 viz_path = visualizations_dir / viz_filename
 
                 # Use create_bar_plot instead of create_pie_chart
@@ -354,11 +360,12 @@ class IdentityAnalysisOperation(FieldOperation):
                     data=consistency_data,
                     output_path=str(viz_path),
                     title=f"{self.field_name} Consistency Analysis",
-                    orientation="h"  # horizontal bars to better show the proportions
+                    orientation="h",  # horizontal bars to better show the proportions
+                    **kwargs
                 )
 
                 if not viz_result.startswith("Error"):
-                    result.add_artifact("png", viz_path, f"{self.field_name} consistency visualization")
+                    result.add_artifact("png", viz_path, f"{self.field_name} consistency visualization", category=Constants.Artifact_Category_Visualization)
                     reporter.add_artifact("png", str(viz_path), f"{self.field_name} consistency visualization")
                 else:
                     logger.warning(f"Error creating consistency visualization: {viz_result}")
@@ -366,7 +373,7 @@ class IdentityAnalysisOperation(FieldOperation):
             # Save examples of mismatches
             if 'mismatch_examples' in consistency_analysis and consistency_analysis['mismatch_examples']:
                 mismatch_filename = get_timestamped_filename(f"{self.field_name}_mismatch_examples", "json",
-                                                             include_timestamps)
+                                                             include_timestamp)
                 mismatch_path = output_dir / mismatch_filename
 
                 mismatch_examples = {
@@ -375,8 +382,8 @@ class IdentityAnalysisOperation(FieldOperation):
                     'total_records': consistency_analysis.get('total_records', 0)
                 }
 
-                write_json(mismatch_examples, mismatch_path)
-                result.add_artifact("json", mismatch_path, f"{self.field_name} mismatch examples")
+                write_json(mismatch_examples, mismatch_path, encryption_key=encryption_key)
+                result.add_artifact("json", mismatch_path, f"{self.field_name} mismatch examples", category=Constants.Artifact_Category_Output)
                 reporter.add_artifact("json", str(mismatch_path), f"{self.field_name} mismatch examples")
 
             # Update progress
@@ -394,18 +401,18 @@ class IdentityAnalysisOperation(FieldOperation):
 
                 # Save distribution analysis results
                 distribution_filename = get_timestamped_filename(f"{self.field_name}_distribution", "json",
-                                                                 include_timestamps)
+                                                                 include_timestamp)
                 distribution_path = output_dir / distribution_filename
 
-                write_json(distribution_analysis, distribution_path)
-                result.add_artifact("json", distribution_path, f"Records per {self.field_name} distribution analysis")
+                write_json(distribution_analysis, distribution_path, encryption_key=encryption_key)
+                result.add_artifact("json", distribution_path, f"Records per {self.field_name} distribution analysis", category=Constants.Artifact_Category_Output)
                 reporter.add_artifact("json", str(distribution_path),
                                       f"Records per {self.field_name} distribution analysis")
 
                 # Create visualization for distribution analysis
                 if 'distribution' in distribution_analysis:
                     viz_filename = get_timestamped_filename(f"{self.field_name}_count_distribution", "png",
-                                                            include_timestamps)
+                                                            include_timestamp)
                     viz_path = visualizations_dir / viz_filename
 
                     # Create visualization using the visualization module
@@ -413,12 +420,12 @@ class IdentityAnalysisOperation(FieldOperation):
                         data=distribution_analysis['distribution'],
                         output_path=str(viz_path),
                         title=f"Records per {self.field_name} Distribution",
-                        max_items=top_n
+                        max_items=top_n,
+                        **kwargs
                     )
 
                     if not viz_result.startswith("Error"):
-                        result.add_artifact("png", viz_path,
-                                            f"Records per {self.field_name} distribution visualization")
+                        result.add_artifact("png", viz_path, f"Records per {self.field_name} distribution visualization", category=Constants.Artifact_Category_Visualization)
                         reporter.add_artifact("png", str(viz_path),
                                               f"Records per {self.field_name} distribution visualization")
                     else:
@@ -447,11 +454,11 @@ class IdentityAnalysisOperation(FieldOperation):
 
                 # Save cross-match analysis results
                 cross_match_filename = get_timestamped_filename(f"{self.field_name}_cross_match", "json",
-                                                                include_timestamps)
+                                                                include_timestamp)
                 cross_match_path = output_dir / cross_match_filename
 
-                write_json(cross_match_analysis, cross_match_path)
-                result.add_artifact("json", cross_match_path, f"{self.field_name} cross-match analysis")
+                write_json(cross_match_analysis, cross_match_path, encryption_key=encryption_key)
+                result.add_artifact("json", cross_match_path, f"{self.field_name} cross-match analysis", category=Constants.Artifact_Category_Output)
                 reporter.add_artifact("json", str(cross_match_path), f"{self.field_name} cross-match analysis")
 
                 # Update progress
@@ -561,7 +568,7 @@ def analyze_identities(
         Additional parameters for the operations:
         - top_n: int, number of top entries to include (default: 15)
         - check_cross_matches: bool, whether to analyze cross matches (default: True)
-        - include_timestamps: bool, whether to include timestamps (default: True)
+        - include_timestamp: bool, whether to include timestamps (default: True)
 
     Returns:
     --------

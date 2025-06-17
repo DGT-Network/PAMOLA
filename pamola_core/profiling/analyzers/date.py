@@ -9,7 +9,7 @@ anomaly detection, and visualization capabilities.
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 
 import pandas as pd
 
@@ -17,7 +17,7 @@ from pamola_core.profiling.commons.date_utils import (
     analyze_date_field,
     estimate_resources
 )
-from pamola_core.utils.io import write_json, get_timestamped_filename, load_data_operation
+from pamola_core.utils.io import write_json, get_timestamped_filename, load_data_operation, write_dataframe_to_csv, load_settings_operation
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -27,7 +27,7 @@ from pamola_core.utils.visualization import (
     plot_date_distribution,
     plot_value_distribution
 )
-
+from pamola_core.common.constants import Constants
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,7 @@ class DateAnalyzer:
         uid_column = kwargs.get('uid_column')
 
         # Call the utility function for the actual analysis
+        new_kwargs = {k: v for k, v in kwargs.items() if k not in ("id_column", "uid_column")}
         results = analyze_date_field(
             df=df,
             field_name=field_name,
@@ -81,7 +82,7 @@ class DateAnalyzer:
             max_year=max_year,
             id_column=id_column,
             uid_column=uid_column,
-            **kwargs
+            **new_kwargs
         )
 
         # For birth dates, calculate age distribution
@@ -211,7 +212,9 @@ class DateOperation(FieldOperation):
                  generate_plots: bool = True,
                  include_timestamp: bool = True,
                  profile_type: str = "date",
-                 is_birth_date: Optional[bool] = None):
+                 is_birth_date: Optional[bool] = None,
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None):
         """
         Initialize the date operation.
 
@@ -238,7 +241,13 @@ class DateOperation(FieldOperation):
         is_birth_date : bool, optional
             Whether the field is a birth date field
         """
-        super().__init__(field_name, description or f"Analysis of date field '{field_name}'")
+        super().__init__(
+            field_name=field_name,
+            description=description or f"Analysis of date field '{field_name}'",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
+            )
+        
         self.min_year = min_year
         self.max_year = max_year
         self.id_column = id_column
@@ -291,11 +300,13 @@ class DateOperation(FieldOperation):
         include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
         profile_type = kwargs.get('profile_type', self.profile_type)
         is_birth_date = kwargs.get('is_birth_date', self.is_birth_date)
+        encryption_key = kwargs.get('encryption_key', None)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
         visualizations_dir = dirs['visualizations']
         dictionaries_dir = dirs['dictionaries']
+        output_dir = dirs['output']
 
         # Create the main result object with initial status
         result = OperationResult(status=OperationStatus.SUCCESS)
@@ -307,7 +318,8 @@ class DateOperation(FieldOperation):
         try:
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -365,10 +377,10 @@ class DateOperation(FieldOperation):
 
             # Save analysis results to JSON in the task root directory
             stats_filename = get_timestamped_filename(f"{self.field_name}_stats", "json", include_timestamp)
-            stats_path = task_dir / stats_filename
+            stats_path = output_dir / stats_filename
 
-            write_json(analysis_results, stats_path)
-            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis")
+            write_json(analysis_results, stats_path, encryption_key=encryption_key)
+            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis", category=Constants.Artifact_Category_Output)
 
             # Add to reporter
             reporter.add_artifact("json", str(stats_path), f"{self.field_name} statistical analysis")
@@ -382,14 +394,18 @@ class DateOperation(FieldOperation):
                 # Update progress
                 if progress_tracker:
                     progress_tracker.update(0, {"step": "Generating visualizations"})
-
+                kwargs_encryption = {
+                    "use_encryption": kwargs.get('use_encryption', False),
+                    "encryption_key": encryption_key
+                }
                 self._generate_visualizations(
                     analysis_results,
                     visualizations_dir,
                     include_timestamp,
                     is_birth_date,
                     result,
-                    reporter
+                    reporter,
+                    **kwargs_encryption
                 )
 
                 # Update progress
@@ -403,7 +419,8 @@ class DateOperation(FieldOperation):
                     dictionaries_dir,
                     include_timestamp,
                     result,
-                    reporter
+                    reporter,
+                    encryption_key=encryption_key
                 )
 
                 # Update progress
@@ -474,7 +491,8 @@ class DateOperation(FieldOperation):
                                  include_timestamp: bool,
                                  is_birth_date: bool,
                                  result: OperationResult,
-                                 reporter: Any):
+                                 reporter: Any,
+                                 **kwargs):
         """
         Generate visualizations for the date field analysis.
 
@@ -507,11 +525,12 @@ class DateOperation(FieldOperation):
             year_result = plot_date_distribution(
                 {'year_distribution': analysis_results['year_distribution']},
                 str(year_path),
-                title=title
+                title=title,
+                **kwargs
             )
 
             if not year_result.startswith("Error"):
-                result.add_artifact("png", year_path, f"{self.field_name} year distribution")
+                result.add_artifact("png", year_path, f"{self.field_name} year distribution", category=Constants.Artifact_Category_Visualization)
                 reporter.add_artifact("png", str(year_path), f"{self.field_name} year distribution")
 
         # Generate month distribution visualization if we have data
@@ -527,11 +546,12 @@ class DateOperation(FieldOperation):
             month_result = plot_value_distribution(
                 analysis_results['month_distribution'],
                 str(month_path),
-                title=title
+                title=title,
+                **kwargs
             )
 
             if not month_result.startswith("Error"):
-                result.add_artifact("png", month_path, f"{self.field_name} month distribution")
+                result.add_artifact("png", month_path, f"{self.field_name} month distribution", category=Constants.Artifact_Category_Visualization)
                 reporter.add_artifact("png", str(month_path), f"{self.field_name} month distribution")
 
         # Generate day of week distribution visualization if we have data
@@ -547,11 +567,12 @@ class DateOperation(FieldOperation):
             dow_result = plot_value_distribution(
                 analysis_results['day_of_week_distribution'],
                 str(dow_path),
-                title=title
+                title=title,
+                **kwargs
             )
 
             if not dow_result.startswith("Error"):
-                result.add_artifact("png", dow_path, f"{self.field_name} day of week distribution")
+                result.add_artifact("png", dow_path, f"{self.field_name} day of week distribution", category=Constants.Artifact_Category_Visualization)
                 reporter.add_artifact("png", str(dow_path), f"{self.field_name} day of week distribution")
 
         # Generate age distribution visualization if it's a birth date and we have data
@@ -567,11 +588,12 @@ class DateOperation(FieldOperation):
                 str(age_path),
                 title=title,
                 x_label="Age Group",
-                y_label="Count"
+                y_label="Count",
+                **kwargs
             )
 
             if not age_result.startswith("Error"):
-                result.add_artifact("png", age_path, "Age distribution")
+                result.add_artifact("png", age_path, "Age distribution", category=Constants.Artifact_Category_Visualization)
                 reporter.add_artifact("png", str(age_path), "Age distribution")
 
     def _save_anomalies_to_csv(self,
@@ -579,7 +601,8 @@ class DateOperation(FieldOperation):
                                dict_dir: Path,
                                include_timestamp: bool,
                                result: OperationResult,
-                               reporter: Any):
+                               reporter: Any,
+                               encryption_key: Optional[str] = None):
         """
         Save anomalies to CSV file.
 
@@ -624,10 +647,9 @@ class DateOperation(FieldOperation):
                 # Create DataFrame and save to CSV
                 import pandas as pd
                 anomalies_df = pd.DataFrame(anomalies_data)
-                anomalies_df.to_csv(anomalies_path, index=False, encoding='utf-8')
-
+                write_dataframe_to_csv(df=anomalies_df, file_path=anomalies_path, index=False, encoding='utf-8', encryption_key=encryption_key)
                 # Add artifact to result and reporter
-                result.add_artifact("csv", anomalies_path, f"{self.field_name} anomalies")
+                result.add_artifact("csv", anomalies_path, f"{self.field_name} anomalies", category=Constants.Artifact_Category_Dictionary)
                 reporter.add_artifact("csv", str(anomalies_path), f"{self.field_name} anomalies")
 
         except Exception as e:

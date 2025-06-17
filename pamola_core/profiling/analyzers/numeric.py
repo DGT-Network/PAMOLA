@@ -8,7 +8,7 @@ and normality testing.
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -18,7 +18,7 @@ from pamola_core.profiling.commons.numeric_utils import (
     calculate_extended_stats, calculate_percentiles, calculate_histogram,
     detect_outliers, test_normality, create_empty_stats
 )
-from pamola_core.utils.io import write_json, get_timestamped_filename, load_data_operation
+from pamola_core.utils.io import write_json, get_timestamped_filename, load_data_operation, load_settings_operation
 from pamola_core.utils.progress import ProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -27,6 +27,7 @@ from pamola_core.utils.visualization import (
     create_histogram, create_boxplot, create_correlation_pair
 )
 from pamola_core.utils.ops.op_registry import register
+from pamola_core.common.constants import Constants
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -298,7 +299,9 @@ class NumericOperation(FieldOperation):
                  generate_plots: bool = True,
                  include_timestamp: bool = True,
                  profile_type: str = 'numeric',
-                 description: str = ""):
+                 description: str = "",
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None):
         """
         Initialize a numeric field operation.
 
@@ -315,7 +318,13 @@ class NumericOperation(FieldOperation):
         description : str
             Description of the operation (optional)
         """
-        super().__init__(field_name, description or f"Analysis of numeric field '{field_name}'")
+        super().__init__(
+            field_name=field_name,
+            description=description or f"Analysis of numeric field '{field_name}'",
+            use_encryption=use_encryption,
+            encryption_key=encryption_key
+            )
+        
         self.bins = bins
         self.detect_outliers = detect_outliers
         self.test_normality = test_normality
@@ -361,6 +370,7 @@ class NumericOperation(FieldOperation):
         generate_plots = kwargs.get('generate_plots', self.generate_plots)
         include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
         profile_type = kwargs.get('profile_type', self.profile_type)
+        encryption_key = kwargs.get('encryption_key', None)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -377,7 +387,8 @@ class NumericOperation(FieldOperation):
         try:
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -435,8 +446,8 @@ class NumericOperation(FieldOperation):
             stats_filename = get_timestamped_filename(f"{self.field_name}_stats", "json", include_timestamp)
             stats_path = output_dir / stats_filename
 
-            write_json(analysis_results, stats_path)
-            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis")
+            write_json(analysis_results, stats_path, encryption_key=encryption_key)
+            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis", category=Constants.Artifact_Category_Output)
 
             # Add to reporter
             reporter.add_artifact("json", str(stats_path), f"{self.field_name} statistical analysis")
@@ -451,13 +462,18 @@ class NumericOperation(FieldOperation):
                 if progress_tracker:
                     progress_tracker.update(0, {"step": "Generating visualizations"})
 
+                kwargs_encryption = {
+                    "use_encryption": kwargs.get('use_encryption', False),
+                    "encryption_key": encryption_key
+                }
                 self._generate_visualizations(
                     df,
                     analysis_results,
                     visualizations_dir,
                     include_timestamp,
                     result,
-                    reporter
+                    reporter,
+                    **kwargs_encryption
                 )
 
                 # Update progress
@@ -522,7 +538,8 @@ class NumericOperation(FieldOperation):
                                  vis_dir: Path,
                                  include_timestamp: bool,
                                  result: OperationResult,
-                                 reporter: Any):
+                                 reporter: Any,
+                                 **kwargs):
         """
         Generate visualizations for the numeric field analysis.
 
@@ -568,11 +585,12 @@ class NumericOperation(FieldOperation):
                         title=title,
                         x_label=self.field_name,
                         y_label="Frequency",
-                        bins=self.bins
+                        bins=self.bins,
+                        **kwargs
                     )
 
                     if not hist_result.startswith("Error"):
-                        result.add_artifact("png", hist_path, f"{self.field_name} distribution histogram")
+                        result.add_artifact("png", hist_path, f"{self.field_name} distribution histogram", category=Constants.Artifact_Category_Visualization)
                         reporter.add_artifact("png", str(hist_path), f"{self.field_name} distribution histogram")
 
         # Generate boxplot visualization if we have enough data
@@ -586,11 +604,12 @@ class NumericOperation(FieldOperation):
                 output_path=str(boxplot_path),
                 title=f"Boxplot of {self.field_name}",
                 y_label=self.field_name,
-                show_points=True
+                show_points=True,
+                **kwargs
             )
 
             if not boxplot_result.startswith("Error"):
-                result.add_artifact("png", boxplot_path, f"{self.field_name} boxplot")
+                result.add_artifact("png", boxplot_path, f"{self.field_name} boxplot", category=Constants.Artifact_Category_Visualization)
                 reporter.add_artifact("png", str(boxplot_path), f"{self.field_name} boxplot")
 
         # Generate Q-Q plot for normality if requested and we have results
@@ -624,11 +643,12 @@ class NumericOperation(FieldOperation):
                 y_label="Sample Quantiles",
                 add_trendline=True,
                 add_histogram=False,
-                method="Q-Q Plot"
+                method="Q-Q Plot",
+                **kwargs
             )
 
             if not qq_result.startswith("Error"):
-                result.add_artifact("png", qq_path, f"{self.field_name} Q-Q plot (normality test)")
+                result.add_artifact("png", qq_path, f"{self.field_name} Q-Q plot (normality test)", category=Constants.Artifact_Category_Visualization)
                 reporter.add_artifact("png", str(qq_path), f"{self.field_name} Q-Q plot (normality test)")
 
 

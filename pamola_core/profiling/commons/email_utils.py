@@ -159,6 +159,8 @@ def analyze_email_field(df: pd.DataFrame,
 
     # Validate emails
     valid_emails = df[field_name].apply(lambda x: is_valid_email(x) if not pd.isna(x) else False)
+    if valid_emails.dtype.name == 'category':
+        valid_emails = valid_emails.astype(bool)
     valid_count = valid_emails.sum()
     invalid_count = non_null_count - valid_count
 

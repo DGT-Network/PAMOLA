@@ -220,7 +220,7 @@ def infer_data_type(series: pd.Series) -> str:
     # Check for MVF in string format
     mvf_pattern = re.compile(r'\[.*]|\{.*}|.*;.*|.*,.*|.*\|.*')
     sample = non_null.sample(min(100, len(non_null)))
-    mvf_count = sample.str.contains(mvf_pattern, regex=True, na=False).sum()
+    mvf_count = sample.astype(str).str.contains(mvf_pattern, regex=True, na=False).sum()
 
     if mvf_count >= len(sample) * 0.5:  # If at least 50% match MVF pattern
         sample_values = sample.iloc[0] if not sample.empty else ""
@@ -370,8 +370,9 @@ def is_mvf_field(series: pd.Series) -> bool:
 
     # If at least 50% match MVF pattern
     if mvf_count >= len(sample) * 0.5:
+        
         # Check average token length to distinguish from free text
-        sample_values = sample.iloc[0] if not sample.empty else ""
+        sample_values = sample.head(1).loc[0] if len(sample.head(1))> 0 else ""
         avg_token_length = np.mean([len(str(token).strip()) for token in str(sample_values).split(',')])
 
         # If average token length is small, likely MVF

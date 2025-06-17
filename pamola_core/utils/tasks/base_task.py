@@ -64,15 +64,12 @@ RESERVED_OPERATION_PARAMS = {
     "reporter",  # Reporter for logging operation progress
     "progress_tracker",  # Tracker for operation progress
 
-    # Encryption parameters
-    "use_encryption",
-    "encryption_key",
-    "encryption_context",
-    "encryption_mode",
-
     # Performance parameters
     "parallel_processes",
-    "use_vectorization"
+    "use_vectorization",
+    "use_dask",
+    "npartitions",
+    "chunk_size"
 }
 
 # Type variables for better type hinting
@@ -149,7 +146,8 @@ class BaseTask:
                  description: str,
                  input_datasets: Optional[Dict[str, str]] = None,
                  auxiliary_datasets: Optional[Dict[str, str]] = None,
-                 version: str = "1.0.0"):
+                 version: str = "1.0.0",
+                 encryption_keys: Optional[Dict[str, str]] = None):
         """
         Initialize the task with basic information and defaults.
 
@@ -168,6 +166,7 @@ class BaseTask:
         self.description = description
         self.version = version
         self.input_datasets = input_datasets or {}
+        self.encryption_keys = encryption_keys or {}
         self.auxiliary_datasets = auxiliary_datasets or {}
 
         # Basic initialization
@@ -213,6 +212,9 @@ class BaseTask:
         # Performance settings (for backward compatibility)
         self.use_vectorization = False
         self.parallel_processes = 1
+        self.use_dask = False
+        self.npartitions = 1
+        self.chunk_size = 100000
 
         # Checkpoint restoration state
         self._resuming_from_checkpoint = False
@@ -238,8 +240,9 @@ class BaseTask:
             "version": self.version,
             "dependencies": self.dependencies.copy() if hasattr(self, 'dependencies') else [],
             "continue_on_error": False,
-            "use_encryption": False,
-            "encryption_mode": "none",
+            "use_encryption": self.use_encryption,
+            "encryption_mode": "simple",
+            "encryption_key_path": "pamola_datasets/configs/keys.db",
             # Default logging configuration
             "log_level": "INFO",
             "log_file": "",
@@ -410,6 +413,9 @@ class BaseTask:
             # Update performance settings from configuration for backward compatibility
             self.use_vectorization = getattr(self.config, "use_vectorization", False)
             self.parallel_processes = getattr(self.config, "parallel_processes", 1)
+            self.use_dask = getattr(self.config, "use_dask", False)
+            self.npartitions = getattr(self.config, "npartitions", 1)
+            self.chunk_size = getattr(self.config, "chunk_size", 100000)
 
             # Add initialization details to reporter
             self.reporter.add_operation(
@@ -548,7 +554,7 @@ class BaseTask:
                 if hasattr(project_log_file, 'parent'):
                     project_log_file.parent.mkdir(parents=True, exist_ok=True)
 
-                project_handler = logging.FileHandler(project_log_file, encoding='utf-8')
+                project_handler = logging.FileHandler(project_log_file, encoding='utf-8', mode='w')
                 project_handler.setLevel(log_level)
                 project_handler.setFormatter(formatter)
                 self.logger.addHandler(project_handler)
@@ -562,7 +568,7 @@ class BaseTask:
                 if hasattr(task_log_file, 'parent'):
                     task_log_file.parent.mkdir(parents=True, exist_ok=True)
 
-                task_handler = logging.FileHandler(task_log_file, encoding='utf-8')
+                task_handler = logging.FileHandler(task_log_file, encoding='utf-8', mode='w')
                 task_handler.setLevel(logging.DEBUG)  # Task log gets more detail
                 task_handler.setFormatter(formatter)
                 self.logger.addHandler(task_handler)
@@ -849,8 +855,8 @@ class BaseTask:
                             # Update progress manager
                             if self.progress_manager:
                                 # Handle different progress manager interfaces
-                                if hasattr(self.progress_manager, 'operation_completed'):
-                                    self.progress_manager.operation_completed(operation_name)
+                                if hasattr(self.progress_manager, 'start_operation'):
+                                    self.progress_manager.start_operation(operation_name)
                                 elif hasattr(self.progress_manager, 'operations_completed'):
                                     self.progress_manager.operations_completed += 1
                                 elif hasattr(self.progress_manager, 'complete_operation'):
@@ -1251,15 +1257,26 @@ class BaseTask:
                 # Get the supported parameters for this operation
                 supported_params = self._get_operation_supported_parameters(op_cls)
 
-                # Only add infrastructure flags if they're supported
-                if self.use_encryption and 'use_encryption' in supported_params:
-                    filtered_kwargs['use_encryption'] = self.use_encryption
-                if self.encryption_mode and 'encryption_mode' in supported_params:
-                    filtered_kwargs['encryption_mode'] = self.encryption_mode.value
-                if self.use_vectorization and 'use_vectorization' in supported_params:
-                    filtered_kwargs['use_vectorization'] = self.use_vectorization
-                if self.parallel_processes > 1 and 'parallel_processes' in supported_params:
-                    filtered_kwargs['parallel_processes'] = self.parallel_processes
+                # Infrastructure-level flags that can be overridden via kwargs
+                infra_flags = {
+                    'use_encryption': getattr(self, 'use_encryption', None),
+                    'encryption_mode': getattr(self, 'encryption_mode', None),
+                    'use_vectorization': getattr(self, 'use_vectorization', None),
+                    'parallel_processes': getattr(self, 'parallel_processes', None),
+                    'use_dask': getattr(self, 'use_dask', None),
+                    'npartitions': getattr(self, 'npartitions', None),
+                    'chunk_size': getattr(self, 'chunk_size', None),
+                }
+
+                for key, default_value in infra_flags.items():
+                    if key in supported_params:
+                        # Prefer the value from kwargs if provided; fall back to default from self
+                        value = kwargs.get(key, default_value)
+                        # If the value is an Enum, extract its actual value
+                        if hasattr(value, "value"):
+                            value = value.value
+                        if value is not None:
+                            filtered_kwargs[key] = value 
             elif isinstance(operation_class, str):
                 # If the class is not found, log it, but give the factory a chance (it has lazy-load)
                 self.logger.warning(f"Operation class {operation_class} not found in registry, attempting lazy load")

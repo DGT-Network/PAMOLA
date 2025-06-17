@@ -21,6 +21,7 @@ from typing import Dict, Any, Optional, List, Union
 
 import pandas as pd
 
+from pamola_core.common.constants import Constants
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -219,7 +220,7 @@ class MyOperation(BaseOperation):
                 artifact_type="csv",
                 path=output_result.path,
                 description=f"Processed data with {self.column_name} transformation",
-                category="output"
+                category=Constants.Artifact_Category_Output
             )
 
             if progress_tracker:

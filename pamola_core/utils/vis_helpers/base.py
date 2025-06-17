@@ -1,14 +1,26 @@
 """
-Base classes and utilities for the visualization subsystem.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module: Visualization Base System
+Description: Thread-safe foundation for visualization capabilities
+Author: PAMOLA Core Team
+Created: 2025
+License: BSD 3-Clause
 
 This module provides the foundation for the visualization system, including:
 - Abstract base classes for figure creation
-- Factory methods for obtaining the appropriate figure implementations
-- Backend detection and management
+- Factory methods for obtaining appropriate figure implementations
+- Thread-safe backend detection and management
 - Common utilities used across visualization types
+
+The implementation uses contextvars to ensure that backend settings are properly
+isolated between concurrent execution contexts, eliminating state interference
+when multiple visualization operations run in parallel.
 """
 
 import logging
+import contextvars
+import threading
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Union, Tuple, Type
 
@@ -18,29 +30,39 @@ import numpy as np
 # Configure logger
 logger = logging.getLogger(__name__)
 
-# Global backend setting
-_CURRENT_BACKEND = "plotly"  # Default to plotly
-_AVAILABLE_BACKENDS = ["plotly", "matplotlib"]
+# Define a context variable for backend storage
+# This replaces the global _CURRENT_BACKEND variable with a context-isolated version
+_backend_context = contextvars.ContextVar("current_backend", default="plotly")
 
-# Map legacy backend names to supported backends
+# Available backends and backend aliases
+_AVAILABLE_BACKENDS = ["plotly", "matplotlib"]
 _BACKEND_ALIASES = {
     "default": "plotly",  # Map 'default' to plotly since it's our primary backend
     "mpl": "matplotlib",
-    "matplot": "matplotlib"
+    "matplot": "matplotlib",
 }
 
 
-def set_backend(backend: str) -> None:
+def set_backend(backend: str, strict: bool = False) -> None:
     """
-    Set the global visualization backend.
+    Set the visualization backend for the current execution context.
+
+    This function uses context variables to ensure that backend settings
+    are isolated between concurrent execution contexts, preventing
+    interference when multiple visualization operations run in parallel.
 
     Parameters:
     -----------
     backend : str
         Backend to use: "plotly" or "matplotlib"
-    """
-    global _CURRENT_BACKEND
+    strict : bool
+        If True, raise exceptions for invalid backends; otherwise log warnings
 
+    Raises:
+    -------
+    ValueError
+        If strict=True and backend is not supported
+    """
     # Normalize backend name
     backend_lower = backend.lower()
 
@@ -52,22 +74,27 @@ def set_backend(backend: str) -> None:
 
     # Set the backend if supported
     if backend_lower not in _AVAILABLE_BACKENDS:
-        logger.warning(f"Unsupported backend: {backend}. Falling back to plotly.")
-        _CURRENT_BACKEND = "plotly"
+        error_msg = f"Unsupported backend: {backend}. Supported backends are: {', '.join(_AVAILABLE_BACKENDS)}"
+        if strict:
+            raise ValueError(error_msg)
+        else:
+            logger.warning(f"{error_msg} Falling back to plotly.")
+            _backend_context.set("plotly")
     else:
-        _CURRENT_BACKEND = backend_lower
+        _backend_context.set(backend_lower)
+        logger.debug(f"Backend set to '{backend_lower}' in current context")
 
 
 def get_backend() -> str:
     """
-    Get the current visualization backend.
+    Get the current visualization backend for the current execution context.
 
     Returns:
     --------
     str
         Current backend name
     """
-    return _CURRENT_BACKEND
+    return _backend_context.get()
 
 
 class BaseFigure(ABC):
@@ -103,8 +130,9 @@ class BaseFigure(ABC):
         pass
 
     @abstractmethod
-    def create_empty_figure(self, title: str, message: str,
-                            figsize: Tuple[int, int] = (8, 6)) -> Any:
+    def create_empty_figure(
+        self, title: str, message: str, figsize: Tuple[int, int] = (8, 6)
+    ) -> Any:
         """
         Create an empty figure with an error or info message.
 
@@ -128,8 +156,9 @@ class BaseFigure(ABC):
 class PlotlyFigure(BaseFigure):
     """Base class for Plotly figures."""
 
-    def create_empty_figure(self, title: str, message: str,
-                            figsize: Tuple[int, int] = (8, 6)) -> Any:
+    def create_empty_figure(
+        self, title: str, message: str, figsize: Tuple[int, int] = (8, 6)
+    ) -> Any:
         """
         Create an empty Plotly figure with a message.
 
@@ -153,28 +182,39 @@ class PlotlyFigure(BaseFigure):
             fig = go.Figure()
             fig.add_annotation(
                 text=message,
-                xref="paper", yref="paper",
-                x=0.5, y=0.5,
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
                 showarrow=False,
-                font=dict(size=14)
+                font=dict(size=14),
             )
             fig.update_layout(
                 title=title,
                 xaxis=dict(showticklabels=False, showgrid=False),
-                yaxis=dict(showticklabels=False, showgrid=False)
+                yaxis=dict(showticklabels=False, showgrid=False),
             )
 
             return fig
         except ImportError:
-            logger.error("Plotly is not available. Please install it with: pip install plotly")
+            logger.error(
+                "Plotly is not available. Please install it with: pip install plotly"
+            )
             raise
+        except Exception as e:
+            logger.error(f"Error creating empty Plotly figure: {e}")
+            # Create a minimal fallback figure
+            import plotly.graph_objects as go
+
+            return go.Figure()
 
 
 class MatplotlibFigure(BaseFigure):
     """Base class for Matplotlib figures."""
 
-    def create_empty_figure(self, title: str, message: str,
-                            figsize: Tuple[int, int] = (8, 6)) -> Any:
+    def create_empty_figure(
+        self, title: str, message: str, figsize: Tuple[int, int] = (8, 6)
+    ) -> Any:
         """
         Create an empty Matplotlib figure with a message.
 
@@ -196,28 +236,43 @@ class MatplotlibFigure(BaseFigure):
             import matplotlib.pyplot as plt
 
             fig, ax = plt.subplots(figsize=figsize)
-            ax.text(0.5, 0.5, message, ha='center', va='center', fontsize=14)
+            ax.text(0.5, 0.5, message, ha="center", va="center", fontsize=14)
             ax.set_title(title)
-            ax.axis('off')
+            ax.axis("off")
 
             return fig
         except ImportError:
-            logger.error("Matplotlib is not available. Please install it with: pip install matplotlib")
+            logger.error(
+                "Matplotlib is not available. Please install it with: pip install matplotlib"
+            )
             raise
+        except Exception as e:
+            logger.error(f"Error creating empty Matplotlib figure: {e}")
+            # Try to create a minimal fallback figure
+            try:
+                import matplotlib.pyplot as plt
+
+                return plt.figure()
+            except:
+                raise
 
 
 class FigureRegistry:
-    """Registry for figure implementations."""
+    """Thread-safe registry for figure implementations."""
 
-    _registry = {
-        'plotly': {},
-        'matplotlib': {}
-    }
+    # Class-level registry which is shared across all instances
+    # but individual accesses are isolated by backend context
+    _registry = {"plotly": {}, "matplotlib": {}}
+
+    # Add a thread lock for registry operations
+    _lock = threading.RLock()
 
     @classmethod
-    def register(cls, figure_type: str, backend: str, implementation: Type[BaseFigure]) -> None:
+    def register(
+        cls, figure_type: str, backend: str, implementation: Type[BaseFigure]
+    ) -> None:
         """
-        Register a figure implementation.
+        Register a figure implementation in a thread-safe manner.
 
         Parameters:
         -----------
@@ -228,28 +283,36 @@ class FigureRegistry:
         implementation : Type[BaseFigure]
             Class that implements the figure type
         """
-        # Normalize backend name and handle aliases
-        backend_lower = backend.lower()
-        if backend_lower in _BACKEND_ALIASES:
-            backend_lower = _BACKEND_ALIASES[backend_lower]
-            logger.debug(f"Mapped backend alias '{backend}' to '{backend_lower}'")
+        # Use lock to ensure thread-safe registry operations
+        with cls._lock:
+            # Normalize backend name and handle aliases
+            backend_lower = backend.lower()
+            if backend_lower in _BACKEND_ALIASES:
+                backend_lower = _BACKEND_ALIASES[backend_lower]
+                logger.debug(f"Mapped backend alias '{backend}' to '{backend_lower}'")
 
-        # Check if the backend is supported
-        if backend_lower not in _AVAILABLE_BACKENDS:
-            # Don't log warning for known aliases to reduce noise
-            if backend.lower() not in _BACKEND_ALIASES:
-                logger.warning(f"Cannot register for unknown backend: {backend}. Registration skipped.")
-            else:
-                logger.debug(f"Mapping alias '{backend}' to '{backend_lower}' for figure type '{figure_type}'")
-            return
+            # Check if the backend is supported
+            if backend_lower not in _AVAILABLE_BACKENDS:
+                # Don't log warning for known aliases to reduce noise
+                if backend.lower() not in _BACKEND_ALIASES:
+                    logger.warning(
+                        f"Cannot register for unknown backend: {backend}. Registration skipped."
+                    )
+                else:
+                    logger.debug(
+                        f"Mapping alias '{backend}' to '{backend_lower}' for figure type '{figure_type}'"
+                    )
+                return
 
-        cls._registry[backend_lower][figure_type] = implementation
-        logger.debug(f"Registered {figure_type} implementation for {backend_lower} backend")
+            cls._registry[backend_lower][figure_type] = implementation
+            logger.debug(
+                f"Registered {figure_type} implementation for {backend_lower} backend"
+            )
 
     @classmethod
     def get(cls, figure_type: str, backend: str) -> Type[BaseFigure]:
         """
-        Get figure implementation for a specific type and backend.
+        Get figure implementation for a specific type and backend in a thread-safe manner.
 
         Parameters:
         -----------
@@ -263,42 +326,55 @@ class FigureRegistry:
         Type[BaseFigure]
             Figure implementation class
         """
-        # Handle special case for base figure
-        if figure_type == 'base':
-            return PlotlyFigure if backend == 'plotly' else MatplotlibFigure
+        # Use lock to ensure thread-safe registry access
+        with cls._lock:
+            # Handle special case for base figure
+            if figure_type == "base":
+                return PlotlyFigure if backend == "plotly" else MatplotlibFigure
 
-        # Normalize backend name and handle aliases
-        backend_lower = backend.lower()
-        if backend_lower in _BACKEND_ALIASES:
-            backend_lower = _BACKEND_ALIASES[backend_lower]
-            logger.debug(f"Using '{backend_lower}' backend for alias '{backend}'")
+            # Normalize backend name and handle aliases
+            backend_lower = backend.lower()
+            if backend_lower in _BACKEND_ALIASES:
+                backend_lower = _BACKEND_ALIASES[backend_lower]
+                logger.debug(f"Using '{backend_lower}' backend for alias '{backend}'")
 
-        # Check if the requested backend is available
-        if backend_lower not in cls._registry:
-            logger.warning(f"Unknown backend: {backend}. Falling back to plotly.")
-            backend_lower = 'plotly'
+            # Check if the requested backend is available
+            if backend_lower not in cls._registry:
+                logger.warning(f"Unknown backend: {backend}. Falling back to plotly.")
+                backend_lower = "plotly"
 
-        # Check if the figure type is implemented for the backend
-        if figure_type not in cls._registry[backend_lower]:
-            # First try the other backend if available
-            other_backend = 'matplotlib' if backend_lower == 'plotly' else 'plotly'
-            if figure_type in cls._registry[other_backend]:
-                logger.warning(f"Figure type '{figure_type}' not found for backend '{backend_lower}'. "
-                               f"Falling back to '{other_backend}'.")
-                return cls._registry[other_backend][figure_type]
+            # Check if the figure type is implemented for the backend
+            if figure_type not in cls._registry[backend_lower]:
+                # First try the other backend if available
+                other_backend = "matplotlib" if backend_lower == "plotly" else "plotly"
+                if figure_type in cls._registry[other_backend]:
+                    logger.warning(
+                        f"Figure type '{figure_type}' not found for backend '{backend_lower}'. "
+                        f"Falling back to '{other_backend}'."
+                    )
+                    return cls._registry[other_backend][figure_type]
 
-            # If neither backend has the implementation, use a base implementation
-            logger.warning(f"Figure type '{figure_type}' not implemented for any backend. "
-                           f"Using base implementation.")
-            return PlotlyFigure if backend_lower == 'plotly' else MatplotlibFigure
+                # If neither backend has the implementation, use a base implementation
+                logger.warning(
+                    f"Figure type '{figure_type}' not implemented for any backend. "
+                    f"Using base implementation."
+                )
+                return PlotlyFigure if backend_lower == "plotly" else MatplotlibFigure
 
-        return cls._registry[backend_lower][figure_type]
+            return cls._registry[backend_lower][figure_type]
 
 
 class FigureFactory:
-    """Factory for creating figure instances."""
+    """
+    Thread-safe factory for creating figure instances.
 
-    def create_figure(self, figure_type: str, backend: Optional[str] = None) -> BaseFigure:
+    This factory uses the current backend from the execution context
+    to create figures, ensuring isolation between concurrent operations.
+    """
+
+    def create_figure(
+        self, figure_type: str, backend: Optional[str] = None
+    ) -> BaseFigure:
         """
         Create a figure instance of the specified type.
 
@@ -307,14 +383,14 @@ class FigureFactory:
         figure_type : str
             Type of figure to create
         backend : str, optional
-            Backend to use (defaults to global setting)
+            Backend to use (defaults to current context's backend)
 
         Returns:
         --------
         BaseFigure
             Figure instance
         """
-        # Use specified backend or fall back to global setting
+        # Use specified backend or fall back to context's setting
         backend = backend or get_backend()
 
         try:
@@ -330,7 +406,9 @@ class FigureFactory:
 
 
 # Utility functions for data preparation
-def ensure_series(data: Union[Dict[str, Any], pd.Series, List, np.ndarray]) -> pd.Series:
+def ensure_series(
+    data: Union[Dict[str, Any], pd.Series, List, np.ndarray],
+) -> pd.Series:
     """
     Ensure data is a pandas Series.
 
@@ -354,8 +432,12 @@ def ensure_series(data: Union[Dict[str, Any], pd.Series, List, np.ndarray]) -> p
         raise TypeError(f"Cannot convert {type(data)} to pandas Series")
 
 
-def sort_series(series: pd.Series, sort_by: str = "value", ascending: bool = False,
-                max_items: Optional[int] = None) -> pd.Series:
+def sort_series(
+    series: pd.Series,
+    sort_by: str = "value",
+    ascending: bool = False,
+    max_items: Optional[int] = None,
+) -> pd.Series:
     """
     Sort a pandas Series.
 
@@ -390,8 +472,9 @@ def sort_series(series: pd.Series, sort_by: str = "value", ascending: bool = Fal
     return sorted_series
 
 
-def prepare_dataframe(data: Union[Dict[str, List], pd.DataFrame],
-                      orient: str = "dict") -> pd.DataFrame:
+def prepare_dataframe(
+    data: Union[Dict[str, List], pd.DataFrame], orient: str = "dict"
+) -> pd.DataFrame:
     """
     Prepare a DataFrame from various input formats.
 
