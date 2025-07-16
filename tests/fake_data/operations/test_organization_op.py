@@ -2,7 +2,7 @@ import os
 import unittest
 from collections import Counter
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 import numpy as np
 import pandas as pd
 from pamola_core.fake_data import FakeOrganizationOperation
@@ -10,7 +10,18 @@ from pamola_core.fake_data.commons.base import NullStrategy
 from pamola_core.fake_data.generators.organization import OrganizationGenerator
 from pamola_core.utils.ops.op_registry import unregister_operation, get_operation_class
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus, OperationArtifact
+import pytest
 
+class DummyDataSource:
+    def __init__(self, df=None, error=None):
+        self.df = df
+        self.error = error
+        self.encryption_keys = {}
+        self.encryption_modes = {}
+    def get_dataframe(self, dataset_name, **kwargs):
+        if self.df is not None:
+            return self.df, None
+        return None, {"message": self.error or "No data"}
 
 class TestFakeOrganizationOperationInit(unittest.TestCase):
 
@@ -365,7 +376,7 @@ class PrepareData:
         }
 
     def create_task_dir(self):
-        task_dir = Path("C:/fake_data/unittest/operation/organization")
+        task_dir = Path("test_task_dir/fake_data/unittest/operation/organization")
         os.makedirs(task_dir, exist_ok=True)
         return task_dir
 
@@ -382,120 +393,278 @@ class TestFakeOrganzationOperationExecute(unittest.TestCase):
             unregister_operation("FakeOrganizationOperation")
 
     def test_execute_success_with_enrich_mode(self):
+        df_data_source = self.data_source
+        df = DummyDataSource(df_data_source)   # Missing field_name column in data_source
         op = FakeOrganizationOperation(**self.kwargs)
-
-        result = op.execute(
-            data_source=self.data_source,
-            task_dir=self.task_dir,
-            reporter=None,
-            progress_tracker=None,
-            **self.kwargs
-        )
-
-        # Check result is an instance of OperationResult
-        self.assertIsInstance(result, OperationResult)
-
-        # Check that status is SUCCESS
-        self.assertEqual(result.status, OperationStatus.SUCCESS)
-
-        # Check error message is None
-        self.assertIsNone(result.error_message)
-
-        # Check mapping store
-        mapping_path = Path(self.task_dir) / "maps" / f"{op.name}_{op.field_name}_mapping.json"
-        self.assertTrue(mapping_path.is_file(), msg=f"Mapping file not found at: {mapping_path}")
-
-        # Check artifacts
-        self.assertIsInstance(result.artifacts, list)
-        for artifact in result.artifacts:
-            self.assertIsInstance(artifact, OperationArtifact)
-            self.assertTrue(
-                artifact.path.is_file(),
-                msg=f"Artifact file does not exist: {artifact.path}"
+        op.use_cache = False
+        with patch("pamola_core.utils.io.load_settings_operation", return_value={}), \
+         patch("pamola_core.utils.io.load_data_operation", return_value=df_data_source.copy()):
+            result = op.execute(
+                data_source=df,
+                task_dir=self.task_dir,
+                reporter=None,
+                progress_tracker=None,
+                **self.kwargs
             )
-            self.assertTrue(
-                str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
-                msg=f"Unexpected artifact file type: {artifact.path}"
-            )
-            self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
-            self.assertIsInstance(artifact.tags, list)
-            self.assertIsInstance(artifact.creation_time, str)
-            self.assertIsInstance(artifact.size, int)
 
-        # Check metrics
-        if self.kwargs.get("detailed_metrics") and hasattr(result, "metrics"):
-            self.assertIsInstance(result.metrics, dict)
-            self.assertEqual(result.metrics["output_field"]["name"], "organization_enriched")
-            self.assertIsInstance(result.metrics["original_data"], dict)
-            self.assertIsInstance(result.metrics["generated_data"], dict)
-            self.assertEqual(len(result.metrics["original_data"]), len(result.metrics["generated_data"]))
+            # Check result is an instance of OperationResult
+            self.assertIsInstance(result, OperationResult)
 
-        # Check that execution time is recorded
-        self.assertIsInstance(result.execution_time, float)
+            # Check that status is SUCCESS
+            self.assertEqual(result.status, OperationStatus.SUCCESS)
+
+            # Check error message is None
+            self.assertIsNone(result.error_message)
+
+            # Check mapping store
+            mapping_path = Path(self.task_dir) / "maps" / f"{op.name}_{op.field_name}_mapping.json"
+            self.assertTrue(mapping_path.is_file(), msg=f"Mapping file not found at: {mapping_path}")
+
+            # Check artifacts
+            self.assertIsInstance(result.artifacts, list)
+            for artifact in result.artifacts:
+                self.assertIsInstance(artifact, OperationArtifact)
+                self.assertTrue(
+                    artifact.path.is_file(),
+                    msg=f"Artifact file does not exist: {artifact.path}"
+                )
+                self.assertTrue(
+                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
+                    msg=f"Unexpected artifact file type: {artifact.path}"
+                )
+                self.assertIsInstance(artifact.description, str)
+                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIsInstance(artifact.tags, list)
+                self.assertIsInstance(artifact.creation_time, str)
+                self.assertIsInstance(artifact.size, int)
+
+            # Check metrics
+            if self.kwargs.get("detailed_metrics") and hasattr(result, "metrics"):
+                self.assertIsInstance(result.metrics, dict)
+                self.assertEqual(result.metrics["output_field"]["name"], "organization_enriched")
+                self.assertIsInstance(result.metrics["original_data"], dict)
+                self.assertIsInstance(result.metrics["generated_data"], dict)
+                self.assertEqual(len(result.metrics["original_data"]), len(result.metrics["generated_data"]))
+
+            # Check that execution time is recorded
+            self.assertIsInstance(result.execution_time, float)
 
     def test_execute_success_with_replace_mode(self):
         self.kwargs["mode"] = "REPLACE"
+        df_data_source = self.data_source
+        df = DummyDataSource(df_data_source)   # Missing field_name column in data_source
         op = FakeOrganizationOperation(**self.kwargs)
-
-        result = op.execute(
-            data_source=self.data_source,
-            task_dir=self.task_dir,
-            reporter=None,
-            progress_tracker=None,
-            **self.kwargs
-        )
-
-        # Check result is an instance of OperationResult
-        self.assertIsInstance(result, OperationResult)
-
-        # Check that status is SUCCESS
-        self.assertEqual(result.status, OperationStatus.SUCCESS)
-
-        # Check error message is None
-        self.assertIsNone(result.error_message)
-
-        # Check mapping store
-        mapping_path = Path(self.task_dir) / "maps" / f"{op.name}_{op.field_name}_mapping.json"
-        self.assertTrue(mapping_path.is_file(), msg=f"Mapping file not found at: {mapping_path}")
-
-        # Check artifacts
-        self.assertIsInstance(result.artifacts, list)
-        for artifact in result.artifacts:
-            self.assertIsInstance(artifact, OperationArtifact)
-            self.assertTrue(
-                artifact.path.is_file(),
-                msg=f"Artifact file does not exist: {artifact.path}"
+        op.use_cache = False
+        with patch("pamola_core.utils.io.load_settings_operation", return_value={}), \
+         patch("pamola_core.utils.io.load_data_operation", return_value=df_data_source.copy()):
+            result = op.execute(
+                data_source=df,
+                task_dir=self.task_dir,
+                reporter=None,
+                progress_tracker=None,
+                **self.kwargs
             )
-            self.assertTrue(
-                str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
-                msg=f"Unexpected artifact file type: {artifact.path}"
-            )
-            self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
-            self.assertIsInstance(artifact.tags, list)
-            self.assertIsInstance(artifact.creation_time, str)
-            self.assertIsInstance(artifact.size, int)
 
-        # Check that execution time is recorded
-        self.assertIsInstance(result.execution_time, float)
+            # Check result is an instance of OperationResult
+            self.assertIsInstance(result, OperationResult)
+
+            # Check that status is SUCCESS
+            self.assertEqual(result.status, OperationStatus.SUCCESS)
+
+            # Check error message is None
+            self.assertIsNone(result.error_message)
+
+            # Check mapping store
+            mapping_path = Path(self.task_dir) / "maps" / f"{op.name}_{op.field_name}_mapping.json"
+            self.assertTrue(mapping_path.is_file(), msg=f"Mapping file not found at: {mapping_path}")
+
+            # Check artifacts
+            self.assertIsInstance(result.artifacts, list)
+            for artifact in result.artifacts:
+                self.assertIsInstance(artifact, OperationArtifact)
+                self.assertTrue(
+                    artifact.path.is_file(),
+                    msg=f"Artifact file does not exist: {artifact.path}"
+                )
+                self.assertTrue(
+                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
+                    msg=f"Unexpected artifact file type: {artifact.path}"
+                )
+                self.assertIsInstance(artifact.description, str)
+                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIsInstance(artifact.tags, list)
+                self.assertIsInstance(artifact.creation_time, str)
+                self.assertIsInstance(artifact.size, int)
+
+            # Check that execution time is recorded
+            self.assertIsInstance(result.execution_time, float)
 
     def test_execute_missing_field_name_column(self):
-        df = self.data_source.drop(columns=["organization_name"])  # Missing field_name column in data_source
+        df_data_source = self.data_source.drop(columns=["organization_name"])
+        df = DummyDataSource(df_data_source)   # Missing field_name column in data_source
         op = FakeOrganizationOperation(**self.kwargs)
+        with patch("pamola_core.utils.io.load_settings_operation", return_value={}), \
+         patch("pamola_core.utils.io.load_data_operation", return_value=df_data_source.copy()):
+            result = op.execute(
+                data_source=df,
+                task_dir=self.task_dir,
+                reporter=None,
+                progress_tracker=None,
+                **self.kwargs
+            )
 
-        result = op.execute(
-            data_source=df,
-            task_dir=self.task_dir,
-            reporter=None,
-            progress_tracker=None,
-            **self.kwargs
-        )
+            self.assertEqual(result.status, OperationStatus.ERROR)
+            self.assertIsInstance(result.error_message, str)
+            self.assertIn("organization_name", result.error_message.lower())
+            
+    def test_perfect_match(self):
+        original = pd.Series(["A", "B", "C"])
+        generated = pd.Series(["A", "B", "C"])
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics = op._calculate_quality_metrics(original, generated)
+        self.assertIn("length_similarity", metrics)
+        self.assertEqual(metrics["length_similarity"], 1.0)
+        self.assertIn("type_preservation_ratio", metrics)
+        self.assertEqual(metrics["type_preservation_ratio"], 1.0)
+        self.assertIn("type_diversity_ratio", metrics)
+        self.assertEqual(metrics["type_diversity_ratio"], 1.0)
+        self.assertIn("word_count_similarity", metrics)
+        self.assertEqual(metrics["word_count_similarity"], 1.0)
 
-        self.assertEqual(result.status, OperationStatus.ERROR)
-        self.assertIsInstance(result.error_message, str)
-        self.assertIn("organization_name", result.error_message.lower())
+    def test_all_nulls_replaced(self):
+        original = pd.Series([None, None, None])
+        generated = pd.Series(["X", "Y", "Z"])
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics = op._calculate_quality_metrics(original, generated)
+        assert metrics == {}
 
+    def test_all_unique_generated(self):
+        original = pd.Series(["A", "A", "B", "B"])
+        generated = pd.Series(["X", "Y", "Z", "W"])
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics = op._calculate_quality_metrics(original, generated)
+        self.assertIn("type_preservation_ratio", metrics)
+        self.assertEqual(metrics["type_preservation_ratio"], 1.0)
+
+    def test_mismatched_lengths(self):
+        original = pd.Series(["A", "B"])
+        generated = None
+        with self.assertRaises(Exception):
+            op = FakeOrganizationOperation(**self.kwargs)
+            op._calculate_quality_metrics(original, generated)
+
+    def test_partial_overlap_and_nulls(self):
+        original = pd.Series(["A", None, "C", "D"])
+        generated = pd.Series([1, None, 3, 4, 5])
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics = op._calculate_quality_metrics(original, generated)
+        self.assertIn("length_similarity", metrics)
+        assert metrics["length_similarity"] == 0.0
+
+    def test_empty_input(self):
+        original = pd.Series([])
+        generated = pd.Series([])
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics = op._calculate_quality_metrics(original, generated)
+        self.assertIsInstance(metrics, dict)
+        # Should not error, but may have zeros or None
+
+
+
+
+
+
+            
+    def test_collect_metrics_basic(self):
+        generated = self.data_source
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics = op._collect_metrics(generated)
+        self.assertIsInstance(metrics, dict)
+        assert len(metrics) > 0
+
+    def test_collect_metrics_with_REPLACE(self):
+        self.kwargs['mode'] = 'REPLACE'
+        generated = self.data_source
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics = op._collect_metrics(generated)
+        self.assertIsInstance(metrics, dict)
+        self.assertNotIn("output_field", metrics)
+
+    def test_collect_metrics_with_ENRICH(self):
+        self.kwargs['mode'] = 'ENRICH'
+        generated = self.data_source
+        generated["organization_enriched"] = "organization_enriched"
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics = op._collect_metrics(generated)
+        self.assertIsInstance(metrics, dict)
+        self.assertIn("output_field", metrics)
+
+    def test_collect_metrics_mismatched_lengths(self):
+        generated = pd.Series(["X"])
+        with self.assertRaises(Exception):
+            op = FakeOrganizationOperation(**self.kwargs)
+            op._collect_metrics(generated)
+
+    def test_collect_metrics_with_types(self):
+        generated = self.data_source
+        generated["organization_enriched"] = "organization_enriched"
+        generated["type"] = ["t1", "t2", "t1"]
+        generated["region"] = ["r1", "r2", "r1"]
+        op = FakeOrganizationOperation(**self.kwargs)
+        op.type_field = "type"
+        op.region_field = "region"
+        metrics = op._collect_metrics(generated)
+        self.assertIsInstance(metrics, dict)
+        self.assertIn("output_field", metrics)
+        self.assertIn("organization_generator", metrics)
+        self.assertIsNotNone(metrics["organization_generator"]["organization_type"])
+        self.assertIsNotNone(metrics["organization_generator"]["region"])
+
+    def test_save_metrics_creates_file(self):
+        metrics = {"a": 1, "b": 2}
+        metrics_path = self.task_dir
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics_path_result = op._save_metrics(metrics, metrics_path)
+        self.assertTrue(metrics_path_result.exists())
+
+    def test_save_metrics_content(self):
+        metrics = {"foo": "bar", "num": 42}
+        metrics_path = self.task_dir
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics_path_result = op._save_metrics(metrics, metrics_path)
+        import json
+        with open(metrics_path_result, "r") as f:
+            data = json.load(f)
+        self.assertEqual(data, metrics)
+
+    def test_save_metrics_overwrite(self):
+        metrics1 = {"x": 1}
+        metrics2 = {"y": 2}
+        metrics_path = self.task_dir
+        op = FakeOrganizationOperation(**self.kwargs)
+        op._save_metrics(metrics1, metrics_path)
+        metrics_path_result = op._save_metrics(metrics2, metrics_path)
+        import json
+        with open(metrics_path_result, "r") as f:
+            data = json.load(f)
+        self.assertEqual(data, metrics2)
+
+    def test_save_metrics_invalid_path(self):
+        metrics = None
+        with self.assertRaises(Exception):
+            op = FakeOrganizationOperation(**self.kwargs)
+            metrics_path = self.task_dir
+            op._save_metrics(metrics, metrics_path)
+
+    def test_save_metrics_empty_metrics(self):
+        metrics = {}
+        op = FakeOrganizationOperation(**self.kwargs)
+        metrics_path = self.task_dir
+        metrics_path_result = op._save_metrics(metrics, metrics_path)
+        import json
+        with open(metrics_path_result, "r") as f:
+            data = json.load(f)
+        self.assertEqual(data, metrics)
 
 if __name__ == "__main__":
     unittest.main()

@@ -32,23 +32,36 @@ TODO:
 import logging
 import sys
 from pathlib import Path
-from typing import Union, Optional
+from typing import List, Union, Optional
+
+# ======= Configurable logging system =======
+# Default configuration that can be overridden
+_DEFAULT_LOG_NAME = "pamola_core"
+_DEFAULT_LOG_TASK = "pamola_core.task"
+_DEFAULT_LOG_LEVEL = logging.INFO
+_DEFAULT_LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+_DEFAULT_LOG_HANDLERS: Optional[List[logging.Handler]] = None # Will be initialized on first use
 
 
-def configure_logging(log_file=None, level=logging.INFO, name="pamola_core", log_dir=None):
+def configure_logging(
+        name: str = _DEFAULT_LOG_NAME,
+        level: Union[int, str] = _DEFAULT_LOG_LEVEL,
+        log_file: Optional[Union[str, Path]] = None,
+        log_dir: Optional[Union[str, Path]] = None
+) -> logging.Logger:
     """
-    Configure logging for the project.
+    Configure logging.
 
     Parameters:
     -----------
-    log_file : str, optional
-        Path to log file. If None, logs will only be output to console.
-    level : int, optional
-        Logging level (default INFO).
-    name : str, optional
-        Logger name (default "pamola_core").
+    name : str
+        Name of the logger to configure (default "pamola_core")
+    level : int or str, optional
+        Logging level (default INFO). Can be string or numeric level
+    log_file : str or Path, optional
+        Path to log file or filename. If None, logs will only be output to console
     log_dir : str or Path, optional
-        Directory for logs. Default is current working directory.
+        Directory where logs will be stored. Default is current working directory
 
     Returns:
     --------
@@ -56,11 +69,17 @@ def configure_logging(log_file=None, level=logging.INFO, name="pamola_core", log
         Configured logger
     """
     # Create formatter
-    formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
-    )
+    formatter = logging.Formatter(_DEFAULT_LOG_FORMAT)
 
-    # Configure root logger
+    # Determine logger name
+    if not name:
+        name = f"{_DEFAULT_LOG_NAME}"
+
+    # Convert level to int if it's a string
+    if isinstance(level, str):
+        level = getattr(logging, level.upper(), logging.INFO)
+
+    # Configure logger
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.handlers = []  # Clear existing handlers
@@ -90,26 +109,26 @@ def configure_logging(log_file=None, level=logging.INFO, name="pamola_core", log
 def configure_task_logging(
         *,  # Force keyword-only arguments for clarity
         task_id: str,
-        log_level: Union[int, str] = logging.INFO,
-        log_dir: Optional[Union[str, Path]] = None,
+        name: Optional[str] = None,
+        level: Union[int, str] = _DEFAULT_LOG_LEVEL,
         log_file: Optional[Union[str, Path]] = None,
-        logger_name: Optional[str] = None,
+        log_dir: Optional[Union[str, Path]] = None
 ) -> logging.Logger:
     """
-    Configure logging for a specific task.
+    Configure logging with a specific task.
 
     Parameters:
     -----------
     task_id : str
         Unique identifier for the task
-    log_level : int or str, optional
-        Logging level (default INFO). Can be string or numeric level.
-    log_dir : Path or str, optional
-        Directory where logs will be stored
-    log_file : Path or str, optional
-        Path to log file or filename
-    logger_name : str, optional
-        Name of the logger to configure (defaults to f"pamola_core.task.{task_id}")
+    name : str, optional
+        Name of the logger to configure (default "pamola_core.task.{task_id}")
+    level : int or str, optional
+        Logging level (default INFO). Can be string or numeric level
+    log_file : str or Path, optional
+        Path to log file or filename. If None, logs will only be output to console
+    log_dir : str or Path, optional
+        Directory where logs will be stored. Default is current working directory
 
     Returns:
     --------
@@ -117,83 +136,63 @@ def configure_task_logging(
         Configured logger
     """
     try:
-        # Convert level to int if it's a string
-        if isinstance(log_level, str):
-            log_level = getattr(logging, log_level.upper(), logging.INFO)
-
         # Determine logger name
-        if not logger_name:
-            logger_name = f"pamola_core.task.{task_id}"
+        if not name:
+            name = f"{_DEFAULT_LOG_TASK}"
 
-        # Determine log file path
-        log_file_path = None
-        if log_dir and log_file:
-            log_dir_path = Path(log_dir)
-            log_dir_path.mkdir(parents=True, exist_ok=True)
+        if task_id:
+            name = f"{name}.{task_id}"
 
-            # If log_file is just a filename, combine with log_dir
-            log_file_path = Path(log_file)
-            if not log_file_path.is_absolute() and str(log_file_path.parent) == ".":
-                log_file_path = log_dir_path / log_file_path
-        elif log_dir:
-            # Only log_dir provided, use task_id for filename
-            log_dir_path = Path(log_dir)
-            log_dir_path.mkdir(parents=True, exist_ok=True)
-            log_file_path = log_dir_path / f"{task_id}.log"
-        elif log_file:
-            # Only log_file provided
-            log_file_path = Path(log_file)
+        # Convert level to int if it's a string
+        if isinstance(level, str):
+            level = getattr(logging, level.upper(), logging.INFO)
 
-        # Configure the logger
-        if log_file_path:
-            return configure_logging(
-                log_file=str(log_file_path),
-                level=log_level,
-                name=logger_name
-            )
-        else:
-            # Console-only logger
-            return configure_logging(
-                level=log_level,
-                name=logger_name
-            )
+        # Determine log file when only log_dir provided, use task_id for filename
+        if log_dir and not log_file:
+            log_file = f"{task_id}.log"
+
+        return configure_logging(name=name, level=level, log_file=log_file, log_dir=log_dir)
     except Exception as e:
         # Return a basic logger instead of None in case of errors
-        logger = logging.getLogger(f"task.{task_id}")
-        logger.setLevel(log_level)
+        logger = logging.getLogger(f"{_DEFAULT_LOG_TASK}.{task_id}")
+        logger.setLevel(level)
         logger.warning(f"Error configuring task logging: {str(e)}. Using fallback logger.")
         return logger
 
 
-def get_logger(name):
+def get_logger(
+        name: Optional[str]
+) -> logging.Logger:
     """
-    Get a logger for the specified module.
+    Get a basic logger.
 
     Parameters:
     -----------
-    name : str
-        Module/component name for logging
+    name : str, optional
+        Name for logging
 
     Returns:
     --------
     logging.Logger
-        Logger for the specified module
+        Basic logger
     """
     return logging.getLogger(name)
 
 
-def getLogger(name):
+def getLogger(
+        name: Optional[str]
+) -> logging.Logger:
     """
     Alias for get_logger to match Python's standard logging API.
 
     Parameters:
     -----------
-    name : str
-        Module/component name for logging
+    name : str, optional
+        Name for logging
 
     Returns:
     --------
     logging.Logger
-        Logger for the specified module
+        Basic logger
     """
-    return get_logger(name)
+    return get_logger(name=name)

@@ -55,6 +55,15 @@ class Constants:
         "top_value_overlap@10": "Top-10 Value Overlap",
     }
 
+    COMMON_EMAIL_PATTERNS = {
+        'name_dot_surname': r'^[a-zA-Z]+\.[a-zA-Z]+@',
+        'name_underscore_surname': r'^[a-zA-Z]+_[a-zA-Z]+@',
+        'surname_dot_name': r'^[a-zA-Z]+\.[a-zA-Z]+@',
+        'surname_underscore_name': r'^[a-zA-Z]+_[a-zA-Z]+@',
+        'name_surname': r'^[a-zA-Z]+[a-zA-Z]+@',
+        'surname_name': r'^[a-zA-Z]+[a-zA-Z]+@',
+    }
+
     # Artifact Category
     Artifact_Category_Dictionary = 'dictionary'
     Artifact_Category_Output = 'output'

@@ -19,7 +19,7 @@
 - ✅ Complex operations have explanatory inline comments
 - ✅ File length is within reasonable limits (~350 lines)
 
-### Pamola Core Utilities Integration
+### Core Utilities Integration
 - ✅ Imports and uses relevant utilities from anonymization/commons/
 - ✅ Uses `DataSource` from `op_data_source.py` for handling input data
 - ✅ Returns `OperationResult` from `op_result.py` with proper status codes

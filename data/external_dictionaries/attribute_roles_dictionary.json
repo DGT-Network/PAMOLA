@@ -1,0 +1,165 @@
+{
+  "version": "1.0.0",
+  "description": "Attribute role categorization keywords dictionary",
+  "languages": ["en", "ru"],
+  "categories": {
+    "DIRECT_IDENTIFIER": {
+      "description": "Explicit identifiers (name, passport, email, UID) - unique and directly identify",
+      "keywords": {
+        "en": [
+          "id", "uuid", "uid", "guid", "identifier", "record_id",
+          "email", "e-mail", "mail_address",
+          "phone", "telephone", "cell", "mobile", "contact_number",
+          "passport", "ssn", "sin", "nino", "driver_license", "id_number", "national_id",
+          "first_name", "last_name", "middle_name", "surname", "name_latin", "full_name"
+        ],
+        "ru": [
+          "ид", "идентификатор", "уид", "гуид",
+          "почта", "эл_почта", "email", "имейл",
+          "телефон", "моб_телефон", "контакт",
+          "паспорт", "снилс", "инн", "вод_удостоверение",
+          "имя", "фамилия", "отчество", "фио"
+        ]
+      },
+      "patterns": [
+        "(?i)^id$",
+        "(?i).*_id$",
+        "(?i)^mail$",
+        "(?i)^email$"
+      ]
+    },
+    "QUASI_IDENTIFIER": {
+      "description": "Not unique individually, but allow identification in combination (birth_day, region, etc.)",
+      "keywords": {
+        "en": [
+          "address", "street", "building", "apt", "flat", "postal_code", "zip", "location_detail",
+          "region", "province", "state", "district", "oblast", "kra", "municipality",
+          "city", "town", "village", "settlement", "locality", "metro_area",
+          "country", "nation",
+          "birth", "dob", "birth_date", "birth_day",
+          "gender", "sex",
+          "job", "position", "occupation", "profession", "role", "rank",
+          "company", "employer", "organization", "department",
+          "experience", "work_history", "job_years",
+          "education", "degree", "university", "college", "school", "faculty"
+        ],
+        "ru": [
+          "адрес", "улица", "дом", "квартира", "индекс", "местоположение",
+          "регион", "область", "край", "район", "округ", "муниципалитет",
+          "город", "поселок", "село", "населенный_пункт", "метро",
+          "страна", "государство",
+          "рождение", "дата_рождения", "день_рождения",
+          "пол", "гендер",
+          "должность", "профессия", "роль", "звание",
+          "компания", "работодатель", "организация", "подразделение",
+          "опыт", "стаж", "история_работы",
+          "образование", "ученая_степень", "университет", "колледж", "школа", "факультет"
+        ]
+      }
+    },
+    "SENSITIVE_ATTRIBUTE": {
+      "description": "Confidential or sensitive fields (health, finance, behavior)",
+      "keywords": {
+        "en": [
+          "ethnicity", "race", "nationality",
+          "religion", "faith", "belief",
+          "salary", "income", "earnings", "revenue", "pay", "compensation", "bonus", "cost",
+          "diagnosis", "disease", "health_condition", "illness", "disorder", "symptom",
+          "treatment", "medication", "therapy", "mental",
+          "bank", "iban", "bic", "account", "credit_card", "debit", "payment_method",
+          "transaction", "balance", "loan", "mortgage",
+          "vote", "opinion", "choice", "survey_answer", "rating", "reaction"
+        ],
+        "ru": [
+          "этнос", "раса", "национальность",
+          "религия", "вера", "вероисповедание",
+          "зарплата", "доход", "заработок", "выручка", "оплата", "компенсация", "бонус", "премия",
+          "диагноз", "болезнь", "здоровье", "заболевание", "расстройство", "симптом",
+          "лечение", "препарат", "терапия", "психическое",
+          "банк", "счет", "карта", "кредит", "платеж", "транзакция", "баланс", "ссуда", "ипотека",
+          "голос", "мнение", "выбор", "опрос", "рейтинг", "отзыв"
+        ]
+      }
+    },
+    "INDIRECT_IDENTIFIER": {
+      "description": "Long texts, behavioral profiles, addresses - potentially identify through content analysis",
+      "keywords": {
+        "en": [
+          "geo", "longitude", "latitude", "location", "coordinates", "gps",
+          "ip", "mac", "device_id", "browser_fingerprint", "hardware", "imei", "udid",
+          "photo", "image", "avatar", "face_encoding", "biometric", "voice", "fingerprint",
+          "resume_text", "description", "comments", "notes", "feedback", "free_text", "bio", "profile_summary",
+          "device", "browser", "os", "platform", "screen", "resolution"
+        ],
+        "ru": [
+          "гео", "долгота", "широта", "геолокация", "координаты", "гпс",
+          "айпи", "мак", "устройство", "отпечаток_браузера", "оборудование",
+          "фото", "изображение", "аватар", "биометрия", "голос", "отпечаток",
+          "текст_резюме", "описание", "комментарии", "заметки", "отзыв", "текст", "био", "профиль",
+          "устройство", "браузер", "ос", "платформа", "экран", "разрешение"
+        ]
+      }
+    },
+    "NON_SENSITIVE": {
+      "description": "Other fields not containing sensitive information",
+      "keywords": {
+        "en": [
+          "timestamp", "date", "datetime", "created_at", "updated_at", "log_time", "event_time",
+          "status", "stage", "state", "approved", "rejected", "active", "inactive",
+          "event", "log", "action", "activity", "operation",
+          "tag", "label", "category", "cluster"
+        ],
+        "ru": [
+          "время", "дата", "датавремя", "создано", "обновлено", "время_лога", "время_события",
+          "статус", "этап", "состояние", "одобрено", "отклонено", "активно", "неактивно",
+          "событие", "лог", "действие", "активность", "операция",
+          "тег", "метка", "категория", "кластер"
+        ]
+      }
+    }
+  },
+  "industry_specific": {
+    "healthcare": {
+      "SENSITIVE_ATTRIBUTE": {
+        "en": ["icd_code", "diagnosis", "prescription", "clinical_note", "patient", "medical", "blood_type", "allergy"],
+        "ru": ["мкб", "диагноз", "рецепт", "запись_врача", "пациент", "медицинский", "группа_крови", "аллергия"]
+      },
+      "QUASI_IDENTIFIER": {
+        "en": ["hospital", "doctor_name", "clinic", "ward"],
+        "ru": ["больница", "врач", "клиника", "отделение"]
+      }
+    },
+    "finance": {
+      "DIRECT_IDENTIFIER": {
+        "en": ["account_id", "transaction_id", "iban", "swift", "card_number"],
+        "ru": ["номер_счета", "ид_транзакции", "ибан", "свифт", "номер_карты"]
+      },
+      "SENSITIVE_ATTRIBUTE": {
+        "en": ["purchase_amount", "payment_method", "spending_category", "credit_score", "interest_rate"],
+        "ru": ["сумма_покупки", "способ_оплаты", "категория_расхода", "кредитный_рейтинг", "процентная_ставка"]
+      }
+    },
+    "hr": {
+      "DIRECT_IDENTIFIER": {
+        "en": ["resume_id", "candidate_id", "cv_id", "employee_id", "personnel_number"],
+        "ru": ["ид_резюме", "ид_кандидата", "ид_сотрудника", "табельный_номер"]
+      },
+      "QUASI_IDENTIFIER": {
+        "en": ["experience_level", "skills", "certifications", "job_preferences", "work_schedule", "languages"],
+        "ru": ["уровень_опыта", "навыки", "сертификаты", "предпочтения_работы", "график_работы", "языки"]
+      },
+      "SENSITIVE_ATTRIBUTE": {
+        "en": ["salary_expectation", "notice_period", "reason_for_leaving", "performance_rating"],
+        "ru": ["ожидания_зарплаты", "период_уведомления", "причина_увольнения", "оценка_эффективности"]
+      }
+    }
+  },
+  "statistical_thresholds": {
+    "entropy_high": 5.0,
+    "entropy_mid": 3.0,
+    "uniqueness_high": 0.9,
+    "uniqueness_low": 0.2,
+    "text_length_long": 100,
+    "mvf_threshold": 2
+  }
+}

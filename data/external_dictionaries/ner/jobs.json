@@ -1,0 +1,188 @@
+{
+  "categories_hierarchy": {
+    "IT": {
+      "alias": "it",
+      "domain": "General",
+      "level": 0,
+      "children": ["Development", "Engineering", "Data", "DevOps", "Design", "Management", "QA", "IT_Infrastructure"]
+    },
+    "Development": {
+      "alias": "разработка",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["Frontend", "Backend", "Mobile", "Game_Development", "Embedded"],
+      "keywords": ["разработка", "development", "программирование", "developer", "разработчик"],
+      "language": ["en", "ru"]
+    },
+    "Data": {
+      "alias": "данные",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["Data_Science", "Data_Engineering", "Data_Analysis", "Database"],
+      "keywords": ["data", "данные", "информация"],
+      "language": ["en", "ru"]
+    },
+    "Engineering": {
+      "alias": "инженерные_науки",
+      "domain": "General",
+      "level": 1,
+      "parent_category": "IT",
+      "keywords": ["инженер", "engineering", "технический"],
+      "language": ["en", "ru"]
+    },
+    "Python Ecosystem Specialist": {
+      "alias": "python_ecosystem",
+      "domain": "Backend",
+      "level": 2,
+      "parent_category": "Backend",
+      "seniority": "Any",
+      "keywords": ["python", "django", "flask", "numpy", "pandas", "scipy", "fastapi"],
+      "language": ["en"]
+    },
+    "JavaScript Ecosystem Specialist": {
+      "alias": "javascript_ecosystem",
+      "domain": "Frontend",
+      "level": 2,
+      "parent_category": "Frontend",
+      "seniority": "Any",
+      "keywords": ["javascript", "js", "typescript", "node.js", "react", "angular"],
+      "language": ["en"]
+    },
+    "Frontend": {
+      "alias": "фронтенд",
+      "domain": "Development",
+      "level": 2,
+      "parent_category": "Development",
+      "keywords": ["frontend", "front-end", "клиентская часть", "браузер"],
+      "language": ["en", "ru"]
+    },
+    "Backend": {
+      "alias": "бэкенд",
+      "domain": "Development",
+      "level": 2,
+      "parent_category": "Development",
+      "keywords": ["backend", "back-end", "серверная часть", "api"],
+      "language": ["en", "ru"]
+    },
+    "Data_Science": {
+      "alias": "data_science",
+      "domain": "Data",
+      "level": 2,
+      "parent_category": "Data",
+      "keywords": ["data science", "machine learning", "ai", "ml"],
+      "language": ["en"]
+    },
+    "Data_Engineering": {
+      "alias": "data_engineering",
+      "domain": "Data",
+      "level": 2,
+      "parent_category": "Data",
+      "keywords": ["data engineer", "etl", "data pipeline", "big data"],
+      "language": ["en"]
+    },
+    "QA": {
+      "alias": "quality_assurance",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["Manual_QA", "Automation_QA"],
+      "keywords": ["qa", "quality assurance", "тестирование"],
+      "language": ["en", "ru"]
+    },
+    "Manual_QA": {
+      "alias": "manual_qa",
+      "domain": "QA",
+      "level": 2,
+      "parent_category": "QA",
+      "keywords": ["manual testing", "ручное тестирование", "test cases"],
+      "language": ["en", "ru"]
+    },
+    "Automation_QA": {
+      "alias": "automation_qa",
+      "domain": "QA",
+      "level": 2,
+      "parent_category": "QA",
+      "keywords": ["test automation", "автотесты", "selenium", "cypress"],
+      "language": ["en", "ru"]
+    },
+    "Non-IT": {
+      "alias": "non_it",
+      "domain": "General",
+      "level": 0,
+      "children": ["Marketing", "HR", "Finance", "Administration"]
+    },
+    "Marketing": {
+      "alias": "marketing",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "keywords": ["marketing", "маркетинг", "smm", "seo"],
+      "language": ["en", "ru"]
+    },
+    "HR": {
+      "alias": "hr",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "keywords": ["hr", "human resources", "рекрутер"],
+      "language": ["en", "ru"]
+    }
+  },
+  "Unclassified": {
+    "alias": "unclassified",
+    "domain": "General",
+    "level": 0,
+    "parent_category": null,
+    "fallback_strategy": "uniform_distribution",
+    "generic_substitutes": [
+      "IT Specialist",
+      "Technical Specialist",
+      "Engineering Professional",
+      "Digital Specialist",
+      "Technology Expert",
+      "Systems Professional",
+      "Solutions Developer",
+      "Technical Consultant",
+      "Digital Professional",
+      "IT Consultant",
+      "Software Professional",
+      "Technical Expert",
+      "IT Engineer",
+      "Digital Engineer",
+      "Systems Specialist",
+      "Solutions Specialist",
+      "Technical Coordinator",
+      "IT Coordinator",
+      "Digital Solutions Expert",
+      "Technology Specialist",
+      "Инженер",
+      "IT-специалист",
+      "Технический специалист",
+      "Разработчик",
+      "Программист",
+      "Технолог",
+      "Аналитик",
+      "Консультант",
+      "Специалист по цифровым технологиям",
+      "Эксперт по техническим вопросам"
+    ],
+    "language": ["en", "ru"],
+    "usage_rules": {
+      "apply_when": "no_confidence_or_unknown",
+      "selection_method": "random_uniform",
+      "min_confidence_threshold": 0.2
+    }
+  },
+  "fallback_rules": {
+    "min_occurrences_threshold": 5,
+    "fallback_order": ["level_2", "level_1", "level_0"],
+    "default_category": "Unclassified",
+    "confidence_thresholds": {
+      "high": 0.8,
+      "medium": 0.5,
+      "low": 0.2
+    }
+  }
+}

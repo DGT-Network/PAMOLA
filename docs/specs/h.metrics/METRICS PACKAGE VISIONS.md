@@ -34,7 +34,7 @@ pamola_core/metrics/
 │   ├── utility_ops.py         # Utility metric operations
 │   ├── privacy_ops.py         # Privacy metric operations
 │   └── combined_ops.py        # Combined metric operations
-├── calculators/               # Pamola Pamola Core calculation implementations
+├── calculators/               # Core calculation implementations
 │   ├── __init__.py
 │   ├── fidelity_calc.py       # Fidelity metric calculations
 │   ├── utility_calc.py        # Utility metric calculations
@@ -47,7 +47,7 @@ pamola_core/metrics/
     └── normalize.py           # Normalization utilities
 ```
 
-## Pamola Core Metrics Module Implementation Table
+## Core Metrics Module Implementation Table
 
 Below is a comprehensive table for top-level modules in the `pamola_core.metrics` package, including descriptions and specific metrics to be implemented in each module.
 
@@ -70,9 +70,9 @@ Below is a comprehensive table for top-level modules in the `pamola_core.metrics
 | **operations/utility_ops.py**    | Operations for utility metric calculation                         | - `CalculateUtilityMetricsOperation`<br>- `ModelPerformanceOperation`<br>- `ClusteringQualityOperation`<br>- `FeatureImportanceOperation`                                                |
 | **operations/privacy_ops.py**    | Operations for privacy risk assessment                            | - `CalculatePrivacyMetricsOperation`<br>- `ReidentificationRiskOperation`<br>- `DistancePrivacyOperation`<br>- `InformationLossOperation`                                                |
 | **operations/combined_ops.py**   | Operations for comprehensive metric evaluation                    | - `DataQualityAssessmentOperation`<br>- `PrivacyUtilityTradeoffOperation`<br>- `ComprehensiveMetricOperation`<br>- `MetricDashboardOperation`                                            |
-| **calculators/fidelity_calc.py** | Pamola Core calculation functions for fidelity metrics                   | - `calculate_frechet_distance`<br>- `calculate_ks_test`<br>- `calculate_kl_divergence`<br>- `calculate_correlation_similarity`<br>- `calculate_structural_similarity`                    |
-| **calculators/utility_calc.py**  | Pamola Core calculation functions for utility metrics                    | - `calculate_r_squared`<br>- `calculate_classification_metrics`<br>- `calculate_clustering_metrics`<br>- `calculate_feature_importance`<br>- `evaluate_model_performance`                |
-| **calculators/privacy_calc.py**  | Pamola Core calculation functions for privacy metrics                    | - `calculate_dcr`<br>- `calculate_neighbor_metrics`<br>- `calculate_identity_disclosure`<br>- `calculate_information_loss`<br>- `calculate_disclosure_risk`                              |
+| **calculators/fidelity_calc.py** | Core calculation functions for fidelity metrics                   | - `calculate_frechet_distance`<br>- `calculate_ks_test`<br>- `calculate_kl_divergence`<br>- `calculate_correlation_similarity`<br>- `calculate_structural_similarity`                    |
+| **calculators/utility_calc.py**  | Core calculation functions for utility metrics                    | - `calculate_r_squared`<br>- `calculate_classification_metrics`<br>- `calculate_clustering_metrics`<br>- `calculate_feature_importance`<br>- `evaluate_model_performance`                |
+| **calculators/privacy_calc.py**  | Core calculation functions for privacy metrics                    | - `calculate_dcr`<br>- `calculate_neighbor_metrics`<br>- `calculate_identity_disclosure`<br>- `calculate_information_loss`<br>- `calculate_disclosure_risk`                              |
 | **calculators/vector_calc.py**   | Vector-based calculation utilities                                | - `calculate_vector_distance`<br>- `calculate_pairwise_distances`<br>- `find_nearest_neighbors`<br>- `calculate_vector_similarity`<br>- `compute_distance_matrix`                        |
 | **commons/validation.py**        | Input validation utilities                                        | - `validate_dataframes`<br>- `validate_columns`<br>- `validate_metric_parameters`<br>- `check_compatibility`<br>- `validate_operation_inputs`                                            |
 | **commons/aggregation.py**       | Metric aggregation utilities                                      | - `aggregate_column_metrics`<br>- `aggregate_record_metrics`<br>- `combine_metrics`<br>- `normalize_metrics`<br>- `create_composite_score`                                               |
@@ -85,7 +85,7 @@ This table provides a clear overview of what each module in the `pamola_core.met
 
 ### 1. Base Module (`base.py`)
 
-**Purpose**: Define pamola core interfaces and abstract classes for metrics.
+**Purpose**: Define core interfaces and abstract classes for metrics.
 
 **Key Components**:
 
@@ -373,7 +373,7 @@ This table provides a clear overview of what each module in the `pamola_core.met
 
 ### 7. Calculators (`calculators/`)
 
-**Purpose**: Implement pamola core calculation logic for metrics.
+**Purpose**: Implement core calculation logic for metrics.
 
 #### 7.1 Fidelity Calculators (`calculators/fidelity_calc.py`)
 

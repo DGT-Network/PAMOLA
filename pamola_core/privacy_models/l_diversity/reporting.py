@@ -28,8 +28,8 @@ import numpy as np
 
 # Import from pamola_core utilities
 from pamola_core import config
-from pamola_core.utils__old_15_04.base_reporting import PrivacyReport
-from pamola_core.utils__old_15_04.file_io import write_json, write_csv
+from pamola_core.utils.base_reporting import PrivacyReport
+from pamola_core.utils.io import write_json, write_csv
 
 # Configure logging
 logger = logging.getLogger(__name__)

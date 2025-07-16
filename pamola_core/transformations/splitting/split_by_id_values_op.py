@@ -44,17 +44,20 @@ class SplitByIDValuesOperation(TransformationOperation):
                  value_groups: Optional[Dict[str, List[Any]]] = None,
                  number_of_partitions: int = 0,
                  partition_method: str = PartitionMethod.EQUAL_SIZE.value,  # "equal_size", "random", "modulo"
+                 include_timestamp: bool = True,
                  output_format: str = OutputFormat.CSV.value,
                  save_output: bool = True,
+                 generate_visualization: bool = True,
                  use_cache: bool = True,
                  force_recalculation: bool = False,
                  use_dask: bool = False,
                  npartitions: int = 1,
                  use_vectorization: bool = False,
                  parallel_processes: int = 1,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_theme: Optional[str] = None,
                  visualization_strict: bool = False,
+                 visualization_timeout: int = 120,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
                  encryption_mode: Optional[str] = None,
@@ -103,6 +106,7 @@ class SplitByIDValuesOperation(TransformationOperation):
             visualization_backend=visualization_backend,
             visualization_theme=visualization_theme,
             visualization_strict=visualization_strict,
+            visualization_timeout=visualization_timeout,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
             encryption_mode=encryption_mode
@@ -113,8 +117,10 @@ class SplitByIDValuesOperation(TransformationOperation):
         self.value_groups = value_groups or {}
         self.number_of_partitions = number_of_partitions
         self.partition_method = partition_method
+        self.include_timestamp = include_timestamp
         self.output_format = output_format
         self.save_output = save_output
+        self.generate_visualization = generate_visualization
         self.force_recalculation = force_recalculation
 
     def execute(self, data_source: DataSource, task_dir: Path, reporter: Any,
@@ -145,20 +151,24 @@ class SplitByIDValuesOperation(TransformationOperation):
                 - id_field (str): Column name used for identifying records.
                 - value_groups (dict[str, list]): Mapping of group names to lists of ID values.
                 - number_of_partitions (int): Number of partitions for automatic splitting.
-                - partition_method (str): Partitioning strategy; one of
-                    "equal_size" (default), "random", or "modulo".
-                - output_format (str): Output file format, e.g., "csv" or "json".
-                - force_recalculation (bool): If True, ignores cached results and recomputes.
-                - generate_visualization (bool): Whether to generate output visualizations.
-                - include_timestamp (bool): Whether to append a timestamp to output filenames.
-                - save_output (bool): Whether to save partitioned outputs to disk.
-                - parallel_processes (int): Number of processes to use for saving output.
-                - use_cache (bool): Enable caching of intermediate results.
+                - partition_method (str): Partitioning strategy; one of "equal_size" (default), "random", or "modulo".
                 - dataset_name (str): Name of the dataset to load from the data source.
-                - use_dask (bool): If True, enable Dask for parallel/distributed processing.
-                - use_encryption (bool): If True, encrypt output files.
-                - encryption_key (str or Path): Encryption key or path for encrypting outputs.
-                - batch_size (int): Number of records processed per batch during processing.
+                - include_timestamp (bool): Whether to append a timestamp to output filenames (default: True)
+                - output_format (str): Format for saving output files (e.g., "csv", "json") (default: csv)
+                - save_output (bool): Whether to save partitioned outputs to disk (default: True)
+                - generate_visualization (bool): Whether to generate visualizations for the output data (default: True)
+                - use_cache (bool): Enable caching of intermediate results (default: True)
+                - force_recalculation (bool): If True, bypass cached results and force full reprocessing (default: False)
+                - use_dask (bool): If True, enables Dask for parallel or distributed data processing (default: False)
+                - npartitions (int): Number of partitions to split the DataFrame into when using Dask (default: 1)
+                - use_vectorization (bool): If True, enables Joblib for parallel processing using multiple processes (default: False)
+                - parallel_processes (int): Number of parallel processes to use when vectorization with Joblib is enabled (default: 1)
+                - visualization_backend (str): Backend for visualizations (default: None)
+                - visualization_theme (str): Theme for visualizations (default: None)
+                - visualization_strict (bool): Whether to enforce strict visualization rules (default: False)
+                - visualization_timeout (int): Timeout for visualization generation in seconds (default: 120)
+                - use_encryption (bool): If True, encrypt output files (default: False)
+                - encryption_key (str or Path): Encryption key or path for encrypting outputs (default: None)
 
         Returns
         -------
@@ -221,7 +231,14 @@ class SplitByIDValuesOperation(TransformationOperation):
                 if progress_tracker:
                     progress_tracker.update(1, {"step": "Load result from cache", "operation": caller_operation})
 
-                cached_result = self._get_cache(df.copy(), **kwargs)  # _get_cache now returns OperationResult or None
+                try:
+                    # _get_cache now returns OperationResult or None
+                    cached_result = self._get_cache(df.copy(), **kwargs)
+                except Exception as e:
+                    error_message = f"Check cache error: {str(e)}"
+                    self.logger.error(error_message)
+                    return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
+
                 if cached_result is not None and isinstance(cached_result, OperationResult):
                     if reporter:
                         reporter.add_operation(f"Operation {caller_operation}", status="info",
@@ -242,7 +259,12 @@ class SplitByIDValuesOperation(TransformationOperation):
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Process data", "operation": caller_operation})
 
-            transformed_df = self._process_data(df, **kwargs)
+            try:
+                transformed_df = self._process_data(df, **kwargs)
+            except Exception as e:
+                error_message = f"Processing error: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
             if reporter:
                 reporter.add_operation(f"Operation {caller_operation}", status="info",
@@ -265,9 +287,14 @@ class SplitByIDValuesOperation(TransformationOperation):
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Collect metric", "operation": caller_operation})
 
-            metrics = self._collect_metrics(df, transformed_df)
-            result.metrics = metrics
-            self._save_metrics(metrics, task_dir, result, **kwargs)
+            try:
+                metrics = self._collect_metrics(df, transformed_df)
+                result.metrics = metrics
+                self._save_metrics(metrics, task_dir, result, **kwargs)
+            except Exception as e:
+                error_message = f"Error calculating metrics: {str(e)}"
+                self.logger.error(error_message)
+                # Continue execution - metrics failure is not critical
 
             if reporter:
                 reporter.add_operation(f"Operation {caller_operation}", status="info",
@@ -291,7 +318,12 @@ class SplitByIDValuesOperation(TransformationOperation):
                 if progress_tracker:
                     progress_tracker.update(1, {"step": "Save output", "operation": caller_operation})
 
-                self._save_output(transformed_df, task_dir, result, **kwargs)
+                try:
+                    self._save_output(transformed_df, task_dir, result, **kwargs)
+                except Exception as e:
+                    error_message = f"Error saving output data: {str(e)}"
+                    self.logger.error(error_message)
+                    return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
                 if reporter:
                     reporter.add_operation(f"Operation {caller_operation}", status="info",
@@ -306,13 +338,23 @@ class SplitByIDValuesOperation(TransformationOperation):
                 if progress_tracker:
                     progress_tracker.update(1,{"step": "Generate visualizations", "operation": caller_operation})
 
-                self._generate_visualizations(df, transformed_df, task_dir, result, **kwargs)
+                try:
+                    self._handle_visualizations(
+                        input_data=df,
+                        output_data=transformed_df,
+                        task_dir=task_dir,
+                        result=result
+                    )
+                except Exception as e:
+                    error_message = f"Error generating visualizations: {str(e)}"
+                    self.logger.error(error_message)
+                    # Continue execution - visualization failure is not critical
 
                 if reporter:
                     reporter.add_operation(f"Operation {caller_operation}", status="info",
                                            details={"step": "Generate visualizations",
                                                     "message": "Generate visualizations successfully",
-                                                    "num_images": len([a for a in result.artifacts if a.get("artifact_type") == "png"])
+                                                    "num_images": len([a for a in result.artifacts if a.artifact_type == "png"])
                                            })
 
             # Save cache if required
@@ -321,7 +363,12 @@ class SplitByIDValuesOperation(TransformationOperation):
                 if progress_tracker:
                     progress_tracker.update(1, {"step": "Save cache", "operation": caller_operation})
 
-                self._save_cache(task_dir, result, **kwargs)
+                try:
+                    self._save_cache(task_dir, result, **kwargs)
+                except Exception as e:
+                    error_message = f"Failed to cache results: {str(e)}"
+                    self.logger.error(error_message)
+                    # Continue execution - cache failure is not critical
 
                 if reporter:
                     reporter.add_operation(f"Operation {caller_operation}", status="info",
@@ -349,7 +396,7 @@ class SplitByIDValuesOperation(TransformationOperation):
                                             "error": str(e)
                                        })
 
-            return OperationResult(status=OperationStatus.ERROR, error_message=str(e))
+            return OperationResult(status=OperationStatus.ERROR, error_message=str(e), exception=e)
 
 
     def _process_data(self, df: pd.DataFrame, **kwargs) -> Union[pd.DataFrame, Dict[str, pd.DataFrame]]:
@@ -656,8 +703,7 @@ class SplitByIDValuesOperation(TransformationOperation):
                                  input_data: Union[pd.DataFrame, Dict[str, pd.DataFrame]],
                                  output_data: Union[pd.DataFrame, Dict[str, pd.DataFrame]],
                                  task_dir: Path,
-                                 result: OperationResult,
-                                 **kwargs) -> None:
+                                 result: OperationResult) -> None:
 
         if not isinstance(output_data, dict) or not output_data:
             self.logger.warning("Skipping visualization: output_data is not a non-empty dictionary of DataFrames.")
@@ -669,13 +715,19 @@ class SplitByIDValuesOperation(TransformationOperation):
         suffix = f"_{self.timestamp}" if self.timestamp else ""
         operation = self.__class__.__name__
 
-        kwargs["backend"] = kwargs.pop("visualization_backend", self.visualization_backend)
-        kwargs["theme"] = kwargs.pop("visualization_theme", self.visualization_theme)
-        kwargs["strict"] = kwargs.pop("visualization_strict", self.visualization_strict)
+        kwargs_visualization = {
+            "use_encryption": self.use_encryption,
+            "encryption_key": self.encryption_key,
+            "backend": self.visualization_backend,
+            "theme": self.visualization_theme,
+            "strict": self.visualization_strict
+        }
+
+        # Prepare bar data for both bar and pie charts
+        bar_data = {k: len(df) for k, df in output_data.items()}
 
         # 1. Bar chart: Record count per subset
         try:
-            bar_data = {k: len(df) for k, df in output_data.items()}
             bar_path = vis_dir / f"{operation}_record_count_bar_chart{suffix}.png"
             bar_result = create_bar_plot(
                 data=bar_data,
@@ -684,7 +736,7 @@ class SplitByIDValuesOperation(TransformationOperation):
                 orientation="v",
                 x_label="Subset",
                 y_label="Number of Records",
-                **kwargs
+                **kwargs_visualization
             )
             if not bar_result.startswith("Error"):
                 result.add_artifact(
@@ -705,7 +757,7 @@ class SplitByIDValuesOperation(TransformationOperation):
                 title="Record Distribution Across Subsets",
                 show_percentages=True,
                 show_values=True,
-                **kwargs
+                **kwargs_visualization
             )
             if not pie_result.startswith("Error"):
                 result.add_artifact(
@@ -734,7 +786,7 @@ class SplitByIDValuesOperation(TransformationOperation):
                 y_label="Subset",
                 annotate=True,
                 annotation_format=".0f",
-                **kwargs
+                **kwargs_visualization
             )
             if not heatmap_result.startswith("Error"):
                 result.add_artifact(
@@ -745,6 +797,56 @@ class SplitByIDValuesOperation(TransformationOperation):
                 )
         except Exception as e:
             self.logger.error(f"Failed to create ID value distribution heatmap: {e}")
+
+    def _handle_visualizations(
+            self,
+            input_data: pd.DataFrame,
+            output_data: Dict[str, pd.DataFrame],
+            task_dir: Path,
+            result: OperationResult
+    ) -> None:
+
+        import threading
+        import contextvars
+
+        self.logger.info(f"[VIZ] Preparing to generate visualizations in a separate thread")
+
+        viz_error = None
+
+        def run_visualizations():
+            nonlocal viz_error
+            try:
+                self._generate_visualizations(
+                    input_data=input_data,
+                    output_data=output_data,
+                    task_dir=task_dir,
+                    result=result
+                )
+            except Exception as e:
+                viz_error = e
+                self.logger.error(f"[VIZ] Visualization error: {type(e).__name__}: {e}", exc_info=True)
+
+        try:
+            ctx = contextvars.copy_context()
+            thread = threading.Thread(
+                target=ctx.run,
+                args=(run_visualizations,),
+                name=f"VizThread-{self.name}",
+                daemon=True
+            )
+
+            thread.start()
+            thread.join(timeout=self.visualization_timeout)
+
+            if thread.is_alive():
+                self.logger.warning(f"[VIZ] Visualization thread timed out after {self.visualization_timeout}s")
+            elif viz_error:
+                self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
+            else:
+                self.logger.info(f"[VIZ] Visualization thread completed successfully")
+
+        except Exception as e:
+            self.logger.error(f"[VIZ] Error setting up visualization thread: {e}", exc_info=True)
 
     def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
         """
@@ -970,9 +1072,10 @@ class SplitByIDValuesOperation(TransformationOperation):
         self.use_vectorization = kwargs.get("use_vectorization", getattr(self, "use_vectorization", False))
         self.parallel_processes = kwargs.get("parallel_processes", getattr(self, "parallel_processes", 1))
 
-        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", False))
+        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", None))
         self.visualization_theme = kwargs.get("visualization_theme", getattr(self, "visualization_theme", None))
-        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", None))
+        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", False))
+        self.visualization_timeout = kwargs.get("visualization_timeout", getattr(self, "visualization_timeout", None))
 
         self.use_encryption = kwargs.get("use_encryption", getattr(self, "use_encryption", False))
         self.encryption_key = kwargs.get("encryption_key",

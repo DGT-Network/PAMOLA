@@ -19,7 +19,7 @@ from pamola_core.profiling.commons.dtype_helpers import (
 
 
 # Import operations to register them
-from pamola_core.profiling.analyzers.anonymity import PreKAnonymityProfilingOperation
+from pamola_core.profiling.analyzers.anonymity import KAnonymityProfilerOperation
 from pamola_core.profiling.analyzers.attribute import DataAttributeProfilerOperation
 from pamola_core.profiling.analyzers.categorical import CategoricalOperation
 from pamola_core.profiling.analyzers.correlation import CorrelationOperation, CorrelationMatrixOperation
@@ -35,7 +35,7 @@ from pamola_core.profiling.analyzers.currency import CurrencyOperation
 
 # Make operations available at package level
 __all__ = [
-    'PreKAnonymityProfilingOperation', 
+    'KAnonymityProfilerOperation', 
     'DataAttributeProfilerOperation', 
     'CategoricalOperation', 
     'CorrelationOperation',

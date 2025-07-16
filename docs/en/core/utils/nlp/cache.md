@@ -1,330 +1,382 @@
-# PAMOLA Core: NLP Caching Utilities Module
+# PAMOLA.CORE NLP Cache Module Documentation
 
 ## Overview
 
-The `pamola_core.utils.nlp.cache` module provides robust, unified caching mechanisms for the NLP components of the PAMOLA Core framework. It is designed to optimize resource usage, speed up repeated operations, and manage memory efficiently for expensive objects such as models, file resources, and function outputs. The module supports multiple cache policies and is thread-safe, making it suitable for high-performance NLP pipelines.
+The `cache.py` module is a critical component of the PAMOLA.CORE NLP utilities package, providing unified caching mechanisms for resources, models, and other expensive objects used throughout the NLP package. It implements multiple cache strategies with thread-safe operations and automatic expiration.
 
----
+### Module Information
+- **Package**: `pamola.pamola_core.utils.nlp.cache`
+- **Version**: 1.3.0
+- **Status**: stable
+- **License**: BSD 3-Clause
 
 ## Key Features
 
-- **Unified Caching API**: Consistent interface for memory, file, and model caching.
-- **Multiple Eviction Policies**: Supports LRU, LFU, FIFO, TTL, and TLRU policies.
-- **Thread-Safe**: All cache operations are protected by locks for safe concurrent access.
-- **Automatic Expiration**: Time-to-live (TTL) and file modification tracking for cache invalidation.
-- **Memory-Aware Model Cache**: Proactively unloads models under memory pressure.
-- **Function Result Caching**: Decorator for easy function-level caching.
-- **Global and Per-Instance Caches**: Use global caches or instantiate your own.
-- **Statistics and Monitoring**: Access hit/miss/eviction stats for tuning and debugging.
+### 1. Multiple Cache Implementations
+- **MemoryCache**: In-memory cache with configurable eviction policies
+- **FileCache**: File-based cache with modification time tracking
+- **ModelCache**: Specialized cache for NLP models with memory-aware eviction
+- **TextCache**: Text-specific cache with built-in canonicalization
 
----
+### 2. Eviction Policies
+- **LRU** (Least Recently Used)
+- **LFU** (Least Frequently Used)
+- **FIFO** (First In First Out)
+- **TTL** (Time To Live)
+- **TLRU** (Time-aware Least Recently Used)
 
-## Dependencies
+### 3. Advanced Features
+- Thread-safe operations with RLock
+- Automatic expiration based on time-to-live
+- Bulk operations support for improved performance
+- Cache statistics and monitoring
+- Memory-aware eviction for model cache
+- Text canonicalization for consistent cache keys
+- Function result caching decorator
 
-### Standard Library
-- `logging`
-- `os`
-- `threading`
-- `time`
-- `collections.OrderedDict`
-- `typing`
+## Architecture
 
-### Internal Modules
-- `pamola_core.utils.nlp.base.CacheBase`
+### Cache Hierarchy
 
-### Optional
-- `psutil` (for memory monitoring in `ModelCache`)
-- `chardet` (for file encoding detection)
-
----
-
-## Exception Classes
-
-> **Note:** This module does not define custom exception classes. All exceptions raised are standard Python exceptions (e.g., `OSError`, `ImportError`, `IOError`).
-
-### Example: Handling File Cache Errors
-```python
-try:
-    value = file_cache.get('my_key')
-except OSError as e:
-    # Handle file system errors (e.g., file not found, permission denied)
-    logger.error(f"File cache error: {e}")
 ```
-**When Raised:**
-- File system errors during file modification time checks or file access.
-
----
-
-## Main Classes
-
-### MemoryCache
-
-**Purpose:** In-memory cache with configurable eviction policies and TTL support.
-
-#### Constructor
-```python
-MemoryCache(
-    max_size: int = MAX_CACHE_SIZE,
-    ttl: int = DEFAULT_CACHE_TTL,
-    policy: str = POLICY_TLRU
-)
-```
-**Parameters:**
-- `max_size`: Maximum number of items in the cache.
-- `ttl`: Default time-to-live (seconds) for cache entries.
-- `policy`: Eviction policy (`'lru'`, `'lfu'`, `'fifo'`, `'ttl'`, `'tlru'`).
-
-#### Key Attributes
-- `_cache`: OrderedDict storing cached items.
-- `_timestamps`, `_ttls`, `_hit_counts`: Track entry metadata.
-- `_lock`: Threading lock for concurrency.
-
-#### Public Methods
-- `get(key: str) -> Optional[T]`
-    - Retrieve a value by key, respecting expiration and policy.
-    - **Returns:** Cached value or `None` if not found/expired.
-- `set(key: str, value: T, ttl: Optional[int] = None) -> None`
-    - Store a value with optional TTL override.
-- `delete(key: str) -> bool`
-    - Remove a key from the cache.
-    - **Returns:** `True` if deleted, `False` otherwise.
-- `clear() -> None`
-    - Remove all items from the cache.
-- `get_stats() -> Dict[str, Any]`
-    - Get cache usage statistics.
-
-#### Example Usage
-```python
-# Create a memory cache with LRU policy
-cache = MemoryCache(max_size=50, policy='lru')
-
-# Store and retrieve a value
-cache.set('tokenizer', tokenizer_obj)
-tokenizer = cache.get('tokenizer')
+CacheBase (from pamola_core.utils.nlp.base)
+├── MemoryCache[T]
+│   └── TextCache (specialized for text)
+├── FileCache
+└── ModelCache
 ```
 
----
+### Global Configuration
 
-### FileCache
-
-**Purpose:** Caches file-based resources, automatically invalidating entries if the underlying file changes.
-
-#### Constructor
-```python
-FileCache(max_size: int = MAX_CACHE_SIZE)
-```
-**Parameters:**
-- `max_size`: Maximum number of items in the cache.
-
-#### Key Attributes
-- `_cache`: Dictionary of cached values.
-- `_file_paths`: Maps keys to file paths.
-- `_mtimes`: Tracks last known modification times.
-
-#### Public Methods
-- `get(key: str) -> Any`
-    - Retrieve a value, invalidating if the file has changed.
-- `set(key: str, value: Any, file_path: Optional[str] = None) -> None`
-    - Store a value, optionally tracking a file.
-- `is_valid(key: str) -> bool`
-    - Check if a cached value is still valid (file unchanged).
-- `delete(key: str) -> bool`
-    - Remove a key from the cache.
-- `clear() -> None`
-    - Remove all items.
-- `get_stats() -> Dict[str, Any]`
-    - Get cache usage statistics.
-
-#### Example Usage
-```python
-# Cache a file resource
-file_cache = FileCache()
-file_cache.set('vocab', vocab_obj, file_path='vocab.txt')
-
-# Retrieve, auto-invalidating if file changed
-vocab = file_cache.get('vocab')
-```
-
----
-
-### ModelCache
-
-**Purpose:** Specialized cache for NLP models, with memory pressure monitoring and LRU eviction.
-
-#### Constructor
-```python
-ModelCache(
-    max_size: int = 5,
-    memory_threshold: float = 0.75,
-    check_memory: bool = True
-)
-```
-**Parameters:**
-- `max_size`: Maximum number of models to cache.
-- `memory_threshold`: Fraction of system memory usage to trigger evictions.
-- `check_memory`: Whether to monitor system memory.
-
-#### Key Attributes
-- `_cache`: OrderedDict of models.
-- `_metadata`: Model metadata.
-- `_last_used`: Last access times.
-
-#### Public Methods
-- `get(key: str) -> Any`
-    - Retrieve a model by key.
-- `set(key: str, model: Any, metadata: Optional[Dict[str, Any]] = None) -> None`
-    - Store a model with optional metadata.
-- `delete(key: str) -> bool`
-    - Remove a model.
-- `clear() -> None`
-    - Remove all models and free memory.
-- `get_stats() -> Dict[str, Any]`
-    - Get cache usage statistics.
-- `get_model_info(key: Optional[str] = None) -> Dict[str, Any]`
-    - Get info for one or all models.
-
-#### Example Usage
-```python
-# Cache a model
-model_cache = ModelCache(max_size=3)
-model_cache.set('ner', ner_model, metadata={'lang': 'en'})
-
-# Retrieve model
-model = model_cache.get('ner')
-```
-
----
-
-## Function Result Caching
-
-### Decorator: `cache_function`
-
-Caches the result of a function call based on its arguments.
+The module supports environment-based configuration:
 
 ```python
-@cache_function(ttl=600, cache_type='memory')
-def expensive_computation(x, y):
-    # ...
-    return result
+MAX_CACHE_SIZE = int(os.environ.get('PAMOLA_MAX_CACHE_SIZE', '100'))
+DEFAULT_CACHE_TTL = int(os.environ.get('PAMOLA_CACHE_TTL', '3600'))  # 1 hour
+CACHE_ENABLED = os.environ.get('PAMOLA_DISABLE_CACHE', '0') != '1'
 ```
 
----
+## Core Components
 
-## Dependency Resolution and Validation Logic
+### 1. Text Canonicalization
 
-- **MemoryCache**: Evicts items based on the selected policy (LRU, LFU, FIFO, TTL, TLRU). TTL and TLRU policies use timestamps to expire entries.
-- **FileCache**: Checks file modification times to ensure cached data is still valid. If the file changes, the cache entry is invalidated.
-- **ModelCache**: Monitors system memory (if `psutil` is available) and evicts least recently used models when memory usage exceeds the threshold.
+```python
+def canonicalize_text(text: str, processing_marker: str = "~") -> str:
+    """
+    Canonicalize text for consistent cache key generation.
+    
+    Normalizes text by:
+    - Removing processing markers from the beginning
+    - Normalizing line endings
+    - Stripping leading/trailing whitespace
+    """
+```
 
----
+This function ensures consistent cache keys regardless of minor text variations.
+
+### 2. MemoryCache
+
+The base in-memory cache implementation with generic typing support:
+
+```python
+class MemoryCache(CacheBase, Generic[T]):
+    def __init__(self, max_size: int = MAX_CACHE_SIZE, 
+                 ttl: int = DEFAULT_CACHE_TTL, 
+                 policy: str = POLICY_TLRU):
+        """
+        Initialize the memory cache.
+        
+        Parameters:
+        - max_size: Maximum number of items in the cache
+        - ttl: Default time-to-live in seconds
+        - policy: Cache eviction policy
+        """
+```
+
+#### Key Methods:
+- `get(key: str) -> Optional[T]`: Retrieve a value from cache
+- `set(key: str, value: T, ttl: Optional[int] = None)`: Store a value
+- `get_many(keys: List[str]) -> Dict[str, Optional[T]]`: Bulk retrieve
+- `set_many(mapping: Dict[str, T], ttl: Optional[int] = None)`: Bulk store
+- `delete(key: str) -> bool`: Remove a specific key
+- `clear()`: Clear all cached items
+- `get_stats() -> Dict[str, Any]`: Get cache statistics
+
+### 3. FileCache
+
+Specialized cache for file-based resources with timestamp validation:
+
+```python
+class FileCache(CacheBase):
+    def __init__(self, max_size: int = MAX_CACHE_SIZE):
+        """
+        Cache that tracks file modification times to detect changes.
+        Includes write buffer for improved I/O efficiency.
+        """
+```
+
+#### Special Features:
+- Automatic invalidation on file modification
+- Batch write buffer for improved I/O performance
+- File path tracking and validation
+
+### 4. ModelCache
+
+Memory-aware cache specifically designed for NLP models:
+
+```python
+class ModelCache(CacheBase):
+    def __init__(self, max_size: int = 5, 
+                 memory_threshold: float = 0.75, 
+                 check_memory: bool = True):
+        """
+        Cache for managing NLP models with memory pressure monitoring.
+        
+        Parameters:
+        - max_size: Maximum number of models to keep
+        - memory_threshold: Memory usage threshold (0-1) for eviction
+        - check_memory: Whether to check system memory
+        """
+```
+
+#### Key Features:
+- Proactive memory pressure monitoring
+- Automatic model unloading when memory is high
+- Model metadata tracking
+- Integration with garbage collection
+
+### 5. TextCache
+
+Specialized cache for text content with automatic canonicalization:
+
+```python
+class TextCache(MemoryCache[str]):
+    def __init__(self, max_size: int = MAX_CACHE_SIZE,
+                 ttl: int = DEFAULT_CACHE_TTL,
+                 policy: str = POLICY_TLRU,
+                 processing_marker: str = "~",
+                 canonicalize_func: Optional[Callable] = None):
+        """
+        Text-specific cache with built-in canonicalization.
+        Ensures consistent caching regardless of processing markers.
+        """
+```
 
 ## Usage Examples
 
-### Accessing Outputs and Validating Cache
-```python
-# Access a cached NLP resource
-resource = get_cache('memory').get('resource_key')
+### Basic Cache Usage
 
-# Validate a file-based cache entry
-if get_cache('file').is_valid('vocab'):
-    vocab = get_cache('file').get('vocab')
-```
-
-### Handling Failed Dependencies
-```python
-# Attempt to get a model, handle cache miss
-model = get_cache('model').get('ner')
-if model is None:
-    # Load model from disk or remote
-    model = load_model()
-    get_cache('model').set('ner', model)
-```
-
-### Using the Manager in a Pipeline
 ```python
 from pamola_core.utils.nlp.cache import get_cache
 
-# In a BaseTask or pipeline step
-def run(self):
-    cache = get_cache('memory')
-    result = cache.get('step_output')
-    if result is None:
-        result = self.compute()
-        cache.set('step_output', result)
-    return result
+# Get a memory cache instance
+cache = get_cache('memory')
+
+# Store a value
+cache.set('key1', 'value1', ttl=3600)
+
+# Retrieve a value
+value = cache.get('key1')
+
+# Bulk operations
+cache.set_many({'key2': 'value2', 'key3': 'value3'})
+results = cache.get_many(['key1', 'key2', 'key3'])
 ```
 
-### Continue-on-Error with Logging
+### File Cache Usage
+
 ```python
-try:
-    output = get_cache('file').get('important_file')
-except Exception as e:
-    logger.warning(f"Failed to retrieve file from cache: {e}")
-    # Continue pipeline execution
+# Get file cache instance
+file_cache = get_cache('file')
+
+# Cache file content with modification tracking
+with open('data.json', 'r') as f:
+    data = json.load(f)
+file_cache.set('data_json', data, file_path='data.json')
+
+# Cache automatically invalidates if file changes
+cached_data = file_cache.get('data_json')  # None if file modified
 ```
 
----
+### Model Cache Usage
 
-## Integration Notes
-
-- The cache module is designed to be used with pipeline tasks (e.g., `BaseTask`).
-- Use `get_cache('memory')`, `get_cache('file')`, or `get_cache('model')` to access global caches.
-- For custom needs, instantiate your own cache class.
-
----
-
-## Error Handling and Exception Hierarchy
-
-- All exceptions are standard Python exceptions (e.g., `OSError`, `ImportError`).
-- File and model caches handle errors gracefully, invalidating or skipping entries as needed.
-- Always check for `None` returns from `get()` methods to handle cache misses or invalidations.
-
----
-
-## Configuration Requirements
-
-- Environment variables:
-    - `PAMOLA_MAX_CACHE_SIZE`: Sets the default maximum cache size.
-    - `PAMOLA_CACHE_TTL`: Sets the default TTL for cache entries.
-    - `PAMOLA_DISABLE_CACHE`: Set to `'1'` to disable all caching.
-- For best results, configure these variables before importing the module.
-
----
-
-## Security Considerations and Best Practices
-
-- **Path Security**: Avoid using absolute file paths for dependencies unless necessary. Absolute paths may expose sensitive data or break portability.
-- **Cache Poisoning**: Ensure cache keys are unique and not user-controlled to prevent cache poisoning attacks.
-- **Memory Usage**: Monitor memory usage when caching large models or datasets.
-
-### Example: Security Failure and Handling
 ```python
-# BAD: Using user-supplied absolute path
-user_path = get_user_input()
-cache.set(user_path, data)  # Risk: may overwrite or expose sensitive cache entries
+# Get model cache instance
+model_cache = get_cache('model')
 
-# GOOD: Use controlled, internal keys
-cache.set('user_data', data)
+# Store a model with metadata
+model_cache.set('bert_model', model, metadata={
+    'type': 'bert',
+    'size': 'base',
+    'language': 'en'
+})
+
+# Memory pressure is automatically handled
+cached_model = model_cache.get('bert_model')
 ```
-**Risks of Disabling Path Security:**
-- May allow access to or modification of files outside the intended scope.
-- Can lead to data leaks or corruption if external paths are not validated.
 
----
+### Function Caching Decorator
 
-## Internal vs. External Dependencies
+```python
+from pamola_core.utils.nlp.cache import cache_function
 
-- **Internal Dependencies**: Use logical task IDs or resource names as cache keys for data produced within the pipeline.
-- **External (Absolute Path) Dependencies**: Only use for resources not managed by the pipeline. Always validate and sanitize paths.
+@cache_function(ttl=3600, cache_type='memory')
+def expensive_computation(text: str) -> Dict[str, Any]:
+    # Expensive processing
+    return results
 
----
+# First call computes and caches
+result1 = expensive_computation("sample text")
+
+# Subsequent calls use cache
+result2 = expensive_computation("sample text")  # From cache
+```
+
+### Text Cache with Canonicalization
+
+```python
+# Get text cache instance
+text_cache = get_cache('text')
+
+# These will all hit the same cache entry
+text_cache.set("~Hello World", "processed")
+value1 = text_cache.get("Hello World")      # Returns "processed"
+value2 = text_cache.get("~Hello World")     # Returns "processed"
+value3 = text_cache.get("  Hello World  ")  # Returns "processed"
+```
+
+## Cache Statistics
+
+All cache implementations provide statistics:
+
+```python
+stats = cache.get_stats()
+# Returns:
+# {
+#     "size": 42,
+#     "max_size": 100,
+#     "hits": 1523,
+#     "misses": 234,
+#     "hit_ratio": 0.867,
+#     "evictions": 12,
+#     "expirations": 5,
+#     "bulk_operations": 3,
+#     "policy": "tlru"
+# }
+```
+
+## Performance Considerations
+
+### Memory Management
+- The module implements efficient memory management with configurable limits
+- ModelCache includes memory pressure monitoring (requires psutil)
+- Automatic garbage collection integration for model cleanup
+
+### Thread Safety
+- All cache operations are thread-safe using RLock
+- Bulk operations minimize lock contention
+- Write buffering in FileCache reduces I/O operations
+
+### Optimization Tips
+1. Use bulk operations (`get_many`, `set_many`) for multiple items
+2. Configure appropriate TTL values for your use case
+3. Choose the right eviction policy based on access patterns
+4. Use TextCache for text data to benefit from canonicalization
+5. Monitor cache statistics to tune parameters
+
+## Integration with NLP Operations
+
+The cache module integrates seamlessly with other NLP utilities:
+
+```python
+# Category matching with caching
+from pamola_core.utils.nlp.category_matching import CategoryDictionary
+
+# Dictionary loading is automatically cached
+dict1 = CategoryDictionary.from_file('categories.json')
+dict2 = CategoryDictionary.from_file('categories.json')  # From cache
+
+# Text processing with result caching
+@cache_function(ttl=3600)
+def process_text(text: str) -> List[str]:
+    # Expensive NLP processing
+    return results
+```
 
 ## Best Practices
 
-1. **Use Logical Keys for Internal Data**: Prefer task IDs or resource names for cache keys.
-2. **Limit Use of Absolute Paths**: Only use absolute paths for external, immutable resources.
-3. **Monitor Cache Statistics**: Use `get_stats()` to tune cache size and policy.
-4. **Handle Cache Misses Gracefully**: Always check for `None` and reload resources as needed.
-5. **Configure Environment Early**: Set environment variables before importing the module.
-6. **Avoid Caching Sensitive Data**: Do not cache secrets or credentials.
-7. **Use Decorators for Expensive Functions**: Apply `@cache_function` to cache results of slow computations.
+### 1. Cache Key Design
+- Use descriptive, unique keys
+- Include version information for cache invalidation
+- Consider using hash-based keys for long strings
+
+### 2. TTL Configuration
+- Set appropriate TTL based on data volatility
+- Use shorter TTL for frequently changing data
+- Consider infinite TTL (0) for static resources
+
+### 3. Memory Management
+- Monitor cache size and hit ratios
+- Use ModelCache for large NLP models
+- Configure memory thresholds appropriately
+
+### 4. Error Handling
+```python
+try:
+    value = cache.get(key)
+    if value is None:
+        # Compute value
+        value = compute_value()
+        cache.set(key, value)
+except Exception as e:
+    logger.error(f"Cache operation failed: {e}")
+    # Fallback to direct computation
+    value = compute_value()
+```
+
+## Environment Variables
+
+Configure cache behavior via environment variables:
+
+```bash
+# Maximum cache size
+export PAMOLA_MAX_CACHE_SIZE=200
+
+# Default TTL in seconds
+export PAMOLA_CACHE_TTL=7200
+
+# Disable caching (for debugging)
+export PAMOLA_DISABLE_CACHE=1
+```
+
+## Future Enhancements
+
+The module roadmap includes:
+- Redis backend support for distributed caching
+- Cache warming strategies
+- Persistent cache across sessions
+- Cache clustering support
+- Advanced compression for cached values
+
+## Troubleshooting
+
+### Common Issues
+
+1. **High Memory Usage**
+   - Reduce cache size limits
+   - Enable memory monitoring in ModelCache
+   - Use more aggressive eviction policies
+
+2. **Low Hit Ratio**
+   - Increase cache size
+   - Adjust TTL values
+   - Review access patterns and eviction policy
+
+3. **File Cache Invalidation**
+   - Ensure file paths are absolute
+   - Check file system permissions
+   - Monitor file modification times
+
+## Conclusion
+
+The cache module is a fundamental component of PAMOLA.CORE's NLP utilities, providing efficient, thread-safe caching with multiple strategies. Its integration with the broader NLP package ensures optimal performance for text processing, model management, and resource loading operations.

@@ -757,7 +757,7 @@ class TaskContextManager:
                             f"Restored from checkpoint: {checkpoint_name} (Operation index: {self.current_state.get('operation_index', -1)})"
                         )
                     else:
-                        self.logger.info(f"Restored execution state from checkpoint: {checkpoint_path}")
+                        self.logger.info(f"Restored execution state from checkpoint: {checkpoint_path.name}")
 
                     return self.current_state
 

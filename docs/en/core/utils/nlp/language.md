@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `language.py` module is a pamola core component of the PAMOLA.CORE (Privacy-Preserving AI Data Processors) natural language processing system, designed for robust language detection with advanced capabilities for analyzing multilingual and mixed-language texts. It provides reliable language identification with graceful degradation when specialized NLP libraries are unavailable, making it essential for preprocessing diverse resume and job posting content across multiple languages.
+The `language.py` module is a core component of the PAMOLA CORE natural language processing system, designed for robust language detection with advanced capabilities for analyzing multilingual and mixed-language texts. It provides reliable language identification with graceful degradation when specialized NLP libraries are unavailable, making it essential for preprocessing diverse resume and job posting content across multiple languages.
 
 ## Architecture
 
@@ -13,7 +13,7 @@ The module implements a flexible architecture focused on:
 3. **Graceful Degradation**: Fallback mechanisms when specialized libraries are unavailable
 4. **Mixed-language Analysis**: Capability to analyze texts containing multiple languages
 
-This architecture aligns with the broader NLP utilities framework of the PAMOLA.CORE system:
+This architecture aligns with the broader NLP utilities framework of the PAMOLA CORE system:
 
 ```
 ┌────────────────┐      ┌────────────────┐      ┌────────────────┐
@@ -448,4 +448,4 @@ Language detection resources can be managed in several ways:
 
 ## Conclusion
 
-The `language.py` module provides a robust, flexible foundation for language detection in the PAMOLA.CORE system. By supporting multiple detection methods, mixed-language analysis, and graceful degradation, it ensures reliable language identification across various NLP tasks in resume and job posting analysis. The module's architecture allows for easy extension and customization while maintaining high performance, making it an essential component of the PAMOLA.CORE natural language processing pipeline.
+The `language.py` module provides a robust, flexible foundation for language detection in the PAMOLA CORE system. By supporting multiple detection methods, mixed-language analysis, and graceful degradation, it ensures reliable language identification across various NLP tasks in resume and job posting analysis. The module's architecture allows for easy extension and customization while maintaining high performance, making it an essential component of the PAMOLA CORE natural language processing pipeline.

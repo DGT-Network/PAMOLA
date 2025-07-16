@@ -1,1016 +1,1221 @@
 # PAMOLA.CORE Anonymization Package Software Requirements Specification
 
-**Document Version:** 1.1.0  
-**Last Updated:** May 4, 2025  
-**Status:** Draft  
+**Document Version:** 4.1.0  
+**Last Updated:** 2025-06-15  
+**Status:** Release Candidate
 
 ## 1. Introduction
 
 ### 1.1 Purpose
 
-This Software Requirements Specification (SRS) document defines the requirements for the PAMOLA.CORE anonymization package, which implements privacy-enhancing operations through various techniques such as generalization, masking, noise addition, pseudonymization, and suppression.
+This Software Requirements Specification (SRS) document defines the requirements for the PAMOLA.CORE anonymization package. The package implements privacy-enhancing operations as atomic, self-contained processes that transform data while preserving analytical utility.
 
 ### 1.2 Scope
 
-The anonymization package provides a set of operations for anonymizing data while preserving analytical utility. It is implemented according to the PAMOLA.CORE Operations Framework, providing standardized interfaces for executing privacy operations, collecting metrics, generating visualizations, managing configuration, and processing large datasets efficiently.
+The anonymization package provides operations organized into five core categories:
+- **Generalization**: Reducing data precision while maintaining utility
+- **Noise Addition**: Adding statistical noise for differential privacy
+- **Suppression**: Removing sensitive values or records
+- **Masking**: Hiding parts of data values
+- **Pseudonymization**: Replacing identifiers with consistent substitutes
+
+Each operation is implemented as an independent, atomic process following the PAMOLA.CORE Operations Framework.
 
 ### 1.3 Document Conventions
 
-- **REQ-ANON-XXX**: General anonymization package requirements
-- **REQ-BASE-XXX**: Base anonymization operation requirements
+- **REQ-ANON-XXX**: General anonymization requirements
 - **REQ-GEN-XXX**: Generalization operation requirements
-- **REQ-MASK-XXX**: Masking operation requirements
-- **REQ-NOISE-XXX**: Noise addition operation requirements
-- **REQ-PSEUDO-XXX**: Pseudonymization operation requirements
-- **REQ-SUPP-XXX**: Suppression operation requirements
-- **REQ-COMMON-XXX**: Common utilities requirements
+- **REQ-NOISE-XXX**: Noise addition requirements
+- **REQ-SUPP-XXX**: Suppression requirements
+- **REQ-MASK-XXX**: Masking requirements
+- **REQ-PSEUDO-XXX**: Pseudonymization requirements
+- **REQ-COMMONS-XXX**: Commons sub-framework requirements
 
 Priority levels:
-- **MUST**: Essential requirement (Mandatory)
-- **SHOULD**: Important but not essential requirement (Recommended)
-- **MAY**: Optional requirement (Optional)
+- **MUST**: Essential requirement (MVP)
+- **SHOULD**: Important but not essential
+- **MAY**: Optional enhancement
 
-## 2. Overall Description
+## 2. Core Architecture Principles
 
-### 2.1 Key Principles
+### 2.1 Operation Contract
 
-**REQ-ANON-001 [MUST]** All anonymization operations must follow the operation-based architecture of the PAMOLA.CORE framework.
+**REQ-ANON-001 [MUST]** Every anonymization operation is an atomic process that:
+- Inherits from `AnonymizationOperation` (which inherits from `BaseOperation`)
+- Implements only the transformation logic (no quality assessment, no final reporting)
+- Uses only framework-provided services for I/O, progress tracking, and result reporting
+- Returns process metrics only (effectiveness, performance, basic statistics)
+- Supports both pandas and Dask for large-scale processing
 
-**REQ-ANON-002 [MUST]** All operations must use the `DataSource` abstraction for input and `OperationResult` for output.
+**REQ-ANON-002 [MUST]** Operations SHALL NOT:
+- Implement their own file I/O (must use `DataWriter`)
+- Create custom progress tracking (must use `ProgressTracker` or `HierarchicalProgressTracker`)
+- Define custom result structures (must use `OperationResult`)
+- Perform final quality assessment or risk evaluation
+- Integrate directly with profiling or other packages
+- Store state between executions
+- Override `run()` method from base class
 
-**REQ-ANON-003 [MUST]** All operations must organize outputs in a consistent structure under the `task_dir`.
+### 2.2 Framework Integration Requirements
 
-**REQ-ANON-004 [MUST]** All operations must generate relevant metrics and visualizations.
+**REQ-ANON-003 [MUST]** All operations must use these framework components:
 
-**REQ-ANON-005 [MUST]** All operations must support chunked processing and progress tracking for large datasets.
+| Component | Purpose | Required Methods/Usage |
+|-----------|---------|----------------------|
+| `DataWriter` | All file output | `write_dataframe()`, `write_metrics()`, `write_json()` |
+| `DataSource` | All data input | `get_dataframe()`, `get_file_path()` |
+| `OperationResult` | Result reporting | `add_metric()`, `add_artifact()`, `add_nested_metric()` |
+| `ProgressTracker` | Progress updates | `update()`, `create_subtask()` |
+| `HierarchicalProgressTracker` | Complex progress | For operations with multiple phases |
+| `OperationConfig` | Configuration | Schema validation, `to_dict()`, `save()` |
 
-**REQ-ANON-006 [MUST]** All operations must implement efficient caching for result reuse.
+**REQ-ANON-004 [MUST]** All operations must use utilities from:
+- `pamola_core.utils.ops.op_field_utils` for field naming and conditions
+- `pamola_core.utils.ops.op_data_processing` for memory optimization and chunking
+- `pamola_core.anonymization.commons.metric_utils` for standardized metrics
+- `pamola_core.anonymization.commons.privacy_metric_utils` for privacy indicators
+- `pamola_core.anonymization.commons.validation_utils` for input validation
+- `pamola_core.utils.logging` for logging (module-specific loggers)
 
-**REQ-ANON-007 [MUST]** All operations must follow standardized error handling practices.
+### 2.3 Package Structure
 
-**REQ-ANON-008 [MUST]** All operations must provide consistent visualization and reporting.
-
-### 2.2 Package Structure
-
-**REQ-ANON-009 [MUST]** The anonymization package must adhere to the following structure:
+**REQ-ANON-005 [MUST]** The package structure SHALL be:
 
 ```
 pamola_core/anonymization/
 ├── __init__.py
-├── base_anonymization_op.py      # Base class for all anonymization operations
-├── commons/                      # Common utilities for all anonymization methods
+├── base_anonymization_op.py    # Base class for all operations
+├── commons/                    # Shared utilities sub-framework
 │   ├── __init__.py
-│   ├── metric_utils.py           # Common metrics utilities
-│   ├── validation_utils.py       # Parameter validation utilities
-│   ├── processing_utils.py       # Data processing utilities
-│   └── visualization_utils.py    # Visualization helper utilities
-├── generalization/
+│   ├── validation/            # Modular validation subsystem
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── decorators.py
+│   │   ├── exceptions.py
+│   │   ├── field_validators.py
+│   │   ├── file_validators.py
+│   │   ├── strategy_validators.py
+│   │   └── type_validators.py
+│   ├── categorical_config.py   # Category-specific configuration
+│   ├── categorical_strategies.py # Category processing strategies
+│   ├── category_utils.py       # Category analysis utilities
+│   ├── data_utils.py          # Privacy-aware data processing
+│   ├── hierarchy_dictionary.py # Hierarchical generalization support
+│   ├── metric_utils.py        # Lightweight metrics
+│   ├── privacy_metric_utils.py # Privacy process metrics
+│   ├── text_processing_utils.py # Text normalization
+│   ├── validation_utils.py    # Legacy validation facade
+│   └── visualization_utils.py  # Chart generation wrappers
+├── generalization/            
 │   ├── __init__.py
-│   ├── categorical_op.py         # Categorical generalization operation
-│   ├── numeric_op.py             # Numeric generalization operation
-│   └── datetime_op.py            # Datetime generalization operation
+│   ├── numeric_op.py          # Numeric generalization
+│   ├── categorical_op.py      # Categorical generalization
+│   └── datetime_op.py         # DateTime generalization
+├── noise/
+│   ├── __init__.py
+│   ├── gaussian_op.py         # Gaussian noise
+│   ├── laplace_op.py          # Laplace noise
+│   └── uniform_op.py          # Uniform noise
+├── suppression/
+│   ├── __init__.py
+│   ├── cell_op.py             # Cell-level suppression
+│   ├── record_op.py           # Record-level suppression
+│   └── attribute_op.py        # Attribute suppression
 ├── masking/
 │   ├── __init__.py
-│   ├── full_masking_op.py        # Full masking operation
-│   └── partial_masking_op.py     # Partial masking operation
-├── noise_addition/
-│   ├── __init__.py
-│   ├── gaussian_op.py            # Gaussian noise addition operation
-│   ├── laplace_op.py             # Laplace noise addition operation 
-│   └── uniform_op.py             # Uniform noise addition operation
-├── pseudonymization/
-│   ├── __init__.py
-│   ├── base.py                   # Base pseudonymization functionality
-│   ├── hashing_op.py             # Hash-based pseudonymization operation
-│   ├── replacement_op.py         # Dictionary-based replacement operation
-│   └── tokenization_op.py        # Tokenization operation
-└── suppression/
+│   ├── full_op.py             # Full field masking
+│   └── partial_op.py          # Partial masking
+└── pseudonymization/
     ├── __init__.py
-    ├── attribute_suppression_op.py  # Attribute-level suppression operation
-    ├── record_suppression_op.py     # Record-level suppression operation
-    └── cell_suppression_op.py       # Cell-level suppression operation
+    ├── hash_op.py             # Hash-based pseudonymization
+    └── mapping_op.py          # Dictionary mapping
 ```
 
-### 2.3 Interface Inheritance
+## 3. Base Operation Requirements
 
-**REQ-ANON-010 [MUST]** All anonymization operations must inherit from the base classes in the following inheritance chain:
+### 3.1 AnonymizationOperation Base Class
 
-```
-BaseOperation (from pamola_core.utils.ops.op_base)
-└── AnonymizationOperation (from pamola_core.anonymization.base_anonymization_op)
-    └── [Specific Anonymization Operations]
-```
+**REQ-ANON-006 [MUST]** All operations SHALL inherit from `AnonymizationOperation` which provides:
+- Lifecycle management (`execute()` method with standardized phases)
+- Memory optimization and adaptive batch sizing
+- Risk-based processing with k-anonymity integration
+- Automatic Dask switching for large datasets
+- Progress tracking integration
+- Metric collection and visualization generation
+- Error handling and recovery
 
-### 2.4 Task Directory Structure
+### 3.2 Constructor Interface
 
-**REQ-ANON-011 [MUST]** All anonymization operations must follow this standardized directory structure for artifacts:
-
-```
-{task_dir}/
-├── config.json                   # Operation configuration (via self.save_config)
-├── {field}_{operation}_{timestamp}.json        # Operation / Data metrics
-├── {field}_{operation_visType}_{timestamp}.png # Visualization 
-│     
-├── output/                       # Transformed data outputs (if needed)
-│   └── {dataset}_{timestamp}.{format} # Anonymized data (could be encrypted)
-├── dictionaries/                 # Extracted dictionaries and mappings
-│   ├── {field}_mapping_{timestamp}.csv         # Frequency/ Value mappings
-│   └── {field}_hierarchy_{timestamp}.json      # Generalization hierarchies
-└── logs/                         # Operation logs
-    └── operation.log             # Logging output
-```
-
-**REQ-ANON-012 [SHOULD]** All output files should include timestamps by default (configurable) to prevent overwriting previous runs.
-
-## 3. Base Anonymization Operation Requirements
-
-### 3.1 Base Class Interface
-
-**REQ-BASE-001 [MUST]** The `AnonymizationOperation` class must inherit from `BaseOperation` and provide the following constructor interface:
+**REQ-ANON-007 [MUST]** All operations SHALL have this constructor signature:
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             mode: str = "REPLACE", 
+def __init__(self,
+             field_name: str,                    # Field to process
+             mode: str = "REPLACE",              # REPLACE or ENRICH
              output_field_name: Optional[str] = None,
              column_prefix: str = "_",
-             null_strategy: str = "PRESERVE",
+             null_strategy: str = "PRESERVE",    # PRESERVE, EXCLUDE, ERROR, ANONYMIZE
              batch_size: int = 10000,
              use_cache: bool = True,
-             description: str = "",
              use_encryption: bool = False,
-             encryption_key: Optional[Union[str, Path]] = None):
-    """Initialize the anonymization operation."""
+             encryption_key: Optional[Union[str, Path]] = None,
+             condition_field: Optional[str] = None,
+             condition_values: Optional[List] = None,
+             condition_operator: str = "in",
+             multi_conditions: Optional[List[Dict[str, Any]]] = None,
+             multi_condition_logic: str = "AND",
+             ka_risk_field: Optional[str] = None,
+             risk_threshold: float = 5.0,
+             vulnerable_record_strategy: str = "suppress",
+             optimize_memory: bool = True,
+             adaptive_batch_size: bool = True,
+             engine: str = "auto",              # pandas, dask, or auto
+             max_rows_in_memory: int = 1000000,
+             dask_chunk_size: str = "100MB",
+             dask_npartitions: Optional[int] = None,
+             **operation_specific_params):       # Strategy-specific parameters
 ```
 
-**REQ-BASE-002 [MUST]** The `AnonymizationOperation` class must provide methods for:
-1. Executing operation lifecycle via `execute()` method
-2. Handling chunked processing of large datasets
-3. Managing caching of operation results
-4. Generating metrics and visualizations
-5. Providing standardized error handling
-6. Supporting both in-place (REPLACE) and new field creation (ENRICH) modes
-7. Handling different null value strategies (PRESERVE, EXCLUDE, ERROR)
+### 3.3 Required Method Implementations
 
-### 3.2 Required Methods
-
-**REQ-BASE-003 [MUST]** All anonymization operations must implement the following methods:
+**REQ-ANON-008 [MUST]** All operations must implement:
 
 ```python
 def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
-    """Process a batch of data."""
-    
-def process_value(self, value, **params):
-    """Process a single value."""
-    
-def _collect_specific_metrics(self, original_data: pd.Series, anonymized_data: pd.Series) -> Dict[str, Any]:
-    """Collect operation-specific metrics."""
+    """Process a batch of data - core transformation logic."""
     
 def _get_cache_parameters(self) -> Dict[str, Any]:
-    """Get operation-specific parameters for cache key generation."""
+    """Return operation-specific parameters for cache key."""
+    
+def _collect_specific_metrics(self, 
+                             original_data: pd.Series,
+                             anonymized_data: pd.Series) -> Dict[str, Any]:
+    """Collect operation-specific metrics (optional override)."""
 ```
 
-### 3.3 Standard Parameters
+**REQ-ANON-009 [SHOULD]** Operations supporting Dask should implement:
 
-**REQ-BASE-004 [MUST]** All anonymization operations must support the following standard parameters:
+```python
+def _process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:
+    """Process Dask DataFrame for distributed computing."""
+```
 
-| Parameter | Type | Description | Default |
-|---|---|---|---|
-| field_name | str | Field(s) to anonymize | - |
-| mode | str | "REPLACE" or "ENRICH" | "REPLACE" |
-| output_field_name | Optional[str] | Name for output field if mode is "ENRICH" | None |
-| column_prefix | str | Prefix for new column if mode is "ENRICH" | "_" |
-| null_strategy | str | How to handle NULL values: "PRESERVE", "EXCLUDE", "ERROR" | "PRESERVE" |
-| batch_size | int | Batch size for processing large datasets | 10000 |
-| use_cache | bool | Whether to use operation caching | True |
-| description | str | Operation description | "" |
-| use_encryption | bool | Whether to encrypt output files | False |
-| encryption_key | Optional[Union[str, Path]] | The encryption key or path to a key file | None |
+**REQ-ANON-010 [MUST]** Operations may override `execute()` ONLY when:
+- Advanced Dask integration is required beyond base class capabilities
+- Custom metric collection or visualization is needed
+- Complex multi-phase processing requires different lifecycle
 
-**REQ-BASE-005 [MUST]** The `execute()` method must support the following parameters:
+**When overriding `execute()`, operations MUST:**
+1. Call `super().execute()` at the beginning or implement ALL base class phases
+2. Maintain the exact same method signature
+3. Return the same `OperationResult` structure
+4. Use DataWriter for ALL file operations
+5. Use ProgressTracker for ALL progress updates
+6. Document why override is necessary
+7. Preserve all base class functionality
 
-| Parameter | Type | Description | Default |
-|---|---|---|---|
-| data_source | DataSource | Source of data (DataFrame or file path) | - |
-| task_dir | Path | Directory for task artifacts | - |
-| reporter | Any | Reporter object for tracking progress and artifacts | - |
-| progress_tracker | Optional[ProgressTracker] | Progress tracker for the operation | None |
-| **kwargs | dict | Additional parameters | |
+**Example of valid execute() override:**
+```python
+def execute(self, data_source: DataSource, task_dir: Path, 
+            reporter: Optional[Any] = None) -> OperationResult:
+    """
+    Override to add custom Dask optimization for large hierarchies.
+    
+    Justification: Base class Dask handling doesn't support 
+    hierarchical dictionary partitioning needed for this operation.
+    """
+    # Option 1: Extend base functionality
+    result = super().execute(data_source, task_dir, reporter)
+    # Add custom processing here
+    return result
+    
+    # Option 2: Reimplement with all required phases
+    # Must include ALL phases from base class
+```
 
-**REQ-BASE-006 [MUST]** The `execute()` method must handle the following additional parameters through **kwargs:
-
-| Parameter | Type | Description | Default |
-|---|---|---|---|
-| use_dask | bool | Whether to use parallel processing | False |
-| force_recalculation | bool | Force operation even if cached results exist | False |
-| encrypt_output | bool | Override encryption setting for outputs | False |
-| generate_visualization | bool | Create visualizations | True |
-| include_timestamp | bool | Include timestamp in filenames | True |
-| save_output | bool | Save processed data to output directory | True |
-| parallel_processes | int | Number of parallel processes to use | 1 |
+**Operations SHALL NOT override:**
+- `run()` - Use framework implementation
+- File I/O methods - Use DataWriter
+- `_load_and_optimize_data()` - Use base class implementation (unless documented reason)
+- `_apply_conditional_filtering()` - Use base class implementation (unless documented reason)
 
 ### 3.4 Execution Lifecycle
 
-**REQ-BASE-007 [MUST]** The execution lifecycle of an anonymization operation must follow these steps:
+**REQ-ANON-011 [MUST]** The base class `execute()` method provides these phases:
 
-1. **Initialization**: Create and initialize operation with parameters
-2. **Execution Start**: Call the `execute()` method
-3. **Cache Check**: Check if a cached result exists (if enabled)
-4. **Data Loading**: Get DataFrame from the DataSource
-5. **Validation**: Verify field exists and has the correct type
-6. **Processing**: Process the data according to the operation type
-7. **Metrics Collection**: Calculate metrics on the original and processed data
-8. **Visualization Generation**: Create visualizations comparing before/after
-9. **Output Generation**: Save processed data to output directory
-10. **Cache Update**: Save result to cache (if enabled)
-11. **Memory Cleanup**: Release temporary data structures
-12. **Result Return**: Return the OperationResult with status, metrics, and artifacts
+1. **Configuration Saving**: Save operation config to task_dir
+2. **Data Loading & Optimization**: Load data and optimize memory usage
+3. **Engine Selection**: Determine pandas vs Dask based on data size
+4. **Output Field Preparation**: Generate output field name
+5. **Conditional Filtering**: Apply conditions and risk-based filtering
+6. **Data Processing**: Call `process_batch()` with chunking
+7. **Vulnerable Record Handling**: Process high-risk records
+8. **Metrics Collection**: Gather effectiveness and privacy metrics
+9. **Visualization Generation**: Create comparison charts
+10. **Output Writing**: Save transformed data via DataWriter
+11. **Memory Cleanup**: Force garbage collection for large datasets
 
-### 3.5 Caching Requirements
+### 3.5 Metric Requirements
 
-**REQ-BASE-008 [MUST]** All anonymization operations must implement proper caching with the following requirements:
+**REQ-ANON-012 [MUST]** All operations must collect these standard metrics:
 
-1. Override `_get_cache_parameters()` to provide operation-specific parameters
-2. Use provided caching methods from the base class:
-   - `_check_cache()` - Check if a cached result exists
-   - `_save_to_cache()` - Save operation results to cache
-   - `_generate_cache_key()` - Generate a deterministic cache key
-3. Include version information in the cache key to invalidate cache when code changes
-4. Cache keys must incorporate all operation parameters that affect the result
-5. Cache invalidation must happen automatically when operation code is updated
+| Metric Category | Required Metrics |
+|----------------|------------------|
+| Process | `records_processed`, `execution_time`, `batch_count`, `processing_engine` |
+| Effectiveness | `unique_values_before`, `unique_values_after`, `information_loss` |
+| Performance | `memory_usage_mb`, `processing_rate_records_per_sec` |
+| Errors | `error_count`, `null_count`, `invalid_values` |
+| Privacy | `suppression_rate`, `generalization_level`, `disclosure_risk` (if QIs provided) |
 
-**REQ-BASE-009 [SHOULD]** Operations should respect the cache control parameters:
-   - `max_age_days` (default: 7.0) - Maximum age of cache files in days
-   - `max_size_mb` (default: 500.0) - Maximum size of cache directory in MB
+## 4. Commons Sub-Framework Requirements
 
-### 3.6 Error Handling
+### 4.1 Purpose and Design
 
-**REQ-BASE-010 [MUST]** All operations must implement proper error handling:
+**REQ-COMMONS-001 [MUST]** The commons sub-framework provides:
+- Privacy-specific utilities extending general framework capabilities
+- Lightweight, fast operations suitable for real-time processing
+- Standardized validation, metrics, and visualization
+- Consistent error handling across all anonymization operations
 
-1. Validate all inputs before starting processing
-2. Use specific exception types for different error categories
-3. Handle null values according to the null_strategy parameter
-4. Track and report errors without crashing the entire operation
-5. Add appropriate context to error messages
-6. Return `OperationResult` with `OperationStatus.ERROR` when errors occur
-7. Log all errors with appropriate context via the logger
+### 4.2 Validation Requirements
 
-### 3.7 Metrics and Visualization
-
-**REQ-BASE-011 [MUST]** All operations must generate and save metrics:
-
-1. Generate basic metrics (record count, execution time, etc.)
-2. Generate operation-specific metrics
-3. Save metrics in a JSON file under the task directory
-4. Include metrics in the OperationResult
-5. Follow the standard metrics format
-
-**REQ-BASE-012 [MUST]** All operations must generate and save visualizations:
-
-1. Generate appropriate visualizations for the operation type
-2. Save visualizations in PNG format under the task directory
-3. Add visualization artifacts to the OperationResult
-4. Follow the standard visualization format
-
-### 3.8 Memory Management
-
-**REQ-BASE-013 [MUST]** All operations must implement proper memory management:
-
-1. Process data in chunks for large datasets
-2. Clean up temporary data structures after processing
-3. Use Dask for very large datasets when enabled
-4. Implement a `_cleanup_memory()` method to release resources
-
-### 3.9 Documentation
-
-**REQ-BASE-014 [MUST]** All operations must be properly documented:
-
-1. Include module docstring with purpose, key features, and usage examples
-2. Document all methods with parameters, return values, and exceptions
-3. Include inline comments for complex logic
-4. Follow a consistent documentation style
-
-## 4. Generalization Operations Requirements
-
-### 4.1 Categorical Generalization Operation
-
-**REQ-GEN-001 [MUST]** The `CategoricalGeneralizationOperation` class must inherit from `AnonymizationOperation` and support the following strategies:
-- `merge_low_freq`: Merge low-frequency categories
-- `hierarchy`: Use a predefined hierarchy for generalization
-- `semantic`: Group categories based on semantic similarity
-
-**REQ-GEN-002 [MUST]** The `CategoricalGeneralizationOperation` constructor must support these parameters:
+**REQ-COMMONS-002 [MUST]** Operations must use the modular validation system:
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             strategy: str = "merge_low_freq",  # "merge_low_freq", "hierarchy", "semantic"
-             min_group_size: int = 5,
-             hierarchy: Optional[Dict[str, str]] = None,
-             **kwargs):
-    """Initialize categorical generalization operation."""
+from pamola_core.anonymization.commons.validation import (
+    FieldExistsValidator,
+    NumericFieldValidator,
+    CategoricalFieldValidator,
+    ValidationResult
+)
+
+# Example usage
+validator = NumericFieldValidator(min_value=0, max_value=100)
+result = validator.validate(df[field_name])
+if not result.is_valid:
+    raise FieldValidationError(result.errors[0])
 ```
 
-**REQ-GEN-003 [MUST]** The operation must generate these visualizations:
-- Bar plot comparing original and generalized value distributions
-- Pie chart showing reduction in unique categories
-- Heatmap for hierarchical generalizations (if using hierarchy strategy)
-
-**REQ-GEN-004 [MUST]** The operation must calculate these metrics:
-- Category reduction ratio
-- Information loss estimate
-- Grouping consistency metrics
-- Minimum group size verification
-
-### 4.2 Numeric Generalization Operation
-
-**REQ-GEN-005 [MUST]** The `NumericGeneralizationOperation` class must inherit from `AnonymizationOperation` and support the following strategies:
-- `binning`: Group values into bins
-- `rounding`: Round values to a specified precision
-- `range`: Replace values with range expressions
-
-**REQ-GEN-006 [MUST]** The `NumericGeneralizationOperation` constructor must support these parameters:
+**REQ-COMMONS-003 [SHOULD]** Use validation decorators for method validation:
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             strategy: str = "binning",  # "binning", "rounding", "range"
-             bin_count: int = 10,
-             precision: int = 0,  # For rounding strategy
-             range_limits: Optional[Tuple[float, float]] = None,  # For range strategy
-             **kwargs):
-    """Initialize numeric generalization operation."""
+from pamola_core.anonymization.commons.validation import (
+    validation_handler,
+    requires_field,
+    validate_types
+)
+
+@validation_handler()
+@requires_field('field_name')
+@validate_types(strategy=str, bin_count=int)
+def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
+    # Implementation
 ```
 
-**REQ-GEN-007 [MUST]** The operation must generate these visualizations:
-- Histogram comparing original and generalized distributions
-- Box plot showing statistical changes
-- Bin distribution visualization (for binning strategy)
+### 4.3 Metric Collection Requirements
 
-**REQ-GEN-008 [MUST]** The operation must calculate these metrics:
-- Generalization ratio (reduction in unique values)
-- Mean absolute difference
-- Statistical property preservation metrics (mean, median, std deviation)
-- Strategy-specific metrics (bin counts, rounding precision)
-
-**REQ-GEN-009 [MUST]** The operation must implement the following strategy-specific processing logic:
-- For binning: Create optimal bin edges and assign values to bins
-- For rounding: Round values to the specified precision
-- For range: Replace values with range expressions based on the specified limits
-
-**REQ-GEN-010 [MUST]** The operation must handle non-numeric fields gracefully:
-- If a field is not numeric, log a warning
-- If in ENRICH mode, copy values to the output field
-- If in REPLACE mode, leave values unchanged
-- Return with SUCCESS status and appropriate metrics
-
-**REQ-GEN-011 [MUST]** The operation must handle null values according to the `null_strategy` parameter:
-- `PRESERVE`: Keep null values as null
-- `EXCLUDE`: Skip null values during processing
-- `ERROR`: Raise an error if null values are found
-
-**REQ-GEN-012 [MUST]** The operation must produce well-defined output values:
-- For binning: Range expressions (e.g., "10.0-20.0")
-- For rounding: Rounded numeric values
-- For range: Range expressions or boundary indicators (e.g., "<10.0", "10.0-20.0", ">20.0")
-
-### 4.3 Datetime Generalization Operation
-
-**REQ-GEN-013 [MUST]** The `DatetimeGeneralizationOperation` class must inherit from `AnonymizationOperation` and support the following granularities:
-- `year`: Truncate to year
-- `month`: Truncate to month
-- `day`: Truncate to day
-- `hour`: Truncate to hour
-
-**REQ-GEN-014 [MUST]** The `DatetimeGeneralizationOperation` constructor must support these parameters:
+**REQ-COMMONS-004 [MUST]** Use standardized metric collection:
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             granularity: str = "month",  # "year", "month", "day", "hour"
-             format_string: Optional[str] = None,
-             **kwargs):
-    """Initialize datetime generalization operation."""
+from pamola_core.anonymization.commons.metric_utils import (
+    collect_operation_metrics,
+    calculate_anonymization_effectiveness,
+    calculate_categorical_information_loss
+)
+
+# Collect all metrics in one call
+metrics = collect_operation_metrics(
+    operation_type="suppression",
+    original_data=original_series,
+    processed_data=processed_series,
+    operation_params=self.strategy_params,
+    timing_info=timing_info
+)
 ```
 
-**REQ-GEN-015 [MUST]** The operation must generate these visualizations:
-- Time-series histogram before/after
-- Calendar heatmap (if appropriate)
-- Distribution by granularity level
-
-**REQ-GEN-016 [MUST]** The operation must calculate these metrics:
-- Datetime precision reduction
-- Temporal distance metrics
-- Seasonality preservation metrics
-
-## 5. Masking Operations Requirements
-
-### 5.1 Full Masking Operation
-
-**REQ-MASK-001 [MUST]** The `FullMaskingOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Replace all characters in the field with a mask character
-- Optionally preserve the length of the original value
-
-**REQ-MASK-002 [MUST]** The `FullMaskingOperation` constructor must support these parameters:
+**REQ-COMMONS-005 [MUST]** Include privacy metrics when quasi-identifiers are available:
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             mask_char: str = "*",
-             preserve_length: bool = True,
-             **kwargs):
-    """Initialize full masking operation."""
+from pamola_core.anonymization.commons.privacy_metric_utils import (
+    calculate_batch_metrics,
+    check_anonymization_thresholds,
+    get_process_summary
+)
+
+if self.quasi_identifiers:
+    privacy_metrics = calculate_batch_metrics(
+        original_batch=original_df,
+        anonymized_batch=anonymized_df,
+        field_name=self.field_name,
+        quasi_identifiers=self.quasi_identifiers
+    )
 ```
 
-**REQ-MASK-003 [MUST]** The operation must generate these visualizations:
-- Information removal bar chart
-- Character type preservation visualization
+### 4.4 Data Processing Requirements
 
-**REQ-MASK-004 [MUST]** The operation must calculate these metrics:
-- Masking coverage percentage
-- Information loss metrics
-- Type preservation metrics
-
-### 5.2 Partial Masking Operation
-
-**REQ-MASK-005 [MUST]** The `PartialMaskingOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Mask portions of the field while preserving some characters
-- Support different masking patterns based on the field type
-- Support custom pattern-based masking
-
-**REQ-MASK-006 [MUST]** The `PartialMaskingOperation` constructor must support these parameters:
+**REQ-COMMONS-006 [MUST]** Use commons data utilities for privacy-aware processing:
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             mask_char: str = "*",
-             mask_pattern: Optional[str] = None,  # Regex pattern for what to mask
-             unmasked_prefix: int = 0,  # Number of characters to leave unmasked at start
-             unmasked_suffix: int = 0,  # Number of characters to leave unmasked at end
-             special_field_type: Optional[str] = None,  # "email", "phone", "credit_card", etc.
-             **kwargs):
-    """Initialize partial masking operation."""
+from pamola_core.anonymization.commons.data_utils import (
+    process_nulls,
+    filter_records_conditionally,
+    handle_vulnerable_records,
+    create_risk_based_processor
+)
+
+# Handle nulls with privacy strategy
+processed = process_nulls(series, strategy="ANONYMIZE", anonymize_value="SUPPRESSED")
 ```
 
-**REQ-MASK-007 [MUST]** The operation must generate these visualizations:
-- Information retention graph
-- Pattern-matching visualization if applicable
-- Field type-specific visualizations
+### 4.5 Visualization Requirements
 
-**REQ-MASK-008 [MUST]** The operation must calculate these metrics:
-- Information retention ratio
-- Re-identification risk estimate
-- Field format preservation metrics
-
-## 6. Noise Addition Operations Requirements
-
-### 6.1 Gaussian Noise Operation
-
-**REQ-NOISE-001 [MUST]** The `GaussianNoiseOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Add Gaussian noise to numeric fields
-- Support differential privacy parameters
-- Support bounds on the noise range
-
-**REQ-NOISE-002 [MUST]** The `GaussianNoiseOperation` constructor must support these parameters:
+**REQ-COMMONS-007 [MUST]** Use visualization utilities, never direct plotting:
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             mean: float = 0.0,
-             std_dev: float = 1.0,
-             min_val: Optional[float] = None,
-             max_val: Optional[float] = None,
-             epsilon: Optional[float] = None,  # For differential privacy
-             delta: Optional[float] = None,  # For differential privacy
-             noise_budget_percentage: float = 10.0,  # Maximum percentage of value to add as noise
-             **kwargs):
-    """Initialize Gaussian noise operation."""
+from pamola_core.anonymization.commons.visualization_utils import (
+    create_comparison_visualization,
+    create_category_distribution_comparison,
+    register_visualization_artifact
+)
+
+# Create visualization
+vis_path = create_comparison_visualization(
+    original_data, anonymized_data, task_dir, 
+    field_name, operation_name
+)
+
+# Register with result
+register_visualization_artifact(
+    result, reporter, vis_path, field_name,
+    "comparison", "Before/after comparison"
+)
 ```
 
-**REQ-NOISE-003 [MUST]** The operation must generate these visualizations:
-- Overlaid histograms before/after
-- Noise distribution visualization
-- Privacy vs. utility trade-off graph
+## 5. Operation Categories
 
-**REQ-NOISE-004 [MUST]** The operation must calculate these metrics:
-- Statistical property changes (mean, std)
-- Privacy guarantee metrics (if ε-DP)
-- Re-identification risk reduction
+### 5.1 Generalization Operations
 
-### 6.2 Laplace Noise Operation
+**REQ-GEN-001 [MUST]** Generalization operations reduce data precision:
 
-**REQ-NOISE-005 [MUST]** The `LaplaceNoiseOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Add Laplace noise to numeric fields
-- Support differential privacy parameters
-- Support bounds on the noise range
-
-**REQ-NOISE-006 [MUST]** The `LaplaceNoiseOperation` constructor must support these parameters:
+#### 5.1.1 Numeric Generalization
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             scale: float = 1.0,
-             min_val: Optional[float] = None,
-             max_val: Optional[float] = None,
-             epsilon: Optional[float] = None,  # For differential privacy
-             noise_budget_percentage: float = 10.0,  # Maximum percentage of value to add as noise
-             **kwargs):
-    """Initialize Laplace noise operation."""
+class NumericGeneralizationOperation(AnonymizationOperation):
+    """
+    Strategies: binning, rounding, range
+    Parameters:
+    - bin_count: int (for binning)
+    - binning_method: str (equal_width, equal_frequency, quantile)
+    - precision: int (for rounding)
+    - range_limits: List[Tuple[float, float]] (for range)
+    """
 ```
 
-**REQ-NOISE-007 [MUST]** The operation must generate these visualizations:
-- Overlaid histograms before/after
-- Noise distribution visualization
-- Privacy guarantee metrics (if ε-DP)
+Required metrics:
+- `bin_distribution` or `range_distribution`
+- `precision_loss`
+- `outliers_handled`
 
-**REQ-NOISE-008 [MUST]** The operation must calculate these metrics:
-- Statistical property changes
-- Privacy guarantee metrics
-- Utility preservation metrics
-
-### 6.3 Uniform Noise Operation
-
-**REQ-NOISE-009 [MUST]** The `UniformNoiseOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Add uniform noise to numeric fields
-- Support bounds on the noise range
-- Support percentage-based noise budgets
-
-**REQ-NOISE-010 [MUST]** The `UniformNoiseOperation` constructor must support these parameters:
+#### 5.1.2 Categorical Generalization
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             min_range: float = -1.0,
-             max_range: float = 1.0,
-             noise_budget_percentage: float = 10.0,  # Maximum percentage of value to add as noise
-             **kwargs):
-    """Initialize uniform noise operation."""
+class CategoricalGeneralizationOperation(AnonymizationOperation):
+    """
+    Strategies: merge_low_freq, hierarchy, frequency_based
+    Parameters:
+    - min_group_size: int
+    - hierarchy_file: Optional[str] (external dictionary)
+    - merge_threshold: float
+    - text_normalization: str (none, basic, advanced, aggressive)
+    - fuzzy_matching: bool
+    """
 ```
 
-**REQ-NOISE-011 [MUST]** The operation must generate these visualizations:
-- Overlaid histograms before/after
-- Range modification visualization
-- Error distribution graph
+**REQ-GEN-002 [MUST]** Support external hierarchy files (JSON/CSV format)
+**REQ-GEN-003 [SHOULD]** Use categorical_strategies module for implementation
 
-**REQ-NOISE-012 [MUST]** The operation must calculate these metrics:
-- Data range expansion metrics
-- Statistical property changes
-- Re-identification risk reduction
-
-## 7. Pseudonymization Operations Requirements
-
-### 7.1 Hashing Operation
-
-**REQ-PSEUDO-001 [MUST]** The `HashingOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Hash field values using cryptographic hash functions
-- Support salting for improved security
-- Check for and report hash collisions
-
-**REQ-PSEUDO-002 [MUST]** The `HashingOperation` constructor must support these parameters:
+#### 5.1.3 DateTime Generalization
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             hash_function: str = "SHA256",  # "SHA256", "MD5", etc.
-             salt: str = "",  # Salt for hashing (recommended for security)
-             check_collisions: bool = True,
-             collision_threshold: float = 0.01,  # Warn if collision rate exceeds this percentage
-             **kwargs):
-    """Initialize hashing operation."""
+class DateTimeGeneralizationOperation(AnonymizationOperation):
+    """
+    Strategies: truncate, shift, generalize
+    Parameters:
+    - granularity: str (year, month, day, hour)
+    - shift_days: int (for shifting)
+    - timezone_handling: str
+    """
 ```
 
-**REQ-PSEUDO-003 [MUST]** The operation must generate these visualizations:
-- Hash distribution visualization
-- Collision detection graph (if enabled)
-- Security strength indicator
+### 5.2 Noise Addition Operations
 
-**REQ-PSEUDO-004 [MUST]** The operation must calculate these metrics:
-- Collision rate metrics
-- Uniqueness preservation
-- Format changes (e.g., length, character distribution)
+**REQ-NOISE-001 [MUST]** Noise operations add calibrated random noise:
 
-### 7.2 Replacement Operation
-
-**REQ-PSEUDO-005 [MUST]** The `ReplacementOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Replace field values using a dictionary
-- Support different dictionary types (custom, names, organizations, locations)
-- Support consistent mapping between original and replacement values
-
-**REQ-PSEUDO-006 [MUST]** The `ReplacementOperation` constructor must support these parameters:
+#### 5.2.1 Gaussian Noise
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             replacement_dict: Optional[Dict[str, str]] = None,
-             replacement_file: Optional[str] = None,
-             dictionary_type: str = "custom",  # "custom", "names", "organizations", "locations"
-             save_mapping: bool = False,
-             mapping_file: Optional[str] = None,
-             consistent_mapping: bool = True,
-             **kwargs):
-    """Initialize replacement operation."""
+class GaussianNoiseOperation(AnonymizationOperation):
+    """
+    Parameters:
+    - noise_level: float (standard deviation)
+    - bounds: Optional[Tuple[float, float]]
+    - clip_values: bool
+    - seed: Optional[int] (for reproducibility)
+    """
 ```
 
-**REQ-PSEUDO-007 [MUST]** The operation must generate these visualizations:
-- Value distribution before/after
-- Dictionary coverage visualization
-- Mapping completeness graph
+Required metrics:
+- `noise_statistics` (mean, std of added noise)
+- `clipped_values_count`
+- `signal_to_noise_ratio`
 
-**REQ-PSEUDO-008 [MUST]** The operation must calculate these metrics:
-- Replacement coverage percentage
-- Dictionary efficiency metrics
-- Format consistency metrics
-
-### 7.3 Tokenization Operation
-
-**REQ-PSEUDO-009 [MUST]** The `TokenizationOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Replace field values with tokens
-- Support different token generation strategies
-- Support consistent mapping between original values and tokens
-
-**REQ-PSEUDO-010 [MUST]** The `TokenizationOperation` constructor must support these parameters:
+#### 5.2.2 Laplace Noise
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             token_length: int = 10,
-             preserve_original_length: bool = False,
-             token_prefix: str = "",
-             token_dictionary: Optional[List[str]] = None,  # Custom token source dictionary
-             save_mapping: bool = False,
-             mapping_file: Optional[str] = None,
-             **kwargs):
-    """Initialize tokenization operation."""
+class LaplaceNoiseOperation(AnonymizationOperation):
+    """
+    Parameters:
+    - epsilon: float (privacy parameter)
+    - sensitivity: float
+    - bounds: Optional[Tuple[float, float]]
+    - mechanism: str (global, local)
+    """
 ```
 
-**REQ-PSEUDO-011 [MUST]** The operation must generate these visualizations:
-- Token length distribution
-- Format changes visualization
-- Token uniqueness visualization
+### 5.3 Suppression Operations
 
-**REQ-PSEUDO-012 [MUST]** The operation must calculate these metrics:
-- Tokenization consistency metrics
-- Format properties metrics
-- One-to-one mapping verification
+**REQ-SUPP-001 [MUST]** Suppression operations remove or replace values:
 
-## 8. Suppression Operations Requirements
-
-### 8.1 Attribute Suppression Operation
-
-**REQ-SUPP-001 [MUST]** The `AttributeSuppressionOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Remove or mask entire columns from the dataset
-- Support multiple field suppression in a single operation
-
-**REQ-SUPP-002 [MUST]** The `AttributeSuppressionOperation` constructor must support these parameters:
+#### 5.3.1 Cell Suppression
 
 ```python
-def __init__(self, 
-             field_name: str,  # Can be a list of fields
-             suppression_strategy: str = "remove",  # "remove", "mask"
-             replacement_value: Optional[Any] = None,
-             **kwargs):
-    """Initialize attribute suppression operation."""
+class CellSuppressionOperation(AnonymizationOperation):
+    """
+    Parameters:
+    - suppression_value: Any (default: None)
+    - condition_threshold: Optional[float]
+    - suppression_marker: str (default: "SUPPRESSED")
+    - preserve_type: bool (maintain data type after suppression)
+    """
 ```
 
-**REQ-SUPP-003 [MUST]** The operation must generate these visualizations:
-- Before/after DataFrame structure visualization
-- Impact on data completeness
+Required metrics:
+- `cells_suppressed`
+- `suppression_rate`
+- `condition_matches`
 
-**REQ-SUPP-004 [MUST]** The operation must calculate these metrics:
-- Information loss metrics
-- Impact on overall dataset utility
-- Dimensionality reduction metrics
-
-### 8.2 Cell Suppression Operation
-
-**REQ-SUPP-005 [MUST]** The `CellSuppressionOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Suppress individual cells based on specified criteria
-- Support different suppression criteria (rare values, outliers, custom)
-- Replace suppressed values with a specified replacement
-
-**REQ-SUPP-006 [MUST]** The `CellSuppressionOperation` constructor must support these parameters:
+#### 5.3.2 Record Suppression
 
 ```python
-def __init__(self, 
-             field_name: str, 
-             suppression_criteria: str = "rare_values",  # "rare_values", "outliers", "custom"
-             threshold: float = 5,  # For rare_values: count, for outliers: std deviations
-             custom_filter: Optional[Callable] = None,  # For custom criteria
-             replacement_value: Optional[Any] = None,
-             **kwargs):
-    """Initialize cell suppression operation."""
+class RecordSuppressionOperation(AnonymizationOperation):
+    """
+    Parameters:
+    - risk_threshold: float
+    - multi_field_conditions: List[Dict]
+    - keep_suppressed_records: bool (for analysis)
+    - suppression_log_path: Optional[str]
+    """
 ```
 
-**REQ-SUPP-007 [MUST]** The operation must generate these visualizations:
-- Suppressed cells visualization (heatmap or similar)
-- Impact on distribution visualization
-- Criteria thresholds visualization
-
-**REQ-SUPP-008 [MUST]** The operation must calculate these metrics:
-- Suppression rate metrics
-- Value rarity/uniqueness metrics
-- Outlier detection metrics
-
-### 8.3 Record Suppression Operation
-
-**REQ-SUPP-009 [MUST]** The `RecordSuppressionOperation` class must inherit from `AnonymizationOperation` and support the following functionality:
-- Suppress entire records based on specified criteria
-- Support different suppression criteria (rare values, outliers, custom)
-- Evaluate criteria based on a specified field
-
-**REQ-SUPP-010 [MUST]** The `RecordSuppressionOperation` constructor must support these parameters:
+#### 5.3.3 Attribute Suppression
 
 ```python
-def __init__(self, 
-             criteria_field: str,  # Field to evaluate for suppression criteria
-             criteria: str = "rare_values",  # "rare_values", "outliers", "custom"
-             threshold: float = 5,  # For rare_values: count, for outliers: std deviations
-             custom_filter: Optional[Callable] = None,  # For custom criteria
-             **kwargs):
-    """Initialize record suppression operation."""
+class AttributeSuppressionOperation(AnonymizationOperation):
+    """
+    Parameters:
+    - attributes_to_suppress: List[str]
+    - conditional_suppression: Dict[str, Any]
+    - replacement_strategy: str (null, default, calculated)
+    """
 ```
 
-**REQ-SUPP-011 [MUST]** The operation must generate these visualizations:
-- Suppressed records distribution
-- Impact on overall dataset visualization
-- Criteria thresholds visualization
+### 5.4 Masking Operations
 
-**REQ-SUPP-012 [MUST]** The operation must calculate these metrics:
-- Suppression rate metrics
-- Dataset size reduction metrics
-- Statistical property changes
+**REQ-MASK-001 [MUST]** Masking operations hide parts of values:
 
-## 9. Common Utilities Requirements
+#### 5.4.1 Full Masking
 
-### 9.1 Metric Utilities
-
-**REQ-COMMON-001 [MUST]** The `metric_utils.py` module must provide functions for:
-- Calculating basic numeric metrics (mean, median, std, etc.)
-- Calculating generalization metrics (information loss, generalization ratio, etc.)
-- Calculating performance metrics (execution time, records per second, etc.)
-- Calculating privacy metrics (re-identification risk, etc.)
-
-**REQ-COMMON-002 [MUST]** The metric utilities must:
-- Handle null values gracefully
-- Support both numeric and categorical data
-- Process large datasets efficiently
-- Return well-structured metric dictionaries
-
-### 9.2 Validation Utilities
-
-**REQ-COMMON-003 [MUST]** The `validation_utils.py` module must provide functions for:
-- Validating field existence in DataFrames
-- Validating field types (numeric, categorical, date, etc.)
-- Validating operation parameters
-- Handling null values according to the null_strategy parameter
-
-**REQ-COMMON-004 [MUST]** The validation utilities must:
-- Raise specific exceptions with clear error messages
-- Handle edge cases gracefully
-- Support both single-field and multi-field validation
-- Validate field types appropriately
-
-### 9.3 Processing Utilities
-
-**REQ-COMMON-005 [MUST]** The `processing_utils.py` module must provide functions for:
-- Processing data in chunks for large datasets
-- Processing data in parallel when enabled
-- Generating output field names based on the operation mode
-- Processing null values according to the null_strategy parameter
-- Implementing specific processing strategies (binning, rounding, range, etc.)
-
-**REQ-COMMON-006 [MUST]** The processing utilities must:
-- Support both pandas and Dask DataFrames
-- Handle large datasets efficiently
-- Report progress during long-running operations
-- Handle errors gracefully
-
-### 9.4 Visualization Utilities
-
-**REQ-COMMON-007 [MUST]** The `visualization_utils.py` module must provide functions for:
-- Preparing data for visualization
-- Generating visualization filenames
-- Creating visualization directories
-- Registering visualization artifacts
-- Calculating optimal visualization parameters (bins, etc.)
-- Sampling large datasets for visualization
-
-**REQ-COMMON-008 [MUST]** The visualization utilities must:
-- Support different visualization types (histograms, bar plots, etc.)
-- Handle large datasets efficiently
-- Generate consistent visualizations across operations
-- Save visualizations in standard formats (PNG, etc.)
-
-## 10. Standard Metrics and Visualizations
-
-### 10.1 Universal Metrics
-
-**REQ-ANON-013 [MUST]** All anonymization operations must include these base metrics:
-
-| Metric | Description |
-|---|---|
-| total_records_processed | Total number of records processed |
-| execution_time_seconds | Total execution time in seconds |
-| records_per_second | Processing throughput rate |
-| unique_values_before | Number of unique values before anonymization |
-| unique_values_after | Number of unique values after anonymization |
-| generalization_ratio | Reduction in unique values (1 - unique_after/unique_before) |
-| null_count | Number of null values in the original data |
-
-### 10.2 JSON Metrics Format
-
-**REQ-ANON-014 [MUST]** All operations must save metrics in a consistent JSON format to `{task_dir}/metrics/{field}_{operation}_{timestamp}.json` with the following structure:
-
-```json
-{
-  "operation_type": "NumericGeneralizationOperation",
-  "field_name": "income",
-  "mode": "REPLACE",
-  "null_strategy": "PRESERVE",
-  "total_records": 10000,
-  "null_count": 123,
-  "unique_values_before": 4567,
-  "unique_values_after": 10,
-  "generalization_ratio": 0.9978,
-  "mean_original": 45678.90,
-  "mean_anonymized": 45700.00,
-  "std_original": 12345.67,
-  "std_anonymized": 12000.00,
-  "strategy": "binning",
-  "bin_count": 10,
-  "average_records_per_bin": 1000,
-  "execution_time_seconds": 2.34,
-  "processing_date": "2025-05-04T14:32:10"
-}
+```python
+class FullMaskingOperation(AnonymizationOperation):
+    """
+    Parameters:
+    - mask_char: str (default: "*")
+    - preserve_length: bool
+    - mask_pattern: str (full, random)
+    - consistent_masking: bool (same value → same mask)
+    """
 ```
 
-**REQ-ANON-015 [MUST]** The metrics JSON must:
-1. Have a consistent structure across operations
-2. Include all base metrics plus operation-specific metrics
-3. Use standardized naming conventions
-4. Include metadata about the operation
-5. Be written using the `DataWriter.write_metrics()` method to ensure consistency
+#### 5.4.2 Partial Masking
 
-### 10.3 Visualization Standards
+```python
+class PartialMaskingOperation(AnonymizationOperation):
+    """
+    Parameters:
+    - mask_char: str (default: "*")
+    - mask_pattern: Optional[str] (regex)
+    - preserve_prefix: int
+    - preserve_suffix: int
+    - preserve_format: bool (maintain separators)
+    - format_patterns: Dict[str, str] (e.g., phone, email)
+    """
+```
 
-**REQ-ANON-016 [MUST]** All visualizations must:
+### 5.5 Pseudonymization Operations
 
-1. Use the PAMOLA.CORE visualization utilities (never direct plotting)
-2. Follow consistent size and styling (800x600 pixels, PNG format)
-3. Have clear titles and labels 
-4. Focus on showing "before and after" effects of anonymization
-5. Be saved with consistent naming: `{field}_{visualization_type}_{operation_core}_{timestamp}.png`
-6. Be created through the `_generate_visualizations()` method
-7. Be registered with both the result object and the reporter
+**REQ-PSEUDO-001 [MUST]** Pseudonymization replaces identifiers consistently:
 
-**REQ-ANON-017 [MUST]** Operations must use these primary visualization types based on field type:
+#### 5.5.1 Hash Pseudonymization
 
-- **Numeric fields** → Histograms, box plots
-- **Categorical fields** → Bar charts, pie charts
-- **Suppression** → Heatmaps, bar charts
-- **Masking** → Information indicators
-- **Noise addition** → Overlay density plots
-- **Pseudonymization** → Distribution graphs
+```python
+class HashPseudonymizationOperation(AnonymizationOperation):
+    """
+    Parameters:
+    - hash_algorithm: str (sha256, blake2b, sha3_256)
+    - salt: Optional[str]
+    - truncate_length: Optional[int]
+    - use_hmac: bool
+    - encoding: str (hex, base64, base32)
+    """
+```
 
-## 11. Performance and Scalability Requirements
+Required artifacts:
+- No mapping dictionary (one-way function)
+- Salt configuration (if used)
 
-### 11.1 Large Data Processing
+#### 5.5.2 Mapping Pseudonymization
 
-**REQ-ANON-018 [MUST]** All operations must support processing large datasets:
+```python
+class MappingPseudonymizationOperation(AnonymizationOperation):
+    """
+    Parameters:
+    - mapping_strategy: str (sequential, random, custom, uuid)
+    - preserve_uniqueness: bool
+    - external_mapping: Optional[str] (file path)
+    - format_template: Optional[str] (e.g., "USER_{:06d}")
+    - collision_handling: str (error, regenerate, append)
+    """
+```
 
-1. Process data in chunks using the `batch_size` parameter
-2. Use `process_in_chunks` from `commons.processing_utils` for datasets that exceed memory limits
-3. Support parallel processing when `parallel_processes > 1` is specified
-4. Report progress during long-running operations
+Required artifacts:
+- Mapping dictionary saved to `{task_dir}/mappings/`
+- Collision report if any occurred
 
-**REQ-ANON-019 [SHOULD]** Operations should support Dask integration for very large datasets:
+## 6. Integration Requirements
 
-1. Process Dask DataFrames when provided
-2. Use Dask-aware functions for distributed processing
-3. Support lazy evaluation for memory-efficient processing
+### 6.1 DataWriter Integration
 
-### 11.2 Performance Metrics
+**REQ-ANON-013 [MUST]** All file outputs use DataWriter:
 
-**REQ-ANON-020 [MUST]** All operations must track and report performance metrics:
+```python
+# In execute() method (handled by base class):
+writer = DataWriter(task_dir=task_dir, logger=self.logger)
 
-1. Execution time in seconds
-2. Records processed per second
-3. Memory usage (peak memory usage if available)
-4. Processing stages timing breakdown
+# Write transformed data
+output_result = writer.write_dataframe(
+    df=result_df,
+    name="anonymized_data",
+    format=self.output_format,
+    subdir="output",
+    timestamp_in_name=True,
+    encryption_key=self.encryption_key if self.use_encryption else None
+)
 
-### 11.3 Memory Management
+# Write metrics
+metrics_result = writer.write_metrics(
+    metrics=operation_metrics,
+    name=f"{self.field_name}_{self.__class__.__name__}",
+    timestamp_in_name=True
+)
 
-**REQ-ANON-021 [MUST]** All operations must implement proper memory management:
+# Write JSON artifacts
+mapping_result = writer.write_json(
+    data=mapping_dict,
+    name="pseudonym_mapping",
+    subdir="mappings",
+    timestamp_in_name=True
+)
+```
 
-1. Release temporary data structures after use
-2. Implement a `_cleanup_memory()` method to free resources
-3. Process data in chunks to limit memory usage
-4. Use generators for memory-efficient processing
+### 6.2 Progress Tracking
 
-## 12. Security and Privacy Requirements
+**REQ-ANON-014 [MUST]** Use HierarchicalProgressTracker:
 
-### 12.1 Encryption
+```python
+# Base class provides progress tracker
+# Operations can create subtasks
+batch_progress = progress_tracker.create_subtask(
+    total=total_batches,
+    description="Processing batches",
+    unit="batches"
+)
 
-**REQ-ANON-022 [MUST]** All operations must support output encryption:
+# Update within processing loop
+batch_progress.update(1, {
+    "batch": current_batch,
+    "records_processed": processed_count,
+    "percentage": (processed_count / total_records) * 100
+})
+```
 
-1. Enable encryption when `use_encryption=True` is specified
-2. Use the provided `encryption_key` for output file encryption
-3. Encrypt sensitive outputs (data, metrics, etc.)
-4. Report encryption status in the operation result
+### 6.3 Field Utilities Usage
 
-### 12.2 Privacy Metrics
+**REQ-ANON-015 [MUST]** Use field utilities for:
 
-**REQ-ANON-023 [SHOULD]** Operations should calculate privacy metrics where applicable:
+```python
+from pamola_core.utils.ops.op_field_utils import (
+    generate_output_field_name,
+    apply_condition_operator,
+    create_field_mask,
+    create_multi_field_mask
+)
 
-1. Re-identification risk metrics
-2. Information loss metrics
-3. Privacy guarantee metrics (k-anonymity, ε-differential privacy, etc.)
-4. Utility-privacy trade-off metrics
+# Generate output field name (handled by base class)
+output_field = generate_output_field_name(
+    self.field_name, 
+    self.mode, 
+    self.output_field_name,
+    operation_suffix="anonymized"
+)
 
-### 12.3 Sensitive Data Handling
+# Apply conditions (handled by base class)
+mask = apply_condition_operator(
+    df[self.condition_field],
+    self.condition_values,
+    self.condition_operator
+)
+```
 
-**REQ-ANON-024 [MUST]** All operations must handle sensitive data securely:
+### 6.4 Error Handling
 
-1. Never log sensitive data
-2. Clear sensitive data from memory after use
-3. Use secure random number generation for privacy-preserving operations
-4. Validate privacy guarantees when applicable
+**REQ-ANON-016 [MUST]** Standardized error handling:
 
-## 13. Testing Requirements
+```python
+# In process_batch():
+try:
+    # Validate input
+    if not validate_field_exists(batch, self.field_name):
+        raise FieldNotFoundError(self.field_name, list(batch.columns))
+    
+    # Process batch
+    result = self._apply_transformation(batch)
+    
+except ValueError as e:
+    self.logger.error(f"Invalid value in batch: {e}")
+    if self.error_handling == "fail":
+        raise
+    elif self.error_handling == "skip":
+        return batch  # Return unmodified
+    else:  # log
+        self._error_batches.append({
+            "batch_id": batch_id,
+            "error": str(e),
+            "indices": batch.index.tolist()[:100]
+        })
+```
 
-### 13.1 Test Case Coverage
+## 7. Performance and Scalability
 
-**REQ-ANON-025 [MUST]** All operations must have these test categories:
+### 7.1 Memory Management
 
-- **Basic functionality**: Test with simple datasets
-- **Edge cases**: Test with empty datasets, all null values, extreme values
-- **Validation**: Test parameter validation and error conditions
-- **Large data**: Test with larger datasets to verify chunking
-- **Caching**: Test both cache hit and miss scenarios
+**REQ-ANON-017 [MUST]** Operations must support:
+- Adaptive batch sizing based on available memory
+- Automatic DataFrame dtype optimization
+- Explicit garbage collection for large datasets
+- Memory usage tracking and reporting
 
-### 13.2 Testing Checklist
+### 7.2 Dask Integration
 
-**REQ-ANON-026 [MUST]** Tests must verify:
+**REQ-ANON-018 [SHOULD]** Large data support:
+- Automatic switching to Dask when rows > max_rows_in_memory
+- Configurable chunk size and partitions
+- Lazy evaluation for memory efficiency
+- Progress tracking across partitions
 
-- Field validation works correctly (field exists, type checking)
-- Null handling strategies (PRESERVE, EXCLUDE, ERROR) work as expected
-- Both operation modes (REPLACE, ENRICH) function properly
-- All metrics are calculated correctly
-- Visualizations are generated properly
-- Errors are reported clearly
-- Progress tracking is updated appropriately
-- Cache mechanism works as expected
+### 7.3 Caching
 
-## 14. Future Extensions
+**REQ-ANON-019 [SHOULD]** Cache support includes:
+- Operation result caching based on parameters
+- Dictionary/mapping caching for repeated operations
+- Cache key generation via `_get_cache_parameters()`
+- LRU eviction for memory management
 
-While not required in the initial implementation, the anonymization framework should be designed to support these future extensions:
+## 8. Testing Requirements
 
-### 14.1 Workflow Visualization
+**REQ-ANON-020 [MUST]** Each operation must have:
 
-**REQ-ANON-027 [MAY]** The framework may support workflow visualization:
+1. **Unit tests** covering:
+   - All parameter combinations
+   - Null handling strategies (PRESERVE, EXCLUDE, ERROR, ANONYMIZE)
+   - Error conditions and edge cases
+   - Mode switching (REPLACE/ENRICH)
+   - Small and large data scenarios
 
-1. Generate a Mermaid diagram of the operation workflow
-2. Visualize dependencies between operations
-3. Integrate with the broader operation framework's workflow visualization
+2. **Integration tests** verifying:
+   - DataWriter integration
+   - Progress tracking across phases
+   - Metric collection completeness
+   - Visualization generation
+   - Cache functionality
 
-### 14.2 Distributed Processing
+3. **Performance tests** checking:
+   - Memory usage under load
+   - Processing rate benchmarks
+   - Batch size optimization
+   - Dask switching thresholds
 
-**REQ-ANON-028 [MAY]** The framework may support distributed processing:
+4. **Privacy tests** validating:
+   - Effectiveness metrics accuracy
+   - Privacy metric calculations
+   - Risk-based processing logic
+   - Vulnerable record handling
 
-1. Support distributed processing of large datasets
-2. Integrate with cloud-based processing frameworks
-3. Implement distributed caching mechanisms
+## 9. State Management
 
-### 14.3 Privacy Model Integration
+**REQ-ANON-021 [MUST]** Operations must be stateless between executions:
+- No persistent state between `execute()` calls
+- Thread-safe for concurrent execution
+- State reset after each execution
+- Clean up all temporary resources
 
-**REQ-ANON-029 [MAY]** The framework may support privacy model integration:
+**REQ-ANON-022 [SHOULD]** Operations should implement:
+```python
+def reset_state(self):
+    """Reset operation state after execution."""
+    # Clear any cached data
+    # Reset batch metrics
+    # Clear error logs
+```
 
-1. Integrate with privacy models (k-anonymity, differential privacy)
-2. Automatically tune parameters based on privacy requirements
-3. Validate privacy guarantees
+## 10. Artifact Generation
 
-## 15. Implementation Sequence
+**REQ-ANON-023 [MUST]** Standard artifacts include:
 
-The recommended implementation order for anonymization operations:
+| Artifact Type | Location | Description |
+|--------------|----------|-------------|
+| Transformed Data | `{task_dir}/output/` | Main output dataset |
+| Process Metrics | `{task_dir}/metrics/` | JSON metrics file |
+| Visualizations | `{task_dir}/visualizations/` | PNG comparison charts |
+| Mappings | `{task_dir}/mappings/` | Pseudonymization mappings |
+| Error Reports | `{task_dir}/errors/` | Batch processing errors |
 
-1. Common utilities in the commons/ package
-2. Base `AnonymizationOperation` class
-3. Generalization operations
-4. Masking operations
-5. Noise addition operations
-6. Pseudonymization operations
-7. Suppression operations
+## 11. Configuration Schema
 
-## 16. Conclusion
+**REQ-ANON-024 [MUST]** Each operation must define configuration schema:
 
-This specification provides a comprehensive guide for implementing anonymization operations within the PAMOLA.CORE framework. By following these guidelines, developers can create consistent, robust, and well-integrated operations that provide:
+```python
+class OperationNameConfig(OperationConfig):
+    """Configuration for specific operation."""
+    
+    schema = {
+        "type": "object",
+        "properties": {
+            "field_name": {"type": "string"},
+            "strategy": {"type": "string", "enum": ["strategy1", "strategy2"]},
+            # Strategy-specific parameters
+        },
+        "required": ["field_name", "strategy"],
+        "allOf": [
+            # Conditional requirements based on strategy
+        ]
+    }
+```
 
-1. Standardized interfaces for executing privacy operations
-2. Comprehensive metrics for evaluating anonymization effectiveness
-3. Clear visualizations for understanding data transformations
-4. Efficient processing of large datasets
-5. Robust error handling and reporting
-6. Effective caching for improved performance
-7. Thorough documentation for maintainability
+## 12. Registration and Discovery
 
-The anonymization package is a central component of PAMOLA.CORE's privacy-enhancing capabilities, providing tools for real-world data anonymization with measurable privacy and utility characteristics.
+**REQ-ANON-025 [MUST]** Operations must be registered:
+
+```python
+from pamola_core.utils.ops.op_registry import register_operation
+
+# At module level
+register_operation(MyAnonymizationOperation)
+
+# Factory function
+def create_my_anonymization_operation(field_name: str, **kwargs):
+    """Create operation instance with defaults."""
+    return MyAnonymizationOperation(field_name=field_name, **kwargs)
+```
+
+## 13. Implementation Checklist
+
+### 13.1 New Operation Checklist
+
+**REQ-ANON-026 [MUST]** Every new operation must:
+
+- [ ] Inherit from `AnonymizationOperation`
+- [ ] Use DataWriter for ALL file operations
+- [ ] Use base class lifecycle management (or document override reason)
+- [ ] Implement `process_batch()` method
+- [ ] Implement `_get_cache_parameters()` method
+- [ ] Use commons validation utilities
+- [ ] Use commons metric utilities
+- [ ] Return standard metrics via base class
+- [ ] Support REPLACE and ENRICH modes
+- [ ] Handle null values according to strategy
+- [ ] Support conditional processing
+- [ ] Include comprehensive docstrings
+- [ ] Add configuration schema class
+- [ ] Register with operation registry
+- [ ] Provide factory function
+- [ ] Add unit tests with >90% coverage
+- [ ] Support Dask for large datasets
+- [ ] Implement state reset
+
+### 13.2 Anti-Patterns to Avoid
+
+**REQ-ANON-027 [MUST NOT]** Operations must NOT:
+
+- [ ] Open files directly (use DataWriter)
+- [ ] Print to console (use logger)
+- [ ] Create custom progress bars
+- [ ] Implement quality assessment
+- [ ] Call profiling operations
+- [ ] Store state between calls
+- [ ] Override execute() without justification
+- [ ] Implement custom caching logic
+- [ ] Use matplotlib/plotly directly
+- [ ] Calculate metrics manually
+- [ ] Handle vulnerable records directly
+
+## 14. Migration Guide
+
+### 14.1 From Version 3.x to 4.x
+
+Major changes:
+1. **Commons validation**: Migrate from `validation_utils` functions to validation classes
+2. **Metric collection**: Use `collect_operation_metrics()` instead of manual calculation
+3. **Visualization**: Use commons visualization utilities exclusively
+4. **Configuration**: Implement proper configuration schema classes
+5. **Dask support**: Implement `_process_batch_dask()` for large data
+
+### 14.2 Example Migration
+
+```python
+# Old approach (3.x)
+from pamola_core.anonymization.commons.validation_utils import validate_field_exists
+if not validate_field_exists(df, field_name):
+    raise ValueError("Field not found")
+
+# New approach (4.x)
+from pamola_core.anonymization.commons.validation import check_field_exists
+check_field_exists(df, field_name)  # Raises FieldNotFoundError
+```
+
+## 15. Commons Module Signatures
+
+### 15.1 categorical_config.py
+
+```python
+class CategoricalGeneralizationConfig(OperationConfig):
+    """Configuration for categorical generalization operations."""
+    
+    def __init__(self, field_name: str, strategy: str = "hierarchy", **kwargs):
+        """Initialize configuration with validation."""
+    
+    def validate(self) -> bool:
+        """Validate configuration against schema and business rules."""
+    
+    def get_strategy_params(self) -> Dict[str, Any]:
+        """Get parameters specific to the selected strategy."""
+    
+    def should_use_dask(self, row_count: int) -> bool:
+        """Determine if Dask should be used based on data size."""
+    
+    @classmethod
+    def from_dict(cls, config_dict: Dict[str, Any]) -> 'CategoricalGeneralizationConfig':
+        """Create configuration from dictionary."""
+```
+
+### 15.2 categorical_strategies.py
+
+```python
+def apply_hierarchy(series: pd.Series, config: Dict[str, Any], 
+                   context: Dict[str, Any], logger: Optional[logging.Logger] = None) -> pd.Series:
+    """Apply hierarchical generalization using external dictionary."""
+
+def apply_merge_low_freq(series: pd.Series, config: Dict[str, Any], 
+                        context: Dict[str, Any], logger: Optional[logging.Logger] = None) -> pd.Series:
+    """Apply merging of low frequency categories."""
+
+def apply_frequency_based(series: pd.Series, config: Dict[str, Any], 
+                         context: Dict[str, Any], logger: Optional[logging.Logger] = None) -> pd.Series:
+    """Apply frequency-based generalization."""
+
+def apply_null_and_unknown_strategy(series: pd.Series, null_strategy: Union[str, NullStrategy],
+                                   unknown_value: str = "OTHER", 
+                                   rare_value_template: Optional[str] = None,
+                                   context: Optional[Dict[str, Any]] = None,
+                                   logger: Optional[logging.Logger] = None) -> pd.Series:
+    """Apply NULL and unknown value handling strategy."""
+```
+
+### 15.3 category_mapping.py
+
+```python
+class CategoryMappingEngine:
+    """Thread-safe engine for applying category mappings."""
+    
+    def __init__(self, unknown_value: str = "OTHER", unknown_template: Optional[str] = None,
+                 cache_size: int = 10000):
+        """Initialize the category mapping engine."""
+    
+    def add_mapping(self, original: str, replacement: str) -> None:
+        """Add a simple value-to-category mapping."""
+    
+    def add_conditional_mapping(self, original: str, replacement: str,
+                               condition: Dict[str, Any], priority: int = 0) -> None:
+        """Add a conditional mapping rule."""
+    
+    def apply_to_series(self, series: pd.Series, 
+                       context_df: Optional[pd.DataFrame] = None) -> pd.Series:
+        """Apply mappings to a pandas Series."""
+    
+    def get_mapping_dict(self) -> Dict[str, str]:
+        """Get a copy of simple mappings dictionary."""
+    
+    def get_statistics(self) -> Dict[str, Any]:
+        """Get mapping engine statistics."""
+```
+
+### 15.4 category_utils.py
+
+```python
+def analyze_category_distribution(series: pd.Series, top_n: int = 20,
+                                 min_frequency: int = 1, calculate_entropy: bool = True,
+                                 calculate_gini: bool = True, calculate_concentration: bool = True,
+                                 value_counts: Optional[pd.Series] = None) -> Dict[str, Any]:
+    """Comprehensive analysis of category distribution for anonymization planning."""
+
+def identify_rare_categories(series: pd.Series, count_threshold: int = 10,
+                            percent_threshold: float = 0.01, combined_criteria: bool = True,
+                            value_counts: Optional[pd.Series] = None) -> Tuple[Set[str], Dict[str, Any]]:
+    """Identify rare categories based on privacy risk criteria."""
+
+def group_rare_categories(series: pd.Series, grouping_strategy: str = "single_other",
+                         threshold: Union[int, float] = 10, max_groups: int = 100,
+                         group_prefix: str = "GROUP_", preserve_top_n: Optional[int] = None,
+                         other_label: str = "OTHER", 
+                         value_counts: Optional[pd.Series] = None) -> Tuple[pd.Series, Dict[str, Any]]:
+    """Group rare categories using privacy-preserving strategies."""
+
+def validate_category_mapping(original: pd.Series, mapped: pd.Series,
+                             mapping: Optional[Dict[str, str]] = None,
+                             coverage_threshold: float = 0.95) -> Dict[str, Any]:
+    """Validate category mapping for anonymization correctness."""
+```
+
+### 15.5 data_utils.py
+
+```python
+def process_nulls(series: pd.Series, strategy: str = "PRESERVE",
+                 anonymize_value: str = "SUPPRESSED") -> pd.Series:
+    """Process null values with privacy-aware strategies."""
+
+def filter_records_conditionally(df: pd.DataFrame, risk_field: Optional[str] = None,
+                               risk_threshold: float = 5.0, operator: str = "ge",
+                               condition_field: Optional[str] = None,
+                               condition_values: Optional[List] = None,
+                               condition_operator: str = "in") -> Tuple[pd.DataFrame, pd.Series]:
+    """Filter DataFrame records based on risk scores and optional conditions."""
+
+def handle_vulnerable_records(df: pd.DataFrame, field_name: str,
+                            vulnerability_mask: pd.Series, strategy: str = "suppress",
+                            replacement_value: Optional[Any] = None) -> pd.DataFrame:
+    """Handle vulnerable records identified by risk assessment."""
+
+def create_risk_based_processor(strategy: str = "adaptive",
+                              risk_threshold: float = 5.0) -> Callable:
+    """Factory for creating risk-based processing functions."""
+
+def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, Any]:
+    """Create a configuration for processing based on privacy level."""
+```
+
+### 15.6 hierarchy_dictionary.py
+
+```python
+class HierarchyDictionary:
+    """Manages hierarchical mappings for categorical generalization."""
+    
+    def __init__(self):
+        """Initialize empty hierarchy dictionary."""
+    
+    def load_from_file(self, filepath: Union[str, Path], format_type: str = 'auto',
+                      encryption_key: Optional[str] = None) -> None:
+        """Load hierarchy dictionary from file."""
+    
+    def load_from_dataframe(self, df: pd.DataFrame) -> None:
+        """Load hierarchy from a pandas DataFrame."""
+    
+    def load_from_dict(self, data: Dict[str, Any]) -> None:
+        """Load hierarchy from a dictionary."""
+    
+    @lru_cache(maxsize=10000)
+    def get_hierarchy(self, value: str, level: int = 1, normalize: bool = True) -> Optional[str]:
+        """Get generalized value at specified hierarchy level."""
+    
+    def validate_structure(self) -> Tuple[bool, List[str]]:
+        """Validate dictionary structure and consistency."""
+    
+    def get_coverage(self, values: List[str], normalize: bool = True) -> Dict[str, Any]:
+        """Calculate dictionary coverage for a set of values."""
+    
+    def get_all_values_at_level(self, level: int) -> Set[str]:
+        """Get all unique values at a specific hierarchy level."""
+```
+
+### 15.7 metric_utils.py
+
+```python
+def calculate_anonymization_effectiveness(original_series: pd.Series,
+                                        anonymized_series: pd.Series) -> Dict[str, float]:
+    """Calculate basic effectiveness metrics for anonymization."""
+
+def calculate_generalization_metrics(original_series: pd.Series, anonymized_series: pd.Series,
+                                   strategy: str, strategy_params: Dict[str, Any]) -> Dict[str, Any]:
+    """Calculate metrics specific to generalization strategies."""
+
+def calculate_categorical_information_loss(original_series: pd.Series, anonymized_series: pd.Series,
+                                         category_mapping: Optional[Dict[str, str]] = None,
+                                         hierarchy_info: Optional[Dict[str, Any]] = None) -> Dict[str, float]:
+    """Calculate information loss metrics for categorical generalization."""
+
+def calculate_generalization_height(original_values: Union[pd.Series, List[str]],
+                                  generalized_values: Union[pd.Series, List[str]],
+                                  hierarchy_dict: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
+    """Calculate the generalization height in a hierarchy."""
+
+def collect_operation_metrics(operation_type: str, original_data: pd.Series,
+                            processed_data: pd.Series, operation_params: Dict[str, Any],
+                            timing_info: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
+    """Collect all relevant metrics for an anonymization operation."""
+
+def save_process_metrics(metrics: Dict[str, Any], task_dir: Path, operation_name: str,
+                       field_name: str, writer: Optional[DataWriter] = None) -> Optional[Path]:
+    """Save process metrics to file."""
+```
+
+### 15.8 privacy_metric_utils.py
+
+```python
+def calculate_anonymization_coverage(original: pd.Series, anonymized: pd.Series) -> Dict[str, float]:
+    """Calculate the coverage of anonymization process."""
+
+def calculate_suppression_rate(series: pd.Series, original_nulls: Optional[int] = None) -> float:
+    """Calculate the suppression rate in anonymized data."""
+
+def get_group_size_distribution(df: pd.DataFrame, quasi_identifiers: List[str],
+                              max_groups: int = 100) -> Dict[str, Any]:
+    """Get quick distribution of group sizes for quasi-identifiers."""
+
+def calculate_min_group_size(df: pd.DataFrame, quasi_identifiers: List[str],
+                           sample_size: Optional[int] = 10000) -> int:
+    """Calculate minimum group size (k) for quasi-identifiers."""
+
+def calculate_vulnerable_records_ratio(df: pd.DataFrame, quasi_identifiers: List[str],
+                                     k_threshold: int = 5, sample_size: Optional[int] = 10000) -> float:
+    """Calculate ratio of vulnerable records (k < threshold)."""
+
+def check_anonymization_thresholds(metrics: Dict[str, float],
+                                 thresholds: Optional[Dict[str, float]] = None) -> Dict[str, bool]:
+    """Check if anonymization metrics meet specified thresholds."""
+
+def calculate_batch_metrics(original_batch: pd.DataFrame, anonymized_batch: pd.DataFrame,
+                          field_name: str, quasi_identifiers: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Calculate all process metrics for a batch."""
+```
+
+### 15.9 text_processing_utils.py
+
+```python
+def normalize_text(text: str, level: str = "basic", preserve_case: bool = False) -> str:
+    """Normalize text for anonymization purposes."""
+
+def clean_category_name(name: str, max_length: int = 40,
+                       invalid_chars: str = r'[^a-zA-Z0-9\s\-_]',
+                       separator: str = "_") -> str:
+    """Clean category names for safe anonymization field naming."""
+
+def find_closest_category(value: str, categories: List[str], threshold: float = 0.8,
+                         method: str = "ratio", normalize_value: bool = True,
+                         fallback: str = "OTHER") -> str:
+    """Find the best matching category with anonymization-specific handling."""
+
+def prepare_value_for_matching(value: str, remove_common_prefixes: bool = True,
+                              remove_common_suffixes: bool = True) -> str:
+    """Prepare a value for category matching by removing common prefixes/suffixes."""
+```
+
+### 15.10 validation_utils.py
+
+```python
+# Facade module - re-exports from validation subpackage
+from .validation import (
+    ValidationResult,
+    BaseValidator,
+    NumericFieldValidator,
+    CategoricalFieldValidator,
+    DateTimeFieldValidator,
+    create_field_validator,
+    validation_handler,
+    requires_field,
+    validate_types,
+    check_field_exists,
+    check_multiple_fields_exist,
+    # ... plus all other validators and utilities
+)
+
+# Legacy support functions
+def validate_field_exists(df: pd.DataFrame, field_name: str,
+                         logger_instance: Optional[logging.Logger] = None) -> bool:
+    """DEPRECATED: Use check_field_exists() instead."""
+
+def validate_numeric_field(df: pd.DataFrame, field_name: str, allow_null: bool = True,
+                          min_value: Optional[float] = None, max_value: Optional[float] = None,
+                          logger_instance: Optional[logging.Logger] = None) -> bool:
+    """DEPRECATED: Use NumericFieldValidator instead."""
+```
+
+### 15.11 visualization_utils.py
+
+```python
+def create_comparison_visualization(original_data: pd.Series, anonymized_data: pd.Series,
+                                  task_dir: Path, field_name: str, operation_name: str,
+                                  timestamp: Optional[str] = None) -> Optional[Path]:
+    """Create a before/after comparison visualization."""
+
+def create_metric_visualization(metric_name: str, metric_data: Union[Dict[str, Any], pd.Series, List],
+                              task_dir: Path, field_name: str, operation_name: str,
+                              timestamp: Optional[str] = None) -> Optional[Path]:
+    """Create a visualization for a specific metric using appropriate chart type."""
+
+def create_category_distribution_comparison(original_data: pd.Series, anonymized_data: pd.Series,
+                                          task_dir: Path, field_name: str, operation_name: str,
+                                          max_categories: int = 15, show_percentages: bool = True,
+                                          timestamp: Optional[str] = None) -> Optional[Path]:
+    """Create a specialized comparison visualization for categorical distributions."""
+
+def create_hierarchy_sunburst(hierarchy_data: Dict[str, Any], task_dir: Path,
+                            field_name: str, operation_name: str, max_depth: int = 3,
+                            max_categories: int = 50, timestamp: Optional[str] = None) -> Optional[Path]:
+    """Create a sunburst visualization for hierarchical category structure."""
+
+def register_visualization_artifact(result: Any, reporter: Any, path: Path,
+                                  field_name: str, visualization_type: str,
+                                  description: Optional[str] = None) -> None:
+    """Register a visualization artifact with the result and reporter."""
+```
+
+## 16. Summary
+
+This specification defines a comprehensive framework for anonymization operations that:
+- Are atomic, self-contained, and stateless
+- Use framework services exclusively
+- Focus on transformation, not assessment
+- Support both small and large-scale data processing
+- Follow strict architectural constraints
+- Integrate seamlessly with the PAMOLA.CORE ecosystem
+- Allow controlled execute() overrides for advanced use cases
+
+Each operation is a building block that can be composed into complex anonymization workflows while maintaining simplicity, testability, and privacy guarantees.

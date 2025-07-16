@@ -1,58 +1,69 @@
-# PAMOLA Core: Entity Extraction Utilities
+# PAMOLA.CORE NLP Entity Extraction Module Documentation
 
-## Overview
+**Module:** `pamola_core.utils.nlp.entity_extraction`  
+**Version:** 1.0.0  
+**Last Updated:** December 2024
 
-The `entity_extraction` module provides a unified, high-level API for extracting structured entities from unstructured text within the PAMOLA Core framework. It supports a variety of entity types, including job positions, organizations, skills, transaction purposes, and custom entities, making it a central component for NLP-driven data enrichment and profiling tasks.
+## 1. Overview
 
-This module is designed for extensibility and ease of integration, offering both ready-to-use extractors and the ability to create custom entity extractors for specialized use cases. It leverages dictionary-based and NER (Named Entity Recognition) approaches, with flexible configuration for language, matching strategies, and more.
+The `entity_extraction` module provides a high-level, unified API for extracting various types of entities from text data. It serves as the main entry point to the entity extraction functionality within the PAMOLA.CORE NLP utilities, supporting multiple entity types including job positions, organizations, skills, transaction purposes, and custom entities.
 
----
+### 1.1 Purpose
 
-## Key Features
+This module simplifies entity extraction by:
+- Providing a single, consistent interface for all entity types
+- Supporting multiple extraction strategies (dictionary-based, NER-based, hybrid)
+- Offering specialized functions for common entity types
+- Enabling custom entity extractor creation
+- Implementing efficient caching for improved performance
 
-- Unified API for extracting multiple entity types from text
-- Support for job positions, organizations, universities, skills, transaction purposes, and custom entities
-- Dictionary-based and NER-based extraction with configurable fallback
-- Language auto-detection and multi-language support
-- Caching for efficient repeated extraction
-- Progress bar support for large batch processing
-- Extensible: create custom extractors for new entity types
+### 1.2 Key Features
 
----
+- **Unified API**: Single interface for all entity extraction needs
+- **Multiple Entity Types**: Pre-configured support for jobs, organizations, skills, transactions
+- **Language Support**: Automatic language detection or explicit language specification
+- **Hybrid Approach**: Combines dictionary matching with NER models
+- **Caching**: Memory-based caching for efficient repeated extractions
+- **Progress Tracking**: Optional progress indicators for batch processing
+- **Custom Extractors**: Support for creating domain-specific extractors
 
-## Dependencies
+## 2. Architecture
 
-### Standard Library
-- `logging`
-- `typing` (`Dict`, `List`, `Any`, `Optional`)
+### 2.1 Module Structure
 
-### Internal Modules
-- `pamola_core.utils.nlp.cache` (`cache_function`)
-- `pamola_core.utils.nlp.entity` (`create_entity_extractor`, `extract_entities`)
-
----
-
-## Exception Classes
-
-> **Note:** This module does not define custom exception classes directly. Exceptions are typically raised by underlying extractors or dependencies. Handle exceptions as shown below.
-
-### Example: Handling Extraction Errors
-```python
-try:
-    results = extract_entities(["Sample text"], entity_type="job")
-except Exception as e:
-    # Handle extraction or configuration errors
-    print(f"Entity extraction failed: {e}")
 ```
-- **When raised:** Errors may occur due to invalid configuration, missing dictionary files, or issues in the underlying NER models.
+entity_extraction.py
+├── Imports and Dependencies
+├── Logger Configuration
+├── Main Functions
+│   ├── extract_entities()         # Main entry point
+│   ├── extract_job_positions()    # Job-specific extraction
+│   ├── extract_organizations()    # Organization extraction
+│   ├── extract_universities()     # University extraction
+│   ├── extract_skills()           # Skill extraction
+│   └── extract_transaction_purposes() # Transaction purpose extraction
+└── Factory Function
+    └── create_custom_entity_extractor() # Custom extractor creation
+```
 
----
+### 2.2 Dependencies
 
-## Main Functions and Usage
+- **Internal**:
+  - `pamola_core.utils.nlp.cache`: Caching functionality
+  - `pamola_core.utils.nlp.entity`: Core entity extraction implementation
+  
+- **External**:
+  - `logging`: Standard Python logging
+  - `typing`: Type hints support
 
-### 1. `extract_entities`
+## 3. API Reference
+
+### 3.1 Main Function: `extract_entities()`
+
+The primary function for entity extraction, delegating to specialized extractors based on entity type.
 
 ```python
+@cache_function(ttl=3600, cache_type='memory')
 def extract_entities(
     texts: List[str],
     entity_type: str = "generic",
@@ -63,37 +74,72 @@ def extract_entities(
     record_ids: Optional[List[str]] = None,
     show_progress: bool = False,
     **kwargs
-) -> Dict[str, Any]:
+) -> Dict[str, Any]
 ```
-**Parameters:**
-- `texts`: List of text strings to process
-- `entity_type`: Type of entities to extract (e.g., "job", "organization", "skill", "transaction", "generic")
-- `language`: Language code or "auto" for detection
-- `dictionary_path`: Path to dictionary file (optional)
-- `match_strategy`: Matching strategy (e.g., "specific_first", "domain_prefer")
-- `use_ner`: Use NER models if dictionary match fails
-- `record_ids`: Optional list of record IDs
-- `show_progress`: Show progress bar
-- `**kwargs`: Additional extractor parameters
 
-**Returns:**
-- Dictionary with extraction results, including entities, categories, and statistics
+#### Parameters
 
-**Raises:**
-- Exceptions from underlying extractors (e.g., file not found, model errors)
+| Parameter | Type | Description | Default |
+|-----------|------|-------------|---------|
+| `texts` | `List[str]` | List of text strings to process | Required |
+| `entity_type` | `str` | Type of entities to extract | `"generic"` |
+| `language` | `str` | Language code or "auto" for detection | `"auto"` |
+| `dictionary_path` | `Optional[str]` | Path to custom dictionary file | `None` |
+| `match_strategy` | `str` | Strategy for resolving matches | `"specific_first"` |
+| `use_ner` | `bool` | Whether to use NER models | `True` |
+| `record_ids` | `Optional[List[str]]` | Record IDs for tracking | `None` |
+| `show_progress` | `bool` | Show progress bar | `False` |
+| `**kwargs` | `Any` | Additional extractor-specific parameters | - |
 
-#### Example Usage
+#### Entity Types
+
+- `"generic"`: General entity extraction
+- `"job"`: Job positions and titles
+- `"organization"`: Company and organization names
+- `"skill"`: Technical and soft skills
+- `"transaction"`: Transaction purposes and categories
+
+#### Match Strategies
+
+- `"specific_first"`: Prioritize more specific matches
+- `"domain_prefer"`: Prefer domain-specific matches
+- `"alias_only"`: Use only alias matching
+- `"user_override"`: Apply user-defined overrides
+
+#### Returns
+
 ```python
-# Extract job positions from a list of texts
-results = extract_entities([
-    "John is a Senior Data Scientist at Acme Corp.",
-    "Jane works as a Software Engineer."
-], entity_type="job")
+{
+    "entities": [
+        {
+            "text": str,           # Original text
+            "entity": str,         # Extracted entity
+            "category": str,       # Entity category
+            "confidence": float,   # Confidence score (0-1)
+            "method": str,        # Extraction method used
+            "record_id": str      # Record ID if provided
+        }
+    ],
+    "statistics": {
+        "total_processed": int,
+        "extracted": int,
+        "dictionary_matches": int,
+        "ner_matches": int,
+        "unmatched": int
+    },
+    "metadata": {
+        "entity_type": str,
+        "language": str,
+        "dictionary_used": str
+    }
+}
 ```
 
----
+### 3.2 Specialized Extraction Functions
 
-### 2. `extract_job_positions`
+#### 3.2.1 `extract_job_positions()`
+
+Extract job positions with optional seniority detection.
 
 ```python
 def extract_job_positions(
@@ -103,28 +149,15 @@ def extract_job_positions(
     use_ner: bool = True,
     seniority_detection: bool = True,
     **kwargs
-) -> Dict[str, Any]:
-```
-**Parameters:**
-- `texts`: List of text strings
-- `language`: Language code or "auto"
-- `dictionary_path`: Path to dictionary file (optional)
-- `use_ner`: Use NER if dictionary match fails
-- `seniority_detection`: Detect seniority levels
-- `**kwargs`: Additional parameters
-
-**Returns:** Extraction results dictionary
-
-#### Example
-```python
-# Extract job positions with seniority detection
-data = ["Alice is a Junior Analyst."]
-results = extract_job_positions(data, seniority_detection=True)
+) -> Dict[str, Any]
 ```
 
----
+**Additional Parameters:**
+- `seniority_detection`: Enable detection of seniority levels (Junior, Senior, etc.)
 
-### 3. `extract_organizations`
+#### 3.2.2 `extract_organizations()`
+
+Extract organization names with type filtering.
 
 ```python
 def extract_organizations(
@@ -134,27 +167,19 @@ def extract_organizations(
     organization_type: str = "any",
     use_ner: bool = True,
     **kwargs
-) -> Dict[str, Any]:
-```
-**Parameters:**
-- `texts`: List of text strings
-- `language`: Language code or "auto"
-- `dictionary_path`: Path to dictionary file (optional)
-- `organization_type`: Type of organization (e.g., 'company', 'university')
-- `use_ner`: Use NER if dictionary match fails
-- `**kwargs`: Additional parameters
-
-**Returns:** Extraction results dictionary
-
-#### Example
-```python
-# Extract company names from text
-results = extract_organizations(["Worked at Google and MIT."], organization_type="company")
+) -> Dict[str, Any]
 ```
 
----
+**Organization Types:**
+- `"any"`: All organization types
+- `"company"`: Commercial companies
+- `"university"`: Educational institutions
+- `"government"`: Government bodies
+- `"nonprofit"`: Non-profit organizations
 
-### 4. `extract_universities`
+#### 3.2.3 `extract_universities()`
+
+Specialized function for educational institution extraction.
 
 ```python
 def extract_universities(
@@ -163,26 +188,12 @@ def extract_universities(
     dictionary_path: Optional[str] = None,
     use_ner: bool = True,
     **kwargs
-) -> Dict[str, Any]:
-```
-**Parameters:**
-- `texts`: List of text strings
-- `language`: Language code or "auto"
-- `dictionary_path`: Path to dictionary file (optional)
-- `use_ner`: Use NER if dictionary match fails
-- `**kwargs`: Additional parameters
-
-**Returns:** Extraction results dictionary
-
-#### Example
-```python
-# Extract university names
-results = extract_universities(["Graduated from Stanford University."])
+) -> Dict[str, Any]
 ```
 
----
+#### 3.2.4 `extract_skills()`
 
-### 5. `extract_skills`
+Extract skills with type categorization.
 
 ```python
 def extract_skills(
@@ -192,27 +203,18 @@ def extract_skills(
     skill_type: str = "technical",
     use_ner: bool = True,
     **kwargs
-) -> Dict[str, Any]:
-```
-**Parameters:**
-- `texts`: List of text strings
-- `language`: Language code or "auto"
-- `dictionary_path`: Path to dictionary file (optional)
-- `skill_type`: Type of skills (e.g., 'technical', 'soft')
-- `use_ner`: Use NER if dictionary match fails
-- `**kwargs`: Additional parameters
-
-**Returns:** Extraction results dictionary
-
-#### Example
-```python
-# Extract technical skills
-results = extract_skills(["Python, SQL, and communication skills."])
+) -> Dict[str, Any]
 ```
 
----
+**Skill Types:**
+- `"technical"`: Programming languages, tools, technologies
+- `"soft"`: Communication, leadership, teamwork
+- `"language"`: Natural languages
+- `"domain"`: Domain-specific expertise
 
-### 6. `extract_transaction_purposes`
+#### 3.2.5 `extract_transaction_purposes()`
+
+Extract transaction purposes and categories.
 
 ```python
 def extract_transaction_purposes(
@@ -221,26 +223,14 @@ def extract_transaction_purposes(
     dictionary_path: Optional[str] = None,
     use_ner: bool = True,
     **kwargs
-) -> Dict[str, Any]:
-```
-**Parameters:**
-- `texts`: List of text strings
-- `language`: Language code or "auto"
-- `dictionary_path`: Path to dictionary file (optional)
-- `use_ner`: Use NER if dictionary match fails
-- `**kwargs`: Additional parameters
-
-**Returns:** Extraction results dictionary
-
-#### Example
-```python
-# Extract transaction purposes
-results = extract_transaction_purposes(["Payment for consulting services."])
+) -> Dict[str, Any]
 ```
 
----
+### 3.3 Factory Function
 
-### 7. `create_custom_entity_extractor`
+#### `create_custom_entity_extractor()`
+
+Create a custom entity extractor for specific use cases.
 
 ```python
 def create_custom_entity_extractor(
@@ -250,141 +240,245 @@ def create_custom_entity_extractor(
     match_strategy: str = "specific_first",
     use_ner: bool = True,
     **kwargs
-) -> Any:
+) -> Any
 ```
-**Parameters:**
-- `entity_type`: Type of entities to extract
-- `language`: Language code or "auto"
-- `dictionary_path`: Path to dictionary file (optional)
-- `match_strategy`: Matching strategy
-- `use_ner`: Use NER if dictionary match fails
-- `**kwargs`: Additional parameters
 
-**Returns:** Entity extractor instance
+**Returns:** A configured entity extractor instance that can be reused for multiple extractions.
 
-#### Example
+## 4. Usage Examples
+
+### 4.1 Basic Entity Extraction
+
 ```python
-# Create a custom extractor for certifications
-extractor = create_custom_entity_extractor(
-    entity_type="certification",
-    dictionary_path="/path/to/certifications.json"
+from pamola_core.utils.nlp.entity_extraction import extract_entities
+
+# Extract generic entities
+texts = ["Apple Inc. is looking for a Senior Python Developer"]
+results = extract_entities(texts, entity_type="generic")
+
+# Access results
+for entity in results["entities"]:
+    print(f"Found: {entity['entity']} ({entity['category']})")
+```
+
+### 4.2 Job Position Extraction
+
+```python
+from pamola_core.utils.nlp.entity_extraction import extract_job_positions
+
+texts = [
+    "We need a Senior Data Scientist",
+    "Junior Frontend Developer position available",
+    "Looking for ML Engineer with 5 years experience"
+]
+
+results = extract_job_positions(
+    texts, 
+    language="en",
+    seniority_detection=True
 )
-results = extractor.extract(["Certified Kubernetes Administrator"])
+
+# Results include seniority levels
+for entity in results["entities"]:
+    print(f"Position: {entity['entity']}, Seniority: {entity.get('seniority', 'N/A')}")
 ```
 
----
+### 4.3 Organization Extraction with Type Filtering
 
-## Dependency Resolution and Completion Validation
-
-- The module relies on the `pamola_core.utils.nlp.entity` package for actual extraction logic, which handles dictionary loading, NER model invocation, and match strategy resolution.
-- Caching is provided via `cache_function` to avoid redundant computation.
-- Completion validation (e.g., ensuring all texts are processed) is handled by the underlying extractor logic.
-
----
-
-## Usage Scenarios
-
-### Accessing Outputs
 ```python
-# Extract organizations and access the results
-data = ["Worked at OpenAI and Harvard University."]
-results = extract_organizations(data)
-print(results["entities"])
+from pamola_core.utils.nlp.entity_extraction import extract_organizations
+
+texts = [
+    "Stanford University research shows...",
+    "Microsoft Corporation announced...",
+    "The Federal Reserve decided..."
+]
+
+# Extract only universities
+universities = extract_organizations(
+    texts,
+    organization_type="university"
+)
+
+# Extract all organizations
+all_orgs = extract_organizations(
+    texts,
+    organization_type="any"
+)
 ```
 
-### Handling Failed Dependencies
+### 4.4 Custom Dictionary Usage
+
+```python
+from pamola_core.utils.nlp.entity_extraction import extract_skills
+
+# Use custom skill dictionary
+results = extract_skills(
+    texts=["Proficient in React and Node.js"],
+    dictionary_path="/path/to/custom_skills.json",
+    skill_type="technical"
+)
+```
+
+### 4.5 Batch Processing with Progress
+
+```python
+from pamola_core.utils.nlp.entity_extraction import extract_entities
+
+# Large batch with progress tracking
+texts = ["Text " + str(i) for i in range(10000)]
+record_ids = [f"REC_{i}" for i in range(10000)]
+
+results = extract_entities(
+    texts,
+    entity_type="job",
+    record_ids=record_ids,
+    show_progress=True
+)
+
+print(f"Processed: {results['statistics']['total_processed']}")
+print(f"Extracted: {results['statistics']['extracted']}")
+```
+
+### 4.6 Creating Custom Extractor
+
+```python
+from pamola_core.utils.nlp.entity_extraction import create_custom_entity_extractor
+
+# Create reusable extractor
+medical_extractor = create_custom_entity_extractor(
+    entity_type="medical",
+    dictionary_path="/path/to/medical_terms.json",
+    match_strategy="domain_prefer"
+)
+
+# Use for multiple extractions
+texts1 = ["Patient diagnosed with Type 2 Diabetes"]
+texts2 = ["Prescribed metformin for treatment"]
+
+results1 = medical_extractor.extract(texts1)
+results2 = medical_extractor.extract(texts2)
+```
+
+## 5. Best Practices
+
+### 5.1 Performance Optimization
+
+1. **Use Caching**: The module automatically caches results for 1 hour
+2. **Batch Processing**: Process multiple texts in a single call
+3. **Disable NER**: Set `use_ner=False` if dictionary matching is sufficient
+4. **Custom Dictionaries**: Use domain-specific dictionaries for better accuracy
+
+### 5.2 Accuracy Improvement
+
+1. **Language Specification**: Specify language explicitly when known
+2. **Match Strategy**: Choose appropriate strategy for your domain
+3. **Custom Dictionaries**: Create comprehensive domain dictionaries
+4. **Entity Type Selection**: Use specific entity types over generic
+
+### 5.3 Memory Management
+
+1. **Large Batches**: Process in chunks for very large datasets
+2. **Progress Tracking**: Enable only when needed (adds overhead)
+3. **Custom Extractors**: Reuse extractors for multiple operations
+
+## 6. Error Handling
+
+The module implements robust error handling:
+
 ```python
 try:
-    # Attempt extraction with a missing dictionary
-    extract_skills(["Python"], dictionary_path="/invalid/path.json")
+    results = extract_entities(texts, entity_type="job")
+except ValueError as e:
+    # Invalid parameters
+    logger.error(f"Invalid parameters: {e}")
+except FileNotFoundError as e:
+    # Dictionary file not found
+    logger.error(f"Dictionary not found: {e}")
 except Exception as e:
-    # Log or handle the error
-    print(f"Extraction failed: {e}")
+    # Other errors
+    logger.error(f"Extraction failed: {e}")
 ```
 
-### Using in a Pipeline (with BaseTask)
+## 7. Configuration
+
+### 7.1 Logging
+
+Configure logging level:
+
 ```python
-class MyTask(BaseTask):
-    def run(self):
-        # Use entity extraction as part of a processing pipeline
-        orgs = extract_organizations(self.input_texts)
-        self.save_results(orgs)
+import logging
+logging.getLogger("pamola_core.utils.nlp.entity_extraction").setLevel(logging.INFO)
 ```
 
-### Continue-on-Error with Logging
+### 7.2 Cache Settings
+
+The module uses memory caching with 1-hour TTL. This can be modified by adjusting the `@cache_function` decorator parameters.
+
+## 8. Integration with PAMOLA.CORE
+
+### 8.1 Operation Integration
+
 ```python
-for text in texts:
-    try:
-        result = extract_entities([text], entity_type="job")
-    except Exception as e:
-        logger.warning(f"Failed to extract from: {text} | Error: {e}")
-        continue
+from pamola_core.operations import DataEnrichmentOperation
+from pamola_core.utils.nlp.entity_extraction import extract_job_positions
+
+class JobExtractionOperation(DataEnrichmentOperation):
+    def process(self, df):
+        results = extract_job_positions(
+            df['job_title'].tolist(),
+            show_progress=True
+        )
+        # Process results...
 ```
 
----
+### 8.2 Pipeline Integration
 
-## Integration Notes
-
-- Designed for seamless integration with pipeline tasks (e.g., `BaseTask`).
-- Can be used as a standalone utility or as part of a larger data processing workflow.
-- Supports both batch and single-record extraction.
-
----
-
-## Error Handling and Exception Hierarchy
-
-- Most errors are propagated from the underlying extractor or file system (e.g., missing dictionary, invalid parameters).
-- Use try/except blocks to handle errors gracefully in production pipelines.
-- No custom exception hierarchy is defined in this module; refer to the extractor's documentation for specific error types.
-
----
-
-## Configuration Requirements
-
-- For dictionary-based extraction, provide a valid `dictionary_path`.
-- For NER-based extraction, ensure the required models are available and properly configured.
-- `language` can be set to "auto" for automatic detection, or specify a language code (e.g., "en").
-- `match_strategy` controls how matches are resolved; choose based on your use case.
-
----
-
-## Security Considerations and Best Practices
-
-- **Path Security:** Only use trusted dictionary files and NER models. Avoid using untrusted or user-supplied paths.
-- **Risks of Disabling Path Security:**
-    - Using unvalidated dictionary paths can lead to code execution or data leakage.
-    - Always validate and sanitize external paths before use.
-
-### Security Failure Example
 ```python
-# BAD: Using an untrusted dictionary path
-untrusted_path = input("Enter dictionary path: ")
-results = extract_entities(["text"], dictionary_path=untrusted_path)
-# This can lead to security issues if the path is malicious.
+from pamola_core.pipeline import Pipeline
+from pamola_core.utils.nlp.entity_extraction import extract_entities
 
-# GOOD: Validate the path before use
-import os
-if os.path.exists(trusted_path):
-    results = extract_entities(["text"], dictionary_path=trusted_path)
-else:
-    raise ValueError("Dictionary path is invalid or untrusted.")
+# Add entity extraction step
+pipeline.add_step(
+    lambda df: extract_entities(
+        df['text'].tolist(),
+        entity_type="organization"
+    )
+)
 ```
 
----
+## 9. Troubleshooting
 
-## Internal vs. External Dependencies
+### 9.1 Common Issues
 
-- **Internal:** Use built-in entity types and dictionaries provided by the PAMOLA Core framework for most use cases.
-- **External (Absolute Path):** Only specify absolute paths for custom dictionaries or models that are not part of the standard pipeline. Ensure these are secure and trusted.
+1. **No Entities Found**
+   - Check dictionary path and format
+   - Verify language setting
+   - Enable NER if disabled
 
----
+2. **Low Confidence Scores**
+   - Use more specific entity types
+   - Improve dictionary quality
+   - Adjust match strategy
 
-## Best Practices
+3. **Performance Issues**
+   - Process in smaller batches
+   - Use custom extractors for repeated operations
+   - Disable progress tracking
 
-1. **Use Built-in Entity Types:** Prefer standard entity types ("job", "organization", etc.) for consistency and maintainability.
-2. **Validate Custom Dictionaries:** Always validate the existence and integrity of custom dictionary files before use.
-3. **Handle Errors Gracefully:** Use try/except blocks to catch and log extraction errors, especially in batch processing.
-4. **Leverage Caching:** Take advantage of the built-in caching to improve performance for repeated extractions.
-5. **Document Custom Extractors:** When creating custom entity extractors, document their configuration and intended use.
-6. **Secure Path Usage:** Never use untrusted paths for dictionary or model files.
-7. **Monitor Extraction Quality:** Regularly review extraction results and update dictionaries/models as needed.
+### 9.2 Debug Mode
+
+Enable debug logging:
+
+```python
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("pamola_core.utils.nlp.entity_extraction")
+```
+
+## 10. Future Enhancements
+
+- Support for additional entity types
+- Multi-lingual entity linking
+- Confidence score calibration
+- GPU acceleration for NER models
+- Streaming API for real-time extraction

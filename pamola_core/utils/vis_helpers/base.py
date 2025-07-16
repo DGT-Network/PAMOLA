@@ -439,37 +439,44 @@ def sort_series(
     max_items: Optional[int] = None,
 ) -> pd.Series:
     """
-    Sort a pandas Series.
+    Sort a pandas Series safely.
 
     Parameters:
     -----------
     series : pd.Series
-        Series to sort
+        Series to sort.
     sort_by : str
-        Sort by "value" or "key"
+        Sort by "value" or "key".
     ascending : bool
-        Whether to sort in ascending order
+        Whether to sort in ascending order.
     max_items : int, optional
-        Maximum number of items to include after sorting
+        Limit number of items in output.
 
     Returns:
     --------
     pd.Series
-        Sorted series
+        Sorted (or original) series.
     """
-    if sort_by == "value":
-        sorted_series = series.sort_values(ascending=ascending)
-    elif sort_by == "key":
-        sorted_series = series.sort_index(ascending=ascending)
-    else:
-        logger.warning(f"Unknown sort_by value: {sort_by}. Using 'value'.")
-        sorted_series = series.sort_values(ascending=ascending)
+    try:
+        if sort_by == "value":
+            sorted_series = series.sort_values(ascending=ascending)
+        elif sort_by == "key":
+            sorted_series = series.sort_index(ascending=ascending)
+        else:
+            logger.warning(f"Unknown sort_by: {sort_by}. Falling back to sort by 'value'.")
+            sorted_series = series.sort_values(ascending=ascending)
 
-    # Limit to max_items if specified
-    if max_items is not None and len(sorted_series) > max_items:
-        sorted_series = sorted_series.iloc[:max_items]
+        if max_items is not None and len(sorted_series) > max_items:
+            sorted_series = sorted_series.iloc[:max_items]
 
-    return sorted_series
+        return sorted_series
+
+    except TypeError as e:
+        logger.warning(f"TypeError during sorting: {e}. Series values might be non-comparable (e.g., dicts).")
+        return series
+    except Exception as e:
+        logger.warning(f"Unexpected error during sorting: {e}.")
+        return series
 
 
 def prepare_dataframe(

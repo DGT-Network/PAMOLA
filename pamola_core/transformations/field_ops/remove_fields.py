@@ -95,7 +95,7 @@ class RemoveFieldsOperation(TransformationOperation):
             output_field_name: Optional[str] = None,
             column_prefix: str = "_",
             visualization_theme: Optional[str] = None,
-            visualization_backend: Optional[str] = None,
+            visualization_backend: Optional[str] = "plotly",
             visualization_strict: bool = False,
             visualization_timeout: int = 120,
             chunk_size: int = 10000,
@@ -356,7 +356,7 @@ class RemoveFieldsOperation(TransformationOperation):
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
-                return OperationResult(status=OperationStatus.ERROR, error_message=error_message)
+                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
             # Step 3: Validation
             if progress_tracker:
@@ -381,7 +381,7 @@ class RemoveFieldsOperation(TransformationOperation):
             except Exception as e:
                 error_message = f"Validation error: {str(e)}"
                 self.logger.error(error_message)
-                return OperationResult(status=OperationStatus.ERROR, error_message=error_message)
+                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
             # Step 4: Processing
             if progress_tracker:
@@ -393,7 +393,7 @@ class RemoveFieldsOperation(TransformationOperation):
             except Exception as e:
                 error_message = f"Processing error: {str(e)}"
                 self.logger.error(error_message)
-                return OperationResult(status=OperationStatus.ERROR, error_message=error_message)
+                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
             # Step 5: Metrics
             if progress_tracker:
@@ -470,7 +470,7 @@ class RemoveFieldsOperation(TransformationOperation):
                 except Exception as e:
                     error_message = f"Error saving output data: {str(e)}"
                     self.logger.error(error_message)
-                    return OperationResult(status=OperationStatus.ERROR,error_message=error_message)
+                    return OperationResult(status=OperationStatus.ERROR,error_message=error_message, exception=e)
 
             # Cache the result if caching is enabled
             if self.use_cache:
@@ -521,7 +521,7 @@ class RemoveFieldsOperation(TransformationOperation):
             # Handle unexpected errors
             error_message = f"Error in remove fields operation: {str(e)}"
             self.logger.exception(error_message)
-            return OperationResult(status=OperationStatus.ERROR, error_message=error_message)
+            return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
     def process_batch(
             self,
@@ -1311,12 +1311,18 @@ class RemoveFieldsOperation(TransformationOperation):
             # Generate visualization
             field_names = self.fields_to_remove
 
+            MAX_FIELDS_DISPLAY = 5
+            if len(field_names) > MAX_FIELDS_DISPLAY:
+                field_label = f"{len(field_names)} fields"
+            else:
+                field_label = ",".join(field_names)
+
             visualization_paths.update(
                 generate_dataset_overview_vis(
                     df=original_for_viz,
                     operation_name=f"{self.__class__.__name__}",
                     dataset_label="original",
-                    field_label=",".join(field_names),
+                    field_label=field_label,
                     task_dir=task_dir / "visualizations",
                     timestamp=timestamp,
                     theme=vis_theme,
@@ -1331,7 +1337,7 @@ class RemoveFieldsOperation(TransformationOperation):
                     df=processed_for_viz,
                     operation_name=f"{self.__class__.__name__}",
                     dataset_label="transformed",
-                    field_label=",".join(field_names),
+                    field_label=field_label,
                     task_dir=task_dir / "visualizations",
                     timestamp=timestamp,
                     theme=vis_theme,
@@ -1345,7 +1351,7 @@ class RemoveFieldsOperation(TransformationOperation):
                  generate_field_count_comparison_vis(
                      original_df=original_for_viz,
                      transformed_df=processed_for_viz,
-                     field_label= ",".join(field_names),
+                     field_label=field_label,
                      operation_name=f"{self.__class__.__name__}",
                      task_dir=task_dir / "visualizations",
                      timestamp=timestamp,

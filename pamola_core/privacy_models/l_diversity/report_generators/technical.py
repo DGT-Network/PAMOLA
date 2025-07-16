@@ -26,7 +26,7 @@ import pandas as pd
 import numpy as np
 
 # Import from pamola_core utilities
-from pamola_core.utils__old_15_04.file_io import write_json, write_csv
+from pamola_core.utils.io import write_json, write_csv
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -611,23 +611,3 @@ def calculate_recursive_diversity_metrics(
         metrics["compliance_distribution"][sa] = compliance_distribution
 
     return metrics
-
-
-def calculate_attribute_diversity_metrics(
-        data: pd.DataFrame,
-        quasi_identifiers: List[str],
-        sensitive_attribute: str,
-        diversity_type: str = "distinct"
-) -> Dict[str, Any]:
-    """
-    Calculate diversity metrics for a specific attribute
-
-    Parameters:
-    -----------
-    data : pd.DataFrame
-        Input dataset
-    quasi_identifiers : List[str]
-        Quasi-identifier columns
-    sensitive_attribute : str
-        Sensitive attribute to analyze
-    diversity_type : str, optional

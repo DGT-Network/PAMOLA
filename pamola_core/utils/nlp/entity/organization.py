@@ -6,7 +6,7 @@ including companies, educational institutions, government agencies, etc.
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Set, Union, Tuple
+from typing import Optional
 
 from pamola_core.utils.nlp.entity.base import BaseEntityExtractor, EntityMatchResult
 from pamola_core.utils.nlp.model_manager import NLPModelManager
@@ -37,27 +37,66 @@ class OrganizationExtractor(BaseEntityExtractor):
         super().__init__(**kwargs)
 
         # Organization-specific parameters
-        self.organization_type = kwargs.get('organization_type', 'any')
-        self.include_abbreviations = kwargs.get('include_abbreviations', True)
+        self.organization_type = kwargs.get("organization_type", "any")
+        self.include_abbreviations = kwargs.get("include_abbreviations", True)
 
         # Common terms for different organization types
         self.organization_terms = {
-            'company': [
-                'ltd', 'inc', 'llc', 'corp', 'corporation', 'company', 'plc', 'gmbh',
-                'ооо', 'зао', 'оао', 'ао', 'компания', 'корпорация'
+            "company": [
+                "ltd",
+                "inc",
+                "llc",
+                "corp",
+                "corporation",
+                "company",
+                "plc",
+                "gmbh",
+                "ооо",
+                "зао",
+                "оао",
+                "ао",
+                "компания",
+                "корпорация",
             ],
-            'university': [
-                'university', 'college', 'institute', 'academy', 'school',
-                'университет', 'колледж', 'институт', 'академия', 'школа', 'вуз'
+            "university": [
+                "university",
+                "college",
+                "institute",
+                "academy",
+                "school",
+                "университет",
+                "колледж",
+                "институт",
+                "академия",
+                "школа",
+                "вуз",
             ],
-            'government': [
-                'ministry', 'department', 'agency', 'authority', 'commission',
-                'министерство', 'департамент', 'агентство', 'комитет', 'служба'
+            "government": [
+                "ministry",
+                "department",
+                "agency",
+                "authority",
+                "commission",
+                "министерство",
+                "департамент",
+                "агентство",
+                "комитет",
+                "служба",
             ],
-            'nonprofit': [
-                'foundation', 'association', 'society', 'trust', 'charity', 'ngo',
-                'фонд', 'ассоциация', 'общество', 'траст', 'благотворительность', 'нко'
-            ]
+            "nonprofit": [
+                "foundation",
+                "association",
+                "society",
+                "trust",
+                "charity",
+                "ngo",
+                "фонд",
+                "ассоциация",
+                "общество",
+                "траст",
+                "благотворительность",
+                "нко",
+            ],
         }
 
     def _get_entity_type(self) -> str:
@@ -71,7 +110,9 @@ class OrganizationExtractor(BaseEntityExtractor):
         """
         return "organization"
 
-    def _extract_with_ner(self, text: str, normalized_text: str, language: str) -> Optional[EntityMatchResult]:
+    def _extract_with_ner(
+        self, text: str, normalized_text: str, language: str
+    ) -> Optional[EntityMatchResult]:
         """
         Extract organization names using NER models.
 
@@ -95,7 +136,7 @@ class OrganizationExtractor(BaseEntityExtractor):
 
             if not extractor:
                 # If no specialized extractor is available, try to load a spaCy model
-                model = nlp_model_manager.get_model('spacy', language)
+                model = nlp_model_manager.get_model("spacy", language)
                 if not model:
                     logger.warning(f"No NER model available for language '{language}'")
                     return None
@@ -104,7 +145,11 @@ class OrganizationExtractor(BaseEntityExtractor):
                 doc = model(text)
 
                 # Extract organizations
-                orgs = [ent.text for ent in doc.ents if ent.label_ in ('ORG', 'ORGANIZATION', 'FAC', 'GPE')]
+                orgs = [
+                    ent.text
+                    for ent in doc.ents
+                    if ent.label_ in ("ORG", "ORGANIZATION", "FAC", "GPE")
+                ]
 
                 if not orgs:
                     return None
@@ -117,21 +162,30 @@ class OrganizationExtractor(BaseEntityExtractor):
                 entities = extractor.extract_entities([text], language)
 
                 # Check for organizations
-                if not entities or 'organizations' not in entities or not entities['organizations']:
+                if (
+                    not entities
+                    or "organizations" not in entities
+                    or not entities["organizations"]
+                ):
                     return None
 
                 # Sort by count (descending)
-                organizations = sorted(entities['organizations'], key=lambda x: x.get('count', 0), reverse=True)
+                organizations = sorted(
+                    entities["organizations"],
+                    key=lambda x: x.get("count", 0),
+                    reverse=True,
+                )
 
                 if not organizations:
                     return None
 
                 # Get the top organization
-                org_name = organizations[0].get('text', '')
+                org_name = organizations[0].get("text", "")
 
             # Filter by organization type if specified
-            if self.organization_type != 'any' and not self._matches_organization_type(org_name,
-                                                                                       self.organization_type):
+            if self.organization_type != "any" and not self._matches_organization_type(
+                org_name, self.organization_type
+            ):
                 return None
 
             # Create match result
@@ -149,7 +203,7 @@ class OrganizationExtractor(BaseEntityExtractor):
                 confidence=0.7,  # Arbitrary confidence for NER
                 method="ner",
                 language=language,
-                conflicts=[]
+                conflicts=[],
             )
 
         except Exception as e:
@@ -172,7 +226,7 @@ class OrganizationExtractor(BaseEntityExtractor):
         bool
             True if the organization matches the type, False otherwise
         """
-        if org_type == 'any':
+        if org_type == "any":
             return True
 
         text_lower = text.lower()

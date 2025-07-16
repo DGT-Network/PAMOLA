@@ -1,0 +1,523 @@
+{
+  "format_version": "1.0",
+  "hierarchy_type": "geographic",
+  "levels": ["city", "region", "state_province", "country"],
+  "description": "Sample geographic hierarchy for North American cities",
+  "data": {
+    "Toronto": {
+      "region": "Greater Toronto Area",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "Mississauga": {
+      "region": "Greater Toronto Area",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "Montreal": {
+      "region": "Greater Montreal",
+      "state_province": "Quebec",
+      "country": "Canada"
+    },
+    "Vancouver": {
+      "region": "Metro Vancouver",
+      "state_province": "British Columbia",
+      "country": "Canada"
+    },
+    "Calgary": {
+      "region": "Calgary Region",
+      "state_province": "Alberta",
+      "country": "Canada"
+    },
+    "New York": {
+      "region": "New York Metropolitan Area",
+      "state_province": "New York",
+      "country": "United States"
+    },
+    "Brooklyn": {
+      "region": "New York Metropolitan Area",
+      "state_province": "New York",
+      "country": "United States"
+    },
+    "Los Angeles": {
+      "region": "Greater Los Angeles",
+      "state_province": "California",
+      "country": "United States"
+    },
+    "San Francisco": {
+      "region": "San Francisco Bay Area",
+      "state_province": "California",
+      "country": "United States"
+    },
+    "Chicago": {
+      "region": "Chicagoland",
+      "state_province": "Illinois",
+      "country": "United States"
+    },
+    "Houston": {
+      "region": "Greater Houston",
+      "state_province": "Texas",
+      "country": "United States"
+    },
+    "Dallas": {
+      "region": "Dallas–Fort Worth Metroplex",
+      "state_province": "Texas",
+      "country": "United States"
+    },
+    "Miami": {
+      "region": "Greater Miami",
+      "state_province": "Florida",
+      "country": "United States"
+    },
+    "Seattle": {
+      "region": "Seattle Metropolitan Area",
+      "state_province": "Washington",
+      "country": "United States"
+    },
+    "Boston": {
+      "region": "Greater Boston",
+      "state_province": "Massachusetts",
+      "country": "United States"
+    },
+    "Phoenix": {
+      "region": "Phoenix Metropolitan Area",
+      "state_province": "Arizona",
+      "country": "United States"
+    },
+    "Detroit": {
+      "region": "Metro Detroit",
+      "state_province": "Michigan",
+      "country": "United States"
+    },
+    "Philadelphia": {
+      "region": "Delaware Valley",
+      "state_province": "Pennsylvania",
+      "country": "United States"
+    },
+    "Mexico City": {
+      "region": "Greater Mexico City",
+      "state_province": "Mexico City",
+      "country": "Mexico"
+    },
+    "Guadalajara": {
+      "region": "Guadalajara Metropolitan Area",
+      "state_province": "Jalisco",
+      "country": "Mexico"
+    },
+    "Monterrey": {
+      "region": "Greater Monterrey",
+      "state_province": "Nuevo León",
+      "country": "Mexico"
+    },
+    "Ottawa": {
+      "region": "National Capital Region",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "Edmonton": {
+      "region": "Edmonton Metropolitan Region",
+      "state_province": "Alberta",
+      "country": "Canada"
+    },
+    "Quebec City": {
+      "region": "Quebec City Metropolitan Area",
+      "state_province": "Quebec",
+      "country": "Canada"
+    },
+    "Winnipeg": {
+      "region": "Winnipeg Capital Region",
+      "state_province": "Manitoba",
+      "country": "Canada"
+    },
+    "Hamilton": {
+      "region": "Greater Toronto Area",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "Kitchener": {
+      "region": "Waterloo Region",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "London": {
+      "region": "Southwestern Ontario",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "Halifax": {
+      "region": "Halifax Regional Municipality",
+      "state_province": "Nova Scotia",
+      "country": "Canada"
+    },
+    "Victoria": {
+      "region": "Greater Victoria",
+      "state_province": "British Columbia",
+      "country": "Canada"
+    },
+    "Saskatoon": {
+      "region": "Saskatoon Region",
+      "state_province": "Saskatchewan",
+      "country": "Canada"
+    },
+    "Regina": {
+      "region": "Regina Metropolitan Area",
+      "state_province": "Saskatchewan",
+      "country": "Canada"
+    },
+    "St. John's": {
+      "region": "St. John's Metropolitan Area",
+      "state_province": "Newfoundland and Labrador",
+      "country": "Canada"
+    },
+    "Austin": {
+      "region": "Greater Austin",
+      "state_province": "Texas",
+      "country": "United States"
+    },
+    "San Diego": {
+      "region": "San Diego County",
+      "state_province": "California",
+      "country": "United States"
+    },
+    "San Jose": {
+      "region": "San Francisco Bay Area",
+      "state_province": "California",
+      "country": "United States"
+    },
+    "Oakland": {
+      "region": "San Francisco Bay Area",
+      "state_province": "California",
+      "country": "United States"
+    },
+    "Sacramento": {
+      "region": "Greater Sacramento",
+      "state_province": "California",
+      "country": "United States"
+    },
+    "Portland": {
+      "region": "Portland Metropolitan Area",
+      "state_province": "Oregon",
+      "country": "United States"
+    },
+    "Las Vegas": {
+      "region": "Las Vegas Valley",
+      "state_province": "Nevada",
+      "country": "United States"
+    },
+    "Denver": {
+      "region": "Denver Metropolitan Area",
+      "state_province": "Colorado",
+      "country": "United States"
+    },
+    "Salt Lake City": {
+      "region": "Salt Lake City Metropolitan Area",
+      "state_province": "Utah",
+      "country": "United States"
+    },
+    "Kansas City": {
+      "region": "Kansas City Metropolitan Area",
+      "state_province": "Missouri",
+      "country": "United States"
+    },
+    "St. Louis": {
+      "region": "Greater St. Louis",
+      "state_province": "Missouri",
+      "country": "United States"
+    },
+    "Minneapolis": {
+      "region": "Twin Cities",
+      "state_province": "Minnesota",
+      "country": "United States"
+    },
+    "St. Paul": {
+      "region": "Twin Cities",
+      "state_province": "Minnesota",
+      "country": "United States"
+    },
+    "Milwaukee": {
+      "region": "Milwaukee Metropolitan Area",
+      "state_province": "Wisconsin",
+      "country": "United States"
+    },
+    "Indianapolis": {
+      "region": "Indianapolis Metropolitan Area",
+      "state_province": "Indiana",
+      "country": "United States"
+    },
+    "Columbus": {
+      "region": "Columbus Metropolitan Area",
+      "state_province": "Ohio",
+      "country": "United States"
+    },
+    "Cleveland": {
+      "region": "Greater Cleveland",
+      "state_province": "Ohio",
+      "country": "United States"
+    },
+    "Cincinnati": {
+      "region": "Cincinnati Metropolitan Area",
+      "state_province": "Ohio",
+      "country": "United States"
+    },
+    "Pittsburgh": {
+      "region": "Greater Pittsburgh",
+      "state_province": "Pennsylvania",
+      "country": "United States"
+    },
+    "Baltimore": {
+      "region": "Baltimore Metropolitan Area",
+      "state_province": "Maryland",
+      "country": "United States"
+    },
+    "Washington": {
+      "region": "Washington Metropolitan Area",
+      "state_province": "District of Columbia",
+      "country": "United States"
+    },
+    "Richmond": {
+      "region": "Greater Richmond Region",
+      "state_province": "Virginia",
+      "country": "United States"
+    },
+    "Charlotte": {
+      "region": "Charlotte Metropolitan Area",
+      "state_province": "North Carolina",
+      "country": "United States"
+    },
+    "Raleigh": {
+      "region": "Research Triangle",
+      "state_province": "North Carolina",
+      "country": "United States"
+    },
+    "Atlanta": {
+      "region": "Atlanta Metropolitan Area",
+      "state_province": "Georgia",
+      "country": "United States"
+    },
+    "Tampa": {
+      "region": "Tampa Bay Area",
+      "state_province": "Florida",
+      "country": "United States"
+    },
+    "Orlando": {
+      "region": "Greater Orlando",
+      "state_province": "Florida",
+      "country": "United States"
+    },
+    "Jacksonville": {
+      "region": "Jacksonville Metropolitan Area",
+      "state_province": "Florida",
+      "country": "United States"
+    },
+    "Nashville": {
+      "region": "Nashville Metropolitan Area",
+      "state_province": "Tennessee",
+      "country": "United States"
+    },
+    "Memphis": {
+      "region": "Memphis Metropolitan Area",
+      "state_province": "Tennessee",
+      "country": "United States"
+    },
+    "Louisville": {
+      "region": "Louisville Metropolitan Area",
+      "state_province": "Kentucky",
+      "country": "United States"
+    },
+    "New Orleans": {
+      "region": "Greater New Orleans",
+      "state_province": "Louisiana",
+      "country": "United States"
+    },
+    "Birmingham": {
+      "region": "Greater Birmingham",
+      "state_province": "Alabama",
+      "country": "United States"
+    },
+    "Oklahoma City": {
+      "region": "Oklahoma City Metropolitan Area",
+      "state_province": "Oklahoma",
+      "country": "United States"
+    },
+    "Tulsa": {
+      "region": "Tulsa Metropolitan Area",
+      "state_province": "Oklahoma",
+      "country": "United States"
+    },
+    "San Antonio": {
+      "region": "Greater San Antonio",
+      "state_province": "Texas",
+      "country": "United States"
+    },
+    "El Paso": {
+      "region": "El Paso Metropolitan Area",
+      "state_province": "Texas",
+      "country": "United States"
+    },
+    "Albuquerque": {
+      "region": "Albuquerque Metropolitan Area",
+      "state_province": "New Mexico",
+      "country": "United States"
+    },
+    "Tucson": {
+      "region": "Tucson Metropolitan Area",
+      "state_province": "Arizona",
+      "country": "United States"
+    },
+    "Fresno": {
+      "region": "Fresno Metropolitan Area",
+      "state_province": "California",
+      "country": "United States"
+    },
+    "Long Beach": {
+      "region": "Greater Los Angeles",
+      "state_province": "California",
+      "country": "United States"
+    },
+    "Virginia Beach": {
+      "region": "Hampton Roads",
+      "state_province": "Virginia",
+      "country": "United States"
+    },
+    "Colorado Springs": {
+      "region": "Colorado Springs Metropolitan Area",
+      "state_province": "Colorado",
+      "country": "United States"
+    },
+    "Omaha": {
+      "region": "Omaha Metropolitan Area",
+      "state_province": "Nebraska",
+      "country": "United States"
+    },
+    "Reno": {
+      "region": "Reno Metropolitan Area",
+      "state_province": "Nevada",
+      "country": "United States"
+    },
+    "Buffalo": {
+      "region": "Buffalo Metropolitan Area",
+      "state_province": "New York",
+      "country": "United States"
+    },
+    "Rochester": {
+      "region": "Rochester Metropolitan Area",
+      "state_province": "New York",
+      "country": "United States"
+    },
+    "Albany": {
+      "region": "Capital District",
+      "state_province": "New York",
+      "country": "United States"
+    },
+    "Hartford": {
+      "region": "Greater Hartford",
+      "state_province": "Connecticut",
+      "country": "United States"
+    },
+    "Providence": {
+      "region": "Providence Metropolitan Area",
+      "state_province": "Rhode Island",
+      "country": "United States"
+    },
+    "Bridgeport": {
+      "region": "Greater Bridgeport",
+      "state_province": "Connecticut",
+      "country": "United States"
+    },
+    "Newark": {
+      "region": "New York Metropolitan Area",
+      "state_province": "New Jersey",
+      "country": "United States"
+    },
+    "Jersey City": {
+      "region": "New York Metropolitan Area",
+      "state_province": "New Jersey",
+      "country": "United States"
+    },
+    "Anchorage": {
+      "region": "Anchorage Metropolitan Area",
+      "state_province": "Alaska",
+      "country": "United States"
+    },
+    "Honolulu": {
+      "region": "Honolulu County",
+      "state_province": "Hawaii",
+      "country": "United States"
+    },
+    "Puebla": {
+      "region": "Greater Puebla",
+      "state_province": "Puebla",
+      "country": "Mexico"
+    },
+    "Tijuana": {
+      "region": "Tijuana Metropolitan Area",
+      "state_province": "Baja California",
+      "country": "Mexico"
+    },
+    "León": {
+      "region": "León Metropolitan Area",
+      "state_province": "Guanajuato",
+      "country": "Mexico"
+    },
+    "Juárez": {
+      "region": "El Paso–Juárez",
+      "state_province": "Chihuahua",
+      "country": "Mexico"
+    },
+    "Zapopan": {
+      "region": "Guadalajara Metropolitan Area",
+      "state_province": "Jalisco",
+      "country": "Mexico"
+    },
+    "Mississauga": {
+      "region": "Greater Toronto Area",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "Brampton": {
+      "region": "Greater Toronto Area",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "Surrey": {
+      "region": "Metro Vancouver",
+      "state_province": "British Columbia",
+      "country": "Canada"
+    },
+    "Laval": {
+      "region": "Greater Montreal",
+      "state_province": "Quebec",
+      "country": "Canada"
+    },
+    "Markham": {
+      "region": "Greater Toronto Area",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "Vaughan": {
+      "region": "Greater Toronto Area",
+      "state_province": "Ontario",
+      "country": "Canada"
+    },
+    "Gatineau": {
+      "region": "National Capital Region",
+      "state_province": "Quebec",
+      "country": "Canada"
+    },
+    "Longueuil": {
+      "region": "Greater Montreal",
+      "state_province": "Quebec",
+      "country": "Canada"
+    },
+    "Burnaby": {
+      "region": "Metro Vancouver",
+      "state_province": "British Columbia",
+      "country": "Canada"
+    },
+    "Richmond": {
+      "region": "Metro Vancouver",
+      "state_province": "British Columbia",
+      "country": "Canada"
+    }
+  }
+}

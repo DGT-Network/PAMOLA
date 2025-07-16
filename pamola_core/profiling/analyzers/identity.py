@@ -229,7 +229,7 @@ class IdentityAnalysisOperation(FieldOperation):
         encryption_key: Optional[Union[str, Path]] = None,
         use_cache: bool = True,
         visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = None,
+        visualization_backend: Optional[str] = "plotly",
         visualization_strict: bool = False,
         visualization_timeout: int = 120,
     ):
@@ -506,7 +506,9 @@ class IdentityAnalysisOperation(FieldOperation):
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Step 3: Validation
@@ -688,7 +690,9 @@ class IdentityAnalysisOperation(FieldOperation):
                 error_message = f"Processing error: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Step 5: Metrics Calculation
@@ -973,7 +977,7 @@ class IdentityAnalysisOperation(FieldOperation):
         str
             Unique cache key
         """
-         # Get basic operation parameters
+        # Get basic operation parameters
         parameters = self._get_basic_parameters()
 
         # Add operation-specific parameters (could be overridden by subclasses)
@@ -988,7 +992,7 @@ class IdentityAnalysisOperation(FieldOperation):
             parameters=parameters,
             data_hash=data_hash,
         )
-    
+
     def _get_basic_parameters(self) -> Dict[str, str]:
         """Get the basic parameters for the cache key generation."""
         return {

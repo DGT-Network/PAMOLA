@@ -23,6 +23,7 @@ Key features:
 from pathlib import Path
 from typing import Dict, Any, List, Union, Optional, Tuple, Generator, TypeVar
 
+import dask.dataframe as dd
 import pandas as pd
 
 from pamola_core.utils import logging as custom_logging
@@ -35,14 +36,15 @@ from pamola_core.utils.io import (
     # Format detection
     detect_csv_dialect, validate_file_format, is_encrypted_file,
     # Get file info/metadata
-    get_file_metadata
+    get_file_metadata,
+    get_system_memory, estimate_file_memory_list, read_multi_file_dask
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
 # Define type variables for better type hints
 PathType = Union[str, Path]
 DataFrameType = TypeVar('DataFrameType', bound=pd.DataFrame)
-ResultWithError = Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
+ResultWithError = Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
 
 
 class DataReader:
@@ -67,7 +69,7 @@ class DataReader:
         self.logger.debug("Initializing DataReader")
 
     def read_dataframe(self,
-                       source: Union[PathType, Dict[str, PathType]],
+                       source: Union[PathType, Dict[str, PathType], Dict[str, List[PathType]]],
                        file_format: Optional[str] = None,
                        columns: Optional[List[str]] = None,
                        nrows: Optional[int] = None,
@@ -128,13 +130,79 @@ class DataReader:
 
         Returns:
         --------
-        Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
+        Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
         """
         # Initialize result and error info
         df = None
         error_info = None
         memory_info = {}  # Инициализируем переменную memory_info
+        file_memory_infos = []
+        system_memory = {}
+
+        # Get source files
+        source_list = []
+        if isinstance(source, PathType):
+            source_list.append(source)
+        elif isinstance(source, dict):
+            for key, path in source.items():
+                if isinstance(path, PathType):
+                    source_list.append(path)
+                elif isinstance(path, list):
+                    source_list.extend(path)
+
+        # Perform pre-flight memory check with io.py
+        try:
+            file_memory_infos = estimate_file_memory_list(source_list)
+            sum_memory_required_gb = sum(
+                file_memory_info.get('estimated_memory_mb', 0) for file_memory_info in file_memory_infos
+            ) / 1024
+
+            # Auto-switch to Dask if memory limit is specified and exceeded
+            system_memory = get_system_memory()
+            available_memory = system_memory.get("available_gb", 0)
+            effective_memory = memory_limit if memory_limit else available_memory
+
+            if sum_memory_required_gb > min(available_memory, effective_memory):
+                self.logger.warning(
+                    f"Files {source_list} requires {sum_memory_required_gb:.2f}GB RAM,"
+                    f" exceeding limit of {min(available_memory, effective_memory):.2f}GB."
+                    f" Switching to Dask."
+                )
+                use_dask = True
+        except Exception as e:
+            self.logger.warning(f"Memory estimation failed: {e}. Proceeding without pre-flight check.")
+
+
+        if use_dask and len(source_list) > 0:
+            max_memory_required_gb = max(
+                (file_memory_info.get('estimated_memory_mb', 0) for file_memory_info in file_memory_infos),
+                default=0
+            ) / 1024
+            available_memory = system_memory.get("available_gb", 0)
+
+            # Convert all sources to Path objects
+            paths = [Path(p) if isinstance(p, str) else p for p in source_list]
+
+            # Check if we have any valid paths
+            valid_paths = [p for p in paths if p.exists()]
+
+            npartitions = None
+            # Use read_multi_file_dask without **kwargs
+            df = read_multi_file_dask(
+                file_paths=valid_paths,
+                encoding=encoding,
+                delimiter=delimiter,
+                quotechar=quotechar,
+                columns=columns,
+                nrows=nrows,
+                skiprows=skiprows,
+                npartitions=npartitions,
+                show_progress=show_progress,
+                encryption_key=encryption_key
+            )
+
+            return df, None
 
         # If source is a dictionary, assume it's a multi-file dataset
         if isinstance(source, dict) or (isinstance(source, list) and len(source) > 0):

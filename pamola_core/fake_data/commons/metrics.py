@@ -358,7 +358,10 @@ class MetricsCollector:
                         secondary_color="crimson",
                         **kwargs
                     )
-                    visualizations["value_distribution"] = Path(vis_path)
+                    if not vis_path.startswith("Error"):
+                        visualizations["value_distribution"] = Path(vis_path)
+                    else:    
+                        logger.warning(f"Error creating replacement rate visualization: {str(e)}")                                        
                 except Exception as e:
                     logger.warning(f"Error creating value distribution visualization: {str(e)}")
 
@@ -390,7 +393,11 @@ class MetricsCollector:
                         y_label="Value",
                         **kwargs
                     )
-                    visualizations["length_stats"] = Path(vis_path)
+                    if not vis_path.startswith("Error"):
+                        visualizations["length_stats"] = Path(vis_path)
+                    else:    
+                        logger.warning(f"Error creating replacement rate visualization: {str(e)}")
+                    
                 except Exception as e:
                     logger.warning(f"Error creating length stats visualization: {str(e)}")
 
@@ -418,7 +425,10 @@ class MetricsCollector:
                         show_percentages=True,
                         **kwargs
                     )
-                    visualizations["replacement_rate"] = Path(vis_path)
+                    if not vis_path.startswith("Error"):
+                        visualizations["replacement_rate"] = Path(vis_path)
+                    else:    
+                        logger.warning(f"Error creating replacement rate visualization: {str(e)}")                    
                 except Exception as e:
                     logger.warning(f"Error creating replacement rate visualization: {str(e)}")
 

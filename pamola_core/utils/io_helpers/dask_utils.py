@@ -2,7 +2,7 @@
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
 Module:        Dask Integration Utilities
-Package:       core.utils.io_helpers
+Package:       pamola_core.utils.io_helpers
 Version:       1.1.0+refactor.2025.05.22
 Status:        stable
 Author:        PAMOLA Core Team
@@ -34,9 +34,11 @@ from pathlib import Path
 from typing import Iterator, Union, Dict, Any, Optional
 
 import pandas as pd
+import dask.dataframe as dd
 
 from pamola_core.utils import logging
 from pamola_core.utils import progress
+from pamola_core.utils.ops.op_data_processing import get_memory_usage
 
 # Configure module logger
 logger = logging.get_logger("pamola_core.utils.io_helpers.dask_utils")
@@ -381,3 +383,155 @@ def compute_dask_stats(ddf) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error computing Dask stats: {e}")
         raise
+
+
+def check_dask_availability(engine: str = "auto", logger=None) -> bool:
+    """
+    Check if Dask is available in the current environment.
+
+    Parameters:
+    -----------
+    engine : str
+        The data processing engine requested: "pandas", "dask", or "auto".
+    logger : Logger, optional
+        Optional logger to print an error message if Dask is explicitly required but not installed.
+
+    Returns:
+    --------
+    bool
+        True if Dask is available, False otherwise.
+    """
+    try:
+        import dask.dataframe as dd
+
+        return True
+    except ImportError:
+        if engine == "dask" and logger:
+            logger.error(
+                "Dask explicitly requested but not available. Install with: pip install dask[complete]"
+            )
+        return False
+
+
+def should_use_dask(
+    df: pd.DataFrame, engine: str, dask_available: bool, max_rows_in_memory: int
+) -> bool:
+    """
+    Decide whether to use Dask based on configuration, Dask availability, and data size.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The input dataframe to evaluate.
+    engine : str
+        Desired processing engine: "pandas", "dask", or "auto".
+    dask_available : bool
+        Whether Dask is available in the environment.
+    max_rows_in_memory : int
+        Threshold for using Pandas in memory. If row count exceeds this, prefer Dask.
+
+    Returns:
+    --------
+    bool
+        True if Dask should be used, False otherwise.
+    """
+    if not dask_available:
+        return False
+    if engine == "dask":
+        return True
+    elif engine == "pandas":
+        return False
+    return len(df) > max_rows_in_memory
+
+
+def convert_to_dask(
+    df: pd.DataFrame,
+    dask_npartitions: int = None,
+    dask_partition_size: str = "100MB",
+    logger=None,
+):
+    """
+    Convert a pandas DataFrame into a Dask DataFrame with calculated or fixed partitioning.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        Input pandas DataFrame.
+    dask_npartitions : int, optional
+        Desired number of Dask partitions. If None, will be calculated based on partition size.
+    dask_partition_size : str
+        Desired partition size (e.g., "100MB", "1GB").
+    logger : Logger, optional
+        Optional logger for progress/info output.
+
+    Returns:
+    --------
+    dd.DataFrame
+        Converted Dask DataFrame.
+    """
+    import dask.dataframe as dd
+
+    memory_usage_mb = get_memory_usage(df)["total_mb"]
+    partition_size_mb = parse_partition_size(dask_partition_size)
+    npartitions = dask_npartitions or max(1, int(memory_usage_mb / partition_size_mb))
+
+    if logger:
+        logger.info(f"Converting to Dask DataFrame with {npartitions} partitions")
+
+    return dd.from_pandas(df, npartitions=npartitions), npartitions
+
+
+def convert_from_dask(ddf):
+    """
+    Convert a Dask DataFrame back into a pandas DataFrame.
+
+    Parameters:
+    -----------
+    ddf : dd.DataFrame
+        Dask DataFrame to convert.
+
+    Returns:
+    --------
+    pd.DataFrame
+        Resulting pandas DataFrame.
+    """
+    return ddf.compute()
+
+
+def parse_partition_size(partition_size: str) -> float:
+    """
+    Parse a string-based partition size to megabytes (MB).
+
+    Parameters:
+    -----------
+    partition_size : str
+        Partition size in the form "100MB", "1GB", or numeric string (default MB assumed).
+
+    Returns:
+    --------
+    float
+        Partition size in megabytes.
+    """
+    partition_size = partition_size.upper()
+    if partition_size.endswith("GB"):
+        return float(partition_size[:-2]) * 1024
+    elif partition_size.endswith("MB"):
+        return float(partition_size[:-2])
+    return float(partition_size)
+
+def get_computed_df(df):
+    """
+    Return the computed DataFrame if it's a Dask DataFrame,
+    otherwise return the original DataFrame.
+
+    Parameters:
+    -----------
+    df : Union[pd.DataFrame, dd.DataFrame]
+        Input DataFrame (can be Pandas or Dask)
+
+    Returns:
+    --------
+    pd.DataFrame
+        The computed (or original) DataFrame
+    """
+    return df.compute() if isinstance(df, dd.DataFrame) else df

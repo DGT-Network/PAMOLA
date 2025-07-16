@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 
 from pamola_core.profiling.analyzers import numeric
+from pamola_core.utils.ops.op_result import OperationResult
 
 class TestNumericAnalyzer(unittest.TestCase):
     def setUp(self):
@@ -56,7 +57,7 @@ class TestNumericAnalyzer(unittest.TestCase):
         # Do not hard assert True/False, only check key existence
 
     @patch('pamola_core.profiling.commons.numeric_utils.prepare_numeric_data', return_value=(np.array([1,2,3,4,5]), 0, 5))
-    @patch('pamola_core.profiling.commons.numeric_utils.handle_large_dataframe', return_value={'min':1,'max':5,'mean':3,'zero_count':0,'zero_percentage':0})
+    @patch('pamola_core.profiling.analyzers.numeric.handle_large_dataframe', return_value={'min':1,'max':5,'mean':3,'zero_count':0,'zero_percentage':0})
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles', return_value={'p50':3})
     @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram', return_value={'bins':[0,1,2],'counts':[1,2]})
     @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers', return_value={'count':0,'percentage':0})
@@ -66,6 +67,33 @@ class TestNumericAnalyzer(unittest.TestCase):
         result = self.analyzer.analyze(df, 'num', use_chunks=True, chunk_size=10000)
         self.assertIn('stats', result)
         self.assertIn('min', result['stats'])
+        mock_handle.assert_called_once()
+        
+    @patch('pamola_core.profiling.commons.numeric_utils.prepare_numeric_data', return_value=(np.array([1,2,3,4,5]), 0, 5))
+    @patch('pamola_core.profiling.analyzers.numeric.process_with_dask', return_value={'min':1,'max':5,'mean':3,'zero_count':0,'zero_percentage':0})
+    @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles', return_value={'p50':3})
+    @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram', return_value={'bins':[0,1,2],'counts':[1,2]})
+    @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers', return_value={'count':0,'percentage':0})
+    @patch('pamola_core.utils.progress.ProgressTracker')
+    def test_analyze_large_df_use_dask(self, mock_progress, mock_outlier, mock_hist, mock_percent, mock_handle, mock_prepare):
+        df = pd.DataFrame({'num': np.arange(20000)})
+        result = self.analyzer.analyze(df, 'num', use_dask=True)
+        self.assertIn('stats', result)
+        self.assertIn('min', result['stats'])
+        mock_handle.assert_called_once()
+        
+    @patch('pamola_core.profiling.commons.numeric_utils.prepare_numeric_data', return_value=(np.array([1,2,3,4,5]), 0, 5))
+    @patch('pamola_core.profiling.analyzers.numeric.process_with_joblib', return_value={'min':1,'max':5,'mean':3,'zero_count':0,'zero_percentage':0})
+    @patch('pamola_core.profiling.commons.numeric_utils.calculate_percentiles', return_value={'p50':3})
+    @patch('pamola_core.profiling.commons.numeric_utils.calculate_histogram', return_value={'bins':[0,1,2],'counts':[1,2]})
+    @patch('pamola_core.profiling.commons.numeric_utils.detect_outliers', return_value={'count':0,'percentage':0})
+    @patch('pamola_core.utils.progress.ProgressTracker')
+    def test_analyze_large_df_use_vectorization(self, mock_progress, mock_outlier, mock_hist, mock_percent, mock_handle, mock_prepare):
+        df = pd.DataFrame({'num': np.arange(20000)})
+        result = self.analyzer.analyze(df, 'num', use_vectorization=True)
+        self.assertIn('stats', result)
+        self.assertIn('min', result['stats'])
+        mock_handle.assert_called_once()
 
     def test_estimate_resources_field_found(self):
         result = self.analyzer.estimate_resources(self.df, 'num')
@@ -140,15 +168,40 @@ class TestNumericOperation(unittest.TestCase):
     @patch('pamola_core.profiling.analyzers.numeric.load_data_operation')
     def test_execute_no_df(self, mock_load):
         mock_load.return_value = None
-        op = numeric.NumericOperation('num')
+        op = numeric.NumericOperation('num', use_cache=False)
         result = op.execute(self.data_source, self.task_dir, self.reporter)
         self.assertEqual(result.status, numeric.OperationStatus.ERROR)
         self.assertIn('No valid DataFrame', result.error_message)
+ 
+    @patch.object(numeric.NumericOperation, '_check_cache')    
+    @patch('pamola_core.profiling.analyzers.numeric.load_data_operation')
+    def test_execute_use_cache(self, mock_load, mock_cache):
+        mock_load.return_value = pd.DataFrame({'num': [1,2]})
+        mock_cache.return_value = OperationResult(
+                            status=numeric.OperationStatus.SUCCESS
+                        )
+        op = numeric.NumericOperation('num', use_cache=True)
+        result = op.execute(self.data_source, self.task_dir, self.reporter, self.progress_tracker)
+        self.assertEqual(result.status, numeric.OperationStatus.SUCCESS)
 
+    @patch.object(numeric.NumericOperation, '_handle_visualizations')
+    @patch('pamola_core.profiling.analyzers.numeric.load_data_operation')
+    def test_execute_with_visualization(self, mock_load, mock_handle_viz):
+        # Setup DataFrame and mocks
+        df = pd.DataFrame({'num': ["['A','B']", "['B','C']", "['A']"]})
+        mock_load.return_value = df
+        mock_handle_viz.return_value = {'main': 'vis_path.png'}
+        op = numeric.NumericOperation('num', use_cache=False)
+        op.generate_visualization = True
+        op.visualization_backend = 'plotly'
+        result = op.execute(self.data_source, self.task_dir, self.reporter, self.progress_tracker)
+        self.assertEqual(result.status, numeric.OperationStatus.SUCCESS)
+        mock_handle_viz.assert_called_once()
+        
     @patch('pamola_core.profiling.analyzers.numeric.load_data_operation')
     def test_execute_field_not_found(self, mock_load):
         mock_load.return_value = pd.DataFrame({'other': [1,2]})
-        op = numeric.NumericOperation('num')
+        op = numeric.NumericOperation('num', use_cache=False)
         result = op.execute(self.data_source, self.task_dir, self.reporter)
         self.assertEqual(result.status, numeric.OperationStatus.ERROR)
         self.assertIn('not found in DataFrame', result.error_message)
@@ -157,7 +210,8 @@ class TestNumericOperation(unittest.TestCase):
     @patch('pamola_core.profiling.analyzers.numeric.NumericAnalyzer.analyze', return_value={'error':'fail'})
     def test_execute_analysis_error(self, mock_analyze, mock_load):
         mock_load.return_value = self.df
-        op = numeric.NumericOperation('num')
+        mock_analyze.side_effect = Exception('fail')
+        op = numeric.NumericOperation('num', use_cache=False)
         result = op.execute(self.data_source, self.task_dir, self.reporter)
         self.assertEqual(result.status, numeric.OperationStatus.ERROR)
         self.assertIn('fail', result.error_message)
@@ -171,7 +225,7 @@ class TestNumericOperation(unittest.TestCase):
     @patch('pamola_core.profiling.analyzers.numeric.load_data_operation')
     def test_execute_success(self, mock_load, mock_analyze, mock_filename, mock_write):
         mock_load.return_value = self.df
-        op = numeric.NumericOperation('num')
+        op = numeric.NumericOperation('num', use_cache=False)
         result = op.execute(self.data_source, self.task_dir, self.reporter, self.progress_tracker)
         self.assertEqual(result.status, numeric.OperationStatus.SUCCESS)
         self.assertIn('total_rows', result.metrics)
@@ -183,7 +237,7 @@ class TestNumericOperation(unittest.TestCase):
     @patch('pamola_core.profiling.analyzers.numeric.NumericAnalyzer.analyze', side_effect=Exception('Simulated error'))
     def test_execute_exception(self, mock_analyze, mock_load, mock_logger):
         mock_load.return_value = self.df
-        op = numeric.NumericOperation('num')
+        op = numeric.NumericOperation('num', use_cache=False)
         result = op.execute(self.data_source, self.task_dir, self.reporter, self.progress_tracker)
         self.assertEqual(result.status, numeric.OperationStatus.ERROR)
         self.assertIn('Error analyzing numeric field num: Simulated error', result.error_message)
@@ -193,10 +247,10 @@ class TestNumericOperation(unittest.TestCase):
 
     @patch('pamola_core.profiling.analyzers.numeric.create_histogram', return_value='ok')
     @patch('pamola_core.profiling.analyzers.numeric.create_boxplot', return_value='ok')
-    @patch('pamola_core.profiling.analyzers.numeric.create_correlation_pair', return_value='ok')
+    @patch('pamola_core.profiling.analyzers.numeric.create_correlation_pair_plot', return_value='ok')
     @patch('pamola_core.profiling.analyzers.numeric.get_timestamped_filename', side_effect=lambda *a, **k: 'file.png')
     def test_generate_visualizations(self, mock_filename, mock_corr, mock_box, mock_hist):
-        op = numeric.NumericOperation('num')
+        op = numeric.NumericOperation('num', use_cache=False)
         analysis_results = {
             'stats': {
                 'histogram': {'bins':[0,1],'counts':[1,2]},
@@ -206,17 +260,17 @@ class TestNumericOperation(unittest.TestCase):
         df = pd.DataFrame({'num': np.arange(20)})
         result = MagicMock()
         reporter = MagicMock()
-        op._generate_visualizations(df, analysis_results, Path('vis'), True, result, reporter)
+        op._generate_visualizations(df, analysis_results, Path('vis'), True, result, reporter, None, None, False)
         mock_hist.assert_called()
         mock_box.assert_called()
         mock_corr.assert_called()
 
     @patch('pamola_core.profiling.analyzers.numeric.create_histogram', return_value='Error: failed')
     @patch('pamola_core.profiling.analyzers.numeric.create_boxplot', return_value='Error: failed')
-    @patch('pamola_core.profiling.analyzers.numeric.create_correlation_pair', return_value='Error: failed')
+    @patch('pamola_core.profiling.analyzers.numeric.create_correlation_pair_plot', return_value='Error: failed')
     @patch('pamola_core.profiling.analyzers.numeric.get_timestamped_filename', side_effect=lambda *a, **k: 'file.png')
     def test_generate_visualizations_error(self, mock_filename, mock_corr, mock_box, mock_hist):
-        op = numeric.NumericOperation('num')
+        op = numeric.NumericOperation('num', use_cache=False)
         analysis_results = {
             'stats': {
                 'histogram': {'bins':[0,1],'counts':[1,2]},
@@ -226,8 +280,9 @@ class TestNumericOperation(unittest.TestCase):
         df = pd.DataFrame({'num': np.arange(20)})
         result = MagicMock()
         reporter = MagicMock()
-        op._generate_visualizations(df, analysis_results, Path('vis'), True, result, reporter)
+        result = op._generate_visualizations(df, analysis_results, Path('vis'), True, result, reporter, None, None, False)
         # No exception should be raised
+        self.assertEqual([], result)
 
 class TestAnalyzeNumericFields(unittest.TestCase):
     @patch('pamola_core.profiling.analyzers.numeric.load_data_operation')
@@ -269,7 +324,7 @@ class TestAnalyzeNumericFields(unittest.TestCase):
         self.assertEqual(result, {})
         reporter.add_operation.assert_any_call('Analyzing a field', status='error', details={'error': 'fail'})
 
-    @patch('pamola_core.profiling.analyzers.numeric.ProgressTracker')
+    @patch('pamola_core.profiling.analyzers.numeric.HierarchicalProgressTracker')
     @patch('pamola_core.profiling.analyzers.numeric.load_data_operation')
     @patch('pamola_core.profiling.analyzers.numeric.NumericOperation.execute')
     def test_overall_tracker_error(self, mock_execute, mock_load, mock_tracker_cls):
@@ -329,6 +384,177 @@ class TestAnalyzeNumericFields(unittest.TestCase):
         if 'message' in normality:
             self.assertIn('Normality testing skipped', normality['message'])
         # Do not assert progress.update, as it may not be called for user choice
+
+class TestNumericHandleVisualizations(unittest.TestCase):
+    def setUp(self):
+        self.df = pd.DataFrame({'num': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]})
+        self.analysis_results = {
+            'stats': {
+                'histogram': {'bins': [0, 1], 'counts': [1, 2]},
+                'min': 1, 'max': 10, 'normality': {'is_normal': True, 'shapiro': {'p_value': 0.5}}
+            }
+        }
+        self.task_dir = Path('test_vis_dir')
+        self.result = numeric.OperationResult(status=numeric.OperationStatus.SUCCESS)
+        self.reporter = MagicMock()
+        self.progress_tracker = MagicMock()
+        self.op = numeric.NumericOperation('num', use_cache=False)
+        self.op.logger = MagicMock()
+
+    @patch.object(numeric.NumericOperation, '_generate_visualizations')
+    def test_handle_visualizations_success(self, mock_generate):
+        mock_generate.return_value = {'main': 'vis_path.png'}
+        out = self.op._handle_visualizations(
+            self.df, self.analysis_results, self.task_dir, True, self.result, self.reporter,
+            vis_theme='theme', vis_backend='plotly', vis_strict=False, vis_timeout=2, progress_tracker=self.progress_tracker
+        )
+        self.assertIn('main', out)
+        self.reporter.add_artifact.assert_any_call(
+            artifact_type='png', path='vis_path.png', description='main visualization'
+        )
+
+    @patch.object(numeric.NumericOperation, '_generate_visualizations', side_effect=Exception('viz error'))
+    def test_handle_visualizations_visualization_error(self, mock_generate):
+        out = self.op._handle_visualizations(
+            self.df, self.analysis_results, self.task_dir, True, self.result, self.reporter,
+            vis_theme='theme', vis_backend='plotly', vis_strict=False, vis_timeout=2, progress_tracker=self.progress_tracker
+        )
+        self.assertEqual(out, {})
+
+    @patch('threading.Thread')
+    @patch.object(numeric.NumericOperation, '_generate_visualizations')
+    def test_handle_visualizations_timeout(self, mock_generate, mock_thread):
+        class DummyThread:
+            def __init__(self): self._alive = True
+            def start(self): pass
+            def join(self, timeout=None): pass
+            def is_alive(self): return True
+            @property
+            def daemon(self): return False
+        mock_thread.return_value = DummyThread()
+        out = self.op._handle_visualizations(
+            self.df, self.analysis_results, self.task_dir, True, self.result, self.reporter,
+            vis_theme='theme', vis_backend='plotly', vis_strict=False, vis_timeout=0, progress_tracker=self.progress_tracker
+        )
+        self.assertEqual(out, {})
+
+    def test_handle_visualizations_no_backend(self):
+        out = self.op._handle_visualizations(
+            self.df, self.analysis_results, self.task_dir, True, self.result, self.reporter,
+            vis_theme='theme', vis_backend=None, vis_strict=False, vis_timeout=2, progress_tracker=self.progress_tracker
+        )
+        self.assertEqual(out, {})
+
+class TestCheckCache(unittest.TestCase):
+    def setUp(self):
+        self.df = pd.DataFrame({'num': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]})
+        self.task_dir = Path('test_vis_dir')
+        self.reporter = MagicMock()
+        self.progress_tracker = MagicMock()
+        self.op = numeric.NumericOperation('num')
+        
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(numeric.NumericOperation, '_generate_cache_key')
+    def test_no_cache(self, mock_cache_key, mock_operation_cache):
+        mock_cache_key.return_value = 'cache_key'
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out, None)
+        
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.get_cache')
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(numeric.NumericOperation, '_generate_cache_key')
+    def test_cache(self, mock_cache_key, mock_operation_cache, mock_get_cache):
+        mock_cache_key.return_value = 'cache_key'
+        mock_get_cache.return_value = {
+            'artifacts': [],
+            'analysis_results': {}
+        }
+        mock_operation_cache.return_value = {'main': 'vis_path.png'}
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out.status, numeric.OperationStatus.SUCCESS)
+    
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.get_cache')
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(numeric.NumericOperation, '_generate_cache_key')
+    def test_cache_outliers_stats(self, mock_cache_key, mock_operation_cache, mock_get_cache):
+        mock_cache_key.return_value = 'cache_key'
+        mock_get_cache.return_value = {
+            'artifacts': [],
+            'analysis_results': {
+                'stats': {
+                    'outliers':{
+                        'count': 1
+                        }
+                    }
+                }
+            }
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out.status, numeric.OperationStatus.SUCCESS)
+        self.assertEqual(out.metrics['outliers_count'], 1)
+        
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.get_cache')
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(numeric.NumericOperation, '_generate_cache_key')
+    def test_cache_normality_stats(self, mock_cache_key, mock_operation_cache, mock_get_cache):
+        mock_cache_key.return_value = 'cache_key'
+        mock_get_cache.return_value = {
+            'artifacts': [],
+            'analysis_results': {
+                'stats': {
+                    'normality':{
+                        'is_normal': True
+                        }
+                    }
+                }
+            }
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out.status, numeric.OperationStatus.SUCCESS)
+        self.assertTrue(out.metrics['is_normal'])
+        
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.get_cache')
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(numeric.NumericOperation, '_generate_cache_key')
+    def test_cache_outliers_normality_stats(self, mock_cache_key, mock_operation_cache, mock_get_cache):
+        mock_cache_key.return_value = 'cache_key'
+        mock_get_cache.return_value = {
+            'artifacts': [],
+            'analysis_results': {
+                'stats': {
+                    'outliers':{
+                        'count': 1
+                        },
+                    'normality':{
+                        'is_normal': True
+                        }
+                    }
+                }
+            }
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out.status, numeric.OperationStatus.SUCCESS)
+        self.assertEqual(out.metrics['outliers_count'], 1)
+        self.assertTrue(out.metrics['is_normal'])
+        
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.get_cache')
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(numeric.NumericOperation, '_generate_cache_key')
+    def test_cache_exception(self, mock_cache_key, mock_operation_cache, mock_get_cache):
+        mock_cache_key.return_value = 'cache_key'
+        mock_get_cache.side_effect = Exception("Cache Exception")
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out, None)
+    
 
 if __name__ == '__main__':
     unittest.main()

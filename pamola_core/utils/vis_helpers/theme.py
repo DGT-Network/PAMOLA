@@ -28,7 +28,7 @@ import plotly
 from matplotlib.colors import Colormap
 from matplotlib.figure import Figure
 
-# core/utils/vis_helpers/colormap.py
+# pamola_core/utils/vis_helpers/colormap.py
 
 
 # Configure logger

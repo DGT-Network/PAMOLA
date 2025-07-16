@@ -159,9 +159,10 @@ class CorrelationOperation(FieldOperation):
                  generate_visualization: bool = True,
                  use_cache: bool = True,
                  force_recalculation: bool = False,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_theme: Optional[str] = None,
                  visualization_strict: bool = False,
+                 visualization_timeout: int = 120,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
                  encryption_mode: Optional[str] = None):
@@ -211,6 +212,7 @@ class CorrelationOperation(FieldOperation):
         self.visualization_backend = visualization_backend
         self.visualization_theme = visualization_theme
         self.visualization_strict = visualization_strict
+        self.visualization_timeout = visualization_timeout
 
     def execute(self,
                 data_source: DataSource,
@@ -232,11 +234,24 @@ class CorrelationOperation(FieldOperation):
         progress_tracker : ProgressTracker, optional
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation:
+            Optional overrides for instance attributes and execution parameters:
             - generate_visualization: bool, whether to generate visualizations
             - include_timestamp: bool, whether to include timestamps in filenames
             - profile_type: str, type of profiling for organizing artifacts
             - null_handling: str, method for handling nulls ('drop', 'fill', 'pairwise')
+            - dataset_name (str): Name of the dataset to load from the data source.
+            - include_timestamp (bool): Whether to append a timestamp to output filenames (default: True)
+            - output_format (str): Format for saving output files (e.g., "csv", "json") (default: csv)
+            - save_output (bool): Whether to save partitioned outputs to disk (default: True)
+            - generate_visualization (bool): Whether to generate visualizations for the output data (default: True)
+            - use_cache (bool): Enable caching of intermediate results (default: True)
+            - force_recalculation (bool): If True, bypass cached results and force full reprocessing (default: False)
+            - visualization_backend (str): Backend for visualizations (default: None)
+            - visualization_theme (str): Theme for visualizations (default: None)
+            - visualization_strict (bool): Whether to enforce strict visualization rules (default: False)
+            - visualization_timeout (int): Timeout for visualization generation in seconds (default: 120)
+            - use_encryption (bool): If True, encrypt output files (default: False)
+            - encryption_key (str or Path): Encryption key or path for encrypting outputs (default: None)
 
         Returns:
         --------
@@ -407,11 +422,10 @@ class CorrelationOperation(FieldOperation):
                     progress_tracker.update(1, {"step": "Generate visualizations",
                                                 "operation": caller_operation})
 
-                viz_result = self._generate_visualizations(
+                viz_result = self._handle_visualizations(
                     analysis_results=analysis_results,
                     visualizations_dir=visualizations_dir,
-                    result=result,
-                    **kwargs
+                    result=result
                 )
 
                 if not viz_result.startswith("Error"):
@@ -468,8 +482,9 @@ class CorrelationOperation(FieldOperation):
                                            "error": str(e)
                                        })
 
-            return OperationResult(status=OperationStatus.ERROR, error_message=str(e))
-
+            return OperationResult(
+                status=OperationStatus.ERROR, error_message=str(e), exception=e
+            )
 
     def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
         """
@@ -541,8 +556,7 @@ class CorrelationOperation(FieldOperation):
             self,
             analysis_results: dict,
             visualizations_dir: Path,
-            result: OperationResult,
-            **kwargs
+            result: OperationResult
     ) -> str:
         """
         Generate and save a visualization from top categorical values.
@@ -568,9 +582,13 @@ class CorrelationOperation(FieldOperation):
             self.logger.warning(warning_msg)
             return f"Error: {warning_msg}"
 
-        kwargs["backend"] = kwargs.pop("visualization_backend", self.visualization_backend)
-        kwargs["theme"] = kwargs.pop("visualization_theme", self.visualization_theme)
-        kwargs["strict"] = kwargs.pop("visualization_strict", self.visualization_strict)
+        kwargs_visualization = {
+            "use_encryption": self.use_encryption,
+            "encryption_key": self.encryption_key,
+            "backend": self.visualization_backend,
+            "theme": self.visualization_theme,
+            "strict": self.visualization_strict
+        }
 
         # Create visualization based on plot_data type
         plot_data = analysis_results['plot_data']
@@ -600,7 +618,7 @@ class CorrelationOperation(FieldOperation):
                 add_trendline=True,
                 correlation=correlation_value,
                 method=method_display,
-                **kwargs
+                **kwargs_visualization
             )
 
         elif plot_type == "boxplot":
@@ -614,7 +632,7 @@ class CorrelationOperation(FieldOperation):
                 title=title,
                 x_label=plot_data['x_label'],
                 y_label=plot_data['y_label'],
-                **kwargs
+                **kwargs_visualization
             )
 
         elif plot_type == "heatmap":
@@ -627,7 +645,7 @@ class CorrelationOperation(FieldOperation):
                 x_label=plot_data['x_label'],
                 y_label=plot_data['y_label'],
                 annotate=True,
-                **kwargs
+                **kwargs_visualization
             )
 
         if not viz_result.startswith("Error"):
@@ -635,6 +653,58 @@ class CorrelationOperation(FieldOperation):
                                 category=Constants.Artifact_Category_Visualization)
 
         return viz_result
+
+    def _handle_visualizations(
+            self,
+            analysis_results: dict,
+            visualizations_dir: Path,
+            result: OperationResult
+    ) -> str:
+        """
+        Run _generate_visualizations in a separate thread with timeout.
+
+        Returns
+        -------
+        str
+            The visualization result (success path or error string).
+        """
+        import threading
+        import contextvars
+
+        self.logger.info("[VIZ] Launching visualization in a separate thread")
+
+        viz_result_holder = {"result": "Error: Visualization did not complete"}
+
+        def run():
+            try:
+                viz_result_holder["result"] = self._generate_visualizations(
+                    analysis_results=analysis_results,
+                    visualizations_dir=visualizations_dir,
+                    result=result
+                )
+            except Exception as e:
+                self.logger.error(f"[VIZ] Exception during visualization: {type(e).__name__}: {e}", exc_info=True)
+                viz_result_holder["result"] = f"Error: {str(e)}"
+
+        try:
+            ctx = contextvars.copy_context()
+            thread = threading.Thread(
+                target=ctx.run,
+                args=(run,),
+                name=f"VizThread-{self.name}",
+                daemon=True
+            )
+            thread.start()
+            thread.join(timeout=self.visualization_timeout)
+
+            if thread.is_alive():
+                self.logger.warning(f"[VIZ] Visualization timed out after {self.visualization_timeout} seconds")
+                return "Error: Visualization thread timeout"
+            return viz_result_holder["result"]
+
+        except Exception as e:
+            self.logger.error(f"[VIZ] Error setting up visualization thread: {e}", exc_info=True)
+            return f"Error: {str(e)}"
 
     def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
         """
@@ -849,9 +919,10 @@ class CorrelationOperation(FieldOperation):
         self.use_cache = kwargs.get("use_cache", getattr(self, "use_cache", True))
         self.force_recalculation = kwargs.get("force_recalculation", getattr(self, "force_recalculation", False))
 
-        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", False))
+        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", None))
         self.visualization_theme = kwargs.get("visualization_theme", getattr(self, "visualization_theme", None))
-        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", None))
+        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", False))
+        self.visualization_timeout = kwargs.get("visualization_timeout", getattr(self, "visualization_timeout", None))
 
         self.use_encryption = kwargs.get("use_encryption", getattr(self, "use_encryption", False))
         self.encryption_key = kwargs.get("encryption_key",
@@ -886,9 +957,11 @@ class CorrelationOperation(FieldOperation):
         return True
 
     def _load_data_and_validate_input_parameters(self, data_source: DataSource, **kwargs) -> Tuple[Optional[pd.DataFrame], bool]:
+        self._set_input_parameters(**kwargs)
+
         dataset_name = kwargs.get('dataset_name', "main")
-        # settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-        df = load_data_operation(data_source, dataset_name)
+        settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+        df = load_data_operation(data_source, dataset_name, **settings_operation)
 
         if df is None or df.empty:
             self.logger.error("Error data frame is None or empty")
@@ -1174,7 +1247,8 @@ class CorrelationMatrixOperation(BaseOperation):
 
             return OperationResult(
                 status=OperationStatus.ERROR,
-                error_message=f"Error creating correlation matrix: {str(e)}"
+                error_message=f"Error creating correlation matrix: {str(e)}",
+                exception=e,
             )
 
 
@@ -1201,7 +1275,7 @@ def analyze_correlations(
         Additional parameters for the operations:
         - methods: dict, mapping of field pairs to correlation methods
         - null_handling: str, method for handling nulls (default: 'drop')
-        - generate_visualization: bool, whether to generate plots (default: True)
+        - generate_visualization: bool, whether to generate visualization (default: True)
         - include_timestamp: bool, whether to include timestamps (default: True)
         - profile_type: str, type of profiling (default: 'correlation')
 
@@ -1316,7 +1390,7 @@ def analyze_correlations(
                                                "error": result.error_message})
 
         except Exception as e:
-            print(f"Error analyzing correlation between {field1} and {field2}: {e}", exc_info=True)
+            print(f"Error analyzing correlation between {field1} and {field2}: {e}")
 
             if reporter:
                 reporter.add_operation(f"Analyzing correlation between {field1} and {field2}", status="error",

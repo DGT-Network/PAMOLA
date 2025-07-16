@@ -2,7 +2,7 @@
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
 Module:        Progress Tracking Utilities
-Package:       core.utils
+Package:       pamola_core.utils
 Version:       2.0.0+refactor.2025.05.22
 Status:        stable
 Author:        PAMOLA Core Team

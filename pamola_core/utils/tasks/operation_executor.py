@@ -209,6 +209,11 @@ class TaskOperationExecutor:
             # Run the operation - let exceptions propagate to the caller
             result = operation.run(**params)
 
+            # Check operation result for retry
+            if result.status == OperationStatus.ERROR:
+                if result.exception and self.is_retriable_error(result.exception):
+                    raise result.exception
+
             # Update execution statistics
             if result.status == OperationStatus.SUCCESS:
                 self.execution_stats["successful_operations"] += 1

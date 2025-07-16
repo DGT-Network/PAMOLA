@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Union
 
 from pamola_core.profiling.commons.base import AnalysisResult
-from pamola_core.utils.task_reporting import TaskReporter
+from pamola_core.utils.tasks.task_reporting import TaskReporter
 
 # Configure logger
 logger = logging.getLogger(__name__)

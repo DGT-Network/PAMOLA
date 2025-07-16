@@ -26,7 +26,7 @@ import pandas as pd
 
 # Import from pamola_core utilities
 from pamola_core import config
-from pamola_core.utils__old_15_04.file_io import write_json
+from pamola_core.utils.io import write_json
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -244,17 +244,3 @@ def assess_gdpr_article_5_compliance(report: Dict[str, Any]) -> Dict[str, Any]:
         assessment["description"] = "The anonymization process does not fully comply with GDPR Article 5 principles."
 
     return assessment
-
-
-def assess_gdpr_article_25_compliance(report: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Assess compliance with GDPR Article 25 (data protection by design)
-
-    Parameters:
-    -----------
-    report : Dict[str, Any]
-        Compliance report
-
-    Returns:
-    --------
-    Dict[str, Any]

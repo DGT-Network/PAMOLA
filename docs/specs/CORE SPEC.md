@@ -63,7 +63,7 @@ It follows a modular architecture where each component can be used independently
 ## 1.3 PAMOLA Core Architecture
 
 ```
-pamola.core
+pamola_core
 ├── utils
 │   ├── io.py                 # File operations, encryption, large files
 │   ├── logging.py            # Configurable logging

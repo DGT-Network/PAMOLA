@@ -38,7 +38,7 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationArtifact, OperationResult, OperationStatus
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons.helpers import filter_used_kwargs
+from pamola_core.utils.helpers import filter_used_kwargs
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -160,7 +160,7 @@ class EmailOperation(FieldOperation):
                  field_name: str,
                  top_n: int = 20,
                  min_frequency: int = 1,
-                 generate_plots: bool = True,
+                 generate_visualization: bool = True,
                  profile_type: str  = 'email',
                  analyze_privacy_risk: bool = True,
                  description: str = "",
@@ -172,7 +172,7 @@ class EmailOperation(FieldOperation):
                  npartitions: Optional[int] = 1,
                  parallel_processes: Optional[int] = None,
                  visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_strict: bool = False,
                  visualization_timeout: int = 120,
                  encryption_key: Optional[Union[str, Path]] = None,
@@ -201,7 +201,7 @@ class EmailOperation(FieldOperation):
         
         self.top_n = top_n
         self.min_frequency = min_frequency
-        self.generate_plots = generate_plots
+        self.generate_visualization = generate_visualization
         self.profile_type = profile_type
         self.analyze_privacy_risk = analyze_privacy_risk
         self.use_dask = use_dask
@@ -238,7 +238,7 @@ class EmailOperation(FieldOperation):
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for the operation:
-            - generate_plots: bool, whether to generate visualizations
+            - generate_visualization: bool, whether to generate visualizations
             - include_timestamp: bool, whether to include timestamps in filenames, default = True
             - profile_type: str, type of profiling for organizing artifacts
             - analyze_privacy_risk: bool, whether to analyze privacy risks
@@ -256,7 +256,7 @@ class EmailOperation(FieldOperation):
             self.logger = kwargs['logger']
             
         # Extract parameters from kwargs
-        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        generate_visualization = kwargs.get('generate_visualization', self.generate_visualization)
         include_timestamp = kwargs.get('include_timestamp', True)
         profile_type = kwargs.get('profile_type', self.profile_type)
         analyze_privacy_risk = kwargs.get('analyze_privacy_risk', self.analyze_privacy_risk)
@@ -286,7 +286,7 @@ class EmailOperation(FieldOperation):
 
         # Set up progress tracking
         # Preparation, Cache Check, Data Loading, Analysis, Saving results, Visualizations, Dictionary, Finalization
-        total_steps = 6 + (1 if self.use_cache and not force_recalculation else 0) + (1 if generate_plots else 0)
+        total_steps = 6 + (1 if self.use_cache and not force_recalculation else 0) + (1 if generate_visualization else 0)
         current_steps = 0
 
         # Update progress if tracker provided
@@ -400,7 +400,7 @@ class EmailOperation(FieldOperation):
                 progress_tracker.update(current_steps, {"step": "Saved analysis results"})
 
             # Generate visualization if requested
-            if generate_plots and 'top_domains' in analysis_results and analysis_results['top_domains']:
+            if generate_visualization and 'top_domains' in analysis_results and analysis_results['top_domains']:
                 # Step 6: Visualizations
                 # Update progress
                 if progress_tracker:
@@ -533,7 +533,8 @@ class EmailOperation(FieldOperation):
 
             return OperationResult(
                 status=OperationStatus.ERROR,
-                error_message=f"Error analyzing email field {self.field_name}: {str(e)}"
+                error_message=f"Error analyzing email field {self.field_name}: {str(e)}",
+                exception=e,
             )
 
     def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
@@ -907,7 +908,7 @@ class EmailOperation(FieldOperation):
             "min_frequency": self.min_frequency,
             "profile_type": self.profile_type,
             "analyze_privacy_risk": self.analyze_privacy_risk,
-            "generate_plots": self.generate_plots,
+            "generate_visualization": self.generate_visualization,
             "encryption_key": self.encryption_key,
         }
 
@@ -1171,7 +1172,7 @@ def analyze_email_fields(
         Additional parameters for the operations:
         - top_n: int, number of top domains to include in results (default: 20)
         - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
-        - generate_plots: bool, whether to generate plots (default: True)
+        - generate_visualization: bool, whether to generate visualization (default: True)
         - include_timestamp: bool, whether to include timestamps in filenames (default: True)
         - profile_type: str, type of profiling for organizing artifacts (default: 'email')
 

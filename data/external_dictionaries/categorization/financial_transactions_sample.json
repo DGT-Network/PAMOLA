@@ -1,0 +1,674 @@
+{
+  "format_version": "1.0",
+  "hierarchy_type": "financial_category",
+  "levels": ["transaction", "subcategory", "category", "type"],
+  "description": "Financial transaction categorization hierarchy",
+  "data": {
+    "Walmart Purchase": {
+      "subcategory": "Grocery Stores",
+      "category": "Food & Dining",
+      "type": "Essential Expenses",
+      "aliases": ["Walmart Supercenter", "Walmart.com", "WMT*"]
+    },
+    "Target Store": {
+      "subcategory": "Department Stores",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Target.com", "TGT*", "Target Corporation"]
+    },
+    "Whole Foods Market": {
+      "subcategory": "Grocery Stores",
+      "category": "Food & Dining",
+      "type": "Essential Expenses",
+      "aliases": ["Whole Foods", "Amazon/WholeFoods", "WFM*"]
+    },
+    "Kroger": {
+      "subcategory": "Grocery Stores",
+      "category": "Food & Dining",
+      "type": "Essential Expenses",
+      "aliases": ["Kroger Fuel", "Kroger Pharmacy", "KRO*"]
+    },
+    "Safeway": {
+      "subcategory": "Grocery Stores",
+      "category": "Food & Dining",
+      "type": "Essential Expenses",
+      "aliases": ["Safeway Inc", "Safeway Pharmacy", "SFWY*"]
+    },
+    "McDonald's": {
+      "subcategory": "Fast Food",
+      "category": "Food & Dining",
+      "type": "Discretionary Expenses",
+      "aliases": ["McDonalds", "McDonald's Restaurant", "MCD*"]
+    },
+    "Starbucks": {
+      "subcategory": "Coffee Shops",
+      "category": "Food & Dining",
+      "type": "Discretionary Expenses",
+      "aliases": ["Starbucks Coffee", "SBUX*", "Starbucks Store"]
+    },
+    "Subway": {
+      "subcategory": "Fast Food",
+      "category": "Food & Dining",
+      "type": "Discretionary Expenses",
+      "aliases": ["Subway Sandwiches", "Subway Restaurant", "SUB*"]
+    },
+    "Olive Garden": {
+      "subcategory": "Restaurants",
+      "category": "Food & Dining",
+      "type": "Discretionary Expenses",
+      "aliases": ["Olive Garden Italian", "Darden-Olive Garden", "OG*"]
+    },
+    "Chipotle": {
+      "subcategory": "Fast Casual",
+      "category": "Food & Dining",
+      "type": "Discretionary Expenses",
+      "aliases": ["Chipotle Mexican Grill", "CMG*", "Chipotle Online"]
+    },
+    "Shell Gas Station": {
+      "subcategory": "Gas Stations",
+      "category": "Transportation",
+      "type": "Essential Expenses",
+      "aliases": ["Shell Oil", "Shell Service Station", "SHELL*"]
+    },
+    "Chevron": {
+      "subcategory": "Gas Stations",
+      "category": "Transportation",
+      "type": "Essential Expenses",
+      "aliases": ["Chevron Station", "Chevron USA", "CHVRN*"]
+    },
+    "Exxon Mobil": {
+      "subcategory": "Gas Stations",
+      "category": "Transportation",
+      "type": "Essential Expenses",
+      "aliases": ["ExxonMobil", "Exxon", "Mobil", "XOM*"]
+    },
+    "Uber": {
+      "subcategory": "Rideshare",
+      "category": "Transportation",
+      "type": "Discretionary Expenses",
+      "aliases": ["Uber Technologies", "UBER*", "Uber Trip"]
+    },
+    "Lyft": {
+      "subcategory": "Rideshare",
+      "category": "Transportation",
+      "type": "Discretionary Expenses",
+      "aliases": ["Lyft Inc", "LYFT*", "Lyft Ride"]
+    },
+    "Enterprise Rent-A-Car": {
+      "subcategory": "Car Rental",
+      "category": "Transportation",
+      "type": "Discretionary Expenses",
+      "aliases": ["Enterprise", "Enterprise Car Rental", "ERAC*"]
+    },
+    "United Airlines": {
+      "subcategory": "Airlines",
+      "category": "Travel",
+      "type": "Discretionary Expenses",
+      "aliases": ["United", "UAL*", "United Air"]
+    },
+    "Delta Airlines": {
+      "subcategory": "Airlines",
+      "category": "Travel",
+      "type": "Discretionary Expenses",
+      "aliases": ["Delta", "DAL*", "Delta Air Lines"]
+    },
+    "American Airlines": {
+      "subcategory": "Airlines",
+      "category": "Travel",
+      "type": "Discretionary Expenses",
+      "aliases": ["American", "AAL*", "AA.com"]
+    },
+    "Marriott Hotel": {
+      "subcategory": "Hotels",
+      "category": "Travel",
+      "type": "Discretionary Expenses",
+      "aliases": ["Marriott", "Marriott International", "MAR*"]
+    },
+    "Hilton Hotels": {
+      "subcategory": "Hotels",
+      "category": "Travel",
+      "type": "Discretionary Expenses",
+      "aliases": ["Hilton", "Hilton Worldwide", "HLT*"]
+    },
+    "Airbnb": {
+      "subcategory": "Lodging",
+      "category": "Travel",
+      "type": "Discretionary Expenses",
+      "aliases": ["AIRBNB*", "Airbnb Inc", "Airbnb Payments"]
+    },
+    "Netflix": {
+      "subcategory": "Streaming Services",
+      "category": "Entertainment",
+      "type": "Discretionary Expenses",
+      "aliases": ["Netflix.com", "NETFLIX*", "Netflix Inc"]
+    },
+    "Spotify": {
+      "subcategory": "Music Services",
+      "category": "Entertainment",
+      "type": "Discretionary Expenses",
+      "aliases": ["Spotify USA", "SPOTIFY*", "Spotify Premium"]
+    },
+    "Disney+": {
+      "subcategory": "Streaming Services",
+      "category": "Entertainment",
+      "type": "Discretionary Expenses",
+      "aliases": ["Disney Plus", "DisneyPlus", "DISNEY+*"]
+    },
+    "Amazon Prime": {
+      "subcategory": "Membership Fees",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["AMZN Prime", "Amazon Prime Membership", "Prime*"]
+    },
+    "Amazon.com": {
+      "subcategory": "Online Shopping",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Amazon", "AMZN*", "Amazon Marketplace"]
+    },
+    "Apple Store": {
+      "subcategory": "Electronics",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Apple.com", "Apple Inc", "APL*"]
+    },
+    "Best Buy": {
+      "subcategory": "Electronics",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["BestBuy.com", "BBY*", "Best Buy Store"]
+    },
+    "Home Depot": {
+      "subcategory": "Home Improvement",
+      "category": "Home",
+      "type": "Discretionary Expenses",
+      "aliases": ["The Home Depot", "HD*", "HomeDepot.com"]
+    },
+    "Lowe's": {
+      "subcategory": "Home Improvement",
+      "category": "Home",
+      "type": "Discretionary Expenses",
+      "aliases": ["Lowes", "Lowe's Companies", "LOW*"]
+    },
+    "IKEA": {
+      "subcategory": "Furniture",
+      "category": "Home",
+      "type": "Discretionary Expenses",
+      "aliases": ["IKEA Store", "IKEA.com", "IKEA*"]
+    },
+    "Rent Payment": {
+      "subcategory": "Rent",
+      "category": "Housing",
+      "type": "Essential Expenses",
+      "aliases": ["Monthly Rent", "Apartment Rent", "Rental Payment"]
+    },
+    "Mortgage Payment": {
+      "subcategory": "Mortgage",
+      "category": "Housing",
+      "type": "Essential Expenses",
+      "aliases": ["Home Mortgage", "Mortgage", "MTG Payment"]
+    },
+    "Electric Bill": {
+      "subcategory": "Electricity",
+      "category": "Utilities",
+      "type": "Essential Expenses",
+      "aliases": ["Power Bill", "Electric Utility", "Electricity"]
+    },
+    "Gas Bill": {
+      "subcategory": "Natural Gas",
+      "category": "Utilities",
+      "type": "Essential Expenses",
+      "aliases": ["Natural Gas Bill", "Gas Utility", "Gas Service"]
+    },
+    "Water Bill": {
+      "subcategory": "Water & Sewer",
+      "category": "Utilities",
+      "type": "Essential Expenses",
+      "aliases": ["Water Utility", "Water/Sewer", "Water Service"]
+    },
+    "Internet Service": {
+      "subcategory": "Internet",
+      "category": "Utilities",
+      "type": "Essential Expenses",
+      "aliases": ["ISP", "Internet Bill", "Broadband"]
+    },
+    "Cell Phone Bill": {
+      "subcategory": "Mobile Phone",
+      "category": "Utilities",
+      "type": "Essential Expenses",
+      "aliases": ["Mobile Bill", "Phone Service", "Cellular"]
+    },
+    "Verizon": {
+      "subcategory": "Telecommunications",
+      "category": "Utilities",
+      "type": "Essential Expenses",
+      "aliases": ["Verizon Wireless", "VZ*", "Verizon Communications"]
+    },
+    "AT&T": {
+      "subcategory": "Telecommunications",
+      "category": "Utilities",
+      "type": "Essential Expenses",
+      "aliases": ["ATT", "AT&T Mobility", "T*"]
+    },
+    "T-Mobile": {
+      "subcategory": "Telecommunications",
+      "category": "Utilities",
+      "type": "Essential Expenses",
+      "aliases": ["TMobile", "T-Mobile US", "TMUS*"]
+    },
+    "Comcast": {
+      "subcategory": "Cable & Internet",
+      "category": "Utilities",
+      "type": "Essential Expenses",
+      "aliases": ["Xfinity", "Comcast Cable", "CMCSA*"]
+    },
+    "Health Insurance Premium": {
+      "subcategory": "Health Insurance",
+      "category": "Insurance",
+      "type": "Essential Expenses",
+      "aliases": ["Medical Insurance", "Health Premium", "Healthcare Insurance"]
+    },
+    "Auto Insurance": {
+      "subcategory": "Car Insurance",
+      "category": "Insurance",
+      "type": "Essential Expenses",
+      "aliases": ["Car Insurance", "Vehicle Insurance", "Auto Premium"]
+    },
+    "Life Insurance": {
+      "subcategory": "Life Insurance",
+      "category": "Insurance",
+      "type": "Financial Planning",
+      "aliases": ["Life Premium", "Term Life", "Whole Life"]
+    },
+    "State Farm": {
+      "subcategory": "Insurance Company",
+      "category": "Insurance",
+      "type": "Essential Expenses",
+      "aliases": ["State Farm Insurance", "SF*", "StateFarm"]
+    },
+    "Geico": {
+      "subcategory": "Insurance Company",
+      "category": "Insurance",
+      "type": "Essential Expenses",
+      "aliases": ["GEICO", "Geico Insurance", "Government Employees Insurance"]
+    },
+    "Progressive": {
+      "subcategory": "Insurance Company",
+      "category": "Insurance",
+      "type": "Essential Expenses",
+      "aliases": ["Progressive Insurance", "PGR*", "Progressive Corp"]
+    },
+    "CVS Pharmacy": {
+      "subcategory": "Pharmacy",
+      "category": "Healthcare",
+      "type": "Essential Expenses",
+      "aliases": ["CVS", "CVS Health", "CVS/pharmacy"]
+    },
+    "Walgreens": {
+      "subcategory": "Pharmacy",
+      "category": "Healthcare",
+      "type": "Essential Expenses",
+      "aliases": ["Walgreens Pharmacy", "WAG*", "Walgreen Co"]
+    },
+    "Doctor Visit": {
+      "subcategory": "Medical Services",
+      "category": "Healthcare",
+      "type": "Essential Expenses",
+      "aliases": ["Physician Visit", "Medical Appointment", "Dr Visit"]
+    },
+    "Dental Cleaning": {
+      "subcategory": "Dental Care",
+      "category": "Healthcare",
+      "type": "Essential Expenses",
+      "aliases": ["Dentist", "Dental Visit", "Teeth Cleaning"]
+    },
+    "Gym Membership": {
+      "subcategory": "Fitness",
+      "category": "Personal Care",
+      "type": "Discretionary Expenses",
+      "aliases": ["Fitness Club", "Health Club", "Gym"]
+    },
+    "Planet Fitness": {
+      "subcategory": "Fitness",
+      "category": "Personal Care",
+      "type": "Discretionary Expenses",
+      "aliases": ["Planet Fitness Club", "PLNT*", "PF Gym"]
+    },
+    "LA Fitness": {
+      "subcategory": "Fitness",
+      "category": "Personal Care",
+      "type": "Discretionary Expenses",
+      "aliases": ["LAF", "LA Fitness Club", "Life Time Fitness"]
+    },
+    "Hair Salon": {
+      "subcategory": "Beauty Services",
+      "category": "Personal Care",
+      "type": "Discretionary Expenses",
+      "aliases": ["Hair Cut", "Beauty Salon", "Hairdresser"]
+    },
+    "Great Clips": {
+      "subcategory": "Hair Care",
+      "category": "Personal Care",
+      "type": "Discretionary Expenses",
+      "aliases": ["Great Clips Salon", "Haircut", "GRTCLPS*"]
+    },
+    "Salary Deposit": {
+      "subcategory": "Employment Income",
+      "category": "Income",
+      "type": "Income",
+      "aliases": ["Payroll", "Direct Deposit", "Wages"]
+    },
+    "Freelance Payment": {
+      "subcategory": "Self-Employment",
+      "category": "Income",
+      "type": "Income",
+      "aliases": ["1099 Income", "Contract Payment", "Gig Income"]
+    },
+    "Investment Dividend": {
+      "subcategory": "Investment Income",
+      "category": "Income",
+      "type": "Income",
+      "aliases": ["Dividend Payment", "Stock Dividend", "DIV"]
+    },
+    "Tax Refund": {
+      "subcategory": "Tax Returns",
+      "category": "Income",
+      "type": "Income",
+      "aliases": ["IRS Refund", "State Refund", "Tax Return"]
+    },
+    "401k Contribution": {
+      "subcategory": "Retirement Savings",
+      "category": "Savings & Investments",
+      "type": "Financial Planning",
+      "aliases": ["401(k)", "Retirement Plan", "401k Deduction"]
+    },
+    "IRA Contribution": {
+      "subcategory": "Retirement Savings",
+      "category": "Savings & Investments",
+      "type": "Financial Planning",
+      "aliases": ["Individual Retirement Account", "Roth IRA", "Traditional IRA"]
+    },
+    "Stock Purchase": {
+      "subcategory": "Securities",
+      "category": "Savings & Investments",
+      "type": "Financial Planning",
+      "aliases": ["Stock Trade", "Equity Purchase", "Share Purchase"]
+    },
+    "Mutual Fund": {
+      "subcategory": "Investment Funds",
+      "category": "Savings & Investments",
+      "type": "Financial Planning",
+      "aliases": ["Fund Purchase", "Investment Fund", "MF"]
+    },
+    "Charles Schwab": {
+      "subcategory": "Brokerage",
+      "category": "Financial Services",
+      "type": "Financial Planning",
+      "aliases": ["Schwab", "SCHW*", "TD Ameritrade"]
+    },
+    "Fidelity": {
+      "subcategory": "Brokerage",
+      "category": "Financial Services",
+      "type": "Financial Planning",
+      "aliases": ["Fidelity Investments", "FID*", "Fidelity Brokerage"]
+    },
+    "Vanguard": {
+      "subcategory": "Investment Company",
+      "category": "Financial Services",
+      "type": "Financial Planning",
+      "aliases": ["Vanguard Group", "VGD*", "Vanguard Funds"]
+    },
+    "Bank of America": {
+      "subcategory": "Banking",
+      "category": "Financial Services",
+      "type": "Essential Expenses",
+      "aliases": ["BofA", "BAC*", "Bank of America NA"]
+    },
+    "Chase Bank": {
+      "subcategory": "Banking",
+      "category": "Financial Services",
+      "type": "Essential Expenses",
+      "aliases": ["JPMorgan Chase", "Chase", "CHASE*"]
+    },
+    "Wells Fargo": {
+      "subcategory": "Banking",
+      "category": "Financial Services",
+      "type": "Essential Expenses",
+      "aliases": ["Wells Fargo Bank", "WF*", "Wells"]
+    },
+    "ATM Withdrawal": {
+      "subcategory": "Cash Withdrawal",
+      "category": "Cash & ATM",
+      "type": "Transfer",
+      "aliases": ["ATM", "Cash Out", "ATM Transaction"]
+    },
+    "ATM Fee": {
+      "subcategory": "Banking Fees",
+      "category": "Fees & Charges",
+      "type": "Essential Expenses",
+      "aliases": ["ATM Charge", "ATM Service Fee", "Out-of-network ATM"]
+    },
+    "Overdraft Fee": {
+      "subcategory": "Banking Fees",
+      "category": "Fees & Charges",
+      "type": "Essential Expenses",
+      "aliases": ["NSF Fee", "Overdraft Charge", "Insufficient Funds"]
+    },
+    "Credit Card Payment": {
+      "subcategory": "Debt Payment",
+      "category": "Bills & Payments",
+      "type": "Essential Expenses",
+      "aliases": ["CC Payment", "Card Payment", "Credit Payment"]
+    },
+    "Student Loan Payment": {
+      "subcategory": "Education Loans",
+      "category": "Bills & Payments",
+      "type": "Essential Expenses",
+      "aliases": ["Student Loan", "Education Loan", "College Loan"]
+    },
+    "Auto Loan Payment": {
+      "subcategory": "Vehicle Loans",
+      "category": "Bills & Payments",
+      "type": "Essential Expenses",
+      "aliases": ["Car Payment", "Vehicle Loan", "Auto Finance"]
+    },
+    "PayPal": {
+      "subcategory": "Payment Services",
+      "category": "Financial Services",
+      "type": "Transfer",
+      "aliases": ["PayPal Transfer", "PYPL*", "PayPal Payment"]
+    },
+    "Venmo": {
+      "subcategory": "Payment Services",
+      "category": "Financial Services",
+      "type": "Transfer",
+      "aliases": ["Venmo Transfer", "Venmo Payment", "VENMO*"]
+    },
+    "Zelle": {
+      "subcategory": "Payment Services",
+      "category": "Financial Services",
+      "type": "Transfer",
+      "aliases": ["Zelle Transfer", "Zelle Payment", "ZELLE*"]
+    },
+    "Cash App": {
+      "subcategory": "Payment Services",
+      "category": "Financial Services",
+      "type": "Transfer",
+      "aliases": ["CashApp", "Square Cash", "CASH APP*"]
+    },
+    "Property Tax": {
+      "subcategory": "Property Taxes",
+      "category": "Taxes",
+      "type": "Essential Expenses",
+      "aliases": ["Real Estate Tax", "County Tax", "Property Assessment"]
+    },
+    "Income Tax Payment": {
+      "subcategory": "Income Taxes",
+      "category": "Taxes",
+      "type": "Essential Expenses",
+      "aliases": ["IRS Payment", "Tax Payment", "Estimated Tax"]
+    },
+    "Sales Tax": {
+      "subcategory": "Sales Taxes",
+      "category": "Taxes",
+      "type": "Essential Expenses",
+      "aliases": ["State Sales Tax", "Local Sales Tax", "Tax"]
+    },
+    "Charitable Donation": {
+      "subcategory": "Charity",
+      "category": "Gifts & Donations",
+      "type": "Discretionary Expenses",
+      "aliases": ["Donation", "Charity", "Non-profit Donation"]
+    },
+    "Red Cross": {
+      "subcategory": "Charity",
+      "category": "Gifts & Donations",
+      "type": "Discretionary Expenses",
+      "aliases": ["American Red Cross", "Red Cross Donation", "ARC*"]
+    },
+    "Church Tithe": {
+      "subcategory": "Religious",
+      "category": "Gifts & Donations",
+      "type": "Discretionary Expenses",
+      "aliases": ["Church Donation", "Tithe", "Religious Contribution"]
+    },
+    "Birthday Gift": {
+      "subcategory": "Personal Gifts",
+      "category": "Gifts & Donations",
+      "type": "Discretionary Expenses",
+      "aliases": ["Gift Purchase", "Present", "Birthday Present"]
+    },
+    "School Supplies": {
+      "subcategory": "Education Supplies",
+      "category": "Education",
+      "type": "Essential Expenses",
+      "aliases": ["School Materials", "Education Supplies", "Student Supplies"]
+    },
+    "College Tuition": {
+      "subcategory": "Higher Education",
+      "category": "Education",
+      "type": "Essential Expenses",
+      "aliases": ["University Tuition", "Tuition Payment", "Education Fee"]
+    },
+    "Online Course": {
+      "subcategory": "Professional Development",
+      "category": "Education",
+      "type": "Discretionary Expenses",
+      "aliases": ["Udemy", "Coursera", "Online Learning"]
+    },
+    "Pet Food": {
+      "subcategory": "Pet Supplies",
+      "category": "Pets",
+      "type": "Essential Expenses",
+      "aliases": ["Dog Food", "Cat Food", "Pet Supplies"]
+    },
+    "Veterinary Visit": {
+      "subcategory": "Pet Healthcare",
+      "category": "Pets",
+      "type": "Essential Expenses",
+      "aliases": ["Vet Visit", "Animal Hospital", "Pet Doctor"]
+    },
+    "PetSmart": {
+      "subcategory": "Pet Stores",
+      "category": "Pets",
+      "type": "Essential Expenses",
+      "aliases": ["Pet Smart", "PetSmart Store", "PETSMART*"]
+    },
+    "Parking Fee": {
+      "subcategory": "Parking",
+      "category": "Transportation",
+      "type": "Discretionary Expenses",
+      "aliases": ["Parking Meter", "Parking Garage", "Parking Charge"]
+    },
+    "Toll Payment": {
+      "subcategory": "Tolls",
+      "category": "Transportation",
+      "type": "Essential Expenses",
+      "aliases": ["Toll Road", "EZ Pass", "Toll Charge"]
+    },
+    "Public Transit": {
+      "subcategory": "Mass Transit",
+      "category": "Transportation",
+      "type": "Essential Expenses",
+      "aliases": ["Metro", "Bus Fare", "Subway"]
+    },
+    "Car Wash": {
+      "subcategory": "Vehicle Maintenance",
+      "category": "Transportation",
+      "type": "Discretionary Expenses",
+      "aliases": ["Auto Wash", "Car Cleaning", "Vehicle Wash"]
+    },
+    "Oil Change": {
+      "subcategory": "Vehicle Maintenance",
+      "category": "Transportation",
+      "type": "Essential Expenses",
+      "aliases": ["Jiffy Lube", "Quick Oil Change", "Auto Maintenance"]
+    },
+    "Auto Repair": {
+      "subcategory": "Vehicle Repairs",
+      "category": "Transportation",
+      "type": "Essential Expenses",
+      "aliases": ["Car Repair", "Mechanic", "Auto Service"]
+    },
+    "Costco": {
+      "subcategory": "Warehouse Clubs",
+      "category": "Shopping",
+      "type": "Essential Expenses",
+      "aliases": ["Costco Wholesale", "COST*", "Costco Warehouse"]
+    },
+    "Sam's Club": {
+      "subcategory": "Warehouse Clubs",
+      "category": "Shopping",
+      "type": "Essential Expenses",
+      "aliases": ["Sams Club", "Sam's Club Store", "SAMS*"]
+    },
+    "Macy's": {
+      "subcategory": "Department Stores",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Macys", "Macy's Department Store", "M*"]
+    },
+    "Nordstrom": {
+      "subcategory": "Department Stores",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Nordstrom Rack", "JWN*", "Nordstrom Store"]
+    },
+    "Gap": {
+      "subcategory": "Clothing Stores",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Gap Store", "Old Navy", "Banana Republic", "GPS*"]
+    },
+    "H&M": {
+      "subcategory": "Clothing Stores",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["H and M", "Hennes & Mauritz", "HM*"]
+    },
+    "Nike": {
+      "subcategory": "Sporting Goods",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Nike Store", "Nike.com", "NKE*"]
+    },
+    "Dick's Sporting Goods": {
+      "subcategory": "Sporting Goods",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Dicks", "DKS*", "Dick's Sports"]
+    },
+    "Office Depot": {
+      "subcategory": "Office Supplies",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Office Max", "ODP*", "Office Depot Store"]
+    },
+    "Staples": {
+      "subcategory": "Office Supplies",
+      "category": "Shopping",
+      "type": "Discretionary Expenses",
+      "aliases": ["Staples Store", "SPLS*", "Staples.com"]
+    }
+  }
+}

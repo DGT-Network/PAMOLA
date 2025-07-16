@@ -69,7 +69,7 @@ def analyze_null_and_empty(df: pd.DataFrame, field_name: str, chunk_size: Option
     whitespace_count = 0
     if empty_count < total_records:
         whitespace_pattern = re.compile(r'^\s+$')
-        whitespace_count = empty_series.str.match(whitespace_pattern).sum()
+        whitespace_count = empty_series.astype(str).str.match(whitespace_pattern).sum()
 
     # Calculate records with actual data
     actual_data_count = total_records - null_count - empty_count - whitespace_count
@@ -137,7 +137,7 @@ def analyze_null_and_empty_in_chunks(df: pd.DataFrame, field_name: str, chunk_si
         empty_count += (empty_series == "").sum()
 
         # Count whitespace
-        whitespace_count += empty_series.str.match(whitespace_pattern).sum()
+        whitespace_count += empty_series.astype(str).str.match(whitespace_pattern).sum()
 
     # Calculate actual data count
     actual_data_count = total_records - null_count - empty_count - whitespace_count
@@ -184,7 +184,7 @@ def process_chunk(chunk_df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     null_count = chunk_df[field_name].isna().sum()
     empty_series = chunk_df[field_name].fillna("")
     empty_count = (empty_series == "").sum()
-    whitespace_count = empty_series.str.match(whitespace_pattern).sum()
+    whitespace_count = empty_series.astype(str).str.match(whitespace_pattern).sum()
 
     return {
         "null_count": null_count,

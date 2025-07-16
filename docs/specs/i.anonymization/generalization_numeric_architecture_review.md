@@ -8,7 +8,7 @@ The PAMOLA.CORE library implements a comprehensive framework for privacy-preserv
 
 ### 1. Operation-Based Design
 
-The pamola core architectural pattern of PAMOLA.CORE is its operation-based design, which provides several advantages:
+The core architectural pattern of PAMOLA.CORE is its operation-based design, which provides several advantages:
 
 - **Standardized Interfaces**: All operations follow a consistent interface defined by base classes
 - **Composability**: Operations can be combined into complex workflows
@@ -30,7 +30,7 @@ The implementation demonstrates excellent separation of concerns:
 
 - **Core Logic vs. Utilities**: Operation logic separated from utilities
 - **Processing vs. Metrics**: Data transformation distinct from metrics calculation
-- **Business Logic vs. I/O**: Pamola Core business logic separated from I/O operations
+- **Business Logic vs. I/O**: Core business logic separated from I/O operations
 - **Validation vs. Execution**: Parameter validation occurs before processing
 
 This separation makes the codebase maintainable and allows for targeted modifications without side effects.

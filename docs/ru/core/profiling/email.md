@@ -170,7 +170,7 @@ def execute(self,
 - `reporter` (required): Reporter object for tracking progress and artifacts
 - `progress_tracker` (optional): Progress tracker for the operation
 - `**kwargs`: Additional parameters for the operation:
-  - `generate_plots` (default: True): Whether to generate visualizations
+  - `generate_visualization` (default: True): Whether to generate visualizations
   - `include_timestamp` (default: True): Whether to include timestamps in filenames
   - `profile_type` (default: 'email'): Type of profiling for organizing artifacts
   - `analyze_privacy_risk` (default: True): Whether to analyze privacy risks
@@ -201,7 +201,7 @@ def analyze_email_fields(
 - `**kwargs`: Additional parameters for the operations:
   - `top_n` (default: 20): Number of top domains to include in results
   - `min_frequency` (default: 1): Minimum frequency for inclusion in domain dictionary
-  - `generate_plots` (default: True): Whether to generate plots
+  - `generate_visualization` (default: True): Whether to generate visualization
   - `include_timestamp` (default: True): Whether to include timestamps in filenames
   - `profile_type` (default: 'email'): Type of profiling for organizing artifacts
   - `analyze_privacy_risk` (default: True): Whether to analyze privacy risks
@@ -285,7 +285,7 @@ result = operation.execute(
     data_source=data_source,
     task_dir=task_dir,
     reporter=reporter,
-    generate_plots=True,
+    generate_visualization=True,
     analyze_privacy_risk=True
 )
 

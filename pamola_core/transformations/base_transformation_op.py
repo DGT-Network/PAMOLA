@@ -76,7 +76,7 @@ class TransformationOperation(BaseOperation):
         use_encryption: bool = False,
         encryption_key: Optional[Union[str, Path]] = None,
         visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = None,
+        visualization_backend: Optional[str] = "plotly",
         visualization_strict: bool = False,
         visualization_timeout: int = 120,
         output_format: str = "csv",
@@ -354,7 +354,7 @@ class TransformationOperation(BaseOperation):
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR, error_message=error_message, exception=e
                 )
 
             # Step 3: Validation
@@ -380,7 +380,7 @@ class TransformationOperation(BaseOperation):
                 )
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR, error_message=error_message, exception=e
                 )
 
             # Step 4: Processing
@@ -416,7 +416,7 @@ class TransformationOperation(BaseOperation):
                 )
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR, error_message=error_message, exception=e
                 )
 
             # Step 5: Metrics Calculation
@@ -541,7 +541,7 @@ class TransformationOperation(BaseOperation):
                     error_message = f"Error saving output data: {str(e)}"
                     self.logger.error(error_message)
                     return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
+                        status=OperationStatus.ERROR, error_message=error_message, exception=e
                     )
 
             # Cache the result if caching is enabled
@@ -606,7 +606,7 @@ class TransformationOperation(BaseOperation):
             error_message = f"Error in transformation operation: {str(e)}"
             self.logger.exception(error_message)
             return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message
+                status=OperationStatus.ERROR, error_message=error_message, exception=e
             )
 
     def _validate_and_get_dataframe(

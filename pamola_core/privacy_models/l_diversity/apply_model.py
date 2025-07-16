@@ -21,9 +21,9 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 
-from pamola_core.utils__old_15_04.group_processing import (
+from pamola_core.utils.group_processing import (
     validate_anonymity_inputs,
-    optimize_memory_usage
+    optimize_memory_usage,
 )
 from pamola_core.config import L_DIVERSITY_DEFAULTS
 from pamola_core.privacy_models.l_diversity.calculation import LDiversityCalculator
@@ -49,11 +49,11 @@ class AnonymizationStrategy:
         self.logger = logging.getLogger(__name__)
 
     def apply(
-            self,
-            data: pd.DataFrame,
-            non_diverse_groups: List[Tuple],
-            quasi_identifiers: List[str],
-            sensitive_attributes: List[str]
+        self,
+        data: pd.DataFrame,
+        non_diverse_groups: List[Tuple],
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str],
     ) -> pd.DataFrame:
         """
         Abstract method for applying anonymization strategy
@@ -85,11 +85,11 @@ class SuppressionStrategy(AnonymizationStrategy):
     """
 
     def apply(
-            self,
-            data: pd.DataFrame,
-            non_diverse_groups: List[Tuple],
-            quasi_identifiers: List[str],
-            sensitive_attributes: List[str]
+        self,
+        data: pd.DataFrame,
+        non_diverse_groups: List[Tuple],
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str],
     ) -> pd.DataFrame:
         """
         Apply suppression to non-diverse groups
@@ -100,8 +100,9 @@ class SuppressionStrategy(AnonymizationStrategy):
 
         # Create boolean mask for non-diverse groups
         suppression_mask = result.apply(
-            lambda row: tuple(row[qi] for qi in quasi_identifiers) in non_diverse_groups,
-            axis=1
+            lambda row: tuple(row[qi] for qi in quasi_identifiers)
+            in non_diverse_groups,
+            axis=1,
         )
 
         # Remove non-diverse groups
@@ -118,12 +119,12 @@ class FullMaskingStrategy(AnonymizationStrategy):
     """
 
     def apply(
-            self,
-            data: pd.DataFrame,
-            non_diverse_groups: List[Tuple],
-            quasi_identifiers: List[str],
-            sensitive_attributes: List[str],
-            mask_value: str = "MASKED"
+        self,
+        data: pd.DataFrame,
+        non_diverse_groups: List[Tuple],
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str],
+        mask_value: str = "MASKED",
     ) -> pd.DataFrame:
         """
         Apply full masking to non-diverse groups
@@ -135,8 +136,11 @@ class FullMaskingStrategy(AnonymizationStrategy):
         for group in non_diverse_groups:
             # Create mask for specific group
             group_mask = np.all(
-                [result[qi] == group_val for qi, group_val in zip(quasi_identifiers, group)],
-                axis=0
+                [
+                    result[qi] == group_val
+                    for qi, group_val in zip(quasi_identifiers, group)
+                ],
+                axis=0,
             )
 
             # Mask all sensitive attributes
@@ -154,13 +158,13 @@ class PartialMaskingStrategy(AnonymizationStrategy):
     """
 
     def apply(
-            self,
-            data: pd.DataFrame,
-            non_diverse_groups: List[Tuple],
-            quasi_identifiers: List[str],
-            sensitive_attributes: List[str],
-            mask_percentage: float = 0.5,
-            mask_value: str = "MASKED"
+        self,
+        data: pd.DataFrame,
+        non_diverse_groups: List[Tuple],
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str],
+        mask_percentage: float = 0.5,
+        mask_value: str = "MASKED",
     ) -> pd.DataFrame:
         """
         Apply partial masking to non-diverse groups
@@ -172,8 +176,11 @@ class PartialMaskingStrategy(AnonymizationStrategy):
         for group in non_diverse_groups:
             # Create mask for specific group
             group_mask = np.all(
-                [result[qi] == group_val for qi, group_val in zip(quasi_identifiers, group)],
-                axis=0
+                [
+                    result[qi] == group_val
+                    for qi, group_val in zip(quasi_identifiers, group)
+                ],
+                axis=0,
             )
 
             # Get indices of rows in the group
@@ -185,9 +192,7 @@ class PartialMaskingStrategy(AnonymizationStrategy):
 
                 # Randomly select indices to mask
                 mask_indices = np.random.choice(
-                    group_indices,
-                    size=num_mask,
-                    replace=False
+                    group_indices, size=num_mask, replace=False
                 )
 
                 # Apply masking
@@ -205,9 +210,9 @@ class LDiversityModelApplicator:
     """
 
     def __init__(
-            self,
-            processor: Optional[LDiversityCalculator] = None,
-            config: Optional[Dict[str, Any]] = None
+        self,
+        processor: Optional[LDiversityCalculator] = None,
+        config: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize L-Diversity Model Applicator
@@ -232,18 +237,18 @@ class LDiversityModelApplicator:
 
         # Initialize anonymization strategies
         self.strategies = {
-            'suppression': SuppressionStrategy(self.processor),
-            'full_masking': FullMaskingStrategy(self.processor),
-            'partial_masking': PartialMaskingStrategy(self.processor)
+            "suppression": SuppressionStrategy(self.processor),
+            "full_masking": FullMaskingStrategy(self.processor),
+            "partial_masking": PartialMaskingStrategy(self.processor),
         }
 
     def apply_model(
-            self,
-            data: pd.DataFrame,
-            quasi_identifiers: List[str],
-            sensitive_attributes: List[str],
-            strategy: str = 'suppression',
-            **kwargs
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str],
+        strategy: str = "suppression",
+        **kwargs,
     ) -> Union[pd.DataFrame, Dict[str, Any]]:
         """
         Apply l-diversity anonymization with flexible strategies
@@ -269,15 +274,13 @@ class LDiversityModelApplicator:
         validate_anonymity_inputs(data, quasi_identifiers, self.processor.k)
 
         # Optimize memory if requested
-        if kwargs.get('optimize_memory', self.config.get('optimize_memory', False)):
+        if kwargs.get("optimize_memory", self.config.get("optimize_memory", False)):
             data = optimize_memory_usage(data, quasi_identifiers + sensitive_attributes)
 
         # Retrieve or calculate group diversity from centralized storage
         try:
             group_diversity = self.processor.calculate_group_diversity(
-                data,
-                quasi_identifiers,
-                sensitive_attributes
+                data, quasi_identifiers, sensitive_attributes
             )
         except Exception as e:
             self.logger.error(f"Group diversity calculation error: {e}")
@@ -285,8 +288,7 @@ class LDiversityModelApplicator:
 
         # Identify non-diverse groups
         non_diverse_groups = self._identify_non_diverse_groups(
-            group_diversity,
-            sensitive_attributes
+            group_diversity, sensitive_attributes
         )
 
         # Select and apply anonymization strategy
@@ -296,26 +298,16 @@ class LDiversityModelApplicator:
 
         # Apply selected strategy
         result = self.strategies[strategy_name].apply(
-            data,
-            non_diverse_groups,
-            quasi_identifiers,
-            sensitive_attributes,
-            **kwargs
+            data, non_diverse_groups, quasi_identifiers, sensitive_attributes, **kwargs
         )
 
         # Prepare and return results
         return self._prepare_anonymization_result(
-            data,
-            result,
-            non_diverse_groups,
-            strategy_name,
-            **kwargs
+            data, result, non_diverse_groups, strategy_name, **kwargs
         )
 
     def _identify_non_diverse_groups(
-            self,
-            group_diversity: pd.DataFrame,
-            sensitive_attributes: List[str]
+        self, group_diversity: pd.DataFrame, sensitive_attributes: List[str]
     ) -> List[Tuple]:
         """
         Identify groups that do not meet l-diversity requirements
@@ -348,12 +340,12 @@ class LDiversityModelApplicator:
         return non_diverse_groups
 
     def _prepare_anonymization_result(
-            self,
-            original_data: pd.DataFrame,
-            anonymized_data: pd.DataFrame,
-            non_diverse_groups: List[Tuple],
-            strategy: str,
-            **kwargs
+        self,
+        original_data: pd.DataFrame,
+        anonymized_data: pd.DataFrame,
+        non_diverse_groups: List[Tuple],
+        strategy: str,
+        **kwargs,
     ) -> Union[pd.DataFrame, Dict[str, Any]]:
         """
         Prepare comprehensive anonymization result
@@ -367,26 +359,30 @@ class LDiversityModelApplicator:
                 "processor_config": {
                     "diversity_type": self.processor.diversity_type,
                     "l_value": self.processor.l,
-                    "adaptive_l_levels": bool(self.processor.adaptive_l)
-                }
+                    "adaptive_l_levels": bool(self.processor.adaptive_l),
+                },
             },
             "dataset_metrics": {
                 "original_records": len(original_data),
                 "anonymized_records": len(anonymized_data),
                 "records_transformed": len(original_data) - len(anonymized_data),
-                "non_diverse_groups": len(non_diverse_groups)
+                "non_diverse_groups": len(non_diverse_groups),
             },
             "anonymization_details": {
                 "strategy": strategy,
-                "parameters": {k: v for k, v in kwargs.items() if k in ['mask_value', 'mask_percentage']}
-            }
+                "parameters": {
+                    k: v
+                    for k, v in kwargs.items()
+                    if k in ["mask_value", "mask_percentage"]
+                },
+            },
         }
 
         # Return full result based on configuration
-        return_full_result = kwargs.get('return_full_result', False)
+        return_full_result = kwargs.get("return_full_result", False)
 
         if return_full_result:
-            result_metadata['anonymized_data'] = anonymized_data
+            result_metadata["anonymized_data"] = anonymized_data
             return result_metadata
 
         return anonymized_data
@@ -394,11 +390,11 @@ class LDiversityModelApplicator:
 
 # Utility function for quick model application
 def apply_l_diversity(
-        data: pd.DataFrame,
-        quasi_identifiers: List[str],
-        sensitive_attributes: List[str],
-        strategy: str = 'suppression',
-        **kwargs
+    data: pd.DataFrame,
+    quasi_identifiers: List[str],
+    sensitive_attributes: List[str],
+    strategy: str = "suppression",
+    **kwargs,
 ) -> pd.DataFrame:
     """
     Convenient utility function for applying l-diversity
@@ -423,9 +419,46 @@ def apply_l_diversity(
     """
     applicator = LDiversityModelApplicator()
     return applicator.apply_model(
-        data,
-        quasi_identifiers,
-        sensitive_attributes,
-        strategy,
-        **kwargs
+        data, quasi_identifiers, sensitive_attributes, strategy, **kwargs
     )
+
+
+def apply_model_impl(
+    data: pd.DataFrame,
+    quasi_identifiers: List[str],
+    suppression: bool = True,
+    k: int = 3,
+    **kwargs,
+) -> pd.DataFrame:
+    """
+    Apply a simple k-anonymity-like model to the dataset.
+
+    Parameters:
+        data: The input DataFrame.
+        quasi_identifiers: List of QI columns.
+        suppression: If True, suppress rows that don't satisfy k-anonymity.
+        k: The minimum group size required for anonymity.
+        kwargs: Additional parameters (e.g., generalization maps, config).
+
+    Returns:
+        Transformed DataFrame satisfying the privacy model.
+    """
+    if not quasi_identifiers:
+        raise ValueError("At least one quasi-identifier must be provided.")
+
+    # Group by QI columns and count group sizes
+    group_sizes = data.groupby(quasi_identifiers).size().reset_index(name="group_size")
+
+    # Merge back group sizes into original data
+    merged_data = pd.merge(data, group_sizes, on=quasi_identifiers)
+
+    if suppression:
+        # Keep only rows in groups that meet the k threshold
+        anonymized_data = merged_data[merged_data["group_size"] >= k].drop(
+            columns="group_size"
+        )
+    else:
+        # Optionally you could generalize instead of suppressing
+        anonymized_data = merged_data.drop(columns="group_size")
+
+    return anonymized_data

@@ -45,7 +45,7 @@ from pamola_core.utils.visualization import (
     plot_text_length_distribution
 )
 from pamola_core.common.constants import Constants
-from pamola_core.profiling.commons.helpers import filter_used_kwargs
+from pamola_core.utils.helpers import filter_used_kwargs
 # Configure logger
 logger = get_logger(__name__)
 
@@ -74,7 +74,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                  perform_clustering: bool = True,
                  match_strategy: str = "specific_first",
                  visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_strict: bool = False,
                  visualization_timeout: int = 120,
                  chunk_size: int = 10000,
@@ -420,7 +420,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             return OperationResult(
                 status=OperationStatus.ERROR,
-                error_message=f"Error in semantic categorization of field {self.field_name}: {str(e)}"
+                error_message=f"Error in semantic categorization of field {self.field_name}: {str(e)}",
+                exception=e,
             )
 
     def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
@@ -1490,10 +1491,11 @@ class TextSemanticCategorizerOperation(FieldOperation):
             if not flag_processed:
                 logger.info("Fallback process as usual")
 
-                chunk_results = self._perform_semantic_categorization(
+                chunk_result = self._perform_semantic_categorization(
                     text_values, record_ids, dictionary_path, language,
                     match_strategy, use_ner, perform_clustering, clustering_threshold
                 )
+                chunk_results.append(chunk_result)
 
                 flag_processed = True
         except Exception as e:
@@ -2022,29 +2024,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
             else:
                 total_time = time.time() - thread_start_time
                 logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
-                logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+                for vis_result in visualization_paths:
+                    logger.info(f"[DIAG] Generated visualizations: {vis_result['path']}")
         except Exception as e:
             logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
             logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
-
-        # Register visualization artifacts
-        for viz_type, path in visualization_paths.items():
-            # Add to result
-            result.add_artifact(
-                artifact_type="png",
-                path=path,
-                description=f"{viz_type} visualization",
-                category=Constants.Artifact_Category_Visualization
-            )
-
-            # Report to reporter
-            if reporter:
-                reporter.add_artifact(
-                    artifact_type="png",
-                    path=str(path),
-                    description=f"{viz_type} visualization"
-                )
 
         return visualization_paths
 

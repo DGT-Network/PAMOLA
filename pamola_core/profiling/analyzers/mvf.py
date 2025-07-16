@@ -116,6 +116,7 @@ class MVFAnalyzer:
             The results of the analysis
         """
         if task_logger:
+            global logger
             logger = task_logger
             logger.info(f"Analyzing MVF field: {field_name}")
 
@@ -396,7 +397,7 @@ class MVFAnalysisOperationConfig(OperationConfig):
             "field_name": {"type": "string"},
             "top_n": {"type": "integer", "minimum": 1, "default": 20},
             "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-            "format_type": {"type": "string", "default": None},
+            "format_type": {"type": ["string", "null"], "default": None},
             "parse_kwargs": {"type": "object", "default": {}},
             "chunk_size": {"type": "integer", "minimum": 1},
             "use_cache": {"type": "boolean"},
@@ -452,7 +453,7 @@ class MVFOperation(FieldOperation):
         use_encryption: bool = False,
         encryption_key: Optional[Union[str, Path]] = None,
         visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = None,
+        visualization_backend: Optional[str] = "plotly",
         visualization_strict: bool = False,
         visualization_timeout: int = 120,
         output_format: str = "csv",
@@ -737,7 +738,9 @@ class MVFOperation(FieldOperation):
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Step 3: Validation

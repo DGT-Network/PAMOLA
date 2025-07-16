@@ -46,10 +46,11 @@ from dask import dataframe as dd
 from pamola_core.config import L_DIVERSITY_DEFAULTS
 # PAMOLA pamola core imports
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
-from pamola_core.utils__old_15_04.group_processing import (
+from pamola_core.privacy_models.l_diversity.apply_model import apply_model_impl
+from pamola_core.utils import progress
+from pamola_core.utils.group_processing import (
     validate_anonymity_inputs
 )
-from pamola_core.utils__old_15_04.progress import progress_logger
 
 class LDiversityCalculator(BasePrivacyModelProcessor):
     """
@@ -193,7 +194,11 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         diversity_metrics = []
 
         try:
-            progress_bar = progress_logger("Calculating Group Diversity", len(grouped))
+            progress_bar = progress.ProgressBar(
+                total=len(grouped),
+                description=f"Calculating Group Diversity",
+                unit="grouped",
+            )
             for group_name, group_data in grouped:
                 try:
                     # Use adaptive l-level

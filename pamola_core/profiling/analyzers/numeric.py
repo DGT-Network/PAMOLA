@@ -27,7 +27,7 @@ from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.visualization import (
-    create_histogram, create_boxplot, create_correlation_pair
+    create_histogram, create_boxplot, create_correlation_pair_plot
 )
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.common.constants import Constants
@@ -377,11 +377,11 @@ class NumericOperation(FieldOperation):
                  detect_outliers: bool = True,
                  test_normality: bool = True,
                  near_zero_threshold: int = 1e-10,
-                 generate_plots: bool = True,
+                 generate_visualization: bool = True,
                  include_timestamp: bool = True,
                  profile_type: str = 'numeric',
                  visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_strict: bool = False,
                  visualization_timeout: int = 120,
                  chunk_size: int = 10000,
@@ -443,7 +443,7 @@ class NumericOperation(FieldOperation):
         self.test_normality = test_normality
         self.analyzer = NumericAnalyzer()
         self.near_zero_threshold = near_zero_threshold
-        self.generate_plots = generate_plots
+        self.generate_visualization = generate_visualization
         self.include_timestamp = include_timestamp
         self.profile_type = profile_type
         self.visualization_theme = visualization_theme
@@ -486,7 +486,7 @@ class NumericOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation:
             - near_zero_threshold: float, threshold for near-zero detection
-            - generate_plots: bool, whether to generate visualizations
+            - generate_visualization: bool, whether to generate visualizations
             - include_timestamp: bool, whether to include timestamps in filenames
             - profile_type: str, type of profiling for organizing artifacts
             - dataset_name: str - Name of dataset - main
@@ -518,13 +518,12 @@ class NumericOperation(FieldOperation):
 
             # Decompose kwargs and introduce variables for clarity
             near_zero_threshold = kwargs.get('near_zero_threshold', self.near_zero_threshold)
-            generate_plots = kwargs.get('generate_plots', self.generate_plots)
+            generate_visualization = kwargs.get('generate_visualization', self.generate_visualization)
             include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
             profile_type = kwargs.get('profile_type', self.profile_type)
             force_recalculation = kwargs.get("force_recalculation", False)
             use_dask = kwargs.get("use_dask", self.use_dask)
             parallel_processes = kwargs.get("parallel_processes", 1)
-            generate_visualization = kwargs.get("generate_visualization", True)
             save_output = kwargs.get("save_output", True)
             is_encryption_required = (kwargs.get("encrypt_output", False) or self.use_encryption)
             encryption_key = kwargs.get('encryption_key', None)
@@ -596,7 +595,7 @@ class NumericOperation(FieldOperation):
 
             # Adjust progress tracker total steps if provided
             total_steps = 4
-            if generate_plots:
+            if generate_visualization:
                 total_steps += 2
 
             if progress_tracker:
@@ -653,7 +652,7 @@ class NumericOperation(FieldOperation):
                 progress_tracker.update(1, {"step": "Saved analysis results"})
 
             # Generate visualizations if requested
-            if generate_plots and self.visualization_backend is not None:
+            if generate_visualization and self.visualization_backend is not None:
                 # Update progress
                 if progress_tracker:
                     progress_tracker.update(0, {"step": "Generating visualizations"})
@@ -665,10 +664,10 @@ class NumericOperation(FieldOperation):
                 visualization_paths = self._handle_visualizations(
                     df=df,
                     analysis_results=analysis_results,
-                    visualizations_dir=visualizations_dir,
                     include_timestamp=include_timestamp,
                     result=result,
                     reporter=reporter,
+                    vis_dir=visualizations_dir,
                     vis_theme=self.visualization_theme,
                     vis_backend=self.visualization_backend,
                     vis_strict=self.visualization_strict,
@@ -744,7 +743,8 @@ class NumericOperation(FieldOperation):
 
             return OperationResult(
                 status=OperationStatus.ERROR,
-                error_message=f"Error analyzing numeric field {self.field_name}: {str(e)}"
+                error_message=f"Error analyzing numeric field {self.field_name}: {str(e)}",
+                exception=e,
             )
 
     def _generate_visualizations(self,
@@ -883,7 +883,7 @@ class NumericOperation(FieldOperation):
             if p_value is not None:
                 title += f" (Shapiro p-value: {p_value:.4f})"
 
-            qq_result = create_correlation_pair(
+            qq_result = create_correlation_pair_plot(
                 x_data=normal_data,
                 y_data=sorted_data,
                 output_path=str(qq_path),
@@ -1363,19 +1363,19 @@ class NumericOperation(FieldOperation):
             else:
                 total_time = time.time() - thread_start_time
                 logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
-                logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+                logger.info(f"[DIAG] Generated visualizations: {[v.get('description', v.get('path', str(v))) for v in visualization_paths]}")
         except Exception as e:
             logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
             logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
-        for viz_type, path in visualization_paths.items():
+        for vis_result  in visualization_paths:
             # Add to result
             result.add_artifact(
                 artifact_type="png",
-                path=path,
-                description=f"{viz_type} visualization",
+                path=vis_result['path'],
+                description=f"{vis_result['description']} visualization",
                 category=Constants.Artifact_Category_Visualization
             )
 
@@ -1383,8 +1383,8 @@ class NumericOperation(FieldOperation):
             if reporter:
                 reporter.add_artifact(
                     artifact_type="png",
-                    path=str(path),
-                    description=f"{viz_type} visualization"
+                    path=str(vis_result['path']),
+                    description=f"{vis_result['description']} visualization"
                 )
 
         return visualization_paths

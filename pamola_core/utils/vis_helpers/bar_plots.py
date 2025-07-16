@@ -421,6 +421,14 @@ class MatplotlibBarPlot(MatplotlibFigure):
                 # Ensure data is a pandas Series
                 try:
                     series = ensure_series(data)
+
+                    # Filter out values that are not comparable (e.g., dict, list, set)
+                    series = series[series.apply(lambda v: isinstance(v, (int, float, str, bool)))]
+
+                    # Convert index to string if it contains unhashable types like dict
+                    if any(isinstance(idx, dict) for idx in series.index):
+                        series.index = series.index.map(str)
+
                 except TypeError as e:
                     logger.error(f"Error converting data to Series: {e}")
                     return self.create_empty_figure(
@@ -452,7 +460,7 @@ class MatplotlibBarPlot(MatplotlibFigure):
 
                 # Get color from theme or kwargs
                 colors = get_theme_colors(1)
-                color = kwargs.get("color", colors[0])
+                color = kwargs.pop("color", colors[0])
 
                 # Filter out kwargs that are specific to Plotly
                 plt_kwargs = {

@@ -12,13 +12,15 @@ The `clean_invalid_values` module provides a robust, configurable operation for 
 
 ## Key Features
 
-- **Constraint-based Cleaning:** Supports numeric, categorical, datetime, and string constraints (e.g., min/max, allowed/disallowed values, patterns).
-- **Whitelist/Blacklist Enforcement:** Enforces value inclusion/exclusion from external files or dictionaries.
-- **Null Replacement Strategies:** Flexible imputation (mean, median, mode, random sample, or custom value).
+- **Constraint-based Cleaning**: Supports a wide range of constraints (min/max, allowed/disallowed values, patterns, date ranges, etc.) for both numeric and categorical fields.
+- **Whitelist/Blacklist Enforcement**: Enforces value inclusion/exclusion from external files or dictionaries.
+- **Null Replacement Strategies**: Flexible strategies for filling nulls (mean, median, mode, random sample, or custom values).
 - **Batch and Parallel Processing:** Efficiently processes large datasets in chunks or parallel jobs.
-- **Caching and Reproducibility:** Deterministic cache keys for operation results, with cache validation and storage.
-- **Metrics and Reporting:** Collects and saves detailed metrics and visualizations for auditing and monitoring.
-- **Secure Output Handling:** Optional encryption and strict path security for output artifacts.
+- **Batch and Chunk Processing**: Efficiently processes large datasets in chunks, with optional Dask and parallelization support.
+- **Caching and Reproducibility**: Built-in operation caching to avoid redundant computation.
+- **Metrics and Reporting**: Automatically computes, collects and saves detailed metrics and visualizations for auditing and monitoring.
+- **Visualization**: Optional generation of before/after data visualizations.
+- **Security and Encryption**: Supports output encryption and secure handling of sensitive data.
 - **Integration Ready:** Designed for seamless use in PAMOLA pipelines and with `BaseTask`.
 
 ---
@@ -26,11 +28,13 @@ The `clean_invalid_values` module provides a robust, configurable operation for 
 ## Dependencies
 
 ### Standard Library
-- `os`, `time`, `hashlib`, `datetime`, `logging`, `json`, `functools`, `traceback`, `re`
+- `os`, `time`, `hashlib`, `datetime`, `logging`, `json`, `functools`, `traceback`,`pathlib`
 
 ### Third-Party
 - `pandas` (DataFrame operations)
 - `numpy` (random sampling, numeric operations)
+- `dask` (optional)
+- `pyarrow` (for parquet support)
 
 ### Internal Modules
 - `pamola_core.transformations.commons.processing_utils` (batch/parallel processing)
@@ -59,9 +63,14 @@ try:
 except NotImplementedError as e:
     print(f"Feature not implemented: {e}")
 ```
-**When raised:** If a constraint type such as `custom_function` is specified but not implemented.
 
-### Example: Handling File Errors
+### When Exceptions Are Raised
+- **NotImplementedError**: Raised if a constraint type (e.g., `custom_function`) is specified but not implemented.
+- **OperationStatus.ERROR**: Returned in `OperationResult` if data loading, validation, processing, or output saving fails.
+- **IOError / OSError**: Raised when reading/writing files (e.g., whitelist/blacklist files).
+- **ValueError**: Raised for invalid parameter values or data types.
+
+#### Example: Handling File Errors
 ```python
 try:
     op = CleanInvalidValuesOperation(whitelist_path={"col": "missing.txt"})
@@ -90,11 +99,19 @@ def __init__(
     mode: str = "REPLACE",
     output_field_name: Optional[str] = None,
     column_prefix: str = "_",
-    batch_size: int = 10000,
-    use_cache: bool = True,
+    visualization_theme: Optional[str] = None,
+    visualization_backend: Optional[str] = None,
+    visualization_strict: bool = False,
+    visualization_timeout: int = 120,
+    chunk_size: int = 10000,
     use_dask: bool = False,
+    npartitions: int = 2,
+    use_vectorization: bool = False,
+    parallel_processes: int = 2,
+    use_cache: bool = True,
     use_encryption: bool = False,
-    encryption_key: Optional[Union[str, Path]] = None
+    encryption_key: Optional[Union[str, Path]] = None,
+    encryption_mode: Optional[str] = None,
 )
 ```
 **Parameters:**
@@ -104,13 +121,16 @@ def __init__(
 - `null_replacement`: Strategy or mapping for null value replacement.
 - `output_format`: Output file format (csv, json, parquet).
 - `name`, `description`: Operation metadata.
-- `field_name`, `mode`, `output_field_name`, `column_prefix`: Field transformation options.
-- `batch_size`: Batch size for processing.
-- `use_cache`, `use_dask`, `use_encryption`, `encryption_key`: Performance and security options.
+- `field_name`, `output_field_name`, `column_prefix`: Field transformation options.
+- `mode`: `REPLACE` (in-place) or `ENRICH` (add new columns).
+- `chunk_size`, `use_dask`, `parallel_processes`: Performance tuning.
+- `use_cache`, `use_encryption`, `encryption_key`: Performance and security options.
 
 ### Key Attributes
-- `field_constraints`, `whitelist_path`, `blacklist_path`, `null_replacement`, `version`
-- `execution_time`, `include_timestamp`, `is_encryption_required`
+- `field_constraints`, `whitelist_path`, `blacklist_path`, `null_replacement`
+- `visualization_theme`, `visualization_backend`, `visualization_strict`, `visualization_timeout`
+- `chunk_size`, `use_dask`, `npartitions`, `use_vectorization`, `parallel_processes`
+- `use_cache`, `use_encryption`, `encryption_key`, `encryption_mode`
 - `_temp_data`: Temporary storage for cleanup
 
 ### Public Methods
@@ -133,7 +153,7 @@ def execute(
     - `progress_tracker`: Progress tracking object
     - `**kwargs`: Additional options (see docstring)
 - **Returns:** `OperationResult` with status, metrics, and artifacts
-- **Raises:** Exception (with detailed logging)
+- **Raises:** Returns `OperationResult` with `ERROR` status on failure
 
 #### process_batch
 ```python
@@ -189,6 +209,10 @@ def _process_dataframe(
 #### _cleanup_memory
 - Explicitly free memory after operation completion.
 
+#### Caching, Metrics, and Output Methods
+- `_check_cache`, `_save_to_cache`, `_generate_cache_key`, `_get_operation_parameters`, `_generate_data_hash`
+- `_process_dataframe`, `_calculate_all_metrics`, `_collect_metrics`, `_save_metrics`, `_handle_visualizations`, `_save_output_data`
+
 ---
 
 ## Dependency Resolution and Completion Validation
@@ -199,6 +223,8 @@ def _process_dataframe(
 - **Completion Validation:**
     - The operation checks for successful processing, metrics calculation, and output saving. Errors in any step are logged and reported in the `OperationResult`.
     - Caching is validated by generating a deterministic key from operation parameters and data characteristics.
+- **Cache Checking**:
+    - Before processing, the operation checks for cached results using a deterministic cache key based on parameters and data characteristics.
 
 ---
 
@@ -211,14 +237,19 @@ from pamola_core.transformations.cleaning.clean_invalid_values import CleanInval
 # Define constraints for columns
 field_constraints = {
     "age": {"constraint_type": "min_value", "min_value": 0},
-    "status": {"constraint_type": "allowed_values", "allowed_values": ["A", "B"]}
+    "status": {"constraint_type": "allowed_values", "allowed_values": ["active", "inactive"]}
 }
 
 # Create operation instance
-op = CleanInvalidValuesOperation(field_constraints=field_constraints)
+operation = CleanInvalidValuesOperation(field_constraints=field_constraints)
 
-# Process a DataFrame batch
-cleaned = op.process_batch(df)
+# Execute cleaning
+result = operation.execute(data_source, task_dir, reporter)
+
+# Access metrics and artifacts
+print(result.metrics)
+for artifact in result.artifacts:
+    print(artifact.path)
 ```
 
 ### Handling Failed Dependencies
@@ -239,6 +270,21 @@ try:
 except Exception as e:
     # Log and continue
     logger.warning(f"Operation failed: {e}")
+```
+
+### Using in a Pipeline (with BaseTask)
+```python
+# Example integration with a BaseTask
+class MyTask(BaseTask):
+    def run(self):
+        # Create dependency manager
+        dependency_manager = TaskDependencyManager(self.task_config, self.logger)
+        operation = CleanInvalidValuesOperation(field_constraints=...)
+        result = operation.execute(self.data_source, self.task_dir, self.reporter)
+        if result.status != OperationStatus.SUCCESS:
+            self.logger.error("Cleaning failed")
+            return False
+        return True
 ```
 
 ### Accessing Metrics and Artifacts
@@ -272,9 +318,15 @@ if result.status == OperationStatus.SUCCESS:
 
 ## Configuration Requirements
 
-- The `config` object (usually `CleanInvalidValuesConfig`) must define all required fields for constraints, whitelists, blacklists, and null replacement.
-- Paths must be valid and accessible; missing files will cause errors.
-- For encryption, a valid key or key path must be provided if `use_encryption` is enabled.
+- **The `config` object (usually `CleanInvalidValuesConfig`)**: must define all required fields for constraints, whitelists, blacklists, and null replacement.
+- **Paths**: must be valid and accessible; missing files will cause errors.
+- **encryption_key**: a valid key or key path must be provided if `use_encryption` is enabled.
+- **field_constraints**: Dict mapping field names to constraint configs.
+- **whitelist_path/blacklist_path**: Dict mapping field names to file paths.
+- **null_replacement**: String or dict specifying fill strategy.
+- **output_format**: One of `csv`, `json`, `parquet`.
+- **chunk_size**, **use_dask**, **parallel_processes**: For performance tuning.
+- **use_cache**, **use_encryption**: For caching.
 
 ---
 
@@ -283,6 +335,8 @@ if result.status == OperationStatus.SUCCESS:
 - **Path Security:**
     - Always validate whitelist/blacklist paths. Avoid using untrusted or user-supplied paths without validation.
     - Disabling path security (e.g., by passing unchecked absolute paths) can expose the system to directory traversal or data leakage risks.
+- **Output Encryption**:
+    - Use `use_encryption=True` and provide a secure `encryption_key` to protect sensitive outputs.
 
 #### Example: Security Failure and Handling
 ```python
@@ -293,6 +347,12 @@ except Exception as e:
     print(f"Security error: {e}")
 ```
 **Risk:** If path security is disabled, sensitive system files could be read. Always restrict allowed paths.
+```
+
+#### Internal vs. External Dependencies
+
+- **Internal (Task ID-based)**: Use for data produced within the pipeline; ensures reproducibility and traceability.
+- **External (Absolute Path)**: Only use for static, trusted data not produced by the pipeline. Document and audit all such dependencies.
 
 ---
 
@@ -305,3 +365,8 @@ except Exception as e:
 5. **Enable Encryption for Sensitive Outputs:** Use `use_encryption=True` and provide a secure key for sensitive data.
 6. **Monitor Metrics and Artifacts:** Always review operation metrics and output artifacts for auditing and compliance.
 7. **Restrict Path Access:** Never allow user-supplied or unvalidated paths for whitelist/blacklist files.
+8. **Prefer Internal Whitelist/Blacklist Files**: Store these in version control and reference them by relative path.
+9. **Enable Caching for Large Datasets**: Use `use_cache=True` to avoid redundant computation.
+10. **Log and Monitor All Errors**: Review logs for any `OperationStatus.ERROR` results.
+11. **Test with Representative Data**: Validate cleaning logic on real-world samples before production use.
+12. **Document All External Dependencies**: If using absolute paths, document their source and purpose.

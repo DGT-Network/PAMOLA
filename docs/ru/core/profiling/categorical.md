@@ -162,7 +162,7 @@ def execute(self,
 - `reporter` (required): Reporter object for tracking progress and artifacts
 - `progress_tracker` (optional): Progress tracker for the operation
 - `**kwargs`: Additional parameters:
-  - `generate_plots` (default: True): Whether to generate visualizations
+  - `generate_visualization` (default: True): Whether to generate visualizations
   - `include_timestamp` (default: True): Whether to include timestamps in filenames
   - `profile_type` (default: 'categorical'): Type of profiling for organizing artifacts
   - `analyze_anomalies` (default: True): Whether to analyze anomalies
@@ -193,7 +193,7 @@ def analyze_categorical_fields(
 - `**kwargs`: Additional parameters passed to each operation:
   - `top_n` (default: 15): Number of top values to include in results
   - `min_frequency` (default: 1): Minimum frequency for dictionary
-  - `generate_plots` (default: True): Whether to generate plots
+  - `generate_visualization` (default: True): Whether to generate visualization
   - `include_timestamp` (default: True): Whether to include timestamps in filenames
   - `track_progress` (default: True): Whether to track overall progress
 
@@ -264,7 +264,7 @@ result = operation.execute(
     data_source=data_source,
     task_dir=task_dir,
     reporter=reporter,
-    generate_plots=True
+    generate_visualization=True
 )
 
 # Check results
@@ -298,7 +298,7 @@ results = analyze_categorical_fields(
     reporter=reporter,
     cat_fields=["education_level", "job_category", "employment_type"],
     top_n=15,
-    generate_plots=True
+    generate_visualization=True
 )
 
 # Process results

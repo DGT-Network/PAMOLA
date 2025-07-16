@@ -1,357 +1,414 @@
-import shutil
+"""
+Tests for the attribute module in the pamola_core/profiling/analyzers package.
+These tests ensure that the DataAttributeProfilerOperation class properly implements attribute profiling,
+configuration, error handling, caching, and visualization logic.
+"""
+import os
+import sys
 import unittest
-from unittest.mock import MagicMock, patch
-from pathlib import Path
+from unittest import mock
+import pytest
 import pandas as pd
+from pathlib import Path
 from pamola_core.profiling.analyzers.attribute import DataAttributeProfilerOperation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 
 
-class TestDataAttributeProfilerOperation(unittest.TestCase):
-    def setUp(self):
-        self.operation = DataAttributeProfilerOperation(
-            name="TestAttributeProfiler",
-            description="Test profiling of dataset attributes",
-            dictionary_path=None,
-            language="en",
-            sample_size=10,
-            max_columns=None,
-            id_column=None,
-            include_timestamp=True
-        )
-        self.mock_data_source = MagicMock()
-        self.mock_task_dir = Path("/tmp/test_task_dir")  # Use a temporary directory
-        self.mock_reporter = MagicMock()
-        self.mock_progress_tracker = MagicMock()
+class DummyDataSource:
+    def __init__(self, df=None, error=None):
+        self.df = df
+        self.error = error
+        self.encryption_keys = {}
+        self.encryption_modes = {}
+    def get_dataframe(self, dataset_name, **kwargs):
+        if self.df is not None:
+            return self.df, None
+        return None, {"message": self.error or "No data"}
 
-    # For utils tests
-        self.test_dir = Path("test_task_dir")
-        if self.test_dir.exists():
-            shutil.rmtree(self.test_dir)
+class DummyReporter:
+    def __init__(self):
+        self.operations = []
+        self.artifacts = []
 
-    def tearDown(self):
-        # For utils tests
-        if hasattr(self, "test_dir") and self.test_dir.exists():
-            shutil.rmtree(self.test_dir)
+    def add_operation(self, *args, **kwargs):
+        self.operations.append((args, kwargs))
+
+    def add_artifact(self, *args, **kwargs):
+        self.artifacts.append((args, kwargs))
 
 
-    @patch("pamola_core.profiling.analyzers.attribute.load_data_operation")
-    @patch("pamola_core.profiling.analyzers.attribute.load_attribute_dictionary")
-    @patch("pamola_core.profiling.analyzers.attribute.analyze_dataset_attributes")
-    def test_execute_success(self, mock_analyze_dataset_attributes, mock_load_attribute_dictionary, mock_load_data_operation):
-        # Mock DataFrame
-        mock_df = pd.DataFrame({
-            "ID": [1, 2, 3, 4, 5],
-            "Name": ["Alice", "Bob", "Alice", "Bob", "Charlie"],
-            "Age": [25, 30, 25, 30, 35],
-            "City": ["NY", "LA", "NY", "LA", "SF"]
-        })
-        mock_load_data_operation.return_value = mock_df
+class DummyProgress:
+    def __init__(self):
+        self.updates = []
+        self.total = 0
 
-        # Mock attribute dictionary
-        mock_load_attribute_dictionary.return_value = {"mock_key": "mock_value"}
+    def update(self, step, info):
+        self.updates.append((step, info))
 
-        # Mock analysis results
-        mock_analyze_dataset_attributes.return_value = {
-            "summary": {
-                "DIRECT_IDENTIFIER": 1,
-                "QUASI_IDENTIFIER": 2,
-                "SENSITIVE_ATTRIBUTE": 1,
-                "INDIRECT_IDENTIFIER": 0,
-                "NON_SENSITIVE": 1
+    def create_subtask(self, total, description, unit):
+        return DummyProgress()
+
+    def close(self):
+        pass
+
+
+def minimal_profiler(**kwargs):
+    return DataAttributeProfilerOperation(**kwargs)
+
+@pytest.fixture
+def kwargs():
+        return {
+            "name": "DataAttributeProfiler",
+            "description": "Automatic profiling of dataset attributes",
+            "dictionary_path": None,
+            "language": "en",
+            "sample_size": 10,
+            "max_columns": None,
+            "id_column": None,
+            "use_encryption": False,
+            "encryption_key": None,
+            "use_dask": False,
+            "use_cache": False,
+            "use_vectorization": False,
+            "chunk_size": 10000,
+            "parallel_processes": 1,
+            "npartitions": 1,
+            "visualization_theme": None,
+            "visualization_backend": None,
+            "visualization_strict": False,
+            "visualization_timeout": 120,
+            "encryption_mode": None
+        }
+
+@pytest.fixture
+def tmp_task_dir():
+    task_dir = Path("test_task_dir/unittest/profiling/analyzers/attribute")
+    os.makedirs(task_dir, exist_ok=True)
+    return task_dir
+
+
+@pytest.fixture
+def dummy_reporter():
+    return DummyReporter()
+
+
+@pytest.fixture
+def dummy_progress():
+    return DummyProgress()
+
+
+@pytest.fixture
+def valid_df():
+    return pd.DataFrame({
+        'id': [1, 2, 3],
+        'name': ['Alice', 'Bob', 'Charlie'],
+        'age': [25, 30, 35],
+        'city': ['NY', 'LA', 'SF']
+    })
+
+
+@pytest.fixture
+def empty_df():
+    return pd.DataFrame()
+
+
+@pytest.fixture
+def patched_load_data(monkeypatch, valid_df):
+    monkeypatch.setattr(
+        'pamola_core.utils.io.load_data_operation',
+        lambda *a, **k: valid_df
+    )
+    monkeypatch.setattr(
+        'pamola_core.utils.io.load_settings_operation',
+        lambda *a, **k: {}
+    )
+    return True
+
+
+@pytest.fixture
+def patched_load_data_empty(monkeypatch, empty_df):
+    monkeypatch.setattr(
+        'pamola_core.utils.io.load_data_operation',
+        lambda *a, **k: empty_df
+    )
+    monkeypatch.setattr(
+        'pamola_core.utils.io.load_settings_operation',
+        lambda *a, **k: {}
+    )
+    return True
+
+
+@pytest.fixture
+def patched_dictionary(monkeypatch):
+    monkeypatch.setattr(
+        'pamola_core.profiling.commons.attribute_utils.load_attribute_dictionary',
+        lambda *a, **k: {'columns': {}, 'summary': {}, 'column_groups': {}}
+    )
+    monkeypatch.setattr(
+        'pamola_core.profiling.commons.attribute_utils.analyze_dataset_attributes',
+        lambda **kwargs: {
+            'columns': {
+                'id': {'role': 'DIRECT_IDENTIFIER', 'statistics': {'entropy': 0.0, 'normalized_entropy': 0.0, 'uniqueness_ratio': 1.0, 'missing_rate': 0.0, 'inferred_type': 'int', 'samples': [1, 2, 3]}},
+                'name': {'role': 'QUASI_IDENTIFIER', 'statistics': {'entropy': 1.0, 'normalized_entropy': 1.0, 'uniqueness_ratio': 1.0, 'missing_rate': 0.0, 'inferred_type': 'str', 'samples': ['Alice', 'Bob', 'Charlie']}}
             },
-            "columns": {
-                "Name": {
-                    "role": "QUASI_IDENTIFIER",
-                    "statistics": {
-                        "entropy": 0.8,
-                        "normalized_entropy": 0.5,
-                        "uniqueness_ratio": 0.6,
-                        "missing_rate": 0.0,
-                        "inferred_type": "string",
-                        "samples": ["Alice", "Bob"]
-                    }
-                }
+            'summary': {
+                'DIRECT_IDENTIFIER': 1,
+                'QUASI_IDENTIFIER': 1,
+                'SENSITIVE_ATTRIBUTE': 0,
+                'INDIRECT_IDENTIFIER': 0,
+                'NON_SENSITIVE': 0
             },
-            "column_groups": {
-                "QUASI_IDENTIFIER": ["Name"]
-            },
-            "dataset_metrics": {
-                "avg_entropy": 0.7,
-                "avg_uniqueness": 0.6
+            'column_groups': {'QUASI_IDENTIFIER': ['name']},
+            'dataset_metrics': {'avg_entropy': 0.5, 'avg_uniqueness': 1.0},
+            'conflicts': []
+        }
+    )
+    return True
+
+
+@pytest.fixture
+def patched_write_json(monkeypatch):
+    monkeypatch.setattr('pamola_core.utils.io.write_json', lambda *a, **k: None)
+    monkeypatch.setattr('pamola_core.utils.io.write_dataframe_to_csv', lambda *a, **k: None)
+    monkeypatch.setattr('pamola_core.utils.io.get_timestamped_filename', lambda prefix, ext, ts: f"{prefix}.{ext}")
+    monkeypatch.setattr('pamola_core.utils.io.ensure_directory', lambda *a, **k: None)
+    return True
+
+
+@pytest.fixture
+def patched_encryption(monkeypatch):
+    monkeypatch.setattr('pamola_core.utils.io_helpers.crypto_utils.get_encryption_mode', lambda *a, **k: None)
+    return True
+
+
+@pytest.fixture
+def patched_constants(monkeypatch):
+    class DummyConstants:
+        Artifact_Category_Output = 'output'
+        Artifact_Category_Dictionary = 'dict'
+        Artifact_Category_Metrics = 'metrics'
+        Artifact_Category_Visualization = 'viz'
+    monkeypatch.setattr('pamola_core.common.constants.Constants', DummyConstants)
+    return True
+
+
+@pytest.fixture
+def patched_visualization(monkeypatch):
+    monkeypatch.setattr('pamola_core.utils.visualization.create_pie_chart', lambda *a, **k: 'ok')
+    monkeypatch.setattr('pamola_core.utils.visualization.create_bar_plot', lambda *a, **k: 'ok')
+    monkeypatch.setattr('pamola_core.utils.visualization.create_scatter_plot', lambda *a, **k: 'ok')
+    return True
+
+
+@pytest.fixture
+def patched_cache(monkeypatch):
+    class DummyCache:
+        def get_cache(self, **kwargs):
+            return None
+
+        def save_cache(self, **kwargs):
+            return True
+
+        def generate_cache_key(self, **kwargs):
+            return 'cachekey'
+    monkeypatch.setattr('pamola_core.utils.ops.op_cache.operation_cache', DummyCache())
+    return True
+
+
+def test_valid_case(
+    patched_load_data,
+    patched_dictionary,
+    patched_write_json,
+    patched_encryption,
+    patched_constants,
+    patched_visualization,
+    patched_cache,
+    tmp_task_dir,
+    dummy_reporter,
+    dummy_progress,
+    valid_df,
+    kwargs
+):
+    profiler = minimal_profiler(**kwargs)
+    result = profiler.execute(
+        data_source=DummyDataSource(df=valid_df),
+        task_dir=tmp_task_dir,
+        reporter=dummy_reporter,
+        progress_tracker=dummy_progress,
+        include_timestamp=False
+    )
+    assert isinstance(result, OperationResult)
+    assert result.status == OperationStatus.SUCCESS
+    assert any(a.description == 'Attribute roles analysis' for a in result.artifacts)
+    assert any(m[0] == 'quasi_identifiers' for m in result.metrics.items())
+    assert result.metrics['total_columns'] == 4
+    assert result.metrics['direct_identifiers_count'] == 1
+    assert result.metrics['quasi_identifiers_count'] == 1
+    assert result.metrics['sensitive_attributes_count'] == 0
+    assert result.metrics['indirect_identifiers_count'] == 0
+    assert result.metrics['non_sensitive_count'] == 2
+    assert result.metrics['avg_uniqueness'] == 1.0
+    assert result.metrics['conflicts_count'] == 2
+
+
+def test_edge_case_empty_df(
+    monkeypatch,
+    patched_load_data_empty,
+    patched_dictionary,
+    patched_write_json,
+    patched_encryption,
+    patched_constants,
+    patched_visualization,
+    patched_cache,
+    tmp_task_dir,
+    dummy_reporter,
+    dummy_progress,
+    empty_df,
+    kwargs
+):
+    monkeypatch.setattr('pamola_core.profiling.analyzers.attribute.load_settings_operation', lambda *a, **k: {})
+    monkeypatch.setattr('pamola_core.profiling.analyzers.attribute.load_data_operation', lambda *a, **k: None)
+    profiler = minimal_profiler(**kwargs)
+    result = profiler.execute(
+        data_source=DummyDataSource(df=empty_df),
+        task_dir=tmp_task_dir,
+        reporter=dummy_reporter,
+        progress_tracker=dummy_progress,
+        include_timestamp=False
+    )
+    assert isinstance(result, OperationResult)
+    assert result.status == OperationStatus.ERROR
+    assert 'No valid DataFrame' in result.error_message
+
+
+def test_invalid_input(monkeypatch, tmp_task_dir, dummy_reporter, dummy_progress, valid_df, kwargs):
+    profiler = minimal_profiler(**kwargs)
+    # Patch load_data_operation to raise exception
+        # Patch to raise an Exception when called
+    def raise_exc(*a, **k):
+        raise RuntimeError("This is a test exception")
+    monkeypatch.setattr('pamola_core.profiling.analyzers.attribute.load_attribute_dictionary', raise_exc)
+    result = profiler.execute(
+        data_source=DummyDataSource(df=valid_df),
+        task_dir=tmp_task_dir,
+        reporter=dummy_reporter,
+        progress_tracker=dummy_progress,
+        include_timestamp=False
+    )
+    assert isinstance(result, OperationResult)
+    assert result.status == OperationStatus.ERROR
+    assert 'Error in attribute profiling' in result.error_message
+
+
+def test_cache_hit(monkeypatch,
+                   patched_load_data,
+                   patched_dictionary,
+                   patched_write_json,
+                   patched_encryption,
+                   patched_constants,
+                   patched_visualization,
+                   tmp_task_dir,
+                   dummy_reporter,
+                   dummy_progress,
+                   valid_df,
+                   kwargs):
+    profiler = minimal_profiler(**kwargs)
+    profiler.use_cache = True
+    class DummyCache:
+        def get_cache(self, **kwargs):
+            return {
+                'metrics': {'cached': True, 'cache_key': 'abc', 'cache_timestamp': 'now'},
+                'artifacts': [
+                    {'artifact_type': 'json', 'path': 'foo.json', 'description': 'desc', 'category': 'output'}
+                ]
             }
+        def save_cache(self, **kwargs):
+            return True
+        def generate_cache_key(self, **kwargs):
+            return 'cachekey'
+    monkeypatch.setattr('pamola_core.utils.ops.op_cache.operation_cache', DummyCache())
+    result = profiler.execute(
+        data_source=DummyDataSource(df=valid_df),
+        task_dir=tmp_task_dir,
+        reporter=dummy_reporter,
+        progress_tracker=dummy_progress,
+        include_timestamp=False
+    )
+    assert isinstance(result, OperationResult)
+    assert result.metrics['cached'] is True
+    assert result.metrics['cache_key'] == 'cachekey'
+    assert any(a.description == 'desc' for a in result.artifacts)
+
+
+def test_save_to_cache(monkeypatch, patched_constants, valid_df):
+    profiler = minimal_profiler()
+    class DummyCache:
+        def get_cache(self, **kwargs):
+            return None
+        def save_cache(self, **kwargs):
+            return True
+        def generate_cache_key(self, **kwargs):
+            return 'cachekey'
+    monkeypatch.setattr('pamola_core.utils.ops.op_cache.operation_cache', DummyCache())
+    profiler.use_cache = True
+    artifacts = []
+    metrics = {'foo': 1}
+    assert profiler._save_to_cache(valid_df, artifacts, metrics, Path('.')) is True
+
+
+def test_generate_cache_key(monkeypatch, patched_constants, valid_df):
+    profiler = minimal_profiler()
+    class DummyCache:
+        def get_cache(self, **kwargs):
+            return None
+        def save_cache(self, **kwargs):
+            return True
+        def generate_cache_key(self, **kwargs):
+            return 'cachekey'
+    monkeypatch.setattr('pamola_core.utils.ops.op_cache.operation_cache', DummyCache())
+    key = profiler._generate_cache_key(valid_df)
+    assert key == 'cachekey'
+
+
+def test_generate_data_hash(valid_df):
+    profiler = minimal_profiler()
+    h = profiler._generate_data_hash(valid_df)
+    assert isinstance(h, str)
+    assert len(h) == 32
+
+
+def test_prepare_directories(tmp_path):
+    profiler = minimal_profiler()
+    dirs = profiler._prepare_directories(tmp_path)
+    assert set(dirs.keys()) == {'output', 'visualizations', 'dictionaries'}
+    for d in dirs.values():
+        assert Path(d).exists()
+
+
+def test_handle_visualizations(monkeypatch, patched_constants, patched_visualization, tmp_path, dummy_reporter, kwargs):
+    profiler = minimal_profiler(**kwargs)
+    analysis_results = {
+        'summary': {'DIRECT_IDENTIFIER': 1, 'QUASI_IDENTIFIER': 1, 'SENSITIVE_ATTRIBUTE': 0, 'INDIRECT_IDENTIFIER': 0, 'NON_SENSITIVE': 0},
+        'columns': {
+            'id': {'role': 'DIRECT_IDENTIFIER', 'statistics': {'entropy': 0.0, 'uniqueness_ratio': 1.0, 'inferred_type': 'int'}},
+            'name': {'role': 'QUASI_IDENTIFIER', 'statistics': {'entropy': 1.0, 'uniqueness_ratio': 1.0, 'inferred_type': 'str'}}
         }
+    }
+    result = OperationResult(status=OperationStatus.SUCCESS)
+    profiler._handle_visualizations(
+        analysis_results=analysis_results,
+        vis_dir=tmp_path,
+        include_timestamp=False,
+        result=result,
+        reporter=dummy_reporter,
+        vis_theme=None,
+        vis_backend=None,
+        vis_strict=False,
+        vis_timeout=2
+    )
+    # Should not raise and should add artifacts
+    assert any(a.category == 'visualization' for a in result.artifacts)
 
-        # Execute the operation
-        result = self.operation.execute(
-            data_source=self.mock_data_source,
-            task_dir=self.mock_task_dir,
-            reporter=self.mock_reporter,
-            progress_tracker=self.mock_progress_tracker
-        )
-
-        # Assertions
-        self.assertEqual(result.status, OperationStatus.SUCCESS)
-        self.mock_reporter.add_operation.assert_called_with(
-            "Attribute Profiling Completed",
-            details={
-                "direct_identifiers": 1,
-                "quasi_identifiers": 2,
-                "sensitive_attributes": 1,
-                "indirect_identifiers": 0,
-                "non_sensitive": 1,
-                "conflicts": 0
-            }
-        )
-        self.mock_progress_tracker.update.assert_any_call(0, {"step": "Preparation", "operation": self.operation.name})
-        self.mock_progress_tracker.update.assert_any_call(1, {"step": "Loading dictionary and preparing analysis"})
-        self.mock_progress_tracker.update.assert_any_call(1, {"step": "Analyzing dataset attributes"})
-        self.mock_progress_tracker.update.assert_any_call(1, {"step": "Saving analysis results"})
-        self.mock_progress_tracker.update.assert_any_call(1, {"step": "Creating visualizations"})
-        self.mock_progress_tracker.update.assert_any_call(1, {"step": "Operation complete", "status": "success"})
-
-    @patch("pamola_core.profiling.analyzers.attribute.load_data_operation")
-    @patch("pamola_core.profiling.analyzers.attribute.load_attribute_dictionary")
-    @patch("pamola_core.profiling.analyzers.attribute.analyze_dataset_attributes")
-    def test_execute_with_conflicts(self, mock_analyze_dataset_attributes, mock_load_attribute_dictionary, mock_load_data_operation):
-        # Mock DataFrame
-        mock_df = pd.DataFrame({
-            "ID": [1, 2, 3, 4, 5],
-            "Name": ["Alice", "Bob", "Alice", "Bob", "Charlie"],
-            "Age": [25, 30, 25, 30, 35],
-            "City": ["NY", "LA", "NY", "LA", "SF"]
-        })
-        mock_load_data_operation.return_value = mock_df
-
-        # Mock attribute dictionary
-        mock_load_attribute_dictionary.return_value = {"mock_key": "mock_value"}
-
-    @patch("pamola_core.profiling.analyzers.attribute.load_data_operation")
-    @patch("pamola_core.profiling.analyzers.attribute.load_attribute_dictionary")
-    @patch("pamola_core.profiling.analyzers.attribute.analyze_dataset_attributes")
-    def test_execute_exception_handling(self, mock_analyze_dataset_attributes, mock_load_attribute_dictionary, mock_load_data_operation):
-        # Arrange: cause an exception in analyze_dataset_attributes
-        mock_df = pd.DataFrame({
-            "ID": [1, 2, 3],
-            "Name": ["Alice", "Bob", "Charlie"]
-        })
-        mock_load_data_operation.return_value = mock_df
-        mock_load_attribute_dictionary.return_value = {"mock_key": "mock_value"}
-        mock_analyze_dataset_attributes.side_effect = Exception("Test exception in analysis")
-
-        # Execute
-        result = self.operation.execute(
-            data_source=self.mock_data_source,
-            task_dir=self.mock_task_dir,
-            reporter=self.mock_reporter,
-            progress_tracker=self.mock_progress_tracker
-        )
-
-        # Assert
-        self.assertEqual(result.status, OperationStatus.ERROR)
-        self.assertIn("Test exception in analysis", result.error_message)
-        self.mock_progress_tracker.update.assert_any_call(0, {"step": "Error", "error": "Test exception in analysis"})
-        self.mock_reporter.add_operation.assert_any_call(
-            "Attribute Profiling",
-            status="error",
-            details={"error": "Test exception in analysis"}
-        )
-
-    @patch("pamola_core.profiling.analyzers.attribute.load_data_operation")
-    @patch("pamola_core.profiling.analyzers.attribute.load_attribute_dictionary")
-    @patch("pamola_core.profiling.analyzers.attribute.analyze_dataset_attributes")
-    def test_execute_exception_handling_no_progress_tracker(self, mock_analyze_dataset_attributes, mock_load_attribute_dictionary, mock_load_data_operation):
-        # Arrange: cause an exception in analyze_dataset_attributes
-        mock_df = pd.DataFrame({
-            "ID": [1, 2, 3],
-            "Name": ["Alice", "Bob", "Charlie"]
-        })
-        mock_load_data_operation.return_value = mock_df
-        mock_load_attribute_dictionary.return_value = {"mock_key": "mock_value"}
-        mock_analyze_dataset_attributes.side_effect = Exception("Another test exception")
-
-        # Execute with progress_tracker=None
-        result = self.operation.execute(
-            data_source=self.mock_data_source,
-            task_dir=self.mock_task_dir,
-            reporter=self.mock_reporter,
-            progress_tracker=None
-        )
-
-        # Assert
-        self.assertEqual(result.status, OperationStatus.ERROR)
-        self.assertIn("Another test exception", result.error_message)
-        self.mock_reporter.add_operation.assert_any_call(
-            "Attribute Profiling",
-            status="error",
-            details={"error": "Another test exception"}
-        )
-
-    @patch("pamola_core.profiling.analyzers.attribute.load_data_operation")
-    def test_execute_no_dataframe(self, mock_load_data_operation):
-        # Mock load_data_operation to return None
-        mock_load_data_operation.return_value = None
-
-        # Execute the operation
-        result = self.operation.execute(
-            data_source=self.mock_data_source,
-            task_dir=self.mock_task_dir,
-            reporter=self.mock_reporter,
-            progress_tracker=self.mock_progress_tracker
-        )
-
-        # Assertions
-        self.assertEqual(result.status, OperationStatus.ERROR)
-        self.assertEqual(result.error_message, "No valid DataFrame found in data source")
-
-    @patch("pamola_core.profiling.analyzers.attribute.load_data_operation")
-    @patch("pamola_core.profiling.analyzers.attribute.load_attribute_dictionary")
-    @patch("pamola_core.profiling.analyzers.attribute.analyze_dataset_attributes")
-    def test_conflicts_metric(self, mock_analyze, mock_load_dict, mock_load_data):
-        # Mock DataFrame
-        mock_df = MagicMock()
-        mock_df.__len__.return_value = 10
-        mock_df.columns = ["a", "b"]
-
-        # Mock data loading
-        mock_load_data.return_value = mock_df
-        mock_load_dict.return_value = {}
-
-        # analysis_results with conflicts
-        analysis_results = {
-            "columns": {},
-            "summary": {
-                "DIRECT_IDENTIFIER": 1,
-                "QUASI_IDENTIFIER": 1,
-                "SENSITIVE_ATTRIBUTE": 1,
-                "INDIRECT_IDENTIFIER": 1,
-                "NON_SENSITIVE": 1
-            },
-            "column_groups": {"QUASI_IDENTIFIER": []},
-            "conflicts": [{"col": "a", "reason": "test"}],
-            "dataset_metrics": {"avg_entropy": 0.5, "avg_uniqueness": 0.5}
-        }
-        mock_analyze.return_value = analysis_results
-
-        # Prepare operation
-        op = DataAttributeProfilerOperation()
-        reporter = MagicMock()
-        task_dir = Path("test_dir")
-
-        # Run
-        result = op.execute(
-            data_source=MagicMock(),
-            task_dir=task_dir,
-            reporter=reporter
-        )
-
-        # Assert
-        self.assertEqual(result.status, OperationStatus.SUCCESS)
-        self.assertIn("conflicts_count", result.metrics)
-        self.assertEqual(result.metrics["conflicts_count"], 1)
-
-    def test_prepare_directories(self):
-            dirs = self.operation._prepare_directories(self.test_dir)
-            self.assertTrue((self.test_dir / "output").exists())
-            self.assertTrue((self.test_dir / "visualizations").exists())
-            self.assertTrue((self.test_dir / "dictionaries").exists())
-            self.assertIn("output", dirs)
-            self.assertIn("visualizations", dirs)
-            self.assertIn("dictionaries", dirs)
-
-    @patch("pamola_core.profiling.analyzers.attribute.create_pie_chart")
-    @patch("pamola_core.profiling.analyzers.attribute.create_scatter_plot")
-    @patch("pamola_core.profiling.analyzers.attribute.create_bar_plot")
-    @patch("pamola_core.profiling.analyzers.attribute.get_timestamped_filename", side_effect=lambda prefix, ext, ts: f"{prefix}.{ext}")
-    def test_create_visualizations(self, mock_get_filename, mock_bar, mock_scatter, mock_pie):
-        # Setup mock return values
-        mock_pie.return_value = "OK"
-        mock_scatter.return_value = "OK"
-        mock_bar.return_value = "OK"
-
-        # Fake analysis_results
-        analysis_results = {
-            "summary": {
-                "DIRECT_IDENTIFIER": 1,
-                "QUASI_IDENTIFIER": 2,
-                "SENSITIVE_ATTRIBUTE": 1,
-                "INDIRECT_IDENTIFIER": 0,
-                "NON_SENSITIVE": 1
-            },
-            "columns": {
-                "col1": {
-                    "role": "DIRECT_IDENTIFIER",
-                    "statistics": {
-                        "entropy": 0.5,
-                        "normalized_entropy": 0.5,
-                        "uniqueness_ratio": 0.5,
-                        "missing_rate": 0.1,
-                        "inferred_type": "string"
-                    }
-                },
-                "col2": {
-                    "role": "QUASI_IDENTIFIER",
-                    "statistics": {
-                        "entropy": 0.7,
-                        "normalized_entropy": 0.7,
-                        "uniqueness_ratio": 0.7,
-                        "missing_rate": 0.2,
-                        "inferred_type": "int"
-                    }
-                }
-            }
-        }
-        vis_dir = self.test_dir / "visualizations"
-        vis_dir.mkdir(parents=True, exist_ok=True)
-        result = MagicMock()
-        reporter = MagicMock()
-
-        self.operation._create_visualizations(
-            analysis_results=analysis_results,
-            vis_dir=vis_dir,
-            include_timestamp=False,
-            result=result,
-            reporter=reporter
-        )
-
-        # Check that the drawing functions have been called
-        self.assertTrue(mock_pie.called)
-        self.assertTrue(mock_scatter.called)
-        self.assertTrue(mock_bar.called)
-
-    @patch("pamola_core.profiling.analyzers.attribute.create_pie_chart")
-    @patch("pamola_core.profiling.analyzers.attribute.logger")
-    def test_create_visualizations_exception(self, mock_logger, mock_create_pie):
-        # Mock create_pie_chart to raise exception
-        mock_create_pie.side_effect = Exception("Test visualization error")
-
-        vis_dir = Path("test_vis_dir")
-        vis_dir.mkdir(exist_ok=True)
-        result = MagicMock()
-        reporter = MagicMock()
-
-        # Minimal valid analysis_results to trigger pie chart
-        analysis_results = {
-            "summary": {"DIRECT_IDENTIFIER": 1, "QUASI_IDENTIFIER": 0, "SENSITIVE_ATTRIBUTE": 0, "INDIRECT_IDENTIFIER": 0, "NON_SENSITIVE": 0},
-            "columns": {}
-        }
-
-        self.operation._create_visualizations(
-            analysis_results=analysis_results,
-            vis_dir=vis_dir,
-            include_timestamp=False,
-            result=result,
-            reporter=reporter
-        )
-
-        # Check logger.error was called
-        self.assertTrue(mock_logger.error.called)
-        # Check reporter.add_operation was called with warning
-        reporter.add_operation.assert_called_with(
-            "Creating visualizations",
-            status="warning",
-            details={"warning": "Error creating some visualizations: Test visualization error"}
-        )
 
 if __name__ == "__main__":
     unittest.main()

@@ -257,13 +257,16 @@ class OperationResult:
     Satisfies REQ-OPS-005: Provides result tracking and artifact management.
     """
 
-    def __init__(self,
-                 status: OperationStatus = OperationStatus.SUCCESS,
-                 artifacts: List[OperationArtifact] = None,
-                 metrics: Dict[str, Any] = None,
-                 error_message: str = None,
-                 execution_time: float = None,
-                 error_trace: str = None):
+    def __init__(
+            self,
+            status: OperationStatus = OperationStatus.SUCCESS,
+            artifacts: Optional[List[OperationArtifact]] = None,
+            metrics: Optional[Dict[str, Any]] = None,
+            error_message: Optional[str] = None,
+            execution_time: Optional[float] = None,
+            error_trace: Optional[str] = None,
+            exception: Optional[Exception] = None
+    ):
         """
         Initialize an operation result.
 
@@ -288,6 +291,7 @@ class OperationResult:
         self.error_message = error_message
         self.execution_time = execution_time
         self.error_trace = error_trace
+        self.exception = exception
 
         # Artifact groups
         self.artifact_groups = {}

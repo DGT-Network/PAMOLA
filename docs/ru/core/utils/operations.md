@@ -439,7 +439,7 @@ else:
 ### 6.2. Integration with Visualization
 
 - All visualizations should be created through `pamola_core.utils.visualization`
-- Visualizations should be optional (parameter `generate_plots`)
+- Visualizations should be optional (parameter `generate_visualization`)
 - If visualization errors occur, the operation should continue execution
 - Visualization parameters should be configurable
 
