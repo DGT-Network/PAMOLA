@@ -261,7 +261,7 @@ class EmailGenerator(BaseGenerator):
 
         # If using PRGN generator for deterministic selection
         if self.prgn_generator:
-            rng = self.prgn_generator.get_random_by_value("nickname", salt="nickname-selection")
+            rng = self.prgn_generator.get_random_by_value(self.original_value, salt=self.context_salt)
             index = rng.randint(0, len(self._nicknames) - 1)
             return self._nicknames[index]
 
@@ -389,9 +389,10 @@ class EmailGenerator(BaseGenerator):
         if '.' not in domain:
             return False
 
-        # Check domain doesn't start or end with dash
-        if domain.startswith('-') or domain.endswith('-'):
-            return False
+        # Check each domain label doesn't start or end with a dash
+        for label in domain.split('.'):
+            if label.startswith('-') or label.endswith('-'):
+                return False
 
         return True
 
@@ -725,6 +726,9 @@ class EmailGenerator(BaseGenerator):
         else:
             # If validation is disabled, treat as valid if it has basic structure
             is_valid = isinstance(original_value, str) and '@' in original_value
+
+        self.original_value = original_value
+        self.context_salt = params.get("context_salt", None)
 
         # Select format to use
         format_to_use = format_override or self._select_format()

@@ -162,6 +162,160 @@ def analyze_null_and_empty_in_chunks(df: pd.DataFrame, field_name: str, chunk_si
         }
     }
 
+def process_chunk(chunk_df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
+    """
+    Analyze null and empty values in a text field by processing the dataframe in chunks.
+
+    Parameters:
+    -----------
+    chunk_df : pd.DataFrame
+        DataFrame containing the field
+    field_name : str
+        Name of the field to analyze
+
+    Returns:
+    --------
+    Dict[str, Any]
+        Aggregated analysis results
+    """
+    # Compile whitespace pattern once
+    whitespace_pattern = r'^\s+$'
+
+    null_count = chunk_df[field_name].isna().sum()
+    empty_series = chunk_df[field_name].fillna("")
+    empty_count = (empty_series == "").sum()
+    whitespace_count = empty_series.str.match(whitespace_pattern).sum()
+
+    return {
+        "null_count": null_count,
+        "empty_count": empty_count,
+        "whitespace_count": whitespace_count,
+    }
+
+def analyze_null_and_empty_in_chunks_joblib(df: pd.DataFrame, field_name: str,
+                                            n_jobs: int = -1, chunk_size: int = 10000) -> Dict[str, Any]:
+    """
+    Analyze null and empty values in a text field by processing the dataframe in chunks using Joblib.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        DataFrame containing the field
+    field_name : str
+        Name of the field to analyze
+    n_jobs : int
+        Number of jobs to run in parallel (default: -1, meaning all available CPUs)
+    chunk_size : int
+        Size of chunks to process
+
+    Returns:
+    --------
+    Dict[str, Any]
+        Aggregated analysis results
+    """
+    from joblib import Parallel, delayed
+
+    # Create chunks and process them in parallel
+    chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
+
+    # Using Joblib to process each chunk in parallel
+    chunk_results = Parallel(n_jobs=n_jobs)(delayed(process_chunk)(chunk, field_name) for chunk in chunks)
+
+    # Aggregate the results
+    null_count = sum(result["null_count"] for result in chunk_results)
+    empty_count = sum(result["empty_count"] for result in chunk_results)
+    whitespace_count = sum(result["whitespace_count"] for result in chunk_results)
+
+    # Calculate actual data count
+    total_records = len(df)
+    actual_data_count = total_records - null_count - empty_count - whitespace_count
+
+    return {
+        "total_records": total_records,
+        "null_values": {
+            "count": int(null_count),
+            "percentage": round((null_count / total_records) * 100, 2) if total_records > 0 else 0
+        },
+        "empty_strings": {
+            "count": int(empty_count),
+            "percentage": round((empty_count / total_records) * 100, 2) if total_records > 0 else 0
+        },
+        "whitespace_strings": {
+            "count": int(whitespace_count),
+            "percentage": round((whitespace_count / total_records) * 100, 2) if total_records > 0 else 0
+        },
+        "actual_data": {
+            "count": int(actual_data_count),
+            "percentage": round((actual_data_count / total_records) * 100, 2) if total_records > 0 else 0
+        }
+    }
+
+def analyze_null_and_empty_in_chunks_dask(df: pd.DataFrame, field_name: str,
+                                          npartitions: int = -1, chunk_size: int = 10000) -> Dict[str, Any]:
+    """
+    Analyze null and empty values in a text field by processing the dataframe in chunks using dask.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        DataFrame containing the field
+    field_name : str
+        Name of the field to analyze
+    npartitions : int
+        Number of partitions
+    chunk_size : int
+        Size of chunks to process
+
+    Returns:
+    --------
+    Dict[str, Any]
+        Aggregated analysis results
+    """
+    import dask.dataframe as dd
+
+    # Convert pandas DataFrame to Dask DataFrame
+    dask_df = dd.from_pandas(df, npartitions=npartitions)
+
+    # Provide meta (schema hint)
+    meta = pd.DataFrame({
+        "null_count": pd.Series(dtype='int'),
+        "empty_count": pd.Series(dtype='int'),
+        "whitespace_count": pd.Series(dtype='int')
+    })
+    # Apply the function to each partition (chunk) using Dask
+    chunk_results = dask_df.map_partitions(process_chunk, field_name)
+
+    # Compute final results (aggregated across all partitions)
+    result = chunk_results.compute()
+
+    # Aggregate the results
+    null_count = sum(result_item["null_count"] for result_item in result)
+    empty_count = np.int64(sum(result_item["empty_count"] for result_item in result))
+    whitespace_count = sum(result_item["whitespace_count"] for result_item in result)
+
+    # Calculate actual data count
+    total_records = len(df)
+    actual_data_count = total_records - null_count - empty_count - whitespace_count
+
+    return {
+        "total_records": total_records,
+        "null_values": {
+            "count": int(null_count),
+            "percentage": round((null_count / total_records) * 100, 2) if total_records > 0 else 0
+        },
+        "empty_strings": {
+            "count": int(empty_count),
+            "percentage": round((empty_count / total_records) * 100, 2) if total_records > 0 else 0
+        },
+        "whitespace_strings": {
+            "count": int(whitespace_count),
+            "percentage": round((whitespace_count / total_records) * 100, 2) if total_records > 0 else 0
+        },
+        "actual_data": {
+            "count": int(actual_data_count),
+            "percentage": round((actual_data_count / total_records) * 100, 2) if total_records > 0 else 0
+        }
+    }
 
 @cache_function(ttl=3600, cache_type='memory')
 def calculate_length_stats(texts: List[str], max_texts: Optional[int] = None,

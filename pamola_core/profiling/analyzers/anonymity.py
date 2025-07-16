@@ -6,6 +6,7 @@ quasi-identifiers that may compromise privacy, and generating visualizations
 and reports about data anonymization risks.
 """
 
+import time
 from datetime import datetime
 import json
 import logging
@@ -29,7 +30,7 @@ from pamola_core.utils.io import ensure_directory, write_json, get_timestamped_f
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import OperationArtifact, OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import (
     create_bar_plot,
@@ -38,6 +39,7 @@ from pamola_core.utils.visualization import (
     create_combined_chart
 )
 from pamola_core.common.constants import Constants
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -65,7 +67,9 @@ class PreKAnonymityAnalyzer:
         use_dask: bool = False,
         use_vectorization: bool = False,
         current_steps: int = 3,
-        parallel_processes: int = 1,
+        parallel_processes: Optional[int] = 1,
+        npartitions: Optional[int] = 1,
+        task_logger: Optional[logging.Logger] = None,
         **kwargs
     ) -> dict:
         """
@@ -93,6 +97,9 @@ class PreKAnonymityAnalyzer:
             Number of combinations to process per chunk (for large datasets)
         use_dask : bool, optional
             Whether to use Dask for parallel processing (recommended for large datasets)
+        task_logger : Optional[logging.Logger]
+            Logger for tracking task progress and debugging.
+
         **kwargs : dict
             Additional keyword arguments for advanced configuration
         
@@ -101,6 +108,10 @@ class PreKAnonymityAnalyzer:
         dict
             Dictionary containing k-anonymity metrics, vulnerable records, field combination mapping, and field uniqueness statistics
         """
+        # Initialize task logger
+        if task_logger:
+            logger = task_logger
+
         # Ensure id_fields is not None to prevent errors
         if id_fields is None:
             id_fields = []
@@ -159,6 +170,7 @@ class PreKAnonymityAnalyzer:
             threshold_k,
             id_fields,
             progress_tracker=progress_tracker,
+            task_logger=logger,
             **kwargs
         )
     
@@ -170,6 +182,7 @@ class PreKAnonymityAnalyzer:
         id_fields: List[str] = [],
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         current_steps: int = 3,
+        task_logger: Optional[logging.Logger] = None,
         **kwargs
     ) -> dict:
         """
@@ -187,6 +200,8 @@ class PreKAnonymityAnalyzer:
             List of identifier fields to help detect vulnerable records
         progress_tracker : HierarchicalProgressTracker, optional
             Progress tracker for the operation
+        task_logger : Optional[logging.Logger]
+            Logger for tracking task progress and debugging.
         **kwargs : dict
             Additional parameters for the analysis
 
@@ -195,6 +210,10 @@ class PreKAnonymityAnalyzer:
         dict
             Dictionary containing k-anonymity metrics, vulnerable records, field combination mapping, and field uniqueness statistics
         """
+        # Initialize task logger
+        if task_logger:
+            logger = task_logger
+
         if progress_tracker:
             progress_tracker.update(1, {
                 "step": "Generated field combinations",
@@ -297,15 +316,19 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                  fields_combinations: List = None,
                  excluded_combinations: List = None,
                  id_fields: List = [],
-                 include_timestamp: bool = True,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
-                 chunk_size: int = 10000,
                  use_dask: bool = False,
-                 npartitions: int = 1,
                  use_cache: bool = True,
                  use_vectorization: bool = False,
-                 parallel_processes: int = 1):
+                 chunk_size: int = 10000,
+                 parallel_processes: int = 1,
+                 npartitions: int = 1,
+                 visualization_theme: Optional[str] = None,
+                 visualization_backend: Optional[str] = None,
+                 visualization_strict: bool = False,
+                 visualization_timeout: int = 120,
+                 encryption_mode: Optional[str] = None):
         """
         Initialize the k-anonymity profiling operation.
 
@@ -327,31 +350,37 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             List of field combinations to exclude from analysis
         id_fields : List[str]
             List of identifier fields to help detect vulnerable records
-        include_timestamp : bool
-            Whether to include timestamps in output filenames
         use_encryption : bool
             Whether to encrypt output files (default: False)
         encryption_key : Optional[Union[str, Path]]
             Key or path to key file used for encryption
-        chunk_size : int
-            Batch size for processing large datasets (default: 10000)
         use_dask : bool
             Whether to use Dask for processing (default: False)
-        npartitions : int, optional
-            Number of partitions use with Dask (default: 1)
         use_cache : bool
             Whether to use operation caching (default: True)
         use_vectorization : bool, optional
             Whether to use vectorized (parallel) processing (default: False)
+        chunk_size : int
+            Batch size for processing large datasets (default: 10000)
         parallel_processes : int, optional
             Number of processes use with vectorized (parallel) (default: 1)
-
+        npartitions : int, optional
+            Number of partitions for Dask processing (default: None)
+        visualization_theme : str, optional
+            Theme for visualizations (default: None, uses PAMOLA default)
+        visualization_backend : str, optional
+            Backend for visualizations (default: None, uses PAMOLA default)
+        visualization_strict : bool, optional
+            Whether to enforce strict visualization rules (default: False)
+        visualization_timeout : int, optional
+            Timeout for visualization generation in seconds (default: 120)
         """
         super().__init__(
             name=name,
             description=description,
             use_encryption=use_encryption,
-            encryption_key=encryption_key
+            encryption_key=encryption_key,
+            encryption_mode=encryption_mode
         )
         self.min_combination_size = min_combination_size
         self.max_combination_size = max_combination_size
@@ -359,11 +388,17 @@ class PreKAnonymityProfilingOperation(BaseOperation):
         self.fields_combinations = fields_combinations
         self.excluded_combinations = excluded_combinations
         self.id_fields = id_fields
-        self.include_timestamp = include_timestamp
-        self.chunk_size = chunk_size
         self.use_dask = use_dask
         self.use_cache = use_cache
         self.use_vectorization = use_vectorization
+        self.chunk_size = chunk_size
+        self.parallel_processes = parallel_processes
+        self.npartitions = npartitions
+
+        self.visualization_theme = visualization_theme
+        self.visualization_backend = visualization_backend
+        self.visualization_strict = visualization_strict
+        self.visualization_timeout = visualization_timeout
 
         self.analyzer = PreKAnonymityAnalyzer()
 
@@ -392,7 +427,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             - id_fields: List of ID fields for vulnerable records identification
             - excluded_combinations: List of combinations to exclude
             - threshold_k: Threshold for vulnerability (overrides constructor value)
-            - include_timestamp: Whether to include timestamps in filenames
+            - include_timestamp: bool -  Whether to include timestamps in filenames
             - chunk_size: Number of records to process in each chunk (for large datasets)
             - npartitions: Number of partitions for Dask
             - force_recalculation: bool - Skip cache check
@@ -402,23 +437,31 @@ class PreKAnonymityProfilingOperation(BaseOperation):
         OperationResult
             Results of the operation
         """
+        if kwargs.get('logger'):
+            self.logger = kwargs['logger']
+
         # Extract parameters from kwargs, defaulting to instance variables
         dataset_name = kwargs.get('dataset_name', "main")
-        fields_combinations = kwargs.get('fields_combinations', self.fields_combinations)
         excluded_combinations = kwargs.get('excluded_combinations', self.excluded_combinations)
         id_fields = kwargs.get('id_fields', self.id_fields)
         threshold_k = kwargs.get('threshold_k', self.threshold_k)
-        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
-        encryption_key = kwargs.get('encryption_key', None)
+        include_timestamp = kwargs.get('include_timestamp', True)
         min_combination_size = kwargs.get('min_combination_size', self.min_combination_size)
         max_combination_size = kwargs.get('max_combination_size', self.max_combination_size)
-        chunk_size = kwargs.get('chunk_size', self.chunk_size)
-        use_dask = kwargs.get('use_dask', self.use_dask)
-        use_vectorization= kwargs.get('use_dask', self.use_vectorization)
-        force_recalculation = kwargs.get("force_recalculation", False)
-        parallel_processes = kwargs.get("parallel_processes", 1)
+        self.chunk_size = kwargs.get('chunk_size', self.chunk_size)
+        self.use_dask = kwargs.get('use_dask', self.use_dask)
+        self.use_vectorization= kwargs.get('use_vectorization', self.use_vectorization)
+        self.use_cache = kwargs.get('use_cache', self.use_cache)
+        self.parallel_processes = kwargs.get("parallel_processes", self.parallel_processes)
         encryption_key = kwargs.get('encryption_key', self.encryption_key)
-        npartitions = kwargs.get('npartitions', 1)
+        self.npartitions = kwargs.get('npartitions', self.npartitions)
+        force_recalculation = kwargs.get("force_recalculation", False)
+
+        # Extract visualization parameters
+        self.visualization_theme = kwargs.get("visualization_theme", self.visualization_theme)
+        self.visualization_backend = kwargs.get("visualization_backend", self.visualization_backend)
+        self.visualization_strict = kwargs.get("visualization_strict", self.visualization_strict)
+        self.visualization_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
@@ -449,7 +492,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Checking Cache"})
 
-            self.logger.info("Checking operation cache...")
+            logger.info("Checking operation cache...")
             cache_result = self._check_cache(data_source, dataset_name, **kwargs)
 
             if cache_result:
@@ -474,7 +517,6 @@ class PreKAnonymityProfilingOperation(BaseOperation):
 
         try:
             # Get DataFrame from data source
-            dataset_name = kwargs.get('dataset_name', "main")
             settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
             df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
@@ -484,7 +526,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 )
 
             # Log basic information
-            logger.info(
+            self.logger.info(
                 f"Starting k-anonymity profiling on DataFrame with {len(df)} rows and {len(df.columns)} columns")
 
             # Add operation to reporter
@@ -500,21 +542,23 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "K-Anonymity Analysis"}) 
-                
+            
             analysis = self.analyzer.analyze(
                 df=df,
                 min_combination_size=min_combination_size,
                 max_combination_size=max_combination_size,
                 threshold_k=threshold_k,
                 id_fields=id_fields,
-                fields_combinations=fields_combinations,
+                fields_combinations=self.fields_combinations,
                 excluded_combinations=excluded_combinations,
                 progress_tracker=progress_tracker,
-                chunk_size=chunk_size,
-                use_dask=use_dask,
-                use_vectorization=use_vectorization,
+                chunk_size=self.chunk_size,
+                use_dask=self.use_dask,
+                use_vectorization=self.use_vectorization,
                 current_steps=current_steps,
-                parallel_processes = parallel_processes,
+                parallel_processes=self.parallel_processes,
+                npartitions=self.npartitions,
+                task_logger=self.logger
             )
             
             if 'error' in analysis:
@@ -542,7 +586,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 progress_tracker.update(current_steps, {"step": "Saving Metrics"})
 
             # Log the index map
-            logger.info(f"Created {len(ka_index_map)} KA indices")
+            self.logger.info(f"Created {len(ka_index_map)} KA indices")
 
             # Save KA index map to CSV
             ka_index_map_filename = get_timestamped_filename("ka_index_map", "csv", include_timestamp)
@@ -567,7 +611,8 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             # Save vulnerable records to JSON
             vulnerable_filename = get_timestamped_filename("ka_vulnerable_records", "json", include_timestamp)
             vulnerable_path = output_dir / vulnerable_filename
-            save_vulnerable_records(vulnerable_records, str(vulnerable_path), encryption_key)
+            encryption_mode_vulnerable_records = get_encryption_mode(vulnerable_records, **kwargs)
+            save_vulnerable_records(vulnerable_records, str(vulnerable_path), encryption_key, self.use_encryption, encryption_mode_vulnerable_records)
 
             # Add to result and reporter
             result.add_artifact("json", vulnerable_path, "KA Vulnerable Records", category=Constants.Artifact_Category_Metrics)
@@ -584,21 +629,27 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 progress_tracker.update(current_steps, {"step": "Creating Visualizations"})
 
             # Create visualizations if metrics are available
-            if ka_metrics:
+            if ka_metrics and self.visualization_backend is not None:
                 kwargs_encryption = {
                     "use_encryption": kwargs.get('use_encryption', False),
                     "encryption_key": encryption_key
                 }
-                self._create_visualizations(
-                    ka_metrics,
-                    field_uniqueness,
-                    field_combinations,
-                    visualizations_dir,
-                    include_timestamp,
-                    result,
-                    reporter,
+                self._handle_visualizations(
+                    ka_metrics=ka_metrics,
+                    field_uniqueness=field_uniqueness,
+                    vis_dir=visualizations_dir,
+                    include_timestamp=include_timestamp,
+                    result=result,
+                    reporter=reporter,
+                    vis_theme=self.visualization_theme,
+                    vis_backend=self.visualization_backend,
+                    vis_strict=self.visualization_strict,
+                    vis_timeout=self.visualization_timeout,
+                    progress_tracker=progress_tracker,
                     **kwargs_encryption
                 )
+                
+
 
             # Calculate individual field uniqueness
             all_fields = set()
@@ -610,7 +661,8 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             # Save field uniqueness data
             uniqueness_filename = get_timestamped_filename("field_uniqueness", "json", include_timestamp)
             uniqueness_path = output_dir / uniqueness_filename
-            write_json(field_uniqueness, str(uniqueness_path), encryption_key=encryption_key)
+            encryption_mode_field_uniqueness = get_encryption_mode(field_uniqueness, **kwargs)
+            write_json(field_uniqueness, str(uniqueness_path), encryption_key=encryption_key, encryption_mode=encryption_mode_field_uniqueness)
 
             # Add to result and reporter
             result.add_artifact("json", uniqueness_path, "Field Uniqueness Metrics", category=Constants.Artifact_Category_Metrics)
@@ -660,7 +712,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             return result
 
         except Exception as e:
-            logger.exception(f"Error in k-anonymity profiling operation: {e}")
+            self.logger.exception(f"Error in k-anonymity profiling operation: {e}")
 
             # Update progress tracker on error
             if progress_tracker:
@@ -706,14 +758,16 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             'dictionaries': dictionaries_dir
         }
 
-    @staticmethod
-    def _create_visualizations(ka_metrics: Dict[str, Dict[str, Any]],
+    def _create_visualizations(self,
+                               ka_metrics: Dict[str, Dict[str, Any]],
                                field_uniqueness:  Dict[str, Dict[str, Any]],
-                               field_combinations: List[List[str]],
                                vis_dir: Path,
                                include_timestamp: bool,
                                result: OperationResult,
                                reporter: Any,
+                               visualization_theme: Optional[str] = None,
+                               visualization_backend: Optional[str] = None,
+                               visualization_strict: bool = False,
                                **kwargs):
         """
         Create visualizations for k-anonymity metrics.
@@ -721,26 +775,28 @@ class PreKAnonymityProfilingOperation(BaseOperation):
         Parameters:
         -----------
         ka_metrics : Dict[str, Dict[str, Any]]
-            Dictionary mapping KA indices to their metrics
-        ka_index_map : Dict[str, List[str]]
-            Mapping from KA indices to field lists
-        df : pd.DataFrame
-            Original DataFrame
-        field_combinations : List[List[str]]
-            List of field combinations
+            Dictionary mapping KA indices to their computed metrics.
+        field_uniqueness : Dict[str, Dict[str, Any]]
+            Dictionary with uniqueness statistics for each field.
         vis_dir : Path
-            Directory to save visualizations
+            Directory where visualization files will be saved.
         include_timestamp : bool
-            Whether to include timestamps in filenames
-        threshold_k : int
-            Threshold for vulnerability
+            Whether to include a timestamp in output filenames.
         result : OperationResult
-            Operation result to add artifacts to
+            The operation result object to which visualization artifacts will be added.
         reporter : Any
-            Reporter to add artifacts to
+            Reporter object for logging and artifact registration.
+        visualization_theme : Optional[str], default=None
+            Theme to use for visualizations.
+        visualization_backend : Optional[str], default=None
+            Visualization backend to use (e.g., "matplotlib", "plotly").
+        visualization_strict : bool, default=False
+            If True, enforce strict visualization rules and raise errors on failure.
+        **kwargs
+            Additional keyword arguments for visualization functions.
         """
         if not ka_metrics:
-            logger.warning("No metrics available for visualization")
+            self.logger.warning("No metrics available for visualization")
             return
 
         try:
@@ -766,6 +822,9 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                     orientation="h",
                     y_label="K Range",
                     x_label="Percentage of Records (%)",
+                    visualization_theme=visualization_theme,
+                    visualization_backend=visualization_backend,
+                    visualization_strict=visualization_strict,
                     **kwargs
                 )
 
@@ -795,6 +854,9 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                     x_label="K Threshold",
                     y_label="Percentage of Records (%)",
                     add_markers=True,
+                    theme=visualization_theme,
+                    backend=visualization_backend,
+                    strict=visualization_strict,
                     **kwargs
                 )
 
@@ -815,7 +877,10 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                     output_path=str(spider_path),
                     title="K-Anonymity Metrics Comparison",
                     normalize_values=False,  # Values are already normalized
-                    fill_area=True
+                    fill_area=True,
+                    theme=visualization_theme,
+                    backend=visualization_backend,
+                    strict=visualization_strict,
                 )
 
                 if not spider_result.startswith("Error"):
@@ -846,7 +911,10 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                     primary_y_label="Unique Values Count",
                     secondary_y_label="Uniqueness (%)",
                     primary_color="steelblue",
-                    secondary_color="crimson"
+                    secondary_color="crimson",
+                    theme=visualization_theme,
+                    backend=visualization_backend,
+                    strict=visualization_strict,
                 )
 
                 if not uniqueness_result.startswith("Error"):
@@ -855,7 +923,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                         reporter.add_artifact("png", str(uniqueness_path), "Field uniqueness analysis")
 
         except Exception as e:
-            logger.error(f"Error creating visualizations: {e}", exc_info=True)
+            self.logger.error(f"Error creating visualizations: {e}", exc_info=True)
             if reporter:
                 reporter.add_operation("Creating visualizations", status="warning",
                                    details={"warning": f"Error creating some visualizations: {str(e)}"})
@@ -863,7 +931,8 @@ class PreKAnonymityProfilingOperation(BaseOperation):
     def _check_cache(
             self,
             data_source: DataSource,
-            dataset_name: str = "main"
+            dataset_name: str = "main",
+            **kwargs
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -890,7 +959,8 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
-            df = load_data_operation(data_source, dataset_name)
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 self.logger.warning("No valid DataFrame found in data source")
                 return None
@@ -922,12 +992,11 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 artifacts = cached_data.get("artifacts", [])
                 if isinstance(artifacts, list):
                     for artifact in artifacts:
-                        if isinstance(artifact, dict):
-                            artifact_type = artifact.get("artifact_type", "")
-                            artifact_path = artifact.get("path", "")
-                            artifact_name = artifact.get("description", "")
-                            artifact_category = artifact.get("category", "output")
-                            cached_result.add_artifact(artifact_type, artifact_path, artifact_name, artifact_category) 
+                        artifact_type = artifact.get("artifact_type", "")
+                        artifact_path = artifact.get("path", "")
+                        artifact_name = artifact.get("description", "")
+                        artifact_category = artifact.get("category", "output")
+                        cached_result.add_artifact(artifact_type, artifact_path, artifact_name, artifact_category) 
 
                 # Add cache information to result
                 cached_result.add_metric("cached", True)
@@ -945,7 +1014,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
     def _save_to_cache(
             self,
             original_df: pd.DataFrame,
-            artifacts: List[Any],
+            artifacts: List[OperationArtifact],
             metrics: Dict[str, Any],
             task_dir: Path
     ) -> bool:
@@ -968,7 +1037,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
         bool
             True if successfully saved to cache, False otherwise
         """
-        if not self.use_cache:
+        if not self.use_cache or (not artifacts and not metrics):
             return False
 
         try:
@@ -981,10 +1050,12 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             # Prepare metadata for cache
             operation_parameters = self._get_operation_parameters()
 
+            artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
+
             cache_data = {
                 "timestamp": datetime.now().isoformat(),
                 "parameters": operation_parameters,
-                "artifacts": artifacts,
+                "artifacts": artifacts_for_cache,
                 "metrics": metrics,
             }
 
@@ -1077,8 +1148,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             Parameters for cache key generation
         """
         return {}
-        
-    
+
     def _generate_data_hash(
             self,
             df: pd.DataFrame
@@ -1111,3 +1181,189 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
 
         return hashlib.md5(json_str.encode()).hexdigest()
+
+    def _handle_visualizations(
+            self,
+            ka_metrics: Dict[str, Dict[str, Any]],
+            field_uniqueness:  Dict[str, Dict[str, Any]],
+            vis_dir: Path,
+            include_timestamp: bool,
+            result: OperationResult,
+            reporter: Any,
+            vis_theme: Optional[str] = None,
+            vis_backend: Optional[str] = None,
+            vis_strict: bool = False,
+            vis_timeout: int = 120,
+            progress_tracker: Optional[HierarchicalProgressTracker] = None,
+            **kwargs
+    ) -> Dict[str, Path]:
+        """
+        Generate and save visualizations.
+
+        Parameters:
+        -----------
+        ka_metrics : Dict[str, Dict[str, Any]]
+            Dictionary mapping KA indices to their computed metrics.
+        field_uniqueness : Dict[str, Dict[str, Any]]
+            Dictionary with uniqueness statistics for each field.
+        vis_dir : Path
+            Directory where visualization files will be saved.
+        include_timestamp : bool
+            Whether to include a timestamp in output filenames.
+        result : OperationResult
+            The operation result to add artifacts to
+        reporter : Any
+            The reporter to log artifacts to
+        vis_theme : str, optional
+            Theme to use for visualizations
+        vis_backend : str, optional
+            Backend to use: "plotly" or "matplotlib"
+        vis_strict : bool, optional
+            If True, raise exceptions for configuration errors
+        vis_timeout : int, optional
+            Timeout for visualization generation (default: 120 seconds)
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Optional progress tracker
+
+        Returns:
+        --------
+        Dict[str, Path]
+            Dictionary with visualization types and paths
+        """
+        if progress_tracker:
+            progress_tracker.update(0, {"step": "Generating visualizations"})
+
+        logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+
+        try:
+            import threading
+            import contextvars
+
+            visualization_paths = {}
+            visualization_error = None
+
+            def generate_viz_with_diagnostics():
+                nonlocal visualization_paths, visualization_error
+                thread_id = threading.current_thread().ident
+                thread_name = threading.current_thread().name
+
+                logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
+                logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+
+                start_time = time.time()
+
+                try:
+                    # Log context variables
+                    logger.info(f"[DIAG] Checking context variables...")
+                    try:
+                        current_context = contextvars.copy_context()
+                        logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                    except Exception as ctx_e:
+                        logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+
+                    # Generate visualizations with visualization context parameters
+                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    # Create child progress tracker for visualization if available
+                    total_steps = 3  # prepare data, create viz, save
+                    viz_progress = None
+                    if progress_tracker and hasattr(progress_tracker, "create_subtask"):
+                        try:
+                            viz_progress = progress_tracker.create_subtask(
+                                total=total_steps,
+                                description="Generating visualizations",
+                                unit="steps",
+                            )
+                        except Exception as e:
+                            logger.debug(f"Could not create child progress tracker: {e}")
+
+                    # Generate visualizations
+                    self._create_visualizations(
+                        ka_metrics,
+                        field_uniqueness,
+                        vis_dir,
+                        include_timestamp,
+                        result,
+                        reporter,
+                        vis_theme,
+                        vis_backend,
+                        vis_strict,
+                        **kwargs
+                    )
+
+                    # Close visualization progress tracker
+                    if viz_progress:
+                        try:
+                            viz_progress.close()
+                        except:
+                            pass
+
+                    elapsed = time.time() - start_time
+                    logger.info(
+                        f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
+                    )
+                except Exception as e:
+                    elapsed = time.time() - start_time
+                    visualization_error = e
+                    logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+
+            # Copy context for the thread
+            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            ctx = contextvars.copy_context()
+
+            # Create thread with context
+            viz_thread = threading.Thread(
+                target=ctx.run,
+                args=(generate_viz_with_diagnostics,),
+                name=f"VizThread-",
+                daemon=False,  # Changed from True to ensure proper cleanup
+            )
+
+            logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            thread_start_time = time.time()
+            viz_thread.start()
+
+            # Log periodic status while waiting
+            check_interval = 5  # seconds
+            elapsed = 0
+            while viz_thread.is_alive() and elapsed < vis_timeout:
+                viz_thread.join(timeout=check_interval)
+                elapsed = time.time() - thread_start_time
+                if viz_thread.is_alive():
+                    logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+
+            if viz_thread.is_alive():
+                logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
+                logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                visualization_paths = {}
+            elif visualization_error:
+                logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                visualization_paths = {}
+            else:
+                total_time = time.time() - thread_start_time
+                logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
+                logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+        except Exception as e:
+            logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            visualization_paths = {}
+
+        # Register visualization artifacts
+        for viz_type, path in visualization_paths.items():
+            # Add to result
+            result.add_artifact(
+                artifact_type="png",
+                path=path,
+                description=f"{viz_type} visualization",
+                category=Constants.Artifact_Category_Visualization
+            )
+
+            # Report to reporter
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="png",
+                    path=str(path),
+                    description=f"{viz_type} visualization"
+                )
+
+        return visualization_paths

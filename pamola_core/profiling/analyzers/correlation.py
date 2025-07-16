@@ -14,24 +14,25 @@ It integrates with the new utility modules:
 - progress.py: For tracking operation progress
 - logging.py: For operation logging
 """
-
+import hashlib
+import json
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional, Union
-
 import pandas as pd
-
 from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation,
     analyze_correlation_matrix,
     estimate_resources
 )
 from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation, load_settings_operation
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.progress import ProgressTracker, HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation, BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import OperationResult, OperationStatus, OperationArtifact
 from pamola_core.utils.visualization import (
     create_scatter_plot,
     create_boxplot,
@@ -39,8 +40,7 @@ from pamola_core.utils.visualization import (
     create_correlation_matrix
 )
 from pamola_core.common.constants import Constants
-# Configure logger
-logger = logging.getLogger(__name__)
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 
 class CorrelationAnalyzer:
@@ -152,12 +152,19 @@ class CorrelationOperation(FieldOperation):
                  field2: str,
                  method: Optional[str] = None,
                  description: str = "",
-                 generate_plots: bool = True,
-                 include_timestamp: bool = True,
                  profile_type: str = "correlation",
                  null_handling: str = "drop",
+                 include_timestamp: bool = True,
+                 save_output: bool = True,
+                 generate_visualization: bool = True,
+                 use_cache: bool = True,
+                 force_recalculation: bool = False,
+                 visualization_backend: Optional[str] = None,
+                 visualization_theme: Optional[str] = None,
+                 visualization_strict: bool = False,
                  use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None):
+                 encryption_key: Optional[Union[str, Path]] = None,
+                 encryption_mode: Optional[str] = None):
         """
         Initialize the correlation operation.
 
@@ -171,7 +178,7 @@ class CorrelationOperation(FieldOperation):
             Correlation method to use. If None, automatically selected based on data types.
         description : str
             Description of the operation (optional)
-        generate_plots : bool
+        generate_visualization : bool
             Whether to generate visualizations (default: True)
         include_timestamp : bool
             Whether to include timestamps in filenames (default: True)
@@ -185,21 +192,31 @@ class CorrelationOperation(FieldOperation):
             field_name=field1,
             description=description or f"Correlation analysis between '{field1}' and '{field2}'",
             use_encryption=use_encryption,
-            encryption_key=encryption_key
+            encryption_key=encryption_key,
+            encryption_mode=encryption_mode
             )
         self.field1 = field1
         self.field2 = field2
         self.method = method
-        self.generate_plots = generate_plots
-        self.include_timestamp = include_timestamp
         self.profile_type = profile_type
         self.null_handling = null_handling
+
+        self.include_timestamp = include_timestamp
+        self.save_output = save_output
+        self.generate_visualization = generate_visualization
+
+        self.use_cache = use_cache
+        self.force_recalculation = force_recalculation
+
+        self.visualization_backend = visualization_backend
+        self.visualization_theme = visualization_theme
+        self.visualization_strict = visualization_strict
 
     def execute(self,
                 data_source: DataSource,
                 task_dir: Path,
                 reporter: Any,
-                progress_tracker: Optional[ProgressTracker] = None,
+                progress_tracker: Optional[HierarchicalProgressTracker] = None,
                 **kwargs) -> OperationResult:
         """
         Execute the correlation analysis operation.
@@ -216,7 +233,7 @@ class CorrelationOperation(FieldOperation):
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for the operation:
-            - generate_plots: bool, whether to generate visualizations
+            - generate_visualization: bool, whether to generate visualizations
             - include_timestamp: bool, whether to include timestamps in filenames
             - profile_type: str, type of profiling for organizing artifacts
             - null_handling: str, method for handling nulls ('drop', 'fill', 'pairwise')
@@ -226,205 +243,233 @@ class CorrelationOperation(FieldOperation):
         OperationResult
             Results of the operation
         """
-        # Extract parameters from kwargs, defaulting to instance variables
-        generate_plots = kwargs.get('generate_plots', self.generate_plots)
-        include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
-        profile_type = kwargs.get('profile_type', self.profile_type)
-        null_handling = kwargs.get('null_handling', self.null_handling)
-        encryption_key = kwargs.get('encryption_key', None)
 
-        # Set up directories
-        dirs = self._prepare_directories(task_dir)
-        output_dir = dirs['output']
-        visualizations_dir = dirs['visualizations']
-
-        # Create the main result object with initial status
-        result = OperationResult(status=OperationStatus.SUCCESS)
-
-        # Update progress if tracker provided
-        if progress_tracker:
-            progress_tracker.update(1, {"step": "Preparation", "fields": f"{self.field1}, {self.field2}"})
+        caller_operation = self.__class__.__name__
+        self.logger = kwargs.get('logger', self.logger)
 
         try:
-            # Get DataFrame from data source
-            dataset_name = kwargs.get('dataset_name', "main")
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source"
-                )
-
-            # Check if fields exist
-            for field in [self.field1, self.field2]:
-                if field not in df.columns:
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=f"Field {field} not found in DataFrame"
-                    )
-
-            # Add operation to reporter
-            reporter.add_operation(f"Analyzing correlation between {self.field1} and {self.field2}", details={
-                "field1": self.field1,
-                "field2": self.field2,
-                "method": self.method or "auto",
-                "null_handling": null_handling,
-                "operation_type": "correlation_analysis"
-            })
-
-            # Adjust progress tracker total steps if provided
-            total_steps = 3  # Preparation, analysis, saving results
-            if generate_plots:
-                total_steps += 1  # Add step for generating visualizations
-
+            # Start operation
+            self.logger.info(f"Operation: {caller_operation}, Start operation")
             if progress_tracker:
-                progress_tracker.total = total_steps
-                progress_tracker.update(0, {"status": "Analyzing correlation"})
+                progress_tracker.total = self._compute_total_steps(**kwargs)
+                progress_tracker.update(1, {"step": "Start operation - Preparation", "operation": caller_operation})
 
-            # Execute the analyzer
+            # Set up directories
+            dirs = self._prepare_directories(task_dir)
+            visualizations_dir = dirs['visualizations']
+            output_dir = dirs['output']
+
+            if reporter:
+                reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                       details={"step": "Preparation",
+                                                "message": "Preparation successfully",
+                                                "directories": {k: str(v) for k, v in dirs.items()}
+                                                })
+
+            # Load data and validate input parameters
+            self.logger.info(f"Operation: {caller_operation}, Load data and validate input parameters")
+            if progress_tracker:
+                progress_tracker.update(1, {"step": "Load data and validate input parameters",
+                                            "operation": caller_operation})
+
+            df, is_valid = self._load_data_and_validate_input_parameters(data_source, **kwargs)
+
+            if is_valid:
+                if reporter:
+                    reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                           details={"step": "Load data and validate input parameters",
+                                                    "message": "Load data and validate input parameters successfully",
+                                                    "shape": df.shape
+                                                    })
+            else:
+                if reporter:
+                    reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                           details={"step": "Load data and validate input parameters",
+                                                    "message": "Load data and validate input parameters failed"
+                                                    })
+                    return OperationResult(status=OperationStatus.ERROR,
+                                           error_message="Load data and validate input parameters failed")
+
+            # Handle cache if required
+            if self.use_cache and not self.force_recalculation:
+                self.logger.info(f"Operation: {caller_operation}, Load result from cache")
+                if progress_tracker:
+                    progress_tracker.update(1, {"step": "Load result from cache", "operation": caller_operation})
+
+                cached_result = self._get_cache(df.copy(), **kwargs)  # _get_cache now returns OperationResult or None
+                if cached_result is not None and isinstance(cached_result, OperationResult):
+                    if reporter:
+                        reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                               details={"step": "Load result from cache",
+                                                        "message": "Load result from cache successfully"
+                                                        })
+                    return cached_result
+                else:
+                    self.logger.info(
+                        f"Operation: {caller_operation}, Load result from cache failed — proceeding with execution.")
+                    if reporter:
+                        reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                               details={"step": "Load result from cache",
+                                                        "message": "Load result from cache failed - proceeding with execution"
+                                                        })
+
+            # Analyzing correlation
+            self.logger.info(f"Operation: {caller_operation}, Analyzing correlation")
+            if progress_tracker:
+                progress_tracker.update(1, {"step": "Analyzing correlation", "operation": caller_operation})
+
             analysis_results = CorrelationAnalyzer.analyze(
                 df=df,
                 field1=self.field1,
                 field2=self.field2,
                 method=self.method,
-                null_handling=null_handling
+                null_handling=self.null_handling
             )
 
-            # Check for errors
+            # Check analysis results
             if 'error' in analysis_results:
+                if reporter:
+                    reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                           details={"step": "Analyzing correlation",
+                                                    "message": "Analyzing correlation failed",
+                                                    "field1": self.field1,
+                                                    "field2": self.field2,
+                                                    "method": self.method or "auto",
+                                                    "null_handling": self.null_handling,
+                                                    "operation_type": "correlation_analysis"
+                                           })
                 return OperationResult(
                     status=OperationStatus.ERROR,
                     error_message=analysis_results['error']
                 )
+            else:
+                if reporter:
+                    reporter.add_operation(f"Operation: {caller_operation}", status="info",
+                                           details={"step": "Analyzing correlation",
+                                                    "message": "Analyzing correlation successfully",
+                                                    "field1": self.field1,
+                                                    "field2": self.field2,
+                                                    "method": self.method or "auto",
+                                                    "null_handling": self.null_handling,
+                                                    "operation_type": "correlation_analysis"
+                                           })
 
-            # Update progress
+            # Collect metric
+            self.logger.info(f"Operation: {caller_operation}, Collect metric")
             if progress_tracker:
-                progress_tracker.update(1, {"step": "Analysis complete", "fields": f"{self.field1}, {self.field2}"})
+                progress_tracker.update(1, {"step": "Collect metric", "operation": caller_operation})
 
-            # Save analysis results to JSON
-            correlation_name = f"{self.field1}_{self.field2}_correlation"
-            stats_filename = get_timestamped_filename(correlation_name, "json", include_timestamp)
-            stats_path = output_dir / stats_filename
+            result = OperationResult(status=OperationStatus.SUCCESS)
 
-            write_json(analysis_results, stats_path, encryption_key=encryption_key)
-            result.add_artifact("json", stats_path, f"Correlation analysis between {self.field1} and {self.field2}", category=Constants.Artifact_Category_Output)
+            self._collect_metrics(analysis_results, result)
 
-            # Add to reporter
-            reporter.add_artifact("json", str(stats_path),
-                                  f"Correlation analysis between {self.field1} and {self.field2}")
+            if reporter:
+                reporter.add_operation(
+                    f"Operation {caller_operation}",
+                    status="info",
+                    details={
+                        "step": "Collect metric",
+                        "message": "Collect metric successfully",
+                        "method": analysis_results.get("method", "unknown"),
+                        "correlation_coefficient": analysis_results.get("correlation_coefficient", 0),
+                        "sample_size": analysis_results.get("sample_size", 0),
+                        "p_value": analysis_results.get("p_value"),
+                        "statistically_significant": (
+                                analysis_results.get("p_value") is not None and analysis_results["p_value"] < 0.05
+                        )
+                    }
+                )
 
-            # Update progress
-            if progress_tracker:
-                progress_tracker.update(1, {"step": "Saved analysis results"})
-
-            # Generate visualization if requested
-            if generate_plots and 'plot_data' in analysis_results:
-                # Update progress
+            # Save output if required
+            if self.save_output:
+                self.logger.info(f"Operation: {caller_operation}, Save output")
                 if progress_tracker:
-                    progress_tracker.update(0, {"step": "Generating visualization"})
+                    progress_tracker.update(1, {"step": "Save output", "operation": caller_operation})
 
-                # Create visualization based on plot_data type
-                plot_data = analysis_results['plot_data']
-                plot_type = plot_data.get('type', 'unknown')
-                viz_filename = get_timestamped_filename(correlation_name + "_plot", "png", include_timestamp)
-                viz_path = visualizations_dir / viz_filename
+                self._save_output(
+                    analysis_results=analysis_results,
+                    output_dir=output_dir,
+                    result=result,
+                    **kwargs
+                )
 
-                # Method details for plot title
-                method_name = analysis_results.get('method', 'Unknown')
-                method_display = method_name.replace('_', ' ').title()
-                correlation_value = analysis_results.get('correlation_coefficient', 0)
+                if reporter:
+                    reporter.add_operation(f"Operation: {caller_operation}",
+                                           status="info",
+                                           details={"step": "Save output",
+                                                    "message": "Save output successfully"
+                                           })
 
-                # Create appropriate visualization based on plot type
-                viz_result = None
+            # Generate visualization if required
+            if self.generate_visualization:
+                self.logger.info(f"Operation: {caller_operation}, Generate visualizations")
+                if progress_tracker:
+                    progress_tracker.update(1, {"step": "Generate visualizations",
+                                                "operation": caller_operation})
 
-                if plot_type == "scatter":
-                    # For numeric-numeric correlations: scatter plot
-                    title = f"Correlation between {self.field1} and {self.field2}"
-                    viz_result = create_scatter_plot(
-                        x_data=plot_data['x_values'],
-                        y_data=plot_data['y_values'],
-                        output_path=str(viz_path),
-                        title=title,
-                        x_label=plot_data['x_label'],
-                        y_label=plot_data['y_label'],
-                        add_trendline=True,
-                        correlation=correlation_value,
-                        method=method_display,
-                        **kwargs
-                    )
+                viz_result = self._generate_visualizations(
+                    analysis_results=analysis_results,
+                    visualizations_dir=visualizations_dir,
+                    result=result,
+                    **kwargs
+                )
 
-                elif plot_type == "boxplot":
-                    # For categorical-numeric correlations: boxplot
-                    title = f"Relationship between {plot_data['x_label']} and {plot_data['y_label']}"
-                    viz_result = create_boxplot(
-                        data={cat: list(values) for cat, values in zip(
-                            plot_data['categories'], plot_data['values']
-                        ) if cat is not None},
-                        output_path=str(viz_path),
-                        title=title,
-                        x_label=plot_data['x_label'],
-                        y_label=plot_data['y_label'],
-                        *kwargs
-                    )
-
-                elif plot_type == "heatmap":
-                    # For categorical-categorical correlations: heatmap
-                    title = f"Association between {plot_data['y_label']} and {plot_data['x_label']}"
-                    viz_result = create_heatmap(
-                        data=plot_data['matrix'],
-                        output_path=str(viz_path),
-                        title=title,
-                        x_label=plot_data['x_label'],
-                        y_label=plot_data['y_label'],
-                        annotate=True,
-                        **kwargs
-                    )
-
-                # Add visualization to result if successful
-                if viz_result and not viz_result.startswith("Error"):
-                    result.add_artifact("png", viz_path, f"Correlation plot for {self.field1} and {self.field2}", category=Constants.Artifact_Category_Visualization)
-                    reporter.add_artifact("png", str(viz_path), f"Correlation plot for {self.field1} and {self.field2}")
+                if not viz_result.startswith("Error"):
+                    if reporter:
+                        reporter.add_operation(f"Operation: {caller_operation}",
+                                               status="info",
+                                               details={"step": "Generate visualizations",
+                                                        "message": "Generate visualizations successfully"
+                                                        })
                 else:
-                    logger.warning(f"Error creating visualization: {viz_result}")
+                    self.logger.warning(
+                        f"Operation: {self.name}, Generate visualizations failed {viz_result}")
+                    if reporter:
+                        reporter.add_operation(f"Operation: {caller_operation}",
+                                               status="info",
+                                               details={"step": "Generate visualizations",
+                                                        "message": "Generate visualizations failed",
+                                                        "error": viz_result
+                                                        })
 
-                # Update progress
+            # Save cache if required
+            if self.use_cache:
+                self.logger.info(f"Operation: {caller_operation}, Save cache")
                 if progress_tracker:
-                    progress_tracker.update(1, {"step": "Created visualization"})
+                    progress_tracker.update(1, {"step": "Save cache", "operation": caller_operation})
 
-            # Add metrics to the result
-            result.add_metric("correlation_method", analysis_results.get('method', 'unknown'))
-            result.add_metric("correlation_coefficient", analysis_results.get('correlation_coefficient', 0))
-            result.add_metric("sample_size", analysis_results.get('sample_size', 0))
-            if 'p_value' in analysis_results and analysis_results['p_value'] is not None:
-                result.add_metric("p_value", analysis_results['p_value'])
-                result.add_metric("statistically_significant", analysis_results['p_value'] < 0.05)
+                self._save_cache(task_dir, result, **kwargs)
 
-            # Add final operation status to reporter
-            reporter.add_operation(f"Correlation analysis between {self.field1} and {self.field2} completed", details={
-                "correlation_coefficient": round(analysis_results.get('correlation_coefficient', 0), 4),
-                "method": analysis_results.get('method', 'unknown'),
-                "interpretation": analysis_results.get('interpretation', '')
-            })
+                if reporter:
+                    reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                           details={"step": "Save cache",
+                                                    "message": "Save cache successfully"
+                                                    })
+
+            # Operation completed successfully
+            self.logger.info(f"Operation: {caller_operation}, Completed successfully.")
+            if reporter:
+                reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                       details={"step": "Return result",
+                                                "message": "Operation completed successfully"
+                                                })
 
             return result
 
+
         except Exception as e:
-            logger.exception(f"Error in correlation operation for {self.field1} and {self.field2}: {e}")
+            self.logger.error(f"Operation: {caller_operation}, error occurred: {e}")
 
-            # Update progress tracker on error
-            if progress_tracker:
-                progress_tracker.update(0, {"step": "Error", "error": str(e)})
+            if reporter:
+                reporter.add_operation(f"Operation {caller_operation}", status="error",
+                                       details={
+                                           "step": "Exception",
+                                           "message": "Operation failed due to an exception",
+                                           "error": str(e)
+                                       })
 
-            # Add error to reporter
-            reporter.add_operation(f"Error analyzing correlation between {self.field1} and {self.field2}",
-                                   status="error",
-                                   details={"error": str(e)})
+            return OperationResult(status=OperationStatus.ERROR, error_message=str(e))
 
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error analyzing correlation between {self.field1} and {self.field2}: {str(e)}"
-            )
 
     def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
         """
@@ -452,6 +497,436 @@ class CorrelationOperation(FieldOperation):
             'visualizations': visualizations_dir
         }
 
+    def _collect_metrics(self, analysis_results: dict, result: OperationResult) -> None:
+        """
+        Collect and add analysis metrics to the result object.
+
+        Parameters
+        ----------
+        analysis_results : dict
+            Dictionary containing results from categorical analysis.
+        result : OperationResult
+            The result object where metrics will be added.
+        """
+
+        result.add_metric("correlation_method", analysis_results.get('method', 'unknown'))
+        result.add_metric("correlation_coefficient", analysis_results.get('correlation_coefficient', 0))
+        result.add_metric("sample_size", analysis_results.get('sample_size', 0))
+        if 'p_value' in analysis_results and analysis_results['p_value'] is not None:
+            result.add_metric("p_value", analysis_results['p_value'])
+            result.add_metric("statistically_significant", analysis_results['p_value'] < 0.05)
+
+    def _save_output(
+            self,
+            analysis_results: dict,
+            output_dir: Path,
+            result: OperationResult,
+            **kwargs
+    ):
+        """
+        Save analysis results to JSON, dictionary to CSV, and anomalies (if any).
+        """
+
+        # Save analysis results to JSON
+        correlation_name = f"{self.field1}_{self.field2}_correlation"
+        stats_filename = get_timestamped_filename(correlation_name, "json", self.include_timestamp)
+        stats_path = output_dir / stats_filename
+
+        encryption_mode_analysis = get_encryption_mode(analysis_results, **kwargs)
+        write_json(analysis_results, stats_path, encryption_key=self.encryption_key, encryption_mode=encryption_mode_analysis)
+        result.add_artifact("json", stats_path, f"Correlation analysis between {self.field1} and {self.field2}",
+                            category=Constants.Artifact_Category_Output)
+
+    def _generate_visualizations(
+            self,
+            analysis_results: dict,
+            visualizations_dir: Path,
+            result: OperationResult,
+            **kwargs
+    ) -> str:
+        """
+        Generate and save a visualization from top categorical values.
+
+        Parameters
+        ----------
+        analysis_results : dict
+            Dictionary containing the results of categorical analysis.
+        visualizations_dir : Path
+            Directory to save the visualization image.
+        result : OperationResult
+            Object to store generated artifacts.
+        **kwargs : dict
+            Visualization configuration options (theme, backend, strict, etc.).
+
+        Returns
+        -------
+        str
+            The result string from the visualization function (can indicate success or error).
+        """
+        if 'plot_data' not in analysis_results:
+            warning_msg = f"Operation: {self.__class__.__name__}, No 'plot_data' found in analysis results for visualization."
+            self.logger.warning(warning_msg)
+            return f"Error: {warning_msg}"
+
+        kwargs["backend"] = kwargs.pop("visualization_backend", self.visualization_backend)
+        kwargs["theme"] = kwargs.pop("visualization_theme", self.visualization_theme)
+        kwargs["strict"] = kwargs.pop("visualization_strict", self.visualization_strict)
+
+        # Create visualization based on plot_data type
+        plot_data = analysis_results['plot_data']
+        plot_type = plot_data.get('type', 'unknown')
+        correlation_name = f"{self.field1}_{self.field2}_correlation"
+        viz_filename = get_timestamped_filename(correlation_name + "_plot", "png", self.include_timestamp)
+        viz_path = visualizations_dir / viz_filename
+
+        # Method details for plot title
+        method_name = analysis_results.get('method', 'Unknown')
+        method_display = method_name.replace('_', ' ').title()
+        correlation_value = analysis_results.get('correlation_coefficient', 0)
+
+        # Create appropriate visualization based on plot type
+        viz_result = None
+
+        if plot_type == "scatter":
+            # For numeric-numeric correlations: scatter plot
+            title = f"Correlation between {self.field1} and {self.field2}"
+            viz_result = create_scatter_plot(
+                x_data=plot_data['x_values'],
+                y_data=plot_data['y_values'],
+                output_path=str(viz_path),
+                title=title,
+                x_label=plot_data['x_label'],
+                y_label=plot_data['y_label'],
+                add_trendline=True,
+                correlation=correlation_value,
+                method=method_display,
+                **kwargs
+            )
+
+        elif plot_type == "boxplot":
+            # For categorical-numeric correlations: boxplot
+            title = f"Relationship between {plot_data['x_label']} and {plot_data['y_label']}"
+            viz_result = create_boxplot(
+                data={cat: values if isinstance(values, (list, tuple)) else [values]
+                      for cat, values in zip(plot_data['categories'], plot_data['values'])
+                      if cat is not None},
+                output_path=str(viz_path),
+                title=title,
+                x_label=plot_data['x_label'],
+                y_label=plot_data['y_label'],
+                **kwargs
+            )
+
+        elif plot_type == "heatmap":
+            # For categorical-categorical correlations: heatmap
+            title = f"Association between {plot_data['y_label']} and {plot_data['x_label']}"
+            viz_result = create_heatmap(
+                data=plot_data['matrix'],
+                output_path=str(viz_path),
+                title=title,
+                x_label=plot_data['x_label'],
+                y_label=plot_data['y_label'],
+                annotate=True,
+                **kwargs
+            )
+
+        if not viz_result.startswith("Error"):
+            result.add_artifact("png", viz_result, f"{self.field_name} distribution visualization",
+                                category=Constants.Artifact_Category_Visualization)
+
+        return viz_result
+
+    def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
+        """
+        Save the operation result to cache.
+
+        Parameters
+        ----------
+        task_dir : Path
+            Root directory for the task.
+        result : OperationResult
+            The result object to be cached.
+        """
+        try:
+            result_data = {
+                "status": result.status.name if isinstance(result.status, OperationStatus) else str(result.status),
+                "metrics": result.metrics,
+                "error_message": result.error_message,
+                "execution_time": result.execution_time,
+                "error_trace": result.error_trace,
+                "artifacts": [artifact.to_dict() for artifact in result.artifacts]
+            }
+
+            cache_data = {
+                "result": result_data,
+                "parameters": self._get_cache_parameters(**kwargs),
+            }
+
+            cache_key = operation_cache.generate_cache_key(
+                operation_name=self.__class__.__name__,
+                parameters=self._get_cache_parameters(**kwargs),
+                data_hash=self._generate_data_hash(self._original_df.copy())
+            )
+
+            operation_cache.save_cache(
+                data=cache_data,
+                cache_key=cache_key,
+                operation_type=self.__class__.__name__,
+                metadata={"task_dir": str(task_dir)}
+            )
+
+            self.logger.info(f"Saved result to cache with key: {cache_key}")
+        except Exception as e:
+            self.logger.warning(f"Failed to save cache: {e}")
+
+    def _get_cache(self, df: pd.DataFrame, **kwargs) -> Optional[OperationResult]:
+        """
+        Retrieve cached result if available and valid.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The input DataFrame used to generate the cache key.
+
+        Returns
+        -------
+        Optional[OperationResult]
+            The cached OperationResult if available, otherwise None.
+        """
+        try:
+            cache_key = operation_cache.generate_cache_key(
+                operation_name=self.__class__.__name__,
+                parameters=self._get_cache_parameters(**kwargs),
+                data_hash=self._generate_data_hash(df)
+            )
+
+            cached = operation_cache.get_cache(
+                cache_key=cache_key,
+                operation_type=self.__class__.__name__
+            )
+
+            result_data = cached.get("result")
+            if not isinstance(result_data, dict):
+                return None
+
+            # Parse enum safely
+            status_str = result_data.get("status", OperationStatus.ERROR.name)
+            status = OperationStatus[status_str] if isinstance(status_str,
+                                                               str) and status_str in OperationStatus.__members__ else OperationStatus.ERROR
+
+            # Rebuild artifacts
+            artifacts = []
+            for art_dict in result_data.get("artifacts", []):
+                if isinstance(art_dict, dict):
+                    try:
+                        artifacts.append(OperationArtifact(
+                            artifact_type=art_dict.get("type"),
+                            path=art_dict.get("path"),
+                            description=art_dict.get("description", ""),
+                            category=art_dict.get("category", "output"),
+                            tags=art_dict.get("tags", []),
+                        ))
+                    except Exception as e:
+                        self.logger.warning(f"Failed to deserialize artifact: {e}")
+
+            return OperationResult(
+                status=status,
+                artifacts=artifacts,
+                metrics=result_data.get("metrics", {}),
+                error_message=result_data.get("error_message"),
+                execution_time=result_data.get("execution_time"),
+                error_trace=result_data.get("error_trace"),
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Failed to load cache: {e}")
+            return None
+
+    def _get_cache_parameters(self, **kwargs) -> Dict[str, Any]:
+        """
+        Get operation-specific parameters required for generating a cache key.
+
+        These parameters define the behavior of the transformation and are used
+        to determine cache uniqueness.
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary of relevant parameters to identify the operation configuration.
+        """
+
+        return {
+            "operation": self.__class__.__name__,
+            "version": self.version,
+            "field1": kwargs.get("field1"),
+            "field2": kwargs.get("field2"),
+            "method": kwargs.get("method", self.method),
+            "include_timestamp": kwargs.get("include_timestamp", self.include_timestamp),
+            "generate_visualization": kwargs.get("generate_visualization", self.generate_visualization),
+            "profile_type": kwargs.get("profile_type", self.profile_type),
+            "null_handling": kwargs.get("null_handling", self.null_handling),
+            "use_cache": kwargs.get("use_cache", self.use_cache),
+            "force_recalculation": kwargs.get("force_recalculation", self.force_recalculation),
+            "visualization_backend": kwargs.get("visualization_backend", self.visualization_backend),
+            "visualization_theme": kwargs.get("visualization_theme", self.visualization_theme),
+            "visualization_strict": kwargs.get("visualization_strict", self.visualization_strict),
+            "use_encryption": kwargs.get("use_encryption"),
+            "encryption_key": str(kwargs.get("encryption_key")) if kwargs.get("encryption_key") else None
+        }
+
+    def _generate_data_hash(self, data: pd.DataFrame) -> str:
+        """
+        Generate a hash that represents key characteristics of the input DataFrame.
+
+        The hash is based on structure and summary statistics to detect changes
+        for caching purposes.
+
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Input DataFrame to generate a representative hash from.
+
+        Returns
+        -------
+        str
+            A hash string representing the structure and key properties of the data.
+        """
+        try:
+            characteristics = {
+                "columns": list(data.columns),
+                "shape": data.shape,
+                "summary": {}
+            }
+
+            for col in data.columns:
+                col_data = data[col]
+                col_info = {
+                    "dtype": str(col_data.dtype),
+                    "null_count": int(col_data.isna().sum()),
+                    "unique_count": int(col_data.nunique())
+                }
+
+                if pd.api.types.is_numeric_dtype(col_data):
+                    non_null = col_data.dropna()
+                    if not non_null.empty:
+                        col_info.update({
+                            "min": float(non_null.min()),
+                            "max": float(non_null.max()),
+                            "mean": float(non_null.mean()),
+                            "median": float(non_null.median()),
+                            "std": float(non_null.std())
+                        })
+                elif pd.api.types.is_object_dtype(col_data) or isinstance(col_data.dtype, pd.CategoricalDtype):
+                    top_values = col_data.value_counts(dropna=True).head(5)
+                    col_info["top_values"] = {str(k): int(v) for k, v in top_values.items()}
+
+                characteristics["summary"][col] = col_info
+
+            json_str = json.dumps(characteristics, sort_keys=True)
+            return hashlib.md5(json_str.encode()).hexdigest()
+
+        except Exception as e:
+            self.logger.warning(f"Error generating data hash: {str(e)}")
+            fallback = f"{data.shape}_{list(data.dtypes)}"
+            return hashlib.md5(fallback.encode()).hexdigest()
+
+    def _set_input_parameters(self, **kwargs):
+        """
+        Set common configurable operation parameters from keyword arguments.
+        """
+
+        self.field1 = kwargs.get("field1", getattr(self, "field1", None))
+        self.field2 = kwargs.get("field2", getattr(self, "field2", None))
+        self.method = kwargs.get("method", getattr(self, "method", None))
+        self.profile_type = kwargs.get("profile_type", getattr(self, "profile_type", "categorical"))
+        self.null_handling = kwargs.get("null_handling", getattr(self, "null_handling", "drop"))
+        self.generate_visualization = kwargs.get("generate_visualization", getattr(self, "generate_visualization", True))
+
+        self.save_output = kwargs.get("save_output", getattr(self, "save_output", True))
+        self.output_format = kwargs.get("output_format", getattr(self, "output_format", "csv"))
+        self.include_timestamp = kwargs.get("include_timestamp", getattr(self, "include_timestamp", True))
+
+        self.use_cache = kwargs.get("use_cache", getattr(self, "use_cache", True))
+        self.force_recalculation = kwargs.get("force_recalculation", getattr(self, "force_recalculation", False))
+
+        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", False))
+        self.visualization_theme = kwargs.get("visualization_theme", getattr(self, "visualization_theme", None))
+        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", None))
+
+        self.use_encryption = kwargs.get("use_encryption", getattr(self, "use_encryption", False))
+        self.encryption_key = kwargs.get("encryption_key",
+                                         getattr(self, "encryption_key", None)) if self.use_encryption else None
+
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") if self.include_timestamp else ""
+
+    def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
+        """
+        Validate that all specified fields in field_groups exist in the DataFrame.
+        Optionally check if the ID field exists.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            Input dataset to validate.
+
+        Returns:
+        --------
+        bool
+            True if all fields are valid; False otherwise.
+        """
+        if self.field1 not in df.columns:
+            self.logger.error(f"Column {self.field1} not existing in data frame")
+            return False
+
+        if self.field2 not in df.columns:
+            self.logger.error(f"Column {self.field2} not existing in data frame")
+            return False
+
+        # All validations passed
+        return True
+
+    def _load_data_and_validate_input_parameters(self, data_source: DataSource, **kwargs) -> Tuple[Optional[pd.DataFrame], bool]:
+        dataset_name = kwargs.get('dataset_name', "main")
+        # settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+        df = load_data_operation(data_source, dataset_name)
+
+        if df is None or df.empty:
+            self.logger.error("Error data frame is None or empty")
+            return None, False
+
+        self._input_dataset = dataset_name
+        self._original_df = df.copy(deep=True)
+
+        return df, self._validate_input_parameters(df)
+
+    def _compute_total_steps(self, **kwargs) -> int:
+        use_cache = kwargs.get("use_cache", self.use_cache)
+        force_recalculation = kwargs.get("force_recalculation", self.force_recalculation)
+        save_output = kwargs.get("save_output", self.save_output)
+        generate_visualization = kwargs.get("generate_visualization", self.generate_visualization)
+
+        steps = 0
+
+        steps += 1  # Step 1: Preparation
+        steps += 1  # Step 2: Load data and validate input
+
+        if use_cache and not force_recalculation:
+            steps += 1  # Step 3: Try to load from cache
+
+        steps += 1  # Step 4: Process data
+        steps += 1  # Step 5: Collect metrics
+
+        if save_output:
+            steps += 1  # Step 6: Save output
+
+        if generate_visualization:
+            steps += 1  # Step 7: Generate visualizations
+
+        if use_cache:
+            steps += 1  # Step 8: Save cache
+
+        return steps
+
 
 @register(override=True)
 class CorrelationMatrixOperation(BaseOperation):
@@ -466,7 +941,7 @@ class CorrelationMatrixOperation(BaseOperation):
                  fields: List[str],
                  methods: Optional[Dict[str, str]] = None,
                  description: str = "",
-                 generate_plots: bool = True,
+                 generate_visualization: bool = True,
                  include_timestamp: bool = True,
                  profile_type: str = "correlation",
                  min_threshold: float = 0.3,
@@ -484,7 +959,7 @@ class CorrelationMatrixOperation(BaseOperation):
             Dictionary mapping field pairs to correlation methods
         description : str
             Description of the operation (optional)
-        generate_plots : bool
+        generate_visualization : bool
             Whether to generate visualizations
         include_timestamp : bool
             Whether to include timestamps in filenames
@@ -503,7 +978,7 @@ class CorrelationMatrixOperation(BaseOperation):
         
         self.fields = fields
         self.methods = methods
-        self.generate_plots = generate_plots
+        self.generate_visualization = generate_visualization
         self.include_timestamp = include_timestamp
         self.profile_type = profile_type
         self.min_threshold = min_threshold
@@ -530,7 +1005,7 @@ class CorrelationMatrixOperation(BaseOperation):
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for the operation:
-            - generate_plots: bool, whether to generate visualizations
+            - generate_visualization: bool, whether to generate visualizations
             - include_timestamp: bool, whether to include timestamps in filenames
             - profile_type: str, type of profiling for organizing artifacts
             - null_handling: str, method for handling nulls ('drop', 'fill', 'pairwise')
@@ -542,7 +1017,7 @@ class CorrelationMatrixOperation(BaseOperation):
             Results of the operation
         """
         # Extract parameters from kwargs, defaulting to instance variables
-        generate_plots = kwargs.get('generate_plots', self.generate_plots)
+        generate_visualization = kwargs.get('generate_visualization', self.generate_visualization)
         include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
         profile_type = kwargs.get('profile_type', self.profile_type)
         min_threshold = kwargs.get('min_threshold', self.min_threshold)
@@ -582,16 +1057,17 @@ class CorrelationMatrixOperation(BaseOperation):
                 )
 
             # Add operation to reporter
-            reporter.add_operation(f"Creating correlation matrix for {len(self.fields)} fields", details={
-                "fields": self.fields,
-                "null_handling": null_handling,
-                "min_threshold": min_threshold,
-                "operation_type": "correlation_matrix"
-            })
+            if reporter:
+                reporter.add_operation(f"Creating correlation matrix for {len(self.fields)} fields", details={
+                    "fields": self.fields,
+                    "null_handling": null_handling,
+                    "min_threshold": min_threshold,
+                    "operation_type": "correlation_matrix"
+                })
 
             # Adjust progress tracker total steps if provided
             total_steps = 3  # Preparation, analysis, saving results
-            if generate_plots:
+            if generate_visualization:
                 total_steps += 1  # Add step for generating visualizations
 
             if progress_tracker:
@@ -625,15 +1101,12 @@ class CorrelationMatrixOperation(BaseOperation):
             write_json(analysis_results, stats_path, encryption_key=encryption_key)
             result.add_artifact("json", stats_path, "Correlation matrix analysis", category=Constants.Artifact_Category_Output)
 
-            # Add to reporter
-            reporter.add_artifact("json", str(stats_path), "Correlation matrix analysis")
-
             # Update progress
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Saved analysis results"})
 
             # Generate visualization if requested
-            if generate_plots and 'correlation_matrix' in analysis_results:
+            if generate_visualization and 'correlation_matrix' in analysis_results:
                 # Update progress
                 if progress_tracker:
                     progress_tracker.update(0, {"step": "Generating visualization"})
@@ -660,9 +1133,10 @@ class CorrelationMatrixOperation(BaseOperation):
                 # Add visualization to result if successful
                 if viz_result and not viz_result.startswith("Error"):
                     result.add_artifact("png", viz_path, "Correlation matrix visualization", category=Constants.Artifact_Category_Visualization)
-                    reporter.add_artifact("png", str(viz_path), "Correlation matrix visualization")
+                    if reporter:
+                        reporter.add_artifact("png", str(viz_path), "Correlation matrix visualization")
                 else:
-                    logger.warning(f"Error creating visualization: {viz_result}")
+                    self.logger.warning(f"Error creating visualization: {viz_result}")
 
                 # Update progress
                 if progress_tracker:
@@ -676,25 +1150,27 @@ class CorrelationMatrixOperation(BaseOperation):
 
             # Add final operation status to reporter
             significant_count = len(analysis_results.get('significant_correlations', []))
-            reporter.add_operation(f"Correlation matrix analysis completed", details={
-                "fields_analyzed": len(self.fields),
-                "significant_correlations": significant_count,
-                "min_threshold": min_threshold
-            })
+            if reporter:
+                reporter.add_operation(f"Correlation matrix analysis completed", details={
+                    "fields_analyzed": len(self.fields),
+                    "significant_correlations": significant_count,
+                    "min_threshold": min_threshold
+                })
 
             return result
 
         except Exception as e:
-            logger.exception(f"Error in correlation matrix operation: {e}")
+            self.logger.exception(f"Error in correlation matrix operation: {e}")
 
             # Update progress tracker on error
             if progress_tracker:
                 progress_tracker.update(0, {"step": "Error", "error": str(e)})
 
             # Add error to reporter
-            reporter.add_operation(f"Error creating correlation matrix",
-                                   status="error",
-                                   details={"error": str(e)})
+            if reporter:
+                reporter.add_operation(f"Error creating correlation matrix",
+                                       status="error",
+                                       details={"error": str(e)})
 
             return OperationResult(
                 status=OperationStatus.ERROR,
@@ -725,7 +1201,7 @@ def analyze_correlations(
         Additional parameters for the operations:
         - methods: dict, mapping of field pairs to correlation methods
         - null_handling: str, method for handling nulls (default: 'drop')
-        - generate_plots: bool, whether to generate plots (default: True)
+        - generate_visualization: bool, whether to generate plots (default: True)
         - include_timestamp: bool, whether to include timestamps (default: True)
         - profile_type: str, type of profiling (default: 'correlation')
 
@@ -738,22 +1214,24 @@ def analyze_correlations(
     dataset_name = kwargs.get('dataset_name', "main")
     df = load_data_operation(data_source, dataset_name)
     if df is None:
-        reporter.add_operation("Correlation analysis", status="error",
-                               details={"error": "No valid DataFrame found in data source"})
+        if reporter:
+            reporter.add_operation("Correlation analysis", status="error",
+                                   details={"error": "No valid DataFrame found in data source"})
         return {}
 
     # Extract parameters from kwargs
     methods = kwargs.get('methods', {})
     null_handling = kwargs.get('null_handling', 'drop')
-    generate_plots = kwargs.get('generate_plots', True)
+    generate_visualization = kwargs.get('generate_visualization', True)
 
     # Report on field pairs to be analyzed
-    reporter.add_operation("Correlation analysis", details={
-        "pairs_count": len(pairs),
-        "pairs": [f"{field1}_{field2}" for field1, field2 in pairs],
-        "null_handling": null_handling,
-        "parameters": {k: v for k, v in kwargs.items() if isinstance(v, (str, int, float, bool))}
-    })
+    if reporter:
+        reporter.add_operation("Correlation analysis", details={
+            "pairs_count": len(pairs),
+            "pairs": [f"{field1}_{field2}" for field1, field2 in pairs],
+            "null_handling": null_handling,
+            "parameters": {k: v for k, v in kwargs.items() if isinstance(v, (str, int, float, bool))}
+        })
 
     # Track progress if enabled
     track_progress = kwargs.get('track_progress', True)
@@ -781,11 +1259,12 @@ def analyze_correlations(
                 missing_fields.append(field2)
 
             error_msg = f"Fields not found: {', '.join(missing_fields)}"
-            reporter.add_operation(
-                f"Correlation Analysis: {field1} vs {field2}",
-                status="error",
-                details={"error": error_msg}
-            )
+            if reporter:
+                reporter.add_operation(
+                    f"Correlation Analysis: {field1} vs {field2}",
+                    status="error",
+                    details={"error": error_msg}
+                )
 
             # Create an error result
             error_result = OperationResult(
@@ -805,7 +1284,7 @@ def analyze_correlations(
             if overall_tracker:
                 overall_tracker.update(0, {"pair": f"{field1}_{field2}", "progress": f"{i + 1}/{len(pairs)}"})
 
-            logger.info(f"Analyzing correlation between {field1} and {field2}")
+            print(f"Analyzing correlation between {field1} and {field2}")
 
             # Get method if specified
             method = methods.get(f"{field1}_{field2}")
@@ -821,7 +1300,7 @@ def analyze_correlations(
                 task_dir,
                 reporter,
                 null_handling=null_handling,
-                generate_plots=generate_plots,
+                generate_visualization=generate_visualization,
                 **kwargs
             )
 
@@ -837,10 +1316,11 @@ def analyze_correlations(
                                                "error": result.error_message})
 
         except Exception as e:
-            logger.error(f"Error analyzing correlation between {field1} and {field2}: {e}", exc_info=True)
+            print(f"Error analyzing correlation between {field1} and {field2}: {e}", exc_info=True)
 
-            reporter.add_operation(f"Analyzing correlation between {field1} and {field2}", status="error",
-                                   details={"error": str(e)})
+            if reporter:
+                reporter.add_operation(f"Analyzing correlation between {field1} and {field2}", status="error",
+                                       details={"error": str(e)})
 
             # Create an error result
             error_result = OperationResult(
@@ -861,10 +1341,11 @@ def analyze_correlations(
     success_count = sum(1 for r in results.values() if r.status == OperationStatus.SUCCESS)
     error_count = sum(1 for r in results.values() if r.status == OperationStatus.ERROR)
 
-    reporter.add_operation("Correlation analysis completed", details={
-        "pairs_analyzed": len(results),
-        "successful": success_count,
-        "failed": error_count
-    })
+    if reporter:
+        reporter.add_operation("Correlation analysis completed", details={
+            "pairs_analyzed": len(results),
+            "successful": success_count,
+            "failed": error_count
+        })
 
     return results

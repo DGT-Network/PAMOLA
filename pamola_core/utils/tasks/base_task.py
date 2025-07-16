@@ -38,7 +38,9 @@ import logging
 import sys
 import time
 from typing import Dict, Any, Optional, List, Union, Tuple, Type, TypeVar
-
+from pathlib import Path
+import os
+from pamola_core.common.enum.encryption_mode import EncryptionMode
 from pamola_core.utils.ops import op_registry  # Import registry module for operations
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -52,9 +54,12 @@ from pamola_core.utils.tasks.encryption_manager import TaskEncryptionManager
 from pamola_core.utils.tasks.execution_log import record_task_execution
 from pamola_core.utils.tasks.operation_executor import create_operation_executor
 from pamola_core.utils.tasks.progress_manager import create_task_progress_manager
-from pamola_core.utils.tasks.task_config import EncryptionMode
 from pamola_core.utils.tasks.task_config import load_task_config
 from pamola_core.utils.tasks.task_reporting import TaskReporter
+from dotenv import load_dotenv
+load_dotenv()
+
+DEFAULT_KEYS_DB_PATH = os.environ.get("KEY_STORE_PATH", "pamola_datasets/configs/keys.db")
 
 # Reserved parameter names that are handled directly by the framework
 # These should not be included in operation configuration
@@ -70,6 +75,17 @@ RESERVED_OPERATION_PARAMS = {
     "use_dask",
     "npartitions",
     "chunk_size"
+
+    # Ignore parameters
+    "dataset_name",
+    "force_recalculation",
+    "save_output",
+    "encrypt_output",
+    "include_timestamp",
+    "generate_visualization",
+    "visualization_theme",
+    "visualization_backend",
+    "visualization_strict",
 }
 
 # Type variables for better type hinting
@@ -147,6 +163,7 @@ class BaseTask:
                  input_datasets: Optional[Dict[str, str]] = None,
                  auxiliary_datasets: Optional[Dict[str, str]] = None,
                  version: str = "1.0.0",
+                 use_encryption: Optional[bool] = False,
                  encryption_keys: Optional[Dict[str, str]] = None):
         """
         Initialize the task with basic information and defaults.
@@ -204,7 +221,7 @@ class BaseTask:
 
         # Encryption settings (for backward compatibility)
         self.encryption_mode = EncryptionMode.NONE
-        self.use_encryption = False
+        self.use_encryption = use_encryption
 
         # Checkpoint settings
         self.enable_checkpoints = False  # Default to False for safety
@@ -242,7 +259,7 @@ class BaseTask:
             "continue_on_error": False,
             "use_encryption": self.use_encryption,
             "encryption_mode": "simple",
-            "encryption_key_path": "pamola_datasets/configs/keys.db",
+            "encryption_key_path": DEFAULT_KEYS_DB_PATH,
             # Default logging configuration
             "log_level": "INFO",
             "log_file": "",
@@ -254,7 +271,7 @@ class BaseTask:
         }
 
     def initialize(self, args: Optional[Dict[str, Any]] = None, force_restart: bool = False,
-                   enable_checkpoints: Optional[bool] = None) -> bool:
+                   enable_checkpoints: Optional[bool] = None, force_recreate_config_file: Optional[bool] = False) -> bool:
         """
         Initialize the task by loading configuration, creating directories,
         setting up logging, and checking dependencies.
@@ -288,7 +305,8 @@ class BaseTask:
                 task_id=self.task_id,
                 task_type=self.task_type,
                 args=args,
-                default_config=default_config
+                default_config=default_config,
+                force_recreate_config_file=force_recreate_config_file
             )
 
             # 2. Set up logging with both project-level and task-specific logs
@@ -547,6 +565,10 @@ class BaseTask:
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
 
+        file_formatter = logging.Formatter(
+            '%(asctime)s | %(levelname)s | %(message)s'
+        )
+        file_formatter.converter = time.localtime
         # Add file handlers for both project and task logs
         if project_log_file:
             try:
@@ -556,7 +578,7 @@ class BaseTask:
 
                 project_handler = logging.FileHandler(project_log_file, encoding='utf-8', mode='w')
                 project_handler.setLevel(log_level)
-                project_handler.setFormatter(formatter)
+                project_handler.setFormatter(file_formatter)
                 self.logger.addHandler(project_handler)
             except Exception as e:
                 # Use standard logging since self.logger might not be fully set up
@@ -570,7 +592,7 @@ class BaseTask:
 
                 task_handler = logging.FileHandler(task_log_file, encoding='utf-8', mode='w')
                 task_handler.setLevel(logging.DEBUG)  # Task log gets more detail
-                task_handler.setFormatter(formatter)
+                task_handler.setFormatter(file_formatter)
                 self.logger.addHandler(task_handler)
             except Exception as e:
                 # Use standard logging since self.logger might not be fully set up
@@ -1078,7 +1100,7 @@ class BaseTask:
             # Generate and save report
             try:
                 report_path = self.reporter.save_report()
-                self.logger.info(f"Task report saved to: {report_path}")
+                self.logger.info(f"Task report saved to: {Path(report_path).name}")
             except Exception as e:
                 self.logger.error(f"Error saving task report: {str(e)}")
                 self.error_info = {
@@ -1266,6 +1288,7 @@ class BaseTask:
                     'use_dask': getattr(self, 'use_dask', None),
                     'npartitions': getattr(self, 'npartitions', None),
                     'chunk_size': getattr(self, 'chunk_size', None),
+                    'use_cache': filtered_kwargs.get('use_cache', False),
                 }
 
                 for key, default_value in infra_flags.items():

@@ -87,6 +87,9 @@ def generate_record_count_per_group_vis(
     operation_name: str,
     task_dir: Path,
     timestamp: str,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
     **kwargs
 ) -> Dict[str, Any]:
@@ -107,6 +110,12 @@ def generate_record_count_per_group_vis(
         Directory to save plots.
     timestamp : str
         For unique filenames.
+    theme : Optional[str]
+        Theme for visualizations (default: None, uses PAMOLA default).
+    backend : Optional[str]
+        Backend for visualizations (default: None, uses PAMOLA default).
+    strict : Optional[bool]
+        Whether to enforce strict visualization rules (default: False).
     visualization_paths : Optional[Dict[str, Any]]
         Dict to collect plot paths.
 
@@ -138,6 +147,9 @@ def generate_record_count_per_group_vis(
         orientation="v",
         sort_by="value",
         max_items=30,
+        theme=theme,
+        backend=backend,
+        strict=strict,
         **kwargs
     )
     logger.debug("Bar chart saved to: %s", vis_path)
@@ -213,6 +225,9 @@ def generate_aggregation_comparison_vis(
     operation_name: str,
     task_dir: Path,
     timestamp: str,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
     **kwargs
 ) -> Dict[str, Any]:
@@ -235,6 +250,12 @@ def generate_aggregation_comparison_vis(
         Directory to save plots.
     timestamp : str
         For unique filenames.
+    theme : Optional[str]
+        Theme for visualizations (default: None, uses PAMOLA default).
+    backend : Optional[str]
+        Backend for visualizations (default: None, uses PAMOLA default).
+    strict : Optional[bool]
+        Whether to enforce strict visualization rules (default: False).
     visualization_paths : Optional[Dict[str, Any]]
         Dict to collect plot paths.
 
@@ -269,6 +290,9 @@ def generate_aggregation_comparison_vis(
             orientation="v",
             sort_by="value",
             max_items=30,
+            theme=theme,
+            backend=backend,
+            strict=strict,
             **kwargs
         )
         logger.debug(
@@ -337,6 +361,9 @@ def generate_group_size_distribution_vis(
     operation_name: str,
     task_dir: Path,
     timestamp: str,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
     **kwargs
 ) -> Dict[str, Any]:
@@ -357,6 +384,13 @@ def generate_group_size_distribution_vis(
         Directory to save plots.
     timestamp : str
         For unique filenames.
+    theme : Optional[str]
+        Theme for visualizations (default: None, uses PAMOLA default).
+    backend : Optional[str]
+        Backend for visualizations (default: None, uses PAMOLA default).
+    strict : Optional[bool]
+        Whether to enforce strict visualization rules (default: False).
+
     visualization_paths : Optional[Dict[str, Any]]
         Dict to collect plot paths.
 
@@ -387,6 +421,9 @@ def generate_group_size_distribution_vis(
         y_label="Frequency",
         bins=20,
         kde=False,
+        theme=theme,
+        backend=backend,
+        strict=strict,
         **kwargs
     )
     logger.debug("Group size distribution histogram saved to: %s", vis_path)

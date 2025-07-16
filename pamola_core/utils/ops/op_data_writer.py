@@ -258,7 +258,7 @@ class DataWriter:
                 raise DataWriteError(f"File {output_path} already exists and overwrite=False")
 
             # Log writing operation
-            self.logger.info(f"Writing {format.upper()} data to {output_path}")
+            self.logger.info(f"Writing {format.upper()} data to {Path(output_path).name}")
 
             # Handle Dask DataFrames specially
             if isinstance(df, dd.DataFrame):
@@ -507,7 +507,7 @@ class DataWriter:
                 raise DataWriteError(f"File {output_path} already exists and overwrite=False")
 
             # Log writing operation
-            self.logger.info(f"Writing JSON data to {output_path}")
+            self.logger.info(f"Writing JSON data to {Path(output_path).name}")
 
             # Set indent if pretty-printing
             if "indent" not in kwargs and pretty:

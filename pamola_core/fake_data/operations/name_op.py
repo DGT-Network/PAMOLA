@@ -20,8 +20,6 @@ from pamola_core.utils import io
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
-# Configure logger
-logger = logging.getLogger(__name__)
 
 
 @register()
@@ -48,7 +46,7 @@ class FakeNameOperation(GeneratorOperation):
                  use_faker: bool = False,
                  case: str = "title",
                  dictionaries: Optional[Dict[str, str]] = None,
-                 batch_size: int = 10000,
+                 chunk_size: int = 10000,
                  null_strategy: str = "PRESERVE",
                  consistency_mechanism: str = "prgn",
                  mapping_store_path: Optional[str] = None,
@@ -66,8 +64,9 @@ class FakeNameOperation(GeneratorOperation):
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
                  visualization_backend: Optional[str] = None,
-                 vis_theme: Optional[str] = None,
-                 vis_strict: bool = False):
+                 visualization_theme: Optional[str] = None,
+                 visualization_strict: bool = False,
+                 encryption_mode: Optional[str] = None):
         """
         Initialize name generation operation.
 
@@ -83,7 +82,7 @@ class FakeNameOperation(GeneratorOperation):
             use_faker: Whether to use Faker library if available
             case: Case formatting (upper, lower, title)
             dictionaries: Paths to custom dictionaries
-            batch_size: Number of records to process in one batch
+            chunk_size: Number of records to process in one batch
             null_strategy: Strategy for handling NULL values
             consistency_mechanism: Method for ensuring consistency (mapping or prgn)
             mapping_store_path: Path to store mappings
@@ -104,7 +103,7 @@ class FakeNameOperation(GeneratorOperation):
         self.context_salt = context_salt
         self.save_mapping = save_mapping
         self.mapping_store_path = mapping_store_path
-        self.batch_size = batch_size
+        self.chunk_size = chunk_size
         self.use_cache = use_cache
         self.force_recalculation = force_recalculation
         self.use_dask = use_dask
@@ -135,7 +134,7 @@ class FakeNameOperation(GeneratorOperation):
             generator=base_generator,
             mode=mode,
             output_field_name=output_field_name,
-            batch_size=batch_size,
+            chunk_size=chunk_size,
             null_strategy=null_strategy,
             consistency_mechanism=consistency_mechanism,
             use_cache=use_cache,
@@ -146,9 +145,10 @@ class FakeNameOperation(GeneratorOperation):
             parallel_processes=parallel_processes,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
+            encryption_mode=encryption_mode,
             visualization_backend=visualization_backend,
-            vis_theme=vis_theme,
-            vis_strict=vis_strict
+            visualization_theme=visualization_theme,
+            visualization_strict=visualization_strict
         )
 
         # Set up performance metrics
@@ -178,9 +178,9 @@ class FakeNameOperation(GeneratorOperation):
             path_obj = Path(path)
             if path_obj.exists():
                 self.mapping_store.load(path_obj)
-                logger.info(f"Loaded mapping store from {path}")
+                self.logger.info(f"Loaded mapping store from {path_obj.name}")
         except Exception as e:
-            logger.warning(f"Failed to initialize mapping store: {str(e)}")
+            self.logger.warning(f"Failed to initialize mapping store: {str(e)}")
             self.mapping_store = None
 
     def execute(self, data_source, task_dir, reporter, progress_tracker: Optional[HierarchicalProgressTracker] = None, **kwargs):
@@ -196,6 +196,9 @@ class FakeNameOperation(GeneratorOperation):
         Returns:
             Operation result with processed data and metrics
         """
+        # Config logger task for operatiions
+        self.logger = kwargs.get('logger', self.logger)
+
         # Start timing for performance metrics
         self.start_time = time.time()
         self.process_count = 0
@@ -220,7 +223,7 @@ class FakeNameOperation(GeneratorOperation):
             io.ensure_directory(mapping_dir)
             mapping_path = mapping_dir / f"{self.name}_{self.field_name}_mapping.json"
             self.mapping_store.save_json(mapping_path)
-            logger.info(f"Saved mapping to {mapping_path}")
+            self.logger.info(f"Saved mapping to {Path(mapping_path).name}")
 
         return result
 
@@ -301,7 +304,7 @@ class FakeNameOperation(GeneratorOperation):
                 generated_values.append(synthetic_value)
                 self.process_count += 1
             except Exception as e:
-                logger.error(f"Error generating name for value '{value}': {str(e)}")
+                self.logger.error(f"Error generating name for value '{value}': {str(e)}")
                 generated_values.append(value if pd.notna(value) else np.nan)
 
         # Update the dataframe with generated values
@@ -386,7 +389,7 @@ class FakeNameOperation(GeneratorOperation):
         }
 
         # Try to get dictionary sizes
-        for lang in ["en", "ru", "vn"]:
+        for lang in ["en", "ru", "vi"]:
             # Count first names (male and female)
             male_first_count = len(getattr(self.generator, "_first_names_male", {}).get(lang, []))
             female_first_count = len(getattr(self.generator, "_first_names_female", {}).get(lang, []))
@@ -423,7 +426,7 @@ class FakeNameOperation(GeneratorOperation):
                     metrics_data["name_generator"]["generated_length_stats"] = new_stats
         except Exception as e:
             # Don't fail the operation if metrics collection fails
-            logger.warning(f"Error collecting length metrics: {str(e)}")
+            self.logger.warning(f"Error collecting length metrics: {str(e)}")
             metrics_data["name_generator"]["length_stats_error"] = str(e)
 
         return metrics_data
@@ -513,7 +516,7 @@ class FakeNameOperation(GeneratorOperation):
                         name: str(path) for name, path in visualizations.items()
                     }
             except Exception as e:
-                logger.warning(f"Error generating visualizations: {str(e)}")
+                self.logger.warning(f"Error generating visualizations: {str(e)}")
 
 
         # Save metrics to file

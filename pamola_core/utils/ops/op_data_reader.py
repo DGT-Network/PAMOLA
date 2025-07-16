@@ -82,6 +82,8 @@ class DataReader:
                        auto_optimize: bool = True,
                        show_progress: bool = True,
                        detect_parameters: bool = True,
+                       use_encryption: bool = False,
+                       encryption_mode: Optional[str] = None,
                        **kwargs) -> ResultWithError:
         """
         Read a DataFrame from various sources with comprehensive options.
@@ -218,22 +220,22 @@ class DataReader:
                     source, file_format, encoding, delimiter, quotechar,
                     columns, nrows, skiprows, use_dask,
                     encryption_key, show_progress,
-                    progress_tracker, **kwargs
+                    progress_tracker, use_encryption, encryption_mode, **kwargs
                 )
             elif file_format in ('parquet', 'pq'):
                 df, error_info = self._read_parquet_format(
                     source, columns, nrows, skiprows,
-                    encryption_key, **kwargs
+                    encryption_key, use_encryption, encryption_mode, **kwargs
                 )
             elif file_format in ('xls', 'xlsx', 'xlsm'):
                 df, error_info = self._read_excel_format(
                     source, sheet_name, columns, nrows, skiprows,
-                    encryption_key, show_progress, **kwargs
+                    encryption_key, show_progress, use_encryption, encryption_mode, **kwargs
                 )
             elif file_format == 'json':
                 df, error_info = self._read_json_format(
                     source, encoding, columns, nrows, skiprows,
-                    encryption_key, **kwargs
+                    encryption_key, use_encryption, encryption_mode, **kwargs
                 )
             else:
                 # For other formats, use generic read_dataframe from io.py
@@ -303,7 +305,10 @@ class DataReader:
     def _read_csv_format(self, source, file_format, encoding, delimiter, quotechar,
                          columns, nrows, skiprows, use_dask,
                          encryption_key, show_progress,
-                         progress_tracker=None, **kwargs) -> ResultWithError:
+                         progress_tracker=None,
+                         use_encryption: bool = False,
+                         encryption_mode: Optional[str] = None,
+                         **kwargs) -> ResultWithError:
         """Read data from CSV-like formats using io.py functions."""
         try:
             # For TSV format, override delimiter
@@ -321,7 +326,9 @@ class DataReader:
                 skiprows=skiprows,
                 use_dask=use_dask,
                 encryption_key=encryption_key,
-                show_progress=show_progress
+                show_progress=show_progress,
+                use_encryption=use_encryption,
+                encryption_mode=encryption_mode
             )
             return df, None
         except Exception as e:
@@ -333,7 +340,10 @@ class DataReader:
             return None, error_info
 
     def _read_parquet_format(self, source, columns, nrows, skiprows,
-                             encryption_key, **kwargs) -> ResultWithError:
+                             encryption_key,
+                             use_encryption: bool = False,
+                             encryption_mode: Optional[str] = None,
+                             **kwargs) -> ResultWithError:
         """Read data from Parquet format using io.py functions."""
         try:
             # Use io.py's read_parquet
@@ -341,6 +351,8 @@ class DataReader:
                 file_path=source,
                 columns=columns,
                 encryption_key=encryption_key,
+                use_encryption=use_encryption,
+                encryption_mode=encryption_mode,
                 **kwargs
             )
 
@@ -365,7 +377,10 @@ class DataReader:
             return None, error_info
 
     def _read_excel_format(self, source, sheet_name, columns, nrows, skiprows,
-                           encryption_key, show_progress, **kwargs) -> ResultWithError:
+                           encryption_key, show_progress,
+                           use_encryption: bool = False,
+                           encryption_mode: Optional[str] = None,
+                           **kwargs) -> ResultWithError:
         """Read data from Excel format using io.py functions."""
         try:
             # Use io.py's read_excel
@@ -377,6 +392,8 @@ class DataReader:
                 skiprows=skiprows,
                 encryption_key=encryption_key,
                 show_progress=show_progress,
+                use_encryption=use_encryption,
+                encryption_mode=encryption_mode,
                 **kwargs
             )
             return df, None
@@ -389,7 +406,10 @@ class DataReader:
             return None, error_info
 
     def _read_json_format(self, source, encoding, columns, nrows, skiprows,
-                          encryption_key, **kwargs) -> ResultWithError:
+                          encryption_key,
+                          use_encryption: bool = False,
+                          encryption_mode: Optional[str] = None,
+                          **kwargs) -> ResultWithError:
         """Read data from JSON format using io.py functions."""
         try:
             # Use io.py's read_json
@@ -397,6 +417,8 @@ class DataReader:
                 file_path=source,
                 encoding=encoding,
                 encryption_key=encryption_key,
+                use_encryption=use_encryption,
+                encryption_mode=encryption_mode,
                 **kwargs
             )
 

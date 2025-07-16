@@ -4,27 +4,26 @@ import json
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Dict, List, Any, Union
+from typing import Optional, Dict, List, Any, Union, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib
-
 # Set the backend to 'Agg' to avoid GUI issues
 matplotlib.use('Agg')
-from matplotlib import pyplot as plt
-from matplotlib.ticker import MaxNLocator
-import seaborn as sns
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import load_data_operation, ensure_directory, load_settings_operation, write_json, write_dataframe_to_csv
 from pamola_core.utils.logging import configure_task_logging
 from pamola_core.utils.ops.op_cache import operation_cache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus, OperationArtifact
-from pamola_core.utils.progress import ProgressTracker
+from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.common.constants import Constants
-from pamola_core.utils.visualization import _save_figure
+from pamola_core.utils.visualization import create_bar_plot, create_pie_chart, create_heatmap
 from pamola_core.utils.io_helpers import crypto_utils, directory_utils
+import dask.dataframe as dd
+from joblib import Parallel, delayed
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 class PartitionMethod(Enum):
     EQUAL_SIZE = "equal_size"
@@ -41,13 +40,24 @@ class SplitByIDValuesOperation(TransformationOperation):
     def __init__(self,
                  name: str = "split_by_id_values_operation",
                  description: str = "Split dataset by ID values",
-                 id_field: str = None,
+                 id_field: Optional[str] = None,
                  value_groups: Optional[Dict[str, List[Any]]] = None,
                  number_of_partitions: int = 0,
                  partition_method: str = PartitionMethod.EQUAL_SIZE.value,  # "equal_size", "random", "modulo"
                  output_format: str = OutputFormat.CSV.value,
+                 save_output: bool = True,
+                 use_cache: bool = True,
+                 force_recalculation: bool = False,
+                 use_dask: bool = False,
+                 npartitions: int = 1,
+                 use_vectorization: bool = False,
+                 parallel_processes: int = 1,
+                 visualization_backend: Optional[str] = None,
+                 visualization_theme: Optional[str] = None,
+                 visualization_strict: bool = False,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
+                 encryption_mode: Optional[str] = None,
                  **kwargs):
         """
         Initialize a SplitByIDValuesOperation instance.
@@ -80,6 +90,23 @@ class SplitByIDValuesOperation(TransformationOperation):
             Output format for the resulting files (e.g., "csv", "json"). Default is "csv".
         **kwargs : dict
         """
+        
+        # Call the parent constructor with extracted arguments
+        super().__init__(
+            name=name,
+            description=description,
+            use_cache=use_cache,
+            use_dask=use_dask,
+            npartitions=npartitions,
+            use_vectorization=use_vectorization,
+            parallel_processes=parallel_processes,
+            visualization_backend=visualization_backend,
+            visualization_theme=visualization_theme,
+            visualization_strict=visualization_strict,
+            use_encryption=use_encryption,
+            encryption_key=encryption_key,
+            encryption_mode=encryption_mode
+        )
 
         # Initialize attributes specific to SplitByIDValuesOperation
         self.id_field = id_field
@@ -87,19 +114,11 @@ class SplitByIDValuesOperation(TransformationOperation):
         self.number_of_partitions = number_of_partitions
         self.partition_method = partition_method
         self.output_format = output_format
-        self.use_encryption = use_encryption
-        self.encryption_key = encryption_key
-        
-        # Call the parent constructor with extracted arguments
-        super().__init__(
-            name=name,
-            description=description,
-            use_encryption=self.use_encryption,
-            encryption_key=self.encryption_key,
-            )
+        self.save_output = save_output
+        self.force_recalculation = force_recalculation
 
     def execute(self, data_source: DataSource, task_dir: Path, reporter: Any,
-                progress_tracker: Optional[ProgressTracker] = None, **kwargs):
+                progress_tracker: Optional[HierarchicalProgressTracker] = None, **kwargs):
         """
         Execute the SplitByIDValuesOperation to split a dataset based on ID values.
 
@@ -152,68 +171,85 @@ class SplitByIDValuesOperation(TransformationOperation):
                 - Error messages, if any
         """
 
+        self.start_time = time.time()
+
+        caller_operation = self.__class__.__name__
+        self.logger = kwargs.get('logger', self.logger)
+
         try:
-            self.logger = kwargs.get('logger', self.logger)
-            self.logger.info("Starting SplitByIDValuesOperation execution")
-
-            step_count = 0
+            # Start operation
+            self.logger.info(f"Operation: {caller_operation}, Start operation")
             if progress_tracker:
-                progress_tracker.update(step_count, {"step": "Preparation", "operation": self.name})
-                step_count += 1
+                progress_tracker.total = self._compute_total_steps(**kwargs)
+                progress_tracker.update(1, {"step": "Start operation - Preparation", "operation": caller_operation})
 
-            self.start_time = time.time()
+            dirs = self._prepare_directories(task_dir)
 
-            self._set_common_operation_parameters(**kwargs)
+            if reporter:
+                reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                       details={"step": "Preparation",
+                                                "message": "Preparation successfully",
+                                                "directories": {k: str(v) for k, v in dirs.items()}
+                                       })
 
-            directories = self._prepare_directories(task_dir)
-            self.logger.info(f"Output directories prepared: {directories}")
-
-            self.save_config(task_dir)
-            self.logger.info("Configuration file saved")
-
+            # Load data and validate input parameters
+            self.logger.info(f"Operation: {caller_operation}, Load data and validate input parameters")
             if progress_tracker:
-                progress_tracker.update(step_count, {"step": "Loading dataset", "operation": self.name})
-                step_count += 1
+                progress_tracker.update(1, {"step": "Load data and validate input parameters", "operation": caller_operation})
 
-            # Load data
-            dataset_name = kwargs.get('dataset_name', "main")
-            self.logger.info(f"Loading dataset '{dataset_name}' from data source")
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
+            df, is_valid = self._load_data_and_validate_input_parameters(data_source, **kwargs)
 
-            if df is None or df.empty:
-                self.logger.error("Loaded DataFrame is None or empty — aborting")
-                return OperationResult(status=OperationStatus.ERROR, error_message="Input data frame is None or empty")
+            if is_valid:
+                if reporter:
+                    reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                           details={"step": "Load data and validate input parameters",
+                                                    "message": "Load data and validate input parameters successfully",
+                                                    "shape": df.shape
+                                           })
+            else:
+                if reporter:
+                    reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                           details={"step": "Load data and validate input parameters",
+                                                    "message": "Load data and validate input parameters failed"
+                                           })
+                    return OperationResult(status=OperationStatus.ERROR,
+                                           error_message="Load data and validate input parameters failed")
 
-            self.logger.info(f"Loaded dataset '{dataset_name}' with shape {df.shape}")
-
-            self.input_dataset = dataset_name
-            self.original_df = df.copy(deep=True)
-
-            # Handle caching
+            # Handle cache if required
             if self.use_cache and not self.force_recalculation:
+                self.logger.info(f"Operation: {caller_operation}, Load result from cache")
                 if progress_tracker:
-                    progress_tracker.update(step_count, {"step": "Use cache", "operation": self.name})
-                    step_count += 1
+                    progress_tracker.update(1, {"step": "Load result from cache", "operation": caller_operation})
 
-                cached_result = self._get_cache(df.copy())  # _get_cache now returns OperationResult or None
+                cached_result = self._get_cache(df.copy(), **kwargs)  # _get_cache now returns OperationResult or None
                 if cached_result is not None and isinstance(cached_result, OperationResult):
-                    self.logger.info("Loaded result from cache — skipping execution.")
+                    if reporter:
+                        reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                               details={"step": "Load result from cache",
+                                                        "message": "Load result from cache successfully"
+                                               })
                     return cached_result
                 else:
-                    self.logger.info("No valid cached result found — proceeding with execution.")
+                    self.logger.info(f"Operation: {caller_operation}, Load result from cache failed — proceeding with execution.")
+                    if reporter:
+                        reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                               details={"step": "Load result from cache",
+                                                        "message": "Load result from cache failed - proceeding with execution"
+                                               })
 
+            # Process data
+            self.logger.info(f"Operation: {caller_operation}, Process data")
             if progress_tracker:
-                progress_tracker.update(step_count, {"step": "Validating parameters", "operation": self.name})
-                step_count += 1
+                progress_tracker.update(1, {"step": "Process data", "operation": caller_operation})
 
-            if not self._validate_parameters(df):
-                self.logger.error("Validation failed: Input parameters are invalid")
-                return OperationResult(status=OperationStatus.ERROR, error_message="Input parameters are invalid")
+            transformed_df = self._process_data(df, **kwargs)
 
-            if progress_tracker:
-                progress_tracker.update(step_count, {"step": "Processing data", "operation": self.name})
-                step_count += 1
+            if reporter:
+                reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                       details={"step": "Process data",
+                                                "message": "Process data successfully",
+                                                "num_subsets": len(transformed_df)
+                                       })
 
             result = OperationResult(status=OperationStatus.SUCCESS,
                                      artifacts=[],
@@ -221,128 +257,270 @@ class SplitByIDValuesOperation(TransformationOperation):
                                      error_message=None, execution_time=0,
                                      error_trace=None)
 
-            self.logger.info("Processing data into field-based subsets")
-            transformed_df = self._process_data(df, **kwargs)
-            self.logger.info(f"Data split into {len(transformed_df)} subset(s)")
-
             self.end_time = time.time()
             result.execution_time = self.end_time - self.start_time
 
+            # Collect metric
+            self.logger.info(f"Operation: {caller_operation}, Collect metric")
             if progress_tracker:
-                progress_tracker.update(step_count, {"step": "Collecting metrics", "operation": self.name})
-                step_count += 1
+                progress_tracker.update(1, {"step": "Collect metric", "operation": caller_operation})
 
             metrics = self._collect_metrics(df, transformed_df)
             result.metrics = metrics
             self._save_metrics(metrics, task_dir, result, **kwargs)
 
-            if self.save_output:
-                if progress_tracker:
-                    progress_tracker.update(step_count, {"step": "Saving output", "operation": self.name})
-                    step_count += 1
-
-                self.logger.info("Saving output subsets to disk")
-                self._save_output(transformed_df, task_dir, result, **kwargs)
-                self.logger.info("Output files saved")
-
-            if self.generate_visualization:
-                if progress_tracker:
-                    progress_tracker.update(step_count, {"step": "Generating visualizations", "operation": self.name})
-                    step_count += 1
-
-                self.logger.info("Generating visualizations")
-                self._generate_visualizations(df, transformed_df, task_dir, result, **kwargs)
-                self.logger.info("Visualizations completed")
-
-            self.logger.info("SplitByIDValuesOperation completed successfully")
-
             if reporter:
-                reporter.add_operation("SplitByIDValuesOperation", status="info",
-                                       details={"message": "SplitByIDValuesOperation completed successfully"})
+                reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                       details={"step": "Collect metric",
+                                                "message": "Collect metric successfully",
+                                                "summary": {
+                                                    "input_dataset": metrics.get("input_dataset"),
+                                                    "input_records": metrics.get("total_input_records"),
+                                                    "input_fields": metrics.get("total_input_fields"),
+                                                    "output_records": metrics.get("total_output_records"),
+                                                    "output_fields": metrics.get("total_output_fields"),
+                                                    "id_field": metrics.get("id_field"),
+                                                    "splits": metrics.get("number_of_splits"),
+                                                    "execution_time_seconds": metrics.get("execution_time_seconds")
+                                                }
+                                       })
 
+            # Save output if required
+            if self.save_output:
+                self.logger.info(f"Operation: {caller_operation}, Save output")
+                if progress_tracker:
+                    progress_tracker.update(1, {"step": "Save output", "operation": caller_operation})
+
+                self._save_output(transformed_df, task_dir, result, **kwargs)
+
+                if reporter:
+                    reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                           details={"step": "Save output",
+                                                    "message": "Save output successfully",
+                                                    "files_saved": len(result.artifacts)
+                                           })
+
+            # Generate visualizations if required
+            if self.generate_visualization:
+                self.logger.info(f"Operation: {caller_operation}, Generate visualizations")
+                if progress_tracker:
+                    progress_tracker.update(1,{"step": "Generate visualizations", "operation": caller_operation})
+
+                self._generate_visualizations(df, transformed_df, task_dir, result, **kwargs)
+
+                if reporter:
+                    reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                           details={"step": "Generate visualizations",
+                                                    "message": "Generate visualizations successfully",
+                                                    "num_images": len([a for a in result.artifacts if a.get("artifact_type") == "png"])
+                                           })
+
+            # Save cache if required
             if self.use_cache:
-                self._save_cache(task_dir, result)
-                self.logger.info("Cached result saved successfully in task directory.")
+                self.logger.info(f"Operation: {caller_operation}, Save cache")
+                if progress_tracker:
+                    progress_tracker.update(1, {"step": "Save cache", "operation": caller_operation})
+
+                self._save_cache(task_dir, result, **kwargs)
+
+                if reporter:
+                    reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                           details={"step": "Save cache",
+                                                    "message": "Save cache successfully"
+                                           })
+
+            # Operation completed successfully
+            self.logger.info(f"Operation: {caller_operation}, Operation completed successfully.")
+            if reporter:
+                reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                       details={"step": "Return result",
+                                                "message": "Operation completed successfully"
+                                       })
 
             return result
 
         except Exception as e:
-            error_msg = f"Error in SplitByIDValuesOperation: {e}"
-            self.logger.exception(error_msg)
-
-            if progress_tracker:
-                progress_tracker.update(0, {"step": "Error", "error": str(e)})
-
+            self.logger.error(f"Operation: {caller_operation}, error occurred: {e}")
             if reporter:
-                reporter.add_operation("SplitByIDValuesOperation", status="error", details={"error": str(e)})
+                reporter.add_operation(f"Operation {caller_operation}", status="error",
+                                       details={
+                                            "step": "Exception",
+                                            "message": "Operation failed due to an exception",
+                                            "error": str(e)
+                                       })
 
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=error_msg
-            )
+            return OperationResult(status=OperationStatus.ERROR, error_message=str(e))
+
 
     def _process_data(self, df: pd.DataFrame, **kwargs) -> Union[pd.DataFrame, Dict[str, pd.DataFrame]]:
         """
-        Split dataset horizontally based on values in the id_field.
+        Main entry point to split a DataFrame into subsets based on ID values or partition strategy.
 
-        Two modes:
-        1. If value_groups is specified: split by explicit ID value lists.
-        2. If number_of_partitions > 0: split into partitions by method.
+        The method automatically chooses an execution strategy depending on:
+        - use_dask: for distributed processing with Dask.
+        - use_vectorization: for parallel batch processing with Joblib.
+        - Fallback to standard Pandas processing otherwise.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input DataFrame to be split.
 
         Returns
         -------
         Dict[str, pd.DataFrame]
-            Mapping from subset name to subset DataFrame.
+            Dictionary mapping partition names to DataFrame subsets.
+        """
+
+        # Dask should only be used with partition methods like MODULO or RANDOM.
+        # Other methods (e.g., EQUAL_SIZE or value_groups) are better handled with Pandas or Joblib
+        # Dask is not efficient for index-based slicing or group-based filtering
+        if self.use_dask and self.npartitions > 1 and self.partition_method in {
+            PartitionMethod.MODULO.value, PartitionMethod.RANDOM.value
+        }:
+            return self._process_with_dask(df)
+
+        # Joblib should only be used when value_groups are defined
+        # It is not suitable for partition methods like MODULO, RANDOM, or EQUAL_SIZE
+        # Since those can be handled more efficiently with Pandas or Dask
+        elif self.use_vectorization and self.parallel_processes > 0 and self.value_groups:
+            return self._process_with_joblib(df)
+
+        else:
+            return self._process_with_pandas(df)
+
+    def _process_with_dask(self, df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+        """
+        Split the DataFrame into partitions using Dask for scalable processing.
+
+        Supported partition methods:
+        - MODULO: partition based on hash(id) % number_of_partitions
+        - RANDOM: random distribution into partitions
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input dataset to be partitioned.
+
+        Returns
+        -------
+        Dict[str, pd.DataFrame]
+            Dictionary where keys are partition names (e.g., "partition_0") and values are DataFrame subsets.
+        """
+        subsets = {}
+        ddf = dd.from_pandas(df, npartitions=self.npartitions)
+
+        if self.partition_method == PartitionMethod.MODULO.value:
+            def apply_modulo(part):
+                part["_partition"] = part[self.id_field].apply(lambda x: hash(x) % self.number_of_partitions)
+                return part
+
+            ddf = ddf.map_partitions(apply_modulo)
+
+        elif self.partition_method == PartitionMethod.RANDOM.value:
+            def apply_random_partition(part):
+                np.random.seed(42)
+                part["_partition"] = np.random.choice(self.number_of_partitions, size=len(part))
+                return part
+
+            ddf = ddf.map_partitions(apply_random_partition)
+
+        for i in range(self.number_of_partitions):
+            part_df = ddf[ddf["_partition"] == i].drop(columns=["_partition"]).compute()
+            subsets[f"partition_{i}"] = part_df
+
+        return subsets
+
+    def _process_with_joblib(self, df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+        """
+        Split the DataFrame based on explicit value_groups using Joblib for parallel filtering.
+
+        Each group is defined by a list of values from the id_field.
+        Any unmatched rows will be grouped under "others".
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input dataset to be split.
+
+        Returns
+        -------
+        Dict[str, pd.DataFrame]
+            Dictionary mapping group names to DataFrame subsets.
+        """
+
+        def filter_group(group_name, values):
+            mask = df[self.id_field].isin(values)
+            return group_name, df[mask].copy()
+
+        results = Parallel(n_jobs=self.parallel_processes)(
+            delayed(filter_group)(group_name, values)
+            for group_name, values in self.value_groups.items()
+        )
+        subsets = dict(results)
+
+        # Handle "others"
+        all_values = [v for vals in self.value_groups.values() for v in vals]
+        others_mask = ~df[self.id_field].isin(all_values)
+        if others_mask.any():
+            subsets["others"] = df[others_mask].copy()
+
+        return subsets
+
+    def _process_with_pandas(self, df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+        """
+        Split the DataFrame using pure Pandas, based on value_groups or partition method.
+
+        - If value_groups is provided: splits by defined groups and an optional "others" group.
+        - If number_of_partitions is set: supports EQUAL_SIZE, RANDOM, or MODULO strategies.
+        - If none of the above: returns full DataFrame under "all_data".
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input dataset to be split.
+
+        Returns
+        -------
+        Dict[str, pd.DataFrame]
+            Dictionary of split DataFrames by group or partition.
         """
         subsets = {}
 
-        # Mode 1: value_groups splitting
         if self.value_groups:
             for group_name, values in self.value_groups.items():
                 mask = df[self.id_field].isin(values)
-                subset_df = df[mask].copy()
-                subsets[group_name] = subset_df
-            # Optional: group for "others" if some IDs don't belong to any group
+                subsets[group_name] = df[mask].copy()
+
             all_values = [v for vals in self.value_groups.values() for v in vals]
             others_mask = ~df[self.id_field].isin(all_values)
             if others_mask.any():
                 subsets["others"] = df[others_mask].copy()
 
-        # Mode 2: partition splitting
         elif self.number_of_partitions > 0:
             if self.partition_method == PartitionMethod.EQUAL_SIZE.value:
-                # Sort by id_field, split roughly equal-sized chunks
                 sorted_df = df.sort_values(by=self.id_field)
                 partition_sizes = np.full(self.number_of_partitions, len(sorted_df) // self.number_of_partitions)
                 partition_sizes[:len(sorted_df) % self.number_of_partitions] += 1
+
                 start_idx = 0
                 for i, size in enumerate(partition_sizes):
                     end_idx = start_idx + size
-                    subset_df = sorted_df.iloc[start_idx:end_idx].copy()
-                    subsets[f"partition_{i}"] = subset_df
+                    subsets[f"partition_{i}"] = sorted_df.iloc[start_idx:end_idx].copy()
                     start_idx = end_idx
 
             elif self.partition_method == PartitionMethod.RANDOM.value:
-                # Randomly assign rows to partitions
                 np.random.seed(42)
                 partitions = np.random.choice(self.number_of_partitions, size=len(df))
                 for i in range(self.number_of_partitions):
-                    subset_df = df[partitions == i].copy()
-                    subsets[f"partition_{i}"] = subset_df
+                    subsets[f"partition_{i}"] = df[partitions == i].copy()
 
             elif self.partition_method == PartitionMethod.MODULO.value:
-                # Partition by modulo of hash of id_field values
-                def modulo_partition(val):
-                    h = hash(val)
-                    return h % self.number_of_partitions
-
-                partitions = df[self.id_field].apply(modulo_partition)
+                partitions = df[self.id_field].apply(lambda x: hash(x) % self.number_of_partitions)
                 for i in range(self.number_of_partitions):
-                    subset_df = df[partitions == i].copy()
-                    subsets[f"partition_{i}"] = subset_df
+                    subsets[f"partition_{i}"] = df[partitions == i].copy()
 
         else:
-            # If no splitting requested, return entire dataframe as one subset
             subsets["all_data"] = df.copy()
 
         return subsets
@@ -373,7 +551,7 @@ class SplitByIDValuesOperation(TransformationOperation):
 
         return {
             "operation_type": self.__class__.__name__,
-            "input_dataset": self.input_dataset or "unknown.csv",
+            "input_dataset": self._input_dataset or "unknown.csv",
             "total_input_records": input_rows,
             "total_input_fields": input_fields,
             "total_output_records": total_output_records,
@@ -381,7 +559,7 @@ class SplitByIDValuesOperation(TransformationOperation):
             "id_field": self.id_field,
             "number_of_splits": len(output_data),
             "split_info": split_info,
-            "execution_time_seconds": round(self.end_time - self.start_time, 2),
+            "execution_time_seconds": self.end_time - self.start_time,
             "processing_date": datetime.now().isoformat()
         }
 
@@ -398,9 +576,9 @@ class SplitByIDValuesOperation(TransformationOperation):
 
         try:
             use_encryption = kwargs.get('use_encryption', False)
-            encryption_key= kwargs.get('encryption_key', None) if use_encryption else None
+            encryption_key = kwargs.get('encryption_key', None) if use_encryption else None
             write_json(metrics, metrics_path, encryption_key=encryption_key)
-            
+
             result.add_artifact(
                 artifact_type="json",
                 path=metrics_path,
@@ -437,22 +615,24 @@ class SplitByIDValuesOperation(TransformationOperation):
 
             try:
                 use_encryption = kwargs.get('use_encryption', False)
-                encryption_key= kwargs.get('encryption_key', None) if use_encryption else None
+                encryption_key = kwargs.get('encryption_key', None)
+                encryption_mode = get_encryption_mode(df, **kwargs)
                 if self.output_format == OutputFormat.CSV.value:
-                    write_dataframe_to_csv(df=df, file_path=output_path, encryption_key=encryption_key)
+                    write_dataframe_to_csv(df=df, file_path=output_path, encryption_key=encryption_key, use_encryption=use_encryption, encryption_mode=encryption_mode)
                 elif self.output_format == OutputFormat.JSON.value:
                     if encryption_key:
                         file_path = Path(output_path)
                         temp_dir = file_path.parent / "temp"
                         temp_dir.mkdir(parents=True, exist_ok=True)
                         temp_destination_path = temp_dir / f"decrypted_{file_path.name}"
-                        
+
                         df.to_json(temp_destination_path, orient="records", lines=True)
-                        
+
                         crypto_utils.encrypt_file(
                             source_path=temp_destination_path,
                             destination_path=output_path,
-                            key=encryption_key
+                            key=encryption_key,
+                            mode=encryption_mode
                         )
                         directory_utils.safe_remove_temp_file(temp_destination_path)
                     else:
@@ -478,9 +658,7 @@ class SplitByIDValuesOperation(TransformationOperation):
                                  task_dir: Path,
                                  result: OperationResult,
                                  **kwargs) -> None:
-        """
-        Generate visualizations for SplitByIDValuesOperation, only if output_data is a dictionary of DataFrames.
-        """
+
         if not isinstance(output_data, dict) or not output_data:
             self.logger.warning("Skipping visualization: output_data is not a non-empty dictionary of DataFrames.")
             return
@@ -491,87 +669,84 @@ class SplitByIDValuesOperation(TransformationOperation):
         suffix = f"_{self.timestamp}" if self.timestamp else ""
         operation = self.__class__.__name__
 
-        bar_path = self._plot_record_count_bar_chart(output_data, vis_dir, suffix, operation, **kwargs)
-        if bar_path:
-            result.add_artifact(
-                artifact_type="png",
-                path=bar_path,
-                description="Bar chart showing record count per subset",
-                category=Constants.Artifact_Category_Visualization
+        kwargs["backend"] = kwargs.pop("visualization_backend", self.visualization_backend)
+        kwargs["theme"] = kwargs.pop("visualization_theme", self.visualization_theme)
+        kwargs["strict"] = kwargs.pop("visualization_strict", self.visualization_strict)
+
+        # 1. Bar chart: Record count per subset
+        try:
+            bar_data = {k: len(df) for k, df in output_data.items()}
+            bar_path = vis_dir / f"{operation}_record_count_bar_chart{suffix}.png"
+            bar_result = create_bar_plot(
+                data=bar_data,
+                output_path=bar_path,
+                title="Record Count per Subset",
+                orientation="v",
+                x_label="Subset",
+                y_label="Number of Records",
+                **kwargs
             )
+            if not bar_result.startswith("Error"):
+                result.add_artifact(
+                    artifact_type="png",
+                    path=bar_result,
+                    description="Bar chart showing record count per subset",
+                    category=Constants.Artifact_Category_Visualization
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to create record count bar chart: {e}")
 
-        pie_path = self._plot_record_distribution_pie_chart(output_data, vis_dir, suffix, operation, **kwargs)
-        if pie_path:
-            result.add_artifact(
-                artifact_type="png",
-                path=pie_path,
-                description="Pie chart showing record distribution across subsets",
-                category=Constants.Artifact_Category_Visualization
+        # 2. Pie chart: Distribution across subsets
+        try:
+            pie_path = vis_dir / f"{operation}_record_distribution_pie_chart{suffix}.png"
+            pie_result = create_pie_chart(
+                data=bar_data,
+                output_path=pie_path,
+                title="Record Distribution Across Subsets",
+                show_percentages=True,
+                show_values=True,
+                **kwargs
             )
+            if not pie_result.startswith("Error"):
+                result.add_artifact(
+                    artifact_type="png",
+                    path=pie_result,
+                    description="Pie chart showing record distribution across subsets",
+                    category=Constants.Artifact_Category_Visualization
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to create record distribution pie chart: {e}")
 
-        id_dist_path = self._plot_id_value_distribution(output_data, vis_dir, suffix, operation, **kwargs)
-        if id_dist_path:
-            result.add_artifact(
-                artifact_type="png",
-                path=id_dist_path,
-                description="Distribution of ID values across subsets (stacked bar chart)",
-                category=Constants.Artifact_Category_Visualization
+        # 3. Heatmap: ID value distribution across subsets
+        try:
+            id_values_per_subset = {
+                subset_name: df[self.id_field].value_counts()
+                for subset_name, df in output_data.items()
+            }
+            combined_df = pd.DataFrame(id_values_per_subset).fillna(0).sort_index()
+
+            id_dist_path = vis_dir / f"{operation}_id_value_distribution{suffix}.png"
+            heatmap_result = create_heatmap(
+                data=combined_df.T,
+                output_path=id_dist_path,
+                title="Distribution of ID Values Across Subsets",
+                x_label="ID Value",
+                y_label="Subset",
+                annotate=True,
+                annotation_format=".0f",
+                **kwargs
             )
+            if not heatmap_result.startswith("Error"):
+                result.add_artifact(
+                    artifact_type="png",
+                    path=heatmap_result,
+                    description="Distribution of ID values across subsets (heatmap)",
+                    category=Constants.Artifact_Category_Visualization
+                )
+        except Exception as e:
+            self.logger.error(f"Failed to create ID value distribution heatmap: {e}")
 
-    def _plot_record_count_bar_chart(self, output_data: Dict[str, pd.DataFrame], vis_dir: Path, suffix: str, operation: str, **kwargs) -> Path:
-        counts = {k: len(df) for k, df in output_data.items()}
-
-        fig, ax = plt.subplots(figsize=(10, 6))
-        sns.barplot(x=list(counts.keys()), y=list(counts.values()), ax=ax)
-        ax.set_title("Record Count per Subset")
-        ax.set_xlabel("Subset")
-        ax.set_ylabel("Number of Records")
-        ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-        plt.xticks(rotation=45)
-
-        path = vis_dir / f"{operation}_record_count_bar_chart{suffix}.png"
-        plt.tight_layout()
-        _save_figure(fig, path, **kwargs)
-
-        return path
-
-    def _plot_record_distribution_pie_chart(self, output_data: Dict[str, pd.DataFrame], vis_dir: Path, suffix: str, operation: str, **kwargs) -> Path:
-        counts = {k: len(df) for k, df in output_data.items()}
-        labels = list(counts.keys())
-        sizes = list(counts.values())
-
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140)
-        ax.set_title("Record Distribution Across Subsets")
-
-        path = vis_dir / f"{operation}_record_distribution_pie_chart{suffix}.png"
-        plt.tight_layout()
-        _save_figure(fig, path, **kwargs)
-
-        return path
-
-    def _plot_id_value_distribution(self, output_data: Dict[str, pd.DataFrame], vis_dir: Path, suffix: str, operation: str, **kwargs) -> Path:
-        id_values_per_subset = {
-            subset_name: df[self.id_field].value_counts()
-            for subset_name, df in output_data.items()
-        }
-
-        combined_df = pd.DataFrame(id_values_per_subset).fillna(0).sort_index()
-
-        fig, ax = plt.subplots(figsize=(12, 6))
-        combined_df.T.plot(kind='bar', stacked=True, ax=ax)
-        ax.set_title("Distribution of ID Values Across Subsets")
-        ax.set_xlabel("Subset")
-        ax.set_ylabel("Count of ID Values")
-        ax.legend(title="ID Values", bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.tight_layout()
-
-        path = vis_dir / f"{operation}_id_value_distribution{suffix}.png"
-        _save_figure(fig, path, **kwargs)
-
-        return path
-
-    def _save_cache(self, task_dir: Path, result: OperationResult) -> None:
+    def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
         """
         Save the operation result to cache.
 
@@ -594,13 +769,13 @@ class SplitByIDValuesOperation(TransformationOperation):
 
             cache_data = {
                 "result": result_data,
-                "parameters": self._get_cache_parameters(),
+                "parameters": self._get_cache_parameters(**kwargs),
             }
 
             cache_key = operation_cache.generate_cache_key(
                 operation_name=self.__class__.__name__,
-                parameters=self._get_cache_parameters(),
-                data_hash=self._generate_data_hash(self.original_df.copy())
+                parameters=self._get_cache_parameters(**kwargs),
+                data_hash=self._generate_data_hash(self._original_df.copy())
             )
 
             operation_cache.save_cache(
@@ -614,7 +789,7 @@ class SplitByIDValuesOperation(TransformationOperation):
         except Exception as e:
             self.logger.warning(f"Failed to save cache: {e}")
 
-    def _get_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
+    def _get_cache(self, df: pd.DataFrame, **kwargs) -> Optional[OperationResult]:
         """
         Retrieve cached result if available and valid.
 
@@ -631,7 +806,7 @@ class SplitByIDValuesOperation(TransformationOperation):
         try:
             cache_key = operation_cache.generate_cache_key(
                 operation_name=self.__class__.__name__,
-                parameters=self._get_cache_parameters(),
+                parameters=self._get_cache_parameters(**kwargs),
                 data_hash=self._generate_data_hash(df)
             )
 
@@ -677,27 +852,41 @@ class SplitByIDValuesOperation(TransformationOperation):
             self.logger.warning(f"Failed to load cache: {e}")
             return None
 
-    def _get_cache_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self, **kwargs) -> Dict[str, Any]:
         """
-        Get operation-specific parameters required for generating a cache key.
+        Get operation-specific parameters for SplitByIDValuesOperation using external kwargs.
 
-        These parameters define the behavior of the transformation and are used
-        to determine cache uniqueness.
+        Parameters
+        ----------
+        **kwargs : dict
+            Dictionary of parameters that may override instance attributes.
 
         Returns
         -------
         Dict[str, Any]
             Dictionary of relevant parameters to identify the operation configuration.
         """
-        params = {
+        return {
             "operation": self.__class__.__name__,
-            "version": self.version,  # To support invalidation on version changes
-            "value_groups": self.value_groups,
-            "partition_method": self.partition_method,
-            "number_of_partitions": self.number_of_partitions,
-            "id_field": self.id_field,
+            "version": self.version,
+            "id_field": kwargs.get("id_field"),
+            "value_groups": kwargs.get("value_groups"),
+            "number_of_partitions": kwargs.get("number_of_partitions"),
+            "partition_method": kwargs.get("partition_method"),
+            "output_format": kwargs.get("output_format"),
+            "save_output": kwargs.get("save_output"),
+            "use_cache": kwargs.get("use_cache"),
+            "force_recalculation": kwargs.get("force_recalculation"),
+            "use_dask": kwargs.get("use_dask"),
+            "npartitions": kwargs.get("npartitions"),
+            "use_vectorization": kwargs.get("use_vectorization"),
+            "parallel_processes": kwargs.get("parallel_processes"),
+            "visualization_backend": kwargs.get("visualization_backend"),
+            "visualization_theme": kwargs.get("visualization_theme"),
+            "visualization_strict": kwargs.get("visualization_strict"),
+            "use_encryption": kwargs.get("use_encryption"),
+            "encryption_key": str(kwargs.get("encryption_key")) if kwargs.get("encryption_key") else None
         }
-        return params
 
     def _generate_data_hash(self, data: pd.DataFrame) -> str:
         """
@@ -755,7 +944,43 @@ class SplitByIDValuesOperation(TransformationOperation):
             fallback = f"{data.shape}_{list(data.dtypes)}"
             return hashlib.md5(fallback.encode()).hexdigest()
 
-    def _validate_parameters(self, df: pd.DataFrame) -> bool:
+    def _set_input_parameters(self, **kwargs):
+        """
+        Set common configurable operation parameters from keyword arguments.
+        """
+
+        self.id_field = kwargs.get("id_field", getattr(self, "id_field", None))
+        self.value_groups = kwargs.get("value_groups", getattr(self, "value_groups", None))
+        self.number_of_partitions = kwargs.get("number_of_partitions", getattr(self, "number_of_partitions", 0))
+        self.partition_method = kwargs.get("partition_method",
+                                           getattr(self, "partition_method", PartitionMethod.EQUAL_SIZE.value))
+
+        self.generate_visualization = kwargs.get("generate_visualization",
+                                                 getattr(self, "generate_visualization", True))
+        self.save_output = kwargs.get("save_output", getattr(self, "save_output", True))
+        self.output_format = kwargs.get("output_format", getattr(self, "output_format", OutputFormat.CSV.value))
+        self.include_timestamp = kwargs.get("include_timestamp", getattr(self, "include_timestamp", True))
+
+        self.use_cache = kwargs.get("use_cache", getattr(self, "use_cache", True))
+        self.force_recalculation = kwargs.get("force_recalculation", getattr(self, "force_recalculation", False))
+
+        self.use_dask = kwargs.get("use_dask", getattr(self, "use_dask", False))
+        self.npartitions = kwargs.get("npartitions", getattr(self, "npartitions", 1))
+
+        self.use_vectorization = kwargs.get("use_vectorization", getattr(self, "use_vectorization", False))
+        self.parallel_processes = kwargs.get("parallel_processes", getattr(self, "parallel_processes", 1))
+
+        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", False))
+        self.visualization_theme = kwargs.get("visualization_theme", getattr(self, "visualization_theme", None))
+        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", None))
+
+        self.use_encryption = kwargs.get("use_encryption", getattr(self, "use_encryption", False))
+        self.encryption_key = kwargs.get("encryption_key",
+                                         getattr(self, "encryption_key", None)) if self.use_encryption else None
+
+        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") if self.include_timestamp else ""
+
+    def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         all_columns = set(df.columns)
 
         # Check if the ID field exists
@@ -769,7 +994,6 @@ class SplitByIDValuesOperation(TransformationOperation):
 
         # Validate value_groups or number_of_partitions
         if self.value_groups:
-            # Ensure all values in value_groups exist in the DataFrame column
             id_values_in_df = set(df[self.id_field].unique())
             for group_name, values in self.value_groups.items():
                 missing = [v for v in values if v not in id_values_in_df]
@@ -777,64 +1001,62 @@ class SplitByIDValuesOperation(TransformationOperation):
                     self.logger.warning(
                         f"Group '{group_name}' contains ID values not present in the DataFrame: {missing}"
                     )
-        elif self.number_of_partitions <= 0:
-            self.logger.error(
-                "Either 'value_groups' must be specified or 'number_of_partitions' must be a positive integer."
-            )
-            return False
+        else:
+            if self.number_of_partitions <= 0:
+                self.logger.error(
+                    "Either 'value_groups' must be specified or 'number_of_partitions' must be a positive integer."
+                )
+                return False
 
-        # Validate partition_method
-        if self.partition_method not in PartitionMethod._value2member_map_:
-            self.logger.error(
-                f"Unsupported partition method: {self.partition_method}. "
-                f"Choose from {[m.value for m in PartitionMethod]}."
-            )
-            return False
+            if self.partition_method not in PartitionMethod._value2member_map_:
+                self.logger.error(
+                    f"Unsupported partition method: {self.partition_method}. "
+                    f"Choose from {[m.value for m in PartitionMethod]}."
+                )
+                return False
 
         return True
 
-    def _initialize_logger(self, task_dir: Path):
-        """
-        Initialize the logger for the operation using the class name as task_id.
+    def _load_data_and_validate_input_parameters(self, data_source: DataSource, **kwargs) -> Tuple[Optional[pd.DataFrame], bool]:
+        self._set_input_parameters(**kwargs)
 
-        Parameters
-        ----------
-        task_dir : Path
-            The base directory for the task, used to determine log directory.
-        """
-        task_id = self.__class__.__name__
-        log_dir = task_dir / "logs"
+        dataset_name = kwargs.get('dataset_name', "main")
+        settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+        df = load_data_operation(data_source, dataset_name, **settings_operation)
 
-        self.logger = configure_task_logging(
-            task_id=task_id,
-            log_level="INFO",
-            log_dir=log_dir,
-        )
+        if df is None or df.empty:
+            self.logger.error("Error data frame is None or empty")
+            return None, False
 
-    def _set_common_operation_parameters(self, **kwargs):
-        """
-        Set common configurable operation parameters from keyword arguments.
-        """
+        self._input_dataset = dataset_name
+        self._original_df = df.copy(deep=True)
 
-        self.id_field = kwargs.get("id_field", getattr(self, "id_field", None))
-        self.value_groups = kwargs.get("value_groups", getattr(self, "value_groups", None))
-        self.number_of_partitions = kwargs.get("number_of_partitions", getattr(self, "number_of_partitions", 0))
-        self.partition_method = kwargs.get("partition_method",
-                                           getattr(self, "partition_method", PartitionMethod.EQUAL_SIZE.value))
-        self.output_format = kwargs.get("output_format", getattr(self, "output_format", OutputFormat.CSV.value))
+        return df, self._validate_input_parameters(df)
 
-        self.force_recalculation = kwargs.get("force_recalculation", getattr(self, "force_recalculation", False))
-        self.generate_visualization = kwargs.get("generate_visualization",
-                                                 getattr(self, "generate_visualization", True))
-        self.include_timestamp = kwargs.get("include_timestamp", getattr(self, "include_timestamp", True))
-        self.save_output = kwargs.get("save_output", getattr(self, "save_output", True))
+    def _compute_total_steps(self, **kwargs) -> int:
+        use_cache = kwargs.get("use_cache", self.use_cache)
+        force_recalculation = kwargs.get("force_recalculation", self.force_recalculation)
+        save_output = kwargs.get("save_output", self.save_output)
+        generate_visualization = kwargs.get("generate_visualization", self.generate_visualization)
 
-        self.parallel_processes = kwargs.get("parallel_processes", getattr(self, "parallel_processes", 1))
-        self.batch_size = kwargs.get("batch_size", getattr(self, "batch_size", 10000))
-        self.use_cache = kwargs.get("use_cache", getattr(self, "use_cache", False))
-        self.use_dask = kwargs.get("use_dask", getattr(self, "use_dask", False))
+        steps = 0
 
-        self.use_encryption = kwargs.get("use_encryption", getattr(self, "use_encryption", False))
-        self.encryption_key = kwargs.get("encryption_key", getattr(self, "encryption_key", None))
+        steps += 1  # Step 1: Preparation
+        steps += 1  # Step 2: Load data and validate input
 
-        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") if self.include_timestamp else ""
+        if use_cache and not force_recalculation:
+            steps += 1  # Step 3: Try to load from cache
+
+        steps += 1  # Step 4: Process data
+        steps += 1  # Step 5: Collect metrics
+
+        if save_output:
+            steps += 1  # Step 6: Save output
+
+        if generate_visualization:
+            steps += 1  # Step 7: Generate visualizations
+
+        if use_cache:
+            steps += 1  # Step 8: Save cache
+
+        return steps

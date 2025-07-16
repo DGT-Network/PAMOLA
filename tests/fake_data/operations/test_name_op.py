@@ -20,7 +20,7 @@ class TestFakeNameOperationInit(unittest.TestCase):
         # Check basic configuration attributes
         self.assertEqual(op.field_name, "full_name")
         self.assertEqual(op.mode, "ENRICH")
-        self.assertEqual(op.batch_size, 10000)
+        self.assertEqual(op.chunk_size, 10000)
         self.assertEqual(op.null_strategy, NullStrategy.PRESERVE)
         self.assertEqual(op.consistency_mechanism, "prgn")
 
@@ -66,7 +66,7 @@ class TestFakeNameOperationInit(unittest.TestCase):
             "use_faker": False,
             "case": "title",
             "dictionaries": None,
-            "batch_size": 10000,
+            "chunk_size": 10000,
             "null_strategy": "PRESERVE",
             "consistency_mechanism": "prgn",
             "mapping_store_path": "C:/fake_data/name_operation/mappings.json",
@@ -83,7 +83,7 @@ class TestFakeNameOperationInit(unittest.TestCase):
         self.assertEqual(op.field_name, "full_name")
         self.assertEqual(op.mode, "ENRICH")
         self.assertEqual(op.output_field_name, "full_name_enriched")
-        self.assertEqual(op.batch_size, 10000)
+        self.assertEqual(op.chunk_size, 10000)
         self.assertEqual(op.null_strategy, NullStrategy.PRESERVE)
         self.assertEqual(op.consistency_mechanism, "prgn")
         self.assertTrue(op.save_mapping)
@@ -148,7 +148,7 @@ class TestFakeNameOperationProcessValue(unittest.TestCase):
             "full_name", "Jane Doe", "synthetic_name"
         )
 
-    @patch("pamola_core.fake_data.commons.prgn.PRNGenerator")
+    @patch("pamola_core.fake_data.operations.name_op.PRNGenerator")
     def test_process_value_with_prgn_consistency(self, MockPRGN):
         self.op.consistency_mechanism = "prgn"
         self.op.generator.prgn_generator = None
@@ -308,7 +308,7 @@ class PrepareData:
             "use_faker": False,
             "case": "title",
             "dictionaries": None,
-            "batch_size": 10000,
+            "chunk_size": 10000,
             "null_strategy": "PRESERVE",
             "consistency_mechanism": "prgn",
             "mapping_store_path": "C:/fake_data/name_operation/mappings.json",
@@ -373,7 +373,7 @@ class TestFakeNameOperationExecute(unittest.TestCase):
                 msg=f"Unexpected artifact file type: {artifact.path}"
             )
             self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metric", "visualization"])
+            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
             self.assertIsInstance(artifact.tags, list)
             self.assertIsInstance(artifact.creation_time, str)
             self.assertIsInstance(artifact.size, int)
@@ -427,7 +427,7 @@ class TestFakeNameOperationExecute(unittest.TestCase):
                 msg=f"Unexpected artifact file type: {artifact.path}"
             )
             self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metric", "visualization"])
+            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
             self.assertIsInstance(artifact.tags, list)
             self.assertIsInstance(artifact.creation_time, str)
             self.assertIsInstance(artifact.size, int)

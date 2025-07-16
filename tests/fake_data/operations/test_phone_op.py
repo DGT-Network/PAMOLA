@@ -21,7 +21,7 @@ class TestFakePhoneOperationInit(unittest.TestCase):
         # Basic attributes
         self.assertEqual(op.field_name, "phone_number")
         self.assertEqual(op.mode, "ENRICH")
-        self.assertEqual(op.batch_size, 10000)
+        self.assertEqual(op.chunk_size, 10000)
         self.assertEqual(op.null_strategy, NullStrategy.PRESERVE)
         self.assertEqual(op.consistency_mechanism, "prgn")
         self.assertFalse(op.save_mapping)
@@ -82,7 +82,7 @@ class TestFakePhoneOperationInit(unittest.TestCase):
             "preserve_country_code": True,
             "preserve_operator_code": False,
             "region": "us",
-            "batch_size": 10000,
+            "chunk_size": 10000,
             "null_strategy": NullStrategy.PRESERVE,
             "consistency_mechanism": "prgn",
             "mapping_store_path": "C:/fake_data/phone_operation/mappings.json",
@@ -105,7 +105,7 @@ class TestFakePhoneOperationInit(unittest.TestCase):
         self.assertEqual(op.field_name, "phone_number")
         self.assertEqual(op.mode, "ENRICH")
         self.assertEqual(op.output_field_name, "phone_number_enriched")
-        self.assertEqual(op.batch_size, 10000)
+        self.assertEqual(op.chunk_size, 10000)
         self.assertEqual(op.null_strategy, NullStrategy.PRESERVE)
         self.assertEqual(op.consistency_mechanism, "prgn")
         self.assertEqual(op.mapping_store_path, "C:/fake_data/phone_operation/mappings.json")
@@ -393,7 +393,7 @@ class PrepareData:
             "preserve_country_code": True,
             "preserve_operator_code": False,
             "region": "us",
-            "batch_size": 10000,
+            "chunk_size": 10000,
             "null_strategy": "PRESERVE",
             "consistency_mechanism": "prgn",
             "mapping_store_path": "C:/fake_data/phone_operation/mappings.json",
@@ -464,7 +464,7 @@ class TestFakePhoneOperationExecute(unittest.TestCase):
                 msg=f"Unexpected artifact file type: {artifact.path}"
             )
             self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metric", "visualization"])
+            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
             self.assertIsInstance(artifact.tags, list)
             self.assertIsInstance(artifact.creation_time, str)
             self.assertIsInstance(artifact.size, int)
@@ -518,7 +518,7 @@ class TestFakePhoneOperationExecute(unittest.TestCase):
                 msg=f"Unexpected artifact file type: {artifact.path}"
             )
             self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metric", "visualization"])
+            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
             self.assertIsInstance(artifact.tags, list)
             self.assertIsInstance(artifact.creation_time, str)
             self.assertIsInstance(artifact.size, int)

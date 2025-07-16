@@ -517,6 +517,289 @@ def analyze_phone_field(df: pd.DataFrame,
 
     return stats
 
+def analyze_phone_chunk(chunk_df: pd.DataFrame, field_name: str,
+                        patterns_csv: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+    """
+    Analyze a phone number field in the given DataFrame.
+
+    Parameters:
+    -----------
+    chunk_df : pd.DataFrame
+        The DataFrame containing the data to analyze
+    field_name : str
+        The name of the field to analyze
+    patterns_csv : str, optional
+        Path to CSV with messenger patterns
+    **kwargs : dict
+        Additional parameters for the analysis
+
+    Returns:
+    --------
+    Dict[str, Any]
+        The results of the analysis
+    """
+    logger.info(f"Analyzing chunk of {field_name}")
+
+    # Initializing the result
+    stats = {
+        'total_rows': len(chunk_df),
+        'null_count': chunk_df[field_name].isna().sum(),
+        'non_null_count': len(chunk_df) - chunk_df[field_name].isna().sum(),
+        'normalization_success_count': 0,
+        'has_comment_count': 0,
+        'format_error_count': 0,
+        'country_codes': {},
+        'operator_codes': {},
+        'messenger_mentions': {key: 0 for key in DEFAULT_MESSENGER_PATTERNS.keys()},
+        'format_error_examples': []
+    }
+
+    for phone in chunk_df[field_name].dropna():
+        parsed = parse_phone_number(phone)
+
+        if parsed:
+            if parsed.get('is_valid', False):
+                # Try to normalize
+                normalized = normalize_phone(phone)
+                if normalized:
+                    stats['normalization_success_count'] += 1
+
+                # Count country codes
+                country_code = parsed.get('country_code', '')
+                if country_code:
+                    stats['country_codes'][country_code] = stats['country_codes'].get(country_code, 0) + 1
+
+                # Count operator codes
+                operator_code = parsed.get('operator_code', '')
+                if operator_code and country_code:
+                    # Store operator codes as country_code:operator_code
+                    code_key = f"{country_code}:{operator_code}"
+                    stats['operator_codes'][code_key] = stats['operator_codes'].get(code_key, 0) + 1
+
+                # Count comments
+                if parsed.get('comment', ''):
+                    stats['has_comment_count'] += 1
+
+                    # Count messenger mentions
+                    for messenger, mentioned in parsed.get('messenger_mentions', {}).items():
+                        if mentioned:
+                            stats['messenger_mentions'][messenger] = stats['messenger_mentions'].get(messenger, 0) + 1
+            else:
+                stats['format_error_count'] += 1
+                stats['format_error_examples'].append(phone)
+
+    return stats
+
+def analyze_phone_field_with_chunk(df: pd.DataFrame, field_name: str, patterns_csv: Optional[str] = None,
+                                    chunk_size: int = 10000, **kwargs) -> Dict[str, Any]:
+    """
+    Analyze a phone number field in the given DataFrame using chunk.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The DataFrame containing the data to analyze
+    field_name : str
+        The name of the field to analyze
+    patterns_csv : str, optional
+        Path to CSV with messenger patterns
+    chunk_size : int, optional
+        Size of chunk
+    **kwargs : dict
+        Additional parameters for the analysis
+
+    Returns:
+    --------
+    Dict[str, Any]
+        The results of the analysis
+    """
+    import joblib
+
+    if field_name not in df.columns:
+        return {'error': f"Field {field_name} not found in DataFrame"}
+
+    results = []
+    # Create chunks for processing
+    chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
+    for chunk in chunks:
+        chunk_result = analyze_phone_chunk(chunk, field_name, patterns_csv, **kwargs)
+        if chunk_result:
+            results.append(chunk_result)
+
+    # Aggregate results from all chunks
+    total_rows = sum(r['total_rows'] for r in results)
+    null_count = sum(r['null_count'] for r in results)
+    non_null_count = sum(r['non_null_count'] for r in results)
+    format_error_count = sum(r['format_error_count'] for r in results)
+    normalization_success_count = sum(r['normalization_success_count'] for r in results)
+    format_error_count = sum(r['format_error_count'] for r in results)
+    has_comment_count = sum(r['has_comment_count'] for r in results)
+    final_stats = {
+        'total_rows': total_rows,
+        'null_count': int(null_count),
+        'null_percentage': round((null_count / total_rows) * 100.0, 2)
+        if total_rows > 0 else 0,
+        'non_null_count': int(non_null_count),
+        'valid_count': int(non_null_count - format_error_count),
+        'valid_percentage': round(((non_null_count - format_error_count) / total_rows) * 100, 2)
+        if total_rows > 0 else 0,
+        'normalization_success_count': int(normalization_success_count),
+        'normalization_success_percentage': round((normalization_success_count / non_null_count) * 100, 2)
+        if non_null_count > 0 else 0,
+        'format_error_count': format_error_count,
+        'has_comment_count': has_comment_count,
+        'country_codes': {k: sum(r['country_codes'].get(k, 0) for r in results) for k in
+                          set(k for r in results for k in r['country_codes'].keys())},
+        'operator_codes': {k: sum(r['operator_codes'].get(k, 0) for r in results) for k in
+                           set(k for r in results for k in r['operator_codes'].keys())},
+        'messenger_mentions': {k: sum(r['messenger_mentions'][k] for r in results)
+                               for k in DEFAULT_MESSENGER_PATTERNS.keys()},
+        'format_error_examples': [item for r in results for item in r['format_error_examples']],
+    }
+
+    return final_stats
+
+def analyze_phone_field_with_joblib(df: pd.DataFrame, field_name: str, patterns_csv: Optional[str] = None,
+                                    n_jobs: int = -1, chunk_size: int = 10000, **kwargs) -> Dict[str, Any]:
+    """
+    Analyze a phone number field in the given DataFrame using Joblib.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The DataFrame containing the data to analyze
+    field_name : str
+        The name of the field to analyze
+    patterns_csv : str, optional
+        Path to CSV with messenger patterns
+    n_jobs : int, optional
+        Number of worker
+    chunk_size : int, optional
+        Size of chunk
+    **kwargs : dict
+        Additional parameters for the analysis
+
+    Returns:
+    --------
+    Dict[str, Any]
+        The results of the analysis
+    """
+    import joblib
+
+    if field_name not in df.columns:
+        return {'error': f"Field {field_name} not found in DataFrame"}
+
+    # Create chunks for parallel processing (you could also create chunks of a specific size)
+    chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
+
+    # Use Joblib's Parallel and delayed to process chunks in parallel
+    results = joblib.Parallel(n_jobs=n_jobs)(
+        joblib.delayed(analyze_phone_chunk)(chunk, field_name, patterns_csv, **kwargs) for chunk in chunks)
+
+    # Aggregate results from all chunks
+    total_rows = sum(r['total_rows'] for r in results)
+    null_count = sum(r['null_count'] for r in results)
+    non_null_count = sum(r['non_null_count'] for r in results)
+    format_error_count = sum(r['format_error_count'] for r in results)
+    normalization_success_count = sum(r['normalization_success_count'] for r in results)
+    format_error_count = sum(r['format_error_count'] for r in results)
+    has_comment_count = sum(r['has_comment_count'] for r in results)
+    final_stats = {
+        'total_rows': total_rows,
+        'null_count': int(null_count),
+        'null_percentage': round((null_count / total_rows) * 100.0, 2)
+        if total_rows > 0 else 0,
+        'non_null_count': int(non_null_count),
+        'valid_count': int(non_null_count - format_error_count),
+        'valid_percentage': round(((non_null_count - format_error_count) / total_rows) * 100, 2)
+        if total_rows > 0 else 0,
+        'normalization_success_count': int(normalization_success_count),
+        'normalization_success_percentage': round((normalization_success_count / non_null_count) * 100, 2)
+        if non_null_count > 0 else 0,
+        'format_error_count': format_error_count,
+        'has_comment_count': has_comment_count,
+        'country_codes': {k: sum(r['country_codes'].get(k, 0) for r in results) for k in
+                          set(k for r in results for k in r['country_codes'].keys())},
+        'operator_codes': {k: sum(r['operator_codes'].get(k, 0) for r in results) for k in
+                           set(k for r in results for k in r['operator_codes'].keys())},
+        'messenger_mentions': {k: sum(r['messenger_mentions'][k] for r in results)
+                               for k in DEFAULT_MESSENGER_PATTERNS.keys()},
+        'format_error_examples': [item for r in results for item in r['format_error_examples']],
+    }
+
+    return final_stats
+
+def analyze_phone_field_with_dask(df: pd.DataFrame, field_name: str, patterns_csv: Optional[str] = None,
+                                  npartitions: int = 2, chunk_size: int = 10000, **kwargs) -> Dict[str, Any]:
+    """
+    Analyze a phone number field in the given DataFrame using Joblib.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The DataFrame containing the data to analyze
+    field_name : str
+        The name of the field to analyze
+    patterns_csv : str, optional
+        Path to CSV with messenger patterns
+    npartitions : int, optional
+        Number of partitions
+    chunk_size : int, optional
+        Size of chunk
+    **kwargs : dict
+        Additional parameters for the analysis
+
+    Returns:
+    --------
+    Dict[str, Any]
+        The results of the analysis
+    """
+    import dask.dataframe as dd
+
+    if field_name not in df.columns:
+        return {'error': f"Field {field_name} not found in DataFrame"}
+
+    # Convert to Dask DataFrame
+    dask_df = dd.from_pandas(df, npartitions=npartitions)
+
+    # Apply the analysis to each partition (chunk)
+    results = dask_df.map_partitions(analyze_phone_chunk, field_name, patterns_csv, **kwargs)
+
+    # Compute the result (this triggers the parallel computation)
+    results = results.compute()
+
+    # Aggregate results from all chunks
+    total_rows = sum(r['total_rows'] for r in results)
+    null_count = sum(r['null_count'] for r in results)
+    non_null_count = sum(r['non_null_count'] for r in results)
+    format_error_count = sum(r['format_error_count'] for r in results)
+    normalization_success_count = sum(r['normalization_success_count'] for r in results)
+    format_error_count = sum(r['format_error_count'] for r in results)
+    has_comment_count = sum(r['has_comment_count'] for r in results)
+    final_stats = {
+        'total_rows': total_rows,
+        'null_count': int(null_count),
+        'null_percentage': round((null_count / total_rows) * 100.0, 2)
+        if total_rows > 0 else 0,
+        'non_null_count': int(non_null_count),
+        'valid_count': int(non_null_count - format_error_count),
+        'valid_percentage': round(((non_null_count - format_error_count) / total_rows) * 100, 2)
+        if total_rows > 0 else 0,
+        'normalization_success_count': int(normalization_success_count),
+        'normalization_success_percentage': round((normalization_success_count / non_null_count) * 100, 2)
+        if non_null_count > 0 else 0,
+        'format_error_count': format_error_count,
+        'has_comment_count': has_comment_count,
+        'country_codes': {k: sum(r['country_codes'].get(k, 0) for r in results) for k in
+                          set(k for r in results for k in r['country_codes'].keys())},
+        'operator_codes': {k: sum(r['operator_codes'].get(k, 0) for r in results) for k in
+                           set(k for r in results for k in r['operator_codes'].keys())},
+        'messenger_mentions': {k: sum(r['messenger_mentions'][k] for r in results)
+                               for k in DEFAULT_MESSENGER_PATTERNS.keys()},
+        'format_error_examples': [item for r in results for item in r['format_error_examples']],
+    }
+
+    return final_stats
 
 def create_country_code_dictionary(df: pd.DataFrame,
                                    field_name: str,

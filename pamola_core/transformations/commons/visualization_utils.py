@@ -420,6 +420,7 @@ def generate_dataset_overview_vis(
     backend: Optional[str] = None,
     strict: bool = False,
     visualization_paths: Optional[Dict[str, Any]] = None,
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Generate visualization charts for a dataset overview.
@@ -446,6 +447,8 @@ def generate_dataset_overview_vis(
         Whether to enforce strict type checking.
     visualization_paths : Optional[Dict[str, Any]]
         Dictionary to update with chart paths.
+    kwargs : Any
+        Additional keyword arguments for visualization functions.
 
     Returns
     -------
@@ -479,6 +482,7 @@ def generate_dataset_overview_vis(
             theme=theme,
             backend=backend,
             strict=strict,
+            **kwargs
         )
         visualization_paths[f"{dataset_label}_dtype_counts_bar_chart"] = vis_path
 
@@ -507,6 +511,7 @@ def generate_dataset_overview_vis(
             theme=theme,
             backend=backend,
             strict=strict,
+            **kwargs
         )
         visualization_paths[f"{dataset_label}_columns_null_percentage_bar_chart"] = (
             vis_path
@@ -533,6 +538,7 @@ def generate_dataset_overview_vis(
             theme=theme,
             backend=backend,
             strict=strict,
+            **kwargs
         )
         visualization_paths[f"{dataset_label}_columns_cardinality_bar_chart"] = vis_path
 
@@ -561,6 +567,7 @@ def generate_dataset_overview_vis(
                     theme=theme,
                     backend=backend,
                     strict=strict,
+                    **kwargs
                 )
                 visualization_paths[f"{dataset_label}_numeric_{stat}_bar_chart"] = (
                     vis_path
@@ -596,6 +603,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
+                **kwargs
             )
             visualization_paths[
                 f"{dataset_label}_categorical_top_value_count_bar_chart"
@@ -617,6 +625,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
+                **kwargs
             )
             visualization_paths[
                 f"{dataset_label}_categorical_unique_count_bar_chart"
@@ -652,6 +661,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
+                **kwargs
             )
             visualization_paths[f"{dataset_label}_datetime_min_bar_chart"] = vis_path
 
@@ -671,6 +681,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
+                **kwargs
             )
             visualization_paths[f"{dataset_label}_datetime_max_bar_chart"] = vis_path
 
@@ -704,6 +715,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
+                **kwargs
             )
             visualization_paths[f"{dataset_label}_boolean_true_counts_bar_chart"] = (
                 vis_path
@@ -725,6 +737,7 @@ def generate_dataset_overview_vis(
                 theme=theme,
                 backend=backend,
                 strict=strict,
+                **kwargs
             )
             visualization_paths[f"{dataset_label}_boolean_false_counts_bar_chart"] = (
                 vis_path
@@ -744,6 +757,7 @@ def generate_data_distribution_comparison_vis(
     backend: Optional[str] = None,
     strict: bool = False,
     visualization_paths: Optional[Dict[str, Any]] = None,
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Generate distribution comparison visualization for a single field.
@@ -770,6 +784,8 @@ def generate_data_distribution_comparison_vis(
         Whether to enforce strict type checking.
     visualization_paths : Optional[Dict[str, Any]]
         Dictionary to store visualization paths.
+    kwargs : Any
+        Additional keyword arguments for visualization functions.
 
     Returns
     -------
@@ -803,6 +819,7 @@ def generate_data_distribution_comparison_vis(
             theme=theme,
             backend=backend,
             strict=strict,
+            **kwargs
         )
         visualization_paths["numeric_comparison_histogram"] = vis_path
 
@@ -823,6 +840,7 @@ def generate_data_distribution_comparison_vis(
             theme=theme,
             backend=backend,
             strict=strict,
+            **kwargs
         )
         visualization_paths["category_comparison_bar_chart"] = vis_path
 
@@ -840,6 +858,7 @@ def generate_record_count_comparison_vis(
     backend: Optional[str] = None,
     strict: bool = False,
     visualization_paths: Optional[Dict[str, Any]] = None,
+    **kwargs: Any
 ) -> Dict[str, Any]:
     """
     Generate record count comparison visualization between original and transformed dataset.
@@ -866,6 +885,8 @@ def generate_record_count_comparison_vis(
         Whether to enforce strict type checking.
     visualization_paths : Optional[Dict[str, Any]]
         Dict to collect plot paths.
+    **kwargs : Any
+        Additional keyword arguments for visualization functions.
 
     Returns
     -------
@@ -898,6 +919,7 @@ def generate_record_count_comparison_vis(
             theme=theme,
             backend=backend,
             strict=strict,
+            **kwargs
         )
 
         visualization_paths["record_count_distribution_pie_chart"] = (
@@ -926,6 +948,7 @@ def generate_record_count_comparison_vis(
             theme=theme,
             backend=backend,
             strict=strict,
+            **kwargs
         )
 
         visualization_paths["record_count_comparison_bar_chart"] = bar_chart_result_path
@@ -971,6 +994,8 @@ def generate_field_count_comparison_vis(
         Whether to enforce strict type checking.
     visualization_paths : Optional[Dict[str, Any]]
         Dict to collect plot paths.
+    **kwargs : Any
+        Additional keyword arguments for visualization functions.
 
     Returns
     -------

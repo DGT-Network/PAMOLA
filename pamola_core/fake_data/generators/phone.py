@@ -461,18 +461,22 @@ class PhoneGenerator(BaseGenerator):
         if not format_template:
             format_template = "+CC AAA XXX XXX"
 
+        # Early return: if template has no placeholders, return as-is
+        if not re.search(r'\b(CC|A{1,4}|X{1,3})\b', format_template):
+            return format_template
+
         # Replace CC placeholder with country code
         result = format_template.replace("CC", country_code)
 
         # Replace operator code placeholder if available
         if operator_code:
             # Handle different area code placeholders
-            if "AAA" in result:
-                result = result.replace("AAA", operator_code)
-            elif "AAAA" in result:
+            if "AAAA" in result:
                 # Pad or truncate to 4 digits if needed
                 op_code = operator_code.ljust(4, '0') if len(operator_code) < 4 else operator_code[:4]
                 result = result.replace("AAAA", op_code)
+            elif "AAA" in result:
+                result = result.replace("AAA", operator_code)
             elif "AA" in result:
                 # Pad or truncate to 2 digits if needed
                 op_code = operator_code.ljust(2, '0') if len(operator_code) < 2 else operator_code[:2]
@@ -482,12 +486,12 @@ class PhoneGenerator(BaseGenerator):
                 result = result.replace("A", operator_code[0])
         else:
             # If no operator code, replace placeholders with appropriate number of digits from number
-            if "AAA" in result:
-                result = result.replace("AAA", number[:3])
-                number = number[3:]
-            elif "AAAA" in result:
+            if "AAAA" in result:
                 result = result.replace("AAAA", number[:4])
                 number = number[4:]
+            elif "AAA" in result:
+                result = result.replace("AAA", number[:3])
+                number = number[3:]
             elif "AA" in result:
                 result = result.replace("AA", number[:2])
                 number = number[2:]

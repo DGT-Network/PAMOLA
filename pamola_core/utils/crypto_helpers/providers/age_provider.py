@@ -20,10 +20,12 @@ from pamola_core.utils.crypto_helpers.errors import (
     AgeToolError
 )
 from pamola_core.utils.io_helpers.provider_interface import CryptoProvider
+from dotenv import load_dotenv
+load_dotenv()
 
 # Constants - only keep constant values at module level
 AGE_HEADER = b"age-encryption.org/"
-AGE_BINARY = os.environ.get("PAMOLA_AGE_BINARY", "age")
+AGE_BINARY = os.environ.get("PAMOLA_AGE_BINARY", "pamola_datasets/age_binary/age")
 
 
 class AgeProvider(CryptoProvider):
@@ -115,9 +117,8 @@ class AgeProvider(CryptoProvider):
             If no recipients are available
         """
         # Read environment variables at method call time, not module import time
-        age_recipients = os.environ.get("PAMOLA_AGE_RECIPIENTS", "").split(',')
-        age_recipients_file = os.environ.get("PAMOLA_AGE_RECIPIENTS_FILE", "")
-
+        age_recipients = os.environ.get("PAMOLA_AGE_RECIPIENTS", "age1zz3p45xsyk569u6k4mqhryuppjmhcgn4rfjnnac40gjhaes354sqfq2s9z").split(',')
+        age_recipients_file = os.environ.get("PAMOLA_AGE_RECIPIENTS_FILE", "pamola_datasets/age_binary/recipient.txt")
         recipients = []
 
         # Add recipients from environment
@@ -153,7 +154,7 @@ class AgeProvider(CryptoProvider):
             If no identity file is available
         """
         # Read environment variable at method call time
-        age_identity_file = os.environ.get("PAMOLA_AGE_IDENTITY_FILE", "")
+        age_identity_file = os.environ.get("PAMOLA_AGE_IDENTITY_FILE", "pamola_datasets/age_binary/age.key")
 
         # Use identity file
         if not age_identity_file:

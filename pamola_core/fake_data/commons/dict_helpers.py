@@ -5,15 +5,12 @@ This module provides functions for loading, processing, and managing
 dictionaries used in the fake data generation process.
 """
 
-import os
 import random
-import csv
-import json
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Tuple, Set, BinaryIO, TextIO
-
+import chardet
 import pandas as pd
-
 from pamola_core.utils import io, logging
 
 # Import embedded dictionaries
@@ -380,7 +377,6 @@ def validate_dictionary(
         "pattern_mismatch_count": 0
     }
 
-    import re
     pattern_obj = re.compile(pattern)
 
     for entry in dictionary:
@@ -436,9 +432,11 @@ def load_multi_dictionary(
         path = params['path']
         if path:
             try:
+                encoding = detect_encoding(path)
                 result = load_dictionary_from_text(
                     path,
                     cache=params.get('cache', True),
+                    encoding=encoding,
                     validate_pattern=dict_type
                 )
                 if result:
@@ -466,6 +464,7 @@ def load_multi_dictionary(
                 result = load_dictionary_from_text(
                     dict_path,
                     cache=params.get('cache', True),
+                    encoding=encoding,
                     validate_pattern=dict_type
                 )
                 if result:
@@ -488,7 +487,7 @@ def load_multi_dictionary(
             result = domains.get_common_email_domains()
         elif dict_type == "phone":
             country_code = params.get('country', 'US')
-            result = phones.get_area_codes(country_code)
+            result = phones.get_country_codes(country_code)
         elif dict_type == "address":
             country_code = params.get('country', 'US')
             component = params.get('component', 'street')
@@ -761,3 +760,32 @@ def combine_dictionaries(
         return list(dict.fromkeys(combined))  # Preserves order
 
     return combined
+
+def detect_encoding(path: str, num_bytes: int = 2048) -> str:
+    """
+    Detect encoding of a file using chardet.
+
+    Parameters:
+    -----------
+    path : str
+        File path to detect encoding.
+    num_bytes : int
+        Number of bytes to read for detection (default: 2048).
+
+    Returns:
+    --------
+    str
+        Detected encoding (default to 'utf-8' if uncertain).
+    """
+    try:
+        with open(path, 'rb') as f:
+            raw = f.read(num_bytes)
+            result = chardet.detect(raw)
+            encoding = result.get("encoding")
+            confidence = result.get("confidence", 0)
+            if encoding and confidence > 0.6:
+                return encoding
+    except Exception as e:
+        logger.warning(f"Encoding detection failed for {path}: {e}")
+
+    return "utf-8"  # fallback

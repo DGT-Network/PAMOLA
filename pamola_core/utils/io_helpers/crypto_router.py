@@ -5,10 +5,10 @@ This module handles routing encryption and decryption operations to the
 appropriate provider based on the requested mode or file format detection.
 """
 
-import json
 import logging
 from pathlib import Path
 from typing import Union, Dict, Any, Optional, List, Type
+import ijson
 
 from pamola_core.utils.io_helpers.provider_interface import CryptoProvider
 from pamola_core.utils.crypto_helpers.errors import ModeError, FormatError
@@ -76,67 +76,132 @@ def get_all_providers() -> List[CryptoProvider]:
     return [provider_class() for provider_class in PROVIDERS.values()]
 
 
+def is_likely_json(file_path: Path, chunk_size: int = 2048) -> bool:
+    """
+    Quickly checks whether a file is likely JSON by reading its first non-empty portion.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the file to check.
+    chunk_size : int, optional
+        Number of characters to read from the beginning of the file (default is 2048).
+
+    Returns
+    -------
+    bool
+        True if the file likely starts with '{' or '[', indicating JSON. False otherwise.
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            chunk = f.read(chunk_size).lstrip()
+            return chunk.startswith(('{', '['))
+    except Exception as e:
+        logger.debug(f"Failed to read file for JSON check: {e}")
+        return False
+
+
+def try_detect_json_structure(file_path: Path) -> Optional[str]:
+    """
+    Attempt to detect encryption mode or data structure from a JSON file using streaming parsing.
+
+    The function first performs a lightweight check to see if the file likely contains JSON.
+    If so, it uses `ijson` to stream through the top-level key-value pairs to detect:
+    - A 'mode' key that matches a known provider.
+    - A set of keys that match a known 'simple' data structure.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the file to check.
+
+    Returns
+    -------
+    Optional[str]
+        Returns:
+        - A provider mode string (e.g., 'aws', 'azure') if detected.
+        - "simple" if the file matches the expected simple JSON key structure.
+        - None if the file does not appear to be JSON or the structure is unrecognized.
+    """
+    if not is_likely_json(file_path):
+        return None
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            parser = ijson.kvitems(f, '')  # Parse top-level JSON key-value pairs
+            keys_found = set()
+
+            for key, value in parser:
+                if key == "mode" and value in PROVIDERS:
+                    logger.info(f"Detected mode from metadata: {value}")
+                    return value
+
+                if key in SIMPLE_JSON_KEYS:
+                    keys_found.add(key)
+
+                if len(keys_found) == len(SIMPLE_JSON_KEYS):
+                    logger.info("Detected 'simple' mode from JSON structure")
+                    return "simple"
+
+    except (ijson.JSONError, UnicodeDecodeError, ValueError, OSError) as e:
+        logger.debug(f"Failed JSON detection using ijson: {e}")
+
+    return None
+
+
 def detect_encryption_mode(file_path: Union[str, Path]) -> str:
     """
     Detect the encryption mode of a file based on its content.
 
-    Parameters:
-    -----------
-    file_path : str or Path
-        Path to the file to analyze
+    Parameters
+    ----------
+    file_path : Union[str, Path]
+        Path to the file to analyze.
 
-    Returns:
-    --------
-    str
-        Detected encryption mode identifier
-
-    Raises:
+    Returns
     -------
+    str
+        Detected encryption mode: one of 'simple', 'age', a custom provider's mode, or 'none'.
+
+    Raises
+    ------
     FormatError
-        If the file format cannot be recognized
+        If the provided file path does not exist.
     """
     file_path = Path(file_path)
 
     if not file_path.exists():
         raise FormatError(f"File does not exist: {file_path}")
 
-    # Try to open as JSON first (for 'simple' mode)
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+    # Step 1: Try to detect JSON-based encryption structure (regardless of file size)
+    logger.info(f"Attempting to detect JSON structure in {file_path}")
+    json_mode = try_detect_json_structure(file_path)
+    if json_mode:
+        logger.info(f"Detected JSON mode: {json_mode}")
+        return json_mode
 
-        # Check for 'simple' mode indicators
-        if isinstance(data, dict):
-            if "mode" in data and data["mode"] in PROVIDERS:
-                logger.info(f"Detected mode from metadata: {data['mode']}")
-                return data["mode"]
-
-            # Check for required fields in 'simple' mode
-            if all(key in data for key in SIMPLE_JSON_KEYS):
-                logger.info("Detected 'simple' mode from JSON structure")
-                return "simple"
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        # Not JSON, continue to binary checks
-        pass
-
-    # Try to read binary header for 'age' mode
+    # Step 2: Try to detect binary 'age' encryption mode from file header
+    logger.info(f"Attempting to detect 'age' mode in {file_path}")
     try:
         with open(file_path, 'rb') as f:
-            header = f.read(len(AGE_HEADER) + 10)  # Read more than we need
-
+            header = f.read(len(AGE_HEADER) + 10)
         if header.startswith(AGE_HEADER):
             logger.info("Detected 'age' mode from binary header")
             return "age"
     except Exception as e:
         logger.warning(f"Error reading binary header: {e}")
 
-    # Ask all providers if they can decrypt the file
+    # Step 3: Ask all available providers if they can decrypt this file
+    logger.info(f"Attempting to detect decryption capabilities for {file_path}")
     for provider in get_all_providers():
-        if provider.can_decrypt(file_path):
-            logger.info(f"Provider {provider.mode} claims it can decrypt the file")
-            return provider.mode
+        try:
+            if provider.can_decrypt(file_path):
+                logger.info(f"Provider {provider.mode} claims it can decrypt the file")
+                return provider.mode
+        except Exception as e:
+            logger.debug(f"Provider {provider.mode} failed on can_decrypt: {e}")
 
-    # Default to 'none' if we can't determine the format
+    # Step 4: Fallback
     logger.warning(f"Could not detect encryption mode for {file_path}, defaulting to 'none'")
     return "none"
 

@@ -8,11 +8,8 @@ manipulating personal names for use in fake data generation.
 import re
 import unicodedata
 from typing import Dict, List, Optional, Tuple, Any, Union
-
 import pandas as pd
-
 from pamola_core.utils import logging
-from pamola_core.fake_data.commons import dict_helpers
 
 # Configure logger
 logger = logging.get_logger("pamola_core.fake_data.commons.name_utils")
@@ -69,7 +66,7 @@ def parse_full_name(full_name: str, language: str = "ru") -> Dict[str, str]:
                 result["middle_name"] = parts[1]
         if len(parts) >= 3:
             result["last_name"] = " ".join(parts[2:])
-    elif language == "vn":
+    elif language in ["vn", "vi"]:
         # Vietnamese convention: Last Middle First
         if len(parts) >= 1:
             result["last_name"] = parts[0]
@@ -126,7 +123,7 @@ def format_name(name_parts: Dict[str, str], format_type: str = "full", language:
             # English: First Middle Last
             parts = [first, middle, last]
             return " ".join(p for p in parts if p)
-        elif language == "vn":
+        elif language in ["vn", "vi"]:
             # Vietnamese: Last Middle First
             parts = [last, middle, first]
             return " ".join(p for p in parts if p)

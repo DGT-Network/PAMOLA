@@ -33,7 +33,7 @@ import json
 import gc
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
-from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_base import BaseOperation
@@ -49,8 +49,7 @@ from pamola_core.transformations.commons.visualization_utils import (
     generate_record_count_comparison_vis,
     sample_large_dataset,
 )
-
-logger = logging.getLogger(__name__)
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 
 class TransformationOperation(BaseOperation):
@@ -81,6 +80,7 @@ class TransformationOperation(BaseOperation):
         visualization_strict: bool = False,
         visualization_timeout: int = 120,
         output_format: str = "csv",
+        encryption_mode: Optional[str] = None
     ):
         """Initialize the transformation operation.
 
@@ -137,6 +137,7 @@ class TransformationOperation(BaseOperation):
             description=description,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
+            encryption_mode=encryption_mode
         )
 
         # Store parameters
@@ -168,6 +169,12 @@ class TransformationOperation(BaseOperation):
         self.start_time = None
         self.end_time = None
         self.process_count = 0
+
+        # Set up common variables
+        self.force_recalculation = False  # Skip cache check
+        self.generate_visualization = True  # Create visualizations
+        self.encrypt_output = False  # Override encryption setting
+        self.save_output = True  # Save processed data to output directory
 
         # Initialize logger
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -211,6 +218,8 @@ class TransformationOperation(BaseOperation):
         """
         # Start timing
         self.start_time = time.time()
+        self.logger = kwargs.get("logger", self.logger)
+        self.logger.info(f"Starting {self.name} operation at {self.start_time}")
         self.process_count = 0
         df = None
 
@@ -224,32 +233,55 @@ class TransformationOperation(BaseOperation):
             else {"field_label": self.field_label}
         )
 
-        # Save operation configuration
-        self.save_config(task_dir)
+        # Prepare directories for artifacts
+        directories = self._prepare_directories(task_dir)
+
+        # Initialize operation cache
+        self.operation_cache = OperationCache(
+            cache_dir=task_dir / "cache",
+        )
 
         # Create writer for consistent output handling
         writer = DataWriter(
             task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
         )
 
+        # Save operation configuration
+        self.save_config(task_dir)
+
         # Decompose kwargs and introduce variables for clarity
-        is_encryption_required = (
-            kwargs.get("encrypt_output", False) or self.use_encryption
-        )
-        generate_visualization = kwargs.get("generate_visualization", True)
-        save_output = kwargs.get("save_output", True)
-        force_recalculation = kwargs.get("force_recalculation", False)
+        self.encrypt_output = kwargs.get("encrypt_output", False) or self.use_encryption
+        self.generate_visualization = kwargs.get("generate_visualization", True)
+        self.save_output = kwargs.get("save_output", True)
+        self.force_recalculation = kwargs.get("force_recalculation", False)
         dataset_name = kwargs.get("dataset_name", "main")
 
         # Extract visualization parameters
-        vis_theme = kwargs.get("visualization_theme", self.visualization_theme)
-        vis_backend = kwargs.get("visualization_backend", self.visualization_backend)
-        vis_strict = kwargs.get("visualization_strict", self.visualization_strict)
-        vis_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
+        self.visualization_theme = kwargs.get(
+            "visualization_theme", self.visualization_theme
+        )
+        self.visualization_backend = kwargs.get(
+            "visualization_backend", self.visualization_backend
+        )
+        self.visualization_strict = kwargs.get(
+            "visualization_strict", self.visualization_strict
+        )
+        self.visualization_timeout = kwargs.get(
+            "visualization_timeout", self.visualization_timeout
+        )
+        self.logger.info(
+            f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
+        )
+        # Load settings operation
+        settings_operation = load_settings_operation(
+            data_source, dataset_name, **kwargs
+        )
 
         # Set up progress tracking with proper steps
         # Main steps: 1. Cache check, 2. Data loading, 3. Validation, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
-        TOTAL_MAIN_STEPS = 6 + (1 if self.use_cache and not force_recalculation else 0)
+        TOTAL_MAIN_STEPS = 6 + (
+            1 if self.use_cache and not self.force_recalculation else 0
+        )
         main_progress = progress_tracker
         current_steps = 0
         if main_progress:
@@ -270,7 +302,7 @@ class TransformationOperation(BaseOperation):
 
         try:
             # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not force_recalculation:
+            if self.use_cache and not self.force_recalculation:
                 if main_progress:
                     current_steps += 1
                     main_progress.update(
@@ -278,10 +310,7 @@ class TransformationOperation(BaseOperation):
                         {"step": "Checking cache", **field_info},
                     )
 
-                # Load settings and data
-                settings_operation = load_settings_operation(
-                    data_source, dataset_name, **kwargs
-                )
+                # Load data for check cache
                 df = load_data_operation(
                     data_source, dataset_name, **settings_operation
                 )
@@ -318,7 +347,9 @@ class TransformationOperation(BaseOperation):
             # Validate and get dataframe
             try:
                 if df is None:
-                    df = self._validate_and_get_dataframe(data_source, dataset_name)
+                    df = self._validate_and_get_dataframe(
+                        data_source, dataset_name, **settings_operation
+                    )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
@@ -364,11 +395,10 @@ class TransformationOperation(BaseOperation):
                 data_tracker = None
                 if main_progress and hasattr(main_progress, "create_subtask"):
                     try:
-                        total_chunks = (len(df) - 1) // self.chunk_size + 1
                         data_tracker = main_progress.create_subtask(
-                            total=total_chunks,
-                            description="Chunk processing",
-                            unit="Chunk",
+                            total=3,
+                            description="Processing dataframe",
+                            unit="steps",
                         )
                     except Exception as e:
                         self.logger.debug(
@@ -396,7 +426,7 @@ class TransformationOperation(BaseOperation):
                     current_steps, {"step": "Metrics Calculation", **field_info}
                 )
 
-            # Record end time for metrics calculation timing
+            # Record end time after processing
             self.end_time = time.time()
 
             # Generate single timestamp for all artifacts
@@ -418,7 +448,7 @@ class TransformationOperation(BaseOperation):
                     name=metrics_file_name,
                     timestamp_in_name=False,
                     encryption_key=(
-                        self.encryption_key if is_encryption_required else None
+                        self.encryption_key if self.encrypt_output else None
                     ),
                 )
 
@@ -457,8 +487,12 @@ class TransformationOperation(BaseOperation):
             # Generate visualizations if required
             # Initialize visualization paths dictionary
             visualization_paths = {}
-            if generate_visualization and vis_backend is not None:
+            if self.generate_visualization and self.visualization_backend is not None:
                 try:
+                    kwargs_encryption = {
+                        "use_encryption": self.encrypt_output,
+                        "encryption_key": self.encryption_key,
+                    }
                     visualization_paths = self._handle_visualizations(
                         original_data=original_data,
                         transformed_data=transformed_data,
@@ -466,11 +500,12 @@ class TransformationOperation(BaseOperation):
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
-                        vis_theme=vis_theme,
-                        vis_backend=vis_backend,
-                        vis_strict=vis_strict,
-                        vis_timeout=vis_timeout,
+                        vis_theme=self.visualization_theme,
+                        vis_backend=self.visualization_backend,
+                        vis_strict=self.visualization_strict,
+                        vis_timeout=self.visualization_timeout,
                         operation_timestamp=operation_timestamp,
+                        **kwargs_encryption,
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
@@ -489,12 +524,12 @@ class TransformationOperation(BaseOperation):
                     {"step": "Save Output Data", **field_info},
                 )
             # Save output data if required
-            if save_output:
+            if self.save_output:
                 try:
                     output_result_path = self._save_output_data(
                         result_df=result_df,
                         task_dir=task_dir,
-                        is_encryption_required=is_encryption_required,
+                        is_encryption_required=self.encrypt_output,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -525,6 +560,14 @@ class TransformationOperation(BaseOperation):
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
+            ## Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=result_df,
+                original_data=original_data,
+                transformed_data=transformed_data,
+            )
+
             # Report completion
             if reporter:
                 # Create the details dictionary with checks for all values
@@ -549,12 +592,9 @@ class TransformationOperation(BaseOperation):
                     details=details,
                 )
 
-            ## Clean up memory AFTER all write operations are complete
-            self.logger.info("Cleaning up memory after all file operations")
-            self._cleanup_memory(
-                result_df=result_df,
-                original_data=original_data,
-                transformed_data=transformed_data,
+            # Compute elapsed time
+            self.logger.info(
+                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
             )
 
             # Set success status
@@ -570,7 +610,7 @@ class TransformationOperation(BaseOperation):
             )
 
     def _validate_and_get_dataframe(
-        self, data_source: DataSource, dataset_name: str
+        self, data_source: DataSource, dataset_name: str, **kwargs: Any
     ) -> pd.DataFrame:
         """
         Validate data source and retrieve the main dataframe.
@@ -593,7 +633,7 @@ class TransformationOperation(BaseOperation):
             If no valid dataframe is found or the specified field is missing.
         """
         # Attempt to get the main DataFrame from the data source
-        df = load_data_operation(data_source, dataset_name)
+        df = load_data_operation(data_source, dataset_name, **kwargs)
 
         if df is None:
             error_msg = (
@@ -724,6 +764,7 @@ class TransformationOperation(BaseOperation):
             use_vectorization=self.use_vectorization,
             parallel_processes=self.parallel_processes,
             progress_tracker=progress_tracker,
+            task_logger=self.logger,
         )
 
         return processed_df
@@ -790,6 +831,7 @@ class TransformationOperation(BaseOperation):
         vis_strict: bool = False,
         vis_timeout: int = 120,
         operation_timestamp: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Generate and save visualizations with thread-safe context support.
@@ -818,6 +860,8 @@ class TransformationOperation(BaseOperation):
             Timeout for visualization generation (default: 120 seconds)
         operation_timestamp : str, optional
             Timestamp for the operation (default: current time)
+        **kwargs : Any
+            Additional keyword arguments for visualization functions.
         """
         self.logger.info(
             f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
@@ -839,7 +883,7 @@ class TransformationOperation(BaseOperation):
                     f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
                 )
                 self.logger.info(
-                    f"[DIAG] Field: {self.field_name}, Strategy: {self.null_strategy}, Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
+                    f"[DIAG] Field: {self.field_label}, Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
                 )
 
                 start_time = time.time()
@@ -884,6 +928,7 @@ class TransformationOperation(BaseOperation):
                         vis_strict=vis_strict,
                         progress_tracker=viz_progress,
                         timestamp=operation_timestamp,  # Pass the same timestamp
+                        **kwargs,
                     )
 
                     # Close visualization progress tracker
@@ -993,6 +1038,7 @@ class TransformationOperation(BaseOperation):
         vis_strict: bool = False,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         timestamp: Optional[str] = None,
+        **kwargs: Any,
     ) -> Dict[str, Path]:
         """
         Generate visualizations and metadata summaries using all core visualization utilities.
@@ -1005,8 +1051,6 @@ class TransformationOperation(BaseOperation):
             Transformed data after processing.
         task_dir : Path
             Task directory for saving visualizations
-        result : OperationResult
-            Operation result to add artifacts to
         reporter : Any
             Reporter object for tracking artifacts
         vis_theme : str, optional
@@ -1015,6 +1059,12 @@ class TransformationOperation(BaseOperation):
             Backend to use: "plotly" or "matplotlib"
         vis_strict : bool, optional
             If True, raise exceptions for configuration errors
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Progress tracker for monitoring visualization generation
+        timestamp : Optional[str]
+            Timestamp for naming visualization files
+        **kwargs : Any
+            Additional keyword arguments for visualization functions.
 
         Returns:
         --------
@@ -1038,7 +1088,7 @@ class TransformationOperation(BaseOperation):
             return visualization_paths
 
         self.logger.info(
-            f"[VIZ] Starting visualization generation for {self.field_name} using {self.null_strategy} strategy"
+            f"[VIZ] Starting visualization generation for {self.field_label}"
         )
         self.logger.debug(
             f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
@@ -1130,6 +1180,7 @@ class TransformationOperation(BaseOperation):
                             backend=vis_backend,
                             strict=vis_strict,
                             visualization_paths=visualization_paths,
+                            **kwargs,
                         )
                     )
 
@@ -1149,6 +1200,7 @@ class TransformationOperation(BaseOperation):
                             backend=vis_backend,
                             strict=vis_strict,
                             visualization_paths=visualization_paths,
+                            **kwargs,
                         )
                     )
 
@@ -1165,6 +1217,7 @@ class TransformationOperation(BaseOperation):
                             backend=vis_backend,
                             strict=vis_strict,
                             visualization_paths=visualization_paths,
+                            **kwargs,
                         )
                     )
 
@@ -1182,6 +1235,7 @@ class TransformationOperation(BaseOperation):
                             backend=vis_backend,
                             strict=vis_strict,
                             visualization_paths=visualization_paths,
+                            **kwargs,
                         )
                     )
 
@@ -1199,6 +1253,7 @@ class TransformationOperation(BaseOperation):
                             backend=vis_backend,
                             strict=vis_strict,
                             visualization_paths=visualization_paths,
+                            **kwargs,
                         )
                     )
 
@@ -1247,6 +1302,8 @@ class TransformationOperation(BaseOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Saving output data"})
 
+        custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
+
         # Generate standardized output filename with timestamp
         field_name_output = (
             f"{self.field_label}_{self.__class__.__name__}_output_{timestamp}"
@@ -1259,7 +1316,7 @@ class TransformationOperation(BaseOperation):
             subdir="output",
             timestamp_in_name=False,
             encryption_key=self.encryption_key if is_encryption_required else None,
-            **kwargs,
+            **custom_kwargs,
         )
 
         # Register output artifact with the result
@@ -1304,7 +1361,7 @@ class TransformationOperation(BaseOperation):
         data_hash = self._generate_data_hash(data)
 
         # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
+        return self.operation_cache.generate_cache_key(
             operation_name=self.__class__.__name__,
             parameters=parameters,
             data_hash=data_hash,
@@ -1342,7 +1399,7 @@ class TransformationOperation(BaseOperation):
             cache_key = self._generate_cache_key(cache_key_df)
             self.logger.debug(f"Checking cache for key: {cache_key}")
 
-            cached_result = operation_cache.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.__class__.__name__
             )
 
@@ -1541,15 +1598,8 @@ class TransformationOperation(BaseOperation):
             cache_key = self._generate_cache_key(original_data)
 
             # Prepare metadata for cache
-            operation_params = self._get_cache_parameters()
-            operation_params.update(
-                {
-                    "field_name": self.field_label,
-                    "mode": self.mode,
-                    "operation_class": self.__class__.__name__,
-                    "version": self.version,
-                }
-            )
+            operation_params = self._get_basic_parameters()
+            operation_params.update(self._get_cache_parameters())
 
             self.logger.debug(f"Operation parameters for cache: {operation_params}")
 
@@ -1564,8 +1614,16 @@ class TransformationOperation(BaseOperation):
                 "data_info": {
                     "original_length": len(original_data),
                     "transformed_length": len(transformed_data),
-                    "original_null_count": int(original_data.isna().sum()),
-                    "transformed_null_count": int(transformed_data.isna().sum()),
+                    "original_null_count": int(
+                        original_data.isna().sum().sum()
+                        if isinstance(original_data, pd.DataFrame)
+                        else original_data.isna().sum()
+                    ),
+                    "transformed_null_count": int(
+                        transformed_data.isna().sum().sum()
+                        if isinstance(transformed_data, pd.DataFrame)
+                        else transformed_data.isna().sum()
+                    ),
                 },
                 "output_file": output_result_path,  # Path to main output file
                 "metrics_file": metrics_result_path,  # Path to metrics file
@@ -1577,7 +1635,7 @@ class TransformationOperation(BaseOperation):
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
 
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,
@@ -1664,7 +1722,7 @@ class TransformationOperation(BaseOperation):
             return hashlib.md5(json_str.encode("utf-8")).hexdigest()
 
         except Exception as e:
-            logger.warning(f"Error generating data hash: {e}")
+            self.logger.warning(f"Error generating data hash: {e}")
             fallback_str = f"{len(data)}_{type(data)}"
             return hashlib.md5(fallback_str.encode("utf-8")).hexdigest()
 
@@ -1764,8 +1822,8 @@ class TransformationOperation(BaseOperation):
         """Get the basic parameters for the cache key generation."""
         return {
             "name": self.name,
+            "field_label": self.field_label,
             "description": self.description,
-            "encryption_key": self.encryption_key,
             "version": self.version,
         }
 
@@ -1918,3 +1976,23 @@ class TransformationOperation(BaseOperation):
             directory.mkdir(parents=True, exist_ok=True)
 
         return directories
+    
+    def _get_custom_kwargs(self, df, **kwargs):
+        custom_kwargs = {
+            k: v
+            for k, v in kwargs.items()
+            if k
+            not in [
+                "df",
+                "name",
+                "format",
+                "subdir",
+                "timestamp_in_name",
+                "encryption_key",
+            ]
+        }
+        custom_kwargs["encryption_mode"] = get_encryption_mode(
+            df, **kwargs
+        )
+        
+        return custom_kwargs

@@ -42,7 +42,7 @@ Change Log:
        - Improved memory cleanup
 """
 
-import logging
+from functools import partial
 import time
 from datetime import datetime
 from pathlib import Path
@@ -59,6 +59,7 @@ from pamola_core.anonymization.commons.metric_utils import (
     calculate_performance_metrics,
 )
 from pamola_core.anonymization.commons.processing_utils import (
+    process_partition_static,
     numeric_generalization_binning,
     numeric_generalization_rounding,
     numeric_generalization_range,
@@ -75,7 +76,7 @@ from pamola_core.anonymization.commons.visualization_utils import (
     calculate_optimal_bins,
     sample_large_dataset,
 )
-from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -83,10 +84,8 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker, ProgressTracker
 from pamola_core.utils.visualization import create_histogram, create_bar_plot
-from pamola_core.utils.io import load_data_operation
-
-# Configure module logger
-logger = logging.getLogger(__name__)
+from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 
 class NumericGeneralizationConfig(OperationConfig):
@@ -131,9 +130,10 @@ class NumericGeneralizationConfig(OperationConfig):
             # Output format properties
             "output_format": {
                 "type": "string",
-                "enum": ["csv", "parquet", "arrow"],
+                "enum": ["csv", "parquet", "json"],
                 "default": "csv",
             },
+            "encryption_mode": {"type": ["string", "null"]},
         },
         "required": ["field_name", "strategy"],
         "allOf": [
@@ -198,6 +198,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         visualization_timeout: int = 120,
         output_format: str = "csv",
         description: str = "",
+        encryption_mode: Optional[str] = None
     ):
         """
         Initialize numeric generalization operation.
@@ -282,6 +283,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             "visualization_strict": visualization_strict,
             "visualization_timeout": visualization_timeout,
             "output_format": output_format,
+            "encryption_mode": encryption_mode
         }
 
         # Create configuration and validate parameters
@@ -308,20 +310,31 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             visualization_timeout=config.get("visualization_timeout"),
             output_format=config.get("output_format"),
             description=description,
+            encryption_mode=config.get("encryption_mode")
         )
 
         # Assign instance properties from config
         for key, value in config_params.items():
             setattr(self, key, value)
 
+        # Optionally store the config
+        self.config = config
+
         # Set up performance tracking variables
         self.start_time = None
         self.end_time = None
         self.process_count = 0
 
+        # Set up common variables
+        self.force_recalculation = False  # Skip cache check
+        self.generate_visualization = True  # Create visualizations
+        self.encrypt_output = False  # Override encryption setting
+        self.save_output = True  # Save processed data to output directory
+
         # Updated version for fixes
         self.version = "1.4.1"
         self.operation_name = self.__class__.__name__
+        self.operation_cache = None
 
     def execute(
         self,
@@ -347,7 +360,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation including:
             - force_recalculation: bool - Skip cache check
-            - parallel_processes: int - Number of parallel processes
             - generate_visualization: bool - Create visualizations
             - encrypt_output: bool - Override encryption setting
             - save_output: bool - Save processed data to output directory
@@ -364,57 +376,75 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         try:
             # Initialize timing and result
             self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(
+                f"Starting {self.operation_name} operation at {self.start_time}"
+            )
             self.process_count = 0
             df = None
             result = OperationResult(status=OperationStatus.PENDING)
 
-            logger.info(
+            self.logger.info(
                 f"Starting execute for field '{self.field_name}' with strategy '{self.strategy}'"
             )
 
             # Prepare directories for artifacts
             directories = self._prepare_directories(task_dir)
 
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=task_dir / "cache",
+            )
+
             # Save configuration to task directory
             self.save_config(task_dir)
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
-                task_dir=task_dir, logger=logger, progress_tracker=progress_tracker
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
             # Decompose kwargs and introduce variables for clarity
-            is_encryption_required = (
+            self.encrypt_output = (
                 kwargs.get("encrypt_output", False) or self.use_encryption
             )
-            generate_visualization = kwargs.get("generate_visualization", True)
-            save_output = kwargs.get("save_output", True)
-            force_recalculation = kwargs.get("force_recalculation", False)
+            self.generate_visualization = kwargs.get("generate_visualization", True)
+            self.save_output = kwargs.get("save_output", True)
+            self.force_recalculation = kwargs.get("force_recalculation", False)
             dataset_name = kwargs.get("dataset_name", "main")
 
             # Extract visualization parameters
-            vis_theme = kwargs.get("visualization_theme", self.visualization_theme)
-            vis_backend = kwargs.get(
+            self.visualization_theme = kwargs.get(
+                "visualization_theme", self.visualization_theme
+            )
+            self.visualization_backend = kwargs.get(
                 "visualization_backend", self.visualization_backend
             )
-            vis_strict = kwargs.get("visualization_strict", self.visualization_strict)
-            vis_timeout = kwargs.get(
+            self.visualization_strict = kwargs.get(
+                "visualization_strict", self.visualization_strict
+            )
+            self.visualization_timeout = kwargs.get(
                 "visualization_timeout", self.visualization_timeout
             )
 
-            logger.info(
-                f"Visualization settings: theme={vis_theme}, backend={vis_backend}, strict={vis_strict}, timeout={vis_timeout}s"
+            self.logger.info(
+                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
+            )
+
+            # Load settings operation
+            settings_operation = load_settings_operation(
+                data_source, dataset_name, **kwargs
             )
 
             # Set up progress tracking with proper steps
             # Main steps: 1. Cache check, 2. Data loading, 3. Validation, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
-                1 if self.use_cache and not force_recalculation else 0
+                1 if self.use_cache and not self.force_recalculation else 0
             )
             main_progress = progress_tracker
             current_steps = 0
             if main_progress:
-                logger.info(
+                self.logger.info(
                     f"Setting up progress tracker with {TOTAL_MAIN_STEPS} main steps"
                 )
                 try:
@@ -427,9 +457,9 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                         },
                     )
                 except Exception as e:
-                    logger.warning(f"Could not update progress tracker: {e}")
+                    self.logger.warning(f"Could not update progress tracker: {e}")
 
-            if self.use_cache and not force_recalculation:
+            if self.use_cache and not self.force_recalculation:
                 # Step 1: Check if we have a cached result
                 if main_progress:
                     current_steps += 1
@@ -439,159 +469,62 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                     )
 
                 # Load data for cache check
-                df = load_data_operation(data_source, dataset_name)
+                df = load_data_operation(data_source, dataset_name, **settings_operation)
 
-                logger.info("Checking operation cache...")
                 # Generate cache key based on operation parameters
-                data_hash = self._generate_data_hash(df[self.field_name])
-                parameters = self._get_cache_parameters()
-                cache_key = operation_cache.generate_cache_key(
-                    operation_name=self.operation_name,
-                    parameters=parameters,
-                    data_hash=data_hash,
-                )
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
 
-                # Check for cached result
-                cached_result = operation_cache.get_cache(
-                    cache_key=cache_key, operation_type=self.operation_name
-                )
-
-                if cached_result:
-                    logger.info(
+                if cache_result:
+                    self.logger.info(
                         f"Using cached result for {self.field_name} generalization"
                     )
 
-                    # Create complete result from cached data
-                    cached_result_obj = OperationResult(status=OperationStatus.SUCCESS)
+                    # Update progress
+                    if main_progress:
+                        main_progress.update(
+                            current_steps,
+                            {"step": "Complete (cached)", "field": self.field_name},
+                        )
 
-                    # Add metrics from cache
-                    metrics = cached_result.get("metrics", {})
-                    for key, value in metrics.items():
-                        if isinstance(value, (int, float, str, bool)):
-                            cached_result_obj.add_metric(key, value)
-
-                    # Restore artifacts from cache
-                    artifacts_restored = 0
-
-                    # Add output artifact if file exists
-                    output_file = cached_result.get("output_file")
-                    if output_file:
-                        output_path = Path(output_file)
-                        if output_path.exists():
-                            cached_result_obj.add_artifact(
-                                artifact_type=self.output_format,
-                                path=output_path,
-                                description=f"{self.field_name} generalized data (cached)",
-                                category=Constants.Artifact_Category_Output,
-                            )
-                            artifacts_restored += 1
-
-                            # Also report to reporter
-                            if reporter:
-                                reporter.add_operation(
-                                    f"{self.field_name} generalized data (cached)",
-                                    details={
-                                        "artifact_type": self.output_format,
-                                        "path": str(output_path),
-                                    },
-                                )
-                        else:
-                            logger.warning(
-                                f"Cached output file not found: {output_path}"
-                            )
-
-                    # Add metrics artifact if exists
-                    metrics_file = cached_result.get("metrics_file")
-                    if metrics_file:
-                        metrics_path = Path(metrics_file)
-                        if metrics_path.exists():
-                            cached_result_obj.add_artifact(
-                                artifact_type="json",
-                                path=metrics_path,
-                                description=f"{self.field_name} generalization metrics (cached)",
-                                category=Constants.Artifact_Category_Metrics,
-                            )
-                            artifacts_restored += 1
-
-                            if reporter:
-                                reporter.add_operation(
-                                    f"{self.field_name} generalization metrics (cached)",
-                                    details={
-                                        "artifact_type": "json",
-                                        "path": str(metrics_path),
-                                    },
-                                )
-
-                    # Add visualization artifacts
-                    visualizations = cached_result.get("visualizations", {})
-                    for viz_type, viz_path in visualizations.items():
-                        path = Path(viz_path)
-                        if path.exists():
-                            cached_result_obj.add_artifact(
-                                artifact_type="png",
-                                path=path,
-                                description=f"{self.field_name} {viz_type} visualization (cached)",
-                                category=Constants.Artifact_Category_Visualization,
-                            )
-                            artifacts_restored += 1
-
-                            if reporter:
-                                reporter.add_operation(
-                                    f"{self.field_name} {viz_type} visualization (cached)",
-                                    details={
-                                        "artifact_type": "png",
-                                        "path": str(path),
-                                    },
-                                )
-
-                    # Add cache info
-                    cached_result_obj.add_metric("cached", True)
-                    cached_result_obj.add_metric("cache_key", cache_key)
-                    cached_result_obj.add_metric(
-                        "cache_timestamp", cached_result.get("timestamp", "unknown")
-                    )
-                    cached_result_obj.add_metric(
-                        "artifacts_restored", artifacts_restored
-                    )
-
-                    # Report operation
+                    # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
                             f"Numeric generalization of {self.field_name} (cached)",
-                            details={
-                                "strategy": self.strategy,
-                                "cached": True,
-                                "artifacts_restored": artifacts_restored,
-                            },
+                            details={"cached": True},
                         )
 
-                    logger.info(
-                        f"Cache hit successful: restored {artifacts_restored} artifacts"
-                    )
-                    return cached_result_obj
+                    return cache_result
                 else:
-                    logger.info("No cached result found, proceeding with operation")
+                    self.logger.info(
+                        "No cached result found, proceeding with operation"
+                    )
 
             # Step 2: Data Loading
-            logger.info("Step 2: Data Loading")
+            self.logger.info("Step 2: Data Loading")
             if main_progress:
                 current_steps += 1
                 main_progress.update(current_steps, {"step": "Data Loading"})
 
-            # Get DataFrame from data source
-            if df is None:
-                df = load_data_operation(data_source, dataset_name)
-
-            logger.info(f"Loaded DataFrame with shape: {df.shape}")
+            ## Validate and get dataframe
+            try:
+                if df is None:
+                    df = self._validate_and_get_dataframe(data_source, dataset_name, **settings_operation)
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR, error_message=error_message
+                )
 
             # Get a copy of the original data for metrics calculation
             original_data = df[self.field_name].copy(deep=True)
-            logger.info(
+            self.logger.info(
                 f"Original data: {len(original_data)} records, dtype: {original_data.dtype}"
             )
 
             # Step 3: Validation
-            logger.info("Step 3: Validation")
+            self.logger.info("Step 3: Validation")
             if main_progress:
                 current_steps += 1
                 main_progress.update(current_steps, {"step": "Validation"})
@@ -599,7 +532,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             # Validate the field exists
             if self.field_name not in df.columns:
                 error_message = f"Field '{self.field_name}' not found in DataFrame"
-                logger.error(error_message)
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR, error_message=error_message
                 )
@@ -620,13 +553,13 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             # Update the output field name
             self.output_field_name = output_field
 
-            logger.info(f"Output field: {output_field}, mode: {self.mode}")
+            self.logger.info(f"Output field: {output_field}, mode: {self.mode}")
 
             is_numeric = pd.api.types.is_numeric_dtype(df[self.field_name])
-            logger.info(f"Field '{self.field_name}' is_numeric: {is_numeric}")
+            self.logger.info(f"Field '{self.field_name}' is_numeric: {is_numeric}")
 
             if not is_numeric:
-                logger.warning(
+                self.logger.warning(
                     f"Field '{self.field_name}' is not numeric, possibly already processed. "
                     f"Will copy to output field if in ENRICH mode."
                 )
@@ -634,9 +567,8 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 # If in ENRICH mode, copy values, if in REPLACE mode, leave as is
                 if self.mode == "ENRICH":
                     df[output_field] = df[self.field_name]
-                    logger.info(f"Copied non-numeric values to {output_field}")
+                    self.logger.info(f"Copied non-numeric values to {output_field}")
 
-                self.end_time = time.time()
                 result.status = OperationStatus.SUCCESS
 
                 # Add basic metrics about the field
@@ -644,10 +576,10 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 result.add_metric("operation", "numeric_generalization")
                 result.add_metric("strategy", self.strategy)
                 result.add_metric("is_numeric", False)
-                result.add_metric("execution_time", self.end_time - self.start_time)
 
                 # Write output if needed
-                logger.info(f"Writing output in format: {self.output_format}")
+                self.logger.info(f"Writing output in format: {self.output_format}")
+                encryption_mode = get_encryption_mode(df, **kwargs)
                 output_result = writer.write_dataframe(
                     df=df,
                     name=f"{self.field_name}_generalized",
@@ -655,6 +587,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                     subdir="output",
                     timestamp_in_name=True,
                     encryption_key=self.encryption_key if self.use_encryption else None,
+                    encryption_mode=encryption_mode
                 )
 
                 # Add output artifact to result
@@ -674,6 +607,12 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                             "path": str(output_result.path),
                         },
                     )
+                # Compute elapsed time
+                self.end_time = time.time()
+                self.logger.info(
+                    f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+                )
+                result.add_metric("execution_time", self.end_time - self.start_time)
 
                 return result
 
@@ -682,7 +621,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 validate_numeric_field(
                     df, self.field_name, allow_null=(self.null_strategy != "ERROR")
                 )
-                logger.info("Numeric field validation passed")
+                self.logger.info("Numeric field validation passed")
             except ValueError as e:
                 if "null values" in str(e) and self.null_strategy == "ERROR":
                     return OperationResult(
@@ -692,100 +631,31 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                     raise
 
             # Step 4: Process the data
-            logger.info("Step 4: Processing data")
+            self.logger.info("Step 4: Processing data")
             if main_progress:
                 current_steps += 1
                 main_progress.update(current_steps, {"step": "Processing data"})
 
             # Process the data with the selected strategy
             try:
-                logger.info(f"Processing with strategy: {self.strategy}")
+                self.logger.info(f"Processing with strategy: {self.strategy}")
 
                 # Create child progress tracker for chunk processing
                 data_tracker = None
                 if main_progress and hasattr(main_progress, "create_subtask"):
                     try:
-                        total_chunks = (len(df) - 1) // self.chunk_size + 1
                         data_tracker = main_progress.create_subtask(
-                            total=total_chunks,
-                            description="Chunk processing",
-                            unit="chunk",
+                            total=3,
+                            description="Numeric generalization processing",
+                            unit="steps",
                         )
                     except Exception as e:
-                        logger.debug(f"Could not create child progress tracker: {e}")
+                        self.logger.debug(
+                            f"Could not create child progress tracker: {e}"
+                        )
 
-                # For larger dataframes, check if we should use parallel processing
-                if self.use_dask:
-                    try:
-                        logger.info(
-                            f"Using dask processing with chunk size {self.chunk_size}"
-                        )
-                        if data_tracker:
-                            data_tracker.total = 3  # Setup, Processing, Finalization
-                            data_tracker.update(
-                                0, {"step": "Setting up dask processing"}
-                            )
-
-                        processed_df = process_dataframe_dask(
-                            df=df,
-                            process_function=self.process_with_dask,
-                            process_function_backup=self.process_batch,
-                            chunk_size=self.chunk_size,
-                            npartitions=self.npartitions,
-                            progress_tracker=data_tracker,
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Error in dask processing: {e}, falling back to chunk processing"
-                        )
-                elif self.use_vectorization:
-                    try:
-                        logger.info(
-                            f"Using vectorized processing with chunk size {self.chunk_size}"
-                        )
-                        if data_tracker:
-                            data_tracker.update(
-                                0, {"step": "Setting up vectorized processing"}
-                            )
-
-                        processed_df = process_dataframe_parallel(
-                            df=df,
-                            process_function=self.process_batch,
-                            n_jobs=self.parallel_processes
-                            or 1,  # Use specified threads for vectorization
-                            chunk_size=self.chunk_size,
-                            progress_tracker=data_tracker,
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Error in vectorized processing: {e}, falling back to chunk processing"
-                        )
-                else:
-                    try:
-                        # Regular chunk processing
-                        logger.info(
-                            f"Processing in chunks with chunk size {self.chunk_size}"
-                        )
-                        if data_tracker:
-                            total_chunks = (
-                                len(df) + self.chunk_size - 1
-                            ) // self.chunk_size
-                            data_tracker.update(
-                                0,
-                                {
-                                    "step": "Processing in chunks",
-                                    "total_chunks": total_chunks,
-                                },
-                            )
-
-                        processed_df = process_in_chunks(
-                            df=df,
-                            process_function=self.process_batch,
-                            chunk_size=self.chunk_size,
-                            progress_tracker=data_tracker,
-                        )
-                    except Exception as e:
-                        logger.warning(f"Error in chunk processing: {e}")
+                # Process the dataframe
+                processed_df = self._process_dataframe(df, data_tracker)
 
                 # Close child progress tracker
                 if data_tracker:
@@ -796,30 +666,33 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
                 # Get the anonymized data for metrics calculation
                 anonymized_data = processed_df[output_field]
-                logger.info(
+                self.logger.info(
                     f"Processed data: {len(anonymized_data)} records, dtype: {anonymized_data.dtype}"
                 )
 
                 # Log sample of processed data
                 if len(anonymized_data) > 0:
-                    logger.debug(
+                    self.logger.debug(
                         f"Sample of processed data (first 5): {anonymized_data.head().tolist()}"
                     )
 
             except Exception as e:
-                logger.exception(f"Error processing data: {e}")
+                self.logger.exception(f"Error processing data: {e}")
                 return OperationResult(
                     status=OperationStatus.ERROR, error_message=str(e)
                 )
 
+            # Record end time after processing
+            self.end_time = time.time()
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
             # Step 5: Calculate metrics
-            logger.info("Step 5: Calculating metrics")
+            self.logger.info("Step 5: Calculating metrics")
             if main_progress:
                 current_steps += 1
                 main_progress.update(current_steps, {"step": "Calculating metrics"})
-
-            # Record end time after processing
-            self.end_time = time.time()
 
             # Calculate metrics
             metrics = self._collect_metrics(original_data, anonymized_data)
@@ -828,29 +701,24 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                     self.start_time, self.end_time, self.process_count
                 )
             )
-            logger.info(f"Collected {len(metrics)} metrics")
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.logger.info(f"Collected {len(metrics)} metrics")
 
             # Generate standardized metrics filename with timestamp
             metrics_filename = generate_visualization_filename(
                 self.field_name,
                 f"{self.operation_name}_{self.strategy}",
                 "metrics",
-                extension="json",
                 timestamp=operation_timestamp,
+                extension="json",
             )
 
             # Write metrics file
-            logger.info("Writing metrics file")
+            self.logger.info("Writing metrics file")
             metrics_result = writer.write_metrics(
                 metrics=metrics,
                 name=metrics_filename.replace(".json", ""),  # writer appends .json
                 timestamp_in_name=False,  # Already included in the filename
-                encryption_key=(
-                    self.encryption_key if is_encryption_required else None
-                ),
+                encryption_key=(self.encryption_key if self.encrypt_output else None),
             )
 
             # Add metrics to result (ensure JSON serializable)
@@ -867,14 +735,14 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             result.add_artifact(
                 artifact_type="json",
                 path=metrics_result.path,
-                description=f"{self.field_name} generalization metrics",
+                description=f"{self.field_name} Numeric generalization metrics",
                 category=Constants.Artifact_Category_Metrics,
             )
 
             # Report artifact
             if reporter:
                 reporter.add_operation(
-                    f"{self.field_name} generalization metrics",
+                    f"{self.field_name} Numeric generalization metrics",
                     details={
                         "artifact_type": "json",
                         "path": str(metrics_result.path),
@@ -882,7 +750,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 )
 
             # Step 6: Generate visualizations with context support and enhanced diagnostics
-            logger.info("Step 6: Generating visualizations")
+            self.logger.info("Step 6: Generating visualizations")
             if main_progress:
                 current_steps += 1
                 main_progress.update(
@@ -890,8 +758,12 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 )
 
             # Generate visualizations if required
-            if generate_visualization and vis_backend is not None:
+            if self.generate_visualization and self.visualization_backend is not None:
                 try:
+                    kwargs_encryption = {
+                        "use_encryption": self.encrypt_output,
+                        "encryption_key": self.encryption_key,
+                    }
                     visualization_paths = self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
@@ -899,111 +771,67 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
-                        vis_theme=vis_theme,
-                        vis_backend=vis_backend,
-                        vis_strict=vis_strict,
-                        vis_timeout=vis_timeout,
+                        vis_theme=self.visualization_theme,
+                        vis_backend=self.visualization_backend,
+                        vis_strict=self.visualization_strict,
+                        vis_timeout=self.visualization_timeout,
                         operation_timestamp=operation_timestamp,
+                        **kwargs_encryption,
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
-                    logger.warning(error_message)
+                    self.logger.warning(error_message)
                     # Continue execution - visualization failure is not critical
             else:
-                logger.info(
+                self.logger.info(
                     "Skipping visualizations as generate_visualization is False or backend is not set"
                 )
 
             # Step 7: Save output data
-            logger.info("Step 7: Saving output data")
+            self.logger.info("Step 7: Saving output data")
             if main_progress:
                 current_steps += 1
                 main_progress.update(current_steps, {"step": "Saving output data"})
 
             # Save output data if required
-            if save_output:
-                # Generate standardized output filename with timestamp
-                output_filename = generate_visualization_filename(
-                    self.field_name,
-                    f"{self.operation_name}_{self.strategy}",
-                    "output",
-                    extension=self.output_format,
-                    timestamp=operation_timestamp,
-                )
-
-                logger.info(f"Saving output data in format: {self.output_format}")
-                output_result = writer.write_dataframe(
-                    df=processed_df,
-                    name=output_filename.replace(
-                        f".{self.output_format}", ""
-                    ),  # writer appends extension
-                    format=self.output_format,
-                    subdir="output",
-                    timestamp_in_name=False,  # Already included in the filename
-                    encryption_key=self.encryption_key if self.use_encryption else None,
-                )
-
-                # Add output artifact to result
-                result.add_artifact(
-                    artifact_type=self.output_format,
-                    path=output_result.path,
-                    description=f"{self.field_name} generalized data",
-                    category=Constants.Artifact_Category_Output,
-                )
-
-                # Report to the reporter
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} generalized data",
-                        details={
-                            "artifact_type": self.output_format,
-                            "path": str(output_result.path),
-                        },
+            if self.save_output:
+                try:
+                    output_result_path = self._save_output_data(
+                        result_df=processed_df,
+                        is_encryption_required=self.encrypt_output,
+                        writer=writer,
+                        result=result,
+                        reporter=reporter,
+                        progress_tracker=main_progress,
+                        timestamp=operation_timestamp,
+                        **kwargs,
+                    )
+                except Exception as e:
+                    error_message = f"Error saving output data: {str(e)}"
+                    self.logger.error(error_message)
+                    return OperationResult(
+                        status=OperationStatus.ERROR, error_message=error_message
                     )
 
-            # Cache the result if enabled - include all artifacts
+            # Cache the result if caching is enabled
             if self.use_cache:
-                logger.info("Saving result to cache with complete artifacts")
-
-                # Prepare complete cache data with all artifacts
-                cache_data = {
-                    "metrics": {
-                        k: float(v) if isinstance(v, (np.integer, np.floating)) else v
-                        for k, v in metrics.items()
-                    },
-                    "parameters": self._get_cache_parameters(),
-                    "data_info": {
-                        "original_length": len(original_data),
-                        "anonymized_length": len(anonymized_data),
-                    },
-                    "output_file": str(output_result.path),  # Path to main output file
-                    "metrics_file": str(metrics_result.path),  # Path to metrics file
-                    "visualizations": {
-                        k: str(v) for k, v in visualization_paths.items()
-                    },  # Paths to visualizations
-                }
-
-                # Generate cache key
-                cache_key = operation_cache.generate_cache_key(
-                    operation_name=self.operation_name,
-                    parameters=self._get_cache_parameters(),
-                    data_hash=self._generate_data_hash(original_data),
-                )
-
-                # Save to cache
-                operation_cache.save_cache(
-                    data=cache_data,
-                    cache_key=cache_key,
-                    operation_type=self.operation_name,
-                    metadata={"task_dir": str(task_dir)},
-                )
+                try:
+                    self._save_to_cache(
+                        original_data=original_data,
+                        anonymized_data=anonymized_data,
+                        metrics=metrics,
+                        visualization_paths=visualization_paths,
+                        metrics_result_path=str(metrics_result.path),
+                        output_result_path=output_result_path,
+                        task_dir=task_dir,
+                    )
+                except Exception as e:
+                    # Failure to cache is non-critical
+                    self.logger.warning(f"Failed to cache results: {str(e)}")
 
             # Clean up memory AFTER all write operations are complete
-            logger.info("Cleaning up memory after all file operations")
+            self.logger.info("Cleaning up memory after all file operations")
             self._cleanup_memory(processed_df, original_data, anonymized_data)
-
-            # Set success status
-            result.status = OperationStatus.SUCCESS
 
             # Report operation completion
             if reporter:
@@ -1017,32 +845,39 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                     },
                 )
 
-            logger.info(
+            self.logger.info(
                 f"Operation completed successfully for field '{self.field_name}'"
             )
+
+            self.logger.info(
+                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
             return result
 
         except Exception as e:
             # Handle unexpected errors
             error_message = f"Error in numeric generalization operation: {str(e)}"
-            logger.exception(error_message)
+            self.logger.exception(error_message)
             return OperationResult(
                 status=OperationStatus.ERROR, error_message=error_message
             )
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
-        Process a batch of data to generalize numeric values.
+        Process a single Pandas batch (partition) for numeric generalization.
 
         Parameters:
         -----------
         batch : pd.DataFrame
-            DataFrame batch to process
+            Input DataFrame batch.
 
         Returns:
         --------
         pd.DataFrame
-            Processed DataFrame batch with generalized values
+            Output batch with generalized values.
         """
         if self.field_name not in batch.columns:
             raise ValueError(f"Field '{self.field_name}' not found in DataFrame")
@@ -1050,10 +885,10 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         field_data = batch[self.field_name]
         field_values = field_data.copy()
 
+        # Skip non-numeric fields
         if not pd.api.types.is_numeric_dtype(field_data):
-            logger.warning(
-                f"Field '{self.field_name}' is not a numeric type, "
-                f"possibly already processed. Skipping generalization."
+            self.logger.warning(
+                f"Field '{self.field_name}' is not numeric. Skipping generalization."
             )
             batch[self.output_field_name] = field_values
             if self.mode == "REPLACE":
@@ -1061,21 +896,18 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             self.process_count += len(batch)
             return batch
 
-        # Validate the field
+        # Validate and handle nulls
         validate_numeric_field(
             batch, self.field_name, allow_null=(self.null_strategy != "ERROR")
         )
-
-        # Handle null values if needed
         if self.null_strategy != "PRESERVE":
             field_values = process_nulls(field_values, self.null_strategy)
 
-        # Dispatch to appropriate generalization strategy
+        # Apply strategy (binning, rounding, etc.)
         generalized_values = self._apply_generalization_strategy(field_values)
 
-        # Assign generalized values
+        # Store results
         batch[self.output_field_name] = generalized_values
-
         if self.mode == "REPLACE":
             batch[self.field_name] = generalized_values
 
@@ -1119,7 +951,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 field_values, range_limits, handle_nulls=True
             )
 
-        logger.warning(
+        self.logger.warning(
             f"No generalized values produced for unknown strategy '{self.strategy}'"
         )
         return field_values
@@ -1139,7 +971,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         if isinstance(self.range_limits, (list, tuple)) and len(self.range_limits) == 2:
             return tuple(self.range_limits)
 
-        logger.error(
+        self.logger.error(
             f"Invalid or missing range_limits: {self.range_limits}. Using default (0.0, 100.0)."
         )
         return (0.0, 100.0)
@@ -1214,93 +1046,95 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         # Fallback
         return value
 
-    def process_with_dask(self, ddf: Any) -> pd.DataFrame:
+    def _compute_global_bins(self, ddf: Any) -> Optional[np.ndarray]:
         """
-        Process a Dask DataFrame using the same logic as `process_batch`, with optional
-        binning support and correct type propagation across partitions.
+        Compute consistent bin edges across all partitions for 'binning' strategy.
 
         Parameters:
         -----------
-        ddf : dd.DataFrame
-            Dask DataFrame to process.
+        ddf : dask.dataframe.DataFrame
+
+        Returns:
+        --------
+        np.ndarray or None
+            Bin edges to be reused across all partitions.
+        """
+        if self.strategy != "binning":
+            return None
+
+        min_val = ddf[self.field_name].min().compute()
+        max_val = ddf[self.field_name].max().compute()
+
+        return pd.cut(
+            pd.Series([min_val, max_val]),
+            bins=self.bin_count,
+            retbins=True,
+            duplicates="drop",
+        )[1]
+
+    def _build_meta(self, ddf: Any) -> pd.DataFrame:
+        """
+        Build Dask metadata DataFrame (empty) to ensure type safety.
+
+        Parameters:
+        -----------
+        ddf : dask.dataframe.DataFrame
 
         Returns:
         --------
         pd.DataFrame
-            The fully processed DataFrame with generalized or transformed values.
+            Metadata DataFrame with correct types for output.
         """
+        meta = ddf._meta.copy(deep=True)
 
-        def _compute_global_bins(ddf: Any) -> Optional[np.ndarray]:
-            """
-            Compute global bin edges if the strategy is 'binning'.
+        # Ensure output column exists and is of type string
+        if self.output_field_name not in meta.columns:
+            meta[self.output_field_name] = pd.Series(dtype=str)
+        else:
+            meta[self.output_field_name] = meta[self.output_field_name].astype(str)
 
-            Returns:
-            --------
-            Optional[np.ndarray]
-                An array of bin edges, or None if binning is not applicable.
-            """
-            if self.strategy != "binning":
-                return None
-            min_val = ddf[self.field_name].min().compute()
-            max_val = ddf[self.field_name].max().compute()
-            return pd.cut(
-                pd.Series([min_val, max_val]),
-                bins=self.bin_count,
-                retbins=True,
-                duplicates="drop",
-            )[1]
+        if self.mode == "REPLACE":
+            meta[self.field_name] = meta[self.field_name].astype(str)
 
-        def _build_meta(ddf: Any) -> pd.DataFrame:
-            """
-            Construct the metadata DataFrame used by Dask for partition inference.
+        return meta
 
-            Returns:
-            --------
-            pd.DataFrame
-                A meta DataFrame with correct types for output fields.
-            """
-            meta = ddf._meta.copy(deep=True)
+    def process_with_dask(self, ddf: Any) -> pd.DataFrame:
+        """
+        Process the input Dask DataFrame using generalization strategy.
 
-            if self.output_field_name not in meta.columns:
-                meta[self.output_field_name] = pd.Series(dtype=str)
-            else:
-                meta[self.output_field_name] = meta[self.output_field_name].astype(str)
+        Steps:
+        - Precompute global bin edges if needed (for binning strategy)
+        - Construct metadata to guide Dask partition processing
+        - Apply generalization logic using safe, stateless static function
 
-            if self.mode == "REPLACE":
-                meta[self.field_name] = meta[self.field_name].astype(str)
+        Parameters:
+        -----------
+        ddf : dask.dataframe.DataFrame
+            Input Dask DataFrame to generalize.
 
-            return meta
+        Returns:
+        --------
+        pd.DataFrame
+            Fully processed DataFrame (materialized in memory).
+        """
+        global_bins = self._compute_global_bins(ddf)
+        meta = self._build_meta(ddf)
 
-        def _process_partition(partition: pd.DataFrame) -> pd.DataFrame:
-            """
-            Process a single Dask partition, applying binning or fallback to `process_batch`.
+        # Prepare partial function with only stateless/static arguments
+        process_fn = partial(
+            process_partition_static,
+            global_bins=global_bins,
+            field_name=self.field_name,
+            output_field_name=self.output_field_name,
+            mode=self.mode,
+            strategy=self.strategy,
+            precision=getattr(self, "precision", None),
+            bin_count=getattr(self, "bin_count", None),
+            range_limits=getattr(self, "_get_valid_range_limits", lambda: None)(),
+        )
 
-            Parameters:
-            -----------
-            partition : pd.DataFrame
-                A single partition of the Dask DataFrame.
-
-            Returns:
-            --------
-            pd.DataFrame
-                The transformed partition.
-            """
-            if self.strategy == "binning" and global_bins is not None:
-                partition[self.output_field_name] = pd.cut(
-                    partition[self.field_name], bins=global_bins, include_lowest=True
-                ).astype(str)
-
-                if self.mode == "REPLACE":
-                    partition[self.field_name] = partition[self.output_field_name]
-
-                return partition
-
-            return self.process_batch(partition)
-
-        # ---- Main Dask workflow ----
-        global_bins = _compute_global_bins(ddf)
-        meta = _build_meta(ddf)
-        processed_ddf = ddf.map_partitions(_process_partition, meta=meta)
+        # Apply the function safely across Dask partitions
+        processed_ddf = ddf.map_partitions(process_fn, meta=meta)
         return processed_ddf.compute()
 
     def _collect_metrics(
@@ -1436,6 +1270,81 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         return metrics
 
+    def _save_output_data(
+        self,
+        result_df: pd.DataFrame,
+        is_encryption_required: bool,
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        timestamp: Optional[str] = None,
+        **kwargs,
+    ) -> str:
+        """
+        Save the processed output data.
+
+        Parameters:
+        -----------
+        result_df : pd.DataFrame
+            The processed dataframe to save
+        is_encryption_required : bool
+            Whether to encrypt the output
+        writer : DataWriter
+            The writer to use for saving data
+        result : OperationResult
+            The operation result to add artifacts to
+        reporter : Any
+            The reporter to log artifacts to
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Optional progress tracker
+        timestamp : Optional[str]
+            Optional timestamp for the operation
+        **kwargs : dict
+            Additional parameters for the operation
+        """
+        if progress_tracker:
+            progress_tracker.update(0, {"step": "Saving output data"})
+
+        custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
+        # Generate standardized output filename with timestamp
+        field_name_output = generate_visualization_filename(
+            self.field_name,
+            f"{self.operation_name}_{self.strategy}",
+            "output",
+            timestamp=timestamp,
+        )
+
+        # Use the DataWriter to save the DataFrame
+        output_result = writer.write_dataframe(
+            df=result_df,
+            name=field_name_output,
+            format=self.output_format,
+            subdir="output",
+            timestamp_in_name=False,
+            encryption_key=self.encryption_key if is_encryption_required else None,
+            **custom_kwargs,
+        )
+
+        # Register output artifact with the result
+        result.add_artifact(
+            artifact_type=self.output_format,
+            path=output_result.path,
+            description=f"{self.field_name} generalized data",
+            category=Constants.Artifact_Category_Output,
+        )
+
+        # Report to reporter
+        if reporter:
+            reporter.add_operation(
+                f"{self.field_name} generalized data",
+                details={
+                    "artifact_type": self.output_format,
+                    "path": str(output_result.path),
+                },
+            )
+        return str(output_result.path)
+
     def _handle_visualizations(
         self,
         original_data: pd.Series,
@@ -1449,6 +1358,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         vis_strict: bool = False,
         vis_timeout: int = 120,
         operation_timestamp: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Path]:
         """
         Generate and save visualizations with thread-safe context support.
@@ -1477,8 +1387,10 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             Timeout for visualization generation (default: 120 seconds)
         operation_timestamp : str, optional
             Timestamp for the operation (default: current time)
+        **kwargs : dict
+            Additional parameters for the operation
         """
-        logger.info(
+        self.logger.info(
             f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
         )
         try:
@@ -1493,10 +1405,10 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                logger.info(
+                self.logger.info(
                     f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
                 )
-                logger.info(
+                self.logger.info(
                     f"[DIAG] Field: {self.field_name}, Strategy: {self.strategy}, Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
                 )
 
@@ -1504,17 +1416,19 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
                 try:
                     # Log context variables
-                    logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info(f"[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        logger.info(
+                        self.logger.info(
                             f"[DIAG] Context vars count: {len(list(current_context))}"
                         )
                     except Exception as ctx_e:
-                        logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+                        self.logger.warning(
+                            f"[DIAG] Could not inspect context: {ctx_e}"
+                        )
 
                     # Generate visualizations with visualization context parameters
-                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1526,7 +1440,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            logger.debug(
+                            self.logger.debug(
                                 f"Could not create child progress tracker: {e}"
                             )
 
@@ -1540,6 +1454,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                         strict=vis_strict,
                         progress_tracker=viz_progress,
                         timestamp=operation_timestamp,  # Pass the same timestamp
+                        **kwargs,
                     )
 
                     # Close visualization progress tracker
@@ -1550,20 +1465,20 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                             pass
 
                     elapsed = time.time() - start_time
-                    logger.info(
+                    self.logger.info(
                         f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
                     )
 
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    logger.error(
+                    self.logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -1574,7 +1489,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            logger.info(
+            self.logger.info(
                 f"[DIAG] Starting visualization thread with timeout={vis_timeout}s"
             )
             thread_start_time = time.time()
@@ -1587,37 +1502,37 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    logger.info(
+                    self.logger.info(
                         f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
                     )
 
             if viz_thread.is_alive():
-                logger.error(
+                self.logger.error(
                     f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
                 )
-                logger.error(
+                self.logger.error(
                     f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
                 )
                 visualization_paths = {}
             elif visualization_error:
-                logger.error(
+                self.logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
                 visualization_paths = {}
             else:
                 total_time = time.time() - thread_start_time
-                logger.info(
+                self.logger.info(
                     f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s"
                 )
-                logger.info(
+                self.logger.info(
                     f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}"
                 )
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1649,19 +1564,33 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             Strategy-specific parameters for numeric generalization
         """
         params = {
+            "field_name": self.field_name,
             "strategy": self.strategy,
-            "version": self.version,  # Include version for cache invalidation
+            "bin_count": self.bin_count,
+            "precision": self.precision,
+            "range_limits": self.range_limits,
+            "mode": self.mode,
+            "output_field_name": self.output_field_name,
+            "column_prefix": self.column_prefix,
+            "null_strategy": self.null_strategy,
+            "chunk_size": self.chunk_size,
+            "use_dask": self.use_dask,
+            "npartitions": self.npartitions,
+            "use_vectorization": self.use_vectorization,
+            "parallel_processes": self.parallel_processes,
+            "use_cache": self.use_cache,
+            "use_encryption": self.use_encryption,
+            "encryption_key": self.encryption_key,
+            "visualization_theme": self.visualization_theme,
+            "visualization_backend": self.visualization_backend,
+            "visualization_strict": self.visualization_strict,
+            "visualization_timeout": self.visualization_timeout,
+            "output_format": self.output_format,
+            "force_recalculation": self.force_recalculation,
+            "generate_visualization": self.generate_visualization,
+            "encrypt_output": self.encrypt_output,
+            "save_output": self.save_output,
         }
-
-        # Add strategy-specific parameters
-        if self.strategy == "binning":
-            params["bin_count"] = self.bin_count
-        elif self.strategy == "rounding":
-            params["precision"] = self.precision
-        elif self.strategy == "range":
-            # Store range_limits as tuple if not None
-            if self.range_limits is not None:
-                params["range_limits"] = self.range_limits
 
         return params
 
@@ -1675,6 +1604,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         strict: bool = False,
         progress_tracker: Optional[ProgressTracker] = None,
         timestamp: Optional[str] = None,
+        **kwargs: Any,
     ) -> Dict[str, Path]:
         """
         Generate visualizations for the operation with thread-safe context support.
@@ -1697,6 +1627,8 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             Progress tracker for visualization steps
         timestamp : str, optional
             Timestamp to use for file naming consistency
+        **kwargs : dict
+            Additional parameters for the operation
 
         Returns:
         --------
@@ -1711,13 +1643,15 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         # Check if visualization should be skipped
         if backend is None:
-            logger.info(f"Skipping visualization for {self.field_name} (backend=None)")
+            self.logger.info(
+                f"Skipping visualization for {self.field_name} (backend=None)"
+            )
             return visualization_paths
 
-        logger.info(
+        self.logger.info(
             f"[VIZ] Starting visualization generation for {self.field_name} using {self.strategy} strategy"
         )
-        logger.debug(f"[VIZ] Backend: {backend}, Theme: {theme}, Strict: {strict}")
+        self.logger.debug(f"[VIZ] Backend: {backend}, Theme: {theme}, Strict: {strict}")
 
         try:
             # Step 1: Prepare data
@@ -1726,7 +1660,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
             # Sample large datasets for visualization
             if len(original_data) > 10000:
-                logger.info(
+                self.logger.info(
                     f"[VIZ] Sampling large dataset: {len(original_data)} -> 10000 samples"
                 )
                 original_for_viz = sample_large_dataset(
@@ -1739,10 +1673,10 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 original_for_viz = original_data
                 anonymized_for_viz = anonymized_data
 
-            logger.debug(
+            self.logger.debug(
                 f"[VIZ] Data prepared for visualization: {len(original_for_viz)} samples"
             )
-            logger.debug(
+            self.logger.debug(
                 f"[VIZ] Original data type: {original_for_viz.dtype}, Anonymized data type: {anonymized_for_viz.dtype}"
             )
 
@@ -1755,7 +1689,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             # For rounding strategy, data might remain numeric
 
             if self.strategy in ["binning", "range"]:
-                logger.info(f"[VIZ] Using bar plot for {self.strategy} strategy")
+                self.logger.info(f"[VIZ] Using bar plot for {self.strategy} strategy")
 
                 # Use bar plot for binning and range strategies
                 try:
@@ -1769,17 +1703,17 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
                     # Create full path for visualization
                     bar_path = create_visualization_path(task_dir, bar_filename)
-                    logger.info(f"[VIZ] Bar plot path: {bar_path}")
+                    self.logger.info(f"[VIZ] Bar plot path: {bar_path}")
 
                     # Prepare data for bar plot - count occurrences of each category
                     value_counts = anonymized_for_viz.value_counts()
-                    logger.info(
+                    self.logger.info(
                         f"[VIZ] Value counts calculated: {len(value_counts)} unique categories"
                     )
 
                     # Log first few categories for debugging
                     if len(value_counts) > 0:
-                        logger.debug(
+                        self.logger.debug(
                             f"[VIZ] Top 5 categories: {value_counts.head().to_dict()}"
                         )
 
@@ -1788,7 +1722,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                         progress_tracker.update(3, {"step": "Saving visualization"})
 
                     # Create bar plot using standard utility with context support
-                    logger.info(f"[VIZ] Calling create_bar_plot...")
+                    self.logger.info(f"[VIZ] Calling create_bar_plot...")
                     call_start = time.time()
 
                     save_path = create_bar_plot(
@@ -1804,34 +1738,39 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                         backend=backend
                         or "plotly",  # Use plotly as default if backend is not None
                         strict=strict,
+                        **kwargs,
                     )
 
                     call_time = time.time() - call_start
-                    logger.info(
+                    self.logger.info(
                         f"[VIZ] create_bar_plot returned after {call_time:.2f}s: {save_path}"
                     )
 
                     # Check if visualization was created successfully
                     if not save_path.startswith("Error"):
-                        logger.info(f"[VIZ] Bar plot created successfully: {save_path}")
+                        self.logger.info(
+                            f"[VIZ] Bar plot created successfully: {save_path}"
+                        )
                         visualization_paths["distribution"] = bar_path
                     else:
-                        logger.error(f"[VIZ] Failed to create bar plot: {save_path}")
+                        self.logger.error(
+                            f"[VIZ] Failed to create bar plot: {save_path}"
+                        )
 
                 except Exception as e:
-                    logger.error(
+                    self.logger.error(
                         f"[VIZ] Error creating bar plot visualization: {type(e).__name__}: {e}"
                     )
-                    logger.error(f"[VIZ] Stack trace:", exc_info=True)
+                    self.logger.error(f"[VIZ] Stack trace:", exc_info=True)
 
             elif self.strategy == "rounding":
-                logger.info(
+                self.logger.info(
                     f"[VIZ] Checking data type for rounding strategy visualization"
                 )
 
                 # For rounding, check if data is still numeric
                 if pd.api.types.is_numeric_dtype(anonymized_for_viz):
-                    logger.info(
+                    self.logger.info(
                         "[VIZ] Data is still numeric after rounding, using histogram"
                     )
 
@@ -1847,14 +1786,14 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
                         # Create full path for visualization
                         hist_path = create_visualization_path(task_dir, hist_filename)
-                        logger.info(f"[VIZ] Histogram path: {hist_path}")
+                        self.logger.info(f"[VIZ] Histogram path: {hist_path}")
 
                         # Prepare comparison data for histogram
                         comparison_data = {
                             "Original": original_for_viz.dropna().values,
                             "Rounded": anonymized_for_viz.dropna().values,
                         }
-                        logger.debug(
+                        self.logger.debug(
                             f"[VIZ] Comparison data prepared: Original={len(comparison_data['Original'])}, Rounded={len(comparison_data['Rounded'])}"
                         )
 
@@ -1862,14 +1801,14 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                         n_bins = calculate_optimal_bins(
                             original_for_viz, min_bins=5, max_bins=30
                         )
-                        logger.debug(f"[VIZ] Using {n_bins} bins for histogram")
+                        self.logger.debug(f"[VIZ] Using {n_bins} bins for histogram")
 
                         # Step 3: Save visualization
                         if progress_tracker:
                             progress_tracker.update(3, {"step": "Saving visualization"})
 
                         # Create histogram using standard utility with context support
-                        logger.info(f"[VIZ] Calling create_histogram...")
+                        self.logger.info(f"[VIZ] Calling create_histogram...")
                         call_start = time.time()
 
                         save_path = create_histogram(
@@ -1883,33 +1822,34 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                             theme=theme,
                             backend=backend or "plotly",
                             strict=strict,
+                            **kwargs,
                         )
 
                         call_time = time.time() - call_start
-                        logger.info(
+                        self.logger.info(
                             f"[VIZ] create_histogram returned after {call_time:.2f}s: {save_path}"
                         )
 
                         # Check if visualization was created successfully
                         if not save_path.startswith("Error"):
-                            logger.info(
+                            self.logger.info(
                                 f"[VIZ] Histogram created successfully: {save_path}"
                             )
 
                             visualization_paths["distribution"] = hist_path
                         else:
-                            logger.error(
+                            self.logger.error(
                                 f"[VIZ] Failed to create histogram: {save_path}"
                             )
 
                     except Exception as e:
-                        logger.error(
+                        self.logger.error(
                             f"[VIZ] Error creating histogram visualization: {type(e).__name__}: {e}"
                         )
-                        logger.error(f"[VIZ] Stack trace:", exc_info=True)
+                        self.logger.error(f"[VIZ] Stack trace:", exc_info=True)
                 else:
                     # If rounding produced non-numeric data, use bar plot
-                    logger.info(
+                    self.logger.info(
                         f"[VIZ] Rounding produced non-numeric data for {self.field_name}, using bar plot"
                     )
                     try:
@@ -1923,11 +1863,11 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
                         # Create full path for visualization
                         bar_path = create_visualization_path(task_dir, bar_filename)
-                        logger.info(f"[VIZ] Bar plot path: {bar_path}")
+                        self.logger.info(f"[VIZ] Bar plot path: {bar_path}")
 
                         # Prepare data for bar plot
                         value_counts = anonymized_for_viz.value_counts()
-                        logger.debug(
+                        self.logger.debug(
                             f"[VIZ] Value counts calculated: {len(value_counts)} unique values"
                         )
 
@@ -1936,7 +1876,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                             progress_tracker.update(3, {"step": "Saving visualization"})
 
                         # Create bar plot
-                        logger.info(f"[VIZ] Calling create_bar_plot...")
+                        self.logger.info(f"[VIZ] Calling create_bar_plot...")
                         call_start = time.time()
 
                         save_path = create_bar_plot(
@@ -1951,38 +1891,39 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                             theme=theme,
                             backend=backend or "plotly",
                             strict=strict,
+                            **kwargs,
                         )
 
                         call_time = time.time() - call_start
-                        logger.info(
+                        self.logger.info(
                             f"[VIZ] create_bar_plot returned after {call_time:.2f}s: {save_path}"
                         )
 
                         # Check if visualization was created successfully
                         if not save_path.startswith("Error"):
-                            logger.info(
+                            self.logger.info(
                                 f"[VIZ] Bar plot created successfully: {save_path}"
                             )
 
                             visualization_paths["distribution"] = bar_path
                         else:
-                            logger.error(
+                            self.logger.error(
                                 f"[VIZ] Failed to create bar plot: {save_path}"
                             )
 
                     except Exception as e:
-                        logger.error(
+                        self.logger.error(
                             f"[VIZ] Error creating bar plot visualization: {type(e).__name__}: {e}"
                         )
-                        logger.error(f"[VIZ] Stack trace:", exc_info=True)
+                        self.logger.error(f"[VIZ] Stack trace:", exc_info=True)
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}"
             )
-            logger.debug(f"[VIZ] Stack trace:", exc_info=True)
+            self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
 
-        logger.info(
+        self.logger.info(
             f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations"
         )
         return visualization_paths
@@ -2044,6 +1985,10 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             del original_data
         if anonymized_data is not None:
             del anonymized_data
+
+        # Clear operation cache
+        if hasattr(self, "operation_cache"):
+            self.operation_cache = None
 
         # Additional cleanup for any temporary attributes
         for attr_name in list(vars(self).keys()):

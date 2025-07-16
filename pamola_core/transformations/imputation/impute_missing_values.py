@@ -41,7 +41,7 @@ from pandas.api.types import (
 
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_data_writer import DataWriter
+from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
@@ -49,9 +49,7 @@ from pamola_core.common.constants import Constants
 
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import load_data_operation, load_settings_operation
-
-# Configure module logger
-logger = logging.getLogger(__name__)
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 class ImputeMissingValuesConfig(OperationConfig):
     """Configuration for Impute Missing Values Operation."""
@@ -61,25 +59,23 @@ class ImputeMissingValuesConfig(OperationConfig):
         "properties": {
             "field_strategies": {"type": ["object", "null"]},
             "invalid_values": {"type": ["object", "null"]},
-
             "output_format": {"type": "string", "enum": ["csv", "json", "parquet"]},
-
-            "name": {"type": "string"},
-            "description": {"type": "string"},
-
-            "field_name": {"type": "string"},
+            "name": {"type": ["string", "null"]},
+            "description": {"type": ["string", "null"]},
+            "field_name": {"type": ["string", "null"]},
             "mode": {"type": "string", "enum": ["REPLACE", "ENRICH"]},
             "output_field_name": {"type": ["string", "null"]},
             "column_prefix": {"type": "string"},
-
+            # Visualization-related properties
+            "visualization_theme": {"type": ["string", "null"]},
+            "visualization_backend": {"type": ["string", "null"], "enum": ["plotly", "matplotlib", None]},
+            "visualization_strict": {"type": "boolean"},
+            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
             "chunk_size": {"type": "integer"},
             "use_dask": {"type": "boolean"},
             "npartitions": {"type": "integer"},
-            "meta": {"type": ["object", "null"]},
             "use_vectorization": {"type": "boolean"},
             "parallel_processes": {"type": "integer"},
-
-            "batch_size": {"type": "integer", "minimum": 1},
             "use_cache": {"type": "boolean"},
             "use_encryption": {"type": "boolean"},
             "encryption_key": {"type": ["string", "null"]}
@@ -96,28 +92,26 @@ class ImputeMissingValuesOperation(TransformationOperation):
             self,
             field_strategies: Optional[Dict[str, Dict[str, Any]]] = None,
             invalid_values: Optional[Dict[str, List[Any]]] = None,
-
             output_format: str = "csv",
-
             name: str = "impute_missing_values_operation",
             description: str = "Impute missing or invalid values",
-
             field_name: str = "",
             mode: str = "REPLACE",
             output_field_name: Optional[str] = None,
             column_prefix: str = "_",
-
+            visualization_theme: Optional[str] = None,
+            visualization_backend: Optional[str] = None,
+            visualization_strict: bool = False,
+            visualization_timeout: int = 120,
             chunk_size: int = 10000,
             use_dask: bool = False,
             npartitions: int = 2,
-            meta: Optional[Union[pd.DataFrame, pd.Series, Dict, Iterable, Tuple]] = None,
             use_vectorization: bool = False,
             parallel_processes: int = 2,
-
-            batch_size: int = 10000,
             use_cache: bool = True,
             use_encryption: bool = False,
-            encryption_key: Optional[Union[str, Path]] = None
+            encryption_key: Optional[Union[str, Path]] = None,
+            encryption_mode: Optional[str] = None,
     ):
         """
         Initialize operation.
@@ -128,15 +122,12 @@ class ImputeMissingValuesOperation(TransformationOperation):
             Fields strategies
         invalid_values : dict, optional
             Invalid values
-
         output_format : str
             Output format: "csv" or "json" or "parquet" (default: "csv")
-
         name : str
             Name of the operation (default: "impute_missing_values_operation")
         description : str
             Operation description (default: "Impute missing or invalid values")
-
         field_name : str
             Field name to transform (default: "")
         mode : str
@@ -145,22 +136,24 @@ class ImputeMissingValuesOperation(TransformationOperation):
             Name for the output field if mode is "ENRICH" (default: None)
         column_prefix : str, optional
             Prefix for new column if mode is "ENRICH" (default: "_")
-
+        visualization_theme : str, optional
+            Theme to use for visualizations (default: None - uses system default)
+        visualization_backend : str, optional
+            Backend to use for visualizations: "plotly" or "matplotlib" (default: None - uses system default)
+        visualization_strict : bool, optional
+            If True, raise exceptions for visualization config errors (default: False)
+        visualization_timeout : int, optional
+            Timeout in seconds for visualization generation (default: 120)
         chunk_size : int, optional
             Number of rows to process in each chunk (default: 10000).
         use_dask : bool, optional
             Whether to use Dask for processing (default: False).
         npartitions : int, optional
             Number of partitions use with Dask (default: 1).
-        meta : Union[pd.DataFrame, pd.Series, Dict, Iterable, Tuple], optional
-            Meta of output use with Dask.
         use_vectorization : bool, optional
             Whether to use vectorized (parallel) processing (default: False).
         parallel_processes : int, optional
             Number of processes use with vectorized (parallel) (default: 1).
-
-        batch_size : int
-            Batch size for processing large datasets (default: 10000)
         use_cache : bool
             Whether to use operation caching (default: True)
         use_encryption : bool
@@ -172,25 +165,22 @@ class ImputeMissingValuesOperation(TransformationOperation):
         config = ImputeMissingValuesConfig(
             field_strategies=field_strategies,
             invalid_values=invalid_values,
-
             output_format=output_format,
-
             name=name,
             description=description,
-
             field_name=field_name,
             mode=mode,
             output_field_name=output_field_name,
             column_prefix=column_prefix,
-
+            visualization_theme=visualization_theme,
+            visualization_backend=visualization_backend,
+            visualization_strict=visualization_strict,
+            visualization_timeout=visualization_timeout,
             chunk_size=chunk_size,
             use_dask=use_dask,
             npartitions=npartitions,
-            meta=meta,
             use_vectorization=use_vectorization,
             parallel_processes=parallel_processes,
-
-            batch_size=batch_size,
             use_cache=use_cache,
             use_encryption=use_encryption,
             encryption_key=encryption_key
@@ -199,26 +189,27 @@ class ImputeMissingValuesOperation(TransformationOperation):
         # Initialize base class
         super().__init__(
             output_format=output_format,
-
             name=name,
             description=description,
-
             field_name=field_name,
             mode=mode,
             output_field_name=output_field_name,
             column_prefix=column_prefix,
-
-            batch_size=batch_size,
+            chunk_size=chunk_size,
             use_cache=use_cache,
             use_dask=use_dask,
             use_encryption=use_encryption,
-            encryption_key=encryption_key
+            encryption_key=encryption_key,
+            encryption_mode=encryption_mode
         )
 
+        self.visualization_theme = config.get("visualization_theme")
+        self.visualization_backend = config.get("visualization_backend")
+        self.visualization_strict = config.get("visualization_strict")
+        self.visualization_timeout = config.get("visualization_timeout")
         self.chunk_size = config.get("chunk_size")
         self.use_dask = config.get("use_dask")
         self.npartitions = config.get("npartitions")
-        self.meta = config.get("meta")
         self.use_vectorization = config.get("use_vectorization")
         self.parallel_processes = config.get("parallel_processes")
 
@@ -265,6 +256,10 @@ class ImputeMissingValuesOperation(TransformationOperation):
             - include_timestamp: bool - Include timestamp in filenames - True
             - save_output: bool - Save processed data to output directory - True
             - encrypt_output: bool - Override encryption setting for outputs - False
+            - visualization_theme: str - Override theme for visualizations - None
+            - visualization_backend: str - Override backend for visualizations - None
+            - visualization_strict: bool - Override strict mode for visualizations - False
+            - visualization_timeout: int - Override timeout for visualizations - 120
 
         Returns:
         --------
@@ -272,6 +267,9 @@ class ImputeMissingValuesOperation(TransformationOperation):
             Results of the operation
         """
         try:
+            # Config logger task for operatiions
+            self.logger = kwargs.get('logger', self.logger)
+
             # Initialize timing and result
             self.start_time = time.time()
             self.process_count = 0
@@ -300,6 +298,16 @@ class ImputeMissingValuesOperation(TransformationOperation):
             is_encryption_required = (kwargs.get("encrypt_output", False) or self.use_encryption)
             encryption_key = kwargs.get('encryption_key', None)
 
+            # Extract visualization parameters
+            vis_theme = kwargs.get("visualization_theme", self.visualization_theme)
+            vis_backend = kwargs.get("visualization_backend", self.visualization_backend)
+            vis_strict = kwargs.get("visualization_strict", self.visualization_strict)
+            vis_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
+
+            self.logger.info(
+                f"Visualization settings: theme={vis_theme}, backend={vis_backend}, strict={vis_strict}, timeout={vis_timeout}s"
+            )
+
             self.use_dask = use_dask
             self.parallel_processes = parallel_processes
             self.include_timestamp = include_timestamp
@@ -320,7 +328,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     progress_tracker.update(current_steps, {"step": "Checking Cache"})
 
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(data_source, **kwargs)
+                cache_result = self._check_cache(data_source, reporter, **kwargs)
 
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
@@ -400,6 +408,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
 
             # Initialize metrics in scope
             metrics = {}
+            metrics_result = DataWriter
             self.end_time = time.time()
             if self.end_time and self.start_time:
                 self.execution_time = self.end_time - self.start_time
@@ -407,7 +416,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
             try:
                 metrics = self._calculate_all_metrics(original_df, processed_df)
 
-                self._save_metrics(
+                metrics_result = self._save_metrics(
                     metrics=metrics,
                     task_dir=metrics_dir,
                     writer=writer,
@@ -425,19 +434,24 @@ class ImputeMissingValuesOperation(TransformationOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Finalization"})
 
+            visualizations = {}
             # Generate visualizations if required
-            if generate_visualization:
+            if generate_visualization and vis_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": kwargs.get('use_encryption', False),
                         "encryption_key": encryption_key
                     }
-                    self._handle_visualizations(
+                    visualizations = self._handle_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
                         task_dir=visualizations_dir,
                         result=result,
                         reporter=reporter,
+                        vis_theme=vis_theme,
+                        vis_backend=vis_backend,
+                        vis_strict=vis_strict,
+                        vis_timeout=vis_timeout,
                         progress_tracker=progress_tracker,
                         **kwargs_encryption
                     )
@@ -446,16 +460,18 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     self.logger.warning(error_message)
                     # Continue execution - visualization failure is not critical
 
+            output_result = DataWriter
             # Save output data if required
             if save_output:
                 try:
-                    self._save_output_data(
+                    output_result = self._save_output_data(
                         processed_df=processed_df,
                         task_dir=output_dir,
                         writer=writer,
                         result=result,
                         reporter=reporter,
-                        progress_tracker=progress_tracker
+                        progress_tracker=progress_tracker,
+                        **kwargs
                     )
                 except Exception as e:
                     error_message = f"Error saving output data: {str(e)}"
@@ -469,6 +485,9 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         original_df=original_df,
                         processed_df=processed_df,
                         metrics=metrics,
+                        metrics_result=metrics_result,
+                        output_result=output_result,
+                        visualizations=visualizations,
                         task_dir=task_dir
                     )
                 except Exception as e:
@@ -528,9 +547,10 @@ class ImputeMissingValuesOperation(TransformationOperation):
             Processed batch
         """
         for field_name, field_config in self.field_strategies.items():
+            field_config = field_config or {}
             imputation_strategy = field_config.get("imputation_strategy")
             constant_value = field_config.get("constant_value")
-            invalid_values = self.invalid_values.get(field_name, [])
+            invalid_values = (self.invalid_values or {}).get(field_name) or []
 
             if field_name and field_name in batch.columns:
                 # Config output field name
@@ -587,6 +607,9 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     # Impute with constant
                     if imputation_strategy == "constant":
                         if constant_value and constant_value not in invalid_values:
+                            if constant_value not in batch[output_field_name].cat.categories:
+                                batch[output_field_name] = batch[output_field_name].cat.add_categories([constant_value])
+
                             batch[output_field_name] = batch[output_field_name].replace(invalid_values, np.nan)
 
                             batch[output_field_name] = batch[output_field_name].fillna(constant_value)
@@ -739,6 +762,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
     def _check_cache(
             self,
             data_source: DataSource,
+            reporter: Any,
             **kwargs
     ) -> Optional[OperationResult]:
         """
@@ -748,6 +772,8 @@ class ImputeMissingValuesOperation(TransformationOperation):
         -----------
         data_source : DataSource
             Data source for the operation
+        reporter : Any
+            The reporter to log artifacts to
         task_dir : Path
             Task directory
         dataset_name: str
@@ -765,11 +791,11 @@ class ImputeMissingValuesOperation(TransformationOperation):
             # Import and get global cache manager
             from pamola_core.utils.ops.op_cache import operation_cache
 
+            # Get DataFrame from data source
             # Load data
             dataset_name = kwargs.get('dataset_name', "main")
             settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
             df = load_data_operation(data_source, dataset_name, **settings_operation)
-
             if df is None:
                 error_message = 'Failed to load input data'
                 self.logger.warning(f"Cannot check cache: {error_message}")
@@ -798,10 +824,83 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         if isinstance(value, (int, float, str, bool)):
                             cached_result.add_metric(key, value)
 
+                # Restore artifacts from cache
+                artifacts_restored = 0
+
+                # Add metrics artifact if exists
+                metrics_result_path = cached_data.get("metrics_result_path")
+                if metrics_result_path:
+                    metrics_path = Path(metrics_result_path)
+                    if metrics_path.exists():
+                        cached_result.add_artifact(
+                            artifact_type="json",
+                            path=metrics_path,
+                            description=f"Generalization metrics (cached)",
+                            category=Constants.Artifact_Category_Metrics
+                        )
+                        artifacts_restored += 1
+
+                        if reporter:
+                            reporter.add_operation(
+                                f"Generalization metrics (cached)",
+                                details={
+                                    "artifact_type": "json",
+                                    "path": str(metrics_path)
+                                }
+                            )
+
+                # Add output artifact if file exists
+                output_result_path = cached_data.get("output_result_path")
+                if output_result_path:
+                    output_path = Path(output_result_path)
+                    if output_path.exists():
+                        cached_result.add_artifact(
+                            artifact_type=self.output_format,
+                            path=output_path,
+                            description=f"Generalized data (cached)",
+                            category=Constants.Artifact_Category_Output
+                        )
+                        artifacts_restored += 1
+
+                        # Also report to reporter
+                        if reporter:
+                            reporter.add_operation(
+                                f"Generalized data (cached)",
+                                details={
+                                    "artifact_type": self.output_format,
+                                    "path": str(output_path)
+                                }
+                            )
+                    else:
+                        self.logger.warning(f"Cached output file not found: {output_path}")
+
+                # Add visualization artifacts
+                visualizations = cached_data.get("visualizations", {})
+                for viz_type, viz_path in visualizations.items():
+                    path = Path(viz_path)
+                    if path.exists():
+                        cached_result.add_artifact(
+                            artifact_type="png",
+                            path=path,
+                            description=f"{viz_type} visualization (cached)",
+                            category=Constants.Artifact_Category_Visualization
+                        )
+                        artifacts_restored += 1
+
+                        if reporter:
+                            reporter.add_operation(
+                                f"{viz_type} visualization (cached)",
+                                details={
+                                    "artifact_type": "png",
+                                    "path": str(path)
+                                }
+                            )
+
                 # Add cache information to result
                 cached_result.add_metric("cached", True)
                 cached_result.add_metric("cache_key", cache_key)
                 cached_result.add_metric("cache_timestamp", cached_data.get("timestamp", "unknown"))
+                cached_result.add_metric("artifacts_restored", artifacts_restored)
 
                 return cached_result
 
@@ -942,10 +1041,11 @@ class ImputeMissingValuesOperation(TransformationOperation):
             chunk_size = self.chunk_size,
             use_dask = self.use_dask,
             npartitions = self.npartitions,
-            meta = self.meta,
+            meta = None,
             use_vectorization = self.use_vectorization,
             parallel_processes = self.parallel_processes,
-            progress_tracker = progress_tracker
+            progress_tracker = progress_tracker,
+            task_logger = self.logger
         )
 
         return processed_df
@@ -1031,7 +1131,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
             result: OperationResult,
             reporter: Any,
             progress_tracker: Optional[HierarchicalProgressTracker]
-    ) -> None:
+    ) -> WriterResult:
         """
         Save metrics.
 
@@ -1049,6 +1149,11 @@ class ImputeMissingValuesOperation(TransformationOperation):
             The reporter to log artifacts to
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
+
+        Returns:
+        --------
+        WriterResult
+            Result object with path and metadata
         """
         from pamola_core.transformations.commons.visualization_utils import (
             generate_visualization_filename
@@ -1093,6 +1198,8 @@ class ImputeMissingValuesOperation(TransformationOperation):
                 description=f"Impute missing values metrics"
             )
 
+        return metrics_result
+
     def _handle_visualizations(
             self,
             original_df: pd.DataFrame,
@@ -1100,9 +1207,13 @@ class ImputeMissingValuesOperation(TransformationOperation):
             task_dir: Path,
             result: OperationResult,
             reporter: Any,
+            vis_theme: Optional[str],
+            vis_backend: Optional[str],
+            vis_strict: bool,
+            vis_timeout: int,
             progress_tracker: Optional[HierarchicalProgressTracker],
             **kwargs
-    ) -> None:
+    ) -> Dict[str, Path]:
         """
         Generate and save visualizations.
 
@@ -1118,19 +1229,137 @@ class ImputeMissingValuesOperation(TransformationOperation):
             The operation result to add artifacts to
         reporter : Any
             The reporter to log artifacts to
+        vis_theme : str, optional
+            Theme to use for visualizations
+        vis_backend : str, optional
+            Backend to use: "plotly" or "matplotlib"
+        vis_strict : bool, optional
+            If True, raise exceptions for configuration errors
+        vis_timeout : int, optional
+            Timeout for visualization generation (default: 120 seconds)
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
+
+        Returns:
+        --------
+        Dict[str, Path]
+            Dictionary with visualization types and paths
         """
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        # Generate visualizations
-        visualization_paths = self._generate_visualizations(
-            original_df=original_df,
-            processed_df=processed_df,
-            task_dir=task_dir,
-            **kwargs
-        )
+        self.logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+
+        try:
+            import threading
+            import contextvars
+
+            visualization_paths = {}
+            visualization_error = None
+
+            def generate_viz_with_diagnostics():
+                nonlocal visualization_paths, visualization_error
+                thread_id = threading.current_thread().ident
+                thread_name = threading.current_thread().name
+
+                self.logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
+                self.logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+
+                start_time = time.time()
+
+                try:
+                    # Log context variables
+                    self.logger.info(f"[DIAG] Checking context variables...")
+                    try:
+                        current_context = contextvars.copy_context()
+                        self.logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                    except Exception as ctx_e:
+                        self.logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+
+                    # Generate visualizations with visualization context parameters
+                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    # Create child progress tracker for visualization if available
+                    total_steps = 3  # prepare data, create viz, save
+                    viz_progress = None
+                    if progress_tracker and hasattr(progress_tracker, "create_subtask"):
+                        try:
+                            viz_progress = progress_tracker.create_subtask(
+                                total=total_steps,
+                                description="Generating visualizations",
+                                unit="steps",
+                            )
+                        except Exception as e:
+                            self.logger.debug(f"Could not create child progress tracker: {e}")
+
+                    # Generate visualizations
+                    visualization_paths = self._generate_visualizations(
+                        original_df=original_df,
+                        processed_df=processed_df,
+                        task_dir=task_dir,
+                        vis_theme=vis_theme,
+                        vis_backend=vis_backend,
+                        vis_strict=vis_strict,
+                        progress_tracker=viz_progress,
+                        **kwargs
+                    )
+
+                    # Close visualization progress tracker
+                    if viz_progress:
+                        try:
+                            viz_progress.close()
+                        except:
+                            pass
+
+                    elapsed = time.time() - start_time
+                    self.logger.info(
+                        f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
+                    )
+                except Exception as e:
+                    elapsed = time.time() - start_time
+                    visualization_error = e
+                    self.logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+
+            # Copy context for the thread
+            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            ctx = contextvars.copy_context()
+
+            # Create thread with context
+            viz_thread = threading.Thread(
+                target=ctx.run,
+                args=(generate_viz_with_diagnostics,),
+                name=f"VizThread-",
+                daemon=False,  # Changed from True to ensure proper cleanup
+            )
+
+            self.logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            thread_start_time = time.time()
+            viz_thread.start()
+
+            # Log periodic status while waiting
+            check_interval = 5  # seconds
+            elapsed = 0
+            while viz_thread.is_alive() and elapsed < vis_timeout:
+                viz_thread.join(timeout=check_interval)
+                elapsed = time.time() - thread_start_time
+                if viz_thread.is_alive():
+                    self.logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+
+            if viz_thread.is_alive():
+                self.logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
+                self.logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                visualization_paths = {}
+            elif visualization_error:
+                self.logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                visualization_paths = {}
+            else:
+                total_time = time.time() - thread_start_time
+                self.logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
+                self.logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+        except Exception as e:
+            self.logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            visualization_paths = {}
 
         # Register visualization artifacts
         for viz_type, path in visualization_paths.items():
@@ -1150,11 +1379,17 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     description=f"{viz_type} visualization"
                 )
 
+        return visualization_paths
+
     def _generate_visualizations(
             self,
             original_df: pd.DataFrame,
             processed_df: pd.DataFrame,
             task_dir: Path,
+            vis_theme: Optional[str],
+            vis_backend: Optional[str],
+            vis_strict: bool,
+            progress_tracker: Optional[HierarchicalProgressTracker],
             **kwargs
     ) -> Dict[str, Path]:
         """
@@ -1168,6 +1403,14 @@ class ImputeMissingValuesOperation(TransformationOperation):
             The anonymized data after processing
         task_dir : Path
             Task directory for saving visualizations
+        vis_theme : str, optional
+            Theme to use for visualizations
+        vis_backend : str, optional
+            Backend to use: "plotly" or "matplotlib"
+        vis_strict : bool, optional
+            If True, raise exceptions for configuration errors
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Optional progress tracker
 
         Returns:
         --------
@@ -1175,7 +1418,11 @@ class ImputeMissingValuesOperation(TransformationOperation):
             Dictionary with visualization types and paths
         """
         from pamola_core.transformations.commons.visualization_utils import (
-            generate_field_count_comparison_vis
+            generate_dataset_overview_vis,
+            generate_field_count_comparison_vis,
+            generate_record_count_comparison_vis,
+            generate_data_distribution_comparison_vis,
+            sample_large_dataset
         )
 
         visualization_paths = {}
@@ -1183,20 +1430,131 @@ class ImputeMissingValuesOperation(TransformationOperation):
         # Create timestamp for filenames
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        visualization_paths.update(
-            generate_field_count_comparison_vis(
-                original_df=original_df,
-                transformed_df=processed_df,
-                field_label="Impute missing values",
-                operation_name=f"{self.__class__.__name__}",
-                task_dir=task_dir,
-                timestamp=timestamp,
-                visualization_paths=visualization_paths,
-                **kwargs
-            )
-        )
+        # Check if visualization should be skipped
+        if vis_backend is None:
+            self.logger.info(f"Skipping visualization (backend=None)")
+            return visualization_paths
 
-        return visualization_paths
+        self.logger.info(f"[VIZ] Starting visualization generation")
+        self.logger.debug(f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+
+        try:
+            # Step 1: Prepare data
+            if progress_tracker:
+                progress_tracker.update(1, {"step": "Preparing visualization data"})
+
+            # Sample large datasets for visualization
+            if len(original_df) > 10000:
+                self.logger.info(f"[VIZ] Sampling large dataset: {len(original_df)} -> 10000 samples")
+                original_for_viz = sample_large_dataset(original_df, max_samples=10000)
+                processed_for_viz = sample_large_dataset(processed_df, max_samples=10000)
+            else:
+                original_for_viz = original_df
+                processed_for_viz = processed_df
+
+            self.logger.debug(f"[VIZ] Data prepared for visualization: {len(original_for_viz)} samples")
+
+            # Step 2 & 3: Create visualization & Save visualization
+            if progress_tracker:
+                progress_tracker.update(2, {"step": "Create visualization"})
+                progress_tracker.update(3, {"step": "Save visualization"})
+
+            # Generate visualization
+            field_names = set()
+            if self.field_strategies:
+                field_names.update(self.field_strategies.keys())
+            field_names = list(field_names)
+
+            output_field_names = field_names
+            if self.mode == "ENRICH" and self.column_prefix:
+                output_field_names = [f"{self.column_prefix}{field_name}" for field_name in field_names]
+
+            for field_name in field_names:
+                output_field_name = field_name
+                if self.mode == "ENRICH" and self.column_prefix:
+                    output_field_name = f"{self.column_prefix}{field_name}"
+
+                visualization_paths.update(
+                    generate_data_distribution_comparison_vis(
+                        original_data=original_for_viz[field_name],
+                        transformed_data=processed_for_viz[output_field_name],
+                        field_label=field_name,
+                        operation_name=f"{self.__class__.__name__}",
+                        task_dir=task_dir / "visualizations",
+                        timestamp=timestamp,
+                        theme=vis_theme,
+                        backend=vis_backend,
+                        strict=vis_strict,
+                        visualization_paths=None
+                    )
+                )
+
+            visualization_paths.update(
+                generate_dataset_overview_vis(
+                    df=original_for_viz,
+                    operation_name=f"{self.__class__.__name__}",
+                    dataset_label="original",
+                    field_label=",".join(field_names),
+                    task_dir=task_dir / "visualizations",
+                    timestamp=timestamp,
+                    theme=vis_theme,
+                    backend=vis_backend,
+                    strict=vis_strict,
+                    visualization_paths=None
+                )
+            )
+
+            visualization_paths.update(
+                generate_dataset_overview_vis(
+                    df=processed_for_viz,
+                    operation_name=f"{self.__class__.__name__}",
+                    dataset_label="transformed",
+                    field_label=",".join(output_field_names),
+                    task_dir=task_dir / "visualizations",
+                    timestamp=timestamp,
+                    theme=vis_theme,
+                    backend=vis_backend,
+                    strict=vis_strict,
+                    visualization_paths=None
+                )
+            )
+
+            visualization_paths.update(
+                 generate_record_count_comparison_vis(
+                     original_df=original_for_viz,
+                     transformed_dfs={"transformed": processed_for_viz},
+                     field_label= ",".join(field_names),
+                     operation_name=f"{self.__class__.__name__}",
+                     task_dir=task_dir / "visualizations",
+                     timestamp=timestamp,
+                     theme=vis_theme,
+                     backend=vis_backend,
+                     strict=vis_strict,
+                     visualization_paths=None
+                 )
+            )
+
+            visualization_paths.update(
+                 generate_field_count_comparison_vis(
+                     original_df=original_for_viz,
+                     transformed_df=processed_for_viz,
+                     field_label= ",".join(field_names),
+                     operation_name=f"{self.__class__.__name__}",
+                     task_dir=task_dir / "visualizations",
+                     timestamp=timestamp,
+                     theme=vis_theme,
+                     backend=vis_backend,
+                     strict=vis_strict,
+                     visualization_paths=None
+                 )
+            )
+
+            self.logger.info(f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations")
+            return visualization_paths
+        except Exception as e:
+            self.logger.error(f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}")
+            self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
+            return {}
 
     def _save_output_data(
             self,
@@ -1205,7 +1563,8 @@ class ImputeMissingValuesOperation(TransformationOperation):
             writer: DataWriter,
             result: OperationResult,
             reporter: Any,
-            progress_tracker: Optional[HierarchicalProgressTracker]
+            progress_tracker: Optional[HierarchicalProgressTracker],
+            **kwargs
     ) -> None:
         """
         Save the processed output data.
@@ -1224,6 +1583,11 @@ class ImputeMissingValuesOperation(TransformationOperation):
             The reporter to log artifacts to
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
+
+        Returns:
+        --------
+        WriterResult
+            Result object with path and metadata
         """
         from pamola_core.transformations.commons.visualization_utils import (
             generate_visualization_filename
@@ -1240,13 +1604,15 @@ class ImputeMissingValuesOperation(TransformationOperation):
             include_timestamp=self.include_timestamp
         )
 
+        encryption_mode = get_encryption_mode(processed_df, **kwargs)
         output_result = writer.write_dataframe(
             df=processed_df,
             name=output_filename.replace(".csv", ""),  # writer appends .csv
             format="csv",
             subdir="output",
             timestamp_in_name=False,  # Already included in the filename
-            encryption_key=self.encryption_key if self.is_encryption_required else None
+            encryption_key=self.encryption_key if self.is_encryption_required else None,
+            encryption_mode=encryption_mode
         )
 
         # Register output artifact with the result
@@ -1265,11 +1631,16 @@ class ImputeMissingValuesOperation(TransformationOperation):
                 description=f"Impute missing values"
             )
 
+        return output_result
+
     def _save_to_cache(
             self,
             original_df: pd.DataFrame,
             processed_df: pd.DataFrame,
             metrics: Dict[str, Any],
+            metrics_result: WriterResult,
+            output_result: WriterResult,
+            visualizations: Dict[str, Any],
             task_dir: Path
     ) -> bool:
         """
@@ -1283,6 +1654,12 @@ class ImputeMissingValuesOperation(TransformationOperation):
             Processed DataFrame
         metrics : dict
             The metrics of operation
+        metrics_result : WriterResult
+            The result of metrics
+        output_result : WriterResult
+            The result of output
+        visualizations : dict
+            The visualizations of operation
         task_dir : Path
             Task directory
 
@@ -1308,6 +1685,9 @@ class ImputeMissingValuesOperation(TransformationOperation):
                 "timestamp": datetime.now().isoformat(),
                 "parameters": operation_parameters,
                 "metrics": metrics,
+                "metrics_result_path": str(metrics_result.path),
+                "output_result_path": str(output_result.path),
+                "visualizations": visualizations,
                 "data_info": {
                     "original_df_length": len(original_df),
                     "processed_df_length": len(processed_df)

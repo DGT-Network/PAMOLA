@@ -337,8 +337,7 @@ class TestLoadMultiDictionary(unittest.TestCase):
         result = dict_helpers.load_multi_dictionary("domain", {}, fallback_to_embedded=True)
         self.assertEqual(result, ["gmail.com", "yahoo.com"])
 
-    # Error #
-    @patch("pamola_core.fake_data.commons.dict_helpers.phones.get_area_codes")
+    @patch("pamola_core.fake_data.commons.dict_helpers.phones.get_country_codes")
     def test_fallback_phone(self, mock_phones):
         mock_phones.return_value = ["212", "646"]
         result = dict_helpers.load_multi_dictionary("phone", {"country": "US"})

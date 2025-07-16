@@ -23,7 +23,6 @@ Key features:
 import base64
 import logging
 import secrets
-from enum import Enum
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List, TYPE_CHECKING
 
@@ -92,34 +91,12 @@ except ImportError:  # pragma: no cover
         pass
 
 # Import path security validation
+from pamola_core.common.enum.encryption_mode import EncryptionMode
 from pamola_core.utils.tasks.path_security import validate_path_security, PathSecurityError
 
 # Set up logger with a null handler (will be replaced by proper handler)
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
-
-
-class EncryptionMode(Enum):
-    """
-    Encryption modes supported by the task framework.
-
-    - NONE: No encryption
-    - SIMPLE: Simple symmetric encryption using Fernet
-    - AGE: Age encryption (more secure, supports key rotation)
-    """
-    NONE = "none"
-    SIMPLE = "simple"
-    AGE = "age"
-
-    @classmethod
-    def from_string(cls, value: str) -> 'EncryptionMode':
-        """Convert string to EncryptionMode enum value."""
-        try:
-            return cls(value.lower())
-        except (ValueError, AttributeError):
-            logger.warning(f"Invalid encryption mode '{value}', defaulting to 'simple'")
-            return cls.SIMPLE
-
 
 class EncryptionContext:
     """
