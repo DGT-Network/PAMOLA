@@ -89,6 +89,17 @@ DEFAULT_THRESHOLDS = {
     "mvf_threshold": 2
 }
 
+def _has_list_or_tuple(series: pd.Series) -> bool:
+    """
+    Determine whether a pandas Series contains any list or tuple values.
+
+    Args:
+        series : pd.Series The pandas Series to examine.
+
+    Returns:
+        bool: True if the Series contains at least one list or tuple, otherwise False.
+    """
+    return series.astype(object).apply(lambda x: isinstance(x, (list, tuple))).any()
 
 def load_attribute_dictionary(file_path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
     """
@@ -214,7 +225,7 @@ def infer_data_type(series: pd.Series) -> str:
         return 'unknown'
 
     # Check if it contains lists (MVF)
-    if non_null.apply(lambda x: isinstance(x, (list, tuple))).any():
+    if _has_list_or_tuple(non_null):
         return 'mvf'
 
     # Check for MVF in string format
@@ -358,7 +369,7 @@ def is_mvf_field(series: pd.Series) -> bool:
         return False
 
     # Check for list/tuple types
-    if non_null.apply(lambda x: isinstance(x, (list, tuple))).any():
+    if _has_list_or_tuple(non_null):
         return True
 
     # Check for common MVF string patterns
@@ -372,7 +383,7 @@ def is_mvf_field(series: pd.Series) -> bool:
     if mvf_count >= len(sample) * 0.5:
         
         # Check average token length to distinguish from free text
-        sample_values = sample.head(1).loc[0] if len(sample.head(1))> 0 else ""
+        sample_values = sample.head(1).iloc[0] if len(sample.head(1))> 0 else ""
         avg_token_length = np.mean([len(str(token).strip()) for token in str(sample_values).split(',')])
 
         # If average token length is small, likely MVF
@@ -442,7 +453,7 @@ def analyze_column_values(df: pd.DataFrame, column: str, sample_size: int = 10) 
                 delimiter = None
 
                 # Handle list/tuple type MVF
-                if series.apply(lambda x: isinstance(x, (list, tuple))).any():
+                if _has_list_or_tuple(series):
                     flattened = [item for sublist in series.dropna() for item in sublist]
                 else:
                     # Detect and process string-based MVF

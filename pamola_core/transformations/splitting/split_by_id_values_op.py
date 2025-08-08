@@ -577,6 +577,9 @@ class SplitByIDValuesOperation(TransformationOperation):
                          output_data: Union[pd.DataFrame, Dict[str, pd.DataFrame]]) -> Dict[str, Any]:
         """
         Collect operation-specific metrics for SplitByIDValuesOperation and return in structured format.
+
+        Metrics include input/output size, number of splits, and summary info
+        about each split (record count and included ID values).
         """
         if not isinstance(output_data, dict):
             self.logger.warning("Transformed data is not in expected dictionary format.")
@@ -590,8 +593,8 @@ class SplitByIDValuesOperation(TransformationOperation):
 
         split_info = {
             name: {
-                "field_count": len(df.columns),
-                "included_fields": list(df.columns)
+                "record_count": len(df),
+                "included_records": df[self.id_field].dropna().unique().tolist()
             }
             for name, df in output_data.items()
         }

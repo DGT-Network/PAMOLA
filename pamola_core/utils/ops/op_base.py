@@ -213,7 +213,7 @@ class BaseOperation(ABC):
         column_prefix : str, optional
             Prefix for new column names if mode is "ENRICH"
         null_strategy : str, optional
-            How to handle NULL values: "PRESERVE", "EXCLUDE" or "ERROR"
+            How to handle NULL values: "PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"
         engine : str, optional
             Processing engine: "pandas", "dask", or "auto" (default)
         use_dask : bool, optional
@@ -814,7 +814,7 @@ class FieldOperation(BaseOperation, ABC):
         column_prefix : str, optional
             Prefix for new column names if mode is "ENRICH"
         null_strategy : str, optional
-            How to handle NULL values: "PRESERVE", "EXCLUDE" or "ERROR"
+            How to handle NULL values: "PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"
         engine : str, optional
             Processing engine: "pandas", "dask", or "auto" (default)
         use_dask : bool, optional
@@ -986,7 +986,7 @@ class DataFrameOperation(BaseOperation, ABC):
         column_prefix : str, optional
             Prefix for new column names if mode is "ENRICH"
         null_strategy : str, optional
-            How to handle NULL values: "PRESERVE", "EXCLUDE" or "ERROR"
+            How to handle NULL values: "PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"
         engine : str, optional
             Processing engine: "pandas", "dask", or "auto" (default)
         use_dask : bool, optional

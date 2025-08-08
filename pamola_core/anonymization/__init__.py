@@ -16,6 +16,9 @@ from pamola_core.anonymization.generalization.categorical_op import CategoricalG
 from pamola_core.anonymization.noise.uniform_numeric_op import UniformNumericNoiseOperation
 from pamola_core.anonymization.noise.uniform_temporal_op import UniformTemporalNoiseOperation
 
+from pamola_core.anonymization.masking.full_masking_op import FullMaskingOperation
+from pamola_core.anonymization.masking.partial_masking_op import PartialMaskingOperation
+
 # Make operations available at package level
 __all__ = [
     'AttributeSuppressionOperation',
@@ -28,4 +31,6 @@ __all__ = [
     # 'ConsistentMappingPseudonymizationOperation',
     'UniformNumericNoiseOperation',
     'UniformTemporalNoiseOperation',
+    'FullMaskingOperation',
+    'PartialMaskingOperation'
     ]

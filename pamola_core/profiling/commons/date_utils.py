@@ -7,9 +7,10 @@ validation, distribution analysis, anomaly detection, and group analysis.
 
 import logging
 from datetime import datetime
+import re
 from typing import Dict, List, Any, Optional, Tuple, Union
+import numpy as np
 import pandas as pd
-import dask.dataframe as dd
 
 from dask.delayed import delayed
 from dask.base import compute
@@ -17,6 +18,8 @@ import dask.dataframe as dd
 
 from joblib import Parallel, delayed as joblib_delayed
 
+from pamola_core.common.constants import Constants
+from pamola_core.common.regex.patterns import CommonPatterns
 from pamola_core.utils.io_helpers.dask_utils import get_computed_df
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
@@ -24,11 +27,124 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 logger = logging.getLogger(__name__)
 
 
+def _guess_date_formats(sample: List[str], default_formats: List[str]) -> List[str]:
+    """
+    Guess likely date formats from sample using regex pattern matching.
+    """
+    format_counts = {}
+    for val in sample:
+        for pattern, fmt in CommonPatterns.DATE_REGEX_FORMATS.items():
+            if re.fullmatch(pattern, val):
+                format_counts[fmt] = format_counts.get(fmt, 0) + 1
+                break
+
+    # Sort formats by descending frequency in sample
+    sorted_formats = sorted(format_counts, key=format_counts.get, reverse=True)
+    return sorted_formats + [f for f in default_formats if f not in sorted_formats]
+
+
+def convert_to_datetime_flexible(
+    series, date_formats: List[str], is_dask: bool = False, sample_size: int = 1000
+) -> pd.Series:
+    """
+    Convert a Series to datetime, trying pandas inference first, then a list of formats if needed.
+
+    Parameters
+    ----------
+    series : pd.Series or dask.Series
+        Input datetime-like string series
+    date_formats : List[str]
+        List of datetime formats to try (e.g. ['%Y-%m-%d', '%d/%m/%Y'])
+    is_dask : bool
+        Whether this is a Dask Series
+    sample_size : int
+        Number of samples to use for format guessing
+
+    Returns
+    -------
+    pd.Series or dask.Series
+        Datetime-parsed series
+    """
+
+    def try_parse(s, fmt=None, meta=None):
+        return (
+            s.map_partitions(pd.to_datetime, format=fmt, errors="coerce", meta=meta)
+            if is_dask
+            else pd.to_datetime(s, format=fmt, errors="coerce")
+        )
+
+    def get_success_rate(s):
+        nulls = s.isna().sum().compute() if is_dask else s.isna().sum()
+        total = s.size.compute() if is_dask else len(s)
+        return 1.0 - (nulls / total) if total else 0.0
+
+    # Step 1: Sample for format inference
+    try:
+        if is_dask:
+            total_size = series.size.compute()
+            sample_frac = min(1.0, sample_size / total_size)
+            sample_vals = (
+                series.dropna().sample(frac=sample_frac, random_state=42).compute()
+            )
+        else:
+            sample_vals = series.dropna().sample(
+                min(sample_size, len(series)), random_state=42
+            )
+
+        sample_strs = [
+            str(v).strip()
+            for v in sample_vals
+            if isinstance(v, str) or isinstance(v, (np.str_, np.object_))
+        ]
+        guessed_formats = _guess_date_formats(sample_strs, date_formats)
+    except Exception as e:
+        logger.warning(f"Sampling for date format guessing failed: {e}")
+        guessed_formats = date_formats
+
+    # Step 2: Try pandas native inference
+    try:
+        inferred = try_parse(series, meta=pd.Series(dtype="datetime64[ns]"))
+        if get_success_rate(inferred) >= 0.9:
+            return inferred
+    except Exception as e:
+        logger.warning(f"Pandas datetime inference failed: {e}")
+
+    # Step 3: Try guessed formats
+    best_result = None
+    best_success_rate = 0.0
+
+    for fmt in guessed_formats:
+        try:
+            result = try_parse(
+                series,
+                fmt if fmt != "ISO8601" else None,
+                meta=pd.Series(dtype="datetime64[ns]"),
+            )
+            success_rate = get_success_rate(result)
+
+            if success_rate > best_success_rate:
+                best_success_rate = success_rate
+                best_result = result
+
+            if success_rate >= 0.95:
+                break  # early exit
+        except Exception:
+            continue
+
+    if best_result is not None and best_success_rate > 0:
+        return best_result
+
+    # Fallback to loose pandas parser
+    return try_parse(series, meta=pd.Series(dtype="datetime64[ns]"))
+
+
 def prepare_date_data(
-    df: Union[pd.DataFrame, dd.DataFrame], field_name: str
+    df: Union[pd.DataFrame, dd.DataFrame],
+    field_name: str,
+    date_formats: Optional[List[str]] = None,
 ) -> Tuple[Union[pd.Series, dd.Series], int, int]:
     """
-    Prepare date data for analysis.
+    Prepare date data for analysis with enhanced format support.
 
     Parameters:
     -----------
@@ -36,6 +152,8 @@ def prepare_date_data(
         The DataFrame containing the data to analyze
     field_name : str
         The name of the field to analyze
+    date_formats : Optional[List[str]]
+        List of date formats to try. If None, will use default common formats.
 
     Returns:
     --------
@@ -46,68 +164,97 @@ def prepare_date_data(
     if field_name not in df.columns:
         raise ValueError(f"Field {field_name} not found in DataFrame")
 
+    # Default common date formats to try
+    date_formats = date_formats or Constants.COMMON_DATE_FORMATS
+
     if isinstance(df, dd.DataFrame):
-        # Lazy null and non-null counting
+        # Dask DataFrame path
         field_data = df[field_name]
         null_count_future = field_data.isna().sum()
         total_count_future = field_data.size
 
-        # Convert to datetime lazily
+        # Convert to datetime with flexible parsing
         try:
-            dates = field_data.map_partitions(
-                pd.to_datetime, errors="coerce", meta=pd.Series(dtype="datetime64[ns]")
-            )
+            dates = convert_to_datetime_flexible(field_data, date_formats, is_dask=True)
         except Exception as e:
             raise ValueError(
-                f"Field '{field_name}' cannot be converted to datetime: {e}"
+                f"Field '{field_name}' cannot be converted to datetime with any attempted format: {e}"
             )
 
         null_count, total_count = dd.compute(null_count_future, total_count_future)
         non_null_count = total_count - null_count
         return dates, int(null_count), int(non_null_count)
+
     else:
-        # Pandas path
+        # Pandas DataFrame path
         field_data = df[field_name]
         null_count = field_data.isna().sum()
         non_null_count = len(df) - null_count
-        dates = pd.to_datetime(field_data, errors="coerce")
+
+        try:
+            dates = convert_to_datetime_flexible(
+                field_data, date_formats, is_dask=False
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Field '{field_name}' cannot be converted to datetime with any attempted format: {e}"
+            )
+
         return dates, int(null_count), int(non_null_count)
 
 
 def calculate_date_stats(dates: pd.Series) -> Dict[str, Any]:
     """
-    Calculate basic date statistics.
+    Calculate basic date statistics, with support for object, datetime, and categorical columns.
 
     Parameters:
     -----------
     dates : pd.Series
-        Series of dates to analyze
+        Series of date values (can be string, datetime, or categorical)
 
     Returns:
     --------
     Dict[str, Any]
-        Dictionary with date statistics
+        Dictionary with basic date stats
     """
-    # Skip if no valid dates
-    valid_mask = ~dates.isna()
-    valid_count = valid_mask.sum()
+    original_count = len(dates)
 
-    if valid_count == 0:
+    # Step 1: If Categorical, ensure it's ordered or convert to datetime
+    if pd.api.types.is_categorical_dtype(dates):
+        if not dates.cat.ordered:
+            dates = dates.cat.as_ordered()
+        # Try converting categories to datetime
+        try:
+            dates = pd.to_datetime(dates.astype(str), errors="coerce")
+        except Exception:
+            dates = pd.Series([pd.NaT] * original_count)
+
+    # Step 2: If not datetime, try to convert
+    if not pd.api.types.is_datetime64_any_dtype(dates):
+        dates = pd.to_datetime(dates, errors="coerce")
+
+    # Step 3: Split valid and invalid
+    valid_dates = dates.dropna()
+    invalid_count = original_count - len(valid_dates)
+
+    # Step 4: Extract stats
+    if valid_dates.empty:
         return {
             "valid_count": 0,
-            "invalid_count": 0,
+            "invalid_count": invalid_count,
             "min_date": None,
             "max_date": None,
         }
 
     # Calculate date range
-    min_date = dates[valid_mask].min()
-    max_date = dates[valid_mask].max()
+    min_date = valid_dates.min()
+    max_date = valid_dates.max()
 
     return {
-        "valid_count": int(valid_count),
-        "min_date": min_date.strftime("%Y-%m-%d") if not pd.isna(min_date) else None,
-        "max_date": max_date.strftime("%Y-%m-%d") if not pd.isna(max_date) else None,
+        "valid_count": len(valid_dates),
+        "invalid_count": invalid_count,
+        "min_date": min_date.strftime("%Y-%m-%d"),
+        "max_date": max_date.strftime("%Y-%m-%d"),
     }
 
 
@@ -125,41 +272,42 @@ def calculate_distributions(dates: pd.Series) -> Dict[str, Dict[str, int]]:
     Dict[str, Dict[str, int]]
         Dictionary with various date distributions
     """
-    # Skip if no valid dates
-    valid_mask = ~dates.isna()
-    valid_count = valid_mask.sum()
+    # Ensure datetime type
+    if pd.api.types.is_categorical_dtype(dates):
+        dates = pd.to_datetime(dates.astype(str), errors="coerce")
+    elif not pd.api.types.is_datetime64_any_dtype(dates):
+        dates = pd.to_datetime(dates, errors="coerce")
 
-    if valid_count == 0:
+    # Drop NaT values
+    valid_dates = dates.dropna()
+
+    if valid_dates.empty:
         return {}
 
     result = {}
 
     # Year distribution
-    year_distribution = dates[valid_mask].dt.year.value_counts().sort_index().to_dict()
+    year_distribution = valid_dates.dt.year.value_counts().sort_index().to_dict()
     result["year_distribution"] = {
         str(year): int(count) for year, count in year_distribution.items()
     }
 
     # Decade distribution
-    decades = (
-        (dates[valid_mask].dt.year // 10 * 10).value_counts().sort_index().to_dict()
+    decade_distribution = (
+        (valid_dates.dt.year // 10 * 10).value_counts().sort_index().to_dict()
     )
     result["decade_distribution"] = {
-        f"{decade}s": int(count) for decade, count in decades.items()
+        f"{decade}s": int(count) for decade, count in decade_distribution.items()
     }
 
     # Month distribution
-    month_distribution = (
-        dates[valid_mask].dt.month.value_counts().sort_index().to_dict()
-    )
+    month_distribution = valid_dates.dt.month.value_counts().sort_index().to_dict()
     result["month_distribution"] = {
         str(month): int(count) for month, count in month_distribution.items()
     }
 
     # Day of week distribution
-    dow_distribution = (
-        dates[valid_mask].dt.dayofweek.value_counts().sort_index().to_dict()
-    )
+    dow_distribution = valid_dates.dt.dayofweek.value_counts().sort_index().to_dict()
     day_names = [
         "Monday",
         "Tuesday",
@@ -176,36 +324,50 @@ def calculate_distributions(dates: pd.Series) -> Dict[str, Dict[str, int]]:
     return result
 
 
-def validate_date_format(date_str: str, format_str: str = "%m-%d-%Y") -> bool:
+def validate_date_format(date_str: str, format_str: Optional[str] = None) -> bool:
     """
-    Check if a date string matches the specified format.
+    Validate a date string using a given format or detect format automatically via regex.
 
     Parameters:
     -----------
     date_str : str
-        The date string to validate
-    format_str : str
-        The expected date format
+        The date string to validate.
+    format_str : Optional[str]
+        Specific format to validate against. If None, auto-detect using DATE_REGEX_FORMATS.
 
     Returns:
     --------
     bool
-        True if the date matches the format, False otherwise
+        True if date_str is valid in the given or detected format.
     """
     if not isinstance(date_str, str):
         return False
 
-    try:
-        datetime.strptime(date_str, format_str)
-        return True
-    except (ValueError, TypeError):
-        return False
+    # Case 1: Try the provided format directly
+    if format_str:
+        try:
+            datetime.strptime(date_str, format_str)
+            return True
+        except Exception:
+            return False
+
+    # Case 2: Auto-detect format using regex
+    for pattern, fmt in CommonPatterns.DATE_REGEX_FORMATS.items():
+        if re.fullmatch(pattern, date_str):
+            try:
+                if fmt == "ISO8601":
+                    datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                else:
+                    datetime.strptime(date_str, fmt)
+                return True
+            except Exception:
+                return False
+
+    return False
 
 
 def detect_date_anomalies(
-    dates: Union[pd.Series, dd.Series],
-    min_year: int = 1940,
-    max_year: int = 2005
+    dates: Union[pd.Series, dd.Series], min_year: int = 1940, max_year: int = 2005
 ) -> Dict[str, List[Any]]:
     """
     Detect anomalies in date fields with support for Dask and Pandas.
@@ -309,31 +471,41 @@ def detect_date_anomalies_partition(
         "negative_years": [],
     }
 
+    now_year = datetime.now().year
     parsed_dates = pd.to_datetime(partition, errors="coerce")
 
     for i, (original, parsed) in enumerate(zip(partition, parsed_dates)):
         if pd.isna(original):
             continue
-        s = str(original)
 
-        if not validate_date_format(str(original)):
+        original_str = str(original)
+
+        # Check valid format first using COMMON_DATE_FORMATS
+        if not validate_date_format(original_str):
             results["invalid_format"].append((i, original))
+            continue
 
+        # Try catch date parsing and year-based anomaly classification
         try:
             if pd.isna(parsed):
-                if s.startswith("-"):
-                    results["negative_years"].append((i, s))
+                if original_str.startswith("-"):
+                    results["negative_years"].append((i, original_str))
+                else:
+                    results["invalid_format"].append((i, original_str))
                 continue
 
             year = parsed.year
+
             if year < min_year:
-                results["too_old"].append((i, s, year))
-            elif year > datetime.now().year:
-                results["future_dates"].append((i, s, year))
+                results["too_old"].append((i, original_str, year))
+            elif year > now_year:
+                results["future_dates"].append((i, original_str, year))
             elif year > max_year:
-                results["too_young"].append((i, s, year))
+                results["too_young"].append((i, original_str, year))
+
         except Exception:
-            results["invalid_format"].append((i, s))
+            results["invalid_format"].append((i, original_str))
+
     return results
 
 
@@ -564,9 +736,9 @@ def detect_date_inconsistencies_by_uid(
         return {"error": f"UID column {uid_column} not found in DataFrame"}
     if date_column not in df.columns:
         return {"error": f"Date column {date_column} not found in DataFrame"}
-    
+
     df = get_computed_df(df)
-    
+
     # Pandas version
     grouped = df.groupby(uid_column)
     results = {"uids_with_inconsistencies": 0, "examples": []}
@@ -756,11 +928,11 @@ def process_with_dask(
 ) -> Dict[str, Any]:
     """
     Process date field analysis using Dask distributed computing framework.
-    
+
     This function leverages Dask's distributed computing capabilities to analyze
     large datasets efficiently by processing data across multiple partitions in parallel.
     It uses Dask's lazy evaluation and built-in aggregation functions for optimal performance.
-    
+
     Parameters:
     -----------
     ddf : dd.DataFrame
@@ -775,7 +947,7 @@ def process_with_dask(
         Logger instance for tracking progress and debugging
     progress_tracker : Optional[HierarchicalProgressTracker]
         Optional progress tracker for reporting processing status
-        
+
     Returns:
     --------
     Dict[str, Any]
@@ -783,7 +955,7 @@ def process_with_dask(
         - Basic statistics: total_records, null_count, valid_count, fill_rate, etc.
         - Date range: min_date, max_date
         - Distributions: year, month, day of week, and decade distributions
-        
+
     Raises:
     -------
     ImportError
@@ -850,20 +1022,16 @@ def process_with_dask(
 
             # Calculate distributions using map_partitions for parallel processing
             # This applies partition_distributions to each partition independently
-            dist_ddf = (
-                ddf[field_name]
-                .map_partitions(
-                    partition_distributions,
-                    meta=pd.DataFrame(
-                        {
-                            "type": pd.Series(dtype="object"),
-                            "key": pd.Series(dtype="object"),
-                            "count": pd.Series(dtype="int64"),
-                        }
-                    ),
-                )
-                .persist()  # Cache intermediate results in memory/disk
-            )
+            dist_ddf = dates.map_partitions(
+                partition_distributions,
+                meta=pd.DataFrame(
+                    {
+                        "type": pd.Series(dtype="object"),
+                        "key": pd.Series(dtype="object"),
+                        "count": pd.Series(dtype="int64"),
+                    }
+                ),
+            ).persist()  # Cache intermediate results in memory/disk
 
             # Compute the distribution data and aggregate results
             distributions_data = dist_ddf.compute()
@@ -880,7 +1048,9 @@ def process_with_dask(
             # Include examples of anomalies
             for anomaly_type, examples in anomalies.items():
                 if examples:
-                    result[f"{anomaly_type}_examples"] = examples[:10]  # First 10 examples
+                    result[f"{anomaly_type}_examples"] = examples[
+                        :10
+                    ]  # First 10 examples
 
         # Group analysis if id_column is specified (applies to all processing methods)
         if id_column and id_column in ddf.columns:
@@ -927,10 +1097,10 @@ def process_with_vectorization(
 ) -> Dict[str, Any]:
     """
     Process date field analysis using parallel vectorized processing with joblib.
-    
+
     This function divides the DataFrame into chunks and processes them in parallel
     using joblib's Parallel execution engine to improve performance on large datasets.
-    
+
     Parameters:
     -----------
     df : Union[pd.DataFrame, dd.DataFrame]
@@ -951,7 +1121,7 @@ def process_with_vectorization(
         Logger instance for tracking progress and debugging
     progress_tracker : Optional[HierarchicalProgressTracker]
         Optional progress tracker for reporting processing status
-        
+
     Returns:
     --------
     Dict[str, Any]
@@ -982,7 +1152,7 @@ def process_with_vectorization(
 
     # Initialize result dictionary
     result = {}
-    
+
     # Split DataFrame into chunks for parallel processing
     chunks = [df.iloc[i : i + chunk_size] for i in range(0, total_records, chunk_size)]
     logger.info(
@@ -1195,7 +1365,9 @@ def analyze_date_field(
     if is_large_df is False:
         logger.warning("Small DataFrame! Process as usual")
         # Calculate basic date statistics
-        basic_stats = calculate_basic_date_stats(get_computed_df(df), field_name, total_records)
+        basic_stats = calculate_basic_date_stats(
+            get_computed_df(df), field_name, total_records
+        )
         dates = basic_stats.pop("dates")  # Extract dates for further processing
         results = basic_stats
 
@@ -1207,10 +1379,10 @@ def analyze_date_field(
                 date_stats = calculate_date_stats(dates.compute())
             else:
                 date_stats = calculate_date_stats(dates)
-            results.update(date_stats)            # Calculate distributions
+            results.update(date_stats)  # Calculate distributions
             # Ensure dates is a pandas Series before passing to calculate_distributions
             distributions = calculate_distributions(dates)
-                
+
             results.update(distributions)
 
     if use_dask and is_large_df:
@@ -1230,7 +1402,9 @@ def analyze_date_field(
         )
 
     elif use_vectorization and parallel_processes and parallel_processes > 0:
-        basic_stats = calculate_basic_date_stats(get_computed_df(df), field_name, total_records)
+        basic_stats = calculate_basic_date_stats(
+            get_computed_df(df), field_name, total_records
+        )
         dates = basic_stats.pop("dates")  # Extract dates for further processing
         results = basic_stats
 
@@ -1248,7 +1422,9 @@ def analyze_date_field(
             )
         )
     elif is_large_df:
-        basic_stats = calculate_basic_date_stats(get_computed_df(df), field_name, total_records)
+        basic_stats = calculate_basic_date_stats(
+            get_computed_df(df), field_name, total_records
+        )
         dates = basic_stats.pop("dates")  # Extract dates for further processing
         results = basic_stats
 
@@ -1266,9 +1442,7 @@ def analyze_date_field(
 
     if results["valid_count"] > 0:
         # Analyze anomalies
-        anomalies = detect_date_anomalies(
-            dates, min_year=min_year, max_year=max_year
-        )
+        anomalies = detect_date_anomalies(dates, min_year=min_year, max_year=max_year)
         results["anomalies"] = {k: len(v) for k, v in anomalies.items()}
 
         # Include examples of anomalies
@@ -1278,7 +1452,9 @@ def analyze_date_field(
 
     # Group analysis if id_column is specified (applies to all processing methods)
     if id_column and id_column in df.columns:
-        group_changes = detect_date_changes_within_group(get_computed_df(df), id_column, field_name)
+        group_changes = detect_date_changes_within_group(
+            get_computed_df(df), id_column, field_name
+        )
         results["date_changes_within_group"] = group_changes
 
     # UID analysis if uid_column is specified (applies to all processing methods)
@@ -1287,12 +1463,13 @@ def analyze_date_field(
             get_computed_df(df), uid_column, field_name
         )
         results["date_inconsistencies_by_uid"] = uid_inconsistencies
-    
+
     # For birth dates, calculate age distribution
     if is_birth_date:
         results.update(calculate_age_distribution(get_computed_df(df), field_name))
 
     return results
+
 
 def estimate_resources(df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     """
@@ -1632,18 +1809,16 @@ def _calculate_age_distribution_pandas(
     valid_mask = ~valid_dates.isna()
 
     if valid_mask.sum() == 0:
-        return pd.Series(dtype='int64'), pd.Series(dtype='int64')
+        return pd.Series(dtype="int64"), pd.Series(dtype="int64")
 
     birth_dates = valid_dates[valid_mask].dt.date
     ages = birth_dates.apply(
-        lambda d: today.year
-        - d.year
-        - ((today.month, today.day) < (d.month, d.day))
+        lambda d: today.year - d.year - ((today.month, today.day) < (d.month, d.day))
     )
     ages = ages[ages >= 0]
 
     if ages.empty:
-        return pd.Series(dtype='int64'), pd.Series(dtype='int64')
+        return pd.Series(dtype="int64"), pd.Series(dtype="int64")
 
     age_groups = ages.apply(lambda a: f"{5 * (a // 5)}-{5 * (a // 5) + 4}")
     age_distribution = age_groups.value_counts().sort_index(
@@ -1708,7 +1883,7 @@ def _calculate_age_distribution_dask(
 
     # Stats
     ages = df["age"].compute()
-    
+
     return ages, age_distribution
 
 
@@ -1743,7 +1918,9 @@ def calculate_age_distribution(
             df_pandas = df.compute()
         else:
             df_pandas = df
-        ages, age_distribution = _calculate_age_distribution_pandas(df_pandas, field_name, today)
+        ages, age_distribution = _calculate_age_distribution_pandas(
+            df_pandas, field_name, today
+        )
 
     # Check if we have valid results
     if ages.empty:

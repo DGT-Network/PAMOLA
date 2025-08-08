@@ -145,7 +145,8 @@ from .field_validators import (
     DateTimeFieldValidator,
     BooleanFieldValidator,
     TextFieldValidator,
-
+    FieldExistsValidator,
+    PatternValidator,
     # Factory function
     create_field_validator
 )
@@ -364,6 +365,9 @@ __all__ = [
     'DateTimeFieldValidator',
     'BooleanFieldValidator',
     'TextFieldValidator',
+    'FieldExistsValidator',
+    'PatternValidator',
+    # Factory function for field validators
     'create_field_validator',
 
     # File validators

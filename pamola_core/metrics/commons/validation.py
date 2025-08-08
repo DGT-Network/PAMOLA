@@ -151,3 +151,18 @@ def validate_metric_inputs(
 
     if metric_type not in ["fidelity", "privacy", "utility"]:
         raise ValueError(f"Unsupported metric_type: {metric_type}")
+
+
+def validate_confidence_level(confidence_level: float) -> float:
+    """Validate and clamp confidence level to valid range."""
+    if not 0.0 < confidence_level < 1.0:
+        raise ValueError(
+            f"confidence_level must be between 0 and 1, got {confidence_level}"
+        )
+    return confidence_level
+
+def validate_epsilon(epsilon: float) -> float:
+    """Validate epsilon parameter."""
+    if epsilon < 0:
+        raise ValueError(f"epsilon must be non-negative, got {epsilon}")
+    return epsilon

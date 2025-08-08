@@ -74,7 +74,7 @@ PSEUDONYMIZATION_STRATEGIES = ["hash", "mapping", "sequential", "random"]
 
 # Standard modes
 OPERATION_MODES = ["REPLACE", "ENRICH"]
-NULL_STRATEGIES = ["PRESERVE", "EXCLUDE", "ERROR", "ANONYMIZE"]
+NULL_STRATEGIES = ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"]
 
 
 # =============================================================================

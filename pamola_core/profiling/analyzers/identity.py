@@ -281,7 +281,7 @@ class IdentityAnalysisOperation(FieldOperation):
             "top_n": top_n,
             "check_cross_matches": check_cross_matches,
             "min_similarity": min_similarity,
-            "fuzzy_matching": fuzzy_matching,
+            "fuzzy_matching": fuzzy_matching or False,
             "use_cache": use_cache,
             "use_encryption": use_encryption,
             "encryption_key": encryption_key,

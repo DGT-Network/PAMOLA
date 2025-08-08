@@ -495,6 +495,105 @@ class TextFieldValidator(BaseValidator):
 
 
 # =============================================================================
+# Field Validator
+# =============================================================================
+class FieldExistsValidator(BaseValidator):
+    """
+    Validator to check if a field exists in a DataFrame.
+
+    Returns a ValidationResult with is_valid=True if the field exists,
+    otherwise raises FieldTypeError.
+    """
+
+    def validate(self, df: pd.DataFrame, field_name: str) -> ValidationResult:
+        """
+        Validate that the field exists in the DataFrame.
+
+        Args:
+            df: The DataFrame to check.
+            field_name: The field/column name to check.
+
+        Returns:
+            ValidationResult
+
+        Raises:
+            FieldTypeError: If the field does not exist.
+        """
+        result = ValidationResult(is_valid=True, field_name=field_name)
+        if field_name not in df.columns:
+            raise FieldTypeError(
+                field_name=field_name,
+                expected_type="existing column",
+                actual_type="missing"
+            )
+        return result
+
+# =============================================================================
+# Pattern Validator
+# =============================================================================
+class PatternValidator(BaseValidator):
+    """
+    Validator to check if all values in a Series match a given regex pattern.
+
+    Returns a ValidationResult with is_valid=True if all values match,
+    otherwise raises InvalidDataFormatError.
+    """
+
+    def __init__(self, pattern: str, allow_null: bool = True):
+        """
+        Initialize pattern validator.
+
+        Args:
+            pattern: Regex pattern to match.
+            allow_null: Whether null values are allowed.
+        """
+        super().__init__()
+        self.pattern = re.compile(pattern)
+        self.allow_null = allow_null
+
+    def validate(self, series: pd.Series, field_name: Optional[str] = None) -> ValidationResult:
+        """
+        Validate that all values in the Series match the pattern.
+
+        Args:
+            series: The Series to check.
+            field_name: Optional field name for error reporting.
+
+        Returns:
+            ValidationResult
+
+        Raises:
+            InvalidDataFormatError: If any value does not match the pattern.
+        """
+        result = ValidationResult(is_valid=True, field_name=field_name)
+
+        # Null check
+        null_count = series.isnull().sum()
+        if null_count > 0 and not self.allow_null:
+            raise FieldValueError(
+                field_name=field_name or "field",
+                reason=f"Contains {null_count} null values",
+                invalid_count=null_count
+            )
+
+        # Check pattern
+        non_null = series.dropna().astype(str)
+        if len(non_null) == 0:
+            result.add_warning("Field contains only null values")
+            return result
+
+        non_matching = non_null[~non_null.apply(lambda x: bool(self.pattern.match(x)))]
+        if not non_matching.empty:
+            raise InvalidDataFormatError(
+                field_name=field_name or "field",
+                data_type="pattern",
+                format_description=f"Pattern: {self.pattern.pattern}",
+                sample_invalid=non_matching.head(3).tolist()
+            )
+
+        return result
+   
+# =============================================================================
 # Factory Function
 # =============================================================================
 
@@ -536,5 +635,7 @@ __all__ = [
     'DateTimeFieldValidator',
     'BooleanFieldValidator',
     'TextFieldValidator',
+    'FieldExistsValidator',
+    'PatternValidator',
     'create_field_validator'
 ]

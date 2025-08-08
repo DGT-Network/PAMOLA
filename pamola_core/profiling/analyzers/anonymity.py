@@ -62,11 +62,14 @@ import numpy as np
 import pandas as pd
 
 from pamola_core.common.constants import Constants
-from pamola_core.privacy_models.k_anonymity import ka_visualization
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register_operation
-from pamola_core.utils.ops.op_result import OperationArtifact, OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import (
+    OperationArtifact,
+    OperationResult,
+    OperationStatus,
+)
 from pamola_core.utils.ops.op_field_utils import (
     generate_ka_field_name,
     generate_output_field_name,
@@ -74,7 +77,14 @@ from pamola_core.utils.ops.op_field_utils import (
 )
 from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.io import ensure_directory, load_data_operation, load_settings_operation, write_json, get_timestamped_filename, write_parquet
+from pamola_core.utils.io import (
+    ensure_directory,
+    load_data_operation,
+    load_settings_operation,
+    write_json,
+    get_timestamped_filename,
+    write_dataframe_to_csv,
+)
 from pamola_core.utils.visualization import create_bar_plot, create_spider_chart
 from pamola_core.utils.vis_helpers.context import visualization_context
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
@@ -114,8 +124,8 @@ class KAnonymityProfilerOperation(BaseOperation):
         max_combinations: int = 50,
         chunk_size: int = 100000,
         output_field_suffix: str = "k_anon",
-        quasi_identifier_sets = List[List[str]],
-        id_fields = List[str],
+        quasi_identifier_sets=List[List[str]],
+        id_fields=List[str],
         use_dask: bool = False,
         use_cache: bool = True,
         use_vectorization: bool = False,
@@ -126,7 +136,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         visualization_timeout: int = 120,
         use_encryption: bool = False,
         encryption_key: Optional[Union[str, Path]] = None,
-        encryption_mode: Optional[str] = None
+        encryption_mode: Optional[str] = None,
     ):
         """
         Initialize the k-anonymity profiler.
@@ -161,7 +171,8 @@ class KAnonymityProfilerOperation(BaseOperation):
             description=description,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
-            encryption_mode=encryption_mode)
+            encryption_mode=encryption_mode,
+        )
 
         self.quasi_identifiers = quasi_identifiers or []
         self.analysis_mode = AnalysisMode(mode)
@@ -224,28 +235,46 @@ class KAnonymityProfilerOperation(BaseOperation):
         id_fields = kwargs.get("id_fields", self.id_fields)
         include_timestamp = kwargs.get("include_timestamp", True)
         force_recalculation = kwargs.get("force_recalculation", False)
-        dataset_name = kwargs.get('dataset_name', "main")
+        dataset_name = kwargs.get("dataset_name", "main")
 
-        self.visualization_theme = kwargs.get("visualization_theme", self.visualization_theme)
-        self.visualization_backend = kwargs.get("visualization_backend", self.visualization_backend)
-        self.visualization_strict = kwargs.get("visualization_strict", self.visualization_strict)
-        self.visualization_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
-
+        self.visualization_theme = kwargs.get(
+            "visualization_theme", self.visualization_theme
+        )
+        self.visualization_backend = kwargs.get(
+            "visualization_backend", self.visualization_backend
+        )
+        self.visualization_strict = kwargs.get(
+            "visualization_strict", self.visualization_strict
+        )
+        self.visualization_timeout = kwargs.get(
+            "visualization_timeout", self.visualization_timeout
+        )
 
         # Initialize result
         result = OperationResult(status=OperationStatus.SUCCESS)
 
         # Set up progress tracking
         # Initializing, Prepared QI combinations, Completed
-        total_steps = 4 + (1 if self.use_cache and not force_recalculation else 0) + (1 if self.analysis_mode == AnalysisMode.ANALYZE else 0)
+        total_steps = (
+            4
+            + (1 if self.use_cache and not force_recalculation else 0)
+            + (1 if self.analysis_mode == AnalysisMode.ANALYZE else 0)
+        )
         current_steps = 0
 
         # Set up progress tracking
         # Step 1: Initializing
         if progress_tracker:
             progress_tracker.total = total_steps
-            current_steps+=1
-            progress_tracker.update(current_steps, {"step": "Initializing", "operation": self.name, "total_steps": total_steps})
+            current_steps += 1
+            progress_tracker.update(
+                current_steps,
+                {
+                    "step": "Initializing",
+                    "operation": self.name,
+                    "total_steps": total_steps,
+                },
+            )
 
         # Step 2: Check Cache (if enabled and not forced to recalculate)
         if self.use_cache and not force_recalculation:
@@ -261,35 +290,38 @@ class KAnonymityProfilerOperation(BaseOperation):
 
                 # Update progress
                 if progress_tracker:
-                    progress_tracker.update(total_steps,{"step": "Complete (cached)"})
+                    progress_tracker.update(total_steps, {"step": "Complete (cached)"})
 
                 # Report cache hit to reporter
                 if reporter:
                     reporter.add_operation(
-                        f"Clean invalid values (from cache)",
-                        details={"cached": True}
+                        f"Clean invalid values (from cache)", details={"cached": True}
                     )
                 return cache_result
-            
+
         # Step 3: Data Loading
         if progress_tracker:
             current_steps += 1
-            progress_tracker.update(current_steps, {"step": "Data Loading"}) 
+            progress_tracker.update(current_steps, {"step": "Data Loading"})
 
         try:
             # Get DataFrame
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            settings_operation = load_settings_operation(
+                data_source, dataset_name, **kwargs
+            )
             df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source"
+                    error_message="No valid DataFrame found in data source",
                 )
-            
+
             # Check if field exists
             missing_fields = [field for field in id_fields if field not in df.columns]
             if missing_fields:
-                raise ValueError(f"The following id_fields are not in the DataFrame columns: {missing_fields}")
+                raise ValueError(
+                    f"The following id_fields are not in the DataFrame columns: {missing_fields}"
+                )
 
             # Prepare QI combinations
             qi_combinations = self._prepare_qi_combinations(df, qi_sets, id_fields)
@@ -306,7 +338,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             # Update progress
             # Step 4: Prepared QI combinations
             if progress_tracker:
-                current_steps+=1
+                current_steps += 1
                 progress_tracker.update(
                     current_steps,
                     {
@@ -316,11 +348,11 @@ class KAnonymityProfilerOperation(BaseOperation):
                 )
 
             kwargs_encryption = {
-                    "use_encryption": kwargs.get("use_encryption", False),
-                    "encryption_key": kwargs.get("encryption_key", None),
-                    "encryption_mode": kwargs.get("encryption_mode", "none")
-                }
-            
+                "use_encryption": kwargs.get("use_encryption", False),
+                "encryption_key": kwargs.get("encryption_key", None),
+                "encryption_mode": kwargs.get("encryption_mode", "none"),
+            }
+
             # Perform analysis based on mode
             if self.analysis_mode in [AnalysisMode.ANALYZE, AnalysisMode.BOTH]:
                 analysis_results = self._perform_analysis(
@@ -332,7 +364,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                     result,
                     reporter,
                     progress_tracker,
-                    **kwargs_encryption
+                    **kwargs_encryption,
                 )
 
                 # Add metrics to result
@@ -357,19 +389,21 @@ class KAnonymityProfilerOperation(BaseOperation):
                     result,
                     reporter,
                     progress_tracker,
-                    **kwargs_encryption
+                    **kwargs_encryption,
                 )
 
                 # Update data source with enriched DataFrame
                 if enriched_df is not None:
-                    if hasattr(data_source, 'dataframes'):
+                    if hasattr(data_source, "dataframes"):
                         data_source.dataframes["main"] = enriched_df
                     else:
-                        self.logger.warning(f"Cannot update data source: expected DataSource object but got {type(data_source)}")
+                        self.logger.warning(
+                            f"Cannot update data source: expected DataSource object but got {type(data_source)}"
+                        )
 
             # Final progress update
             if progress_tracker:
-                current_steps+=1
+                current_steps += 1
                 progress_tracker.update(
                     current_steps, {"step": "Completed", "status": "success"}
                 )
@@ -391,7 +425,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                         artifacts=result.artifacts,
                         original_df=df,
                         metrics=result.metrics,
-                        task_dir=task_dir
+                        task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -473,7 +507,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         result: OperationResult,
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Perform k-anonymity analysis for multiple QI combinations.
@@ -489,16 +523,20 @@ class KAnonymityProfilerOperation(BaseOperation):
             # Generate name for this combination
             qi_name = generate_ka_field_name(qi_fields)
 
-            self.logger.info(f"Analyzing combination: {qi_name} ({', '.join(qi_fields)})")
+            self.logger.info(
+                f"Analyzing combination: {qi_name} ({', '.join(qi_fields)})"
+            )
 
             # Calculate k-anonymity metrics
-            metrics = self._calculate_k_anonymity(df,
-                                                  qi_fields,
-                                                  self.use_dask,
-                                                  self.use_vectorization,
-                                                  self.chunk_size,
-                                                  self.parallel_processes,
-                                                  self.npartitions)
+            metrics = self._calculate_k_anonymity(
+                df,
+                qi_fields,
+                self.use_dask,
+                self.use_vectorization,
+                self.chunk_size,
+                self.parallel_processes,
+                self.npartitions,
+            )
 
             # Store metrics
             all_metrics[qi_name] = metrics
@@ -519,7 +557,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                 include_timestamp,
                 result,
                 reporter,
-                **kwargs
+                **kwargs,
             )
 
         # Generate visualizations if requested
@@ -535,10 +573,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                 vis_strict=self.visualization_strict,
                 vis_theme=self.visualization_theme,
                 vis_timeout=self.visualization_timeout,
-                **kwargs
-                )
-            self._create_visualizations(
-                all_metrics, dirs["visualizations"], include_timestamp, result, reporter, **kwargs
+                **kwargs,
             )
 
         # Update progress
@@ -556,7 +591,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         result: OperationResult,
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
-        **kwargs
+        **kwargs,
     ) -> Optional[pd.DataFrame]:
         """
         Enrich DataFrame with k-anonymity values.
@@ -569,7 +604,9 @@ class KAnonymityProfilerOperation(BaseOperation):
                 operation_suffix=self.output_field_suffix,
             )
 
-            self.logger.info(f"Enriching DataFrame with k-values in column: {output_field}")
+            self.logger.info(
+                f"Enriching DataFrame with k-values in column: {output_field}"
+            )
 
             # Calculate k-values for each record
             k_values = self._calculate_k_values(df, qi_fields)
@@ -583,21 +620,27 @@ class KAnonymityProfilerOperation(BaseOperation):
             ensure_directory(output_dir)
 
             output_filename = get_timestamped_filename(
-                "enriched_data", "parquet", include_timestamp
+                "enriched_data", "csv", include_timestamp
             )
             output_path = output_dir / output_filename
 
             encryption_mode_enriched_df = get_encryption_mode(enriched_df, **kwargs)
-            write_parquet(df=enriched_df, file_path=output_path, index=False, encryption_key=kwargs.get("encryption_key", None), encryption_mode=encryption_mode_enriched_df)
+            write_dataframe_to_csv(
+                df=enriched_df,
+                file_path=output_path,
+                encryption_key=kwargs.get("encryption_key", None),
+                use_encryption=kwargs.get("use_encryption", False),
+                encryption_mode=encryption_mode_enriched_df,
+            )
 
             # Register artifact
             result.add_artifact(
-                "parquet",
+                "csv",
                 output_path,
                 f"Data enriched with {output_field}",
                 category="output",
             )
-            reporter.add_artifact("parquet", str(output_path), "Enriched data")
+            reporter.add_artifact("csv", str(output_path), "Enriched data")
 
             # Add enrichment metrics
             result.add_metric("enrichment_field", output_field)
@@ -627,59 +670,89 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         Calculate k-anonymity metrics for a field combination.
         """
-        k_values = self._calculate_group_sizes(df,
-                                               fields,
-                                               use_dask,
-                                               use_vectorization,
-                                               chunk_size,
-                                               parallel_processes,
-                                               npartitions) 
+        # --- 1. Calculate group sizes ---
+        k_values = self._calculate_group_sizes(
+            df,
+            fields,
+            use_dask,
+            use_vectorization,
+            chunk_size,
+            parallel_processes,
+            npartitions,
+        )
 
-        # Calculate metrics
+        # Remove any zero or NaN values (if any) - using pure numpy
+        k_values = k_values[k_values > 0]  # Remove zeros
+        k_values = k_values[~np.isnan(k_values)]  # Remove NaN values
+
         total_records = len(df)
+        if len(k_values) == 0:
+            return {
+                "min_k": 0,
+                "max_k": 0,
+                "mean_k": 0,
+                "median_k": 0,
+                "unique_groups": 0,
+                "unique_percent": 0,
+                "vulnerable_count": total_records,
+                "vulnerable_percent": 100,
+                "k_distribution": {},
+                "threshold_compliance": 0,
+                "entropy": 0,
+                "normalized_entropy": 0,
+            }
+
+        # --- 2. Basic statistics ---
         unique_groups = len(k_values)
+        vulnerable_mask = k_values < self.threshold_k
+        # Sum the k-values, not count of groups
+        vulnerable_count = int(k_values[vulnerable_mask].sum())
 
         metrics = {
-            "min_k": int(k_values.min()) if len(k_values) > 0 else 0,
-            "max_k": int(k_values.max()) if len(k_values) > 0 else 0,
-            "mean_k": float(k_values.mean()) if len(k_values) > 0 else 0,
-            "median_k": float(np.median(k_values)) if len(k_values) > 0 else 0,
+            "min_k": int(k_values.min()),
+            "max_k": int(k_values.max()),
+            "mean_k": float(k_values.mean()),
+            "median_k": float(np.median(k_values)),
             "unique_groups": unique_groups,
-            "unique_percent": (
-                (unique_groups / total_records * 100) if total_records > 0 else 0
-            ),
-            "vulnerable_count": int(np.sum(k_values < self.threshold_k)),
-            "vulnerable_percent": (
-                float(np.sum(k_values < self.threshold_k) / total_records * 100)
-                if total_records > 0
-                else 0
-            ),
+            "unique_percent": (unique_groups / total_records * 100),
+            "vulnerable_count": vulnerable_count,
+            "vulnerable_percent": (vulnerable_count / total_records * 100),
             "k_distribution": self._calculate_k_distribution(k_values),
             "threshold_compliance": self._calculate_threshold_compliance(
                 k_values, total_records
             ),
         }
 
-        # Calculate entropy
+        # --- 3. Entropy calculation (with epsilon) ---
         probabilities = k_values / total_records
-        entropy = -np.sum(probabilities * np.log2(probabilities + 1e-10))
-        metrics["entropy"] = float(entropy)
-        metrics["normalized_entropy"] = (
-            float(entropy / np.log2(unique_groups)) if unique_groups > 1 else 0
+        safe_probs = probabilities[probabilities > 0]
+
+        # Add epsilon inside log to prevent log(0), and ensure non-negative result
+        epsilon = 1e-10
+        entropy = -np.sum(safe_probs * np.log2(safe_probs + epsilon))
+        entropy = max(entropy, 0.0)  # Ensure non-negative
+
+        normalized_entropy = (
+            entropy / np.log2(unique_groups) if unique_groups > 1 else 0
         )
 
+        metrics["entropy"] = float(entropy)
+        metrics["normalized_entropy"] = float(
+            max(normalized_entropy, 0.0)
+        )  # Ensure non-negative
+
         return metrics
-    
+
     def _calculate_group_sizes(
-            self,
-            df: pd.DataFrame,
-            fields: List[str],
-            use_dask: bool = False,
-            use_vectorization: bool = False,
-            chunk_size: int = 10000,
-            parallel_processes: Optional[int] = 1,
-            npartitions: Optional[int] = 1,
-    ):
+        self,
+        df: pd.DataFrame,
+        fields: List[str],
+        use_dask: bool = False,
+        use_vectorization: bool = False,
+        chunk_size: int = 10000,
+        parallel_processes: Optional[int] = 1,
+        npartitions: Optional[int] = 1,
+    ) -> np.ndarray:
         """
         Calculate k-values representing group sizes for k-anonymity analysis
         based on specified combinations of fields.
@@ -709,10 +782,19 @@ class KAnonymityProfilerOperation(BaseOperation):
         total_rows = len(df)
         is_large_df = total_rows > chunk_size
 
+        # Step 1: Normalize columns used for grouping
+        df = df.copy()
+        for field in fields:
+            if field in df.columns:  # Safety check
+                df[field] = df[field].astype("object")
+
+        group_sizes = None
+
+        # Step 2: Dask-based group size calculation
         if use_dask:
             self.logger.info("Parallel Enabled")
             self.logger.info("Parallel Engine: Dask")
-            self.logger.info("Parallel Workers: {npartitions}")
+            self.logger.info(f"Parallel Workers: {npartitions}")
 
             import dask.dataframe as dd
 
@@ -724,13 +806,15 @@ class KAnonymityProfilerOperation(BaseOperation):
                 return partition.groupby(group_cols, dropna=False).size()
 
             # Apply groupby-size on each partition
-            partial = ddf.map_partitions(_group_sizes, fields, meta=pd.Series(dtype="int64"))
+            partial = ddf.map_partitions(
+                _group_sizes, fields, meta=pd.Series(dtype="int64")
+            )
 
             # Aggregate the group sizes across all partitions
             group_sizes = partial.groupby(partial.index).sum().compute()
 
+        # Step 3: Joblib-based parallelism
         elif use_vectorization and parallel_processes > 1:
-            self.logger.info("Process using Joblib")
             self.logger.info("Parallel Enabled")
             self.logger.info("Parallel Engine: Joblib")
             self.logger.info(f"Parallel Workers: {parallel_processes}")
@@ -748,31 +832,46 @@ class KAnonymityProfilerOperation(BaseOperation):
             )
 
             # Merge counts from all chunks using a Counter
-            group_counts = Counter()
+            group_counter = Counter()
             for chunk_counts in partial_counts:
-                group_counts.update(chunk_counts)
+                group_counter.update(chunk_counts)
 
-            group_sizes = pd.Series(list(group_counts.values()), dtype="int64")
-            
+            group_sizes = pd.Series(list(group_counter.values()), dtype="int64")
+
+        # Step 4: Manual chunked fallback
         elif is_large_df:
             # Manual chunked processing without parallelism
-            group_counts = {}
+            group_counter = {}
 
             for chunk in get_dataframe_chunks(df, chunk_size=chunk_size):
                 chunk_counts = chunk.groupby(fields, dropna=False).size()
                 for group, count in chunk_counts.items():
-                    group_counts[group] = group_counts.get(group, 0) + count
+                    group_counter[group] = group_counter.get(group, 0) + count
 
             # Convert to NumPy array
-            group_sizes = pd.Series(list(group_counts.values()), dtype="int64")
+            group_sizes = pd.Series(list(group_counter.values()), dtype="int64")
+
+        # Step 5: Default single groupby (for small data)
         else:
             # Small dataset: process directly without chunking or parallelism
             group_sizes = df.groupby(fields, dropna=False).size()
-        
-        # Count the frequency of each group size → k-values
-        k_values = group_sizes.value_counts().values
 
-        return k_values
+        # Step 6: Sanity checks
+        if group_sizes is None or len(group_sizes) == 0:
+            raise ValueError(
+                "Group size calculation failed: No valid equivalence classes found."
+            )
+
+        total_sum = int(group_sizes.sum())
+        if total_sum != total_rows:
+            self.logger.warning(
+                f"[WARN] Sum of group sizes ({total_sum}) != total records ({total_rows})."
+            )
+
+        # Remove zero/negative group sizes — these are invalid for k-anonymity
+        group_sizes = group_sizes[group_sizes > 0]
+
+        return group_sizes.values  # k-values
 
     def _calculate_k_anonymity_chunked(
         self, df: pd.DataFrame, fields: List[str]
@@ -911,30 +1010,53 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         Identify records with k < threshold.
         """
-        # Ensure fields is a list
+
         if isinstance(fields, str):
             fields = [fields]
 
-        # Calculate k for each group
-        group_sizes = df.groupby(fields, dropna=False).size().reset_index(name="k")
+        if df.empty or id_field not in df.columns:
+            return {
+                "total_vulnerable": 0,
+                "vulnerable_percent": 0,
+                "sample_ids": [],
+                "vulnerable_groups": 0,
+            }
 
-        # Find vulnerable groups
-        vulnerable_groups = group_sizes[group_sizes["k"] < threshold]
-
-        # Merge back to get record IDs
-        vulnerable_df = pd.merge(
-            df[[id_field] + fields], vulnerable_groups, on=fields, how="inner"
+        # Group by quasi-identifiers
+        group_sizes = (
+            df.groupby(fields, dropna=False)
+            .size()
+            .reset_index(name="k")
+            .query("k > 0")  # ensure positive groups
         )
 
-        # Get sample IDs (limit to 100 for performance)
-        sample_ids = vulnerable_df[id_field].head(100).tolist()
+        # Identify vulnerable groups
+        vulnerable_groups = group_sizes[group_sizes["k"] < threshold]
+
+        if vulnerable_groups.empty:
+            return {
+                "total_vulnerable": 0,
+                "vulnerable_percent": 0,
+                "sample_ids": [],
+                "vulnerable_groups": 0,
+            }
+
+        # Calculate total vulnerable records by summing k-values of vulnerable groups
+        total_vulnerable_records = int(vulnerable_groups["k"].sum())
+
+        # Join back to get vulnerable record IDs for sampling
+        join_fields = fields.copy()
+        df_subset = df[[id_field] + join_fields]
+        vulnerable_df = pd.merge(
+            df_subset, vulnerable_groups[join_fields], on=join_fields, how="inner"
+        )
 
         return {
-            "total_vulnerable": len(vulnerable_df),
+            "total_vulnerable": total_vulnerable_records,  # Use sum of k-values
             "vulnerable_percent": (
-                len(vulnerable_df) / len(df) * 100 if len(df) > 0 else 0
+                (total_vulnerable_records / len(df) * 100) if len(df) > 0 else 0
             ),
-            "sample_ids": sample_ids,
+            "sample_ids": vulnerable_df[id_field].drop_duplicates().head(100).tolist(),
             "vulnerable_groups": len(vulnerable_groups),
         }
 
@@ -946,7 +1068,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         include_timestamp: bool,
         result: OperationResult,
         reporter: Any,
-        **kwargs
+        **kwargs,
     ):
         """Export metrics to JSON files."""
         # Export summary metrics
@@ -967,7 +1089,12 @@ class KAnonymityProfilerOperation(BaseOperation):
         }
 
         encryption_mode_summary_data = get_encryption_mode(summary_data, **kwargs)
-        write_json(summary_data, str(summary_path), encryption_key=kwargs.get("encryption_key", None), encryption_mode=encryption_mode_summary_data)
+        write_json(
+            summary_data,
+            str(summary_path),
+            encryption_key=kwargs.get("encryption_key", None),
+            encryption_mode=encryption_mode_summary_data,
+        )
         result.add_artifact(
             "json", summary_path, "K-anonymity summary", category="metrics"
         )
@@ -980,7 +1107,12 @@ class KAnonymityProfilerOperation(BaseOperation):
             )
             vuln_path = output_dir / vuln_filename
             encryption_mode_records = get_encryption_mode(vulnerable_records, **kwargs)
-            write_json(vulnerable_records, str(vuln_path), encryption_key=kwargs.get("encryption_key", None), encryption_mode=encryption_mode_records)
+            write_json(
+                vulnerable_records,
+                str(vuln_path),
+                encryption_key=kwargs.get("encryption_key", None),
+                encryption_mode=encryption_mode_records,
+            )
             result.add_artifact(
                 "json", vuln_path, "Vulnerable records", category="metrics"
             )
@@ -991,95 +1123,78 @@ class KAnonymityProfilerOperation(BaseOperation):
         all_metrics: Dict[str, Dict[str, Any]],
         vis_dir: Path,
         include_timestamp: bool,
-        result: OperationResult,
-        reporter: Any,
         vis_theme: Optional[str] = None,
         vis_backend: Optional[str] = None,
         vis_strict: bool = False,
-        **kwargs
-    ):
+        **kwargs,
+    ) -> Dict[str, Path]:
         """Generate visualizations for k-anonymity metrics."""
+        visualization_paths = {}
         try:
-            with visualization_context(theme=self.visualization_theme,
-                                       backend=self.visualization_backend,
-                                       strict=self.visualization_strict):
-                # 1. Vulnerability comparison
-                vuln_data = {
-                    qi: metrics["vulnerable_percent"]
-                    for qi, metrics in all_metrics.items()
-                }
+            # 1. Vulnerability comparison
+            vuln_data = {
+                qi: metrics["vulnerable_percent"] for qi, metrics in all_metrics.items()
+            }
 
-                if vuln_data:
-                    vuln_filename = get_timestamped_filename(
-                        "vulnerability_comparison", "png", include_timestamp
-                    )
-                    vuln_path = vis_dir / vuln_filename
+            if vuln_data:
+                vuln_filename = get_timestamped_filename(
+                    "vulnerability_comparison", "png", include_timestamp
+                )
+                vuln_path = vis_dir / vuln_filename
 
-                    create_bar_plot(
-                        vuln_data,
-                        str(vuln_path),
-                        f"Vulnerability Comparison (k < {self.threshold_k})",
-                        orientation="v",
-                        y_label="Vulnerable Records (%)",
-                        x_label="QI Combination",
-                        sort_by="value",
-                        theme=vis_theme,
-                        backend=vis_backend,
-                        strict=vis_strict,
-                        **kwargs
-                    )
+                result_vuln = create_bar_plot(
+                    vuln_data,
+                    str(vuln_path),
+                    f"Vulnerability Comparison (k < {self.threshold_k})",
+                    orientation="v",
+                    y_label="Vulnerable Records (%)",
+                    x_label="QI Combination",
+                    sort_by="value",
+                    theme=vis_theme,
+                    backend=vis_backend,
+                    strict=vis_strict,
+                    **kwargs,
+                )
 
-                    result.add_artifact(
-                        "png",
-                        vuln_path,
-                        "Vulnerability comparison",
-                        category="visualization",
-                    )
-                    reporter.add_artifact(
-                        "png", str(vuln_path), "Vulnerability comparison"
-                    )
+                if isinstance(result_vuln, str) and not result_vuln.startswith("Error"):
+                    visualization_paths["vulnerability_comparison"] = result_vuln
 
-                # 2. Multi-metric spider chart (if multiple QIs)
-                if len(all_metrics) > 2:
-                    spider_data = {}
-                    for qi_name, metrics in all_metrics.items():
-                        spider_data[qi_name] = {
-                            "Min K": min(metrics["min_k"] / 10, 1),  # Normalize
-                            "Mean K": min(metrics["mean_k"] / 50, 1),  # Normalize
-                            "Vulnerability": metrics["vulnerable_percent"] / 100,
-                            "Entropy": metrics["normalized_entropy"],
-                            "Uniqueness": metrics["unique_percent"] / 100,
-                        }
+            # 2. Multi-metric spider chart (if multiple QIs)
+            if len(all_metrics) > 2:
+                spider_data = {}
+                for qi_name, metrics in all_metrics.items():
+                    spider_data[qi_name] = {
+                        "Min K": min(metrics["min_k"] / 10, 1),  # Normalize
+                        "Mean K": min(metrics["mean_k"] / 50, 1),  # Normalize
+                        "Vulnerability": metrics["vulnerable_percent"] / 100,
+                        "Entropy": metrics["normalized_entropy"],
+                        "Uniqueness": metrics["unique_percent"] / 100,
+                    }
 
-                    spider_filename = get_timestamped_filename(
-                        "k_anonymity_spider", "png", include_timestamp
-                    )
-                    spider_path = vis_dir / spider_filename
+                spider_filename = get_timestamped_filename(
+                    "k_anonymity_spider", "png", include_timestamp
+                )
+                spider_path = vis_dir / spider_filename
 
-                    create_spider_chart(
-                        spider_data,
-                        str(spider_path),
-                        "K-Anonymity Multi-Metric Comparison",
-                        normalize_values=False,  # Already normalized
-                        theme=vis_theme,
-                        backend=vis_backend,
-                        strict=vis_strict,
-                        **kwargs
-                    )
+                result_k = create_spider_chart(
+                    spider_data,
+                    str(spider_path),
+                    "K-Anonymity Multi-Metric Comparison",
+                    normalize_values=False,  # Already normalized
+                    theme=vis_theme,
+                    backend=vis_backend,
+                    strict=vis_strict,
+                    **kwargs,
+                )
 
-                    result.add_artifact(
-                        "png",
-                        spider_path,
-                        "Multi-metric comparison",
-                        category="visualization",
-                    )
-                    reporter.add_artifact(
-                        "png", str(spider_path), "Multi-metric comparison"
-                    )
+                if isinstance(result_k, str) and not result_k.startswith("Error"):
+                    visualization_paths["k_anonymity_spider"] = result_k
 
         except Exception as e:
             self.logger.warning(f"Error creating visualizations: {e}")
             # Don't fail the operation due to visualization errors
+
+        return visualization_paths
 
     def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
         """Prepare required directories for artifacts."""
@@ -1093,12 +1208,9 @@ class KAnonymityProfilerOperation(BaseOperation):
             ensure_directory(dir_path)
 
         return dirs
-    
+
     def _check_cache(
-            self,
-            data_source: DataSource,
-            dataset_name: str = "main",
-            **kwargs
+        self, data_source: DataSource, data_source_name: str = "main", **kwargs
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -1109,7 +1221,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             Data source for the operation
         task_dir : Path
             Task directory
-        dataset_name: str
+        data_source_name: str
             Dataset name
 
         Returns:
@@ -1125,8 +1237,12 @@ class KAnonymityProfilerOperation(BaseOperation):
             from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
+            settings_operation = load_settings_operation(
+                data_source, data_source_name, **kwargs
+            )
+            df = load_data_operation(
+                data_source, data_source_name, **settings_operation
+            )
             if df is None:
                 self.logger.warning("No valid DataFrame found in data source")
                 return None
@@ -1137,8 +1253,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
             cached_data = operation_cache.get_cache(
-                cache_key=cache_key,
-                operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.__class__.__name__
             )
 
             if cached_data:
@@ -1161,12 +1276,19 @@ class KAnonymityProfilerOperation(BaseOperation):
                         artifact_path = artifact.get("path", "")
                         artifact_name = artifact.get("description", "")
                         artifact_category = artifact.get("category", "output")
-                        cached_result.add_artifact(artifact_type, artifact_path, artifact_name, artifact_category) 
+                        cached_result.add_artifact(
+                            artifact_type,
+                            artifact_path,
+                            artifact_name,
+                            artifact_category,
+                        )
 
                 # Add cache information to result
                 cached_result.add_metric("cached", True)
                 cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric("cache_timestamp", cached_data.get("timestamp", "unknown"))
+                cached_result.add_metric(
+                    "cache_timestamp", cached_data.get("timestamp", "unknown")
+                )
 
                 return cached_result
 
@@ -1174,13 +1296,13 @@ class KAnonymityProfilerOperation(BaseOperation):
             return None
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
-    
+
     def _save_to_cache(
-            self,
-            original_df: pd.DataFrame,
-            artifacts: List[OperationArtifact],
-            metrics: Dict[str, Any],
-            task_dir: Path
+        self,
+        original_df: pd.DataFrame,
+        artifacts: List[OperationArtifact],
+        metrics: Dict[str, Any],
+        task_dir: Path,
     ) -> bool:
         """
         Save operation results to cache.
@@ -1229,7 +1351,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,
-                metadata={"task_dir": str(task_dir)}
+                metadata={"task_dir": str(task_dir)},
             )
 
             if success:
@@ -1241,11 +1363,8 @@ class KAnonymityProfilerOperation(BaseOperation):
         except Exception as e:
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
-        
-    def _generate_cache_key(
-            self,
-            df: pd.DataFrame
-    ) -> str:
+
+    def _generate_cache_key(self, df: pd.DataFrame) -> str:
         """
         Generate a deterministic cache key based on operation parameters and data characteristics.
 
@@ -1271,12 +1390,10 @@ class KAnonymityProfilerOperation(BaseOperation):
         return operation_cache.generate_cache_key(
             operation_name=self.__class__.__name__,
             parameters=parameters,
-            data_hash=data_hash
+            data_hash=data_hash,
         )
 
-    def _get_operation_parameters(
-            self
-    ) -> Dict[str, Any]:
+    def _get_operation_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1292,17 +1409,15 @@ class KAnonymityProfilerOperation(BaseOperation):
             "threshold_k": self.threshold_k,
             "max_combinations": self.max_combinations,
             "id_fields": self.id_fields,
-            "threshold_k": self.threshold_k
+            "threshold_k": self.threshold_k,
         }
 
         # Add operation-specific parameters
         parameters.update(self._get_cache_parameters())
 
         return parameters
-    
-    def _get_cache_parameters(
-            self
-    ) -> Dict[str, Any]:
+
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for cache key generation.
 
@@ -1313,10 +1428,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         return {}
 
-    def _generate_data_hash(
-            self,
-            df: pd.DataFrame
-    ) -> str:
+    def _generate_data_hash(self, df: pd.DataFrame) -> str:
         """
         Generate a hash representing the key characteristics of the data.
 
@@ -1337,28 +1449,28 @@ class KAnonymityProfilerOperation(BaseOperation):
             characteristics = df.describe(include="all")
 
             # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format='iso')
+            json_str = characteristics.to_json(date_format="iso")
         except Exception as e:
             self.logger.warning(f"Error generating data hash: {str(e)}")
 
-            # Fallback to a simple hash of the data length and type         
+            # Fallback to a simple hash of the data length and type
             json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
 
         return hashlib.md5(json_str.encode()).hexdigest()
-    
+
     def _handle_visualizations(
-            self,
-            all_metrics: Dict[str, Dict[str, Any]],
-            vis_dir: Path,
-            include_timestamp: bool,
-            result: OperationResult,
-            reporter: Any,
-            vis_theme: Optional[str] = None,
-            vis_backend: Optional[str] = None,
-            vis_strict: bool = False,
-            vis_timeout: int = 120,
-            progress_tracker: Optional[HierarchicalProgressTracker] = None,
-            **kwargs
+        self,
+        all_metrics: Dict[str, Dict[str, Any]],
+        vis_dir: Path,
+        include_timestamp: bool,
+        result: OperationResult,
+        reporter: Any,
+        vis_theme: Optional[str] = None,
+        vis_backend: Optional[str] = None,
+        vis_strict: bool = False,
+        vis_timeout: int = 120,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
     ) -> Dict[str, Path]:
         """
         Generate and save visualizations.
@@ -1396,7 +1508,9 @@ class KAnonymityProfilerOperation(BaseOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        self.logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+        self.logger.info(
+            f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
+        )
 
         try:
             import threading
@@ -1410,8 +1524,12 @@ class KAnonymityProfilerOperation(BaseOperation):
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                self.logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
-                self.logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+                self.logger.info(
+                    f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
+                )
+                self.logger.info(
+                    f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
+                )
 
                 start_time = time.time()
 
@@ -1420,9 +1538,13 @@ class KAnonymityProfilerOperation(BaseOperation):
                     self.logger.info(f"[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        self.logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                        self.logger.info(
+                            f"[DIAG] Context vars count: {len(list(current_context))}"
+                        )
                     except Exception as ctx_e:
-                        self.logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+                        self.logger.warning(
+                            f"[DIAG] Could not inspect context: {ctx_e}"
+                        )
 
                     # Generate visualizations with visualization context parameters
                     self.logger.info(f"[DIAG] Calling _generate_visualizations...")
@@ -1437,19 +1559,19 @@ class KAnonymityProfilerOperation(BaseOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            self.logger.debug(f"Could not create child progress tracker: {e}")
+                            self.logger.debug(
+                                f"Could not create child progress tracker: {e}"
+                            )
 
                     # Generate visualizations
-                    self._create_visualizations(
+                    visualization_paths = self._create_visualizations(
                         all_metrics,
                         vis_dir,
                         include_timestamp,
-                        result,
-                        reporter,
                         vis_theme,
                         vis_backend,
                         vis_strict,
-                        **kwargs
+                        **kwargs,
                     )
 
                     # Close visualization progress tracker
@@ -1466,7 +1588,9 @@ class KAnonymityProfilerOperation(BaseOperation):
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    self.logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    self.logger.error(
+                        f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
+                    )
                     self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
@@ -1481,7 +1605,9 @@ class KAnonymityProfilerOperation(BaseOperation):
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            self.logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            self.logger.info(
+                f"[DIAG] Starting visualization thread with timeout={vis_timeout}s"
+            )
             thread_start_time = time.time()
             viz_thread.start()
 
@@ -1492,21 +1618,35 @@ class KAnonymityProfilerOperation(BaseOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    self.logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+                    self.logger.info(
+                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
+                    )
 
             if viz_thread.is_alive():
-                self.logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
-                self.logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                self.logger.error(
+                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
+                )
+                self.logger.error(
+                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
+                )
                 visualization_paths = {}
             elif visualization_error:
-                self.logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                self.logger.error(
+                    f"[DIAG] Visualization failed with error: {visualization_error}"
+                )
                 visualization_paths = {}
             else:
                 total_time = time.time() - thread_start_time
-                self.logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
-                self.logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+                self.logger.info(
+                    f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s"
+                )
+                self.logger.info(
+                    f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}"
+                )
         except Exception as e:
-            self.logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            self.logger.error(
+                f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
+            )
             self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
@@ -1517,7 +1657,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                 artifact_type="png",
                 path=path,
                 description=f"{viz_type} visualization",
-                category=Constants.Artifact_Category_Visualization
+                category=Constants.Artifact_Category_Visualization,
             )
 
             # Report to reporter
@@ -1525,7 +1665,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                 reporter.add_artifact(
                     artifact_type="png",
                     path=str(path),
-                    description=f"{viz_type} visualization"
+                    description=f"{viz_type} visualization",
                 )
 
         return visualization_paths

@@ -711,7 +711,7 @@ class EmailOperation(FieldOperation):
     def _check_cache(
             self,
             data_source: DataSource,
-            dataset_name: str = "main",
+            data_source_name: str = "main",
             **kwargs
     ) -> Optional[OperationResult]:
         """
@@ -723,7 +723,7 @@ class EmailOperation(FieldOperation):
             Data source for the operation
         task_dir : Path
             Task directory
-        dataset_name: str
+        data_source_name: str
             Dataset name
 
         Returns:
@@ -739,8 +739,8 @@ class EmailOperation(FieldOperation):
             from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
+            settings_operation = load_settings_operation(data_source, data_source_name, **kwargs)
+            df = load_data_operation(data_source, data_source_name, **settings_operation)
             if df is None:
                 self.logger.warning("No valid DataFrame found in data source")
                 return None

@@ -226,7 +226,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                 progress_tracker.update(current_steps, {"step": "Checking Cache"})
 
             logger.info("Checking operation cache...")
-            cache_result = self._check_cache(data_source, dataset_name, **kwargs)
+            cache_result = self._check_cache(data_source=data_source, data_source_name=dataset_name, **kwargs)
 
             if cache_result:
                 self.logger.info("Cache hit! Using cached results.")
@@ -645,7 +645,7 @@ class DataAttributeProfilerOperation(BaseOperation):
     def _check_cache(
             self,
             data_source: DataSource,
-            dataset_name: str = "main",
+            data_source_name: str = "main",
             **kwargs
     ) -> Optional[OperationResult]:
         """
@@ -657,7 +657,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             Data source for the operation
         task_dir : Path
             Task directory
-        dataset_name: str
+        data_source_name: str
             Dataset name
 
         Returns:
@@ -673,8 +673,8 @@ class DataAttributeProfilerOperation(BaseOperation):
             from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
+            settings_operation = load_settings_operation(data_source, data_source_name, **kwargs)
+            df = load_data_operation(data_source, data_source_name, **settings_operation)
             if df is None:
                 self.logger.warning("No valid DataFrame found in data source")
                 return None

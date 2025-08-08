@@ -213,7 +213,7 @@ class PhoneAnalyzer:
     @staticmethod
     def create_operator_code_dictionary(df: pd.DataFrame,
                                         field_name: str,
-                                        country_code: Optional[str] = None,
+                                        country_codes: Optional[List[str]] = None,
                                         min_count: int = 1,
                                         **kwargs) -> Dict[str, Any]:
         """
@@ -225,8 +225,8 @@ class PhoneAnalyzer:
             The DataFrame containing the data
         field_name : str
             The name of the phone field
-        country_code : str, optional
-            The country code to filter by (if None, use all)
+        country_codes : List[str], optional
+            The country codes  to filter by (if None, use all)
         min_count : int
             Minimum frequency for inclusion in the dictionary
         **kwargs : dict
@@ -240,7 +240,7 @@ class PhoneAnalyzer:
         return create_operator_code_dictionary(
             df=df,
             field_name=field_name,
-            country_code=country_code,
+            country_codes=country_codes,
             min_count=min_count,
             **kwargs
         )
@@ -313,25 +313,24 @@ class PhoneOperation(FieldOperation):
                 field_name: str,
                 min_frequency: int = 1,
                 patterns_csv: Optional[str] = None,
-                generate_visualization: bool = True,
-                include_timestamp: bool = True,
-                profile_type: str = 'phone',
-                track_progress: bool = True,
-                country_code: Any = None,
-                 visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = "plotly",
-                 visualization_strict: bool = False,
-                 visualization_timeout: int = 120,
-                 chunk_size: int = 10000,
-                 use_dask: bool = False,
-                 npartitions: int = 2,
-                 use_vectorization: bool = False,
-                 parallel_processes: int = 2,
-                 use_cache: bool = True,
+                country_codes: List[str] = None,
+                visualization_theme: Optional[str] = None,
+                visualization_backend: Optional[str] = "plotly",
+                visualization_strict: bool = False,
+                visualization_timeout: int = 120,
+                chunk_size: int = 10000,
+                use_dask: bool = False,
+                npartitions: int = 2,
+                use_vectorization: bool = False,
+                parallel_processes: int = 2,
+                use_cache: bool = True,
                 description: str = "",
                 use_encryption: bool = False,
                 encryption_key: Optional[Union[str, Path]] = None,
-                encryption_mode: Optional[str] = None):
+                encryption_mode: Optional[str] = None,
+                include_timestamp: Optional[bool] = True,
+                track_progress: Optional[bool] = True,
+                generate_visualization: Optional[bool] = True):
         """
         Initialize the phone operation.
 
@@ -343,8 +342,8 @@ class PhoneOperation(FieldOperation):
             Minimum frequency for inclusion in the dictionary
         patterns_csv : str, optional
             Path to CSV file with messenger detection patterns
-        description : str
-            Description of the operation (optional)
+        country_codes : List[str], optional
+            List of country codes to filter or analyze (default: None).
         visualization_theme : str, optional
             Theme to use for visualizations (default: None - uses system default)
         visualization_backend : str, optional
@@ -365,6 +364,14 @@ class PhoneOperation(FieldOperation):
             Number of processes use with vectorized (parallel) (default: 1).
         use_cache : bool
             Whether to use caching for intermediate results
+        description : str
+            Description of the operation (optional)
+        use_encryption : bool, optional
+            Whether to use encryption for output files (default: False).
+        encryption_key : str or Path, optional
+            Encryption key for output files (default: None).
+        encryption_mode : str, optional
+            Encryption mode for output files (default: None).
 
         """
         super().__init__(
@@ -377,11 +384,7 @@ class PhoneOperation(FieldOperation):
         
         self.min_frequency = min_frequency
         self.patterns_csv = patterns_csv
-        self.generate_visualization = generate_visualization
-        self.include_timestamp = include_timestamp
-        self.profile_type = profile_type
-        self.track_progress = track_progress
-        self.country_code = country_code
+        self.country_codes = country_codes
         self.visualization_theme = visualization_theme
         self.visualization_backend = visualization_backend
         self.visualization_strict = visualization_strict
@@ -394,11 +397,14 @@ class PhoneOperation(FieldOperation):
         self.use_cache = use_cache
 
         # Set up performance tracking variables
-        self.is_encryption_required = False
         self.start_time = None
         self.end_time = None
         self.execution_time = 0
         self.process_count = 0
+
+        self.include_timestamp = include_timestamp,
+        self.track_progress = track_progress,
+        self.generate_visualization = generate_visualization
 
     def execute(self,
                 data_source: DataSource,
@@ -422,16 +428,8 @@ class PhoneOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation:
             - generate_visualization: bool, whether to generate visualizations
-            - include_timestamp: bool, whether to include timestamps in filenames
-            - profile_type: str, type of profiling for organizing artifacts
-            - country_code: str, specific country code to focus on for operator analysis
             - dataset_name: str - Name of dataset - main
             - force_recalculation: bool - Force operation even if cached results exist - False
-            - use_dask: bool - Use Dask for large dataset processing - False
-            - parallel_processes: int - Number of parallel processes to use - 1
-            - generate_visualization: bool - Create visualizations - True
-            - save_output: bool - Save processed data to output directory - True
-            - encrypt_output: bool - Override encryption setting for outputs - False
             - visualization_theme: str - Override theme for visualizations - None
             - visualization_backend: str - Override backend for visualizations - None
             - visualization_strict: bool - Override strict mode for visualizations - False
@@ -446,6 +444,9 @@ class PhoneOperation(FieldOperation):
         if kwargs.get("logger"):
             logger = kwargs.get("logger")
 
+        # Generate single timestamp for all artifacts
+        operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         try:
             # Initialize timing and result
             self.start_time = time.time()
@@ -453,21 +454,9 @@ class PhoneOperation(FieldOperation):
             result = OperationResult(status=OperationStatus.SUCCESS)
 
             # Decompose kwargs and introduce variables for clarity
-            generate_visualization = kwargs.get('generate_visualization', self.generate_visualization)
-            include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
-            profile_type = kwargs.get('profile_type', self.profile_type)
-            country_code = kwargs.get('country_code', self.country_code)
+            generate_visualization = kwargs.get('generate_visualization', True)
             force_recalculation = kwargs.get("force_recalculation", False)
-            use_dask = kwargs.get("use_dask", self.use_dask)
-            parallel_processes = kwargs.get("parallel_processes", 1)
-            save_output = kwargs.get("save_output", True)
-            is_encryption_required = (kwargs.get("encrypt_output", False) or self.use_encryption)
             encryption_key = kwargs.get('encryption_key', None)
-
-            self.use_dask = use_dask
-            self.parallel_processes = parallel_processes
-            self.include_timestamp = include_timestamp
-            self.is_encryption_required = is_encryption_required
 
             # Extract visualization parameters
             self.visualization_theme = kwargs.get("visualization_theme", self.visualization_theme)
@@ -475,7 +464,7 @@ class PhoneOperation(FieldOperation):
             self.visualization_strict = kwargs.get("visualization_strict", self.visualization_strict)
             self.visualization_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
 
-            logger.info(
+            self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
                 f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
             )
@@ -493,13 +482,18 @@ class PhoneOperation(FieldOperation):
 
             # Get DataFrame from data source
             dataset_name = kwargs.get('dataset_name', "main")
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source"
-                )
+            try:
+                settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+                df = load_data_operation(data_source, dataset_name, **settings_operation)
+                if df is None:
+                    return OperationResult(
+                        status=OperationStatus.ERROR,
+                        error_message="No valid DataFrame found in data source"
+                    )
+            except Exception as e:
+                error_message = f"Data loading error: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
             # Check if field exists
             if self.field_name not in df.columns:
@@ -517,9 +511,15 @@ class PhoneOperation(FieldOperation):
 
             # Check for cached results if caching is enabled
             if self.use_cache and not force_recalculation:
-                cached_result = self._check_cache(df, reporter, task_dir, **kwargs)
+                try:
+                    cached_result = self._check_cache(df, reporter, task_dir, **kwargs)
+                except Exception as e:
+                    error_message = f"Check cache error: {str(e)}"
+                    self.logger.error(error_message)
+                    return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
+                
                 if cached_result:
-                    logger.info(f"Using cached results for {self.field_name}")
+                    self.logger.info(f"Using cached results for {self.field_name}")
 
                     # Update progress if tracker provided
                     if progress_tracker:
@@ -536,19 +536,24 @@ class PhoneOperation(FieldOperation):
                 progress_tracker.total = total_steps
                 progress_tracker.update(0, {"status": "Analyzing field"})
 
-            # Execute the analyzer
-            safe_kwargs = filter_used_kwargs(kwargs, PhoneAnalyzer.analyze)
-            analysis_results = PhoneAnalyzer.analyze(
-                df=df,
-                field_name=self.field_name,
-                patterns_csv=self.patterns_csv,
-                chunk_size=self.chunk_size,
-                use_dask=self.use_dask,
-                npartitions=self.npartitions,
-                use_vectorization=self.use_vectorization,
-                parallel_processes=self.parallel_processes,
-                **safe_kwargs
-            )
+            try:
+                # Execute the analyzer
+                safe_kwargs = filter_used_kwargs(kwargs, PhoneAnalyzer.analyze)
+                analysis_results = PhoneAnalyzer.analyze(
+                    df=df,
+                    field_name=self.field_name,
+                    patterns_csv=self.patterns_csv,
+                    chunk_size=self.chunk_size,
+                    use_dask=self.use_dask,
+                    npartitions=self.npartitions,
+                    use_vectorization=self.use_vectorization,
+                    parallel_processes=self.parallel_processes,
+                    **safe_kwargs
+                )
+            except Exception as e:
+                error_message = f"Attribute analysis error: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
             # Check for errors
             if 'error' in analysis_results:
@@ -563,7 +568,7 @@ class PhoneOperation(FieldOperation):
                 progress_tracker.update(1, {"step": "Analysis complete", "field": self.field_name})
 
             # Save analysis results to JSON
-            stats_filename = get_timestamped_filename(f"{self.field_name}_stats", "json", include_timestamp)
+            stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
             stats_path = output_dir / stats_filename
 
             encryption_mode = get_encryption_mode(analysis_results, **kwargs)
@@ -589,21 +594,29 @@ class PhoneOperation(FieldOperation):
                 if progress_tracker:
                     progress_tracker.update(0, {"step": "Generating visualizations"})
 
-                safe_kwargs = filter_used_kwargs(kwargs, self._handle_visualizations)
-                visualization_paths = self._handle_visualizations(
-                    df=df,
-                    analysis_results=analysis_results,
-                    visualizations_dir=visualizations_dir,
-                    include_timestamp=include_timestamp,
-                    result=result,
-                    reporter=reporter,
-                    vis_theme=self.visualization_theme,
-                    vis_backend=self.visualization_backend,
-                    vis_strict=self.visualization_strict,
-                    vis_timeout=self.visualization_timeout,
-                    progress_tracker=progress_tracker,
-                    **safe_kwargs
-                )
+                try:
+                    kwargs_encryption = {
+                        "use_encryption": self.use_encryption,
+                        "encryption_key": self.encryption_key,
+                    }
+
+                    visualization_paths = self._handle_visualizations(
+                        analysis_results=analysis_results,
+                        visualizations_dir=visualizations_dir,
+                        operation_timestamp=operation_timestamp,
+                        result=result,
+                        reporter=reporter,
+                        vis_theme=self.visualization_theme,
+                        vis_backend=self.visualization_backend,
+                        vis_strict=self.visualization_strict,
+                        vis_timeout=self.visualization_timeout,
+                        progress_tracker=progress_tracker,
+                        **kwargs_encryption,
+                    )
+                except Exception as e:
+                    error_message = f"Error generating visualizations: {str(e)}"
+                    self.logger.error(error_message)
+                    # Continue execution - visualization failure is not critical
                 artifacts.extend(visualization_paths)
 
                 # Update progress
@@ -620,8 +633,7 @@ class PhoneOperation(FieldOperation):
 
             if 'error' not in country_dict:
                 # Save dictionary to CSV
-                dict_filename = get_timestamped_filename(f"{self.field_name}_country_codes_dictionary", "csv",
-                                                         include_timestamp)
+                dict_filename = f"{self.field_name}_country_codes_dictionary_{operation_timestamp}.csv"
                 dict_path = dictionaries_dir / dict_filename
 
                 # Create DataFrame and save to CSV
@@ -630,8 +642,7 @@ class PhoneOperation(FieldOperation):
                 write_dataframe_to_csv(df=dict_df, file_path=dict_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
                 # Save detailed dictionary as JSON
-                json_dict_filename = get_timestamped_filename(f"{self.field_name}_country_codes_dictionary", "json",
-                                                              include_timestamp)
+                json_dict_filename = f"{self.field_name}_country_codes_dictionary_{operation_timestamp}.json"
                 json_dict_path = output_dir / json_dict_filename
                 encryption_mode_country_dict = get_encryption_mode(country_dict, **kwargs)
                 write_json(country_dict, json_dict_path, encryption_key=encryption_key, encryption_mode=encryption_mode_country_dict)
@@ -658,15 +669,14 @@ class PhoneOperation(FieldOperation):
             operator_dict = PhoneAnalyzer.create_operator_code_dictionary(
                 df=df,
                 field_name=self.field_name,
-                country_code=country_code,
+                country_codes=self.country_codes,
                 min_count=self.min_frequency,
                 **kwargs
             )
 
             if 'error' not in operator_dict:
                 # Save dictionary to CSV
-                dict_filename = get_timestamped_filename(f"{self.field_name}_operator_codes_dictionary", "csv",
-                                                         include_timestamp)
+                dict_filename = f"{self.field_name}_operator_codes_dictionary_{operation_timestamp}.csv"
                 dict_path = dictionaries_dir / dict_filename
 
                 # Create DataFrame and save to CSV
@@ -675,8 +685,7 @@ class PhoneOperation(FieldOperation):
                 write_dataframe_to_csv(df=dict_df, file_path=dict_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
                 # Save detailed dictionary as JSON
-                json_dict_filename = get_timestamped_filename(f"{self.field_name}_operator_codes_dictionary", "json",
-                                                              include_timestamp)
+                json_dict_filename = f"{self.field_name}_operator_codes_dictionary_{operation_timestamp}.json"
                 json_dict_path = output_dir / json_dict_filename
                 encryption_mode_operator_dict = get_encryption_mode(operator_dict, **kwargs)
                 write_json(operator_dict, json_dict_path, encryption_key=encryption_key, encryption_mode=encryption_mode_operator_dict)
@@ -711,8 +720,7 @@ class PhoneOperation(FieldOperation):
 
             if 'error' not in messenger_dict:
                 # Save dictionary to CSV
-                dict_filename = get_timestamped_filename(f"{self.field_name}_messenger_dictionary", "csv",
-                                                         include_timestamp)
+                dict_filename = f"{self.field_name}_messenger_dictionary{operation_timestamp}.csv"
                 dict_path = dictionaries_dir / dict_filename
 
                 # Create DataFrame and save to CSV
@@ -721,8 +729,7 @@ class PhoneOperation(FieldOperation):
                 write_dataframe_to_csv(df=dict_df, file_path=dict_path, index=False, encoding='utf-8', encryption_key=encryption_key)
 
                 # Save detailed dictionary as JSON
-                json_dict_filename = get_timestamped_filename(f"{self.field_name}_messenger_dictionary", "json",
-                                                              include_timestamp)
+                json_dict_filename = f"{self.field_name}_messenger_dictionary_{operation_timestamp}.json"
                 json_dict_path = output_dir / json_dict_filename
                 encryption_mode_messenger_dict = get_encryption_mode(messenger_dict, **kwargs)
                 write_json(messenger_dict, json_dict_path, encryption_key=encryption_key, encryption_mode=encryption_mode_messenger_dict)
@@ -747,12 +754,17 @@ class PhoneOperation(FieldOperation):
 
             # Cache results if caching is enabled
             if self.use_cache:
-                self._save_to_cache(
-                    df=df,
-                    analysis_results=analysis_results,
-                    artifacts=artifacts,
-                    task_dir=task_dir
-                )
+                try:
+                    self._save_to_cache(
+                        df=df,
+                        analysis_results=analysis_results,
+                        artifacts=artifacts,
+                        task_dir=task_dir
+                    )
+                except Exception as e:
+                    error_message = f"Failed to cache results: {str(e)}"
+                    self.logger.error(error_message)
+                    # Continue execution - cache failure is not critical
 
             # Update progress
             if progress_tracker:
@@ -787,7 +799,7 @@ class PhoneOperation(FieldOperation):
 
             return result
         except Exception as e:
-            logger.exception(f"Error in phone operation for {self.field_name}: {e}")
+            self.logger.exception(f"Error in phone operation for {self.field_name}: {e}")
 
             # Update progress tracker on error
             if progress_tracker:
@@ -908,10 +920,10 @@ class PhoneOperation(FieldOperation):
 
                 return cached_result
 
-            logger.debug(f"No cache found for key: {cache_key}")
+            self.logger.debug(f"No cache found for key: {cache_key}")
             return None
         except Exception as e:
-            logger.warning(f"Error checking cache: {str(e)}")
+            self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
     def _save_to_cache(
@@ -967,7 +979,7 @@ class PhoneOperation(FieldOperation):
             }
 
             # Save to cache
-            logger.debug(f"Saving to cache with key: {cache_key}")
+            self.logger.debug(f"Saving to cache with key: {cache_key}")
             success = operation_cache_dir.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
@@ -976,13 +988,13 @@ class PhoneOperation(FieldOperation):
             )
 
             if success:
-                logger.info(f"Successfully saved results to cache")
+                self.logger.info(f"Successfully saved results to cache")
             else:
-                logger.warning(f"Failed to save results to cache")
+                self.logger.warning(f"Failed to save results to cache")
 
             return success
         except Exception as e:
-            logger.warning(f"Error saving to cache: {str(e)}")
+            self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
     def _generate_cache_key(
@@ -1033,7 +1045,7 @@ class PhoneOperation(FieldOperation):
             "field_name": self.field_name,
             "min_frequency": self.min_frequency,
             "patterns_csv": self.patterns_csv,
-            "country_code": self.country_code,
+            "country_codes": self.country_codes,
             "version": self.version
         }
 
@@ -1082,7 +1094,7 @@ class PhoneOperation(FieldOperation):
             # Convert to JSON string and hash
             json_str = characteristics.to_json(date_format='iso')
         except Exception as e:
-            logger.warning(f"Error generating data hash: {str(e)}")
+            self.logger.warning(f"Error generating data hash: {str(e)}")
 
             # Fallback to a simple hash of the data length and type
             json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
@@ -1093,7 +1105,7 @@ class PhoneOperation(FieldOperation):
             self,
             analysis_results: Dict[str, Any],
             visualizations_dir: Path,
-            include_timestamp: bool,
+            operation_timestamp: Optional[str],
             result: OperationResult,
             reporter: Any,
             vis_theme: Optional[str],
@@ -1112,8 +1124,8 @@ class PhoneOperation(FieldOperation):
             Results of the analysis
         visualizations_dir : Path
             Directory to save visualizations
-        include_timestamp : bool
-            Whether to include timestamps in filenames
+        operation_timestamp : Optional[str]
+            Timestamp for file naming
         result : OperationResult
             The operation result to add artifacts to
         reporter : Any
@@ -1137,7 +1149,7 @@ class PhoneOperation(FieldOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+        self.logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
 
         try:
             import threading
@@ -1146,27 +1158,30 @@ class PhoneOperation(FieldOperation):
             visualization_paths = []
             visualization_error = None
 
+            if operation_timestamp is None:
+                operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
             def generate_viz_with_diagnostics():
                 nonlocal visualization_paths, visualization_error
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
-                logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+                self.logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
+                self.logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
 
                 start_time = time.time()
 
                 try:
                     # Log context variables
-                    logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info(f"[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                        self.logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
                     except Exception as ctx_e:
-                        logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+                        self.logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
 
                     # Generate visualizations with visualization context parameters
-                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1178,18 +1193,14 @@ class PhoneOperation(FieldOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            logger.debug(f"Could not create child progress tracker: {e}")
+                            self.logger.debug(f"Could not create child progress tracker: {e}")
 
                     # Generate visualizations
 
                     # 1. Country code distribution visualization
                     if 'country_codes' in analysis_results and analysis_results['country_codes']:
                         # Create visualization filename with extension "png"
-                        viz_filename = get_timestamped_filename(
-                            base_name=f"{self.field_name}_country_codes_distribution",
-                            extension="png",
-                            include_timestamp=include_timestamp
-                        )
+                        viz_filename = f"{self.field_name}_country_codes_distribution{operation_timestamp}.png"
                         viz_path = visualizations_dir / viz_filename
 
                         # Create visualization using the visualization module
@@ -1208,9 +1219,6 @@ class PhoneOperation(FieldOperation):
                         )
 
                         if not viz_result.startswith("Error"):
-                            result.add_artifact("png", viz_path, f"{self.field_name} country codes distribution",
-                                                category=Constants.Artifact_Category_Visualization)
-                            reporter.add_artifact("png", str(viz_path), f"{self.field_name} country codes distribution")
                             visualization_paths.append({
                                 "artifact_type": "png",
                                 "path": str(viz_path),
@@ -1218,16 +1226,12 @@ class PhoneOperation(FieldOperation):
                                 "category": Constants.Artifact_Category_Visualization
                             })
                         else:
-                            logger.warning(f"Error creating country code visualization: {viz_result}")
+                            self.logger.warning(f"Error creating country code visualization: {viz_result}")
 
                     # 2. Operator code distribution visualization
                     if 'operator_codes' in analysis_results and analysis_results['operator_codes']:
                         # Create visualization filename with extension "png"
-                        viz_filename = get_timestamped_filename(
-                            base_name=f"{self.field_name}_operator_codes_distribution",
-                            extension="png",
-                            include_timestamp=include_timestamp
-                        )
+                        viz_filename = f"{self.field_name}_operator_codes_distribution_{operation_timestamp}.png"
                         viz_path = visualizations_dir / viz_filename
 
                         # Create visualization using the visualization module
@@ -1246,10 +1250,6 @@ class PhoneOperation(FieldOperation):
                         )
 
                         if not viz_result.startswith("Error"):
-                            result.add_artifact("png", viz_path, f"{self.field_name} operator codes distribution",
-                                                category=Constants.Artifact_Category_Visualization)
-                            reporter.add_artifact("png", str(viz_path),
-                                                  f"{self.field_name} operator codes distribution")
                             visualization_paths.append({
                                 "artifact_type": "png",
                                 "path": str(viz_path),
@@ -1257,17 +1257,13 @@ class PhoneOperation(FieldOperation):
                                 "category": Constants.Artifact_Category_Visualization
                             })
                         else:
-                            logger.warning(f"Error creating operator code visualization: {viz_result}")
+                            self.logger.warning(f"Error creating operator code visualization: {viz_result}")
 
                     # 3. Messenger mentions visualization
                     if 'messenger_mentions' in analysis_results and any(
                             analysis_results['messenger_mentions'].values()):
                         # Create visualization filename with extension "png"
-                        viz_filename = get_timestamped_filename(
-                            base_name=f"{self.field_name}_messenger_mentions",
-                            extension="png",
-                            include_timestamp=include_timestamp
-                        )
+                        viz_filename = f"{self.field_name}_messenger_mentions_{operation_timestamp}.png"
                         viz_path = visualizations_dir / viz_filename
 
                         # Create visualization using the visualization module
@@ -1286,9 +1282,6 @@ class PhoneOperation(FieldOperation):
                         )
 
                         if not viz_result.startswith("Error"):
-                            result.add_artifact("png", viz_path, f"{self.field_name} messenger mentions",
-                                                category=Constants.Artifact_Category_Visualization)
-                            reporter.add_artifact("png", str(viz_path), f"{self.field_name} messenger mentions")
                             visualization_paths.append({
                                 "artifact_type": "png",
                                 "path": str(viz_path),
@@ -1296,7 +1289,7 @@ class PhoneOperation(FieldOperation):
                                 "category": Constants.Artifact_Category_Visualization
                             })
                         else:
-                            logger.warning(f"Error creating messenger mentions visualization: {viz_result}")
+                            self.logger.warning(f"Error creating messenger mentions visualization: {viz_result}")
 
                     # Close visualization progress tracker
                     if viz_progress:
@@ -1306,17 +1299,17 @@ class PhoneOperation(FieldOperation):
                             pass
 
                     elapsed = time.time() - start_time
-                    logger.info(
+                    self.logger.info(
                         f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
                     )
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
-                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -1327,7 +1320,7 @@ class PhoneOperation(FieldOperation):
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            self.logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
             thread_start_time = time.time()
             viz_thread.start()
 
@@ -1338,24 +1331,45 @@ class PhoneOperation(FieldOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+                    self.logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
 
             if viz_thread.is_alive():
-                logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
-                logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
-                visualization_paths = {}
+                self.logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
+                self.logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                visualization_paths = []
             elif visualization_error:
-                logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
-                visualization_paths = {}
+                self.logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                visualization_paths = []
             else:
                 total_time = time.time() - thread_start_time
-                logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
-                for vis_result in visualization_paths:
-                    logger.info(f"[DIAG] Generated visualizations: {vis_result['path']}")
+                self.logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
+                self.logger.info(
+                    f"[DIAG] Generated visualizations: {[viz['path'] for viz in visualization_paths]}"
+                )
         except Exception as e:
-            logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
-            logger.error(f"[DIAG] Stack trace:", exc_info=True)
-            visualization_paths = {}
+            self.logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            visualization_paths = []
+
+        # Register visualization artifacts
+        for viz in visualization_paths:
+            artifact_type = viz["artifact_type"]
+            path = viz["path"]
+            description = viz["description"]
+
+            # Add to result
+            result.add_artifact(
+                artifact_type=artifact_type,
+                path=path,
+                description=description,
+                category=Constants.Artifact_Category_Visualization,
+            )
+
+            # Report to reporter
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type=artifact_type, path=path, description=description
+                )
 
         return visualization_paths
 
@@ -1390,139 +1404,3 @@ class PhoneOperation(FieldOperation):
             'dictionaries': dictionaries_dir,
             'cache': cache_dir
         }
-
-def analyze_phone_fields(
-        data_source: DataSource,
-        task_dir: Path,
-        reporter: Any,
-        phone_fields: List[str] = None,
-        patterns_csv: Optional[str] = None,
-        **kwargs) -> Dict[str, OperationResult]:
-    """
-    Analyze multiple phone fields in a dataset.
-
-    Parameters:
-    -----------
-    data_source : DataSource
-        Source of data for the operations
-    task_dir : Path
-        Directory where task artifacts should be saved
-    reporter : Any
-        Reporter object for tracking progress and artifacts
-    phone_fields : List[str], optional
-        List of phone fields to analyze. If None, tries to find phone fields automatically.
-    patterns_csv : str, optional
-        Path to CSV file with messenger detection patterns
-    **kwargs : dict
-        Additional parameters for the operations:
-        - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
-        - generate_visualization: bool, whether to generate visualization (default: True)
-        - include_timestamp: bool, whether to include timestamps in filenames (default: True)
-        - profile_type: str, type of profiling for organizing artifacts (default: 'phone')
-        - country_code: str, specific country code to focus on for operator analysis
-
-    Returns:
-    --------
-    Dict[str, OperationResult]
-        Dictionary mapping field names to their operation results
-    """
-    # Get DataFrame from data source
-    dataset_name = kwargs.get('dataset_name', "main")
-    settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-    df = load_data_operation(data_source, dataset_name, **settings_operation)
-    if df is None:
-        reporter.add_operation("Phone fields analysis", status="error",
-                               details={"error": "No valid DataFrame found in data source"})
-        return {}
-
-    # Extract operation parameters from kwargs
-    min_frequency = kwargs.get('min_frequency', 1)
-
-    # If no phone fields specified, try to detect them
-    if phone_fields is None:
-        phone_fields = []
-        for col in df.columns:
-            if 'phone' in col.lower():
-                phone_fields.append(col)
-
-        if not phone_fields:
-            phone_fields = ['home_phone', 'work_phone', 'cell_phone']  # Default field names
-
-    # Report on fields to be analyzed
-    reporter.add_operation("Phone fields analysis", details={
-        "fields_count": len(phone_fields),
-        "fields": phone_fields,
-        "min_frequency": min_frequency,
-        "parameters": {k: v for k, v in kwargs.items() if isinstance(v, (str, int, float, bool))}
-    })
-
-    # Track progress if enabled
-    track_progress = kwargs.get('track_progress', True)
-    overall_tracker = None
-
-    if track_progress and phone_fields:
-        from pamola_core.utils.progress import ProgressTracker
-        overall_tracker = ProgressTracker(
-            total=len(phone_fields),
-            description=f"Analyzing {len(phone_fields)} phone fields",
-            unit="fields",
-            track_memory=True
-        )
-
-    # Initialize results dictionary
-    results = {}
-
-    # Process each field
-    for i, field in enumerate(phone_fields):
-        if field in df.columns:
-            try:
-                # Update overall progress tracker
-                if overall_tracker:
-                    overall_tracker.update(0, {"field": field, "progress": f"{i + 1}/{len(phone_fields)}"})
-
-                logger.info(f"Analyzing phone field: {field}")
-
-                # Create and execute operation
-                operation = PhoneOperation(
-                    field,
-                    min_frequency=min_frequency,
-                    patterns_csv=patterns_csv
-                )
-                result = operation.execute(data_source, task_dir, reporter, **kwargs)
-
-                # Store result
-                results[field] = result
-
-                # Update overall tracker after successful analysis
-                if overall_tracker:
-                    if result.status == OperationStatus.SUCCESS:
-                        overall_tracker.update(1, {"field": field, "status": "completed"})
-                    else:
-                        overall_tracker.update(1, {"field": field, "status": "error",
-                                                   "error": result.error_message})
-
-            except Exception as e:
-                logger.error(f"Error analyzing phone field {field}: {e}", exc_info=True)
-
-                reporter.add_operation(f"Analyzing {field} field", status="error",
-                                       details={"error": str(e)})
-
-                # Update overall tracker in case of error
-                if overall_tracker:
-                    overall_tracker.update(1, {"field": field, "status": "error"})
-
-    # Close overall progress tracker
-    if overall_tracker:
-        overall_tracker.close()
-
-    # Report summary
-    success_count = sum(1 for r in results.values() if r.status == OperationStatus.SUCCESS)
-    error_count = sum(1 for r in results.values() if r.status == OperationStatus.ERROR)
-
-    reporter.add_operation("Phone fields analysis completed", details={
-        "fields_analyzed": len(results),
-        "successful": success_count,
-        "failed": error_count
-    })
-
-    return results

@@ -168,7 +168,7 @@ class ConsistentMappingPseudonymizationConfig(OperationConfig):
             "column_prefix": {"type": "string"},
             "null_strategy": {
                 "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ERROR", "ANONYMIZE"],
+                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
             },
             "batch_size": {"type": "integer", "minimum": 1},
             "use_cache": {"type": "boolean"},  # Not used, mapping is the cache
@@ -277,7 +277,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         column_prefix : str
             Prefix for generated column names (default: "_")
         null_strategy : str
-            How to handle nulls: "PRESERVE", "EXCLUDE", "ERROR", "ANONYMIZE"
+            How to handle nulls: "PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"
         batch_size : int
             Batch size for processing (default: 10000)
         use_cache : bool

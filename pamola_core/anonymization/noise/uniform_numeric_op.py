@@ -139,7 +139,7 @@ class UniformNumericNoiseConfig(OperationConfig):
             "output_field_name": {"type": ["string", "null"]},
             "null_strategy": {
                 "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ERROR", "ANONYMIZE"],
+                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
             },
             "chunk_size": {"type": "integer"},
             "use_dask": {"type": "boolean"},

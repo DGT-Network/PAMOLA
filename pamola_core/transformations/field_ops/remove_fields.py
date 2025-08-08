@@ -439,7 +439,8 @@ class RemoveFieldsOperation(TransformationOperation):
                     visualizations = self._handle_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
-                        task_dir=visualizations_dir,
+                        metrics=metrics,
+                        task_dir=task_dir,
                         result=result,
                         reporter=reporter,
                         vis_theme=vis_theme,
@@ -545,7 +546,7 @@ class RemoveFieldsOperation(TransformationOperation):
             fields_to_remove = list(set(fields_to_remove + self.fields_to_remove))
 
         if self.pattern:
-            filtered_columns = [col for col in batch.columns.tolist() if re.search(self.pattern, col)]
+            filtered_columns = [col for col in batch.columns if re.search(self.pattern, col)]
             fields_to_remove = list(set(fields_to_remove + filtered_columns))
 
         processed_batch = batch.drop(columns=fields_to_remove)
@@ -954,21 +955,26 @@ class RemoveFieldsOperation(TransformationOperation):
         Dict[str, Any]
             A dictionary of calculated metrics
         """
-        from pamola_core.transformations.commons.metric_utils import (
-            calculate_dataset_comparison,
-            calculate_transformation_impact
-        )
+        from pamola_core.utils.io_helpers import estimate_dataframe_size
 
         # Basic metrics
-        metrics: Dict[str, Any] = {
-            "operation_type": self.__class__.__name__,
-            "fields_to_remove": self.fields_to_remove,
-            "pattern": self.pattern
-        }
+        metrics: Dict[str, Any] = {}
 
-        # Add metrics
-        metrics.update(calculate_dataset_comparison(original_df,processed_df))
-        metrics.update(calculate_transformation_impact(original_df, processed_df))
+        # Specific metrics
+        fields_removed = [col for col in original_df.columns if col not in processed_df.columns]
+
+        metrics.update({
+            "fields_removed_count": len(fields_removed),
+            "fields_removed_percentage": len(fields_removed) / len(original_df.columns) * 100,
+            "memory_usage_byte": {
+                "before": int(estimate_dataframe_size(original_df)["total_bytes"]),
+                "after": int(estimate_dataframe_size(processed_df)["total_bytes"])
+            },
+            "shape": {
+                "before": str(original_df.shape),
+                "after":  str(processed_df.shape)
+            }
+        })
 
         return metrics
 
@@ -1053,6 +1059,7 @@ class RemoveFieldsOperation(TransformationOperation):
             self,
             original_df: pd.DataFrame,
             processed_df: pd.DataFrame,
+            metrics: Dict[str, Any],
             task_dir: Path,
             result: OperationResult,
             reporter: Any,
@@ -1072,6 +1079,8 @@ class RemoveFieldsOperation(TransformationOperation):
             The original data
         processed_df : pd.DataFrame
             The processed data
+        metrics : dict
+            The metrics of operation
         task_dir : Path
             The task directory
         result : OperationResult
@@ -1144,6 +1153,7 @@ class RemoveFieldsOperation(TransformationOperation):
                     visualization_paths = self._generate_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
+                        metrics=metrics,
                         task_dir=task_dir,
                         vis_theme=vis_theme,
                         vis_backend=vis_backend,
@@ -1234,6 +1244,7 @@ class RemoveFieldsOperation(TransformationOperation):
             self,
             original_df: pd.DataFrame,
             processed_df: pd.DataFrame,
+            metrics: Dict[str, Any],
             task_dir: Path,
             vis_theme: Optional[str],
             vis_backend: Optional[str],
@@ -1250,6 +1261,8 @@ class RemoveFieldsOperation(TransformationOperation):
             The original data before processing
         processed_df : pd.DataFrame
             The anonymized data after processing
+        metrics : dict
+            The metrics of operation
         task_dir : Path
             Task directory for saving visualizations
         vis_theme : str, optional
@@ -1266,15 +1279,12 @@ class RemoveFieldsOperation(TransformationOperation):
         Dict[str, Path]
             Dictionary with visualization types and paths
         """
-        from pamola_core.transformations.commons.visualization_utils import (
-            generate_dataset_overview_vis,
-            generate_field_count_comparison_vis,
-            generate_record_count_comparison_vis,
-            generate_data_distribution_comparison_vis,
-            sample_large_dataset
-        )
+        from pamola_core.utils.visualization import create_bar_plot
+        from pamola_core.transformations.commons.visualization_utils import sample_large_dataset
 
         visualization_paths = {}
+        viz_dir = task_dir / "visualizations"
+        viz_dir.mkdir(parents=True, exist_ok=True)
 
         # Create timestamp for filenames
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1290,7 +1300,12 @@ class RemoveFieldsOperation(TransformationOperation):
         try:
             # Step 1: Prepare data
             if progress_tracker:
-                progress_tracker.update(1, {"step": "Preparing visualization data"})
+                progress_tracker.update(
+                    n=1,
+                    postfix={
+                        "step": "Preparing visualization data"
+                    }
+                )
 
             # Sample large datasets for visualization
             if len(original_df) > 10000:
@@ -1303,71 +1318,165 @@ class RemoveFieldsOperation(TransformationOperation):
 
             self.logger.debug(f"[VIZ] Data prepared for visualization: {len(original_for_viz)} samples")
 
-            # Step 2 & 3: Create visualization & Save visualization
+            # Step 2: Create visualization
             if progress_tracker:
-                progress_tracker.update(2, {"step": "Create visualization"})
-                progress_tracker.update(3, {"step": "Save visualization"})
+                progress_tracker.update(
+                    n=2,
+                    postfix={
+                        "step": "Creating visualization"
+                    }
+                )
 
-            # Generate visualization
-            field_names = self.fields_to_remove
+            # Fields Count Comparison Before/After
+            viz_data = {
+                "1.Before": len(original_for_viz.columns),
+                "2.After": len(processed_for_viz.columns)
+            }
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_fields_count_comparison_{timestamp}.png"
+            viz_result = create_bar_plot(
+                data=viz_data,
+                output_path=viz_path,
+                title="Fields Count Comparison",
+                x_label="Fields Count",
+                y_label="Value",
+                sort_by="key",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
+            )
 
-            MAX_FIELDS_DISPLAY = 5
-            if len(field_names) > MAX_FIELDS_DISPLAY:
-                field_label = f"{len(field_names)} fields"
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                field_label = ",".join(field_names)
+                visualization_paths[f"fields_count_comparison"] = viz_path
 
-            visualization_paths.update(
-                generate_dataset_overview_vis(
-                    df=original_for_viz,
-                    operation_name=f"{self.__class__.__name__}",
-                    dataset_label="original",
-                    field_label=field_label,
-                    task_dir=task_dir / "visualizations",
-                    timestamp=timestamp,
-                    theme=vis_theme,
-                    backend=vis_backend,
-                    strict=vis_strict,
-                    visualization_paths=None
+            # Memory Usage Comparison before/after
+            viz_data = {
+                "1.Before": metrics["memory_usage_byte"]["before"],
+                "2.After": metrics["memory_usage_byte"]["after"]
+            }
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_memory_usage_comparison_{timestamp}.png"
+            viz_result = create_bar_plot(
+                data=viz_data,
+                output_path=viz_path,
+                title="Memory Usage Comparison",
+                x_label="Memory Usage",
+                y_label="Byte",
+                sort_by="key",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
+            )
+
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
+            else:
+                visualization_paths[f"memory_usage_comparison"] = viz_path
+
+            # Field Removal Impact - Data
+            impact_data = []
+            fields_removed = [col for col in original_for_viz.columns if col not in processed_for_viz.columns]
+            for col in fields_removed:
+                col_data = original_for_viz[col]
+                memory_usage = col_data.memory_usage(deep=True)
+                missing_percent = col_data.isnull().mean() * 100
+                unique_count = col_data.nunique()
+                dtype = str(col_data.dtype)
+
+                impact_data.append({
+                    "field": col,
+                    "memory_usage_byte": memory_usage,
+                    "missing_percent": float(missing_percent),
+                    "unique_count": unique_count,
+                    "dtype": dtype
+                })
+
+            # Field Removal Impact - Memory Usage
+            viz_data = {impact_dict["field"]: impact_dict["memory_usage_byte"] for impact_dict in impact_data}
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_field_removal_impact_memory_usage_{timestamp}.png"
+            viz_result = create_bar_plot(
+                data=viz_data,
+                output_path=viz_path,
+                title="Fields Removal Impact - Memory Usage",
+                x_label="Field",
+                y_label="Memory Usage",
+                sort_by="key",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
+            )
+
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
+            else:
+                visualization_paths[f"field_removal_impact_memory_usage"] = viz_path
+
+            # Field Removal Impact - Missing Percent
+            viz_data = {impact_dict["field"]: impact_dict["missing_percent"] for impact_dict in impact_data}
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_field_removal_impact_missing_percent_{timestamp}.png"
+            viz_result = create_bar_plot(
+                data=viz_data,
+                output_path=viz_path,
+                title="Field Removal Impact - Missing Percent",
+                x_label="Field",
+                y_label="Missing Percent",
+                sort_by="key",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
+            )
+
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
+            else:
+                visualization_paths[f"field_removal_impact_missing_percent"] = viz_path
+
+
+            # Field Removal Impact - Unique Count
+            viz_data = {impact_dict["field"]: impact_dict["unique_count"] for impact_dict in impact_data}
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_field_removal_impact_unique_count_{timestamp}.png"
+            viz_result = create_bar_plot(
+                data=viz_data,
+                output_path=viz_path,
+                title="Field Removal Impact - Unique Count",
+                x_label="Field",
+                y_label="Unique Count",
+                sort_by="key",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
+            )
+
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
+            else:
+                visualization_paths[f"field_removal_impact_unique_count"] = viz_path
+
+            # Step 3: Finalize visualizations
+            if progress_tracker:
+                progress_tracker.update(
+                    n=3,
+                    postfix={
+                        "step": "Visualizations complete"
+                    }
                 )
+
+            self.logger.info(
+                f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations"
             )
 
-            visualization_paths.update(
-                generate_dataset_overview_vis(
-                    df=processed_for_viz,
-                    operation_name=f"{self.__class__.__name__}",
-                    dataset_label="transformed",
-                    field_label=field_label,
-                    task_dir=task_dir / "visualizations",
-                    timestamp=timestamp,
-                    theme=vis_theme,
-                    backend=vis_backend,
-                    strict=vis_strict,
-                    visualization_paths=None
-                )
-            )
-
-            visualization_paths.update(
-                 generate_field_count_comparison_vis(
-                     original_df=original_for_viz,
-                     transformed_df=processed_for_viz,
-                     field_label=field_label,
-                     operation_name=f"{self.__class__.__name__}",
-                     task_dir=task_dir / "visualizations",
-                     timestamp=timestamp,
-                     theme=vis_theme,
-                     backend=vis_backend,
-                     strict=vis_strict,
-                     visualization_paths=None
-                 )
-            )
-
-            self.logger.info(f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations")
             return visualization_paths
+
         except Exception as e:
             self.logger.error(f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}")
             self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
-            return {}
+
+        return visualization_paths
 
     def _save_output_data(
             self,

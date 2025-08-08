@@ -78,37 +78,33 @@ RISK_LEVELS = {
     "VERY_HIGH": (0, 2),
     "HIGH": (2, 5),
     "MEDIUM": (5, 10),
-    "LOW": (10, float('inf'))
+    "LOW": (10, float("inf")),
 }
 
 # Null handling strategies
 NULL_STRATEGIES = ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"]
 
 # Vulnerable record handling strategies
-VULNERABLE_STRATEGIES = ["suppress", "remove", "mean", "mode", "custom"]
+VULNERABLE_STRATEGIES = [
+    "suppress",
+    "remove",
+    "mean",
+    "mode",
+    "custom",
+    "mask",
+    "full_mask",
+]
 
 # Privacy levels for adaptive processing
 PRIVACY_LEVELS = {
-    "LOW": {
-        "k_threshold": 2,
-        "suppression_limit": 0.3,
-        "generalization_level": 0.3
-    },
-    "MEDIUM": {
-        "k_threshold": 5,
-        "suppression_limit": 0.2,
-        "generalization_level": 0.5
-    },
-    "HIGH": {
-        "k_threshold": 10,
-        "suppression_limit": 0.1,
-        "generalization_level": 0.7
-    },
+    "LOW": {"k_threshold": 2, "suppression_limit": 0.3, "generalization_level": 0.3},
+    "MEDIUM": {"k_threshold": 5, "suppression_limit": 0.2, "generalization_level": 0.5},
+    "HIGH": {"k_threshold": 10, "suppression_limit": 0.1, "generalization_level": 0.7},
     "VERY_HIGH": {
         "k_threshold": 20,
         "suppression_limit": 0.05,
-        "generalization_level": 0.9
-    }
+        "generalization_level": 0.9,
+    },
 }
 
 
@@ -116,9 +112,10 @@ PRIVACY_LEVELS = {
 # Privacy-Aware Null Processing
 # =============================================================================
 
-def process_nulls(series: pd.Series,
-                  strategy: str = "PRESERVE",
-                  anonymize_value: str = "SUPPRESSED") -> pd.Series:
+
+def process_nulls(
+    series: pd.Series, strategy: str = "PRESERVE", anonymize_value: str = "SUPPRESSED"
+) -> pd.Series:
     """
     Process null values with privacy-aware strategies.
 
@@ -180,10 +177,14 @@ def process_nulls(series: pd.Series,
     """
     # Type validation
     if not isinstance(series, pd.Series):
-        raise TypeError(f"Argument 'series' must be a pandas.Series, got {type(series).__name__}")
+        raise TypeError(
+            f"Argument 'series' must be a pandas.Series, got {type(series).__name__}"
+        )
 
     if strategy not in NULL_STRATEGIES:
-        raise ValueError(f"Invalid null strategy: {strategy}. Must be one of {NULL_STRATEGIES}")
+        raise ValueError(
+            f"Invalid null strategy: {strategy}. Must be one of {NULL_STRATEGIES}"
+        )
 
     if strategy == "PRESERVE":
         # Return series as-is, no modification needed
@@ -201,10 +202,12 @@ def process_nulls(series: pd.Series,
             # No nulls to anonymize
             return series.copy()
 
-        if pd.api.types.is_numeric_dtype(series) and not isinstance(anonymize_value, (int, float)):
+        if pd.api.types.is_numeric_dtype(series) and not isinstance(
+            anonymize_value, (int, float)
+        ):
             # Need to convert to object type to accommodate string anonymize_value
             # Explicitly create a copy to avoid any potential side effects
-            result = series.astype('object').copy()
+            result = series.astype("object").copy()
             result.loc[series.isna()] = anonymize_value
             return result
         else:
@@ -212,6 +215,14 @@ def process_nulls(series: pd.Series,
             result = series.copy()
             result = result.fillna(anonymize_value)
             return result
+
+    elif strategy == "ERROR":
+        # Raise an error if any nulls are present
+        if series.isna().any():
+            raise ValueError(
+                f"Null values found in field {series.name}, which is not permitted when null_strategy is {strategy}."
+            )
+        return series.copy()
 
     else:
         # This should never be reached due to earlier validation
@@ -223,13 +234,16 @@ def process_nulls(series: pd.Series,
 # Risk-Based Record Filtering
 # =============================================================================
 
-def filter_records_conditionally(df: pd.DataFrame,
-                                 risk_field: Optional[str] = None,
-                                 risk_threshold: float = DEFAULT_K_THRESHOLD,
-                                 operator: str = "ge",
-                                 condition_field: Optional[str] = None,
-                                 condition_values: Optional[List] = None,
-                                 condition_operator: str = "in") -> Tuple[pd.DataFrame, pd.Series]:
+
+def filter_records_conditionally(
+    df: pd.DataFrame,
+    risk_field: Optional[str] = None,
+    risk_threshold: float = DEFAULT_K_THRESHOLD,
+    operator: str = "ge",
+    condition_field: Optional[str] = None,
+    condition_values: Optional[List] = None,
+    condition_operator: str = "in",
+) -> Tuple[pd.DataFrame, pd.Series]:
     """
     Filter DataFrame records based on risk scores and optional conditions.
 
@@ -294,28 +308,34 @@ def filter_records_conditionally(df: pd.DataFrame,
         elif operator == "le":
             risk_mask = df[risk_field] <= risk_threshold
         else:
-            raise ValueError(f"Invalid operator: {operator}. Must be one of ['ge', 'lt', 'gt', 'le']")
+            raise ValueError(
+                f"Invalid operator: {operator}. Must be one of ['ge', 'lt', 'gt', 'le']"
+            )
 
         mask = mask & risk_mask
 
-        logger.info(f"Risk-based filtering: {risk_mask.sum()}/{len(df)} records have {operator} {risk_threshold}")
+        logger.info(
+            f"Risk-based filtering: {risk_mask.sum()}/{len(df)} records have {operator} {risk_threshold}"
+        )
 
     # Apply additional conditional filtering if specified
     if condition_field is not None and condition_field in df.columns:
         # Use framework utility for condition application
         condition_mask = apply_condition_operator(
-            df[condition_field],
-            condition_values,
-            condition_operator
+            df[condition_field], condition_values, condition_operator
         )
         mask = mask & condition_mask
 
-        logger.info(f"Additional filtering: {condition_mask.sum()}/{len(df)} records match condition")
+        logger.info(
+            f"Additional filtering: {condition_mask.sum()}/{len(df)} records match condition"
+        )
 
     # Filter the DataFrame
     filtered_df = df[mask].copy()
 
-    logger.info(f"Total filtering result: {len(filtered_df)}/{len(df)} records selected for processing")
+    logger.info(
+        f"Total filtering result: {len(filtered_df)}/{len(df)} records selected for processing"
+    )
 
     return filtered_df, mask
 
@@ -324,11 +344,14 @@ def filter_records_conditionally(df: pd.DataFrame,
 # Vulnerable Record Handling
 # =============================================================================
 
-def handle_vulnerable_records(df: pd.DataFrame,
-                              field_name: str,
-                              vulnerability_mask: pd.Series,
-                              strategy: str = "suppress",
-                              replacement_value: Optional[Any] = None) -> pd.DataFrame:
+
+def handle_vulnerable_records(
+    df: pd.DataFrame,
+    field_name: str,
+    vulnerability_mask: pd.Series,
+    strategy: str = "suppress",
+    replacement_value: Optional[Any] = None,
+) -> pd.DataFrame:
     """
     Handle vulnerable records identified by risk assessment.
 
@@ -351,6 +374,8 @@ def handle_vulnerable_records(df: pd.DataFrame,
         - "mean": Replace with mean value (numeric fields only)
         - "mode": Replace with mode value (categorical fields)
         - "custom": Replace with replacement_value
+        - "mask": Apply partial masking (e.g., show first 2 + last 2 chars)
+        - "full_mask": Fully mask the field (e.g., replace with *****)
     replacement_value : Optional[Any]
         Custom value to use when strategy is "custom"
 
@@ -381,7 +406,9 @@ def handle_vulnerable_records(df: pd.DataFrame,
     3    60000.0  # Replaced with mean
     """
     if strategy not in VULNERABLE_STRATEGIES:
-        raise ValueError(f"Invalid strategy: {strategy}. Must be one of {VULNERABLE_STRATEGIES}")
+        raise ValueError(
+            f"Invalid strategy: {strategy}. Must be one of {VULNERABLE_STRATEGIES}"
+        )
 
     if field_name not in df.columns:
         raise ValueError(f"Field '{field_name}' not found in DataFrame")
@@ -392,7 +419,9 @@ def handle_vulnerable_records(df: pd.DataFrame,
         logger.info("No vulnerable records found, returning original DataFrame")
         return df.copy()
 
-    logger.info(f"Processing {vulnerable_count} vulnerable records using strategy: {strategy}")
+    logger.info(
+        f"Processing {vulnerable_count} vulnerable records using strategy: {strategy}"
+    )
 
     # Create a copy to avoid modifying original
     result_df = df.copy()
@@ -408,12 +437,17 @@ def handle_vulnerable_records(df: pd.DataFrame,
             # For numeric fields, use NaN or convert to object type
             result_df.loc[vulnerability_mask, field_name] = np.nan
         else:
+            result_df[field_name] = ensure_categorical_accepts_value(
+                result_df[field_name], "SUPPRESSED"
+            )
             result_df.loc[vulnerability_mask, field_name] = "SUPPRESSED"
 
     elif strategy == "mean":
         # Replace with mean (numeric fields only)
         if not pd.api.types.is_numeric_dtype(df[field_name]):
-            raise ValueError(f"Strategy 'mean' requires numeric field, but '{field_name}' is not numeric")
+            raise ValueError(
+                f"Strategy 'mean' requires numeric field, but '{field_name}' is not numeric"
+            )
 
         # Calculate mean from non-vulnerable records
         safe_mean = df.loc[~vulnerability_mask, field_name].mean()
@@ -439,16 +473,46 @@ def handle_vulnerable_records(df: pd.DataFrame,
             # All records are vulnerable, use overall mode
             mode_value = df[field_name].mode().iloc[0]
 
+        result_df[field_name] = ensure_categorical_accepts_value(
+            result_df[field_name], mode_value
+        )
         result_df.loc[vulnerability_mask, field_name] = mode_value
         logger.info(f"Replaced vulnerable records with mode value: {mode_value}")
+
+    elif strategy in {"mask", "full_mask"}:
+        if not pd.api.types.is_string_dtype(df[field_name]):
+            raise ValueError(
+                f"'mask' strategies require string dtype, but '{field_name}' is not string"
+            )
+
+        def mask_value(val: str) -> str:
+            val = str(val)
+            if strategy == "full_mask":
+                return "*****"
+            else:  # partial mask: show 2 first + 2 last chars
+                prefix = val[:2]
+                suffix = val[-2:] if len(val) > 4 else ""
+                masked_len = max(len(val) - len(prefix) - len(suffix), 0)
+                return prefix + ("*" * masked_len) + suffix
+
+        result_df.loc[vulnerability_mask, field_name] = (
+            result_df.loc[vulnerability_mask, field_name].astype(str).apply(mask_value)
+        )
 
     elif strategy == "custom":
         # Replace with custom value
         if replacement_value is None:
-            raise ValueError("replacement_value must be provided when using 'custom' strategy")
+            raise ValueError(
+                "replacement_value must be provided when using 'custom' strategy"
+            )
 
+        result_df[field_name] = ensure_categorical_accepts_value(
+            result_df[field_name], replacement_value
+        )
         result_df.loc[vulnerability_mask, field_name] = replacement_value
-        logger.info(f"Replaced vulnerable records with custom value: {replacement_value}")
+        logger.info(
+            f"Replaced vulnerable records with custom value: {replacement_value}"
+        )
 
     return result_df
 
@@ -457,8 +521,10 @@ def handle_vulnerable_records(df: pd.DataFrame,
 # Factory Functions for Risk-Based Processing
 # =============================================================================
 
-def create_risk_based_processor(strategy: str = "adaptive",
-                                risk_threshold: float = DEFAULT_K_THRESHOLD) -> Callable:
+
+def create_risk_based_processor(
+    strategy: str = "adaptive", risk_threshold: float = DEFAULT_K_THRESHOLD
+) -> Callable:
     """
     Factory for creating risk-based processing functions.
 
@@ -490,44 +556,42 @@ def create_risk_based_processor(strategy: str = "adaptive",
 
     """
 
-    def conservative_processor(df: pd.DataFrame, field_name: str,
-                               vulnerability_mask: pd.Series) -> pd.DataFrame:
+    def conservative_processor(
+        df: pd.DataFrame, field_name: str, vulnerability_mask: pd.Series
+    ) -> pd.DataFrame:
         """Conservative: Suppress all vulnerable records"""
         return handle_vulnerable_records(
-            df, field_name, vulnerability_mask,
-            strategy="suppress"
+            df, field_name, vulnerability_mask, strategy="suppress"
         )
 
-    def adaptive_processor(df: pd.DataFrame, field_name: str,
-                           vulnerability_mask: pd.Series) -> pd.DataFrame:
+    def adaptive_processor(
+        df: pd.DataFrame, field_name: str, vulnerability_mask: pd.Series
+    ) -> pd.DataFrame:
         """Adaptive: Use statistical replacement"""
         # Check field type to decide between mean and mode
         if pd.api.types.is_numeric_dtype(df[field_name]):
             return handle_vulnerable_records(
-                df, field_name, vulnerability_mask,
-                strategy="mean"
+                df, field_name, vulnerability_mask, strategy="mean"
             )
         else:
             return handle_vulnerable_records(
-                df, field_name, vulnerability_mask,
-                strategy="mode"
+                df, field_name, vulnerability_mask, strategy="mode"
             )
 
-    def aggressive_processor(df: pd.DataFrame, field_name: str,
-                             vulnerability_mask: pd.Series) -> pd.DataFrame:
+    def aggressive_processor(
+        df: pd.DataFrame, field_name: str, vulnerability_mask: pd.Series
+    ) -> pd.DataFrame:
         """Aggressive: Minimal changes with markers"""
         return handle_vulnerable_records(
-            df, field_name, vulnerability_mask,
-            strategy="custom",
-            replacement_value="*"
+            df, field_name, vulnerability_mask, strategy="custom", replacement_value="*"
         )
 
-    def remove_processor(df: pd.DataFrame, field_name: str,
-                         vulnerability_mask: pd.Series) -> pd.DataFrame:
+    def remove_processor(
+        df: pd.DataFrame, field_name: str, vulnerability_mask: pd.Series
+    ) -> pd.DataFrame:
         """Remove: Delete vulnerable records"""
         return handle_vulnerable_records(
-            df, field_name, vulnerability_mask,
-            strategy="remove"
+            df, field_name, vulnerability_mask, strategy="remove"
         )
 
     # Strategy mapping
@@ -535,7 +599,7 @@ def create_risk_based_processor(strategy: str = "adaptive",
         "conservative": conservative_processor,
         "adaptive": adaptive_processor,
         "aggressive": aggressive_processor,
-        "remove": remove_processor
+        "remove": remove_processor,
     }
 
     # Return selected strategy or default to adaptive
@@ -594,40 +658,62 @@ def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, A
 
     # Add appropriate risk processor based on privacy level
     if privacy_level == "LOW":
-        cfg["risk_processor"] = create_risk_based_processor("aggressive") # type: ignore
-        cfg["null_strategy"] = "PRESERVE" # type: ignore
-        cfg["vulnerable_strategy"] = "aggressive" # type: ignore
+        cfg["risk_processor"] = create_risk_based_processor("aggressive")  # type: ignore
+        cfg["null_strategy"] = "PRESERVE"  # type: ignore
+        cfg["vulnerable_strategy"] = "aggressive"  # type: ignore
 
     elif privacy_level == "MEDIUM":
-        cfg["risk_processor"] = create_risk_based_processor("adaptive") # type: ignore
-        cfg["null_strategy"] = "PRESERVE" # type: ignore
-        cfg["vulnerable_strategy"] = "adaptive" # type: ignore
+        cfg["risk_processor"] = create_risk_based_processor("adaptive")  # type: ignore
+        cfg["null_strategy"] = "PRESERVE"  # type: ignore
+        cfg["vulnerable_strategy"] = "adaptive"  # type: ignore
 
     elif privacy_level == "HIGH":
-        cfg["risk_processor"] = create_risk_based_processor("conservative") # type: ignore
-        cfg["null_strategy"] = "ANONYMIZE" # type: ignore
-        cfg["vulnerable_strategy"] = "conservative" # type: ignore
+        cfg["risk_processor"] = create_risk_based_processor("conservative")  # type: ignore
+        cfg["null_strategy"] = "ANONYMIZE"  # type: ignore
+        cfg["vulnerable_strategy"] = "conservative"  # type: ignore
 
     else:  # VERY_HIGH
-        cfg["risk_processor"] = create_risk_based_processor("remove") # type: ignore
-        cfg["null_strategy"] = "ANONYMIZE" # type: ignore
-        cfg["vulnerable_strategy"] = "remove" # type: ignore
+        cfg["risk_processor"] = create_risk_based_processor("remove")  # type: ignore
+        cfg["null_strategy"] = "ANONYMIZE"  # type: ignore
+        cfg["vulnerable_strategy"] = "remove"  # type: ignore
 
     # Add risk level classification and description
-    cfg["risk_levels"] = RISK_LEVELS # type: ignore
-    cfg["description"] = f"{privacy_level} privacy level configuration" # type: ignore
+    cfg["risk_levels"] = RISK_LEVELS  # type: ignore
+    cfg["description"] = f"{privacy_level} privacy level configuration"  # type: ignore
 
     logger.info(f"Created privacy level processor for {privacy_level} privacy")
 
     return cfg
 
 
+def ensure_categorical_accepts_value(series: pd.Series, value: Any) -> pd.Series:
+    """
+    Ensure categorical series accepts the given value.
+
+    Parameters
+    ----------
+    series : pd.Series
+        A pandas Series which may have categorical dtype.
+
+    value : Any
+        The value to ensure is included in the series' categories.
+
+    Returns
+    -------
+    pd.Series
+        The original series if the value already exists in the categories,
+        otherwise a new series with the value added to the categories.
+    """
+    if pd.api.types.is_categorical_dtype(series) and value not in series.cat.categories:
+        return series.cat.add_categories([value])
+    return series
+
 
 def apply_adaptive_anonymization(
     df: pd.DataFrame,
     field_name: str,
     risk_scores: pd.Series,
-    privacy_level: str = "MEDIUM"
+    privacy_level: str = "MEDIUM",
 ) -> pd.DataFrame:
     """
     Apply adaptive anonymization based on risk scores and privacy level.
@@ -667,12 +753,12 @@ def apply_adaptive_anonymization(
     # Assign each record a risk level
     risk_classification = pd.Series("LOW", index=df.index, dtype="object")
     for risk_level, (min_k, max_k) in RISK_LEVELS.items():
-        level_mask: pd.Series = (risk_scores >= min_k) & (risk_scores < max_k) # type: ignore
+        level_mask: pd.Series = (risk_scores >= min_k) & (risk_scores < max_k)  # type: ignore
         risk_classification.loc[level_mask] = risk_level
 
     # Process each risk group using an explicit Series mask
     for risk_level in ["VERY_HIGH", "HIGH", "MEDIUM", "LOW"]:
-        group_mask: pd.Series = (risk_classification == risk_level) # type: ignore
+        group_mask: pd.Series = risk_classification == risk_level  # type: ignore
         if group_mask.sum() == 0:
             continue
 
@@ -681,8 +767,7 @@ def apply_adaptive_anonymization(
         if risk_level == "VERY_HIGH":
             # Conservative suppression for very high risk
             result_df = handle_vulnerable_records(
-                result_df, field_name, group_mask,
-                strategy="suppress"
+                result_df, field_name, group_mask, strategy="suppress"
             )
         elif risk_level == "HIGH":
             processor = config["risk_processor"]
@@ -691,23 +776,24 @@ def apply_adaptive_anonymization(
             # For MEDIUM and LOW risk, apply lighter anonymization if privacy_level is strict
             if privacy_level in ["HIGH", "VERY_HIGH"]:
                 result_df = handle_vulnerable_records(
-                    result_df, field_name, group_mask,
+                    result_df,
+                    field_name,
+                    group_mask,
                     strategy="custom",
-                    replacement_value="<ANONYMIZED>"
+                    replacement_value="<ANONYMIZED>",
                 )
 
     return result_df
-
-
-
 
 
 # =============================================================================
 # Utility Functions
 # =============================================================================
 
-def get_risk_statistics(df: pd.DataFrame, risk_field: str,
-                        thresholds: Optional[List[float]] = None) -> Dict[str, Any]:
+
+def get_risk_statistics(
+    df: pd.DataFrame, risk_field: str, thresholds: Optional[List[float]] = None
+) -> Dict[str, Any]:
     """
     Calculate statistics for risk values in a DataFrame.
 
@@ -731,22 +817,22 @@ def get_risk_statistics(df: pd.DataFrame, risk_field: str,
     if len(df) == 0:
         logger.warning("Empty DataFrame provided")
         return {
-            'total_records': 0,
-            'valid_records': 0,
-            'null_count': 0,
-            'min_risk': None,
-            'max_risk': None,
-            'mean_risk': None,
-            'median_risk': None,
-            'std_risk': None,
-            'distribution': {},
-            'thresholds': sorted(thresholds) if thresholds else [],
-            'distribution_percentage': {},
-            'risk_level_distribution': {}
+            "total_records": 0,
+            "valid_records": 0,
+            "null_count": 0,
+            "min_risk": None,
+            "max_risk": None,
+            "mean_risk": None,
+            "median_risk": None,
+            "std_risk": None,
+            "distribution": {},
+            "thresholds": sorted(thresholds) if thresholds else [],
+            "distribution_percentage": {},
+            "risk_level_distribution": {},
         }
 
     # Get risk values and ensure numeric type
-    risk_values = pd.to_numeric(df[risk_field], errors='coerce')
+    risk_values = pd.to_numeric(df[risk_field], errors="coerce")
 
     # Count nulls/invalid values
     null_count = risk_values.isna().sum()
@@ -755,38 +841,40 @@ def get_risk_statistics(df: pd.DataFrame, risk_field: str,
     if len(valid_risk_values) == 0:
         logger.warning(f"No valid numeric values in risk field '{risk_field}'")
         return {
-            'total_records': len(df),
-            'valid_records': 0,
-            'null_count': null_count,
-            'min_risk': None,
-            'max_risk': None,
-            'mean_risk': None,
-            'median_risk': None,
-            'std_risk': None,
-            'distribution': {},
-            'thresholds': sorted(thresholds) if thresholds else [],
-            'distribution_percentage': {},
-            'risk_level_distribution': {}
+            "total_records": len(df),
+            "valid_records": 0,
+            "null_count": null_count,
+            "min_risk": None,
+            "max_risk": None,
+            "mean_risk": None,
+            "median_risk": None,
+            "std_risk": None,
+            "distribution": {},
+            "thresholds": sorted(thresholds) if thresholds else [],
+            "distribution_percentage": {},
+            "risk_level_distribution": {},
         }
 
     # Basic statistics
     stats = {
-        'total_records': len(df),
-        'valid_records': len(valid_risk_values),
-        'null_count': null_count,
-        'min_risk': float(valid_risk_values.min()),
-        'max_risk': float(valid_risk_values.max()),
-        'mean_risk': float(valid_risk_values.mean()),
-        'median_risk': float(valid_risk_values.median()),
-        'std_risk': float(valid_risk_values.std()) if len(valid_risk_values) > 1 else 0.0
+        "total_records": len(df),
+        "valid_records": len(valid_risk_values),
+        "null_count": null_count,
+        "min_risk": float(valid_risk_values.min()),
+        "max_risk": float(valid_risk_values.max()),
+        "mean_risk": float(valid_risk_values.mean()),
+        "median_risk": float(valid_risk_values.median()),
+        "std_risk": (
+            float(valid_risk_values.std()) if len(valid_risk_values) > 1 else 0.0
+        ),
     }
 
     # Distribution across thresholds
     if not thresholds:
-        stats['distribution'] = {}
-        stats['thresholds'] = []
-        stats['distribution_percentage'] = {}
-        stats['risk_level_distribution'] = {}
+        stats["distribution"] = {}
+        stats["thresholds"] = []
+        stats["distribution_percentage"] = {}
+        stats["risk_level_distribution"] = {}
         return stats
 
     sorted_thresholds = sorted(thresholds)
@@ -797,14 +885,16 @@ def get_risk_statistics(df: pd.DataFrame, risk_field: str,
     labels = []
 
     # Create labels for bins
-    labels.append(f'<{sorted_thresholds[0]}')
+    labels.append(f"<{sorted_thresholds[0]}")
     for i in range(len(sorted_thresholds) - 1):
-        labels.append(f'[{sorted_thresholds[i]}, {sorted_thresholds[i + 1]})')
-    labels.append(f'>={sorted_thresholds[-1]}')
+        labels.append(f"[{sorted_thresholds[i]}, {sorted_thresholds[i + 1]})")
+    labels.append(f">={sorted_thresholds[-1]}")
 
     # Cut the data into bins
     # right=False means intervals are [a, b) except for the last one
-    binned = pd.cut(valid_risk_values, bins=bins, labels=labels, right=False, include_lowest=True)
+    binned = pd.cut(
+        valid_risk_values, bins=bins, labels=labels, right=False, include_lowest=True
+    )
 
     # Calculate distribution
     distribution = {}
@@ -814,8 +904,8 @@ def get_risk_statistics(df: pd.DataFrame, risk_field: str,
     for label in labels:
         distribution[label] = int(distribution_counts.get(label, 0))
 
-    stats['distribution'] = distribution
-    stats['thresholds'] = sorted_thresholds
+    stats["distribution"] = distribution
+    stats["thresholds"] = sorted_thresholds
 
     # Calculate percentage of records at each risk level
     percentages = {}
@@ -828,11 +918,11 @@ def get_risk_statistics(df: pd.DataFrame, risk_field: str,
         for key in distribution:
             percentages[key] = 0.0
 
-    stats['distribution_percentage'] = percentages
+    stats["distribution_percentage"] = percentages
 
     # Add percentage of null values if any
     if null_count > 0:
-        stats['null_percentage'] = round(100.0 * null_count / len(df), 2)
+        stats["null_percentage"] = round(100.0 * null_count / len(df), 2)
 
     # Add risk level distribution
     risk_level_counts = {}
@@ -840,7 +930,7 @@ def get_risk_statistics(df: pd.DataFrame, risk_field: str,
         mask = (valid_risk_values >= min_k) & (valid_risk_values < max_k)
         risk_level_counts[risk_level] = int(mask.sum())  # type: ignore
 
-    stats['risk_level_distribution'] = risk_level_counts
+    stats["risk_level_distribution"] = risk_level_counts
 
     return stats
 
@@ -865,20 +955,20 @@ def get_privacy_recommendations(risk_stats: Dict[str, Any]) -> Dict[str, Any]:
     recommendations = {
         "suggested_privacy_level": "MEDIUM",
         "suggested_strategies": [],
-        "reasoning": []
+        "reasoning": [],
     }
 
     # Analyze risk distribution
-    if risk_stats.get('valid_records', 0) == 0:
+    if risk_stats.get("valid_records", 0) == 0:
         recommendations["reasoning"].append("No valid risk data available")
         return recommendations
 
-    risk_dist = risk_stats.get('risk_level_distribution', {})
-    total_valid = risk_stats['valid_records']
+    risk_dist = risk_stats.get("risk_level_distribution", {})
+    total_valid = risk_stats["valid_records"]
 
     # Calculate percentages
-    very_high_pct = risk_dist.get('VERY_HIGH', 0) / total_valid * 100
-    high_pct = risk_dist.get('HIGH', 0) / total_valid * 100
+    very_high_pct = risk_dist.get("VERY_HIGH", 0) / total_valid * 100
+    high_pct = risk_dist.get("HIGH", 0) / total_valid * 100
 
     # Determine privacy level based on risk distribution
     if very_high_pct > 20:
@@ -886,47 +976,53 @@ def get_privacy_recommendations(risk_stats: Dict[str, Any]) -> Dict[str, Any]:
         recommendations["reasoning"].append(
             f"{very_high_pct:.1f}% of records have very high risk (k<2)"
         )
-        recommendations["suggested_strategies"].extend([
-            "Use suppression for high-risk records",
-            "Apply strong generalization",
-            "Consider removing extremely vulnerable records"
-        ])
+        recommendations["suggested_strategies"].extend(
+            [
+                "Use suppression for high-risk records",
+                "Apply strong generalization",
+                "Consider removing extremely vulnerable records",
+            ]
+        )
 
     elif very_high_pct > 10 or high_pct > 30:
         recommendations["suggested_privacy_level"] = "HIGH"
         recommendations["reasoning"].append(
             f"{very_high_pct + high_pct:.1f}% of records have high or very high risk"
         )
-        recommendations["suggested_strategies"].extend([
-            "Apply conservative anonymization strategies",
-            "Use statistical replacement for vulnerable records",
-            "Increase generalization levels"
-        ])
+        recommendations["suggested_strategies"].extend(
+            [
+                "Apply conservative anonymization strategies",
+                "Use statistical replacement for vulnerable records",
+                "Increase generalization levels",
+            ]
+        )
 
     elif high_pct > 20:
         recommendations["suggested_privacy_level"] = "MEDIUM"
         recommendations["reasoning"].append(
             f"{high_pct:.1f}% of records have moderate risk"
         )
-        recommendations["suggested_strategies"].extend([
-            "Use adaptive anonymization based on risk levels",
-            "Apply moderate generalization",
-            "Preserve utility where possible"
-        ])
+        recommendations["suggested_strategies"].extend(
+            [
+                "Use adaptive anonymization based on risk levels",
+                "Apply moderate generalization",
+                "Preserve utility where possible",
+            ]
+        )
 
     else:
         recommendations["suggested_privacy_level"] = "LOW"
-        recommendations["reasoning"].append(
-            "Most records have low privacy risk"
+        recommendations["reasoning"].append("Most records have low privacy risk")
+        recommendations["suggested_strategies"].extend(
+            [
+                "Use minimal anonymization to preserve utility",
+                "Focus on specific high-risk records only",
+                "Consider noise addition instead of suppression",
+            ]
         )
-        recommendations["suggested_strategies"].extend([
-            "Use minimal anonymization to preserve utility",
-            "Focus on specific high-risk records only",
-            "Consider noise addition instead of suppression"
-        ])
 
     # Add specific recommendations based on mean risk
-    mean_risk = risk_stats.get('mean_risk', 0)
+    mean_risk = risk_stats.get("mean_risk", 0)
     if mean_risk < 5:
         recommendations["suggested_strategies"].append(
             f"Mean k-anonymity ({mean_risk:.1f}) is below threshold"

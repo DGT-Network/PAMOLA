@@ -408,8 +408,19 @@ class PlotlyLinePlot(PlotlyFigure):
             # Get colors from theme
             colors = get_theme_colors(len(processed_data.columns))
 
+            # Check mode
+            multi_x_data = kwargs.get("multi_x_data", False)
+            line_average = kwargs.get("line_average", False)
+            data_x = x.copy()
+
             # Add a trace for each series
             for i, column in enumerate(processed_data.columns):
+                if multi_x_data:
+                    if len(processed_data.columns) == len(data_x):
+                        x = data_x[i]
+
+                line_dash = "dash" if multi_x_data and line_average and i == 0 else None
+
                 color = kwargs.get(
                     f"color_{column}", kwargs.get("color", colors[i % len(colors)])
                 )
@@ -428,7 +439,7 @@ class PlotlyLinePlot(PlotlyFigure):
                     "y": processed_data[column],
                     "mode": mode,
                     "name": series_names[i],
-                    "line": {"width": line_width, "color": color, "shape": line_shape},
+                    "line": {"width": line_width, "color": color, "shape": line_shape, "dash": line_dash},
                     "connectgaps": kwargs.get(
                         "connectgaps", True
                     ),  # Connect gaps from missing values
@@ -663,7 +674,18 @@ class MatplotlibLinePlot(MatplotlibFigure):
                 fig, ax = plt.subplots(figsize=figsize)
                 colors = get_theme_colors(len(df.columns))
 
+                # Check mode
+                multi_x_data = kwargs.get("multi_x_data", False)
+                line_average = kwargs.get("line_average", False)
+                data_x = x.copy()
+
                 for i, column in enumerate(df.columns):
+                    if multi_x_data:
+                        if len(df.columns) == len(data_x):
+                            x = data_x[i]
+
+                    linestyle = "--" if multi_x_data and line_average and i == 0 else None
+
                     y = df[column]
                     color = kwargs.get(
                         f"color_{column}", kwargs.get("color", colors[i % len(colors)])
@@ -672,6 +694,7 @@ class MatplotlibLinePlot(MatplotlibFigure):
                         "label": series_names[i],
                         "color": color,
                         "linewidth": line_width,
+                        "linestyle": linestyle
                     }
                     if add_markers:
                         plot_args["marker"] = "o"

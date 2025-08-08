@@ -680,23 +680,25 @@ def create_heatmap(
 
 
 def create_line_plot(
-    data: Union[Dict[str, List[float]], pd.DataFrame, pd.Series],
-    output_path: Union[str, Path],
-    title: str,
-    x_data: Optional[Union[List, np.ndarray, pd.Series]] = None,
-    x_label: Optional[str] = None,
-    y_label: Optional[str] = None,
-    add_markers: bool = True,
-    add_area: bool = False,
-    smooth: bool = False,
-    highlight_regions: Optional[List[Dict[str, Any]]] = None,
-    line_width: float = 2.0,
-    color: Optional[Any] = None,
-    figsize: Optional[Any] = None,
-    theme: Optional[str] = None,
-    backend: Optional[str] = None,
-    strict: bool = False,
-    **kwargs,
+        data: Union[Dict[str, List[float]], pd.DataFrame, pd.Series],
+        output_path: Union[str, Path],
+        title: str,
+        x_data: Optional[Union[List, np.ndarray, pd.Series]] = None,
+        x_label: Optional[str] = None,
+        y_label: Optional[str] = None,
+        add_markers: bool = True,
+        add_area: bool = False,
+        smooth: bool = False,
+        highlight_regions: Optional[List[Dict[str, Any]]] = None,
+        line_width: float = 2.0,
+        color: Optional[Any] = None,
+        figsize: Optional[Any] = None,
+        theme: Optional[str] = None,
+        backend: Optional[str] = None,
+        strict: bool = False,
+        multi_x_data: bool = False,
+        line_average: bool = False,
+        **kwargs
 ) -> str:
     """
     Create a line plot visualization and save it as PNG.
@@ -769,6 +771,8 @@ def create_line_plot(
                 line_width=line_width,
                 color=color,
                 figsize=figsize,
+                multi_x_data=multi_x_data,
+                line_average=line_average,
                 **custom_viz_kwargs,
             )
 

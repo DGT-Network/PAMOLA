@@ -101,11 +101,8 @@ import pandas as pd
 import dask.dataframe as dd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.categorical_config import NullStrategy
-from pamola_core.anonymization.commons.data_utils import process_nulls
 from pamola_core.anonymization.commons.metric_utils import (
     calculate_anonymization_effectiveness,
-    calculate_generalization_metrics,
-    calculate_process_performance,
     collect_operation_metrics,
 )
 from pamola_core.anonymization.commons.privacy_metric_utils import (
@@ -124,20 +121,15 @@ from pamola_core.anonymization.commons.validation_utils import (
 from pamola_core.anonymization.commons.visualization_utils import (
     create_metric_visualization,
     create_comparison_visualization,
+    create_metrics_overview_visualization,
     sample_large_dataset,
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_config import OperationConfig
-from pamola_core.utils.ops.op_data_processing import (
-    optimize_dataframe_dtypes,
-)
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
-from pamola_core.utils.ops.op_field_utils import (
-    apply_condition_operator,
-)
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
@@ -172,7 +164,7 @@ class NumericGeneralizationConfig(OperationConfig):
             "column_prefix": {"type": "string"},
             "null_strategy": {
                 "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ERROR", "ANONYMIZE"],
+                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
             },
             "quasi_identifiers": {
                 "type": ["array", "null"],
@@ -401,7 +393,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         self.version = "3.0.0"
         self.operation_name = self.__class__.__name__
         self.operation_cache = None
-        self._processed_indices = set()
         self.start_time = None
         self.end_time = None
         self.process_count = 0
@@ -595,14 +586,14 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                     )
 
                 # Validate field is suitable for numeric operations
-                is_valid = validate_numeric_field(
+                validation_result = validate_numeric_field(
                     df,
                     self.field_name,
                     allow_null=(self.null_strategy != NullStrategy.ERROR.value),
                     logger_instance=self.logger,
                 )
 
-                if not is_valid:
+                if not validation_result.is_valid:
                     raise FieldValueError(
                         self.field_name,
                         reason="Invalid numeric format",
@@ -662,17 +653,18 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                             f"Could not create child progress tracker: {e}"
                         )
 
-                # --- Risk-based filtering ---
-                vulnerable_count = self._handle_vulnerable_records(df=df)
-                self.logger.info(f"Identified {vulnerable_count} vulnerable records.")
+                # Apply conditional filtering
+                self.filter_mask, filtered_df = self._apply_conditional_filtering(df)
 
-                # Process in chunks (skip already processed vulnerable records)
-                regular_mask = ~df.index.isin(self._processed_indices)
-                records_to_process = df[regular_mask]
+                # Handle vulnerable records if k-anonymity is enabled
+                if self.ka_risk_field and self.ka_risk_field in df.columns:
+                    filtered_df = self._handle_vulnerable_records(
+                        filtered_df, self.output_field_name
+                    )
 
                 # Process the filtered data
                 processed_df = self._process_data_with_config(
-                    df=records_to_process,
+                    df=filtered_df,
                     progress_tracker=data_tracker,
                 )
 
@@ -717,7 +709,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 )
 
                 # Generate metrics file name (in self.name existed field_name)
-                metrics_file_name = f"{self.field_name}_{self.name}_{self.strategy}_metrics_{operation_timestamp}"
+                metrics_file_name = f"{self.field_name}_anonymization_numeric_{self.strategy}_metrics_{operation_timestamp}"
 
                 # Save metrics using writer
                 metrics_result = writer.write_metrics(
@@ -814,9 +806,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             output_result_path = None
             if self.save_output:
                 try:
-                    # Optimize memory before writing
-                    processed_df, _ = optimize_dataframe_dtypes(df=processed_df)
-
                     # Save the processed DataFrame
                     safe_kwargs = filter_used_kwargs(
                         kwargs, NumericGeneralizationOperation._save_output_data
@@ -874,7 +863,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                     details={
                         "records_processed": self.process_count,
                         "execution_time": self.end_time - self.start_time,
-                        "vulnerable_records_handled": vulnerable_count,
                     },
                 )
 
@@ -933,18 +921,13 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
             return batch
 
-        # Handle null values according to strategy
-        field_values = process_nulls(
-            field_data.copy(), null_strategy, anonymize_value="*"
-        )
-
         # Apply generalization based on strategy
         if strategy == "binning":
-            generalized_values = cls._apply_binning(field_values, **kwargs)
+            generalized_values = cls._apply_binning(field_data, **kwargs)
         elif strategy == "rounding":
-            generalized_values = cls._apply_rounding(field_values, **kwargs)
+            generalized_values = cls._apply_rounding(field_data, **kwargs)
         elif strategy == "range":
-            generalized_values = cls._apply_range(field_values, **kwargs)
+            generalized_values = cls._apply_range(field_data, **kwargs)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -1012,47 +995,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         if self.condition_operator not in ["in", "not_in", "gt", "lt", "eq", "range"]:
             raise ValueError(f"Unknown condition operator: {self.condition_operator}")
 
-    def _apply_aggressive_generalization(self, df: pd.DataFrame, mask: pd.Series):
-        """
-        Apply more aggressive generalization to vulnerable records.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Full dataframe
-        mask : pd.Series
-            Boolean mask for vulnerable records
-        """
-        if self.strategy == "binning":
-            # Use fewer bins for vulnerable records
-            aggressive_bins = max(2, self.bin_count // 2)
-            vulnerable_values = df.loc[mask, self.field_name]
-            generalized = self._apply_binning_with_params(
-                vulnerable_values, aggressive_bins
-            )
-
-            if self.mode == "REPLACE":
-                df.loc[mask, self.field_name] = generalized
-            else:
-                if self.output_field_name not in df.columns:
-                    df[self.output_field_name] = df[self.field_name].copy()
-                df.loc[mask, self.output_field_name] = generalized
-
-        elif self.strategy == "rounding":
-            # Use lower precision for vulnerable records
-            aggressive_precision = max(self.precision - 2, -2)
-            vulnerable_values = df.loc[mask, self.field_name]
-            generalized = self._apply_rounding_with_params(
-                vulnerable_values, aggressive_precision
-            )
-
-            if self.mode == "REPLACE":
-                df.loc[mask, self.field_name] = generalized
-            else:
-                if self.output_field_name not in df.columns:
-                    df[self.output_field_name] = df[self.field_name].copy()
-                df.loc[mask, self.output_field_name] = generalized
-
     @staticmethod
     def _apply_binning(series: pd.Series, **kwargs) -> pd.Series:
         """
@@ -1077,66 +1019,66 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         # Validate bin count
         validate_bin_count(bin_count)
 
-        # Get non-null values for binning
+        # Prepare non-null values
         non_null_mask = ~series.isna()
         non_null_values = series[non_null_mask]
 
         if len(non_null_values) == 0:
             return series
 
-        # Initialize bins variable
+        # Check if original series is integer
+        is_int = pd.api.types.is_integer_dtype(series) or (
+            pd.api.types.is_float_dtype(series) and (series.dropna() % 1 == 0).all()
+        )
+
+        # Initialize bins
         bins = None
 
-        # Calculate bin edges based on method
+        # Generate bin edges
         if binning_method == "equal_width":
             min_val = non_null_values.min()
             max_val = non_null_values.max()
 
-            # Handle edge case where all values are the same
             if min_val == max_val:
-                bin_label = f"{min_val:.2f}"
-                result = series.copy().astype("object")  # <-- ép kiểu về object
-                result[non_null_mask] = bin_label
+                # Single-value edge case
+                label = f"{int(min_val)}" if is_int else f"{min_val:.2f}"
+                result = series.copy().astype("object")
+                result[non_null_mask] = label
                 return result
 
-            # Create equal width bins
             bins = np.linspace(min_val, max_val, bin_count + 1)
-            bins[-1] += 0.001  # Slightly increase the last edge to include max value
+            bins[-1] += 0.001
 
-        elif binning_method == "equal_frequency":
-            # Use quantiles for equal frequency
+        elif binning_method in ["equal_frequency", "quantile"]:
             quantiles = np.linspace(0, 1, bin_count + 1)
-            bins = non_null_values.quantile(quantiles).values
-            bins = np.unique(bins)  # Remove duplicates if values are clustered
-
-        elif binning_method == "quantile":
-            # Use specific quantiles (quartiles, deciles, etc.)
-            if bin_count == 4:
+            if binning_method == "quantile" and bin_count == 4:
                 quantiles = [0, 0.25, 0.5, 0.75, 1.0]
-            elif bin_count == 10:
-                quantiles = np.linspace(0, 1, 11)
-            else:
-                quantiles = np.linspace(0, 1, bin_count + 1)
             bins = non_null_values.quantile(quantiles).values
             bins = np.unique(bins)
+
         else:
-            # Raise error for unknown binning method
             raise ValueError(f"Unknown binning method: {binning_method}")
 
-        # Check if bins were created successfully
+        # Fallback if binning failed
         if bins is None or len(bins) <= 1:
-            # If we couldn't create bins, return original series
             return series
 
-        # Create labels
-        labels = []
-        for i in range(len(bins) - 1):
-            labels.append(f"{bins[i]:.2f}-{bins[i + 1]:.2f}")
+        # Format labels depending on type
+        if is_int:
+            labels = [
+                f"{int(bins[i])}-{int(bins[i + 1])}" for i in range(len(bins) - 1)
+            ]
+        else:
+            labels = [f"{bins[i]:.2f}-{bins[i + 1]:.2f}" for i in range(len(bins) - 1)]
 
-        # Apply binning
+        # Apply pd.cut
         result = series.copy().astype("object")
         binned_values = pd.cut(
-            non_null_values, bins=bins, labels=labels, include_lowest=True
+            non_null_values,
+            bins=bins,
+            labels=labels,
+            include_lowest=True,
+            ordered=False,
         )
         result[non_null_mask] = binned_values
 
@@ -1165,13 +1107,20 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         # Validate precision
         validate_precision(precision)
 
+        # Check if original series is integer
+        is_int = pd.api.types.is_integer_dtype(series) or (
+            pd.api.types.is_float_dtype(series) and (series.dropna() % 1 == 0).all()
+        )
+
         if precision >= 0:
             # Round to decimal places
-            return series.round(precision)
+            result = series.round(precision)
+            return result.astype("Int64") if is_int and precision == 0 else result
         else:
             # Round to nearest 10^|precision|
             factor = 10 ** abs(precision)
-            return (series / factor).round() * factor
+            result = (series / factor).round() * factor
+            return result.astype("Int64") if is_int else result
 
     @staticmethod
     def _apply_range(series: pd.Series, **kwargs) -> pd.Series:
@@ -1200,34 +1149,42 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         if len(series) == 0 or not range_limits:
             return series
 
-        # For multiple ranges, use pandas.cut for efficiency
+        # Check if original series is integer
+        is_int = pd.api.types.is_integer_dtype(series) or (
+            pd.api.types.is_float_dtype(series) and (series.dropna() % 1 == 0).all()
+        )
+
+        def fmt(val):
+            return f"{int(val)}" if is_int else f"{val:.2f}"
+
+        # Multiple ranges
         if len(range_limits) > 1:
             # Create bins from range limits
             bins = []
             labels = []
 
-            # Add lower bound
+            # Lower bound
             min_val = range_limits[0][0]
             bins.append(float("-inf"))
-            labels.append(f"<{min_val}")
+            labels.append(f"<{fmt(min_val)}")
 
-            # Add all range boundaries
+            # Main ranges
             for i, (range_min, range_max) in enumerate(range_limits):
                 bins.append(range_min)
                 if i < len(range_limits) - 1:
                     # Not the last range
-                    labels.append(f"{range_min}-{range_max}")
+                    labels.append(f"{fmt(range_min)}-{fmt(range_max)}")
                 else:
                     # Last range includes upper bound
                     bins.append(range_max)
-                    labels.append(f"{range_min}-{range_max}")
-                    labels.append(f">={range_max}")
+                    labels.append(f"{fmt(range_min)}-{fmt(range_max)}")
+                    labels.append(f">={fmt(range_max)}")
 
-            # Add upper bound if not already included
+            # Ensure final +inf
             if bins[-1] != float("inf"):
                 bins.append(float("inf"))
 
-            # Remove duplicates while preserving order
+            # Deduplicate bins
             seen = set()
             unique_bins = []
             for b in bins:
@@ -1238,26 +1195,28 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
             # Apply pandas.cut for efficient categorization
             result = pd.cut(
-                series, bins=bins, labels=labels[: len(bins) - 1], include_lowest=True
+                series,
+                bins=bins,
+                labels=labels[: len(bins) - 1],
+                include_lowest=True,
             )
             return result.astype("object")
 
         else:
-            # Single range - use original implementation
+            # Single range fallback
             min_val, max_val = range_limits[0]
             result = pd.Series(index=series.index, dtype="object")
 
             # Values below minimum
-            mask = series < min_val
-            result[mask] = f"<{min_val}"
+            result[series < min_val] = f"<{fmt(min_val)}"
 
             # Values within range
-            mask = (series >= min_val) & (series < max_val)
-            result[mask] = f"{min_val}-{max_val}"
+            result[(series >= min_val) & (series < max_val)] = (
+                f"{fmt(min_val)}-{fmt(max_val)}"
+            )
 
             # Values above maximum
-            mask = series >= max_val
-            result[mask] = f">={max_val}"
+            result[series >= max_val] = f">={fmt(max_val)}"
 
             # Handle nulls
             result[series.isna()] = np.nan
@@ -1577,13 +1536,13 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             if progress_tracker:
                 progress_tracker.update(2, {"step": "Creating visualization"})
 
-            # Comparison visualization
+            # 1. Comparison visualization
             comparison_path = create_comparison_visualization(
                 original_data=original_for_viz,
                 anonymized_data=anonymized_for_viz,
                 task_dir=viz_dir,
                 field_name=self.field_name,
-                operation_name=f"{self.name}_numeric_{self.strategy}",
+                operation_name=f"anonymization_numeric_{self.strategy}",
                 timestamp=timestamp,
                 theme=vis_theme,
                 backend=vis_backend,
@@ -1594,6 +1553,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             if comparison_path:
                 visualization_paths["comparison"] = comparison_path
 
+            # 2. Group distribution visualization if k-anonymity metrics available
             if (
                 "privacy_metrics" in operation_metrics
                 and "group_count" in operation_metrics["privacy_metrics"]
@@ -1613,6 +1573,26 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
                 if metric_path:
                     visualization_paths["group_distribution"] = metric_path
+
+            # 3. Metrics heatmap/visualization
+            if operation_metrics:
+                metrics_viz_path = create_metrics_overview_visualization(
+                    metrics=operation_metrics,
+                    task_dir=viz_dir,
+                    field_name=self.field_name,
+                    operation_name=f"{self.name}_numeric_{self.strategy}",
+                    timestamp=timestamp,
+                    theme=vis_theme,
+                    backend=vis_backend,
+                    strict=vis_strict,
+                    **kwargs,
+                )
+                if metrics_viz_path:
+                    visualization_paths.update(metrics_viz_path)
+                    for path in metrics_viz_path:
+                        self.logger.info(
+                            f"Created metrics visualization: {Path(path).name}"
+                        )
 
             # Step 3: Finalize visualizations
             if progress_tracker:
@@ -1646,15 +1626,17 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         Dict[str, Any]
             Comprehensive metrics
         """
-        # Use metric_utils to collect operation metrics
-        operation_params = {
+        # Prepare timing information
+        timing_info = {
+            "start_time": self.start_time,
+            "end_time": self.end_time or time.time(),
+            "batch_count": getattr(self, "process_count", 0) // self.chunk_size,
+        }
+
+        # Prepare operation parameters
+        operation_params: Dict[str, Any] = {
             "strategy": self.strategy,
-            "bin_count": self.bin_count if self.strategy == "binning" else None,
-            "binning_method": (
-                self.binning_method if self.strategy == "binning" else None
-            ),
-            "precision": self.precision if self.strategy == "rounding" else None,
-            "range_limits": self.range_limits if self.strategy == "range" else None,
+            **self.process_kwargs,
         }
 
         operation_metrics = collect_operation_metrics(
@@ -1662,6 +1644,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             original_data=original_series,
             processed_data=processed_series,
             operation_params=operation_params,
+            timing_info=timing_info,
         )
 
         # Add effectiveness metrics
@@ -1669,15 +1652,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             original_series, processed_series
         )
         operation_metrics["effectiveness"] = effectiveness
-
-        # Add generalization-specific metrics
-        gen_metrics = calculate_generalization_metrics(
-            original_series,
-            processed_series,
-            self.strategy,
-            operation_params,
-        )
-        operation_metrics["generalization"] = gen_metrics
 
         # Add privacy metrics if quasi-identifiers are available
         if self.quasi_identifiers and all(
@@ -1703,6 +1677,18 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             )
             operation_metrics["privacy_metrics"] = privacy_metrics
 
+            # Calculate privacy metrics overview
+            operation_metrics["privacy_metric_overview"] = {
+                "min_k_overall": privacy_metrics.get("min_k", 0),
+                "avg_suppression_rate": round(
+                    privacy_metrics.get("suppression_rate", 0.0), 4
+                ),
+                "avg_coverage": round(privacy_metrics.get("total_coverage", 0.0), 4),
+                "avg_generalization_level": round(
+                    privacy_metrics.get("generalization_level", 0.0), 4
+                ),
+            }
+
             # Add additional privacy indicators
             privacy_metrics["disclosure_risk"] = calculate_simple_disclosure_risk(
                 full_df, self.quasi_identifiers
@@ -1714,18 +1700,9 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         # Add processing summary
         operation_metrics["processing_summary"] = {
             "total_records": len(full_df),
-            "processed_records": len(full_df) - len(self._processed_indices),
-            "vulnerable_records": len(self._processed_indices),
+            "processed_records": len(full_df) - len(processed_series),
+            "vulnerable_records": len(processed_series),
         }
-
-        total_batches = (len(full_df) + self.chunk_size - 1) // self.chunk_size
-
-        # Add performance metrics
-        performance = calculate_process_performance(
-            self.start_time, time.time(), len(full_df), total_batches
-        )
-
-        operation_metrics["performance"] = performance
 
         return operation_metrics
 
@@ -1778,60 +1755,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         )
 
         return params
-
-    def _handle_vulnerable_records(self, df: pd.DataFrame) -> int:
-        """
-        Identify and handle vulnerable records based on k-anonymity risk.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            The input DataFrame being processed.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Tracker used to report progress and phase status.
-
-        Returns:
-        --------
-        int
-            Number of vulnerable records identified and processed.
-        """
-        vulnerable_count = 0
-        if self.ka_risk_field and self.ka_risk_field in df.columns:
-            # Step 1: Detect risky records based on threshold
-            vulnerable_mask = df[self.ka_risk_field] < self.risk_threshold
-
-            # Step 2: Apply additional filtering if condition is provided
-            if self.condition_field and self.condition_field in df.columns:
-                condition_mask = apply_condition_operator(
-                    df[self.condition_field],
-                    self.condition_values,
-                    self.condition_operator,
-                )
-                vulnerable_mask &= condition_mask
-
-            # Step 3: Count and log
-            vulnerable_count = vulnerable_mask.sum()
-            risk_filter_applied = vulnerable_count > 0
-            self.logger.info(f"Identified {vulnerable_count} vulnerable records")
-
-            # Step 4: Apply mitigation strategy
-            if risk_filter_applied:
-                self._processed_indices.update(df[vulnerable_mask].index)
-
-                if self.vulnerable_record_strategy == "suppress":
-                    target_field = (
-                        self.field_name
-                        if self.mode == "REPLACE"
-                        else self.output_field_name
-                    )
-                    if self.mode != "REPLACE":
-                        df[target_field] = df[self.field_name].copy()
-                    df.loc[vulnerable_mask, target_field] = np.nan
-
-                elif self.vulnerable_record_strategy == "generalize":
-                    self._apply_aggressive_generalization(df, vulnerable_mask)
-
-        return vulnerable_count
 
     def convert_range_limits_for_schema(
         self, range_limits: Optional[List[Tuple[float, float]]]

@@ -985,7 +985,7 @@ class GroupAnalyzerOperation(BaseOperation):
     def _check_cache(
             self,
             data_source: DataSource,
-            dataset_name: str = "main",
+            data_source_name: str = "main",
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -996,7 +996,7 @@ class GroupAnalyzerOperation(BaseOperation):
             Data source for the operation
         task_dir : Path
             Task directory
-        dataset_name: str
+        data_source_name: str
             Dataset name
 
         Returns:
@@ -1012,7 +1012,7 @@ class GroupAnalyzerOperation(BaseOperation):
             from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
-            df = load_data_operation(data_source, dataset_name)
+            df = load_data_operation(data_source, data_source_name)
             if df is None:
                 self.logger.warning("No valid DataFrame found in data source")
                 return None
