@@ -177,33 +177,41 @@ def prepare_comparison_data(
     Returns:
     --------
     Tuple[Dict[str, Any], str]
-        (prepared_data, data_type) where data_type is 'numeric' or 'categorical'
+        (prepared_data, data_type) where data_type is 'int', 'float', or 'categorical'
     """
+    original_data_clean = original_data.dropna()
+    anonymized_data_clean = anonymized_data.dropna()
+
     # Determine data type
-    is_numeric = pd.api.types.is_numeric_dtype(original_data)
+    orig_is_numeric = pd.api.types.is_numeric_dtype(original_data_clean)
 
-    if is_numeric:
-        # For numeric data, return as lists for histogram comparison
+    # === Combined Case: Original is numeric ===
+    if orig_is_numeric:
+        numeric_type = (
+            "int" if pd.api.types.is_integer_dtype(original_data_clean) else "float"
+        )
+        # Even if anonymized is string (e.g., bucketed like "20–30"), we treat as numeric category
         return {
-            "Original": original_data.dropna().tolist(),
-            "Anonymized": anonymized_data.dropna().tolist(),
-        }, "numeric"
-    else:
-        # For categorical, get value counts
-        orig_counts = original_data.value_counts().head(max_categories)
-        anon_counts = anonymized_data.value_counts().head(max_categories)
+            "Original": original_data_clean.tolist(),
+            "Anonymized": anonymized_data_clean.tolist(),
+        }, numeric_type
 
-        # Get all unique categories from both
-        all_categories = sorted(
-            set(orig_counts.index) | set(anon_counts.index),
-            key=lambda x: -orig_counts.get(x, 0),  # Sort by original frequency
-        )[:max_categories]
+    # === Default categorical fallback ===
+    # For categorical, get value counts
+    orig_counts = original_data.value_counts().head(max_categories)
+    anon_counts = anonymized_data.value_counts().head(max_categories)
 
-        # Create dictionaries with aligned categories
-        orig_dict = {str(cat): int(orig_counts.get(cat, 0)) for cat in all_categories}
-        anon_dict = {str(cat): int(anon_counts.get(cat, 0)) for cat in all_categories}
+    # Get all unique categories from both
+    all_categories = sorted(
+        set(orig_counts.index) | set(anon_counts.index),
+        key=lambda x: -orig_counts.get(x, 0),
+    )[:max_categories]
 
-        return {"Original": orig_dict, "Anonymized": anon_dict}, "categorical"
+    # Create dictionaries with aligned categories
+    orig_dict = {str(cat): int(orig_counts.get(cat, 0)) for cat in all_categories}
+    anon_dict = {str(cat): int(anon_counts.get(cat, 0)) for cat in all_categories}
+
+    return {"Original": orig_dict, "Anonymized": anon_dict}, "categorical"
 
 
 def calculate_optimal_bins(
@@ -384,104 +392,126 @@ def create_comparison_visualization(
     """
     Create a before/after comparison visualization.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     original_data : pd.Series
-        Original data
+        Original column values.
     anonymized_data : pd.Series
-        Anonymized data
+        Transformed/anonymized column values.
     task_dir : Path
-        Task directory
+        Directory to save the plot.
     field_name : str
-        Field name
+        Name of the field being visualized.
     operation_name : str
-        Operation name
-    timestamp : str, optional
-        Timestamp for consistency
+        Name of the operation (e.g., masking, generalization).
+    timestamp : Optional[str]
+        Timestamp for filename uniqueness.
     theme : Optional[str]
-        Visualization theme (e.g. "light", "dark").
+        Visualization theme (for plotly/matplotlib).
     backend : Optional[str]
-        Visualization backend (e.g. "matplotlib", "plotly").
+        Plotting backend, defaults to "plotly".
     strict : bool
-        Whether to enforce strict type checking.
-    **kwargs : Any
-        Additional keyword arguments for visualization functions.
+        If True, raise exception on plotting error.
+    kwargs : Any
+        Extra arguments passed to plotter.
 
-    Returns:
-    --------
+    Returns
+    -------
     Optional[Path]
-        Path to visualization or None if failed
+        Path to saved plot, or None if failed.
     """
     try:
-        # Prepare comparison data
+        # Step 1: Prepare data and infer type (int, float, str, category, etc.)
         comparison_data, data_type = prepare_comparison_data(
             original_data, anonymized_data
         )
 
-        # Generate filename
-        viz_type = "comparison"
+        # Step 2: Generate flattened count dict {label: count}
+        flat_counts = generate_flat_counts(comparison_data, data_type)
+
+        # Step 3: Output path
         filename = generate_visualization_filename(
-            field_name, operation_name, viz_type, timestamp
+            field_name, operation_name, "comparison", timestamp
         )
         output_path = task_dir / filename
 
-        if data_type == "numeric":
-            # For numeric, create overlaid histograms
-            # Since we can't create overlaid histograms directly,
-            # we'll create a bar plot showing distribution changes
-            bins = calculate_optimal_bins(original_data)
+        # Step 4: Create bar chart with flat_counts (dict)
+        result = create_bar_plot(
+            data=flat_counts,
+            output_path=output_path,
+            title=f"{field_name} - Before/After Comparison",
+            x_label=(
+                "Source | Value Range" if data_type in ("int", "float") else "Category"
+            ),
+            y_label="Count",
+            theme=theme,
+            backend=backend or "plotly",
+            strict=strict,
+            **kwargs,
+        )
 
-            # Bin both datasets
-            hist_orig, edges = np.histogram(comparison_data["Original"], bins=bins)
-            hist_anon, _ = np.histogram(comparison_data["Anonymized"], bins=edges)
-
-            # Create labels for bins
-            bin_labels = [
-                f"{edges[i]:.1f}-{edges[i + 1]:.1f}" for i in range(len(edges) - 1)
-            ]
-
-            # Create comparison dict
-            comparison_dict = {
-                "Original": dict(
-                    zip(bin_labels[:5], hist_orig[:5])
-                ),  # Limit bins shown
-                "Anonymized": dict(zip(bin_labels[:5], hist_anon[:5])),
-            }
-
-            result = create_bar_plot(
-                data=comparison_dict,
-                output_path=output_path,
-                title=f"{field_name} - Before/After Comparison",
-                x_label="Value Range",
-                y_label="Count",
-                theme=theme,
-                backend=backend or "plotly",
-                strict=strict,
-                **kwargs,
-            )
-        else:
-            # For categorical, show side-by-side bars
-            result = create_bar_plot(
-                data=comparison_data,
-                output_path=output_path,
-                title=f"{field_name} - Before/After Comparison",
-                x_label="Category",
-                y_label="Count",
-                theme=theme,
-                backend=backend or "plotly",
-                strict=strict,
-                **kwargs,
-            )
-
-        if not result.startswith("Error"):
+        if isinstance(result, str) and not result.startswith("Error"):
             return output_path
-        else:
-            logger.error(f"Failed to create comparison: {result}")
-            return None
+
+        logger.error(
+            f"[{field_name}] Failed to create comparison visualization: {result}"
+        )
+        return None
 
     except Exception as e:
-        logger.error(f"Error creating comparison visualization: {str(e)}")
+        logger.exception(
+            f"[{field_name}] Exception during comparison visualization: {e}"
+        )
         return None
+
+
+def generate_flat_counts(data: Dict[str, Any], data_type: str) -> Dict[str, Any]:
+    """
+    Flatten the prepared data into a Dict for bar chart plotting.
+
+    Parameters
+    ----------
+    data : Dict[str, Any]
+        Prepared data from prepare_comparison_data.
+    data_type : str
+        One of: 'int', 'float', 'categorical'
+
+    Returns
+    -------
+    Dict[str, Any]
+        Flattened dict of form {"Original | 23": 1, "Anonymized | 23–26": 2, ...}
+    """
+    flat_counts: Dict[str, Any] = {}
+
+    if data_type in ["int", "float"]:
+        orig_series = pd.Series(data["Original"])
+        anon_series = pd.Series(data["Anonymized"])
+
+        orig_counts = orig_series.value_counts().sort_index().to_dict()
+        anon_counts = anon_series.value_counts().sort_index().to_dict()
+
+        all_labels = sorted(set(orig_counts.keys()).union(set(anon_counts.keys())), key=lambda x: str(x))
+
+        for label in all_labels:
+            label_str = str(label)
+
+            orig_val = int(orig_counts.get(label, 0))
+            anon_val = int(anon_counts.get(label, 0))
+
+            if orig_val > 0:
+                flat_counts[f"Original | {label_str}"] = orig_val
+            if anon_val > 0:
+                flat_counts[f"Anonymized | {label_str}"] = anon_val
+
+    else:
+        # Categorical type — pre-counted already
+        for source in ["Original", "Anonymized"]:
+            for label, value in data.get(source, {}).items():
+                if int(value) > 0:
+                    label_str = str(label)
+                    flat_counts[f"{source} | {label_str}"] = int(value)
+
+    return flat_counts
 
 
 def create_distribution_visualization(
@@ -1089,7 +1119,9 @@ def create_metrics_overview_visualization(
                 if not str(result).startswith("Error"):
                     output_paths["privacy_metric_overview"] = output_path
             else:
-                logger.warning(f"[PRIVACY] Skipped privacy summary chart: {privacy_data}")
+                logger.warning(
+                    f"[PRIVACY] Skipped privacy summary chart: {privacy_data}"
+                )
 
         # Information loss summary (bar plot)
         if "info_loss_summary" in metrics:
@@ -1181,15 +1213,11 @@ def create_metrics_overview_visualization(
                 "Total Records",
                 "Total Duration (s)",
                 "Avg Speed (records/sec)",
-                "Batch Count",
-                "Strategy",
             ]
             values = [
                 perf.get("total_records_processed", 0),
                 perf.get("total_duration_seconds", 0),
                 perf.get("avg_records_per_second", 0),
-                metrics.get("batch_count", 0),
-                str(metrics.get("strategy", "Unknown")),
             ]
             perf_dict = dict(zip(labels, values))
             filename = generate_visualization_filename(

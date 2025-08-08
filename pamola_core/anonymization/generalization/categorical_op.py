@@ -63,18 +63,15 @@ from pamola_core.anonymization.commons.categorical_config import (
     NullStrategy,
 )
 from pamola_core.anonymization.commons.categorical_strategies import (
+    _apply_rare_value_template,
     apply_frequency_based,
     apply_hierarchy,
     apply_merge_low_freq,
-    apply_null_and_unknown_strategy,
 )
 from pamola_core.anonymization.commons.category_utils import (
     process_dataframe_using_chunk,
     process_dataframe_using_dask,
     process_dataframe_using_joblib,
-)
-from pamola_core.utils.ops.op_data_processing import (
-    process_null_values as process_nulls_framework,
 )
 
 # Commons - categories
@@ -86,6 +83,7 @@ from pamola_core.anonymization.commons.category_utils import (
     analyze_category_distribution,
     calculate_semantic_diversity_safe,
 )
+from pamola_core.anonymization.commons.data_utils import process_nulls
 from pamola_core.anonymization.commons.hierarchy_dictionary import HierarchyDictionary
 
 # Commons - metrics
@@ -392,7 +390,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     return OperationResult(
                         status=OperationStatus.ERROR,
                         error_message=error_message,
-                        exception=e
+                        exception=e,
                     )
 
             # Step 2: Data Loading & Validation
@@ -491,7 +489,13 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                         )
 
                 # Apply conditional filtering
-                mask, filtered_df = self._apply_conditional_filtering(df)
+                self.filter_mask, filtered_df = self._apply_conditional_filtering(df)
+
+                # Handle vulnerable records if k-anonymity is enabled
+                if self.ka_risk_field and self.ka_risk_field in df.columns:
+                    filtered_df = self._handle_vulnerable_records(
+                        filtered_df, self.output_field_name
+                    )
 
                 # Process the filtered data
                 processed_df = self._process_data_with_config(
@@ -500,26 +504,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     progress_tracker=data_tracker,
                 )
 
-                # Apply the processed data back to the original DataFrame
-                if self.mode == "ENRICH":
-                    df[self.output_field_name] = (
-                        original_data  # Initialize with original
-                    )
-
-                df.loc[mask, self.output_field_name] = processed_df.loc[
-                    mask, self.output_field_name
-                ]
-
-                # Handle vulnerable records if k-anonymity is enabled
-                if self.ka_risk_field and self.ka_risk_field in df.columns:
-                    df = self._handle_vulnerable_records(df, self.output_field_name)
-
                 # Get the anonymized data
-                anonymized_data = (
-                    df[self.output_field_name]
-                    if self.mode == "ENRICH"
-                    else df[self.field_name]
-                )
+                anonymized_data = processed_df[self.output_field_name]
 
                 # Close child progress tracker
                 if data_tracker:
@@ -554,7 +540,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
             try:
                 metrics = self._collect_all_metrics(
-                    original_data, anonymized_data, mask
+                    original_data, anonymized_data, self.filter_mask
                 )
 
                 # Generate metrics file name (in self.name existed field_name)
@@ -677,7 +663,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 try:
                     safe_kwargs = filter_used_kwargs(kwargs, self._save_output_data)
                     output_result_path = self._save_output_data(
-                        result_df=df,
+                        result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -715,7 +701,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             # Clean up memory AFTER all write operations are complete
             self.logger.info("Cleaning up memory after all file operations")
             self._cleanup_memory(
-                processed_df=df,
+                processed_df=processed_df,
                 original_data=original_data,
                 anonymized_data=anonymized_data,
             )
@@ -786,8 +772,10 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
         # Handle null values based on strategy
         if self.null_strategy != "PRESERVE":
-            df[self.field_name] = process_nulls_framework(
-                df[self.field_name], strategy=self.null_strategy.lower()
+            df[self.field_name] = process_nulls(
+                df[self.field_name],
+                strategy=self.null_strategy.upper(),
+                anonymize_value=self.unknown_value,
             )
 
         processed_df = None
@@ -964,14 +952,12 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             # Apply generalization strategy
             result = cls._apply_generalization_strategy(batch, context)
 
-            # Apply null and unknown value strategy
-            result = apply_null_and_unknown_strategy(
-                result,
-                context["null_strategy"],
-                context["unknown_value"],
-                context["rare_value_template"],
-                context,
-            )
+            # Apply rare value template
+            rare_value_template = context["rare_value_template"]
+            if rare_value_template and "{n}" in rare_value_template:
+                result = _apply_rare_value_template(
+                    result, rare_value_template, None  # Use default pattern
+                )
 
             # Update batch with result
             cls._update_batch_with_result(batch, result, context)
@@ -1112,7 +1098,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
         # Collect base metrics
         metrics = collect_operation_metrics(
-            operation_type=OPERATION_NAME,
+            operation_type="generalization",
             original_data=original_data,
             processed_data=anonymized_data,
             operation_params=operation_params,

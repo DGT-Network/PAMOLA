@@ -413,38 +413,36 @@ class PlotlyHeatmap(PlotlyFigure):
                     "colorbar": {"title": colorbar_title} if colorbar_title else None,
                 }
 
-                # Prepare text for annotations if needed
+                fig.add_trace(go.Heatmap(**heatmap_args))
+
+                # Add text annotations via scatter overlay if annotate is enabled
                 if annotate:
                     # Create text template
-                    if annotation_format.startswith(".") and annotation_format.endswith(
-                        "f"
-                    ):
-                        # Parse decimal format like ".2f" to get number of decimal places
+                    if annotation_format.startswith(".") and annotation_format.endswith("f"):
                         decimal_places = int(annotation_format[1:-1])
                         text_template = f"%{{z:.{decimal_places}f}}"
                     else:
-                        # Use provided format string
                         text_template = f"%{{z:{annotation_format}}}"
 
-                    # Prepare text values and colors
                     text_values = prepare_text_values(matrix, annotation_format)
-                    text_colors = prepare_text_colors(
-                        matrix, annotation_color_threshold
-                    )
+                    text_colors = prepare_text_colors(matrix, annotation_color_threshold)
 
-                    # Add to heatmap args
-                    heatmap_args.update(
-                        {
-                            "text": text_values,
-                            "texttemplate": text_template,
-                            "textfont": {"color": text_colors.flatten()},
-                        }
-                    )
-
-                # Update with any additional keyword arguments
-                heatmap_args.update(kwargs)
-
-                fig.add_trace(go.Heatmap(**heatmap_args))
+                    # Flatten for 2D loop
+                    for i, y in enumerate(y_labels):
+                        for j, x in enumerate(x_labels):
+                            val = matrix[i][j]
+                            if not np.isnan(val):
+                                fig.add_trace(
+                                    go.Scatter(
+                                        x=[x],
+                                        y=[y],
+                                        text=[text_values[i][j]],
+                                        mode="text",
+                                        textfont=dict(color=text_colors[i][j]),
+                                        showlegend=False,
+                                        hoverinfo="skip",
+                                    )
+                                )
 
                 # Configure layout
                 layout_args = {

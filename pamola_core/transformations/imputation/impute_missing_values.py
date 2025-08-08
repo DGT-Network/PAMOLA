@@ -445,7 +445,8 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     visualizations = self._handle_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
-                        task_dir=visualizations_dir,
+                        metrics=metrics,
+                        task_dir=task_dir,
                         result=result,
                         reporter=reporter,
                         vis_theme=vis_theme,
@@ -1105,21 +1106,90 @@ class ImputeMissingValuesOperation(TransformationOperation):
         Dict[str, Any]
             A dictionary of calculated metrics
         """
-        from pamola_core.transformations.commons.metric_utils import (
-            calculate_dataset_comparison,
-            calculate_transformation_impact
-        )
-
         # Basic metrics
-        metrics: Dict[str, Any] = {
-            "operation_type": self.__class__.__name__,
-            "field_strategies": self.field_strategies,
-            "invalid_values": self.invalid_values
-        }
+        metrics: Dict[str, Any] = {}
 
-        # Add metrics
-        metrics.update(calculate_dataset_comparison(original_df,processed_df))
-        metrics.update(calculate_transformation_impact(original_df, processed_df))
+        # Specific metrics
+        fields_added = [
+            col for col in processed_df.columns if col not in original_df.columns
+        ]
+        fields_modified = [
+            col for col in original_df.columns
+            if col in processed_df.columns
+               and not original_df[col].equals(processed_df[col])
+        ]
+
+        imputed_values = {}
+        statistical_comparisons = {}
+        imputation_impacts = {}
+        for processed_field in (fields_modified + fields_added):
+            if processed_field.startswith(self.column_prefix):
+                original_field = processed_field[len(self.column_prefix):]
+            else:
+                original_field = processed_field
+
+            changes = (
+                ~np.where(
+                    original_df[original_field].isna() & processed_df[processed_field].isna(),
+                    True,
+                    original_df[original_field] == processed_df[processed_field]
+                )
+            ).sum()
+
+            imputed_values.update({
+                original_field: {
+                    "count": int(changes),
+                    "percent": int(changes) / len(original_df)
+                }
+            })
+
+            if (
+                    is_numeric_dtype(original_df[original_field])
+                    and is_numeric_dtype(processed_df[processed_field])
+            ):
+                statistical_comparisons.update({
+                    original_field: {
+                        "mean": {
+                            "before": original_df[original_field].mean(),
+                            "after": processed_df[processed_field].mean()
+                        },
+                        "median": {
+                            "before": original_df[original_field].median(),
+                            "after": processed_df[processed_field].median()
+                        },
+                        "mode": {
+                            "before": original_df[original_field].mode().iloc[0],
+                            "after": processed_df[processed_field].mode().iloc[0]
+                        }
+                    }
+                })
+
+                imputation_impacts.update({
+                    original_field: {
+                        "standard_deviation": {
+                            "before": original_df[original_field].std(),
+                            "after": processed_df[processed_field].std()
+                        },
+                        "variance": {
+                            "before": original_df[original_field].var(),
+                            "after": processed_df[processed_field].var()
+                        },
+                        "skewness": {
+                            "before": original_df[original_field].skew(),
+                            "after": processed_df[processed_field].skew()
+                        },
+                        "kurtosis": {
+                            "before": original_df[original_field].kurtosis(),
+                            "after": processed_df[processed_field].kurtosis()
+                        }
+                    }
+                })
+
+        metrics.update({
+            "imputed_values": imputed_values,
+            "statistical_comparisons": statistical_comparisons,
+            "imputation_impacts": imputation_impacts
+        })
 
         return metrics
 
@@ -1204,6 +1274,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
             self,
             original_df: pd.DataFrame,
             processed_df: pd.DataFrame,
+            metrics: Dict[str, Any],
             task_dir: Path,
             result: OperationResult,
             reporter: Any,
@@ -1223,6 +1294,8 @@ class ImputeMissingValuesOperation(TransformationOperation):
             The original data
         processed_df : pd.DataFrame
             The processed data
+        metrics : dict
+            The metrics of operation
         task_dir : Path
             The task directory
         result : OperationResult
@@ -1295,6 +1368,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     visualization_paths = self._generate_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
+                        metrics=metrics,
                         task_dir=task_dir,
                         vis_theme=vis_theme,
                         vis_backend=vis_backend,
@@ -1385,6 +1459,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
             self,
             original_df: pd.DataFrame,
             processed_df: pd.DataFrame,
+            metrics: Dict[str, Any],
             task_dir: Path,
             vis_theme: Optional[str],
             vis_backend: Optional[str],
@@ -1401,6 +1476,8 @@ class ImputeMissingValuesOperation(TransformationOperation):
             The original data before processing
         processed_df : pd.DataFrame
             The anonymized data after processing
+        metrics : dict
+            The metrics of operation
         task_dir : Path
             Task directory for saving visualizations
         vis_theme : str, optional
@@ -1417,15 +1494,11 @@ class ImputeMissingValuesOperation(TransformationOperation):
         Dict[str, Path]
             Dictionary with visualization types and paths
         """
-        from pamola_core.transformations.commons.visualization_utils import (
-            generate_dataset_overview_vis,
-            generate_field_count_comparison_vis,
-            generate_record_count_comparison_vis,
-            generate_data_distribution_comparison_vis,
-            sample_large_dataset
-        )
+        from pamola_core.utils.visualization import create_bar_plot, create_histogram, create_boxplot
 
         visualization_paths = {}
+        viz_dir = task_dir / "visualizations"
+        viz_dir.mkdir(parents=True, exist_ok=True)
 
         # Create timestamp for filenames
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1441,131 +1514,172 @@ class ImputeMissingValuesOperation(TransformationOperation):
         try:
             # Step 1: Prepare data
             if progress_tracker:
-                progress_tracker.update(1, {"step": "Preparing visualization data"})
+                progress_tracker.update(
+                    n=1,
+                    postfix={
+                        "step": "Preparing visualization data"
+                    }
+                )
 
-            # Sample large datasets for visualization
-            if len(original_df) > 10000:
-                self.logger.info(f"[VIZ] Sampling large dataset: {len(original_df)} -> 10000 samples")
-                original_for_viz = sample_large_dataset(original_df, max_samples=10000)
-                processed_for_viz = sample_large_dataset(processed_df, max_samples=10000)
-            else:
-                original_for_viz = original_df
-                processed_for_viz = processed_df
+            self.logger.debug(f"[VIZ] Data prepared for visualization: {len(original_df)} samples")
 
-            self.logger.debug(f"[VIZ] Data prepared for visualization: {len(original_for_viz)} samples")
-
-            # Step 2 & 3: Create visualization & Save visualization
+            # Step 2: Create visualization
             if progress_tracker:
-                progress_tracker.update(2, {"step": "Create visualization"})
-                progress_tracker.update(3, {"step": "Save visualization"})
+                progress_tracker.update(
+                    n=2,
+                    postfix={
+                        "step": "Creating visualization"
+                    }
+                )
 
-            # Generate visualization
-            field_names = set()
-            if self.field_strategies:
-                field_names.update(self.field_strategies.keys())
-            field_names = list(field_names)
+            # Number of imputed values per field
+            viz_data = {field: statics["count"] for field, statics in metrics["imputed_values"].items()}
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_imputed_values_count_{timestamp}.png"
+            viz_result = create_bar_plot(
+                data=viz_data,
+                output_path=viz_path,
+                title="Imputed Values",
+                x_label="Field",
+                y_label="Count",
+                sort_by="key",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
+            )
 
-            output_field_names = field_names
-            if self.mode == "ENRICH" and self.column_prefix:
-                output_field_names = [f"{self.column_prefix}{field_name}" for field_name in field_names]
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
+            else:
+                visualization_paths[f"imputed_values_count"] = viz_path
 
-            for field_name in field_names:
-                output_field_name = field_name
-                if self.mode == "ENRICH" and self.column_prefix:
-                    output_field_name = f"{self.column_prefix}{field_name}"
+            # Before/after fields
+            fields_added = [
+                col for col in processed_df.columns if col not in original_df.columns
+            ]
+            fields_modified = [
+                col for col in original_df.columns
+                if col in processed_df.columns
+                   and not original_df[col].equals(processed_df[col])
+            ]
+            for processed_field in (fields_modified + fields_added):
+                if processed_field.startswith(self.column_prefix):
+                    original_field = processed_field[len(self.column_prefix):]
+                else:
+                    original_field = processed_field
 
-                visualization_paths.update(
-                    generate_data_distribution_comparison_vis(
-                        original_data=original_for_viz[field_name],
-                        transformed_data=processed_for_viz[output_field_name],
-                        field_label=field_name,
-                        operation_name=f"{self.__class__.__name__}",
-                        task_dir=task_dir / "visualizations",
-                        timestamp=timestamp,
-                        theme=vis_theme,
+                if is_numeric_dtype(original_df[original_field]):
+                    viz_data = original_df[original_field].dropna()
+                    viz_path = viz_dir / f"{self.__class__.__name__.lower()}_histograms_original_{original_field}_{timestamp}.png"
+                    viz_result = create_histogram(
+                        data=viz_data,
+                        output_path=viz_path,
+                        title=f"Histograms original {original_field}",
+                        x_label=f"{original_field}",
                         backend=vis_backend,
+                        theme=vis_theme,
                         strict=vis_strict,
-                        visualization_paths=None
+                        **kwargs
                     )
-                )
+                    if viz_result.startswith("Error"):
+                        self.logger.error(f"Failed to create visualization: {viz_result}")
+                    else:
+                        visualization_paths[f"histograms_original_{original_field}"] = viz_path
 
-            MAX_FIELDS_DISPLAY = 5
-            if len(field_names) > MAX_FIELDS_DISPLAY:
-                field_label = f"{len(field_names)} fields"
-            else:
-                field_label = ",".join(field_names)
+                if is_numeric_dtype(processed_df[processed_field]):
+                    viz_data = processed_df[processed_field].dropna()
+                    viz_path = viz_dir / f"{self.__class__.__name__.lower()}_histograms_processed_{processed_field}_{timestamp}.png"
+                    viz_result = create_histogram(
+                        data=viz_data,
+                        output_path=viz_path,
+                        title=f"Histograms processed {processed_field}",
+                        x_label=f"{processed_field}",
+                        backend=vis_backend,
+                        theme=vis_theme,
+                        strict=vis_strict,
+                        **kwargs
+                    )
+                    if viz_result.startswith("Error"):
+                        self.logger.error(f"Failed to create visualization: {viz_result}")
+                    else:
+                        visualization_paths[f"histograms_processed_{processed_field}"] = viz_path
 
-            visualization_paths.update(
-                generate_dataset_overview_vis(
-                    df=original_for_viz,
-                    operation_name=f"{self.__class__.__name__}",
-                    dataset_label="original",
-                    field_label=field_label,
-                    task_dir=task_dir / "visualizations",
-                    timestamp=timestamp,
-                    theme=vis_theme,
-                    backend=vis_backend,
-                    strict=vis_strict,
-                    visualization_paths=None
-                )
-            )
+                if (
+                        is_numeric_dtype(original_df[original_field])
+                        and is_numeric_dtype(processed_df[processed_field])
+                ):
+                    viz_data = {
+                        "before": original_df[original_field].tolist(),
+                        "after": processed_df[processed_field].tolist()
+                    }
+                    viz_path = viz_dir / f"{self.__class__.__name__.lower()}_boxplot_{original_field}_{timestamp}.png"
+                    viz_result = create_boxplot(
+                        data=viz_data,
+                        output_path=viz_path,
+                        title=f"Box plot {original_field}",
+                        x_label=f"{original_field}",
+                        y_label="Value",
+                        backend=vis_backend,
+                        theme=vis_theme,
+                        strict=vis_strict,
+                        **kwargs
+                    )
+                    if viz_result.startswith("Error"):
+                        self.logger.error(f"Failed to create visualization: {viz_result}")
+                    else:
+                        visualization_paths[f"boxplot_{original_field}"] = viz_path
+                else:
+                    if is_numeric_dtype(original_df[original_field]):
+                        viz_data = {
+                            original_field: original_df[original_field].tolist()
+                        }
+                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_boxplot_original_{original_field}_{timestamp}.png"
+                        viz_result = create_boxplot(
+                            data=viz_data,
+                            output_path=viz_path,
+                            title=f"Box plot original {original_field}",
+                            x_label=f"{original_field}",
+                            y_label="Value",
+                            backend=vis_backend,
+                            theme=vis_theme,
+                            strict=vis_strict,
+                            **kwargs
+                        )
+                        if viz_result.startswith("Error"):
+                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                        else:
+                            visualization_paths[f"boxplot_original_{original_field}"] = viz_path
 
-            if len(output_field_names) > MAX_FIELDS_DISPLAY:
-                output_field_label = f"{len(output_field_names)} output fields"
-            else:
-                output_field_label = ",".join(output_field_names)
-
-            visualization_paths.update(
-                generate_dataset_overview_vis(
-                    df=processed_for_viz,
-                    operation_name=f"{self.__class__.__name__}",
-                    dataset_label="transformed",
-                    field_label=output_field_label,
-                    task_dir=task_dir / "visualizations",
-                    timestamp=timestamp,
-                    theme=vis_theme,
-                    backend=vis_backend,
-                    strict=vis_strict,
-                    visualization_paths=None
-                )
-            )
-
-            visualization_paths.update(
-                 generate_record_count_comparison_vis(
-                     original_df=original_for_viz,
-                     transformed_dfs={"transformed": processed_for_viz},
-                     field_label=field_label,
-                     operation_name=f"{self.__class__.__name__}",
-                     task_dir=task_dir / "visualizations",
-                     timestamp=timestamp,
-                     theme=vis_theme,
-                     backend=vis_backend,
-                     strict=vis_strict,
-                     visualization_paths=None
-                 )
-            )
-
-            visualization_paths.update(
-                 generate_field_count_comparison_vis(
-                     original_df=original_for_viz,
-                     transformed_df=processed_for_viz,
-                     field_label=field_label,
-                     operation_name=f"{self.__class__.__name__}",
-                     task_dir=task_dir / "visualizations",
-                     timestamp=timestamp,
-                     theme=vis_theme,
-                     backend=vis_backend,
-                     strict=vis_strict,
-                     visualization_paths=None
-                 )
-            )
+                    if is_numeric_dtype(processed_df[processed_field]):
+                        viz_data = {
+                            processed_field: processed_df[processed_field].tolist()
+                        }
+                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_boxplot_processed_{processed_field}_{timestamp}.png"
+                        viz_result = create_boxplot(
+                            data=viz_data,
+                            output_path=viz_path,
+                            title=f"Box plot processed {processed_field}",
+                            x_label=f"{processed_field}",
+                            y_label="Value",
+                            backend=vis_backend,
+                            theme=vis_theme,
+                            strict=vis_strict,
+                            **kwargs
+                        )
+                        if viz_result.startswith("Error"):
+                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                        else:
+                            visualization_paths[f"boxplot_processed_{processed_field}"] = viz_path
 
             self.logger.info(f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations")
+
             return visualization_paths
+
         except Exception as e:
             self.logger.error(f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}")
             self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
-            return {}
+
+        return visualization_paths
 
     def _save_output_data(
             self,

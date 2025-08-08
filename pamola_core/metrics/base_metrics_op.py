@@ -22,14 +22,14 @@ Key Features:
     - Standardized operation lifecycle: validation, execution, and result handling
     - In-place (REPLACE) and enrichment (ENRICH) processing modes
     - Configurable null value handling: PRESERVE, EXCLUDE, ERROR
-    - Chunk-based and adaptive memory-efficient processing
+    - Memory-efficient processing for large datasets
     - Comprehensive metrics collection and visualization support
     - Robust caching for operation results and artifacts
     - Progress tracking and reporting throughout the operation
     - Secure output generation with optional encryption
     - Conditional processing based on field values and risk scores
     - Integration with k-anonymity and profiling results
-    - Automatic memory optimization and adaptive chunk sizing
+    - Automatic memory optimization
     - Dask integration for distributed, parallel processing
 
 Framework:
@@ -46,7 +46,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import dask.dataframe as dd
 
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
@@ -89,10 +88,8 @@ class MetricsOperation(BaseOperation):
         description: str = "",
         # Memory optimization
         optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
         # Specific parameters
         sample_size: Optional[int] = None,
-        chunk_size: int = 10000,
         use_dask: bool = False,
         npartitions: Optional[int] = None,
         dask_partition_size: Optional[str] = None,
@@ -128,10 +125,6 @@ class MetricsOperation(BaseOperation):
             Operation description
         optimize_memory : bool, optional
             Whether to optimize DataFrame memory usage
-        adaptive_chunk_size : bool, optional
-            Whether to adjust chunk size based on available memory
-        chunk_size : int, optional
-            Size of chunks for processing (default: 10000)
         use_dask : bool, optional
             Whether to use Dask for parallel processing (default: False)
         npartitions : Optional[int], optional
@@ -175,7 +168,6 @@ class MetricsOperation(BaseOperation):
         self.normalize = normalize
         self.confidence_level = confidence_level
         self.sample_size = sample_size
-        self.chunk_size = chunk_size
         self.use_cache = use_cache
         self.use_dask = use_dask
         self.npartitions = npartitions
@@ -191,8 +183,6 @@ class MetricsOperation(BaseOperation):
 
         # Memory optimization parameters
         self.optimize_memory = optimize_memory
-        self.adaptive_chunk_size = adaptive_chunk_size
-        self.original_chunk_size = chunk_size
 
         # Performance tracking
         self.start_time = None
@@ -410,7 +400,7 @@ class MetricsOperation(BaseOperation):
                     column_mapping=self.column_mapping,
                 )
 
-                # Create child progress tracker for Chunk processing
+                # Create child progress tracker for calculate processing
                 data_tracker = None
                 if main_progress and hasattr(main_progress, "create_subtask"):
                     try:
@@ -712,39 +702,7 @@ class MetricsOperation(BaseOperation):
                 f"(saved {optimization_info['memory_saved_percent']:.1f}%)"
             )
 
-            # Adjust chunk size if adaptive
-            if self.adaptive_chunk_size:
-                self._adjust_chunk_size(df)
-
         return df
-
-    def _adjust_chunk_size(self, df: pd.DataFrame) -> None:
-        """
-        Adjust chunk size based on available memory.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame to process
-        """
-        memory_info = get_memory_usage(df)
-        row_memory = memory_info["per_row_bytes"]
-
-        # Target to use at most 100MB per chunk
-        target_memory_mb = 100
-        target_rows = int((target_memory_mb * 1024 * 1024) / row_memory)
-
-        # Adjust chunk size within reasonable bounds
-        self.chunk_size = max(1000, min(target_rows, 100000))
-
-        # Ensure chunk size doesn't exceed data size
-        self.chunk_size = min(self.chunk_size, len(df))
-
-        if self.chunk_size != self.original_chunk_size:
-            self.logger.info(
-                f"Adjusted chunk size from {self.original_chunk_size} "
-                f"to {self.chunk_size} based on memory usage"
-            )
 
     def _sample_aligned(
         self,
@@ -816,9 +774,9 @@ class MetricsOperation(BaseOperation):
         # Step 5: Helper for Dask or Pandas extraction
         def extract(df: pd.DataFrame) -> pd.DataFrame:
             if self.use_dask:
-                ddf = convert_to_dask(
-                    df.loc[common_indices],
-                    npartitions=self.npartitions,
+                ddf, _ = convert_to_dask(
+                    df=df.loc[common_indices],
+                    dask_npartitions=self.npartitions,
                     dask_partition_size=self.dask_partition_size or "100MB",
                     logger=self.logger,
                 )
@@ -867,138 +825,16 @@ class MetricsOperation(BaseOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Initializing metric calculation"})
 
-        # Decide processing engine based on configuration
-        if self.use_dask:
-            return self._process_with_dask_or_fallback(
-                original_df, transformed_df, progress_tracker
-            )
-        else:
-            return self._process_with_pandas(
-                original_df, transformed_df, progress_tracker
-            )
+        self.logger.info("Parallel Disabled: Using Pandas")
+        self.logger.info("Parallel Workers: 0")
 
-    def _process_with_dask_or_fallback(
-        self,
-        original_df: pd.DataFrame,
-        transformed_df: pd.DataFrame,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-    ) -> Dict[str, Any]:
-        """
-        Try processing using Dask. If it fails, fall back to pandas processing.
-
-        Parameters
-        ----------
-        original_df : pd.DataFrame
-        transformed_df : pd.DataFrame
-        progress_tracker : Optional[HierarchicalProgressTracker]
-
-        Returns
-        -------
-        Dict[str, Any]
-            Calculated metrics dictionary
-        """
-        try:
-            # Log Dask processing details
-            self.logger.info("Parallel Enabled: Using Dask")
-            self.logger.info(f"Parallel Workers: {self.npartitions}")
-            self.logger.info(
-                f"Dask Partition Size: {self.dask_partition_size or '100MB'}"
-            )
-
-            # Convert both DataFrames to Dask for parallel processing
-            original_ddf, org_npartitions = self._prepare_dask_dataframe(
-                original_df, "original"
-            )
-            self.logger.info(
-                f"Processing {len(original_ddf)} rows in {org_npartitions} chunks with Dask"
-            )
-            transformed_ddf, trans_npartitions = self._prepare_dask_dataframe(
-                transformed_df, "transformed"
-            )
-            self.logger.info(
-                f"Processing {len(transformed_ddf)} rows in {trans_npartitions} chunks with Dask"
-            )
-            # Delegate to subclass Dask-based metric calculator
-            return self.calculate_metrics_with_dask(
-                original_ddf=original_ddf,
-                transformed_ddf=transformed_ddf,
-                progress_tracker=progress_tracker,
-                **self.process_kwargs,
-            )
-
-        except Exception as e:
-            # If Dask fails, log and fall back to pandas
-            self.logger.warning(f"Dask processing failed: {e}. Falling back to pandas.")
-            return self._process_with_pandas(
-                original_df, transformed_df, progress_tracker
-            )
-
-    def _prepare_dask_dataframe(
-        self, df: pd.DataFrame, label: str
-    ) -> Tuple[dd.DataFrame, int]:
-        """
-        Convert a pandas DataFrame to Dask DataFrame with configured partitioning.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Input DataFrame
-        label : str
-            Label used for logging ("original" or "transformed")
-
-        Returns
-        -------
-        Tuple[dask.DataFrame, int]
-            The Dask DataFrame and number of partitions created
-        """
-        self.logger.info(f"Converting {label} DataFrame with {len(df)} rows to Dask")
-
-        ddf, npartitions = convert_to_dask(
-            df=df,
-            dask_npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size or "100MB",
-            logger=self.logger,
+        # Call base metric calculation logic using pandas
+        return self.calculate_metrics(
+            original_df=original_df,
+            transformed_df=transformed_df,
+            progress_tracker=progress_tracker,
+            **self.process_kwargs,
         )
-
-        self.logger.info(
-            f"{label.title()} DataFrame partitioned into {npartitions} chunks"
-        )
-        return ddf, npartitions
-
-    def _process_with_pandas(
-        self,
-        original_df: pd.DataFrame,
-        transformed_df: pd.DataFrame,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-    ) -> Dict[str, Any]:
-        """
-        Process metrics using standard pandas (non-parallel).
-
-        Parameters
-        ----------
-        original_df : pd.DataFrame
-        transformed_df : pd.DataFrame
-        progress_tracker : Optional[HierarchicalProgressTracker]
-
-        Returns
-        -------
-        Dict[str, Any]
-            Calculated metrics dictionary
-        """
-        try:
-            self.logger.info("Parallel Disabled: Using Pandas")
-            self.logger.info("Parallel Workers: 0")
-
-            # Call base metric calculation logic using pandas
-            return self.calculate_metrics(
-                original_df=original_df,
-                transformed_df=transformed_df,
-                progress_tracker=progress_tracker,
-                **self.process_kwargs,
-            )
-        except Exception as e:
-            self.logger.error(f"Pandas processing failed: {e}")
-            raise RuntimeError(f"Failed to calculate metrics with pandas: {e}")
 
     def calculate_metrics(
         self,
@@ -1023,40 +859,10 @@ class MetricsOperation(BaseOperation):
 
         Returns:
         --------
-        pd.DataFrame
-            Processed DataFrame batch
+        Dict[str, Any]
+            Dictionary containing the calculated metrics
         """
         raise NotImplementedError("Subclasses must implement calculate_metrics method")
-
-    def calculate_metrics_with_dask(
-        self,
-        original_ddf: dd.DataFrame,
-        transformed_ddf: dd.DataFrame,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        **kwargs: Any,
-    ) -> Dict[str, Any]:
-        """
-        Calculate the metric values using Dask - must be implemented by subclasses.
-
-        Parameters:
-        -----------
-        original_ddf : dd.DataFrame
-            DataFrame original to process
-        transformed_ddf : dd.DataFrame
-            DataFrame transformed to process
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker for monitoring
-        **kwargs : Any
-            Additional parameters for processing
-
-        Returns:
-        --------
-        Dict[str, Any]
-            - Metric result dictionary
-        """
-        raise NotImplementedError(
-            "Subclasses must implement calculate_metrics_with_dask method"
-        )
 
     def _collect_basic_metrics(
         self,
@@ -1064,55 +870,46 @@ class MetricsOperation(BaseOperation):
         transformed_data: pd.Series,
     ) -> Dict[str, Any]:
         """
-        Collect comprehensive metrics.
+        Collect basic processing and performance metrics.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         original_data : pd.Series
-            Original data
+            Original data.
         transformed_data : pd.Series
-            Transformed data
-        mask : pd.Series, optional
-            Processing mask
+            Transformed data.
 
-        Returns:
-        --------
+        Returns
+        -------
         Dict[str, Any]
-            Collected metrics
+            Dictionary of collected metrics.
         """
-        # Basic metrics
         metrics: Dict[str, Any] = {}
 
-        # Add performance metrics
+        # Performance metrics
         if self.start_time and self.end_time:
             duration = self.end_time - self.start_time
+            process_count = getattr(self, "process_count", len(original_data))
+            sample_size = getattr(self, "sample_size", len(original_data))
+
             metrics.update(
                 {
                     "duration_seconds": round(duration, 2),
-                    "records_processed": self.process_count,
+                    "records_processed": process_count,
                     "records_per_second": (
-                        round(self.process_count / duration, 2) if duration > 0 else 0
+                        round(process_count / duration, 2) if duration > 0 else 0
                     ),
-                    "chunk_count": (
-                        int((self.process_count - 1) / self.chunk_size + 1)
-                        if self.process_count > 0
-                        else 0
-                    ),
+                    "sample_size": sample_size,
                 }
             )
 
-        # Add filtering metrics
+        # Basic stats
         metrics.update(
             {
                 "total_original_records": len(original_data),
                 "total_transformed_records": len(transformed_data),
             }
         )
-
-        # Add memory metrics if optimization was performed
-        if self.optimize_memory:
-            metrics["chunk_size_used"] = self.chunk_size
-            metrics["adaptive_chunk_size"] = self.adaptive_chunk_size
 
         return metrics
 

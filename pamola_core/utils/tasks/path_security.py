@@ -51,7 +51,7 @@ def validate_path_security(
         PathSecurityError: If the path is unsafe and strict_mode is True
     """
     path_obj = Path(path) if isinstance(path, str) else path
-    path_str = str(path_obj)
+    path_str = str(path_obj).replace("\\", "/")
 
     # Check for path traversal patterns
     dangerous_patterns = [

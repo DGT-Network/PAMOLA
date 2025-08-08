@@ -124,6 +124,7 @@ def prepare_csv_reader_options(
         "sep": delimiter,
         "quotechar": quotechar,
         "low_memory": kwargs.get("low_memory", False),
+        "dtype_backend": kwargs.get("dtype_backend", "numpy_nullable"),
     }
 
     # Add column filtering if specified

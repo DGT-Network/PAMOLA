@@ -63,7 +63,10 @@ import numpy as np
 import pandas as pd
 
 # Import anonymization-specific utilities
-from pamola_core.anonymization.commons.data_utils import handle_vulnerable_records
+from pamola_core.anonymization.commons.data_utils import (
+    handle_vulnerable_records,
+    process_nulls,
+)
 from pamola_core.anonymization.commons.metric_utils import (
     calculate_anonymization_effectiveness,
 )
@@ -91,7 +94,6 @@ from pamola_core.utils.ops.op_data_processing import (
     optimize_dataframe_dtypes,
     get_memory_usage,
     force_garbage_collection,
-    process_null_values as process_nulls_framework,
 )
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -169,7 +171,7 @@ class AnonymizationOperation(BaseOperation):
         column_prefix : str, optional
             Prefix for new column if mode is "ENRICH"
         null_strategy : str, optional
-            How to handle NULL values: "PRESERVE", "EXCLUDE", or "ERROR"
+            How to handle NULL values: "PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"
         description : str, optional
             Operation description
         condition_field : str, optional
@@ -288,6 +290,7 @@ class AnonymizationOperation(BaseOperation):
         self.generate_visualization = True  # Create visualizations
         self.save_output = True  # Save processed data to output directory
         self.process_kwargs = {}
+        self.filter_mask = pd.Series(True, index=pd.Index([]))
 
         # Initialize logger
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -516,7 +519,13 @@ class AnonymizationOperation(BaseOperation):
                         )
 
                 # Apply conditional filtering
-                mask, filtered_df = self._apply_conditional_filtering(df)
+                self.filter_mask, filtered_df = self._apply_conditional_filtering(df)
+
+                # Handle vulnerable records if k-anonymity is enabled
+                if self.ka_risk_field and self.ka_risk_field in df.columns:
+                    filtered_df = self._handle_vulnerable_records(
+                        filtered_df, self.output_field_name
+                    )
 
                 # Process the filtered data
                 is_use_batch_dask = hasattr(self, "process_batch_dask")
@@ -526,26 +535,8 @@ class AnonymizationOperation(BaseOperation):
                     progress_tracker=data_tracker,
                 )
 
-                # Apply the processed data back to the original DataFrame
-                if self.mode == "ENRICH":
-                    df[self.output_field_name] = (
-                        original_data  # Initialize with original
-                    )
-
-                df.loc[mask, self.output_field_name] = processed_df.loc[
-                    mask, self.output_field_name
-                ]
-
-                # Handle vulnerable records if k-anonymity is enabled
-                if self.ka_risk_field and self.ka_risk_field in df.columns:
-                    df = self._handle_vulnerable_records(df, self.output_field_name)
-
                 # Get the anonymized data
-                anonymized_data = (
-                    df[self.output_field_name]
-                    if self.mode == "ENRICH"
-                    else df[self.field_name]
-                )
+                anonymized_data = processed_df[self.output_field_name]
 
                 # Close child progress tracker
                 if data_tracker:
@@ -581,7 +572,7 @@ class AnonymizationOperation(BaseOperation):
 
             try:
                 metrics = self._collect_all_metrics(
-                    original_data, anonymized_data, mask
+                    original_data, anonymized_data, self.filter_mask
                 )
 
                 # Generate metrics file name (in self.name existed field_name)
@@ -680,7 +671,7 @@ class AnonymizationOperation(BaseOperation):
                 try:
                     safe_kwargs = filter_used_kwargs(kwargs, self._save_output_data)
                     output_result_path = self._save_output_data(
-                        result_df=df,
+                        result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -717,7 +708,7 @@ class AnonymizationOperation(BaseOperation):
             # Clean up memory AFTER all write operations are complete
             self.logger.info("Cleaning up memory after all file operations")
             self._cleanup_memory(
-                processed_df=df,
+                processed_df=processed_df,
                 original_data=original_data,
                 anonymized_data=anonymized_data,
             )
@@ -890,6 +881,7 @@ class AnonymizationOperation(BaseOperation):
                 self.logger.warning(
                     f"Output field '{output_field}' already exists and will be overwritten"
                 )
+        self.process_kwargs["output_field_name"] = output_field
         return output_field
 
     def _report_operation_details(self, reporter: Any, output_field: str) -> None:
@@ -1005,8 +997,8 @@ class AnonymizationOperation(BaseOperation):
 
         # Handle null values based on strategy
         if self.null_strategy != "PRESERVE":
-            df[self.field_name] = process_nulls_framework(
-                df[self.field_name], strategy=self.null_strategy.lower()
+            df[self.field_name] = process_nulls(
+                df[self.field_name], strategy=self.null_strategy.upper()
             )
 
         processed_df = None
@@ -1184,10 +1176,14 @@ class AnonymizationOperation(BaseOperation):
         Dict[str, Any]
             Collected metrics
         """
-        # Basic anonymization effectiveness metrics
-        metrics: Dict[str, Any] = calculate_anonymization_effectiveness(
+        # Basic anonymization metrics
+        metrics: Dict[str, Any] = {}
+
+        # Add effectiveness metrics
+        effectiveness = calculate_anonymization_effectiveness(
             original_data, anonymized_data
         )
+        metrics["effectiveness"] = effectiveness
 
         # Add performance metrics
         if self.start_time and self.end_time:
@@ -1691,6 +1687,10 @@ class AnonymizationOperation(BaseOperation):
         # Clear process kwargs
         if hasattr(self, "process_kwargs"):
             self.process_kwargs = {}
+
+        # Clear filter mask
+        if hasattr(self, "filter_mask"):
+            self.filter_mask = None
 
         # Additional cleanup for any temporary attributes
         for attr_name in list(vars(self).keys()):

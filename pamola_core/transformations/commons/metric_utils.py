@@ -248,7 +248,13 @@ def _count_value_changes(
             )
         ).sum()
     else:
-        changes = (original_col != transformed_col).sum()
+        changes = (
+            ~np.where(
+                original_col.isna() & transformed_col.isna(),
+                True,
+                original_col == transformed_col
+            )
+        ).sum()
 
     return {
         "changed": int(changes),
@@ -639,7 +645,11 @@ def calculate_transformation_impact(
     numeric_cols = [
         col
         for col in original_df.columns
-        if pd.api.types.is_numeric_dtype(original_df[col])
+        if (
+                col in transformed_df.columns
+                and pd.api.types.is_numeric_dtype(original_df[col])
+                and pd.api.types.is_numeric_dtype(transformed_df[col])
+        )
     ]
     distribution_metrics = {}
     for col in numeric_cols:
@@ -798,8 +808,8 @@ def _calculate_distribution_metrics(
                 "difference": transformed_kurt - original_kurt,
             },
             "distribution_test": {
-                "ks_statistic": ks_stat,
-                "ks_pvalue": ks_pvalue,
+                "ks_statistic": "NaN" if np.isnan(ks_stat) else ks_stat,
+                "ks_pvalue": "NaN" if np.isnan(ks_pvalue) else ks_pvalue,
                 "distribution_significantly_changed": distribution_changed,
             },
         }

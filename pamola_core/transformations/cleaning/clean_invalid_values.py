@@ -457,6 +457,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     visualizations = self._handle_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
+                        metrics=metrics,
                         task_dir=task_dir,
                         result=result,
                         reporter=reporter,
@@ -1216,23 +1217,60 @@ class CleanInvalidValuesOperation(TransformationOperation):
         Dict[str, Any]
             A dictionary of calculated metrics
         """
-        from pamola_core.transformations.commons.metric_utils import (
-            calculate_dataset_comparison,
-            calculate_transformation_impact
-        )
-
         # Basic metrics
-        metrics: Dict[str, Any] = {
-            "operation_type": self.__class__.__name__,
-            "field_constraints": self.field_constraints,
-            "whitelist_path": self.whitelist_path,
-            "blacklist_path": self.blacklist_path,
-            "null_replacement": self.null_replacement
-        }
+        metrics: Dict[str, Any] = {}
 
-        # Add metrics
-        metrics.update(calculate_dataset_comparison(original_df,processed_df))
-        metrics.update(calculate_transformation_impact(original_df, processed_df))
+        # Specific metrics
+        fields_added = [
+            col for col in processed_df.columns if col not in original_df.columns
+        ]
+        fields_modified = [
+            col for col in original_df.columns
+            if col in processed_df.columns
+               and not original_df[col].equals(processed_df[col])
+        ]
+
+        invalid_values = {}
+        constraint_type_violations = {}
+        for processed_field in (fields_modified + fields_added):
+            if processed_field.startswith(self.column_prefix):
+                original_field = processed_field[len(self.column_prefix):]
+            else:
+                original_field = processed_field
+
+            changes = (
+                ~np.where(
+                    original_df[original_field].isna() & processed_df[processed_field].isna(),
+                    True,
+                    original_df[original_field] == processed_df[processed_field]
+                )
+            ).sum()
+
+            constraint_type = self.field_constraints.get(original_field, {}).get("constraint_type", "")
+
+            invalid_values.update({
+                original_field: {
+                    "count": int(changes),
+                    "percent": int(changes) / len(original_df),
+                    "constraint_type": constraint_type,
+                    "whitelist": original_field in self.whitelist_path,
+                    "blacklist": original_field in self.blacklist_path,
+                }
+            })
+
+            if constraint_type:
+                if constraint_type not in constraint_type_violations:
+                    constraint_type_violations[constraint_type] = 0
+
+                constraint_type_violations[constraint_type] += int(changes)
+
+        constraint_type_violations = dict(sorted(constraint_type_violations.items(), key=lambda x: x[1], reverse=True))
+
+        metrics.update({
+            "invalid_values": invalid_values,
+            "constraint_type_violations": constraint_type_violations,
+            "top_violations": list(constraint_type_violations.keys())[:3]
+        })
 
         return metrics
 
@@ -1317,6 +1355,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             self,
             original_df: pd.DataFrame,
             processed_df: pd.DataFrame,
+            metrics: Dict[str, Any],
             task_dir: Path,
             result: OperationResult,
             reporter: Any,
@@ -1336,6 +1375,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
             The original data
         processed_df : pd.DataFrame
             The processed data
+        metrics : dict
+            The metrics of operation
         task_dir : Path
             The task directory
         result : OperationResult
@@ -1408,6 +1449,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     visualization_paths = self._generate_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
+                        metrics=metrics,
                         task_dir=task_dir,
                         vis_theme=vis_theme,
                         vis_backend=vis_backend,
@@ -1498,6 +1540,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             self,
             original_df: pd.DataFrame,
             processed_df: pd.DataFrame,
+            metrics: Dict[str, Any],
             task_dir: Path,
             vis_theme: Optional[str],
             vis_backend: Optional[str],
@@ -1514,6 +1557,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
             The original data before processing
         processed_df : pd.DataFrame
             The anonymized data after processing
+        metrics : dict
+            The metrics of operation
         task_dir : Path
             Task directory for saving visualizations
         vis_theme : str, optional
@@ -1530,15 +1575,11 @@ class CleanInvalidValuesOperation(TransformationOperation):
         Dict[str, Path]
             Dictionary with visualization types and paths
         """
-        from pamola_core.transformations.commons.visualization_utils import (
-            generate_dataset_overview_vis,
-            generate_field_count_comparison_vis,
-            generate_record_count_comparison_vis,
-            generate_data_distribution_comparison_vis,
-            sample_large_dataset
-        )
+        from pamola_core.utils.visualization import create_bar_plot, create_heatmap, create_histogram
 
         visualization_paths = {}
+        viz_dir = task_dir / "visualizations"
+        viz_dir.mkdir(parents=True, exist_ok=True)
 
         # Create timestamp for filenames
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1554,140 +1595,177 @@ class CleanInvalidValuesOperation(TransformationOperation):
         try:
             # Step 1: Prepare data
             if progress_tracker:
-                progress_tracker.update(1, {"step": "Preparing visualization data"})
+                progress_tracker.update(
+                    n=1,
+                    postfix={
+                        "step": "Preparing visualization data"
+                    }
+                )
 
-            # Sample large datasets for visualization
-            if len(original_df) > 10000:
-                self.logger.info(f"[VIZ] Sampling large dataset: {len(original_df)} -> 10000 samples")
-                original_for_viz = sample_large_dataset(original_df, max_samples=10000)
-                processed_for_viz = sample_large_dataset(processed_df, max_samples=10000)
-            else:
-                original_for_viz = original_df
-                processed_for_viz = processed_df
+            self.logger.debug(f"[VIZ] Data prepared for visualization: {len(original_df)} samples")
 
-            self.logger.debug(f"[VIZ] Data prepared for visualization: {len(original_for_viz)} samples")
-
-            # Step 2 & 3: Create visualization & Save visualization
+            # Step 2: Create visualization
             if progress_tracker:
-                progress_tracker.update(2, {"step": "Create visualization"})
-                progress_tracker.update(3, {"step": "Save visualization"})
-
-            # Generate visualization
-            field_names = set()
-            if self.field_constraints:
-                field_names.update(self.field_constraints.keys())
-            if self.whitelist_path:
-                field_names.update(self.whitelist_path.keys())
-            if self.blacklist_path:
-                field_names.update(self.blacklist_path.keys())
-            if self.null_replacement:
-                if isinstance(self.null_replacement, dict):
-                    field_names.update(self.null_replacement.keys())
-                elif isinstance(self.null_replacement, str) and original_df is not None:
-                    field_names.update(original_df.columns)
-            field_names = list(field_names)
-
-            output_field_names = field_names
-            if self.mode == "ENRICH" and self.column_prefix:
-                output_field_names = [f"{self.column_prefix}{field_name}" for field_name in field_names]
-
-            for field_name in field_names:
-                output_field_name = field_name
-                if self.mode == "ENRICH" and self.column_prefix:
-                    output_field_name = f"{self.column_prefix}{field_name}"
-
-                visualization_paths.update(
-                    generate_data_distribution_comparison_vis(
-                        original_data=original_for_viz[field_name],
-                        transformed_data=processed_for_viz[output_field_name],
-                        field_label=field_name,
-                        operation_name=f"{self.__class__.__name__}",
-                        task_dir=task_dir / "visualizations",
-                        timestamp=timestamp,
-                        theme=vis_theme,
-                        backend=vis_backend,
-                        strict=vis_strict,
-                        visualization_paths=None
-                    )
+                progress_tracker.update(
+                    n=2,
+                    postfix={
+                        "step": "Creating visualization"
+                    }
                 )
 
-            MAX_FIELDS_DISPLAY = 5
-            if len(field_names) > MAX_FIELDS_DISPLAY:
-                field_label = f"{len(field_names)} fields"
+            # Number of invalid values per field
+            viz_data = {field: statics["count"] for field, statics in metrics["invalid_values"].items()}
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_invalid_values_count_{timestamp}.png"
+            viz_result = create_bar_plot(
+                data=viz_data,
+                output_path=viz_path,
+                title="Invalid Values",
+                x_label="Field",
+                y_label="Count",
+                sort_by="key",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
+            )
+
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                field_label = ",".join(field_names)
+                visualization_paths[f"invalid_values_count"] = viz_path
 
-            visualization_paths.update(
-                generate_dataset_overview_vis(
-                    df=original_for_viz,
-                    operation_name=f"{self.__class__.__name__}",
-                    dataset_label="original",
-                    field_label=field_label,
-                    task_dir=task_dir / "visualizations",
-                    timestamp=timestamp,
-                    theme=vis_theme,
-                    backend=vis_backend,
-                    strict=vis_strict,
-                    visualization_paths=None
-                )
+            # Distribution of invalid values
+            viz_data = [
+                {
+                    "field": field,
+                    "constraint_type": statics["constraint_type"],
+                    "count": statics["count"]
+                }
+                for field, statics in metrics["invalid_values"].items()
+            ]
+            viz_data = pd.DataFrame(viz_data)
+            viz_data = viz_data.pivot(index="field", columns="constraint_type", values="count").fillna(0)
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_invalid_values_distribution_{timestamp}.png"
+            viz_result = create_heatmap(
+                data=viz_data,
+                output_path=viz_path,
+                title="Invalid Values Distribution",
+                x_label="Constraint Type",
+                y_label="Field",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
             )
 
-            if len(output_field_names) > MAX_FIELDS_DISPLAY:
-                output_field_label = f"{len(output_field_names)} output fields"
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                output_field_label = ",".join(output_field_names)
+                visualization_paths[f"invalid_values_distribution"] = viz_path
 
-            visualization_paths.update(
-                generate_dataset_overview_vis(
-                    df=processed_for_viz,
-                    operation_name=f"{self.__class__.__name__}",
-                    dataset_label="transformed",
-                    field_label=output_field_label,
-                    task_dir=task_dir / "visualizations",
-                    timestamp=timestamp,
-                    theme=vis_theme,
-                    backend=vis_backend,
-                    strict=vis_strict,
-                    visualization_paths=None
-                )
-            )
+            # Before/after fields
+            fields_added = [
+                col for col in processed_df.columns if col not in original_df.columns
+            ]
+            fields_modified = [
+                col for col in original_df.columns
+                if col in processed_df.columns
+                   and not original_df[col].equals(processed_df[col])
+            ]
 
-            visualization_paths.update(
-                 generate_record_count_comparison_vis(
-                     original_df=original_for_viz,
-                     transformed_dfs={"transformed": processed_for_viz},
-                     field_label=field_label,
-                     operation_name=f"{self.__class__.__name__}",
-                     task_dir=task_dir / "visualizations",
-                     timestamp=timestamp,
-                     theme=vis_theme,
-                     backend=vis_backend,
-                     strict=vis_strict,
-                     visualization_paths=None
-                 )
-            )
+            for processed_field in (fields_modified + fields_added):
+                if processed_field.startswith(self.column_prefix):
+                    original_field = processed_field[len(self.column_prefix):]
+                else:
+                    original_field = processed_field
 
-            visualization_paths.update(
-                 generate_field_count_comparison_vis(
-                     original_df=original_for_viz,
-                     transformed_df=processed_for_viz,
-                     field_label=field_label,
-                     operation_name=f"{self.__class__.__name__}",
-                     task_dir=task_dir / "visualizations",
-                     timestamp=timestamp,
-                     theme=vis_theme,
-                     backend=vis_backend,
-                     strict=vis_strict,
-                     visualization_paths=None
-                 )
-            )
+                if original_field in original_df.columns:
+                    if is_numeric_dtype(original_df[original_field]):
+                        viz_data = original_df[original_field].dropna()
+                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_histograms_original_{original_field}_{timestamp}.png"
+                        viz_result = create_histogram(
+                            data=viz_data,
+                            output_path=viz_path,
+                            title=f"Histograms original {original_field}",
+                            x_label=f"{original_field}",
+                            backend=vis_backend,
+                            theme=vis_theme,
+                            strict=vis_strict,
+                            **kwargs
+                        )
+                        if viz_result.startswith("Error"):
+                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                        else:
+                            visualization_paths[f"histograms_original_{original_field}"] = viz_path
+
+                    if isinstance(original_df[original_field].dtype, CategoricalDtype):
+                        viz_data = original_df[original_field].value_counts(normalize=True)
+                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_bars_original_{original_field}_{timestamp}.png"
+                        viz_result = create_bar_plot(
+                            data=viz_data,
+                            output_path=viz_path,
+                            title=f"Bars original {original_field}",
+                            x_label="Categorical",
+                            y_label="Frequency",
+                            sort_by="key",
+                            backend=vis_backend,
+                            theme=vis_theme,
+                            strict=vis_strict,
+                            **kwargs
+                        )
+                        if viz_result.startswith("Error"):
+                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                        else:
+                            visualization_paths[f"bars_original_{original_field}"] = viz_path
+
+                if processed_field in processed_df.columns:
+                    if is_numeric_dtype(processed_df[processed_field]):
+                        viz_data = processed_df[processed_field].dropna()
+                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_histograms_processed_{processed_field}_{timestamp}.png"
+                        viz_result = create_histogram(
+                            data=viz_data,
+                            output_path=viz_path,
+                            title=f"Histograms processed {processed_field}",
+                            x_label=f"{processed_field}",
+                            backend=vis_backend,
+                            theme=vis_theme,
+                            strict=vis_strict,
+                            **kwargs
+                        )
+                        if viz_result.startswith("Error"):
+                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                        else:
+                            visualization_paths[f"histograms_processed_{processed_field}"] = viz_path
+
+                    if isinstance(processed_df[processed_field].dtype, CategoricalDtype):
+                        viz_data = processed_df[processed_field].value_counts(normalize=True)
+                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_bars_processed_{processed_field}_{timestamp}.png"
+                        viz_result = create_bar_plot(
+                            data=viz_data,
+                            output_path=viz_path,
+                            title=f"Bars processed {processed_field}",
+                            x_label="Categorical",
+                            y_label="Frequency",
+                            sort_by="key",
+                            backend=vis_backend,
+                            theme=vis_theme,
+                            strict=vis_strict,
+                            **kwargs
+                        )
+                        if viz_result.startswith("Error"):
+                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                        else:
+                            visualization_paths[f"bars_processed_{processed_field}"] = viz_path
 
             self.logger.info(f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations")
+
             return visualization_paths
+
         except Exception as e:
             self.logger.error(f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}")
             self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
-            return {}
+
+        return visualization_paths
 
     def _save_output_data(
             self,

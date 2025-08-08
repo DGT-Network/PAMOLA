@@ -25,8 +25,7 @@ import pandas as pd
 import dask.dataframe as dd
 from joblib import Parallel, delayed
 
-from pamola_core.common.constants import Constants
-from pamola_core.profiling.commons.analysis_utils import process_dataframe_with_config
+from pamola_core.common.regex.patterns import CommonPatterns
 from pamola_core.utils.io_helpers.dask_utils import get_computed_df
 from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
 from pamola_core.utils.progress import HierarchicalProgressTracker
@@ -101,14 +100,14 @@ def detect_personal_patterns(emails: pd.Series) -> Dict[str, Any]:
     """
     # Count patterns
     pattern_counts = {
-        pattern_name: 0 for pattern_name in Constants.COMMON_EMAIL_PATTERNS
+        pattern_name: 0 for pattern_name in CommonPatterns.EMAIL_NAME_STYLE_PATTERNS
     }
     total_valid = 0
 
     for email in emails.dropna():
         if is_valid_email(email):
             total_valid += 1
-            for pattern_name, pattern in Constants.COMMON_EMAIL_PATTERNS.items():
+            for pattern_name, pattern in CommonPatterns.EMAIL_NAME_STYLE_PATTERNS.items():
                 if re.search(pattern, email):
                     pattern_counts[pattern_name] += 1
 
@@ -377,7 +376,7 @@ def _process_with_joblib(
     total_valid_count = 0
     all_domains = []
     total_pattern_counts = {
-        pattern_name: 0 for pattern_name in Constants.COMMON_EMAIL_PATTERNS
+        pattern_name: 0 for pattern_name in CommonPatterns.EMAIL_NAME_STYLE_PATTERNS
     }
 
     for result in results:
@@ -505,10 +504,10 @@ def _process_with_chunks(
             )
 
     pattern_counts_full = {
-        k: total_pattern_counts.get(k, 0) for k in Constants.COMMON_EMAIL_PATTERNS
+        k: total_pattern_counts.get(k, 0) for k in CommonPatterns.EMAIL_NAME_STYLE_PATTERNS
     }
     pattern_percentages_full = {
-        k: pattern_percentages.get(k, 0.0) for k in Constants.COMMON_EMAIL_PATTERNS
+        k: pattern_percentages.get(k, 0.0) for k in CommonPatterns.EMAIL_NAME_STYLE_PATTERNS
     }
 
     personal_patterns = {
@@ -553,7 +552,7 @@ def _analyze_email_data(email_series: Union[pd.Series, pd.DataFrame], field_name
     valid_count = 0
     domains = []
     pattern_counts = {
-        pattern_name: 0 for pattern_name in Constants.COMMON_EMAIL_PATTERNS
+        pattern_name: 0 for pattern_name in CommonPatterns.EMAIL_NAME_STYLE_PATTERNS
     }    # Handle different input types - if field_name is provided, extract the column
     if field_name is not None:
         email_data = email_series[field_name].dropna()
@@ -571,7 +570,7 @@ def _analyze_email_data(email_series: Union[pd.Series, pd.DataFrame], field_name
                 domains.append(domain)
 
             # Pattern analysis
-            for pattern_name, pattern in Constants.COMMON_EMAIL_PATTERNS.items():
+            for pattern_name, pattern in CommonPatterns.EMAIL_NAME_STYLE_PATTERNS.items():
                 if re.search(pattern, email):
                     pattern_counts[pattern_name] += 1
 

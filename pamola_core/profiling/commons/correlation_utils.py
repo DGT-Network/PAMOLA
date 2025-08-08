@@ -384,6 +384,12 @@ def calculate_correlation(df: pd.DataFrame,
         correlation_info['method'] = 'error'
         correlation_info['coefficient'] = 0.0
         correlation_info['error'] = str(e)
+    
+    if correlation_info['coefficient'] is not None and np.isnan(correlation_info['coefficient']):
+        correlation_info['coefficient'] = 0.0
+
+    if correlation_info['p_value'] is not None and np.isnan(correlation_info['p_value']):
+        correlation_info['p_value'] = 0.0
 
     # Ensure coefficient is a float
     if correlation_info['coefficient'] is not None:

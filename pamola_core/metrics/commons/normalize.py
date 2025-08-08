@@ -32,6 +32,7 @@ Dependencies:
 
 from typing import Tuple
 import numpy as np
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 
 def normalize_metric_value(
@@ -73,21 +74,28 @@ def normalize_metric_value(
     return float(scaled_value)
 
 
-def normalize_distribution(values: np.ndarray, method: str = "minmax") -> np.ndarray:
+def normalize_array_np(values: np.ndarray, method: str = "minmax") -> np.ndarray:
     """
-    Normalize a distribution (array of values) using specified method.
+    Normalize an array using the specified method (manual implementation with NumPy).
 
     Parameters
     ----------
     values : np.ndarray
-        The array of values to normalize.
-    method : str
-        Normalization method: "minmax" or "zscore".
+        1D array of numeric values to be normalized.
+    method : str, optional, default="minmax"
+        Normalization method to apply:
+        - "minmax": scales values to the [0, 1] range.
+        - "zscore": standardizes values to zero mean and unit variance.
 
     Returns
     -------
     np.ndarray
-        Normalized values.
+        Normalized array of the same shape as input.
+
+    Raises
+    ------
+    ValueError
+        If an unsupported normalization method is specified.
     """
     if method == "minmax":
         min_val = np.min(values)
@@ -106,3 +114,54 @@ def normalize_distribution(values: np.ndarray, method: str = "minmax") -> np.nda
 
     else:
         raise ValueError(f"Unsupported normalization method: {method}")
+
+
+def normalize_array_sklearn(data: np.ndarray, method: str = "zscore") -> np.ndarray:
+    """
+    Normalize an array using scikit-learn's scalers or probability normalization.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        1D array of numeric values to normalize.
+    method : str or bool, default="zscore"
+        Normalization method to apply:
+        - "zscore" or True: standardizes values to zero mean and unit variance.
+        - "minmax": scales values to the [0, 1] range.
+        - "probability": normalizes values to sum to 1 (i.e., probability distribution).
+        - "none" or False: returns the original array.
+
+    Returns
+    -------
+    np.ndarray
+        Normalized array of the same shape as input.
+
+    Raises
+    ------
+    ValueError
+        If an unsupported normalization method is specified.
+    """
+    if method in [False, "none"]:
+        return data
+
+    # Handle "zscore" or True
+    if method in [True, "zscore"]:
+        if np.std(data) == 0:
+            return data  # Avoid division by zero
+        scaler = StandardScaler()
+        return scaler.fit_transform(data.reshape(-1, 1)).flatten()
+
+    # Handle "minmax"
+    elif method == "minmax":
+        if np.ptp(data) == 0:
+            return data  # Avoid division by zero
+        scaler = MinMaxScaler()
+        return scaler.fit_transform(data.reshape(-1, 1)).flatten()
+
+    # Handle "probability"
+    elif method == "probability":
+        total = np.sum(data)
+        return data / total if total > 0 else data
+
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")

@@ -68,12 +68,7 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_percentiles,
 
     # Mode and strategy validation
-    #validate_output_field_name,
     validate_null_strategy,
-    #validate_mode,
-
-    # Conditional processing validation
-    #validate_conditional_parameters,
 
     # Specialized data type validation
     validate_geographic_data,
@@ -85,27 +80,16 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_file_path,
     validate_directory_path,
 
-    # Cache and performance validation
-    #validate_batch_size,
-    #validate_cache_parameters,
-
     # Utility functions
     get_validation_error_result,
     get_validation_success_result,
-    #validate_operation_config,
 
     # Custom exception classes
     ValidationError,
-    #FieldValidationError,
     ConditionalValidationError,
-    #StrategyValidationError,
 
     # Profiling integration validation
-    #validate_against_profiling,
-    #validate_field_type,
     validate_specialized_type,
-    #validate_profiling_results,
-    #validate_k_anonymity_parameters,
 
 )
 
@@ -224,80 +208,27 @@ from pamola_core.anonymization.commons.data_utils import (
     PRIVACY_LEVELS,
 )
 
-# # =============================================================================
-# # Imports from generalization_algorithms.py (if implemented)
-# # =============================================================================
+# =============================================================================
+# Imports from visualization_utils.py
+# =============================================================================
 
-# try:
-#     from pamola_core.anonymization.commons.generalization_algorithms import (
-#         # Numeric generalization
-#         numeric_generalization_binning,
-#         numeric_generalization_rounding,
-#         numeric_generalization_range,
-
-#         # Categorical generalization
-#         categorical_generalization_hierarchy,
-#         categorical_generalization_frequency,
-
-#         # Advanced generalization
-#         clustering_based_generalization,
-#         distribution_preserving_generalization,
-#         semantic_hierarchy_generalization,
-#         adaptive_clustering_generalization,
-#     )
-# except ImportError:
-#     # Module not yet implemented
-#     pass
-
-# # =============================================================================
-# # Imports from specialized_processors.py (if implemented)
-# # =============================================================================
-
-# try:
-#     from pamola_core.anonymization.commons.specialized_processors import (
-#         # Geographic data processing
-#         process_geographic_data,
-
-#         # Temporal data processing
-#         process_temporal_data,
-
-#         # Network identifier processing
-#         process_network_identifiers,
-
-#         # Financial data processing
-#         process_financial_data,
-
-#         # Textual data processing
-#         process_textual_data,
-#     )
-# except ImportError:
-#     # Module not yet implemented
-#     pass
-
-# # =============================================================================
-# # Imports from anonymization_helpers.py (if implemented)
-# # =============================================================================
-
-# try:
-#     from pamola_core.anonymization.commons.anonymization_helpers import (
-#         # Configuration management
-#         load_processing_configuration,
-#         validate_anonymization_config,
-
-#         # Report generation
-#         create_processing_report,
-#         create_anonymization_audit_log,
-
-#         # Profile management
-#         apply_anonymization_profile,
-
-#         # Auto-detection and strategy generation
-#         auto_detect_sensitive_fields,
-#         generate_anonymization_strategy,
-#     )
-# except ImportError:
-#     # Module not yet implemented
-#     pass
+from pamola_core.anonymization.commons.masking_patterns import (
+    # Masking pattern utilities
+    apply_pattern_mask,
+    create_random_mask,
+    validate_mask_character,
+    analyze_pattern_security,
+    get_format_preserving_mask,
+    generate_mask,
+    generate_mask_char,
+    is_separator,
+    preserve_pattern_mask,
+    get_mask_char_pool,
+    set_mask_char_pool,
+    clear_mask_char_pools,
+    # Constants
+    MASK_CHAR_POOLS,
+)
 
 # =============================================================================
 # Define __all__ for explicit exports
@@ -320,9 +251,7 @@ __all__ = [
     "validate_precision",
     "validate_range_limits",
     "validate_percentiles",
-    #"validate_output_field_name",
     "validate_null_strategy",
-    #"validate_mode",
     "validate_conditional_parameters",
     "validate_geographic_data",
     "validate_temporal_sequence",
@@ -330,20 +259,11 @@ __all__ = [
     "validate_financial_data",
     "validate_file_path",
     "validate_directory_path",
-    #"validate_batch_size",
-    #"validate_cache_parameters",
     "get_validation_error_result",
     "get_validation_success_result",
-    #"validate_operation_config",
     "ValidationError",
-    #"FieldValidationError",
     "ConditionalValidationError",
-    #"StrategyValidationError",
-    #"validate_against_profiling",
-    #"validate_field_type",
     "validate_specialized_type",
-    #"validate_profiling_results",
-    #"validate_k_anonymity_parameters",
 
     # Metric utilities
     "calculate_anonymization_effectiveness",
@@ -390,6 +310,20 @@ __all__ = [
     "get_risk_statistics",
     "get_privacy_recommendations",
 
+    # Masking patterns
+    "apply_pattern_mask",
+    "create_random_mask",
+    "validate_mask_character",
+    "analyze_pattern_security",
+    "get_format_preserving_mask",
+    "generate_mask",
+    "generate_mask_char",
+    "is_separator",
+    "preserve_pattern_mask",
+    "get_mask_char_pool",
+    "set_mask_char_pool",
+    "clear_mask_char_pools",
+
     # Constants
     "DEFAULT_K_THRESHOLD",
     "DEFAULT_SUPPRESSION_WARNING",
@@ -400,59 +334,8 @@ __all__ = [
     "DEFAULT_HISTOGRAM_BINS",
     "RISK_LEVELS",
     "PRIVACY_LEVELS",
+    "MASK_CHAR_POOLS",
 ]
-
-# # =============================================================================
-# # Conditional exports for not-yet-implemented modules
-# # =============================================================================
-
-# # Add generalization algorithms if available
-# try:
-#     from pamola_core.anonymization.commons.generalization_algorithms import *  # noqa: F401, F403
-
-#     __all__.extend([
-#         "numeric_generalization_binning",
-#         "numeric_generalization_rounding",
-#         "numeric_generalization_range",
-#         "categorical_generalization_hierarchy",
-#         "categorical_generalization_frequency",
-#         "clustering_based_generalization",
-#         "distribution_preserving_generalization",
-#         "semantic_hierarchy_generalization",
-#         "adaptive_clustering_generalization",
-#     ])
-# except ImportError:
-#     pass
-
-# # Add specialized processors if available
-# try:
-#     from pamola_core.anonymization.commons.specialized_processors import *  # noqa: F401, F403
-
-#     __all__.extend([
-#         "process_geographic_data",
-#         "process_temporal_data",
-#         "process_network_identifiers",
-#         "process_financial_data",
-#         "process_textual_data",
-#     ])
-# except ImportError:
-#     pass
-
-# # Add anonymization helpers if available
-# try:
-#     from pamola_core.anonymization.commons.anonymization_helpers import *  # noqa: F401, F403
-
-#     __all__.extend([
-#         "load_processing_configuration",
-#         "validate_anonymization_config",
-#         "create_processing_report",
-#         "create_anonymization_audit_log",
-#         "apply_anonymization_profile",
-#         "auto_detect_sensitive_fields",
-#         "generate_anonymization_strategy",
-#     ])
-# except ImportError:
-#     pass
 
 # =============================================================================
 # Module initialization logging (optional)

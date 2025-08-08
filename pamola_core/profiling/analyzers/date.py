@@ -290,9 +290,7 @@ class DateOperation(FieldOperation):
             self.logger = kwargs["logger"]
 
         # Extract parameters from kwargs, defaulting to instance variables
-        generate_visualization = kwargs.get(
-            "generate_visualization", True
-        )
+        generate_visualization = kwargs.get("generate_visualization", True)
 
         force_recalculation = kwargs.get("force_recalculation", False)
         dataset_name = kwargs.get("dataset_name", "main")

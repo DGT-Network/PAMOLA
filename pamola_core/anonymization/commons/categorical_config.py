@@ -297,7 +297,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
             },
             "max_categories": {
                 "type": "integer",
-                "minimum": 1,
+                "minimum": 0,
                 "description": "Maximum categories to preserve",
             },
             # Unknown handling

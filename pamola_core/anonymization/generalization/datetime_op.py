@@ -51,7 +51,6 @@ import numpy as np
 import pandas as pd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.categorical_config import NullStrategy
-from pamola_core.anonymization.commons.data_utils import process_nulls
 from pamola_core.anonymization.commons.validation.exceptions import FieldValueError
 from pamola_core.anonymization.commons.validation_utils import (
     BaseValidator,
@@ -166,7 +165,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
             "column_prefix": {"type": "string"},
             "null_strategy": {
                 "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ERROR", "ANONYMIZE"],
+                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
             },
             "description": {"type": "string", "default": ""},
             "optimize_memory": {"type": "boolean"},
@@ -935,7 +934,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         output_field_name = kwargs.get("output_field_name", f"{field_name}_generalized")
         mode = kwargs.get("mode", "REPLACE")
         strategy = kwargs.get("strategy", "rounding")
-        null_strategy = kwargs.get("null_strategy", "PRESERVE")
 
         # Get field data and convert to datetime if needed
         field_data = batch[field_name]
@@ -944,13 +942,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             field_data = cls._convert_to_datetime(field_data, **kwargs)
 
         # Handle timezone
-        field_data = cls._handle_timezone(field_data, **kwargs)
-
-        # Handle null values
-        if null_strategy == "ANONYMIZE":
-            field_values = process_nulls(field_data, null_strategy, cast(str, pd.NaT))
-        else:
-            field_values = process_nulls(field_data, null_strategy)
+        field_values = cls._handle_timezone(field_data, **kwargs)
 
         # Apply generalization
         if strategy == "rounding":
@@ -1047,20 +1039,21 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
     @staticmethod
     def _convert_to_datetime(series: pd.Series, **kwargs) -> pd.Series:
         """Convert series to datetime trying multiple formats."""
-        # First try pandas default parsing
-        try:
-            return pd.to_datetime(series, errors="coerce")
-        except (ValueError, TypeError):
-            pass
-        input_formats = kwargs.get("input_formats", [])
-        # Try each input format
+        # Default common date formats to try
+        input_formats = kwargs.get("input_formats", Constants.COMMON_DATE_FORMATS)
+        threshold = kwargs.get("threshold", 0.95)
+
+        # Try each provided format
         for fmt in input_formats:
             try:
-                return pd.to_datetime(series, format=fmt, errors="coerce")
+                parsed = pd.to_datetime(series, format=fmt, errors="coerce")
+                if parsed.notna().mean() >= threshold:
+                    return parsed
             except (ValueError, TypeError):
                 continue
 
-        return pd.to_datetime(series, errors="coerce")
+        # Fallback: let pandas try to infer
+        return pd.to_datetime(series, errors="coerce", dayfirst=True)
 
     @staticmethod
     def _handle_timezone(series: pd.Series, **kwargs) -> pd.Series:

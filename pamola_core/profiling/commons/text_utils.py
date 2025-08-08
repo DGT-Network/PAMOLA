@@ -5,9 +5,8 @@ This module provides helper functions for text processing, analysis,
 and frequency calculation with support for large datasets and caching.
 """
 
-import logging
 import re
-from typing import Dict, List, Any, Optional, Set, Union, Tuple
+from typing import Dict, List, Any, Optional, Set, Union
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -15,22 +14,28 @@ from pathlib import Path
 from pamola_core.utils.logging import get_logger
 from pamola_core.utils.io import ensure_directory, write_json, read_json
 
-from pamola_core.utils.nlp.language import detect_language
-from pamola_core.utils.nlp.tokenization import tokenize, calculate_word_frequencies as nlp_calculate_word_frequencies
-from pamola_core.utils.nlp.tokenization import calculate_term_frequencies as nlp_calculate_term_frequencies
+from pamola_core.utils.nlp.tokenization import (
+    calculate_word_frequencies as nlp_calculate_word_frequencies,
+)
+from pamola_core.utils.nlp.tokenization import (
+    calculate_term_frequencies as nlp_calculate_term_frequencies,
+)
 from pamola_core.utils.nlp.cache import get_cache, cache_function
 
 # Configure logger
 logger = get_logger(__name__)
 
 # Get cache instances
-file_cache = get_cache('file')
-memory_cache = get_cache('memory')
+file_cache = get_cache("file")
+memory_cache = get_cache("memory")
+WHITESPACE_PATTERN = re.compile(r"^\s+$")
 
 
-def analyze_null_and_empty(df: pd.DataFrame, field_name: str, chunk_size: Optional[int] = None) -> Dict[str, Any]:
+def analyze_null_and_empty(
+    df: pd.DataFrame, field_name: str, chunk_size: Optional[int] = None
+) -> Dict[str, Any]:
     """
-    Analyze null and empty values in a text field.
+    Analyze null, empty, and whitespace-only values in a text field.
 
     Parameters:
     -----------
@@ -51,53 +56,44 @@ def analyze_null_and_empty(df: pd.DataFrame, field_name: str, chunk_size: Option
         - whitespace_strings: Count and percentage of whitespace-only strings
         - actual_data: Count and percentage of records with meaningful data
     """
-    # Total records
     total_records = len(df)
 
-    # Process in chunks if dataframe is large and chunk_size is specified
     if chunk_size and total_records > chunk_size:
         return analyze_null_and_empty_in_chunks(df, field_name, chunk_size)
 
-    # Count null values
-    null_count = df[field_name].isna().sum()
+    # Detect nulls
+    null_mask = df[field_name].isna()
+    null_count = null_mask.sum()
 
-    # Calculate empty strings (after filling NAs with empty string)
-    empty_series = df[field_name].fillna("")
-    empty_count = (empty_series == "").sum()
+    # Convert to string for further analysis (skip nulls)
+    str_series = df[field_name].astype(str)
+    non_null_series = str_series[~null_mask]
 
-    # Calculate whitespace-only strings
-    whitespace_count = 0
-    if empty_count < total_records:
-        whitespace_pattern = re.compile(r'^\s+$')
-        whitespace_count = empty_series.astype(str).str.match(whitespace_pattern).sum()
+    # Detect empty strings
+    empty_mask = non_null_series == ""
+    empty_count = empty_mask.sum()
 
-    # Calculate records with actual data
+    # Detect whitespace-only strings
+    whitespace_mask = non_null_series.str.match(WHITESPACE_PATTERN)
+    whitespace_count = whitespace_mask.sum()
+
+    # Actual data = total - null - empty - whitespace
     actual_data_count = total_records - null_count - empty_count - whitespace_count
 
     return {
         "total_records": total_records,
-        "null_values": {
-            "count": int(null_count),
-            "percentage": round((null_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "empty_strings": {
-            "count": int(empty_count),
-            "percentage": round((empty_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "whitespace_strings": {
-            "count": int(whitespace_count),
-            "percentage": round((whitespace_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "actual_data": {
-            "count": int(actual_data_count),
-            "percentage": round((actual_data_count / total_records) * 100, 2) if total_records > 0 else 0
-        }
+        "null_values": make_stat(null_count, total_records),
+        "empty_strings": make_stat(empty_count, total_records),
+        "whitespace_strings": make_stat(whitespace_count, total_records),
+        "actual_data": make_stat(actual_data_count, total_records),
     }
 
 
-def analyze_null_and_empty_in_chunks(df: pd.DataFrame, field_name: str, chunk_size: int) -> Dict[str, Any]:
+def analyze_null_and_empty_in_chunks(
+    df: pd.DataFrame, field_name: str, chunk_size: int
+) -> Dict[str, Any]:
     """
-    Analyze null and empty values in a text field by processing the dataframe in chunks.
+    Analyze null, empty, and whitespace-only values in a text field by processing the dataframe in chunks.
 
     Parameters:
     -----------
@@ -114,53 +110,45 @@ def analyze_null_and_empty_in_chunks(df: pd.DataFrame, field_name: str, chunk_si
         Aggregated analysis results
     """
     total_records = len(df)
-    logger.info(f"Analyzing null and empty values for {field_name} in chunks (total records: {total_records})")
+    logger.info(
+        f"Analyzing null and empty values for {field_name} in chunks (total records: {total_records})"
+    )
 
     # Initialize counters
     null_count = 0
     empty_count = 0
     whitespace_count = 0
 
-    # Compile whitespace pattern once
-    whitespace_pattern = re.compile(r'^\s+$')
-
-    # Process in chunks
     for i in range(0, total_records, chunk_size):
         end_idx = min(i + chunk_size, total_records)
         chunk = df.iloc[i:end_idx]
 
-        # Count nulls
-        null_count += chunk[field_name].isna().sum()
+        # Detect nulls
+        null_mask = chunk[field_name].isna()
+        null_count += null_mask.sum()
 
-        # Count empties
-        empty_series = chunk[field_name].fillna("")
-        empty_count += (empty_series == "").sum()
+        # Only process non-null values
+        non_null_series = chunk.loc[~null_mask, field_name].astype(str)
 
-        # Count whitespace
-        whitespace_count += empty_series.astype(str).str.match(whitespace_pattern).sum()
+        # Empty strings
+        empty_mask = non_null_series == ""
+        empty_count += empty_mask.sum()
 
-    # Calculate actual data count
+        # Whitespace-only strings
+        whitespace_mask = non_null_series.str.match(WHITESPACE_PATTERN)
+        whitespace_count += whitespace_mask.sum()
+
+    # Actual = total - null - empty - whitespace
     actual_data_count = total_records - null_count - empty_count - whitespace_count
 
     return {
         "total_records": total_records,
-        "null_values": {
-            "count": int(null_count),
-            "percentage": round((null_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "empty_strings": {
-            "count": int(empty_count),
-            "percentage": round((empty_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "whitespace_strings": {
-            "count": int(whitespace_count),
-            "percentage": round((whitespace_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "actual_data": {
-            "count": int(actual_data_count),
-            "percentage": round((actual_data_count / total_records) * 100, 2) if total_records > 0 else 0
-        }
+        "null_values": make_stat(null_count, total_records),
+        "empty_strings": make_stat(empty_count, total_records),
+        "whitespace_strings": make_stat(whitespace_count, total_records),
+        "actual_data": make_stat(actual_data_count, total_records),
     }
+
 
 def process_chunk(chunk_df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     """
@@ -178,13 +166,21 @@ def process_chunk(chunk_df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     Dict[str, Any]
         Aggregated analysis results
     """
-    # Compile whitespace pattern once
-    whitespace_pattern = r'^\s+$'
+    # Detect nulls
+    null_mask = chunk_df[field_name].isna()
+    null_count = null_mask.sum()
 
-    null_count = chunk_df[field_name].isna().sum()
-    empty_series = chunk_df[field_name].fillna("")
-    empty_count = (empty_series == "").sum()
-    whitespace_count = empty_series.astype(str).str.match(whitespace_pattern).sum()
+    # Convert to string for further analysis (skip nulls)
+    str_series = chunk_df[field_name].astype(str)
+    non_null_series = str_series[~null_mask]
+
+    # Detect empty strings
+    empty_mask = non_null_series == ""
+    empty_count = empty_mask.sum()
+
+    # Detect whitespace-only strings
+    whitespace_mask = non_null_series.str.match(WHITESPACE_PATTERN)
+    whitespace_count = whitespace_mask.sum()
 
     return {
         "null_count": null_count,
@@ -192,8 +188,10 @@ def process_chunk(chunk_df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
         "whitespace_count": whitespace_count,
     }
 
-def analyze_null_and_empty_in_chunks_joblib(df: pd.DataFrame, field_name: str,
-                                            n_jobs: int = -1, chunk_size: int = 10000) -> Dict[str, Any]:
+
+def analyze_null_and_empty_in_chunks_joblib(
+    df: pd.DataFrame, field_name: str, n_jobs: int = -1, chunk_size: int = 10000
+) -> Dict[str, Any]:
     """
     Analyze null and empty values in a text field by processing the dataframe in chunks using Joblib.
 
@@ -216,10 +214,12 @@ def analyze_null_and_empty_in_chunks_joblib(df: pd.DataFrame, field_name: str,
     from joblib import Parallel, delayed
 
     # Create chunks and process them in parallel
-    chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
+    chunks = [df.iloc[i : i + chunk_size] for i in range(0, len(df), chunk_size)]
 
     # Using Joblib to process each chunk in parallel
-    chunk_results = Parallel(n_jobs=n_jobs)(delayed(process_chunk)(chunk, field_name) for chunk in chunks)
+    chunk_results = Parallel(n_jobs=n_jobs)(
+        delayed(process_chunk)(chunk, field_name) for chunk in chunks
+    )
 
     # Aggregate the results
     null_count = sum(result["null_count"] for result in chunk_results)
@@ -232,26 +232,16 @@ def analyze_null_and_empty_in_chunks_joblib(df: pd.DataFrame, field_name: str,
 
     return {
         "total_records": total_records,
-        "null_values": {
-            "count": int(null_count),
-            "percentage": round((null_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "empty_strings": {
-            "count": int(empty_count),
-            "percentage": round((empty_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "whitespace_strings": {
-            "count": int(whitespace_count),
-            "percentage": round((whitespace_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "actual_data": {
-            "count": int(actual_data_count),
-            "percentage": round((actual_data_count / total_records) * 100, 2) if total_records > 0 else 0
-        }
+        "null_values": make_stat(null_count, total_records),
+        "empty_strings": make_stat(empty_count, total_records),
+        "whitespace_strings": make_stat(whitespace_count, total_records),
+        "actual_data": make_stat(actual_data_count, total_records),
     }
 
-def analyze_null_and_empty_in_chunks_dask(df: pd.DataFrame, field_name: str,
-                                          npartitions: int = -1, chunk_size: int = 10000) -> Dict[str, Any]:
+
+def analyze_null_and_empty_in_chunks_dask(
+    df: pd.DataFrame, field_name: str, npartitions: int = -1, chunk_size: int = 10000
+) -> Dict[str, Any]:
     """
     Analyze null and empty values in a text field by processing the dataframe in chunks using dask.
 
@@ -277,11 +267,13 @@ def analyze_null_and_empty_in_chunks_dask(df: pd.DataFrame, field_name: str,
     dask_df = dd.from_pandas(df, npartitions=npartitions)
 
     # Provide meta (schema hint)
-    meta = pd.DataFrame({
-        "null_count": pd.Series(dtype='int'),
-        "empty_count": pd.Series(dtype='int'),
-        "whitespace_count": pd.Series(dtype='int')
-    })
+    meta = pd.DataFrame(
+        {
+            "null_count": pd.Series(dtype="int"),
+            "empty_count": pd.Series(dtype="int"),
+            "whitespace_count": pd.Series(dtype="int"),
+        }
+    )
     # Apply the function to each partition (chunk) using Dask
     chunk_results = dask_df.map_partitions(process_chunk, field_name)
 
@@ -299,28 +291,21 @@ def analyze_null_and_empty_in_chunks_dask(df: pd.DataFrame, field_name: str,
 
     return {
         "total_records": total_records,
-        "null_values": {
-            "count": int(null_count),
-            "percentage": round((null_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "empty_strings": {
-            "count": int(empty_count),
-            "percentage": round((empty_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "whitespace_strings": {
-            "count": int(whitespace_count),
-            "percentage": round((whitespace_count / total_records) * 100, 2) if total_records > 0 else 0
-        },
-        "actual_data": {
-            "count": int(actual_data_count),
-            "percentage": round((actual_data_count / total_records) * 100, 2) if total_records > 0 else 0
-        }
+        "null_values": make_stat(null_count, total_records),
+        "empty_strings": make_stat(empty_count, total_records),
+        "whitespace_strings": make_stat(whitespace_count, total_records),
+        "actual_data": make_stat(actual_data_count, total_records),
     }
 
-@cache_function(ttl=3600, cache_type='memory')
-def calculate_length_stats(texts: List[str], max_texts: Optional[int] = None,
-                           use_cache: bool = False, cache_key: Optional[str] = None,
-                           cache_dir: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
+
+@cache_function(ttl=3600, cache_type="memory")
+def calculate_length_stats(
+    texts: List[str],
+    max_texts: Optional[int] = None,
+    use_cache: bool = False,
+    cache_key: Optional[str] = None,
+    cache_dir: Optional[Union[str, Path]] = None,
+) -> Dict[str, Any]:
     """
     Calculate text length statistics with support for sampling and caching.
 
@@ -351,9 +336,12 @@ def calculate_length_stats(texts: List[str], max_texts: Optional[int] = None,
     # Sample if needed
     if max_texts and len(texts) > max_texts:
         import random
+
         random.seed(42)  # For reproducibility
         texts = random.sample(texts, max_texts)
-        logger.info(f"Sampled {max_texts} texts for length statistics (from {len(texts)} total)")
+        logger.info(
+            f"Sampled {max_texts} texts for length statistics (from {len(texts)} total)"
+        )
 
     # Calculate lengths for non-empty strings
     lengths = [len(text) for text in texts if text]
@@ -365,7 +353,7 @@ def calculate_length_stats(texts: List[str], max_texts: Optional[int] = None,
             "mean": 0,
             "median": 0,
             "std": 0,
-            "length_distribution": {}
+            "length_distribution": {},
         }
         return result
 
@@ -377,11 +365,11 @@ def calculate_length_stats(texts: List[str], max_texts: Optional[int] = None,
 
     # Calculate standard deviation
     variance = sum((x - mean_length) ** 2 for x in lengths) / len(lengths)
-    std_dev = variance ** 0.5
+    std_dev = variance**0.5
 
     # Create length distribution
-    bins = [0, 50, 100, 150, 200, 250, float('inf')]
-    bin_labels = ['<50', '50-100', '100-150', '150-200', '200-250', '>250']
+    bins = [0, 50, 100, 150, 200, 250, float("inf")]
+    bin_labels = ["<50", "50-100", "100-150", "150-200", "200-250", ">250"]
 
     distribution = {label: 0 for label in bin_labels}
 
@@ -401,7 +389,7 @@ def calculate_length_stats(texts: List[str], max_texts: Optional[int] = None,
         "mean": mean_length,
         "median": median_length,
         "std": std_dev,
-        "length_distribution": distribution
+        "length_distribution": distribution,
     }
 
     # Cache result if enabled
@@ -434,8 +422,9 @@ def chunk_texts(texts: List[str], chunk_size: int) -> List[List[str]]:
     return chunks
 
 
-def process_texts_in_chunks(texts: List[str], process_func: callable,
-                            chunk_size: int = 1000, **kwargs) -> List[Any]:
+def process_texts_in_chunks(
+    texts: List[str], process_func: callable, chunk_size: int = 1000, **kwargs
+) -> List[Any]:
     """
     Process a large list of texts in chunks.
 
@@ -458,12 +447,7 @@ def process_texts_in_chunks(texts: List[str], process_func: callable,
     # Use batch_process from the nlp.base module
     from pamola_core.utils.nlp.base import batch_process
 
-    return batch_process(
-        texts,
-        process_func,
-        chunk_size=chunk_size,
-        **kwargs
-    )
+    return batch_process(texts, process_func, chunk_size=chunk_size, **kwargs)
 
 
 def merge_analysis_results(results_list: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -505,17 +489,28 @@ def merge_analysis_results(results_list: List[Dict[str, Any]]) -> Dict[str, Any]
 
     # Recalculate percentages if needed
     if "total_records" in merged and merged["total_records"] > 0:
-        for field in ["null_values", "empty_strings", "whitespace_strings", "actual_data"]:
+        for field in [
+            "null_values",
+            "empty_strings",
+            "whitespace_strings",
+            "actual_data",
+        ]:
             if field in merged:
                 count = merged[field]["count"]
-                merged[field]["percentage"] = round((count / merged["total_records"]) * 100, 2)
+                merged[field]["percentage"] = round(
+                    (count / merged["total_records"]) * 100, 2
+                )
 
     return merged
 
 
-def calculate_word_frequencies(texts: List[str], stop_words: Optional[Set[str]] = None,
-                               min_word_length: int = 3, max_words: int = 100,
-                               chunk_size: Optional[int] = None) -> Dict[str, int]:
+def calculate_word_frequencies(
+    texts: List[str],
+    stop_words: Optional[Set[str]] = None,
+    min_word_length: int = 3,
+    max_words: int = 100,
+    chunk_size: Optional[int] = None,
+) -> Dict[str, int]:
     """
     Calculate word frequencies across multiple texts with support for large datasets.
 
@@ -546,7 +541,7 @@ def calculate_word_frequencies(texts: List[str], stop_words: Optional[Set[str]] 
             chunk_size,
             stop_words=stop_words,
             min_word_length=min_word_length,
-            max_words=None  # No limit for chunks
+            max_words=None,  # No limit for chunks
         )
 
         # Merge results
@@ -566,10 +561,14 @@ def calculate_word_frequencies(texts: List[str], stop_words: Optional[Set[str]] 
     return dict(sorted_counts)
 
 
-def calculate_term_frequencies(texts: List[str], language: str = "auto",
-                               stop_words: Optional[Set[str]] = None,
-                               min_word_length: int = 3, max_terms: int = 100,
-                               chunk_size: Optional[int] = None) -> Dict[str, int]:
+def calculate_term_frequencies(
+    texts: List[str],
+    language: str = "auto",
+    stop_words: Optional[Set[str]] = None,
+    min_word_length: int = 3,
+    max_terms: int = 100,
+    chunk_size: Optional[int] = None,
+) -> Dict[str, int]:
     """
     Calculate term frequencies with optional lemmatization and chunk processing.
 
@@ -603,7 +602,7 @@ def calculate_term_frequencies(texts: List[str], language: str = "auto",
             language=language,
             stop_words=stop_words,
             min_word_length=min_word_length,
-            max_terms=None  # No limit for chunks
+            max_terms=None,  # No limit for chunks
         )
 
         # Merge results
@@ -613,7 +612,9 @@ def calculate_term_frequencies(texts: List[str], language: str = "auto",
                 term_counts[term] = term_counts.get(term, 0) + count
     else:
         # Use the nlp module's function directly
-        term_counts = nlp_calculate_term_frequencies(texts, language, stop_words, min_word_length)
+        term_counts = nlp_calculate_term_frequencies(
+            texts, language, stop_words, min_word_length
+        )
 
     # Sort and limit to max_terms
     sorted_counts = sorted(term_counts.items(), key=lambda x: x[1], reverse=True)
@@ -623,7 +624,9 @@ def calculate_term_frequencies(texts: List[str], language: str = "auto",
     return dict(sorted_counts)
 
 
-def get_cache_key_for_texts(texts: List[str], operation: str, params: Dict[str, Any] = None) -> str:
+def get_cache_key_for_texts(
+    texts: List[str], operation: str, params: Dict[str, Any] = None
+) -> str:
     """
     Generate a cache key for text operations.
 
@@ -650,6 +653,7 @@ def get_cache_key_for_texts(texts: List[str], operation: str, params: Dict[str, 
     max_sample = 100  # Maximum number of texts to include in hash
     if len(texts) > max_sample:
         import random
+
         random.seed(42)
         sample = random.sample(texts, max_sample)
     else:
@@ -658,19 +662,21 @@ def get_cache_key_for_texts(texts: List[str], operation: str, params: Dict[str, 
     # Add texts to hash
     for text in sample:
         if text:
-            hasher.update(text.encode('utf-8'))
+            hasher.update(text.encode("utf-8"))
 
     # Add operation and params
-    hasher.update(operation.encode('utf-8'))
+    hasher.update(operation.encode("utf-8"))
 
     if params:
         param_str = str(sorted(params.items()))
-        hasher.update(param_str.encode('utf-8'))
+        hasher.update(param_str.encode("utf-8"))
 
     return f"text_utils_{operation}_{hasher.hexdigest()}"
 
 
-def load_cached_result(cache_key: str, cache_dir: Union[str, Path], operation: str) -> Optional[Dict[str, Any]]:
+def load_cached_result(
+    cache_key: str, cache_dir: Union[str, Path], operation: str
+) -> Optional[Dict[str, Any]]:
     """
     Load cached result if available.
 
@@ -709,8 +715,9 @@ def load_cached_result(cache_key: str, cache_dir: Union[str, Path], operation: s
         return None
 
 
-def save_cached_result(result: Dict[str, Any], cache_key: str,
-                       cache_dir: Union[str, Path], operation: str) -> bool:
+def save_cached_result(
+    result: Dict[str, Any], cache_key: str, cache_dir: Union[str, Path], operation: str
+) -> bool:
     """
     Save results to cache.
 
@@ -773,25 +780,61 @@ def detect_text_type(text: str) -> str:
     # Patterns for different text types
     patterns = {
         "job": [
-            r'\bengineer\b', r'\bdeveloper\b', r'\bmanager\b', r'\bdesigner\b',
-            r'\banalyst\b', r'\bspecialist\b', r'\bdirector\b', r'\bconsultant\b',
-            r'\bразработчик\b', r'\bменеджер\b', r'\bинженер\b', r'\bспециалист\b'
+            r"\bengineer\b",
+            r"\bdeveloper\b",
+            r"\bmanager\b",
+            r"\bdesigner\b",
+            r"\banalyst\b",
+            r"\bspecialist\b",
+            r"\bdirector\b",
+            r"\bconsultant\b",
+            r"\bразработчик\b",
+            r"\bменеджер\b",
+            r"\bинженер\b",
+            r"\bспециалист\b",
         ],
         "organization": [
-            r'\binc\b', r'\bllc\b', r'\bcorp\b', r'\bcompany\b', r'\bgroup\b',
-            r'\buniversity\b', r'\bcollege\b', r'\binstitute\b', r'\bschool\b',
-            r'\bассоциация\b', r'\bуниверситет\b', r'\bинститут\b', r'\bкомпания\b'
+            r"\binc\b",
+            r"\bllc\b",
+            r"\bcorp\b",
+            r"\bcompany\b",
+            r"\bgroup\b",
+            r"\buniversity\b",
+            r"\bcollege\b",
+            r"\binstitute\b",
+            r"\bschool\b",
+            r"\bассоциация\b",
+            r"\bуниверситет\b",
+            r"\bинститут\b",
+            r"\bкомпания\b",
         ],
         "transaction": [
-            r'\bpayment\b', r'\btransfer\b', r'\bdeposit\b', r'\bwithdrawal\b',
-            r'\binvoice\b', r'\bsalary\b', r'\brent\b', r'\butility\b',
-            r'\bоплата\b', r'\bсчет\b', r'\bперевод\b', r'\bзарплата\b'
+            r"\bpayment\b",
+            r"\btransfer\b",
+            r"\bdeposit\b",
+            r"\bwithdrawal\b",
+            r"\binvoice\b",
+            r"\bsalary\b",
+            r"\brent\b",
+            r"\butility\b",
+            r"\bоплата\b",
+            r"\bсчет\b",
+            r"\bперевод\b",
+            r"\bзарплата\b",
         ],
         "skill": [
-            r'\bpython\b', r'\bjava\b', r'\bc\+\+\b', r'\bjavascript\b',
-            r'\bexcel\b', r'\bword\b', r'\bpowerpoint\b', r'\bphotoshop\b',
-            r'\bпрограммирование\b', r'\bанализ\b', r'\bпроектирование\b'
-        ]
+            r"\bpython\b",
+            r"\bjava\b",
+            r"\bc\+\+\b",
+            r"\bjavascript\b",
+            r"\bexcel\b",
+            r"\bword\b",
+            r"\bpowerpoint\b",
+            r"\bphotoshop\b",
+            r"\bпрограммирование\b",
+            r"\bанализ\b",
+            r"\bпроектирование\b",
+        ],
     }
 
     # Check each pattern type
@@ -836,8 +879,11 @@ def suggest_entity_type(texts: List[str], sample_size: int = 100) -> str:
     # Sample texts if there are many
     if len(texts) > sample_size:
         import random
+
         random.seed(42)  # For reproducibility
-        sampled_texts = random.sample([t for t in texts if t], min(sample_size, len([t for t in texts if t])))
+        sampled_texts = random.sample(
+            [t for t in texts if t], min(sample_size, len([t for t in texts if t]))
+        )
     else:
         sampled_texts = [t for t in texts if t]
 
@@ -855,3 +901,11 @@ def suggest_entity_type(texts: List[str], sample_size: int = 100) -> str:
         return "generic"
 
     return max(type_counts.items(), key=lambda x: x[1])[0]
+
+
+def make_stat(count: int, total: int) -> Dict[str, Any]:
+    """Generate count and percentage dict for analysis report."""
+    return {
+        "count": int(count),
+        "percentage": round((count / total) * 100, 2) if total > 0 else 0.0,
+    }

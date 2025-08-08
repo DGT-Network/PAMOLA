@@ -20,7 +20,7 @@ Key Features:
     - Standardized operation lifecycle with validation, execution, and result handling
     - Support for both in-place (REPLACE) and new field creation (ENRICH) modes
     - Configurable null value handling strategies (PRESERVE, EXCLUDE, ERROR)
-    - Memory-efficient chunk-based processing for large datasets
+    - Memory-efficient processing for large datasets
     - Comprehensive metrics collection and visualization generation
     - Robust caching mechanism for operation results
     - Progress tracking and reporting throughout the operation
@@ -37,12 +37,12 @@ Framework:
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
-import dask.dataframe as dd
-from pamola_core.common.enum.fidelity_metrics import FidelityMetrics
+from pamola_core.common.enum.fidelity_metrics_type import FidelityMetricsType
 from pamola_core.metrics.base_metrics_op import MetricsOperation
+from pamola_core.metrics.commons.safe_instantiate import safe_instantiate
 from pamola_core.metrics.fidelity.distribution.kl_divergence import KLDivergence
 from pamola_core.metrics.fidelity.distribution.ks_test import KolmogorovSmirnovTest
 from pamola_core.utils.ops.op_config import OperationConfig
@@ -52,8 +52,11 @@ from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import create_bar_plot
 
-# Default values
-DEFAULT_SAMPLE_SIZE = 10000
+# Factory mapping for fidelity metrics
+FIDELITY_METRIC_FACTORY = {
+    FidelityMetricsType.KL.value: KLDivergence,
+    FidelityMetricsType.KS.value: KolmogorovSmirnovTest,
+}
 
 
 class FidelityConfig(OperationConfig):
@@ -67,9 +70,12 @@ class FidelityConfig(OperationConfig):
                 "type": "array",
                 "items": {
                     "type": "string",
-                    "enum": [FidelityMetrics.KS.value, FidelityMetrics.KL.value],
+                    "enum": [
+                        FidelityMetricsType.KS.value,
+                        FidelityMetricsType.KL.value,
+                    ],
                 },
-                "default": [FidelityMetrics.KS.value, FidelityMetrics.KL.value],
+                "default": [FidelityMetricsType.KS.value, FidelityMetricsType.KL.value],
             },
             "metric_params": {"type": ["object", "null"]},
             "columns": {
@@ -86,8 +92,6 @@ class FidelityConfig(OperationConfig):
             },
             "description": {"type": "string", "default": ""},
             "optimize_memory": {"type": "boolean"},
-            "adaptive_chunk_size": {"type": "boolean"},
-            "chunk_size": {"type": "integer", "minimum": 1},
             "use_dask": {"type": "boolean"},
             "npartitions": {"type": ["integer", "null"], "minimum": 1},
             "dask_partition_size": {"type": ["string", "null"], "default": "100MB"},
@@ -125,8 +129,8 @@ class FidelityOperation(MetricsOperation):
         self,
         name: str = "fidelity_metrics",
         fidelity_metrics: List[str] = [
-            FidelityMetrics.KS.value,
-            FidelityMetrics.KL.value,
+            FidelityMetricsType.KS.value,
+            FidelityMetricsType.KL.value,
         ],
         metric_params: Optional[Dict[str, Any]] = None,
         columns: Optional[List[str]] = None,
@@ -136,16 +140,14 @@ class FidelityOperation(MetricsOperation):
         description: str = "",
         # Memory optimization
         optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
         # Specific parameters
-        sample_size: int = DEFAULT_SAMPLE_SIZE,
-        chunk_size: int = 10000,
+        sample_size: Optional[int] = None,
         use_dask: bool = False,
         npartitions: Optional[int] = None,
         dask_partition_size: Optional[str] = None,
         use_cache: bool = True,
         use_encryption: bool = False,
-        encryption_mode: Optional[str] = None,
+        encryption_mode: Optional[str] = "none",
         encryption_key: Optional[Union[str, Path]] = None,
         visualization_theme: Optional[str] = None,
         visualization_backend: Optional[str] = "plotly",
@@ -160,7 +162,7 @@ class FidelityOperation(MetricsOperation):
         name : str, optional
             Name of the operation (default: "fidelity_metrics")
         fidelity_metrics : List[str], optional
-            List of fidelity metrics to calculate (default: [FidelityMetric.KS.value, FidelityMetric.KL.value])
+            List of fidelity metrics to calculate (default: [FidelityMetricsType.KS.value, FidelityMetricsType.KL.value])
         metric_params : Optional[Dict[str, Any]], optional
             Additional parameters for metrics calculation (default: None)
         columns : List[str], optional
@@ -177,10 +179,6 @@ class FidelityOperation(MetricsOperation):
             Operation description
         optimize_memory : bool, optional
             Whether to optimize DataFrame memory usage
-        adaptive_chunk_size : bool, optional
-            Whether to adjust chunk size based on available memory
-        chunk_size : int, optional
-            Size of chunks for processing (default: 10000)
         use_dask : bool, optional
             Whether to use Dask for parallel processing (default: False)
         npartitions : Optional[int], optional
@@ -220,8 +218,6 @@ class FidelityOperation(MetricsOperation):
             sample_size=sample_size,
             description=description,
             optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            chunk_size=chunk_size,
             use_dask=use_dask,
             npartitions=npartitions,
             dask_partition_size=dask_partition_size,
@@ -250,8 +246,6 @@ class FidelityOperation(MetricsOperation):
                     "confidence_level",
                     "description",
                     "optimize_memory",
-                    "adaptive_chunk_size",
-                    "chunk_size",
                     "use_dask",
                     "npartitions",
                     "dask_partition_size",
@@ -379,7 +373,6 @@ class FidelityOperation(MetricsOperation):
 
         for metric_type in fidelity_metrics:
             params = metric_params.get(metric_type, {})
-
             try:
                 if progress_tracker:
                     progress_tracker.update(
@@ -392,30 +385,26 @@ class FidelityOperation(MetricsOperation):
                 self.logger.info(
                     f"Calculating {metric_type.upper()} metric with params: {params}"
                 )
-                # Instantiate metric
-                if metric_type == FidelityMetrics.KL.value:
-                    metric = KLDivergence(
-                        key_fields=params.get("key_fields"),
-                        value_field=params.get("value_field"),
-                        aggregation=params.get("aggregation", "count"),
-                        epsilon=params.get("epsilon", 0.01),
-                    )
-                elif metric_type == FidelityMetrics.KS.value:
-                    metric = KolmogorovSmirnovTest(
-                        key_fields=params.get("key_fields"),
-                        value_field=params.get("value_field"),
-                        aggregation=params.get("aggregation", "sum"),
-                    )
-                else:
+
+                metric_class = FIDELITY_METRIC_FACTORY.get(metric_type)
+                if not metric_class:
                     raise ValueError(f"Unsupported fidelity metric: {metric_type}")
 
-                # Calculate and store result
+                # Append shared init params if not in `params`
+                params.setdefault("confidence_level", self.confidence_level)
+                params.setdefault("normalize", self.normalize)
+
+                # Instantiate the metric class with provided parameters
+                metric = safe_instantiate(metric_class, params)
+
+                # Calculate the metric
                 result = metric.calculate_metric(original_df, transformed_df)
+
                 if progress_tracker:
                     progress_tracker.update(
                         3,
                         {
-                            "step": f"Calculated  {metric_type.upper()} metric",
+                            "step": f"Calculated {metric_type.upper()} metric",
                             "params": params,
                         },
                     )
@@ -429,34 +418,6 @@ class FidelityOperation(MetricsOperation):
                 ) from e
 
         return results
-
-    def calculate_metrics_with_dask(
-        self,
-        original_ddf: dd.DataFrame,
-        transformed_ddf: dd.DataFrame,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        **kwargs: Any,
-    ) -> Dict[str, Any]:
-        """
-        Calculate the metric values using Dask - must be implemented by subclasses.
-
-        Parameters:
-        -----------
-        original_ddf : dd.DataFrame
-            DataFrame original to process
-        transformed_ddf : dd.DataFrame
-            DataFrame transformed to process
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker for monitoring
-        **kwargs : Any
-            Additional parameters for processing
-
-        Returns:
-        --------
-        Dict[str, Any]
-            - Metric result dictionary
-        """
-        raise NotImplementedError("Not implement calculate_metrics_with_dask method")
 
     def _generate_visualizations(
         self,
@@ -515,67 +476,60 @@ class FidelityOperation(MetricsOperation):
             # Step 2: Create visualization
             if progress_tracker:
                 progress_tracker.update(2, {"step": "Creating visualization"})
+
             # KS Visualization
             if "ks" in metrics:
                 ks = metrics["ks"]
-                df_ks = pd.DataFrame(
-                    [
-                        {
-                            "Metric": "KS Statistic",
-                            "Value": ks.get("ks_statistic"),
-                            "Interpretation": ks.get("interpretation", ""),
-                        },
-                        {
-                            "Metric": "KS p-value",
-                            "Value": ks.get("p_value"),
-                            "Interpretation": ks.get("interpretation", ""),
-                        },
-                    ]
-                )
-                ks_plot_path = viz_dir / f"ks_metric_{timestamp}.png"
-                create_bar_plot(
-                    df_ks,
-                    x="Metric",
-                    y="Value",
+                ks_dict = {
+                    "KS Statistic": ks.get("ks_statistic"),
+                    "KS p-value": ks.get("p_value"),
+                }
+
+                ks_plot_path = viz_dir / f"{self.name}_ks_metric_{timestamp}.png"
+                ks_plot_result = create_bar_plot(
+                    ks_dict,
                     output_path=ks_plot_path,
                     title="Kolmogorov-Smirnov Test Metrics",
+                    x_label="Metric",
+                    y_label="Value",
                     backend=vis_backend,
                     theme=vis_theme,
                     strict=vis_strict,
                     **kwargs,
                 )
-                visualization_paths["ks_metric_bar"] = ks_plot_path
+                if not ks_plot_result.startswith("Error"):
+                    visualization_paths["ks_metric_bar"] = ks_plot_path
+                else:
+                    self.logger.error(
+                        f"Failed to create visualization: {ks_plot_result}"
+                    )
 
             # KL Visualization
             if "kl" in metrics:
                 kl = metrics["kl"]
-                df_kl = pd.DataFrame(
-                    [
-                        {
-                            "Metric": "KL Divergence (nats)",
-                            "Value": kl.get("kl_divergence"),
-                            "Interpretation": kl.get("interpretation", ""),
-                        },
-                        {
-                            "Metric": "KL Divergence (bits)",
-                            "Value": kl.get("kl_divergence_bits"),
-                            "Interpretation": kl.get("interpretation", ""),
-                        },
-                    ]
-                )
-                kl_plot_path = viz_dir / f"kl_metric_{timestamp}.png"
-                create_bar_plot(
-                    df_kl,
-                    x="Metric",
-                    y="Value",
+                kl_dict = {
+                    "KL Divergence (nats)": kl.get("kl_divergence"),
+                    "KL Divergence (bits)": kl.get("kl_divergence_bits"),
+                }
+
+                kl_plot_path = viz_dir / f"{self.name}_kl_metric_{timestamp}.png"
+                kl_plot_result = create_bar_plot(
+                    kl_dict,
                     output_path=kl_plot_path,
                     title="KL Divergence Metrics",
+                    x_label="Metric",
+                    y_label="Value",
                     backend=vis_backend,
                     theme=vis_theme,
                     strict=vis_strict,
                     **kwargs,
                 )
-                visualization_paths["kl_metric_bar"] = kl_plot_path
+                if not kl_plot_result.startswith("Error"):
+                    visualization_paths["kl_metric_bar"] = kl_plot_path
+                else:
+                    self.logger.error(
+                        f"Failed to create visualization: {kl_plot_result}"
+                    )
 
             # Step 3: Finalize visualizations
             if progress_tracker:
@@ -609,8 +563,6 @@ class FidelityOperation(MetricsOperation):
             confidence_level=self.confidence_level,
             mode=self.mode,
             optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
             use_dask=self.use_dask,
             npartitions=self.npartitions,
             dask_partition_size=self.dask_partition_size,

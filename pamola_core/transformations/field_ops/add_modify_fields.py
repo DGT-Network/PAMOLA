@@ -440,7 +440,8 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     visualizations = self._handle_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
-                        task_dir=visualizations_dir,
+                        metrics=metrics,
+                        task_dir=task_dir,
                         result=result,
                         reporter=reporter,
                         vis_theme=vis_theme,
@@ -552,11 +553,13 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     batch[field_name] = constant_value
 
             if operation_type == "add_from_lookup":
+                base_on_column = field_config.get("base_on_column")
                 lookup_table_name = field_config.get("lookup_table_name")
                 lookup_table = self.lookup_tables.get(lookup_table_name)
                 if (
                         field_name
                         and field_name not in batch.columns
+                        and base_on_column in batch.columns
                         and lookup_table_name
                         and lookup_table_name in self.lookup_tables
                         and lookup_table
@@ -565,12 +568,22 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         with open(lookup_table, "r") as file:
                             lookup_table = json.load(file)
 
-                    lookup_value = lookup_table.get(field_name)
-                    if lookup_value:
-                        batch[field_name] = lookup_value
+                    if lookup_table:
+                        batch[field_name] = batch[base_on_column].map(lookup_table)
 
             if operation_type == "add_conditional":
-                raise NotImplementedError("Not implement")
+                condition = field_config.get("condition")
+                value_if_true = field_config.get("value_if_true")
+                value_if_false = field_config.get("value_if_false")
+                if (
+                        field_name
+                        and field_name not in batch.columns
+                        and condition
+                        and value_if_true
+                ):
+                    batch[field_name] = batch.apply(
+                        lambda row: value_if_true if eval(condition) else value_if_false, axis=1
+                    )
 
             if operation_type == "modify_constant":
                 constant_value = field_config.get("constant_value")
@@ -587,11 +600,13 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     batch[output_field_name] = constant_value
 
             if operation_type == "modify_from_lookup":
+                base_on_column = field_config.get("base_on_column")
                 lookup_table_name = field_config.get("lookup_table_name")
                 lookup_table = self.lookup_tables.get(lookup_table_name)
                 if (
                         field_name
                         and field_name in batch.columns
+                        and base_on_column in batch.columns
                         and lookup_table_name
                         and lookup_table_name in self.lookup_tables
                         and lookup_table
@@ -600,20 +615,52 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         with open(lookup_table, "r") as file:
                             lookup_table = json.load(file)
 
-                    lookup_value = lookup_table.get(field_name)
-                    if lookup_value:
+                    if lookup_table:
                         # Config output field name
                         output_field_name = field_name
                         if self.mode == "ENRICH" and self.column_prefix:
                             output_field_name = f"{self.column_prefix}{field_name}"
 
-                        batch[output_field_name] = lookup_value
+                        batch[output_field_name] = batch[base_on_column].map(lookup_table)
 
             if operation_type == "modify_conditional":
-                raise NotImplementedError("Not implement")
+                condition = field_config.get("condition")
+                value_if_true = field_config.get("value_if_true")
+                value_if_false = field_config.get("value_if_false")
+                if (
+                        field_name
+                        and field_name in batch.columns
+                        and condition
+                        and value_if_true
+                ):
+                    # Config output field name
+                    output_field_name = field_name
+                    if self.mode == "ENRICH" and self.column_prefix:
+                        output_field_name = f"{self.column_prefix}{field_name}"
+
+                    batch[output_field_name] = batch.apply(
+                        lambda row: value_if_true if eval(condition) else value_if_false, axis=1
+                    )
 
             if operation_type == "modify_expression":
-                raise NotImplementedError("Not implement")
+                base_on_column = field_config.get("base_on_column")
+                expression_character = field_config.get("expression_character")
+                expression = field_config.get("expression")
+                if (
+                        field_name
+                        and field_name in batch.columns
+                        and base_on_column in batch.columns
+                        and expression_character
+                        and expression
+                ):
+                    # Config output field name
+                    output_field_name = field_name
+                    if self.mode == "ENRICH" and self.column_prefix:
+                        output_field_name = f"{self.column_prefix}{field_name}"
+
+                    batch[output_field_name] = batch[base_on_column].apply(
+                        lambda x: eval(expression.replace(expression_character, str(x)))
+                    )
 
         processed_batch = batch
 
@@ -875,8 +922,8 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         import hashlib
 
-        describe_order = ['count', 'unique', 'top', 'freq', 'mean', 'std', 'min', '25%', '50%', '75%', 'max']
-        desired_order = ['count', 'unique', 'mean', 'std', 'min', 'max']
+        describe_order = ["count", "unique", "top", "freq", "mean", "std", "min", "25%", "50%", "75%", "max"]
+        desired_order = ["count", "unique", "mean", "std", "min", "max"]
 
         try:
             # Create data characteristics
@@ -1341,15 +1388,69 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         Dict[str, Any]
             A dictionary of calculated metrics
         """
-        # Basic metrics
-        metrics: Dict[str, Any] = {
-            "operation_type": self.__class__.__name__,
-            "field_operations": self.field_operations,
-            "lookup_tables": self.lookup_tables
-        }
+        import pandas.api.types as ptypes
+        from pamola_core.transformations.commons.visualization_utils import sample_large_dataset
 
-        # Add metrics
-        metrics.update(self.calculate_dataset_comparison(original_df,processed_df))
+        # Basic metrics
+        metrics: Dict[str, Any] = {}
+
+        # Specific metrics
+        # Sample large datasets
+        original_sample = sample_large_dataset(original_df, max_samples=10000)
+        processed_sample = sample_large_dataset(processed_df, max_samples=10000)
+
+        fields_added = [
+            col for col in processed_sample.columns if col not in original_sample.columns
+        ]
+        fields_modified = [
+            col for col in original_sample.columns
+            if col in processed_sample.columns
+               and not original_sample[col].equals(processed_sample[col])
+        ]
+
+        distribution_statistics = {}
+        for processed_field in (fields_modified + fields_added):
+            distribution_statistics.update({
+                processed_field: processed_sample[processed_field].describe().to_dict()
+            })
+
+        correlations = {}
+        for processed_field in (fields_modified + fields_added):
+            if processed_field.startswith(self.column_prefix):
+                original_field = processed_field[len(self.column_prefix):]
+            else:
+                original_field = processed_field
+
+            if original_field in original_sample.columns:
+
+                if (
+                        ptypes.is_numeric_dtype(original_sample[original_field])
+                        and ptypes.is_numeric_dtype(processed_sample[processed_field])
+                ):
+                    x = pd.to_numeric(original_sample[original_field], errors='coerce')
+                    y = pd.to_numeric( processed_sample[processed_field], errors='coerce')
+                    if x.std() == 0 or y.std() == 0 or x.isna().all() or y.isna().all():
+                        correlation = np.nan
+                    else:
+                        correlation = x.corr(y, method="pearson")
+
+                    correlations.update({
+                        original_field: "NaN" if np.isnan(correlation) else correlation
+                    })
+
+        missing_values = {}
+        for processed_field in fields_added:
+            missing_values.update({
+                processed_field: int(processed_sample[processed_field].isnull().sum())
+            })
+
+        metrics.update({
+            "fields_added_count": len(fields_added),
+            "fields_modified_count": len(fields_modified),
+            "distribution_statistics": distribution_statistics,
+            "correlations": correlations,
+            "missing_values": missing_values
+        })
 
         return metrics
 
@@ -1760,6 +1861,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             self,
             original_df: Union[pd.DataFrame, dd.DataFrame],
             processed_df: Union[pd.DataFrame, dd.DataFrame],
+            metrics: Dict[str, Any],
             task_dir: Path,
             result: OperationResult,
             reporter: Any,
@@ -1779,6 +1881,8 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             The original data
         processed_df : Union[pd.DataFrame, dd.DataFrame]
             The processed data
+        metrics : dict
+            The metrics of operation
         task_dir : Path
             The task directory
         result : OperationResult
@@ -1851,6 +1955,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     visualization_paths = self._generate_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
+                        metrics=metrics,
                         task_dir=task_dir,
                         vis_theme=vis_theme,
                         vis_backend=vis_backend,
@@ -1941,6 +2046,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             self,
             original_df: Union[pd.DataFrame, dd.DataFrame],
             processed_df: Union[pd.DataFrame, dd.DataFrame],
+            metrics: Dict[str, Any],
             task_dir: Path,
             vis_theme: Optional[str],
             vis_backend: Optional[str],
@@ -1957,6 +2063,8 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             The original data before processing
         processed_df : Union[pd.DataFrame, dd.DataFrame]
             The anonymized data after processing
+        metrics : dict
+            The metrics of operation
         task_dir : Path
             Task directory for saving visualizations
         vis_theme : str, optional
@@ -1973,15 +2081,12 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         Dict[str, Path]
             Dictionary with visualization types and paths
         """
-        from pamola_core.transformations.commons.visualization_utils import (
-            generate_dataset_overview_vis,
-            generate_field_count_comparison_vis,
-            generate_record_count_comparison_vis,
-            generate_data_distribution_comparison_vis,
-            sample_large_dataset
-        )
+        from pamola_core.utils.visualization import create_bar_plot
+        from pamola_core.transformations.commons.visualization_utils import sample_large_dataset
 
         visualization_paths = {}
+        viz_dir = task_dir / "visualizations"
+        viz_dir.mkdir(parents=True, exist_ok=True)
 
         # Create timestamp for filenames
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1997,7 +2102,12 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         try:
             # Step 1: Prepare data
             if progress_tracker:
-                progress_tracker.update(1, {"step": "Preparing visualization data"})
+                progress_tracker.update(
+                    n=1,
+                    postfix={
+                        "step": "Preparing visualization data"
+                    }
+                )
 
             # Sample large datasets for visualization
             original_rows = int(original_df.map_partitions(len).sum().compute())\
@@ -2020,118 +2130,92 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
             self.logger.debug(f"[VIZ] Data prepared for visualization: {len(original_for_viz)} samples")
 
-            # Step 2 & 3: Create visualization & Save visualization
+            # Step 2: Create visualization
             if progress_tracker:
-                progress_tracker.update(2, {"step": "Create visualization"})
-                progress_tracker.update(3, {"step": "Save visualization"})
-
-            # Generate visualization
-            field_names = set()
-            if self.field_operations:
-                field_names.update(self.field_operations.keys())
-            field_names = list(field_names)
-
-            output_field_names = field_names
-            if self.mode == "ENRICH" and self.column_prefix:
-                output_field_names = [f"{self.column_prefix}{field_name}" for field_name in field_names]
-
-            for field_name in field_names:
-                output_field_name = field_name
-                if self.mode == "ENRICH" and self.column_prefix:
-                    output_field_name = f"{self.column_prefix}{field_name}"
-
-                visualization_paths.update(
-                    generate_data_distribution_comparison_vis(
-                        original_data=original_for_viz[field_name],
-                        transformed_data=processed_for_viz[output_field_name],
-                        field_label=field_name,
-                        operation_name=f"{self.__class__.__name__}",
-                        task_dir=task_dir / "visualizations",
-                        timestamp=timestamp,
-                        theme=vis_theme,
-                        backend=vis_backend,
-                        strict=vis_strict,
-                        visualization_paths=None
-                    )
+                progress_tracker.update(
+                    n=2,
+                    postfix={
+                        "step": "Creating visualization"
+                    }
                 )
 
-            MAX_FIELDS_DISPLAY = 5
-            if len(field_names) > MAX_FIELDS_DISPLAY:
-                field_label = f"{len(field_names)} fields"
+            # Fields Count Comparison Before/After
+            viz_data = {
+                "1.Before": len(original_for_viz.columns),
+                "2.After": len(processed_for_viz.columns),
+                "3.Modified": metrics["fields_modified_count"],
+                "4.Added": metrics["fields_added_count"]
+            }
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_fields_count_comparison_{timestamp}.png"
+            viz_result = create_bar_plot(
+                data=viz_data,
+                output_path=viz_path,
+                title="Fields Count Comparison",
+                x_label="Fields Count",
+                y_label="Value",
+                sort_by="key",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
+            )
+
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                field_label = ",".join(field_names) 
+                visualization_paths[f"fields_count_comparison"] = viz_path
 
-            visualization_paths.update(
-                generate_dataset_overview_vis(
-                    df=original_for_viz,
-                    operation_name=f"{self.__class__.__name__}",
-                    dataset_label="original",
-                    field_label=field_label,
-                    task_dir=task_dir / "visualizations",
-                    timestamp=timestamp,
-                    theme=vis_theme,
+            # Distribution statistics for new/modified fields
+            for field, distribution_statistic in metrics["distribution_statistics"].items():
+                viz_data = distribution_statistic
+                viz_path = viz_dir / f"{self.__class__.__name__.lower()}_distribution_statistic_{field.lower()}_{timestamp}.png"
+                viz_result = create_bar_plot(
+                    data=viz_data,
+                    output_path=viz_path,
+                    title=f"Distribution Statistics For '{field.upper()}'",
+                    x_label="Statistic",
+                    y_label="Value",
+                    sort_by="key",
                     backend=vis_backend,
+                    theme=vis_theme,
                     strict=vis_strict,
-                    visualization_paths=None
+                    **kwargs
                 )
-            )
 
-            if len(output_field_names) > MAX_FIELDS_DISPLAY:
-                output_field_label = f"{len(output_field_names)} output fields"
+                if viz_result.startswith("Error"):
+                    self.logger.error(f"Failed to create visualization: {viz_result}")
+                else:
+                    visualization_paths[f"distribution_statistic_{field.lower()}"] = viz_path
+
+            # Correlation between original and modified fields
+            viz_data = metrics["correlations"]
+            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_correlations_{timestamp}.png"
+            viz_result = create_bar_plot(
+                data=viz_data,
+                output_path=viz_path,
+                title=f"Correlations",
+                x_label="Field",
+                y_label="Correlation",
+                sort_by="key",
+                backend=vis_backend,
+                theme=vis_theme,
+                strict=vis_strict,
+                **kwargs
+            )
+            if viz_result.startswith("Error"):
+                self.logger.error(f"Failed to create visualization: {viz_result}")
             else:
-                output_field_label = ",".join(output_field_names)
-
-            visualization_paths.update(
-                generate_dataset_overview_vis(
-                    df=processed_for_viz,
-                    operation_name=f"{self.__class__.__name__}",
-                    dataset_label="transformed",
-                    field_label=output_field_label,
-                    task_dir=task_dir / "visualizations",
-                    timestamp=timestamp,
-                    theme=vis_theme,
-                    backend=vis_backend,
-                    strict=vis_strict,
-                    visualization_paths=None
-                )
-            )
-
-            visualization_paths.update(
-                 generate_record_count_comparison_vis(
-                     original_df=original_for_viz,
-                     transformed_dfs={"transformed": processed_for_viz},
-                     field_label=field_label,
-                     operation_name=f"{self.__class__.__name__}",
-                     task_dir=task_dir / "visualizations",
-                     timestamp=timestamp,
-                     theme=vis_theme,
-                     backend=vis_backend,
-                     strict=vis_strict,
-                     visualization_paths=None
-                 )
-            )
-
-            visualization_paths.update(
-                 generate_field_count_comparison_vis(
-                     original_df=original_for_viz,
-                     transformed_df=processed_for_viz,
-                     field_label=field_label,
-                     operation_name=f"{self.__class__.__name__}",
-                     task_dir=task_dir / "visualizations",
-                     timestamp=timestamp,
-                     theme=vis_theme,
-                     backend=vis_backend,
-                     strict=vis_strict,
-                     visualization_paths=None
-                 )
-            )
+                visualization_paths[f"correlations"] = viz_path
 
             self.logger.info(f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations")
+
             return visualization_paths
+
         except Exception as e:
             self.logger.error(f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}")
             self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
-            return {}
+
+        return visualization_paths
 
     def _save_output_data(
             self,
