@@ -1,634 +1,671 @@
-I'll create a fully updated specification for the NumericGeneralizationOperation documentation with all the sections we discussed.
-
 # Numeric Generalization Operation
+
+**Module:** `pamola_core.anonymization.generalization.numeric_op`  
+**Version:** 3.0.2  
+**Status:** Stable  
+**Last Updated:** June 20, 2025
+
+## Table of Contents
+1. [Overview](#1-overview)
+2. [Architecture](#2-architecture)
+3. [Key Features](#3-key-features)
+4. [Core Components](#4-core-components)
+5. [API Reference](#5-api-reference)
+6. [Usage Examples](#6-usage-examples)
+7. [Metrics and Outputs](#7-metrics-and-outputs)
+8. [Performance Considerations](#8-performance-considerations)
+9. [Limitations](#9-limitations)
+10. [Best Practices](#10-best-practices)
 
 ## 1. Overview
 
-The `NumericGeneralizationOperation` provides functionality for anonymizing numeric data fields while preserving their analytical utility. It implements various generalization strategies that reduce the precision of numeric values, making it harder to identify individuals while maintaining the overall statistical properties of the dataset.
+The `NumericGeneralizationOperation` is a privacy-preserving data transformation module within the PAMOLA.CORE framework that reduces the precision of numeric values to enhance privacy while maintaining analytical utility. It implements three core generalization strategies:
 
-This module is part of the PAMOLA.CORE (Privacy And Management Of Large Anonymization) library, specifically within the anonymization package, which provides comprehensive privacy-enhancing technologies for data processing and anonymization.
+- **Binning**: Groups numeric values into discrete intervals
+- **Rounding**: Reduces precision to specified decimal places
+- **Range**: Maps values to predefined ranges with outlier handling
 
-## 2. Key Features
+This operation is designed for scenarios where exact numeric values pose privacy risks but aggregated or approximate values retain sufficient utility for analysis.
 
-- **Multiple Generalization Strategies**:
-  - **Binning**: Groups numeric values into equal-width intervals (bins)
-  - **Rounding**: Reduces precision by rounding to a specified decimal place
-  - **Range**: Maps values to predefined ranges with special handling for outliers
+## 2. Architecture
 
-- **Data Utility Preservation**: Maintains statistical properties essential for analysis while reducing identification risks
+### 2.1 Architectural Principles
 
-- **Configurable Privacy Level**: Adjustable parameters for fine-tuning the privacy-utility trade-off
+The module follows several key architectural principles:
 
-- **Flexible Data Handling**: 
-  - Options for handling null values (PRESERVE, EXCLUDE, ERROR)
-  - Support for both in-place modification (REPLACE) and new field creation (ENRICH)
-  - Batch processing for large datasets
+1. **Separation of Concerns**: The operation focuses solely on numeric transformation logic, delegating I/O, metrics, and visualization to specialized framework components.
 
-- **Comprehensive Metrics**: Generates detailed metrics about the generalization process and its effects on data
+2. **Framework Integration**: Fully integrated with PAMOLA.CORE utilities:
+   - Uses `DataWriter` for all file operations
+   - Leverages `ProgressTracker` for operation monitoring
+   - Returns standardized `OperationResult` objects
+   - Delegates metrics to commons utilities
 
-- **Visualization Support**: Creates visualizations comparing original and generalized data distributions
+3. **Atomic Operation Design**: Each instance is self-contained with no side effects or state persistence between executions.
 
-- **Caching Support**: Efficient caching mechanism for result reuse
+4. **Privacy-First Processing**: Supports risk-based processing using k-anonymity scores and vulnerable record identification.
 
-- **Progress Tracking**: Reports progress during long-running operations
+5. **Batch Processing Architecture**: Processes data in configurable chunks with adaptive sizing based on available memory.
 
-- **Encryption Support**: Optional encryption of output files
-
-## 3. Architecture and Dependencies
+### 2.2 Component Integration
 
 ```
-                    +--------------------------+
-                    |     BaseOperation        |
-                    | (pamola_core.utils.ops.op_base) |
-                    +--------------------------+
-                                 ^
-                                 |
-                                 | inherits
-                    +------------------------+
-                    | AnonymizationOperation |
-                    | (base_anonymization_op)|
-                    +------------------------+
-                                 ^
-                                 |
-                                 | inherits
-                    +------------------------+
-                    |NumericGeneralizationOp |
-                    |(numeric_op.py)         |
-                    +------------------------+
-                           |              ^
-                           v              |
-  +-------------------+    |    +---------------------+
-  | Commons Utilities |<---+--->| Pamola Core Utils          |
-  +-------------------+         +---------------------+
-  | - validation_utils|         | - visualization     |
-  | - processing_utils|         | - io                |
-  | - metric_utils    |         | - progress          |
-  | - visualization_  |         | - op_base           |
-  |   utils           |         | - op_data_source    |
-  +-------------------+         | - op_data_writer    |
-                                | - op_result         |
-                                | - op_cache          |<----- Caching Support
-                                | - op_config         |
-                                +---------------------+
-                                           ^
-                                           |
-                                 +---------------------+
-                                 | External Libraries  |
-                                 +---------------------+
-                                 | - pandas            |
-                                 | - numpy             |
-                                 | - pathlib           |
-                                 +---------------------+
+┌─────────────────────────────────────────────────┐
+│          NumericGeneralizationOperation         │
+├─────────────────────────────────────────────────┤
+│ Inherits from: AnonymizationOperation          │
+│                                                 │
+│ Core Dependencies:                              │
+│ ├── commons.data_utils                         │
+│ │   └── process_nulls()                        │
+│ ├── commons.metric_utils                       │
+│ │   ├── calculate_anonymization_effectiveness()│
+│ │   ├── calculate_generalization_metrics()     │
+│ │   └── collect_operation_metrics()            │
+│ ├── commons.privacy_metric_utils               │
+│ │   ├── calculate_batch_metrics()              │
+│ │   └── calculate_simple_disclosure_risk()     │
+│ ├── commons.validation_utils                   │
+│ │   └── validate_numeric_field()               │
+│ └── commons.visualization_utils                │
+│     └── create_comparison_visualization()      │
+│                                                 │
+│ Framework Integration:                          │
+│ ├── DataWriter (file operations)               │
+│ ├── ProgressTracker (progress reporting)       │
+│ ├── OperationResult (result packaging)         │
+│ ├── OperationConfig (configuration)            │
+│ └── Field Utilities (naming, conditions)       │
+└─────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+### 2.3 Processing Flow
 
 ```mermaid
 flowchart TD
-    A[Input DataFrame] --> B[NumericGeneralizationOperation]
-    B --> C{Strategy Selection}
-    C -->|Binning| D[Binning Process]
-    C -->|Rounding| E[Rounding Process]
-    C -->|Range| F[Range Process]
-    
-    D --> G[Generalized DataFrame]
-    E --> G
-    F --> G
-    
-    G --> H[Calculate Metrics]
-    G --> I[Generate Visualizations]
-    
-    H --> J[Operation Result]
-    I --> J
-    
-    J --> K[Return Anonymized Data]
-    J --> L{Encryption Requested?}
-    
-    L -->|Yes| M[Encrypt Output]
-    L -->|No| N[Save Unencrypted]
-    
-    M --> O[Save Encrypted Artifacts]
-    N --> P[Save Regular Artifacts]
-    
-    O --> Q[Final Result with Artifact Paths]
-    P --> Q
+    A[Start] --> B[Validate Configuration]
+    B --> C[Load Data]
+    C --> D{Risk-Based Filtering?}
+    D -->|Yes| E[Identify Vulnerable Records]
+    D -->|No| F[Process All Records]
+    E --> G[Apply Aggressive Generalization]
+    G --> F
+    F --> H[Batch Processing]
+    H --> I{Strategy}
+    I -->|Binning| J[Apply Binning]
+    I -->|Rounding| K[Apply Rounding]
+    I -->|Range| L[Apply Range]
+    J --> M[Collect Metrics]
+    K --> M
+    L --> M
+    M --> N[Generate Visualizations]
+    N --> O[Write Output]
+    O --> P[Return Result]
 ```
 
-### Execution Workflow
+## 3. Key Features
 
-```mermaid
-sequenceDiagram
-    participant User as User Script
-    participant Op as NumericGeneralizationOperation
-    participant DS as DataSource
-    participant DW as DataWriter
-    participant Cache as OperationCache
+### 3.1 Core Capabilities
+
+- **Multiple Generalization Strategies**
+  - Binning with equal-width, equal-frequency, and quantile methods
+  - Rounding with positive and negative precision support
+  - Range-based with multiple range support and outlier handling
+
+- **Advanced Processing Options**
+  - Risk-based processing using k-anonymity scores
+  - Conditional processing based on field values
+  - Aggressive generalization for vulnerable records
+  - Batch-level error recovery with partial success
+
+- **Memory Management**
+  - Adaptive batch sizing based on available system memory
+  - Explicit garbage collection for large datasets
+  - DataFrame type optimization before output
+  - Chunked processing with progress tracking
+
+- **Privacy Integration**
+  - K-anonymity metric calculation
+  - Disclosure risk assessment
+  - Suppression rate tracking
+  - Privacy-aware metrics collection
+
+### 3.2 Data Handling Features
+
+- **Flexible Modes**
+  - REPLACE: Modifies field in-place
+  - ENRICH: Creates new field with original preserved
+
+- **Null Value Strategies**
+  - PRESERVE: Keep null values unchanged
+  - EXCLUDE: Remove nulls before processing
+  - ERROR: Raise error on null detection
+  - ANONYMIZE: Replace nulls with anonymization marker
+
+- **Output Formats**
+  - CSV (default)
+  - Parquet (optimized for large datasets)
+  - Arrow (for high-performance analytics)
+
+### 3.3 Monitoring and Reporting
+
+- **Progress Tracking**
+  - Hierarchical progress with phase information
+  - Batch-level progress updates
+  - Memory usage reporting
+  - Error batch tracking
+
+- **Comprehensive Metrics**
+  - Effectiveness metrics (information loss, reduction ratio)
+  - Privacy metrics (k-anonymity, disclosure risk)
+  - Performance metrics (throughput, memory usage)
+  - Strategy-specific metrics
+
+- **Visualizations**
+  - Before/after distribution comparisons
+  - Group size distributions
+  - Metric visualizations
+
+## 4. Core Components
+
+### 4.1 Configuration Class
+
+```python
+class NumericGeneralizationConfig(OperationConfig):
+    """
+    Configuration for NumericGeneralizationOperation.
     
-    User->>Op: run(data_source, task_dir, reporter)
-    activate Op
-    
-    Op->>Cache: Check if cached result exists
-    activate Cache
-    Cache-->>Op: Return cached result or None
-    deactivate Cache
-    
-    alt Cache Hit
-        Op-->>User: Return cached result
-    else Cache Miss
-        Op->>DS: Get DataFrame
-        activate DS
-        DS-->>Op: Return DataFrame or error
-        deactivate DS
-        
-        Op->>Op: Apply generalization strategy
-        Note over Op: Process data in chunks
-        
-        Op->>Op: Calculate metrics
-        
-        Op->>DW: Write metrics to file
-        activate DW
-        DW-->>Op: Return metrics file path
-        deactivate DW
-        
-        Op->>Op: Generate visualizations
-        
-        Op->>DW: Write visualizations to files
-        activate DW
-        DW-->>Op: Return visualization file paths
-        deactivate DW
-        
-        Op->>DW: Write processed data to file
-        activate DW
-        DW-->>Op: Return output file path
-        deactivate DW
-        
-        Op->>Cache: Save result to cache
-        activate Cache
-        Cache-->>Op: Return success status
-        deactivate Cache
-        
-        Op-->>User: Return OperationResult
-    end
-    
-    deactivate Op
+    Validates all parameters against JSON schema including:
+    - Strategy-specific requirements
+    - Conditional processing parameters
+    - Risk-based processing settings
+    - Output format specifications
+    """
 ```
 
-## 4. Class Definition
+### 4.2 Main Operation Class
 
 ```python
 class NumericGeneralizationOperation(AnonymizationOperation):
     """
     Operation for generalizing numeric data.
-
-    This operation generalizes numeric fields using strategies like binning,
-    rounding, or range-based generalization to reduce precision and improve
-    anonymity while preserving analytical utility.
+    
+    Key Methods:
+    - execute(): Main execution with framework integration
+    - process_batch(): Core transformation logic
+    - _apply_binning(): Binning strategy implementation
+    - _apply_rounding(): Rounding strategy implementation
+    - _apply_range(): Range strategy implementation
+    - _collect_comprehensive_metrics(): Metrics aggregation
     """
-
-    def __init__(self,
-                 field_name: str,
-                 strategy: str = "binning",
-                 bin_count: int = 10,
-                 precision: int = 0,
-                 range_limits: Optional[Tuple[float, float]] = None,
-                 mode: str = "REPLACE",
-                 output_field_name: Optional[str] = None,
-                 column_prefix: str = "_",
-                 null_strategy: str = "PRESERVE",
-                 batch_size: int = 10000,
-                 use_cache: bool = True,
-                 use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None,
-                 description: str = ""):
-        """
-        Initialize numeric generalization operation.
-
-        Parameters:
-        -----------
-        field_name : str
-            Field to generalize
-        strategy : str, optional
-            Generalization strategy: "binning", "rounding", or "range" (default: "binning")
-        bin_count : int, optional
-            Number of bins for binning strategy (default: 10)
-        precision : int, optional
-            Decimal places to retain for rounding strategy (default: 0)
-        range_limits : Tuple[float, float], optional
-            (min, max) limits for range strategy (default: None)
-        mode : str, optional
-            "REPLACE" to modify the field in-place, or "ENRICH" to create a new field (default: "REPLACE")
-        output_field_name : str, optional
-            Name for the output field if mode is "ENRICH" (default: None)
-        column_prefix : str, optional
-            Prefix for new column if mode is "ENRICH" (default: "_")
-        null_strategy : str, optional
-            How to handle NULL values: "PRESERVE", "EXCLUDE", or "ERROR" (default: "PRESERVE")
-        batch_size : int, optional
-            Batch size for processing large datasets (default: 10000)
-        use_cache : bool, optional
-            Whether to use operation caching (default: True)
-        use_encryption : bool, optional
-            Whether to encrypt output files (default: False)
-        encryption_key : Optional[Union[str, Path]], optional
-            Encryption key for securing outputs (default: None)
-        description : str, optional
-            Operation description (default: "")
-        """
 ```
 
-## 5. Key Methods and Return Values
+## 5. API Reference
 
-| Method | Description | Parameters | Returns |
-|--------|-------------|------------|---------|
-| `execute()` | Main execution method | `data_source`: DataSource<br>`task_dir`: Path<br>`reporter`: Any<br>`progress_tracker`: ProgressTracker<br>`**kwargs`: Additional parameters | `OperationResult`: Contains status, metrics, artifacts |
-| `process_batch()` | Process a batch of data | `batch`: DataFrame | `DataFrame`: Processed batch |
-| `process_value()` | Process a single value | `value`: Any<br>`**params`: Additional parameters | `Any`: Processed value |
-| `_collect_metrics()` | Collect all metrics | `original_data`: Series<br>`anonymized_data`: Series | `Dict[str, Any]`: Metrics dictionary |
-| `_collect_specific_metrics()` | Collect strategy-specific metrics | `original_data`: Series<br>`anonymized_data`: Series | `Dict[str, Any]`: Strategy-specific metrics |
-| `_generate_visualizations()` | Generate visualizations | `original_data`: Series<br>`anonymized_data`: Series<br>`task_dir`: Path<br>`result`: OperationResult<br>`reporter`: Any | `Dict[str, Path]`: Paths to visualization files |
-| `_get_cache_parameters()` | Get parameters for cache key | - | `Dict[str, Any]`: Parameters for cache key |
-| `_cleanup_memory()` | Clean up temporary data | `processed_df`: DataFrame<br>`original_data`: Series<br>`anonymized_data`: Series | `None` |
-| `_generate_data_hash()` | Generate hash of input data | `data`: Series | `str`: Hash string |
-
-## 6. Parameter Details
-
-### 6.1 Constructor Parameters
-
-| Parameter | Type | Default | Description | Constraints |
-|-----------|------|---------|-------------|-------------|
-| field_name | str | (required) | Field to generalize | Must exist in the DataFrame |
-| strategy | str | "binning" | Generalization strategy | Must be one of: "binning", "rounding", "range" |
-| bin_count | int | 10 | Number of bins for binning strategy | Must be >= 2 |
-| precision | int | 0 | Decimal places to retain for rounding strategy | Any integer |
-| range_limits | Tuple[float, float] | None | (min, max) limits for range strategy | min < max |
-| mode | str | "REPLACE" | Mode of operation | Must be "REPLACE" or "ENRICH" |
-| output_field_name | str | None | Name for output field if mode is "ENRICH" | Optional |
-| column_prefix | str | "_" | Prefix for new column if mode is "ENRICH" | Any string |
-| null_strategy | str | "PRESERVE" | How to handle NULL values | Must be one of: "PRESERVE", "EXCLUDE", "ERROR" |
-| batch_size | int | 10000 | Batch size for processing large datasets | Must be > 0 |
-| use_cache | bool | True | Whether to use operation caching | Boolean |
-| use_encryption | bool | False | Whether to encrypt output files | Boolean |
-| encryption_key | Union[str, Path] | None | Encryption key for securing outputs | Required if use_encryption=True |
-| description | str | "" | Operation description | Any string |
-
-### 6.2 Execute Method Parameters
+### 5.1 Constructor
 
 ```python
-def execute(self,
-            data_source: DataSource,
-            task_dir: Path,
-            reporter: Any,
-            progress_tracker: Optional[ProgressTracker] = None,
-            **kwargs) -> OperationResult:
-    """
-    Execute the operation with timing and error handling.
-
-    Parameters:
-    -----------
-    data_source : DataSource
-        Source of data for the operation
-    task_dir : Path
-        Directory where task artifacts should be saved
-    reporter : Any
-        Reporter object for tracking progress and artifacts
-    progress_tracker : Optional[ProgressTracker]
-        Progress tracker for the operation
-    **kwargs : dict
-        Additional parameters for the operation including:
-        - force_recalculation: bool - Skip cache check
-        - parallel_processes: int - Number of parallel processes
-        - encrypt_output: bool - Override encryption setting
-
-    Returns:
-    --------
-    OperationResult
-        Results of the operation
-    """
+def __init__(self,
+             field_name: str,
+             strategy: str = "binning",
+             bin_count: int = 10,
+             binning_method: str = "equal_width",
+             precision: int = 0,
+             range_limits: Optional[List[Tuple[float, float]]] = None,
+             mode: str = "REPLACE",
+             output_field_name: Optional[str] = None,
+             column_prefix: str = "_",
+             null_strategy: str = "PRESERVE",
+             batch_size: int = 10000,
+             adaptive_batch_size: bool = True,
+             use_cache: bool = True,
+             use_encryption: bool = False,
+             encryption_key: Optional[Union[str, Path]] = None,
+             condition_field: Optional[str] = None,
+             condition_values: Optional[List] = None,
+             condition_operator: str = "in",
+             ka_risk_field: Optional[str] = None,
+             risk_threshold: float = 5.0,
+             vulnerable_record_strategy: str = "suppress",
+             output_format: str = "csv",
+             quasi_identifiers: Optional[List[str]] = None,
+             continue_on_error: bool = False,
+             error_batch_handling: str = "log",
+             description: str = "")
 ```
 
-## 7. Strategy Details
+### 5.2 Parameter Details
 
-### 7.1 Binning Strategy
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | The numeric field to generalize |
+| `strategy` | str | "binning" | Generalization strategy: "binning", "rounding", or "range" |
+| `bin_count` | int | 10 | Number of bins for binning strategy (min: 2) |
+| `binning_method` | str | "equal_width" | Method for creating bins: "equal_width", "equal_frequency", "quantile" |
+| `precision` | int | 0 | Decimal places for rounding (negative for powers of 10) |
+| `range_limits` | List[Tuple[float, float]] | None | List of (min, max) ranges for range strategy |
+| `mode` | str | "REPLACE" | Processing mode: "REPLACE" or "ENRICH" |
+| `output_field_name` | str | None | Custom name for output field in ENRICH mode |
+| `column_prefix` | str | "_" | Prefix for auto-generated field names |
+| `null_strategy` | str | "PRESERVE" | Null handling: "PRESERVE", "EXCLUDE", "ERROR", "ANONYMIZE" |
+| `batch_size` | int | 10000 | Records per processing batch |
+| `adaptive_batch_size` | bool | True | Automatically adjust batch size based on memory |
+| `use_cache` | bool | True | Enable result caching |
+| `use_encryption` | bool | False | Encrypt output files |
+| `encryption_key` | Union[str, Path] | None | Encryption key path or string |
+| `condition_field` | str | None | Field for conditional processing |
+| `condition_values` | List | None | Values for condition matching |
+| `condition_operator` | str | "in" | Condition operator: "in", "not_in", "gt", "lt", "eq", "range" |
+| `ka_risk_field` | str | None | Field containing k-anonymity risk scores |
+| `risk_threshold` | float | 5.0 | K-anonymity threshold for vulnerability |
+| `vulnerable_record_strategy` | str | "suppress" | Strategy for vulnerable records: "suppress", "generalize" |
+| `output_format` | str | "csv" | Output format: "csv", "parquet", "arrow" |
+| `quasi_identifiers` | List[str] | None | Fields for k-anonymity calculation |
+| `continue_on_error` | bool | False | Continue processing on batch errors |
+| `error_batch_handling` | str | "log" | Error handling: "skip", "fail", "log" |
+| `description` | str | "" | Operation description |
 
-Divides the range of values into a specified number of equal-width bins. Each value is replaced with its bin identifier.
+### 5.3 Key Methods
+
+#### execute()
+```python
+def execute(self, 
+            data_source: DataSource, 
+            task_dir: Path, 
+            reporter: Any = None, 
+            progress_tracker: Optional[ProgressTracker] = None, 
+            **kwargs) -> OperationResult
+```
+
+Main execution method with full framework integration.
 
 **Parameters:**
-- `bin_count`: Number of bins to create (default: 10)
+- `data_source`: Source of data to process
+- `task_dir`: Directory for output artifacts
+- `reporter`: Optional reporter for tracking
+- `progress_tracker`: Optional progress tracker
+- `**kwargs`: Additional options:
+  - `write_output`: Whether to write output file (default: True)
+  - `output_name`: Custom output filename
+  - `timestamp_output`: Add timestamp to output
 
-**Example:**
+**Returns:** `OperationResult` with status, metrics, and artifacts
+
+#### process_batch()
+```python
+def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame
 ```
-Original values: [23.7, 45.2, 67.9, 12.5]
-Binned (5 bins): ["0.0-20.0", "40.0-60.0", "60.0-80.0", "0.0-20.0"]
-```
 
-**Specific Metrics:**
-- `average_records_per_bin`: Average number of records per bin
-- `min_bin_count`: Minimum number of records in any bin
-- `max_bin_count`: Maximum number of records in any bin
-- `avg_bin_count`: Average number of records per bin
-- `bin_count_std`: Standard deviation of record counts across bins
-
-### 7.2 Rounding Strategy
-
-Rounds values to a specified precision level, reducing granularity.
+Process a batch of data applying the configured generalization strategy.
 
 **Parameters:**
-- `precision`: Number of decimal places to retain (default: 0)
-  - Positive values: Round to decimal places (e.g., 1 → round to tenths)
-  - Zero: Round to integers
-  - Negative values: Round to powers of 10 (e.g., -1 → round to tens)
+- `batch`: DataFrame batch to process
 
-**Example:**
-```
-Original values: [23.7651, 45.2348, 67.9124, 12.5492]
-Rounded (precision=1): [23.8, 45.2, 67.9, 12.5]
-Rounded (precision=0): [24, 45, 68, 13]
-Rounded (precision=-1): [20, 50, 70, 10]
-```
+**Returns:** Processed DataFrame with generalized values
 
-**Specific Metrics:**
-- `precision_factor`: Factor representing magnitude of rounding
-- `privacy_level`: Estimated privacy level based on precision (0-1 scale)
+## 6. Usage Examples
 
-### 7.3 Range Strategy
-
-Maps values to categorical ranges, with special handling for outliers.
-
-**Parameters:**
-- `range_limits`: Tuple of (min, max) for the main range
-
-**Example:**
-```
-Original values: [23.7, 45.2, 67.9, 12.5]
-Range (20-60): ["20.0-60.0", "20.0-60.0", ">60.0", "<20.0"]
-```
-
-**Specific Metrics:**
-- `range_size`: Size of the specified range
-- `range_coverage`: Percentage of values falling within the specified range
-
-## 8. Generated Metrics
-
-### 8.1 Base Metrics (All Strategies)
-
-| Metric | Description |
-|--------|-------------|
-| field_name | Name of the field processed |
-| operation | Type of operation ("numeric_generalization") |
-| strategy | Strategy used (binning, rounding, range) |
-| total_records | Total number of records processed |
-| null_count | Number of null values in the field |
-| unique_values_before | Number of unique values before generalization |
-| unique_values_after | Number of unique values after generalization |
-| generalization_ratio | Reduction in unique values (1 - unique_after/unique_before) |
-| mode | Mode used (REPLACE or ENRICH) |
-| execution_time | Total execution time in seconds |
-| records_per_second | Processing throughput rate |
-
-### 8.2 Statistical Metrics (For Numeric Fields)
-
-| Metric | Description |
-|--------|-------------|
-| mean_original | Mean of original values |
-| mean_anonymized | Mean of anonymized values |
-| std_original | Standard deviation of original values |
-| std_anonymized | Standard deviation of anonymized values |
-| min_original | Minimum of original values |
-| min_anonymized | Minimum of anonymized values |
-| max_original | Maximum of original values |
-| max_anonymized | Maximum of anonymized values |
-| median_original | Median of original values |
-| median_anonymized | Median of anonymized values |
-| mean_absolute_difference | Mean absolute difference between original and anonymized values |
-
-### 8.3 Strategy-Specific Metrics
-
-Each strategy generates additional metrics as described in the Strategy Details section.
-
-## 9. Generated Visualizations
-
-The operation generates visualizations to compare the original and anonymized data:
-
-1. **For Numeric Data**:
-   - Histograms comparing distribution before and after generalization
-   - Box plots showing statistical changes
-
-2. **For Categorical Results** (e.g., from binning):
-   - Bar charts comparing category distributions
-   - Pie charts showing unique value reduction
-
-These visualizations are saved in the task directory and registered as artifacts in the operation result.
-
-## 10. Artifact Output
-
-The operation writes several artifacts to the task directory:
-
-```
-{task_dir}/
-├── config.json                         # Operation configuration
-├── {field}_numeric_generalization_{strategy}_metrics_{timestamp}.json  # Metrics
-├── {field}_numeric_generalization_{strategy}_histogram_{timestamp}.png # Distribution visualization
-├── {field}_numeric_generalization_{strategy}_categories_{timestamp}.png # Categories visualization (if applicable)
-│     
-├── output/                            
-│   └── {field}_generalized_{timestamp}.csv  # Anonymized data (could be encrypted)
-```
-
-## 11. Caching
-
-The operation supports caching of results for improved performance:
-
-- **Cache Key Generation**: Based on operation parameters and a hash of the input data
-- **Cache Invalidation**: Automatic when the operation version changes
-- **Cache Control**: Through the `use_cache` and `force_recalculation` parameters
-
-## 12. Large Data Processing
-
-For large datasets, the operation supports:
-
-- **Chunked Processing**: Processes data in batches defined by `batch_size`
-- **Parallel Processing**: Uses multiple processes when `parallel_processes > 1`
-- **Progress Tracking**: Reports progress during long-running operations
-- **Memory Management**: Explicitly cleans up temporary data structures
-
-## 13. Error Handling
-
-The operation implements robust error handling:
-
-- **Parameter Validation**: Validates all parameters before processing
-- **Null Value Handling**: According to the specified `null_strategy`
-- **Non-Numeric Field Handling**: Gracefully handles already processed or non-numeric fields
-- **Error Reporting**: Returns detailed error messages in the operation result
-
-## 14. Usage Examples
-
-### 14.1 Basic Usage - Binning Strategy
+### 6.1 Basic Binning
 
 ```python
-from pamola_core.anonymization.generalization.numeric import NumericGeneralizationOperation
+from pamola_core.anonymization.generalization.numeric_op import NumericGeneralizationOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pathlib import Path
 
-# Create the operation
+# Create operation for salary binning
 operation = NumericGeneralizationOperation(
     field_name="salary",
     strategy="binning",
-    bin_count=5
+    bin_count=5,
+    binning_method="equal_width"
 )
 
-# Set up data source
-data_source = DataSource(dataframes={"main": df})
-
-# Set up task directory for artifacts
-task_dir = Path("/path/to/task_directory")
-
 # Execute operation
-result = operation.run(data_source, task_dir, reporter)
+data_source = DataSource.from_dataframe(df, name="main")
+result = operation.execute(
+    data_source=data_source,
+    task_dir=Path("output/task_001")
+)
 
-# Access results
+# Check results
 if result.status == OperationStatus.SUCCESS:
-    # Get metrics
-    generalization_ratio = result.metrics.get("generalization_ratio")
-    print(f"Generalization ratio: {generalization_ratio}")
-    
-    # Access artifacts
-    for artifact in result.artifacts:
-        print(f"Artifact: {artifact.description} at {artifact.path}")
+    print(f"Generalization ratio: {result.metrics['effectiveness']['reduction_ratio']}")
+    print(f"Unique values reduced from {result.metrics['effectiveness']['original_unique']} "
+          f"to {result.metrics['effectiveness']['anonymized_unique']}")
 ```
 
-### 14.2 Rounding Strategy with Enrichment Mode
+### 6.2 Risk-Based Processing
 
 ```python
+# Process only vulnerable records (k < 5)
 operation = NumericGeneralizationOperation(
     field_name="age",
     strategy="rounding",
     precision=-1,  # Round to nearest 10
-    mode="ENRICH",
-    output_field_name="age_anonymized"
+    ka_risk_field="k_anonymity_score",
+    risk_threshold=5.0,
+    vulnerable_record_strategy="generalize",
+    quasi_identifiers=["zip_code", "gender", "age"]
 )
 
-result = operation.run(data_source, task_dir, reporter)
+# Execute with risk-based processing
+result = operation.execute(
+    data_source=data_source,
+    task_dir=task_dir,
+    profiling_results={"k_anonymity": k_scores}
+)
+
+print(f"Vulnerable records processed: {result.metrics['vulnerable_records']}")
+print(f"Privacy risk: {result.metrics['privacy']['disclosure_risk']}")
 ```
 
-### 14.3 Range Strategy with Encryption
+### 6.3 Multiple Range Strategy
 
 ```python
+# Define income ranges
+income_ranges = [
+    (0, 30000),      # Low income
+    (30000, 75000),  # Middle income
+    (75000, 150000), # Upper middle
+    (150000, 500000) # High income
+]
+
 operation = NumericGeneralizationOperation(
-    field_name="income",
+    field_name="annual_income",
     strategy="range",
-    range_limits=(30000, 100000),
-    null_strategy="EXCLUDE",
-    use_encryption=True,
-    encryption_key="secure_key_path"
+    range_limits=income_ranges,
+    mode="ENRICH",
+    output_field_name="income_bracket",
+    null_strategy="ANONYMIZE"
 )
 
-result = operation.run(data_source, task_dir, reporter)
+result = operation.execute(data_source, task_dir)
 ```
 
-### 14.4 Using the Factory Function
+### 6.4 Conditional Processing
 
 ```python
-from pamola_core.anonymization.generalization.numeric import create_numeric_generalization_operation
+# Only generalize records from specific departments
+operation = NumericGeneralizationOperation(
+    field_name="bonus",
+    strategy="binning",
+    bin_count=3,
+    condition_field="department",
+    condition_values=["Sales", "Marketing"],
+    condition_operator="in"
+)
 
-operation = create_numeric_generalization_operation(
+# Or process based on numeric conditions
+operation = NumericGeneralizationOperation(
+    field_name="salary",
+    strategy="rounding",
+    precision=-3,  # Round to nearest 1000
+    condition_field="years_employed",
+    condition_values=[5],
+    condition_operator="gt"  # Only employees > 5 years
+)
+```
+
+### 6.5 Advanced Configuration
+
+```python
+# Configure for large dataset with encryption
+operation = NumericGeneralizationOperation(
+    field_name="transaction_amount",
+    strategy="binning",
+    bin_count=20,
+    binning_method="quantile",
+    batch_size=50000,
+    adaptive_batch_size=True,
+    use_encryption=True,
+    encryption_key=Path("keys/data_key.pem"),
+    output_format="parquet",
+    continue_on_error=True,
+    error_batch_handling="skip"
+)
+
+# Execute with custom output settings
+result = operation.execute(
+    data_source=data_source,
+    task_dir=task_dir,
+    write_output=True,
+    output_name="transactions_generalized",
+    timestamp_output=True
+)
+```
+
+## 7. Metrics and Outputs
+
+### 7.1 Generated Metrics
+
+The operation generates comprehensive metrics organized by category:
+
+**Effectiveness Metrics:**
+- `total_records`: Total records processed
+- `original_unique`: Unique values before generalization
+- `anonymized_unique`: Unique values after generalization
+- `reduction_ratio`: Proportion of uniqueness reduction
+- `null_increase`: Increase in null values
+
+**Privacy Metrics (when quasi-identifiers provided):**
+- `min_k`: Minimum k-anonymity value
+- `mean_group_size`: Average equivalence class size
+- `vulnerable_ratio`: Proportion of records with k < threshold
+- `disclosure_risk`: Simple disclosure risk score
+- `suppression_rate`: Proportion of suppressed values
+
+**Performance Metrics:**
+- `duration_seconds`: Total execution time
+- `records_per_second`: Processing throughput
+- `batch_count`: Number of batches processed
+- `successful_batches`: Successfully processed batches
+- `error_batches`: Failed batch count
+
+**Strategy-Specific Metrics:**
+
+*Binning:*
+- `bin_count`: Number of bins used
+- `avg_bin_size`: Average records per bin
+- `bin_utilization`: Proportion of bins with data
+
+*Rounding:*
+- `precision_factor`: Rounding magnitude
+- `privacy_level`: Estimated privacy level (0-1)
+
+*Range:*
+- `range_coverage`: Percentage within specified ranges
+- `outlier_count`: Records outside all ranges
+
+### 7.2 Output Artifacts
+
+```
+{task_dir}/
+├── {field}_numeric_{strategy}_metrics_{timestamp}.json
+├── {field}_numeric_{strategy}_comparison_{timestamp}.png
+├── {field}_numeric_{strategy}_distribution_{timestamp}.png
+├── output/
+│   └── generalized_data_{timestamp}.{format}
+└── errors/
+    └── {field}_error_report_{timestamp}.json
+```
+
+## 8. Performance Considerations
+
+### 8.1 Memory Usage
+
+- Base memory: ~2-3x the size of the numeric field
+- Adaptive batch sizing uses 20% of available system memory
+- Explicit garbage collection after processing >100K records
+- DataFrame type optimization before output
+
+### 8.2 Processing Speed
+
+Typical throughput on standard hardware:
+- Binning: 100K-200K records/second
+- Rounding: 200K-300K records/second
+- Range: 150K-250K records/second
+
+Factors affecting performance:
+- Number of unique values
+- Batch size configuration
+- Null value proportion
+- Visualization generation
+- Output format (Parquet faster than CSV)
+
+### 8.3 Optimization Tips
+
+1. **For Large Datasets:**
+   ```python
+   operation = NumericGeneralizationOperation(
+       field_name="value",
+       strategy="binning",
+       batch_size=100000,
+       adaptive_batch_size=True,
+       output_format="parquet"
+   )
+   ```
+
+2. **For Memory-Constrained Systems:**
+   ```python
+   operation = NumericGeneralizationOperation(
+       field_name="value",
+       strategy="rounding",
+       batch_size=5000,
+       adaptive_batch_size=False
+   )
+   ```
+
+## 9. Limitations
+
+### 9.1 Technical Limitations
+
+1. **Single Field Processing**: Operates on one numeric field at a time
+2. **Memory Requirements**: Entire DataFrame must fit in memory (chunking helps but base data required)
+3. **Numeric Types Only**: Does not handle date/time or categorical data (use specific operations)
+4. **Fixed Strategies**: Cannot combine multiple strategies in single pass
+5. **No Streaming**: Requires complete dataset; no streaming support
+
+### 9.2 Privacy Limitations
+
+1. **Statistical Attacks**: Generalization alone may not prevent all statistical inference attacks
+2. **Outlier Vulnerability**: Extreme outliers may remain identifiable even after generalization
+3. **Correlation Preservation**: Correlations between fields largely preserved
+4. **No Differential Privacy**: Does not provide formal differential privacy guarantees
+
+### 9.3 Operational Limitations
+
+1. **Cache Key Limitations**: Cache invalidation based on parameters only, not data distribution
+2. **Visualization Scaling**: Visualizations may be slow for >1M unique values
+3. **Error Recovery**: Batch-level recovery only; no record-level error handling
+4. **Range Strategy**: All ranges must be non-overlapping
+
+## 10. Best Practices
+
+### 10.1 Strategy Selection
+
+**Use Binning When:**
+- You need fixed-size groups
+- Statistical properties within bins don't matter
+- Visual analysis of distributions is important
+
+**Use Rounding When:**
+- Relative magnitudes must be preserved
+- Simple to understand and explain
+- Dealing with continuous measurements
+
+**Use Range When:**
+- Business-defined categories exist
+- Outliers need special handling
+- Creating categorical variables from numeric
+
+### 10.2 Privacy Configuration
+
+```python
+# High Privacy (Maximum Anonymization)
+high_privacy = NumericGeneralizationOperation(
+    field_name="income",
+    strategy="binning",
+    bin_count=3,  # Few bins
+    ka_risk_field="k_score",
+    risk_threshold=10,  # Strict threshold
+    vulnerable_record_strategy="suppress"
+)
+
+# Balanced Privacy-Utility
+balanced = NumericGeneralizationOperation(
+    field_name="income",
+    strategy="rounding",
+    precision=-3,  # Round to thousands
+    ka_risk_field="k_score",
+    risk_threshold=5
+)
+
+# High Utility (Minimal Anonymization)
+high_utility = NumericGeneralizationOperation(
+    field_name="income",
+    strategy="binning",
+    bin_count=20,  # Many bins
+    binning_method="quantile"  # Preserve distribution
+)
+```
+
+### 10.3 Error Handling
+
+```python
+# Robust configuration for production
+operation = NumericGeneralizationOperation(
+    field_name="amount",
+    strategy="binning",
+    null_strategy="PRESERVE",  # Don't fail on nulls
+    continue_on_error=True,     # Continue on batch errors
+    error_batch_handling="log", # Log errors but continue
+    adaptive_batch_size=True    # Handle memory pressure
+)
+
+# Strict configuration for testing
+operation = NumericGeneralizationOperation(
+    field_name="amount",
+    strategy="binning",
+    null_strategy="ERROR",       # Fail on nulls
+    continue_on_error=False,     # Stop on first error
+    error_batch_handling="fail"  # Fail immediately
+)
+```
+
+### 10.4 Integration Patterns
+
+```python
+# Chain with profiling
+profiling_result = profiler.run(data_source, task_dir)
+k_scores = profiling_result.metrics.get("k_anonymity_scores")
+
+generalization = NumericGeneralizationOperation(
     field_name="salary",
     strategy="binning",
-    bin_count=10,
-    mode="ENRICH",
-    output_field_name="salary_binned"
+    ka_risk_field="k_score"
 )
 
-result = operation.run(data_source, task_dir, reporter)
+result = generalization.execute(
+    data_source,
+    task_dir,
+    profiling_results={"k_anonymity": k_scores}
+)
+
+# Combine multiple generalizations
+for field in ["age", "income", "score"]:
+    operation = NumericGeneralizationOperation(
+        field_name=field,
+        strategy="binning" if field != "age" else "rounding",
+        bin_count=5 if field != "age" else None,
+        precision=-1 if field == "age" else None
+    )
+    result = operation.execute(data_source, task_dir)
+    
+    if result.status != OperationStatus.SUCCESS:
+        logger.error(f"Failed to generalize {field}: {result.error_message}")
+        break
 ```
 
-## 15. Best Practices
+---
 
-### 15.1 Strategy Selection
-
-- **Binning**:
-  - Best for exploratory data analysis where approximate distributions are sufficient
-  - Useful when you need to maintain statistical properties but not exact values
-  - Provides good privacy protection by creating equivalence classes
-
-- **Rounding**:
-  - Best when relative magnitudes and trends are important
-  - Good for data where precise values aren't necessary
-  - Simpler to understand than binning for non-technical users
-
-- **Range**:
-  - Best for creating categorical variables from continuous data
-  - Useful when specific thresholds are meaningful (e.g., income brackets)
-  - Good for data where outliers need special handling
-
-### 15.2 Privacy-Utility Trade-off
-
-- **Higher Privacy (Lower Utility)**:
-  - More bins (binning)
-  - Lower precision (rounding)
-  - Narrower ranges (range)
-
-- **Lower Privacy (Higher Utility)**:
-  - Fewer bins (binning)
-  - Higher precision (rounding)
-  - Wider ranges (range)
-
-### 15.3 Large Dataset Handling
-
-- Adjust `batch_size` based on available memory
-- Use parallel processing for larger datasets
-- Monitor progress with the progress tracker
-- Consider using Dask for very large datasets
-
-### 15.4 Null Value Strategies
-
-- **PRESERVE**: Best for maintaining data completeness
-- **EXCLUDE**: Best when nulls might distort generalization
-- **ERROR**: Best for strict validation requirements
-
-### 15.5 Analysis Best Practices
-
-- Always examine metrics to understand information loss
-- Review visualizations to ensure distributions remain analytically useful
-- Consider running multiple strategies and comparing results
-- Test with sample data before processing large datasets
-
-## 16. Performance Considerations
-
-- **Processing Time**: Primarily linear with the number of records
-- **Memory Usage**: Scales with batch size and DataFrame size
-- **Bottlenecks**:
-  - File I/O for large datasets
-  - Visualization generation for very large datasets
-  - Metric calculation for highly diverse data
-
-- **Optimization Strategies**:
-  - Increase batch size for better throughput
-  - Use parallel processing when available
-  - Enable caching for repeated operations
-  - Sample data for visualization with very large datasets
-
-## 17. Requirements Compliance
-
-This implementation complies with the following SRS requirements:
-
-- **REQ-ANON-001** to **REQ-ANON-008**: Follows operation-based architecture, uses standardized I/O, organizes outputs consistently, generates metrics and visualizations, supports chunked processing, implements caching, follows error handling practices, and provides consistent reporting.
-
-- **REQ-GEN-005** to **REQ-GEN-012**: Implements the numeric generalization operation with the required strategies, parameters, visualizations, metrics, processing logic, null value handling, and output formatting.
-
-## 18. Security Considerations
-
-- **Encryption**: Supports encryption of output files
-- **Sensitive Data Handling**: Clears sensitive data from memory after use
-- **Secure Configuration**: Validates all parameters before processing
-- **Privacy Protection**: Implements generalization techniques that reduce re-identification risk
-
-## 19. Future Enhancements
-
-Potential future enhancements include:
-
-- Integration with differential privacy techniques
-- Support for adaptive binning strategies
-- Automatic parameter tuning based on privacy requirements
-- Enhanced visualization options
-- Integration with privacy models (k-anonymity, l-diversity)
-- Distributed processing support for very large datasets
+This operation provides a robust, privacy-preserving approach to numeric data generalization within the PAMOLA.CORE framework, balancing privacy protection with analytical utility through configurable strategies and comprehensive monitoring.

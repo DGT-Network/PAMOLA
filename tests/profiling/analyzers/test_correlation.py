@@ -112,7 +112,8 @@ class TestCorrelationOperation(unittest.TestCase):
         operation = CorrelationOperation(
             field1="Field1",
             field2="Field2",
-            method="pearson"
+            method="pearson",
+            use_cache=False
         )
 
         # Mock reporter and progress tracker
@@ -142,13 +143,14 @@ class TestCorrelationOperation(unittest.TestCase):
         mock_write_json.assert_called_once_with(
             mock_analyze_correlation.return_value,
             unittest.mock.ANY,
+            encryption_key=unittest.mock.ANY,
+            encryption_mode=unittest.mock.ANY,
         )
-        mock_reporter.add_artifact.assert_called_once_with(
-            "json",
-            unittest.mock.ANY,
-            "Correlation analysis between Field1 and Field2"
-        )
+        
+        assert len(result.artifacts) > 0
+        
         self.assertEqual(result.status, OperationStatus.SUCCESS)
+        
         self.assertEqual(result.metrics["correlation_coefficient"], 1.0)
 
     @patch("pamola_core.profiling.analyzers.correlation.load_data_operation")
@@ -176,10 +178,10 @@ class TestCorrelationOperation(unittest.TestCase):
         )
 
         # Check result
-        mock_reporter.add_operation.assert_called_once_with(
-            "Error analyzing correlation between Field1 and Field2",
+        mock_reporter.add_operation.assert_called_with(
+            "Operation CorrelationOperation",
             status="error",
-            details={"error": "Test exception"}
+            details={"step": "Exception", "message": "Operation failed due to an exception", "error": "Test exception"}
         )
         self.assertEqual(result.status, OperationStatus.ERROR)
         self.assertIn("Test exception", result.error_message)
@@ -210,13 +212,17 @@ class TestCorrelationOperation(unittest.TestCase):
 
         # Check result
         self.assertEqual(result.status, OperationStatus.ERROR)
-        self.assertEqual(result.error_message, "No valid DataFrame found in data source")
+        self.assertEqual(result.error_message, "Load data and validate input parameters failed")
 
         # Ensure no artifact is added to reporter
         mock_reporter.add_artifact.assert_not_called()
 
         # Ensure no operation is added to reporter
-        mock_reporter.add_operation.assert_not_called()
+        mock_reporter.add_operation.assert_called_with(
+            "Operation CorrelationOperation",
+            status="info",
+            details={"step": "Load data and validate input parameters", "message": "Load data and validate input parameters failed"}
+        )
 
     @patch("pamola_core.profiling.analyzers.correlation.load_data_operation")
     def test_execute_field_not_found(self, mock_load_data_operation):
@@ -248,13 +254,17 @@ class TestCorrelationOperation(unittest.TestCase):
 
         # Check result
         self.assertEqual(result.status, OperationStatus.ERROR)
-        self.assertEqual(result.error_message, "Field Field1 not found in DataFrame")
+        self.assertEqual(result.error_message, "Load data and validate input parameters failed")
 
         # Ensure no artifact is added to reporter
         mock_reporter.add_artifact.assert_not_called()
 
         # Ensure no operation is added to reporter
-        mock_reporter.add_operation.assert_not_called()
+        mock_reporter.add_operation.assert_called_with(
+            "Operation CorrelationOperation",
+            status="info",
+            details={"step": "Load data and validate input parameters", "message": "Load data and validate input parameters failed"}
+        )
 
     @patch("pamola_core.profiling.analyzers.correlation.create_scatter_plot")
     @patch("pamola_core.profiling.analyzers.correlation.create_boxplot")
@@ -283,7 +293,8 @@ class TestCorrelationOperation(unittest.TestCase):
             field1="Field1",
             field2="Field2",
             method="pearson",
-            generate_plots=True
+            generate_visualization=True,
+            use_cache=False
         )
 
         # Mock reporter and progress tracker
@@ -309,7 +320,7 @@ class TestCorrelationOperation(unittest.TestCase):
             task_dir=Path("/tmp/test_task_dir"),
             reporter=mock_reporter,
             progress_tracker=mock_progress_tracker,
-            analysis_results=analysis_results
+            # analysis_results=analysis_results
         )
 
         # Check scatter plot is created
@@ -322,21 +333,33 @@ class TestCorrelationOperation(unittest.TestCase):
             y_label="Field2",
             add_trendline=True,
             correlation=0.9999999999999999,
-            method="Pearson"
+            method="Pearson",
+            use_encryption=unittest.mock.ANY,
+            encryption_key=unittest.mock.ANY,
+            backend=unittest.mock.ANY,
+            theme=unittest.mock.ANY,
+            strict=unittest.mock.ANY
         )
 
         # Check number of add_artifact calls
-        self.assertEqual(mock_reporter.add_artifact.call_count, 2)
-
-        # Check all add_artifact calls
-        mock_reporter.add_artifact.assert_has_calls([
-            call('json', unittest.mock.ANY, 'Correlation analysis between Field1 and Field2'),
-            call('png', unittest.mock.ANY, 'Correlation plot for Field1 and Field2')
-        ], any_order=True)
+        assert len(result.artifacts) > 0
+        
+        output = next(
+            (x for x in result.artifacts if x.category == 'output' and x.description == 'Correlation analysis between Field1 and Field2'),
+            None
+        )
+        
+        visualization = next(
+            (x for x in result.artifacts if x.category == 'visualization' and x.description == 'Field1 distribution visualization'),
+            None
+        )
+        
+        self.assertIsNotNone(output)
+        self.assertIsNotNone(visualization)
 
         # Check progress tracker updates
-        mock_progress_tracker.update.assert_any_call(0, {"step": "Generating visualization"})
-        mock_progress_tracker.update.assert_any_call(1, {"step": "Created visualization"})
+        mock_progress_tracker.update.assert_any_call(1, {'step': 'Start operation - Preparation', 'operation': 'CorrelationOperation'})
+        mock_progress_tracker.update.assert_any_call(1, {'step': 'Generate visualizations', 'operation': 'CorrelationOperation'})
 
     @patch("pamola_core.profiling.analyzers.correlation.load_data_operation")
     @patch("pamola_core.profiling.analyzers.correlation.CorrelationAnalyzer.analyze")
@@ -388,13 +411,13 @@ class TestCorrelationOperation(unittest.TestCase):
         }
 
         # Mock create_boxplot to simulate successful plot creation
-        mock_create_boxplot.return_value = "success"
+        mock_create_boxplot.return_value = "visualization.png"
 
         # Mock reporter
         reporter = MagicMock()
 
         # Instantiate and execute operation
-        op = CorrelationOperation(field1="cat", field2="val")
+        op = CorrelationOperation(field1="cat", field2="val", use_cache=False)
         result = op.execute(
             data_source=MagicMock(),
             task_dir=Path("."),
@@ -427,13 +450,13 @@ class TestCorrelationOperation(unittest.TestCase):
         }
 
         # Mock create_heatmap to simulate successful plot creation
-        mock_create_heatmap.return_value = "success"
+        mock_create_heatmap.return_value = "visualization.png"
 
         # Mock reporter
         reporter = MagicMock()
 
         # Instantiate and execute operation
-        op = CorrelationOperation(field1="cat1", field2="cat2")
+        op = CorrelationOperation(field1="cat1", field2="cat2", use_cache=False)
         result = op.execute(
             data_source=MagicMock(),
             task_dir=Path("."),
@@ -446,11 +469,10 @@ class TestCorrelationOperation(unittest.TestCase):
         # Check that a png artifact was added to the result
         self.assertTrue(any(str(getattr(artifact, "path", "" )).endswith(".png") for artifact in result.artifacts))
 
-    @patch("pamola_core.profiling.analyzers.correlation.logger")
     @patch("pamola_core.profiling.analyzers.correlation.create_boxplot")
     @patch("pamola_core.profiling.analyzers.correlation.CorrelationAnalyzer.analyze")
     @patch("pamola_core.profiling.analyzers.correlation.load_data_operation")
-    def test_visualization_error_branch(self, mock_load_data, mock_analyze, mock_create_boxplot, mock_logger):
+    def test_visualization_error_branch(self, mock_load_data, mock_analyze, mock_create_boxplot):
         # Mock DataFrame
         df = pd.DataFrame({"cat": ["A", "B", "A", "B"], "val": [1, 2, 3, 4]})
         mock_load_data.return_value = df
@@ -485,8 +507,6 @@ class TestCorrelationOperation(unittest.TestCase):
 
         # No png artifact should be added to result
         self.assertFalse(any(str(getattr(artifact, "path", "" )).endswith(".png") for artifact in result.artifacts))
-        # Logger.warning should be called with error message
-        mock_logger.warning.assert_called()
         self.assertEqual(result.status, OperationStatus.SUCCESS)
 
 
@@ -608,10 +628,9 @@ class TestCorrelationMatrixOperation(unittest.TestCase):
         # Reporter also receives png artifact
         reporter.add_artifact.assert_any_call("png", unittest.mock.ANY, "Correlation matrix visualization")
 
-    @patch("pamola_core.profiling.analyzers.correlation.logger")
     @patch("pamola_core.profiling.analyzers.correlation.CorrelationAnalyzer.analyze_matrix")
     @patch("pamola_core.profiling.analyzers.correlation.load_data_operation")
-    def test_execute_exception_branch(self, mock_load_data, mock_analyze_matrix, mock_logger):
+    def test_execute_exception_branch(self, mock_load_data, mock_analyze_matrix):
         # Mock DataFrame
         df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
         mock_load_data.return_value = df
@@ -632,8 +651,6 @@ class TestCorrelationMatrixOperation(unittest.TestCase):
             progress_tracker=progress_tracker
         )
 
-        # Check logger.exception was called
-        mock_logger.exception.assert_called()
         # Check progress_tracker.update was called with error message
         progress_tracker.update.assert_any_call(0, {"step": "Error", "error": "Simulated matrix error"})
         # Check reporter.add_operation was called with status="error"
@@ -771,10 +788,9 @@ class TestAnalyzeCorrelations(unittest.TestCase):
                 {"pair": "A_B", "status": "error", "error": "Simulated correlation error"}
             )
 
-    @patch("pamola_core.profiling.analyzers.correlation.logger")
     @patch("pamola_core.profiling.analyzers.correlation.CorrelationOperation.execute")
     @patch("pamola_core.profiling.analyzers.correlation.load_data_operation")
-    def test_execute_raises_exception(self, mock_load_data, mock_execute, mock_logger):
+    def test_execute_raises_exception(self, mock_load_data, mock_execute):
         # DataFrame has enough columns
         df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
         mock_load_data.return_value = df
@@ -802,8 +818,6 @@ class TestAnalyzeCorrelations(unittest.TestCase):
             self.assertEqual(results["A_B"].status, OperationStatus.ERROR)
             self.assertIn("Simulated execution error", results["A_B"].error_message)
 
-            # Logger.error was called
-            mock_logger.error.assert_called()
             # Reporter.add_operation was called with status="error"
             reporter.add_operation.assert_any_call(
                 "Analyzing correlation between A and B",

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `tokenization.py` module is a pamola core component of the PAMOLA.CORE (Privacy-Preserving AI Data Processors) natural language processing system, designed for efficient text tokenization, lemmatization, and n-gram extraction across multiple languages. It provides adaptable text processing capabilities with graceful degradation when specialized NLP libraries are unavailable, making it essential for text analysis tasks within resume and job posting processing.
+The `tokenization.py` module is a core component of the PAMOLA CORE natural language processing system, designed for efficient text tokenization, lemmatization, and n-gram extraction across multiple languages. It provides adaptable text processing capabilities with graceful degradation when specialized NLP libraries are unavailable, making it essential for text analysis tasks within resume and job posting processing.
 
 ## Architecture
 
@@ -13,7 +13,7 @@ The module implements an object-oriented architecture focused on:
 3. **Resource Efficiency**: Caching mechanisms and performance optimizations
 4. **Extensibility**: Easy addition of new tokenizer types and custom processors
 
-This architecture aligns with the broader NLP utilities framework of the PAMOLA.CORE system:
+This architecture aligns with the broader NLP utilities framework of the PAMOLA CORE system:
 
 ```
 ┌────────────────┐      ┌────────────────┐      ┌────────────────┐
@@ -591,4 +591,4 @@ configure_cache(enable=False)
 
 ## Conclusion
 
-The `tokenization.py` module provides a comprehensive, flexible foundation for text tokenization in the PAMOLA.CORE system. By supporting multiple languages, diverse tokenization methods, and graceful degradation, it ensures reliable text processing across various NLP tasks in resume and job posting analysis. The module's architecture allows for easy extension and customization while maintaining high performance, making it an essential component of the PAMOLA.CORE natural language processing pipeline.
+The `tokenization.py` module provides a comprehensive, flexible foundation for text tokenization in the PAMOLA CORE system. By supporting multiple languages, diverse tokenization methods, and graceful degradation, it ensures reliable text processing across various NLP tasks in resume and job posting analysis. The module's architecture allows for easy extension and customization while maintaining high performance, making it an essential component of the PAMOLA CORE natural language processing pipeline.

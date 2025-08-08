@@ -1,12 +1,12 @@
-# PAMOLA.CORE Correlation Analysis Module Documentation
+# PAMOLA CORE Correlation Analysis Module Documentation
 
 ## Overview
 
-The Correlation Analysis module is a key component of the PAMOLA.CORE (Privacy-Preserving AI Data Processors) profiling system, designed to analyze relationships between fields in datasets. It supports various correlation methods for different data types, including numeric-numeric, categorical-categorical, and mixed-type field relationships. This module is essential for understanding dependencies between data fields, identifying patterns, and making informed decisions during data anonymization.
+The Correlation Analysis module is a key component of the PAMOLA CORE profiling system, designed to analyze relationships between fields in datasets. It supports various correlation methods for different data types, including numeric-numeric, categorical-categorical, and mixed-type field relationships. This module is essential for understanding dependencies between data fields, identifying patterns, and making informed decisions during data anonymization.
 
 The module consists of two main components:
-1. `correlation_utils.py` - Pamola Core analytical functions for calculating correlations
-2. `correlation.py` - Operation implementation integrating with the PAMOLA.CORE system
+1. `correlation_utils.py` - Core analytical functions for calculating correlations
+2. `correlation.py` - Operation implementation integrating with the PAMOLA CORE system
 
 ## Features
 
@@ -19,7 +19,7 @@ The module consists of two main components:
 - **Null value handling** with multiple strategies (drop, fill, pairwise)
 - **Progress tracking** for long-running correlation analyses
 - **Resource estimation** for optimizing performance with large datasets
-- **Seamless integration** with PAMOLA.CORE's IO, visualization, and logging systems
+- **Seamless integration** with PAMOLA CORE's IO, visualization, and logging systems
 
 ## Architecture
 
@@ -56,7 +56,7 @@ This architecture ensures:
 - Pure analytical logic is separated from operation management
 - Different correlation methods are properly encapsulated
 - Reusable components can be utilized across the system
-- Integration with other PAMOLA.CORE components is clean and standardized
+- Integration with other PAMOLA CORE components is clean and standardized
 
 ## Key Components
 
@@ -90,7 +90,7 @@ resources = CorrelationAnalyzer.estimate_resources(
 
 ### CorrelationOperation
 
-Implementation of the operation interface for the PAMOLA.CORE system, handling analysis of correlation between two fields.
+Implementation of the operation interface for the PAMOLA CORE system, handling analysis of correlation between two fields.
 
 ```python
 from pamola_core.profiling.analyzers.correlation import CorrelationOperation
@@ -215,7 +215,7 @@ def execute(self,
 - `reporter` (required): Reporter object for tracking progress and artifacts
 - `progress_tracker` (optional): Progress tracker for the operation
 - `**kwargs`: Additional parameters:
-  - `generate_plots` (default: True): Whether to generate visualizations
+  - `generate_visualization` (default: True): Whether to generate visualizations
   - `include_timestamp` (default: True): Whether to include timestamps in filenames
   - `profile_type` (default: 'correlation'): Type of profiling for organizing artifacts
   - `null_handling` (default: 'drop'): Method for handling nulls
@@ -244,7 +244,7 @@ def execute(self,
 - `reporter` (required): Reporter object for tracking progress and artifacts
 - `progress_tracker` (optional): Progress tracker for the operation
 - `**kwargs`: Additional parameters:
-  - `generate_plots` (default: True): Whether to generate visualizations
+  - `generate_visualization` (default: True): Whether to generate visualizations
   - `include_timestamp` (default: True): Whether to include timestamps
   - `profile_type` (default: 'correlation'): Type of profiling for artifacts
   - `null_handling` (default: 'drop'): Method for handling nulls
@@ -272,7 +272,7 @@ def analyze_correlations(
 - `**kwargs`: Additional parameters:
   - `methods`: Dictionary mapping field pairs to correlation methods
   - `null_handling` (default: 'drop'): Method for handling nulls
-  - `generate_plots` (default: True): Whether to generate plots
+  - `generate_visualization` (default: True): Whether to generate visualization
   - `track_progress` (default: True): Whether to track overall progress
 
 **Returns:**
@@ -340,7 +340,7 @@ result = operation.execute(
     data_source=data_source,
     task_dir=task_dir,
     reporter=reporter,
-    generate_plots=True
+    generate_visualization=True
 )
 
 # Check results
@@ -522,7 +522,7 @@ result = operation.execute(
 )
 ```
 
-## Integration with Other PAMOLA.CORE Components
+## Integration with Other PAMOLA CORE Components
 
 The correlation analysis module integrates with:
 
@@ -573,6 +573,6 @@ The correlation analysis module integrates with:
 
 ## Conclusion
 
-The PAMOLA.CORE Correlation Analysis module provides comprehensive tools for understanding relationships between fields in datasets. It supports various correlation methods suitable for different data types, produces informative visualizations, and integrates seamlessly with the PAMOLA.CORE profiling system. 
+The PAMOLA CORE Correlation Analysis module provides comprehensive tools for understanding relationships between fields in datasets. It supports various correlation methods suitable for different data types, produces informative visualizations, and integrates seamlessly with the PAMOLA CORE profiling system. 
 
 By leveraging this module, users can identify meaningful patterns and dependencies in their data, which is crucial for making informed decisions during the anonymization process while preserving the analytical value of the data.

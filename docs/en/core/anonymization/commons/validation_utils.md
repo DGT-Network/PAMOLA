@@ -1,288 +1,355 @@
-# PAMOLA Core Documentation - Anonymization Validation Utilities
+# PAMOLA.CORE validation_utils.py Module Documentation
 
-## Module Overview
-`validation_utils.py` provides a set of validation functions for parameters used in anonymization operations. This module ensures data integrity, proper error handling, and parameter consistency across anonymization operations in the PAMOLA Core framework.
+## Overview
 
-## Key Features
-- Field existence and type validation (numeric, categorical, datetime)
-- Strategy and parameter validation for different anonymization techniques
-- Null-handling strategy validation
-- Standardized error reporting with consistent messaging
-- Type-safe validation functions with clear return values
-- Support for logging validation failures at different severity levels
+The `validation_utils.py` module serves as a **facade** for the PAMOLA.CORE validation framework, providing backward compatibility while offering access to the new modular validation system. It acts as a bridge between legacy code and the refactored validation architecture, ensuring smooth migration paths for existing implementations.
+
+**Version:** 3.1.0  
+**Status:** Stable  
+**Package:** `pamola_core.anonymization.commons`  
+**Role:** Validation Facade & Backward Compatibility Layer  
+**License:** BSD 3-Clause
 
 ## Architecture
-The validation utilities module sits within the commons package of the anonymization module and provides support functions for all anonymization operations:
+
+### Module Purpose
+
+The module serves three primary purposes:
+
+1. **Backward Compatibility**: Maintains the original API for existing code that relies on the old monolithic validation functions
+2. **Facade Pattern**: Provides a simplified interface to the new modular validation system located at `pamola_core.anonymization.commons.validation/`
+3. **Migration Support**: Offers both legacy and modern approaches, allowing gradual migration to the new system
+
+### Architectural Position
 
 ```
-pamola_core/anonymization/
-├── commons/
-│   ├── validation_utils.py   # This module
-│   ├── metric_utils.py
-│   ├── processing_utils.py
-│   └── visualization_utils.py
-├── generalization/
-├── masking/
-├── pseudonymization/
-└── suppression/
+pamola_core/anonymization/commons/
+├── validation_utils.py         # This module (Facade)
+├── validation/                 # New modular validation system
+│   ├── __init__.py
+│   ├── base.py                # Core infrastructure
+│   ├── decorators.py          # Validation decorators
+│   ├── exceptions.py          # Custom exceptions
+│   ├── field_validators.py    # Field type validators
+│   ├── file_validators.py     # File/path validators
+│   ├── strategy_validators.py # Strategy validators
+│   └── type_validators.py     # Specialized validators
+├── metric_utils.py
+├── visualization_utils.py
+├── privacy_metric_utils.py
+└── data_utils.py
 ```
 
-The `validation_utils.py` module provides a collection of standalone functions that perform specific validation tasks. These functions are used by the operation classes to ensure parameters are valid before processing begins.
+### Module Structure
 
-## Function Reference
+```python
+# 1. Imports from new modular system
+from .validation import (
+    # Core classes
+    ValidationResult, BaseValidator, CompositeValidator,
+    # Validators
+    NumericFieldValidator, CategoricalFieldValidator, ...
+    # Utilities
+    check_field_exists, validate_strategy, ...
+)
 
-### Field Validation Functions
+# 2. Legacy Support Layer
+class LegacyValidationSupport:
+    """Provides backward compatibility"""
 
-#### `validate_field_exists`
-Validates that a field exists in the DataFrame.
+# 3. Deprecated Functions (wrapped for compatibility)
+def validate_field_exists(...)  # DEPRECATED
+def validate_numeric_field(...)  # DEPRECATED
+...
 
-**Parameters:**
-- `df`: `pd.DataFrame` - The DataFrame to check
-- `field_name`: `str` - The name of the field to verify
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+# 4. New Factory Functions
+def create_validator(...)
+def create_validation_pipeline(...)
+def validate_dataframe_schema(...)
+```
 
-**Returns:**
-- `bool` - True if the field exists, False otherwise
+## Migration Guide
 
-**Logs:**
-- ERROR if the field does not exist
+### Old vs New Approach
 
-#### `validate_numeric_field`
-Validates that a field is numeric.
+```python
+# OLD (Deprecated but still works)
+from pamola_core.anonymization.commons.validation_utils import validate_numeric_field
+is_valid = validate_numeric_field(df, 'age', min_value=0, max_value=150)
 
-**Parameters:**
-- `df`: `pd.DataFrame` - The DataFrame containing the field
-- `field_name`: `str` - The name of the field to validate
-- `allow_null`: `bool` - Whether to allow null values (default: True)
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+# NEW (Recommended)
+from pamola_core.anonymization.commons.validation import NumericFieldValidator
+validator = NumericFieldValidator(min_value=0, max_value=150)
+result = validator.validate(df['age'])
+is_valid = result.is_valid
+```
 
-**Returns:**
-- `bool` - True if the field is numeric and meets null criteria, False otherwise
+### Migration Benefits
 
-**Logs:**
-- ERROR if validation fails
+1. **More Flexible**: Validators can be composed and reused
+2. **Better Error Handling**: Structured `ValidationResult` objects
+3. **Cacheable**: Results can be cached for performance
+4. **Extensible**: Easy to create custom validators
 
-#### `validate_categorical_field`
-Validates that a field is categorical or string type.
+## API Reference
 
-**Parameters:**
-- `df`: `pd.DataFrame` - The DataFrame containing the field
-- `field_name`: `str` - The name of the field to validate
-- `allow_null`: `bool` - Whether to allow null values (default: True)
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+### New Factory Functions (Recommended)
 
-**Returns:**
-- `bool` - True if the field is categorical/string and meets null criteria, False otherwise
+#### create_validator
 
-**Logs:**
-- ERROR if validation fails
+```python
+def create_validator(field_type: str, **params) -> BaseValidator
+```
 
-#### `validate_datetime_field`
-Validates that a field is a datetime type.
+**Description**: Factory function for creating field validators with a simplified interface.
 
-**Parameters:**
-- `df`: `pd.DataFrame` - The DataFrame containing the field
-- `field_name`: `str` - The name of the field to validate
-- `allow_null`: `bool` - Whether to allow null values (default: True)
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+**Parameters**:
+- `field_type`: Type of validator to create
+  - Basic types: `'numeric'`, `'categorical'`, `'datetime'`, `'boolean'`, `'text'`
+  - Specialized: `'network'`, `'geographic'`, `'temporal'`, `'financial'`
+  - File types: `'file'`, `'directory'`, `'json'`, `'csv'`, `'hierarchy'`
+- `**params`: Parameters specific to the validator type
 
-**Returns:**
-- `bool` - True if the field is datetime and meets null criteria, False otherwise
+**Example**:
+```python
+# Create numeric validator
+num_validator = create_validator('numeric', min_value=0, max_value=100)
 
-**Logs:**
-- ERROR if validation fails
+# Create file validator
+file_validator = create_validator('file', must_exist=True, valid_extensions=['.csv'])
+```
 
-### Strategy Validation Functions
+#### create_validation_pipeline
 
-#### `validate_generalization_strategy`
-Validates that a generalization strategy is supported.
+```python
+def create_validation_pipeline(*validators: BaseValidator, 
+                             stop_on_first_error: bool = False) -> CompositeValidator
+```
 
-**Parameters:**
-- `strategy`: `str` - The strategy to validate
-- `valid_strategies`: `List[str]` - List of valid strategies
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+**Description**: Creates a validation pipeline from multiple validators.
 
-**Returns:**
-- `bool` - True if the strategy is valid, False otherwise
+**Example**:
+```python
+email_pipeline = create_validation_pipeline(
+    create_validator('text', pattern=r'^[^@]+@[^@]+\.[^@]+$'),
+    create_validator('text', min_length=5, max_length=254),
+    stop_on_first_error=True
+)
+```
 
-**Logs:**
-- ERROR if validation fails
+#### validate_dataframe_schema
 
-#### `validate_null_strategy`
-Validates that a null handling strategy is supported.
+```python
+def validate_dataframe_schema(df: pd.DataFrame,
+                            schema: Dict[str, Dict[str, Any]],
+                            strict: bool = False) -> ValidationResult
+```
 
-**Parameters:**
-- `strategy`: `str` - The strategy to validate
-- `valid_strategies`: `List[str]` - List of valid strategies (default: None, will use ["PRESERVE", "EXCLUDE", "ERROR"])
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+**Description**: Validates entire DataFrame against a schema definition.
 
-**Returns:**
-- `bool` - True if the strategy is valid, False otherwise
+**Example**:
+```python
+schema = {
+    'age': {'type': 'numeric', 'min_value': 0, 'max_value': 150},
+    'email': {'type': 'text', 'pattern': r'^[^@]+@[^@]+\.[^@]+$'},
+    'salary': {'type': 'numeric', 'min_value': 0, 'allow_null': False}
+}
+result = validate_dataframe_schema(df, schema, strict=True)
+```
 
-**Logs:**
-- ERROR if validation fails
+### Deprecated Functions (Legacy Support)
 
-### Parameter Validation Functions
+> **⚠️ DEPRECATION NOTICE**: The following functions are deprecated and maintained only for backward compatibility. Use the new validator classes or factory functions instead.
 
-#### `validate_bin_count`
-Validates that a bin count is valid.
+#### validate_field_exists (DEPRECATED)
 
-**Parameters:**
-- `bin_count`: `int` - The number of bins to validate
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+```python
+def validate_field_exists(df: pd.DataFrame, field_name: str,
+                         logger_instance: Optional[logging.Logger] = None) -> bool
+```
 
-**Returns:**
-- `bool` - True if the bin count is valid, False otherwise
+**Deprecated**: Use `check_field_exists()` or `@requires_field` decorator instead.
 
-**Logs:**
-- ERROR if validation fails
+**Replacement**:
+```python
+# Old way (deprecated)
+exists = validate_field_exists(df, 'field_name')
 
-#### `validate_precision`
-Validates that a precision value is valid.
+# New way
+exists = check_field_exists(df, 'field_name')
+```
 
-**Parameters:**
-- `precision`: `int` - The precision value to validate
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+#### validate_numeric_field (DEPRECATED)
 
-**Returns:**
-- `bool` - True if the precision is valid, False otherwise
+```python
+def validate_numeric_field(df: pd.DataFrame, field_name: str, 
+                          allow_null: bool = True,
+                          min_value: Optional[float] = None, 
+                          max_value: Optional[float] = None,
+                          logger_instance: Optional[logging.Logger] = None) -> bool
+```
 
-**Logs:**
-- ERROR if validation fails
+**Deprecated**: Use `NumericFieldValidator` for more features.
 
-#### `validate_range_limits`
-Validates that range limits are valid.
+**Replacement**:
+```python
+# Old way (deprecated)
+is_valid = validate_numeric_field(df, 'age', min_value=0, max_value=150)
 
-**Parameters:**
-- `range_limits`: `Tuple[float, float]` - The (min, max) limits to validate
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+# New way
+validator = NumericFieldValidator(min_value=0, max_value=150)
+result = validator.validate(df['age'])
+is_valid = result.is_valid
+```
 
-**Returns:**
-- `bool` - True if the range limits are valid, False otherwise
+#### validate_categorical_field (DEPRECATED)
 
-**Logs:**
-- ERROR if validation fails
+```python
+def validate_categorical_field(df: pd.DataFrame, field_name: str,
+                             allow_null: bool = True,
+                             min_categories: Optional[int] = None,
+                             max_categories: Optional[int] = None,
+                             valid_categories: Optional[List[str]] = None,
+                             min_frequency_threshold: Optional[int] = None,
+                             check_distribution: bool = False,
+                             logger_instance: Optional[logging.Logger] = None
+                             ) -> Tuple[bool, Dict[str, Any]]
+```
 
-#### `validate_output_field_name`
-Validates output field name based on the mode.
+**Deprecated**: Use `CategoricalFieldValidator` for better functionality.
 
-**Parameters:**
-- `df`: `pd.DataFrame` - DataFrame to check
-- `output_field_name`: `str` - Output field name to validate
-- `mode`: `str` - Mode of operation ("REPLACE" or "ENRICH")
-- `logger_instance`: `Optional[logging.Logger]` - Logger instance to use for logging (default: module logger)
+#### validate_datetime_field (DEPRECATED)
 
-**Returns:**
-- `bool` - True if the output field name is valid, False otherwise
+```python
+def validate_datetime_field(df: pd.DataFrame, field_name: str, 
+                           allow_null: bool = True,
+                           min_date: Optional[pd.Timestamp] = None,
+                           max_date: Optional[pd.Timestamp] = None,
+                           logger_instance: Optional[logging.Logger] = None) -> bool
+```
 
-**Logs:**
-- ERROR if validation fails
-- WARNING if output field already exists
+**Deprecated**: Use `DateTimeFieldValidator` instead.
 
-### Error Handling Utility
+#### validate_generalization_strategy (DEPRECATED)
 
-#### `get_validation_error_result`
-Creates a standardized validation error result.
+```python
+def validate_generalization_strategy(strategy: str, valid_strategies: List[str],
+                                   logger_instance: Optional[logging.Logger] = None) -> bool
+```
 
-**Parameters:**
-- `error_message`: `str` - The error message
-- `field_name`: `str` - The field name associated with the error (optional)
+**Deprecated**: Use `validate_strategy()` from the new system.
 
-**Returns:**
-- `Dict[str, Any]` - Validation error result with standardized structure
+### Specialized Validation (Legacy Wrappers)
+
+> **⚠️ DEPRECATED**: Use the corresponding validator classes directly.
+
+- `validate_geographic_data()` → Use `GeographicValidator`
+- `validate_temporal_sequence()` → Use `TemporalValidator`
+- `validate_network_identifiers()` → Use `NetworkValidator`
+- `validate_financial_data()` → Use `FinancialValidator`
+- `validate_file_path()` → Use `FilePathValidator`
+- `validate_directory_path()` → Use `DirectoryPathValidator`
+
+## Re-exported Components
+
+The module re-exports key components from the new validation system:
+
+### Core Classes
+- `ValidationResult`: Structured validation result
+- `BaseValidator`: Abstract base for validators
+- `CompositeValidator`: Compose multiple validators
+- `ValidationContext`: Validation context management
+- `ValidationCache`: TTL-based result caching
+
+### Field Validators
+- `NumericFieldValidator`
+- `CategoricalFieldValidator`
+- `DateTimeFieldValidator`
+- `BooleanFieldValidator`
+- `TextFieldValidator`
+
+### File Validators
+- `FilePathValidator`
+- `DirectoryPathValidator`
+- `HierarchyFileValidator`
+- `JSONFileValidator`
+- `CSVFileValidator`
+
+### Specialized Validators
+- `NetworkValidator`
+- `GeographicValidator`
+- `TemporalValidator`
+- `FinancialValidator`
+
+### Exceptions
+- `ValidationError`
+- `FieldNotFoundError`
+- `FieldTypeError`
+- `FieldValueError`
+
+### Decorators
+- `@validation_handler`: Convert exceptions to ValidationResult
+- `@standard_validator`: Common validation patterns
+- `@requires_field`: Ensure field exists
 
 ## Usage Examples
 
-### Basic Field Validation
-
-```python
-import pandas as pd
-from pamola_core.anonymization.commons.validation_utils import validate_field_exists, validate_numeric_field
-
-# Create a sample DataFrame
-df = pd.DataFrame({
-    'id': [1, 2, 3, 4, 5],
-    'age': [25, 30, None, 40, 45],
-    'name': ['Alice', 'Bob', 'Charlie', 'David', 'Eve']
-})
-
-# Validate field existence
-if not validate_field_exists(df, 'income'):
-    print("Income field does not exist in the DataFrame")
-
-# Validate numeric field
-if validate_numeric_field(df, 'age', allow_null=True):
-    print("Age is a valid numeric field with allowed nulls")
-```
-
-### Strategy and Parameter Validation
+### Modern Approach (Recommended)
 
 ```python
 from pamola_core.anonymization.commons.validation_utils import (
-    validate_generalization_strategy, 
-    validate_bin_count, 
-    validate_range_limits
+    create_validator,
+    create_validation_pipeline,
+    validate_dataframe_schema
 )
 
-# Validate generalization strategy
-valid_strategies = ["binning", "rounding", "range"]
-if not validate_generalization_strategy("clustering", valid_strategies):
-    print("Clustering is not a valid generalization strategy")
+# 1. Simple field validation
+age_validator = create_validator('numeric', min_value=0, max_value=150)
+result = age_validator.validate(df['age'])
 
-# Validate bin count
-if validate_bin_count(10):
-    print("Bin count is valid")
+# 2. Pipeline validation
+email_validator = create_validation_pipeline(
+    create_validator('text', pattern=r'^[^@]+@[^@]+\.[^@]+$'),
+    create_validator('text', min_length=5, max_length=254)
+)
+result = email_validator.validate(df['email'])
 
-# Validate range limits
-if validate_range_limits((0, 100)):
-    print("Range limits are valid")
+# 3. Full schema validation
+schema = {
+    'age': {'type': 'numeric', 'min_value': 0, 'max_value': 150},
+    'email': {'type': 'text', 'pattern': r'^[^@]+@[^@]+\.[^@]+$'}
+}
+result = validate_dataframe_schema(df, schema)
 ```
 
-### Output Field Validation
+### Legacy Approach (Still Supported)
 
 ```python
-from pamola_core.anonymization.commons.validation_utils import validate_output_field_name
+from pamola_core.anonymization.commons.validation_utils import (
+    validate_field_exists,
+    validate_numeric_field,
+    validate_categorical_field
+)
 
-# Validate output field name for ENRICH mode
-if not validate_output_field_name(df, "anon_age", "ENRICH"):
-    print("Output field name is not valid for ENRICH mode")
-
-# Validate output field name for REPLACE mode
-if validate_output_field_name(df, None, "REPLACE"):
-    print("Output field name is valid for REPLACE mode")
+# Old-style validation (works but deprecated)
+if validate_field_exists(df, 'age'):
+    is_valid = validate_numeric_field(df, 'age', min_value=0)
 ```
-
-### Error Result Generation
-
-```python
-from pamola_core.anonymization.commons.validation_utils import get_validation_error_result
-
-# Generate a validation error result
-error = get_validation_error_result("Invalid bin count value", "age")
-print(f"Error Type: {error['error_type']}")
-print(f"Error Message: {error['error']}")
-print(f"Field: {error['field']}")
-```
-
-## Limitations and Constraints
-
-- The validation functions only validate parameters and do not modify the data
-- Error messages are logged but exceptions are not automatically raised
-- Validation is performed at a field level and does not consider dependencies between fields
-- Datetime validation can be processor-intensive for large datasets when checking convertibility
-
-## Integration with Other Modules
-
-The validation utilities module is primarily used by:
-
-1. `base_anonymization_op.py` - For validating common operation parameters
-2. Specific anonymization operations - For validating operation-specific parameters
-3. Task configuration validation - For validating configuration files before operation execution
 
 ## Best Practices
 
-1. Always validate fields before processing to prevent runtime errors
-2. Use the appropriate validation function for the field type
-3. Handle validation failures gracefully
-4. Log validation errors with context for easier debugging
-5. Chain validations when multiple conditions need to be checked
+1. **Use Factory Functions**: Prefer `create_validator()` over deprecated functions
+2. **Check ValidationResult**: Always examine the full result, not just boolean
+3. **Handle Warnings**: Even when validation passes, check warnings
+4. **Migrate Gradually**: Update critical paths first, legacy code can wait
+5. **Use Type-Specific Validators**: More features than generic validation
+6. **Leverage Decorators**: Reduce boilerplate in validation logic
+
+## Version History
+
+- **3.1.0** - Fixed import issues, improved error handling, enhanced documentation
+- **3.0.0** - Complete refactoring into modular framework with facade pattern
+- **2.1.0** - Enhanced categorical validation and hierarchy support
+- **2.0.0** - Added conditional processing and specialized validators
+- **1.0.0** - Initial monolithic implementation
+

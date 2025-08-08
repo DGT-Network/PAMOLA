@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `stopwords.py` module is a pamola core component of the PAMOLA.CORE (Privacy-Preserving AI Data Processors) natural language processing system, designed for efficient management and application of stopwords across multiple languages. It provides flexible loading mechanisms, comprehensive filtering capabilities, and graceful degradation when specialized NLP libraries are unavailable, making it essential for text preprocessing tasks within resume and job posting analysis.
+The `stopwords.py` module is a core component of the PAMOLA CORE natural language processing system, designed for efficient management and application of stopwords across multiple languages. It provides flexible loading mechanisms, comprehensive filtering capabilities, and graceful degradation when specialized NLP libraries are unavailable, making it essential for text preprocessing tasks within resume and job posting analysis.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ The module implements a flexible architecture focused on:
 2. **Multi-language Support**: Handling of stopwords for different languages with automatic detection
 3. **Graceful Degradation**: Fallback mechanisms when specialized NLP libraries are unavailable
 
-This architecture aligns with the broader NLP utilities framework of the PAMOLA.CORE system:
+This architecture aligns with the broader NLP utilities framework of the PAMOLA CORE system:
 
 ```
 ┌────────────────┐      ┌────────────────┐      ┌────────────────┐
@@ -58,9 +58,9 @@ The stopwords module provides the following key capabilities:
    - Seamless integration with NLTK's extensive stopword collections
    - Automatic fallback to file-based stopwords when NLTK is unavailable
 
-## Recommended Stopword Sources for PAMOLA.CORE
+## Recommended Stopword Sources for PAMOLA CORE
 
-For PAMOLA.CORE (Privacy-Preserving AI Data Processors) processing, we recommend using the following stopword sources:
+For HeadHunter Resume processing, we recommend using the following stopword sources:
 
 1. **General Language Stopwords**:
    - English: `stop_words_english.txt` - Comprehensive list for general English text
@@ -224,9 +224,9 @@ Returns a `Set[str]` containing all combined stopwords from the specified source
 
 Returns a `List[str]` containing the original tokens with all stopwords removed.
 
-## Recommended Workflow for PAMOLA.CORE Tasks
+## Recommended Workflow for PAMOLA CORE Tasks
 
-For PAMOLA.CORE (Privacy-Preserving AI Data Processors) analysis, we recommend the following workflows:
+For HeadHunter Resume analysis, we recommend the following workflows:
 
 ### 1. Resume Field Extraction and Analysis
 
@@ -339,4 +339,4 @@ Stopword resources can be managed in several ways:
 
 ## Conclusion
 
-The `stopwords.py` module provides a robust, flexible foundation for handling stopwords in the PAMOLA.CORE system. By supporting multiple languages, diverse sources, and graceful degradation, it ensures reliable text preprocessing across various NLP tasks in resume and job posting analysis. The module's architecture allows for easy extension and customization while maintaining high performance, making it an essential component of the PAMOLA.CORE natural language processing pipeline.
+The `stopwords.py` module provides a robust, flexible foundation for handling stopwords in the PAMOLA CORE system. By supporting multiple languages, diverse sources, and graceful degradation, it ensures reliable text preprocessing across various NLP tasks in resume and job posting analysis. The module's architecture allows for easy extension and customization while maintaining high performance, making it an essential component of the PAMOLA CORE natural language processing pipeline.

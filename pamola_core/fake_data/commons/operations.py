@@ -110,8 +110,10 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                  use_cache: bool = True, force_recalculation: bool = False,
                  use_dask: bool = False, npartitions: int = 1,
                  use_vectorization: bool = False, parallel_processes: int = 1,
-                 visualization_backend: Optional[str] = None, visualization_theme: Optional[str] = None, visualization_strict: bool = False,
-                 use_encryption: bool = False, encryption_key: Optional[Union[str, Path]] = None, encryption_mode: Optional[str] = None):
+                 visualization_backend: Optional[str] = "plotly", visualization_theme: Optional[str] = None,
+                 visualization_strict: bool = False, visualization_timeout: int = 120,
+                 use_encryption: bool = False, encryption_key: Optional[Union[str, Path]] = None,
+                 encryption_mode: Optional[str] = None):
         """
         Initializes the field operation.
 
@@ -154,6 +156,9 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 self.logger.warning(f"Unknown NULL strategy: {null_strategy}. Using PRESERVE.")
                 null_strategy = NullStrategy.PRESERVE
 
+        # Initialize BaseOperation
+        BaseOperation.__init__(self)
+
         BaseFieldOperation.__init__(
             self,
             field_name=field_name,
@@ -161,9 +166,6 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             output_field_name=output_field_name,
             null_strategy=null_strategy
         )
-
-        # Initialize BaseOperation
-        BaseOperation.__init__(self)
 
         # Additional field operation parameters
         self.chunk_size = chunk_size
@@ -188,6 +190,7 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
         self.visualization_backend = visualization_backend
         self.visualization_theme = visualization_theme
         self.visualization_strict = visualization_strict
+        self.visualization_timeout = visualization_timeout
 
     def execute(self, data_source: Any, task_dir: Path, reporter: Any, progress_tracker: Optional[HierarchicalProgressTracker] = None, **kwargs) -> OperationResult:
         """
@@ -202,7 +205,24 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
         reporter : Any
             Reporter for operation progress and results
         **kwargs : dict
-            Additional operation parameters
+            Optional overrides for instance attributes and execution parameters:
+            - dataset_name (str): Name of the dataset to load from the data source.
+            - include_timestamp (bool): Whether to append a timestamp to output filenames (default: True)
+            - output_format (str): Format for saving output files (e.g., "csv", "json") (default: csv)
+            - save_output (bool): Whether to save partitioned outputs to disk (default: True)
+            - generate_visualization (bool): Whether to generate visualizations for the output data (default: True)
+            - use_cache (bool): Enable caching of intermediate results (default: True)
+            - force_recalculation (bool): If True, bypass cached results and force full reprocessing (default: False)
+            - use_dask (bool): If True, enables Dask for parallel or distributed data processing (default: False)
+            - npartitions (int): Number of partitions to split the DataFrame into when using Dask (default: 1)
+            - use_vectorization (bool): If True, enables Joblib for parallel processing using multiple processes (default: False)
+            - parallel_processes (int): Number of parallel processes to use when vectorization with Joblib is enabled (default: 1)
+            - visualization_backend (str): Backend for visualizations (default: None)
+            - visualization_theme (str): Theme for visualizations (default: None)
+            - visualization_strict (bool): Whether to enforce strict visualization rules (default: False)
+            - visualization_timeout (int): Timeout for visualization generation in seconds (default: 120)
+            - use_encryption (bool): If True, encrypt output files (default: False)
+            - encryption_key (str or Path): Encryption key or path for encrypting outputs (default: None)
 
         Returns:
         --------
@@ -254,9 +274,10 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                                            details={"step": "Load data and validate input parameters",
                                                     "message": "Load data and validate input parameters failed"
                                            })
-                    return OperationResult(status=OperationStatus.ERROR,
-                                           error_message="Load data and validate input parameters failed",
-                                           execution_time=time.time() - self.start_time)
+                    return OperationResult(
+                        status=OperationStatus.ERROR,
+                        error_message="Load data and validate input parameters failed",
+                    )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
@@ -264,7 +285,14 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 if progress_tracker:
                     progress_tracker.update(1, {"step": "Load result from cache", "operation": caller_operation})
 
-                cached_result = self._get_cache(df.copy(), **kwargs)  # _get_cache now returns OperationResult or None
+                try:
+                    # _get_cache now returns OperationResult or None
+                    cached_result = self._get_cache(df.copy(), **kwargs)
+                except Exception as e:
+                    error_message = f"Check cache error: {str(e)}"
+                    self.logger.error(error_message)
+                    return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
+                
                 if cached_result is not None and isinstance(cached_result, OperationResult):
                     if reporter:
                         reporter.add_operation(f"Operation {caller_operation}", status="info",
@@ -280,77 +308,82 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                                                         "message": "Load result from cache failed - proceeding with execution"
                                                })
 
-            total_records = len(df)
-            # Handle dask
-            if self.use_dask and self.npartitions > 1:
-                self.logger.info(f"Operation: {caller_operation}, Processing data using dask")
-                if progress_tracker:
-                    progress_tracker.update(1, {"step": "Processing data using dask", "operation": caller_operation})
+            try:
+                total_records = len(df)
+                # Handle dask
+                if self.use_dask and self.npartitions > 1:
+                    self.logger.info(f"Operation: {caller_operation}, Processing data using dask")
+                    if progress_tracker:
+                        progress_tracker.update(1, {"step": "Processing data using dask", "operation": caller_operation})
 
-                ddf = dd.from_pandas(df, npartitions=self.npartitions)
+                    ddf = dd.from_pandas(df, npartitions=self.npartitions)
 
-                # Map process_batch to each partition
-                processed_ddf = ddf.map_partitions(self.process_batch)
+                    # Map process_batch to each partition
+                    processed_ddf = ddf.map_partitions(self.process_batch)
 
-                # Compute result
-                result_df = processed_ddf.compute()
+                    # Compute result
+                    result_df = processed_ddf.compute()
 
-                # Apply result based on self.mode
-                if self.mode == "REPLACE":
-                    df = result_df
-                elif self.mode == "ENRICH":
-                    for col in result_df.columns:
-                        if col not in df.columns or col == self.output_field_name:
-                            df[col] = result_df[col]
-
-            # Handle joblib
-            elif self.use_vectorization and self.parallel_processes > 1:
-                self.logger.info(f"Operation: {caller_operation}, Processing data using joblib")
-                if progress_tracker:
-                    progress_tracker.update(1, {"step": "Processing data using joblib", "operation": caller_operation})
-
-                # Split data into batches
-                batches = [
-                    (i, df.iloc[batch_start:batch_start + self.chunk_size].copy())
-                    for i, batch_start in enumerate(range(0, total_records, self.chunk_size))
-                ]
-
-                # Process batches in parallel using joblib
-                results = Parallel(n_jobs=self.parallel_processes)(
-                    delayed(self.process_batch)(batch) for _, batch in batches
-                )
-
-                # Merge the results
-                for (i, batch), batch_result in zip(batches, results):
-                    batch_start = i * self.chunk_size
-                    batch_end = min(batch_start + self.chunk_size, total_records)
+                    # Apply result based on self.mode
                     if self.mode == "REPLACE":
-                        df.iloc[batch_start:batch_end] = batch_result
+                        df = result_df
                     elif self.mode == "ENRICH":
-                        for col in batch_result.columns:
+                        for col in result_df.columns:
                             if col not in df.columns or col == self.output_field_name:
-                                df.loc[batch_start:batch_end - 1, col] = batch_result[col].values
+                                df[col] = result_df[col]
 
-            # Normal
-            else:
-                self.logger.info(f"Operation: {caller_operation}, Processing data normal")
-                if progress_tracker:
-                    progress_tracker.update(1, {"step": "Processing data normal", "operation": caller_operation})
+                # Handle joblib
+                elif self.use_vectorization and self.parallel_processes > 1:
+                    self.logger.info(f"Operation: {caller_operation}, Processing data using joblib")
+                    if progress_tracker:
+                        progress_tracker.update(1, {"step": "Processing data using joblib", "operation": caller_operation})
 
-                for i, batch_start in enumerate(range(0, total_records, self.chunk_size)):
-                    batch_end = min(batch_start + self.chunk_size, total_records)
-                    batch = df.iloc[batch_start:batch_end].copy()
+                    # Split data into batches
+                    batches = [
+                        (i, df.iloc[batch_start:batch_start + self.chunk_size].copy())
+                        for i, batch_start in enumerate(range(0, total_records, self.chunk_size))
+                    ]
 
-                    # Process batch
-                    batch = self.process_batch(batch)
+                    # Process batches in parallel using joblib
+                    results = Parallel(n_jobs=self.parallel_processes)(
+                        delayed(self.process_batch)(batch) for _, batch in batches
+                    )
 
-                    # Update processed data
-                    if self.mode == "REPLACE":
-                        df.iloc[batch_start:batch_end] = batch
-                    elif self.mode == "ENRICH":
-                        for col in batch.columns:
-                            if col not in df.columns or col == self.output_field_name:
-                                df.loc[batch_start:batch_end - 1, col] = batch[col].values
+                    # Merge the results
+                    for (i, batch), batch_result in zip(batches, results):
+                        batch_start = i * self.chunk_size
+                        batch_end = min(batch_start + self.chunk_size, total_records)
+                        if self.mode == "REPLACE":
+                            df.iloc[batch_start:batch_end] = batch_result
+                        elif self.mode == "ENRICH":
+                            for col in batch_result.columns:
+                                if col not in df.columns or col == self.output_field_name:
+                                    df.loc[batch_start:batch_end - 1, col] = batch_result[col].values
+
+                # Normal
+                else:
+                    self.logger.info(f"Operation: {caller_operation}, Processing data normal")
+                    if progress_tracker:
+                        progress_tracker.update(1, {"step": "Processing data normal", "operation": caller_operation})
+
+                    for i, batch_start in enumerate(range(0, total_records, self.chunk_size)):
+                        batch_end = min(batch_start + self.chunk_size, total_records)
+                        batch = df.iloc[batch_start:batch_end].copy()
+
+                        # Process batch
+                        batch = self.process_batch(batch)
+
+                        # Update processed data
+                        if self.mode == "REPLACE":
+                            df.iloc[batch_start:batch_end] = batch
+                        elif self.mode == "ENRICH":
+                            for col in batch.columns:
+                                if col not in df.columns or col == self.output_field_name:
+                                    df.loc[batch_start:batch_end - 1, col] = batch[col].values
+            except Exception as e:
+                error_message = f"Processing error: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
             if reporter:
                 reporter.add_operation(f"Operation {caller_operation}", status="info",
@@ -367,25 +400,30 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             # Update performance metrics
             records_per_second = int(total_records / execution_time) if execution_time > 0 else 0
 
-            metrics = self._collect_metrics(df)
-            # Add performance metrics
-            metrics["performance"]["generation_time"] = execution_time
-            metrics["performance"]["records_per_second"] = records_per_second
-
             try:
-                process = psutil.Process()
-                memory_info = process.memory_info()
-                metrics["performance"]["memory_usage_mb"] = memory_info.rss / (1024 * 1024)
+                metrics = self._collect_metrics(df)
+                # Add performance metrics
+                metrics["performance"]["generation_time"] = execution_time
+                metrics["performance"]["records_per_second"] = records_per_second
 
-                if reporter:
-                    reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                           details={"message": "Collect metrics successfully"})
+                try:
+                    process = psutil.Process()
+                    memory_info = process.memory_info()
+                    metrics["performance"]["memory_usage_mb"] = memory_info.rss / (1024 * 1024)
 
+                    if reporter:
+                        reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                            details={"message": "Collect metrics successfully"})
+
+                except Exception as e:
+                    self.logger.info(f"Operation: {caller_operation}, Error collecting memory usage: {str(e)}")
+                    if reporter:
+                        reporter.add_operation(f"Operation {caller_operation}", status="info",
+                                            details={"message": "Collect metrics failed"})
             except Exception as e:
-                self.logger.info(f"Operation: {caller_operation}, Error collecting memory usage: {str(e)}")
-                if reporter:
-                    reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                           details={"message": "Collect metrics failed"})
+                error_message = f"Error calculating metrics: {str(e)}"
+                self.logger.error(error_message)
+                # Continue execution - metrics failure is not critical
 
             # Generate visualizations if required
             if self.generate_visualization:
@@ -393,12 +431,18 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 if progress_tracker:
                     progress_tracker.update(1,{"step": "Generate visualizations", "operation": caller_operation})
 
-                is_success = self._generate_visualizations(
-                    df=df,
-                    metrics=metrics,
-                    visualizations_dir=visualizations_dir,
-                    **kwargs
-                )
+
+                try:
+                    is_success = self._handle_visualizations(
+                        df=df,
+                        metrics=metrics,
+                        visualizations_dir=visualizations_dir
+                    )
+                except Exception as e:
+                    error_message = f"Error generating visualizations: {str(e)}"
+                    self.logger.error(error_message)
+                    # Continue execution - visualization failure is not critical
+
                 if is_success:
                     if reporter:
                         reporter.add_operation(f"Operation {caller_operation}", status="info",
@@ -415,7 +459,12 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 if progress_tracker:
                     progress_tracker.update(1, {"step": "Save output", "operation": caller_operation})
 
-                output_path = self._save_output(df, output_dir, **kwargs)
+                try:
+                    output_path = self._save_output(df, output_dir, **kwargs)
+                except Exception as e:
+                    error_message = f"Error saving output data: {str(e)}"
+                    self.logger.error(error_message)
+                    return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
 
                 if reporter:
                     if output_path:
@@ -437,7 +486,12 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Save metrics", "operation": caller_operation})
 
-            metrics_path = self._save_metrics(metrics, task_dir, **kwargs)
+            try:
+                metrics_path = self._save_metrics(metrics, task_dir, **kwargs)
+            except Exception as e:
+                error_message = f"Error calculating metrics: {str(e)}"
+                self.logger.error(error_message)
+                # Continue execution - metrics failure is not critical
 
             if reporter:
                 reporter.add_operation(f"Operation {caller_operation}", status="info",
@@ -465,6 +519,7 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 if reporter:
                     reporter.add_operation(f"Operation {caller_operation}", status="info",
                                            details={"message": "Generate and save metrics report failed"})
+                # Continue execution - metrics failure is not critical
 
             # Create result
             self.logger.info(f"Operation: {caller_operation}, Create result")
@@ -535,7 +590,7 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             return OperationResult(
                 status=OperationStatus.ERROR,
                 error_message=str(e),
-                execution_time=time.time() - self.start_time
+                exception=e
             )
 
     def _save_output(self, df: pd.DataFrame, output_dir: Path, **kwargs) -> Optional[Path]:
@@ -556,7 +611,7 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             encryption_mode = get_encryption_mode(df, **kwargs)
             write_dataframe_to_csv(df=df, file_path=output_path, encryption_key=encryption_key, use_encryption=use_encryption, encryption_mode=encryption_mode)
 
-            self.logger.info(f"Output saved to: {output_path}")
+            self.logger.info(f"Output saved to: {Path(output_path).name}")
             return output_path
 
         except Exception as e:
@@ -651,8 +706,7 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
             self,
             df: pd.DataFrame,
             metrics: dict,
-            visualizations_dir: Path,
-            **kwargs
+            visualizations_dir: Path
     ) -> bool:
         try:
             if self.mode == "REPLACE":
@@ -663,11 +717,11 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
                 gen_series = None
 
             kwargs_visualization = {
-                "use_encryption": kwargs.get("use_encryption", False),
-                "encryption_key": kwargs.get("encryption_key", None),
-                "backend": kwargs.get("visualization_backend", self.visualization_backend),
-                "theme": kwargs.get("visualization_theme", self.visualization_theme),
-                "strict": kwargs.get("visualization_strict", self.visualization_strict)
+                "use_encryption": self.use_encryption,
+                "encryption_key": self.encryption_key,
+                "backend": self.visualization_backend,
+                "theme": self.visualization_theme,
+                "strict": self.visualization_strict
             }
 
             if gen_series is not None:
@@ -683,6 +737,51 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
 
         except Exception as e:
             self.logger.warning(f"Error generating visualizations: {str(e)}")
+            return False
+
+    def _handle_visualizations(
+            self,
+            df: pd.DataFrame,
+            metrics: dict,
+            visualizations_dir: Path
+    ) -> bool:
+        import threading
+        import contextvars
+
+        self.logger.info("[VIZ] Starting visualization in a separate thread")
+
+        result_holder = {"success": False}
+
+        def run():
+            try:
+                result_holder["success"] = self._generate_visualizations(
+                    df=df,
+                    metrics=metrics,
+                    visualizations_dir=visualizations_dir
+                )
+            except Exception as e:
+                self.logger.error(f"[VIZ] Exception in visualization thread: {e}", exc_info=True)
+
+        try:
+            ctx = contextvars.copy_context()
+            thread = threading.Thread(
+                target=ctx.run,
+                args=(run,),
+                name=f"VizThread-{self.name}",
+                daemon=True
+            )
+
+            thread.start()
+            thread.join(timeout=self.visualization_timeout)
+
+            if thread.is_alive():
+                self.logger.warning(f"[VIZ] Visualization thread timed out after {self.visualization_timeout}s")
+                return False
+
+            return result_holder["success"]
+
+        except Exception as e:
+            self.logger.error(f"[VIZ] Error setting up visualization thread: {e}", exc_info=True)
             return False
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
@@ -1068,9 +1167,10 @@ class FieldOperation(BaseFieldOperation, BaseOperation):
         self.use_vectorization = kwargs.get("use_vectorization", getattr(self, "use_vectorization", False))
         self.parallel_processes = kwargs.get("parallel_processes", getattr(self, "parallel_processes", 1))
 
-        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", False))
+        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", None))
         self.visualization_theme = kwargs.get("visualization_theme", getattr(self, "visualization_theme", None))
-        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", None))
+        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", False))
+        self.visualization_timeout = kwargs.get("visualization_timeout", getattr(self, "visualization_timeout", None))
 
         self.use_encryption = kwargs.get("use_encryption", getattr(self, "use_encryption", False))
         self.encryption_key = kwargs.get("encryption_key",
@@ -1163,9 +1263,10 @@ class GeneratorOperation(FieldOperation):
                  use_vectorization: bool = False, parallel_processes: int = 1,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_theme: Optional[str] = None,
                  visualization_strict: bool = False,
+                 visualization_timeout: int = 120,
                  encryption_mode: Optional[str] = None):
         """
         Initializes the generator operation.
@@ -1226,7 +1327,8 @@ class GeneratorOperation(FieldOperation):
             encryption_mode=encryption_mode,
             visualization_backend=visualization_backend,
             visualization_theme=visualization_theme,
-            visualization_strict=visualization_strict
+            visualization_strict=visualization_strict,
+            visualization_timeout=visualization_timeout
         )
 
         self.generator = generator

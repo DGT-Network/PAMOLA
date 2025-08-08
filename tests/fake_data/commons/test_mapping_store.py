@@ -484,7 +484,7 @@ class TestMappingStoreJson(unittest.TestCase):
         # Call save_json without providing io_module
         self.store.save_json(output_path)
 
-        # Assert write_json from hhr_io was called correctly
+        # Assert write_json from pamola_io was called correctly
         mock_write_json.assert_called_once()
         args, kwargs = mock_write_json.call_args
         self.assertIn("email", args[0]["mappings"])
@@ -521,7 +521,7 @@ class TestMappingStoreJson(unittest.TestCase):
         mock_read_json.return_value = sample_data
         self.store.load_json("dummy_path.json")
 
-        # Assert write_json from hhr_io was called correctly
+        # Assert write_json from pamola_io was called correctly
         mock_read_json.assert_called_once()
 
         self.assertEqual(self.store.mappings["email"]["a@example.com"], "anon@example.com")

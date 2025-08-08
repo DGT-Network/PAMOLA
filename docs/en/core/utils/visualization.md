@@ -1,138 +1,250 @@
-# PAMOLA.CORE Visualization System Documentation
+# PAMOLA Visualization System Documentation
+
+**Version: 2.1.0**  
+**Last Updated: January 2025**  
+**Status: Production Ready**
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Architecture](#architecture)
+3. [Key Features](#key-features)
+4. [Installation & Dependencies](#installation--dependencies)
+5. [Thread Safety & Concurrency](#thread-safety--concurrency)
+6. [API Reference](#api-reference)
+7. [Backend Support Matrix](#backend-support-matrix)
+8. [Theme Management](#theme-management)
+9. [Error Handling & Strict Mode](#error-handling--strict-mode)
+10. [Usage Guidelines](#usage-guidelines)
+11. [Advanced Features](#advanced-features)
+12. [Performance Considerations](#performance-considerations)
+13. [Troubleshooting](#troubleshooting)
+14. [Examples](#examples)
 
 ## Overview
 
-The PAMOLA.CORE Visualization System provides a unified interface for creating various types of data visualizations primarily using Plotly. This system is designed to support operations that analyze and profile data within the PAMOLA.CORE (Privacy-Preserving AI Data Processors) project, generating standardized PNG visualizations that help identify patterns, distributions, and relationships within the data.
+The PAMOLA Visualization System provides a unified, thread-safe interface for creating data visualizations with a focus on privacy-preserving analytics and concurrent execution. The system generates high-quality PNG visualizations suitable for reports, dashboards, and analytical workflows.
 
-The visualization system focuses on simplicity and consistency - operations pass in their data, specify an output path, and receive either the path to the saved PNG file or an error message. This streamlined workflow makes it easy to integrate visualizations into profiling and analysis pipelines without dealing with the complexity of visualization libraries directly.
+### Core Design Principles
 
-## Pamola Core Philosophy
-
-The visualization system is built around several key principles:
-
-1. **Simplified API**: A clean interface focused on creating and saving PNG visualizations
-2. **Consistent Workflow**: Every function accepts data, creates visualizations, saves to PNG, and returns the path
-3. **Error Resilience**: Graceful handling of errors with clear error messages
-4. **Plotly-First**: Primary focus on Plotly for high-quality visualizations
-5. **Minimal Configuration**: Sensible defaults with optional customization when needed
-6. **Path-Based Output**: Clear organization of visualization files by providing explicit output paths
-
-This approach ensures that operations can easily generate visualizations without needing to understand the underlying visualization libraries.
+- **Thread-Safe by Design**: All operations are isolated using Python's `contextvars`
+- **Unified API**: Consistent interface across all visualization types
+- **Graceful Error Handling**: Production-ready with comprehensive error management
+- **Extensible Architecture**: Easy to add new visualization types
+- **Multi-Backend Support**: Plotly (primary) and Matplotlib (secondary)
+- **Theme Isolation**: Each visualization can have its own theme without affecting others
 
 ## Architecture
 
-The visualization system consists of a main API module (`visualization.py`) and a package of helper modules (`vis_helpers/`) that implement specific visualization types:
-
 ```mermaid
 graph TD
-    A[visualization.py] --> B[base.py]
-    A --> C[theme.py]
-    A --> D[bar_plots.py]
-    A --> E[histograms.py]
-    A --> F[scatter_plots.py]
-    A --> G[boxplot.py]
-    A --> H[heatmap.py]
-    A --> I[line_plots.py]
-    A --> J[cor_matrix.py]
-    A --> K[cor_pair.py]
-    A --> L[word_clouds.py]
-    A --> M[spider_charts.py]
-    A --> N[pie_charts.py]
-    A --> O[combined_charts.py]
+    A[visualization.py<br/>Main API] --> B[context.py<br/>Thread Safety]
+    A --> C[base.py<br/>Registry/Factory]
+    A --> D[theme.py<br/>Theme Management]
     
-    B --> P[FigureRegistry]
-    B --> Q[BaseFigure]
-    Q --> R[PlotlyFigure]
-    Q --> S[MatplotlibFigure]
+    C --> E[Visualization Types]
+    E --> F[bar_plots.py]
+    E --> G[histograms.py]
+    E --> H[scatter_plots.py]
+    E --> I[boxplot.py]
+    E --> J[heatmap.py]
+    E --> K[line_plots.py]
+    E --> L[pie_charts.py<br/>+Sunburst]
+    E --> M[spider_charts.py]
+    E --> N[combined_charts.py]
+    E --> O[correlation]
+    E --> P[word_clouds.py]
     
-    C --> T[Theme Management]
+    O --> Q[cor_matrix.py]
+    O --> R[cor_pair.py]
+    O --> S[cor_utils.py]
     
-    P --> D
-    P --> E
-    P --> F
-    P --> G
-    P --> H
-    P --> I
-    P --> J
-    P --> K
-    P --> L
-    P --> M
-    P --> N
-    P --> O
+    B --> T[ContextVars<br/>Isolation]
+    C --> U[FigureRegistry<br/>Pattern]
+    D --> V[Theme<br/>ContextVars]
 ```
 
-The system follows a consistent pattern:
+### Component Responsibilities
 
-- Operations call functions in the main API
-- The API delegates to appropriate helpers for implementation
-- Visualizations are saved as PNG files using the pamola core IO module
-- The path to the saved file is returned for further use
+- **visualization.py**: Public API functions
+- **context.py**: Thread-safe context management
+- **base.py**: Abstract classes and factory pattern
+- **theme.py**: Theme definitions and application
+- **vis_helpers/**: Individual visualization implementations
 
-## Dependencies
+## Key Features
 
-The visualization system relies on the following libraries:
+### 1. Thread Safety & Context Isolation
 
-### Pamola Core Dependencies
+All visualization operations are completely thread-safe:
 
-- `plotly`: Primary visualization library for creating visualizations
-- `pandas`: For data handling and manipulation
-- `numpy`: For numerical operations
-- `pathlib` (Path): For handling file paths consistently
-- `kaleido`: Required for exporting Plotly figures to PNG format
+```python
+# Safe for concurrent execution
+from concurrent.futures import ThreadPoolExecutor
+from pamola_core.utils.visualization import create_histogram
+
+def generate_plot(idx):
+    return create_histogram(
+        data=np.random.normal(0, 1, 1000),
+        output_path=f"output/hist_{idx}.png",
+        title=f"Histogram {idx}",
+        theme="dark" if idx % 2 else "default",
+        backend="plotly"  # Each call can use different backend
+    )
+
+# Generate 10 plots concurrently with different themes/backends
+with ThreadPoolExecutor(max_workers=4) as executor:
+    results = list(executor.map(generate_plot, range(10)))
+```
+
+### 2. Automatic Resource Management
+
+The system automatically manages figure cleanup to prevent memory leaks:
+
+```python
+from pamola_core.utils.vis_helpers.context import visualization_context
+
+# Resources are automatically cleaned up after use
+with visualization_context(theme="dark", auto_close=True):
+    # Create multiple visualizations
+    # All figures are closed when exiting context
+```
+
+### 3. Graceful Degradation
+
+Empty or invalid data produces informative placeholder visualizations:
+
+```python
+# Empty data doesn't crash - creates placeholder with message
+result = create_bar_plot(
+    data={},  # Empty data
+    output_path="empty_chart.png",
+    title="Sales Data"
+)
+# Returns: Path to PNG with "No data available" message
+```
+
+## Installation & Dependencies
+
+### Required Dependencies
+
+```bash
+pip install plotly>=5.0.0
+pip install pandas>=1.3.0
+pip install numpy>=1.20.0
+pip install kaleido>=0.2.0  # For PNG export
+```
 
 ### Optional Dependencies
 
-- `matplotlib`: Used as a fallback for some visualization types
-- `wordcloud` and `PIL`: Required only if using word cloud visualizations
+```bash
+pip install matplotlib>=3.4.0  # For matplotlib backend
+pip install wordcloud>=1.8.0  # For word clouds
+pip install pillow>=8.0.0     # For image processing
+```
 
-Note that all dependencies are handled internally by the visualization system, so operations using the API don't need to import these libraries directly.
+### Verification
+
+```python
+from pamola_core.utils.visualization import create_bar_plot
+
+# Test installation
+result = create_bar_plot(
+    {"A": 10, "B": 20}, 
+    "test.png", 
+    "Test Chart"
+)
+print(f"Success: {result}")
+```
+
+## Thread Safety & Concurrency
+
+### How It Works
+
+The visualization system uses Python's `contextvars` to isolate state:
+
+1. **Backend Isolation**: Each visualization call has its own backend setting
+2. **Theme Isolation**: Theme changes don't affect other concurrent operations
+3. **Resource Isolation**: Figures are tracked per-context for proper cleanup
+4. **No Global State**: All settings are context-local
+
+### Safe Usage Patterns
+
+```python
+# Pattern 1: Parallel generation with different settings
+import asyncio
+from pamola_core.utils.visualization import create_line_plot
+
+async def async_plot(idx):
+    return create_line_plot(
+        data=[1, 2, 3, 4, 5],
+        output_path=f"async_{idx}.png",
+        title=f"Async Plot {idx}",
+        theme="dark" if idx % 2 else "default"
+    )
+
+# Safe for async/await
+results = await asyncio.gather(*[async_plot(i) for i in range(5)])
+
+# Pattern 2: Thread pool with isolated contexts
+from joblib import Parallel, delayed
+
+results = Parallel(n_jobs=4)(
+    delayed(create_scatter_plot)(
+        x_data=np.random.randn(100),
+        y_data=np.random.randn(100),
+        output_path=f"scatter_{i}.png",
+        title=f"Scatter {i}"
+    ) for i in range(10)
+)
+```
 
 ## API Reference
 
-### Basic Visualization Functions
+### Common Parameters
+
+All visualization functions share these parameters:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `output_path` | `str` or `Path` | Required | Where to save the PNG file |
+| `title` | `str` | Required | Chart title |
+| `theme` | `str` | `None` | Theme name (uses current if None) |
+| `backend` | `str` | `None` | Backend to use (uses current if None) |
+| `strict` | `bool` | `False` | Raise exceptions vs. log warnings |
+| `**kwargs` | `dict` | `{}` | Backend-specific parameters |
+
+### Visualization Functions
 
 #### `create_bar_plot`
 
-Creates a bar plot visualization and saves it as PNG.
+Creates vertical or horizontal bar charts.
 
 ```python
 def create_bar_plot(
     data: Union[Dict[str, Any], pd.Series],
     output_path: Union[str, Path],
     title: str,
-    orientation: str = "v",
+    orientation: str = "v",  # "v" or "h"
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
-    sort_by: str = "value",
+    sort_by: str = "value",  # "value" or "key"
     max_items: int = 15,
+    show_values: bool = True,
+    text: Optional[Union[List[str], pd.Series]] = None,
+    colorscale: Optional[str] = None,
+    color: Optional[Any] = None,
+    figsize: Optional[Any] = None,
     theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: bool = False,
     **kwargs
 ) -> str:
 ```
 
-**Parameters:** See details in existing documentation.
-
-**Example:**
-
-```python
-from pamola_core.utils.visualization import create_bar_plot
-
-# Create a bar plot from a dictionary
-categories = {"Category A": 42, "Category B": 18, "Category C": 34, "Category D": 55}
-result = create_bar_plot(
-    data=categories,
-    output_path="output/categories.png",
-    title="Sample Categories",
-    x_label="Category",
-    y_label="Count",
-    orientation="v"
-)
-print(f"Visualization saved to: {result}")
-```
-
 #### `create_histogram`
 
-Creates a histogram visualization and saves it as PNG.
+Creates distribution visualizations with optional KDE.
 
 ```python
 def create_histogram(
@@ -144,32 +256,15 @@ def create_histogram(
     bins: int = 20,
     kde: bool = True,
     theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: bool = False,
     **kwargs
 ) -> str:
 ```
 
-**Example:**
-
-```python
-from pamola_core.utils.visualization import create_histogram
-import numpy as np
-
-# Create a histogram with random data
-data = np.random.normal(0, 1, 1000)  # 1000 points from standard normal distribution
-result = create_histogram(
-    data=data,
-    output_path="output/normal_distribution.png",
-    title="Normal Distribution",
-    x_label="Value",
-    y_label="Frequency",
-    bins=30,
-    kde=True
-)
-```
-
 #### `create_scatter_plot`
 
-Creates a scatter plot visualization and saves it as PNG.
+Creates scatter plots with optional trendlines.
 
 ```python
 def create_scatter_plot(
@@ -182,134 +277,20 @@ def create_scatter_plot(
     add_trendline: bool = False,
     correlation: Optional[float] = None,
     method: Optional[str] = None,
+    hover_text: Optional[List[str]] = None,
+    marker_size: Optional[Union[List[float], float]] = None,
+    color_scale: Optional[Union[List[str], str]] = None,
+    color_values: Optional[List[float]] = None,
     theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: bool = False,
     **kwargs
 ) -> str:
-```
-
-#### `create_boxplot`
-
-Creates a box plot visualization and saves it as PNG.
-
-```python
-def create_boxplot(
-    data: Union[Dict[str, List[float]], pd.DataFrame, pd.Series],
-    output_path: Union[str, Path],
-    title: str,
-    x_label: Optional[str] = "Category",
-    y_label: Optional[str] = "Value",
-    orientation: str = "v",
-    show_points: bool = True,
-    notched: bool = False,
-    theme: Optional[str] = None,
-    **kwargs
-) -> str:
-```
-
-#### `create_heatmap`
-
-Creates a heatmap visualization and saves it as PNG.
-
-```python
-def create_heatmap(
-    data: Union[Dict[str, Dict[str, float]], pd.DataFrame, np.ndarray],
-    output_path: Union[str, Path],
-    title: str,
-    x_label: Optional[str] = None,
-    y_label: Optional[str] = None,
-    colorscale: Optional[str] = None,
-    annotate: bool = True,
-    annotation_format: str = ".2f",
-    theme: Optional[str] = None,
-    **kwargs
-) -> str:
-```
-
-#### `create_line_plot`
-
-Creates a line plot visualization and saves it as PNG.
-
-```python
-def create_line_plot(
-    data: Union[Dict[str, List[float]], pd.DataFrame, pd.Series],
-    output_path: Union[str, Path],
-    title: str,
-    x_data: Optional[Union[List, np.ndarray, pd.Series]] = None,
-    x_label: Optional[str] = None,
-    y_label: Optional[str] = None,
-    add_markers: bool = True,
-    add_area: bool = False,
-    smooth: bool = False,
-    theme: Optional[str] = None,
-    **kwargs
-) -> str:
-```
-
-### New Visualization Types
-
-#### `create_spider_chart`
-
-Creates a spider/radar chart visualization and saves it as PNG.
-
-```python
-def create_spider_chart(
-    data: Union[Dict[str, Dict[str, float]], pd.DataFrame],
-    output_path: Union[str, Path],
-    title: str,
-    categories: Optional[List[str]] = None,
-    normalize_values: bool = True,
-    fill_area: bool = True,
-    show_gridlines: bool = True,
-    angle_start: float = 90,
-    show_legend: bool = True,
-    theme: Optional[str] = None,
-    **kwargs
-) -> str:
-```
-
-**Parameters:**
-
-- `data`: Data to visualize. If dict, outer keys are series names, inner keys are categories. If DataFrame, columns are categories, index values are series names.
-- `output_path`: Path where the PNG file should be saved
-- `title`: Title for the plot
-- `categories`: List of categories to include (if None, all categories in data will be used)
-- `normalize_values`: Whether to normalize values to 0-1 range for each category
-- `fill_area`: Whether to fill the area under the radar lines
-- `show_gridlines`: Whether to show gridlines on the radar
-- `angle_start`: Starting angle for the first axis in degrees (90 = top)
-- `show_legend`: Whether to show the legend
-- `theme`: Theme name to use for this visualization
-- `**kwargs`: Additional arguments to pass to the underlying plotting function
-
-**Returns:**
-
-- Path to the saved PNG file or error message
-
-**Example:**
-
-```python
-from pamola_core.utils.visualization import create_spider_chart
-
-# Create a spider chart to compare multiple metrics across different categories
-metrics = {
-    "Product A": {"Quality": 8, "Price": 6, "Support": 9, "Features": 7},
-    "Product B": {"Quality": 9, "Price": 4, "Support": 6, "Features": 9},
-    "Product C": {"Quality": 7, "Price": 8, "Support": 7, "Features": 5}
-}
-
-result = create_spider_chart(
-    data=metrics,
-    output_path="output/product_comparison.png",
-    title="Product Comparison",
-    normalize_values=True,
-    fill_area=True
-)
-print(f"Visualization saved to: {result}")
 ```
 
 #### `create_pie_chart`
 
-Creates a pie chart visualization and saves it as PNG.
+Creates pie or donut charts.
 
 ```python
 def create_pie_chart(
@@ -317,61 +298,26 @@ def create_pie_chart(
     output_path: Union[str, Path],
     title: str,
     labels: Optional[List[str]] = None,
-    hole: float = 0,  # 0 for pie chart, >0 for donut
+    hole: float = 0,  # 0=pie, 0.3=donut
     show_values: bool = True,
+    value_format: str = ".1f",
     show_percentages: bool = True,
     sort_values: bool = False,
     pull_largest: bool = False,
+    pull_value: float = 0.1,
+    clockwise: bool = True,
+    start_angle: float = 90,
+    textposition: str = "auto",  # "inside", "outside", "auto"
     theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: bool = False,
     **kwargs
 ) -> str:
 ```
 
-**Parameters:**
-
-- `data`: Data to visualize. If dict or Series, keys are used as labels. If list, separate labels should be provided.
-- `output_path`: Path where the PNG file should be saved
-- `title`: Title for the plot
-- `labels`: List of labels for pie slices (not needed if data is dict or Series)
-- `hole`: Size of the hole for a donut chart (0-1, default 0 for a normal pie)
-- `show_values`: Whether to show values on pie slices
-- `show_percentages`: Whether to show percentages on pie slices
-- `sort_values`: Whether to sort slices by value (descending)
-- `pull_largest`: Whether to pull out the largest slice
-- `theme`: Theme name to use for this visualization
-- `**kwargs`: Additional arguments to pass to the underlying plotting function
-
-**Returns:**
-
-- Path to the saved PNG file or error message
-
-**Example:**
-
-```python
-from pamola_core.utils.visualization import create_pie_chart
-
-# Create a pie chart for market share data
-market_share = {
-    "Company A": 35,
-    "Company B": 25,
-    "Company C": 20,
-    "Company D": 15,
-    "Others": 5
-}
-
-result = create_pie_chart(
-    data=market_share,
-    output_path="output/market_share.png",
-    title="Market Share Distribution",
-    hole=0.3,  # Create a donut chart
-    show_percentages=True
-)
-print(f"Visualization saved to: {result}")
-```
-
 #### `create_sunburst_chart`
 
-Creates a sunburst chart visualization for hierarchical data and saves it as PNG.
+Creates hierarchical sunburst visualizations.
 
 ```python
 def create_sunburst_chart(
@@ -381,363 +327,458 @@ def create_sunburst_chart(
     path_column: Optional[str] = None,
     values_column: Optional[str] = None,
     color_column: Optional[str] = None,
+    branchvalues: str = "total",  # "total" or "remainder"
     maxdepth: Optional[int] = None,
+    sort_siblings: bool = False,
     theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: bool = False,
     **kwargs
 ) -> str:
 ```
 
-**Parameters:**
+## Backend Support Matrix
 
-- `data`: Data to visualize. If DataFrame, it needs columns for path, values, and optionally colors. If Dict, it should be hierarchical with nested dictionaries.
-- `output_path`: Path where the PNG file should be saved
-- `title`: Title for the plot
-- `path_column`: For DataFrame data, the column containing hierarchical path
-- `values_column`: For DataFrame data, the column containing values
-- `color_column`: For DataFrame data, the column to use for coloring
-- `maxdepth`: Maximum depth to display
-- `theme`: Theme name to use for this visualization
-- `**kwargs`: Additional arguments to pass to the underlying plotting function
+| Visualization Type | Plotly | Matplotlib | Notes |
+|-------------------|--------|------------|-------|
+| Bar Chart | ✅ | ✅ | Full support |
+| Histogram | ✅ | ✅ | Full support |
+| Box Plot | ✅ | ✅ | Full support |
+| Heatmap | ✅ | ✅ | Full support |
+| Line Plot | ✅ | ❌ | Matplotlib planned |
+| Scatter Plot | ✅ | ❌ | Matplotlib planned |
+| Pie/Donut Chart | ✅ | ❌ | Plotly only |
+| Sunburst Chart | ✅ | ❌ | Plotly only |
+| Spider/Radar Chart | ✅ | ❌ | Plotly only |
+| Combined Chart | ✅ | ❌ | Plotly only |
+| Correlation Matrix | ✅ | ❌ | Plotly only |
+| Correlation Pair | ✅ | ❌ | Plotly only |
+| Word Cloud | 🔧 | 🔧 | Special backend |
 
-**Returns:**
+Legend: ✅ Supported | ❌ Not Supported | 🔧 Custom Implementation
 
-- Path to the saved PNG file or error message
+## Theme Management
 
-**Example:**
+### Built-in Themes
+
+| Theme | Description | Best For |
+|-------|-------------|----------|
+| `default` | Light background, blue palette | General use |
+| `dark` | Dark background, viridis colors | Dashboards |
+| `pastel` | Soft colors, light background | Reports |
+| `professional` | Conservative colors | Business docs |
+
+### Using Themes
 
 ```python
-from pamola_core.utils.visualization import create_sunburst_chart
+# Method 1: Per-visualization
+create_bar_plot(data, "output.png", "Title", theme="dark")
 
-# Create a sunburst chart for hierarchical data
-hierarchy = {
-    "North America": {
-        "USA": {
-            "New York": 120,
-            "California": 150,
-            "Texas": 100
-        },
-        "Canada": {
-            "Ontario": 80,
-            "Quebec": 70
-        }
-    },
-    "Europe": {
-        "UK": 110,
-        "Germany": 130,
-        "France": 100
-    },
-    "Asia": {
-        "China": 200,
-        "Japan": 140,
-        "India": 160
+# Method 2: Context manager
+from pamola_core.utils.vis_helpers.context import visualization_context
+
+with visualization_context(theme="professional"):
+    # All visualizations use professional theme
+    create_bar_plot(...)
+    create_line_plot(...)
+```
+
+### Creating Custom Themes
+
+```python
+from pamola_core.utils.vis_helpers.theme import create_custom_theme
+
+create_custom_theme(
+    name="corporate",
+    config={
+        "colors": ["#003366", "#006699", "#0099CC"],
+        "colorscale": "Blues",
+        "background_color": "#FFFFFF",
+        "text_color": "#333333",
+        "font_family": "Arial, sans-serif",
+        "font_size": 12,
+        "title_font_size": 16
     }
-}
-
-result = create_sunburst_chart(
-    data=hierarchy,
-    output_path="output/sales_by_region.png",
-    title="Sales by Region",
-    maxdepth=2  # Limit display to 2 levels
 )
-print(f"Visualization saved to: {result}")
+
+# Use custom theme
+create_bar_plot(data, "output.png", "Title", theme="corporate")
 ```
 
-#### `create_combined_chart`
+## Error Handling & Strict Mode
 
-Creates a combined chart with dual Y-axes and saves it as PNG.
+### Strict Mode Behavior
+
+| Condition | `strict=False` (default) | `strict=True` |
+|-----------|-------------------------|---------------|
+| Invalid backend | Log warning, use default | Raise `ValueError` |
+| Missing theme | Log warning, use default | Raise `ValueError` |
+| Invalid data | Return error message | Raise exception |
+| File write error | Return error message | Raise `IOError` |
+
+### Best Practices
 
 ```python
-def create_combined_chart(
-    primary_data: Union[Dict[str, Any], pd.Series, pd.DataFrame],
-    secondary_data: Union[Dict[str, Any], pd.Series, pd.DataFrame],
-    output_path: Union[str, Path],
-    title: str,
-    primary_type: str = "bar",  # "bar", "line", "scatter", "area"
-    secondary_type: str = "line",  # "line", "scatter", "area", "bar"
-    x_data: Optional[Union[List, np.ndarray, pd.Series]] = None,
-    x_label: Optional[str] = None,
-    primary_y_label: Optional[str] = None,
-    secondary_y_label: Optional[str] = None,
-    primary_color: Optional[str] = None,
-    secondary_color: Optional[str] = None,
-    primary_on_right: bool = False,
-    vertical_alignment: bool = True,
-    theme: Optional[str] = None,
-    **kwargs
-) -> str:
+# Production: Use strict=False for robustness
+results = []
+for data in datasets:
+    result = create_histogram(
+        data, f"hist_{i}.png", f"Dataset {i}",
+        strict=False  # Continue on errors
+    )
+    results.append(result)
+
+# Development/Testing: Use strict=True for debugging
+try:
+    result = create_histogram(
+        data, "test.png", "Test",
+        strict=True  # Fail fast on errors
+    )
+except Exception as e:
+    print(f"Visualization failed: {e}")
 ```
 
-**Parameters:**
+## Usage Guidelines
 
-- `primary_data`: Data for the primary Y-axis
-- `secondary_data`: Data for the secondary Y-axis
-- `output_path`: Path where the PNG file should be saved
-- `title`: Title for the plot
-- `primary_type`: Type of visualization for primary data: "bar", "line", "scatter", "area"
-- `secondary_type`: Type of visualization for secondary data: "line", "scatter", "area", "bar"
-- `x_data`: Data for the x-axis. If None, indices are used.
-- `x_label`: Label for the x-axis
-- `primary_y_label`: Label for the primary Y-axis
-- `secondary_y_label`: Label for the secondary Y-axis
-- `primary_color`: Color for the primary series
-- `secondary_color`: Color for the secondary series
-- `primary_on_right`: Whether to display primary Y-axis on the right side
-- `vertical_alignment`: Whether to align zero values across both axes
-- `theme`: Theme name to use for this visualization
-- `**kwargs`: Additional arguments to pass to the underlying plotting function
+### 1. Choosing Visualization Types
 
-**Returns:**
+| Data Type | Recommended Visualization |
+|-----------|--------------------------|
+| Categorical counts | Bar chart, Pie chart |
+| Distributions | Histogram, Box plot |
+| Relationships | Scatter plot, Line plot |
+| Correlations | Correlation matrix/pair |
+| Time series | Line plot |
+| Hierarchical | Sunburst chart |
+| Multi-dimensional comparison | Spider/Radar chart |
+| Text frequency | Word cloud |
 
-- Path to the saved PNG file or error message
-
-**Example:**
+### 2. Performance Optimization
 
 ```python
-from pamola_core.utils.visualization import create_combined_chart
+# For large datasets, sample before visualization
+if len(data) > 10000:
+    data_sample = data.sample(n=5000)
+    create_scatter_plot(
+        data_sample['x'], data_sample['y'],
+        "sampled_scatter.png", "Large Dataset Sample"
+    )
 
-# Create a combined chart with sales (bars) and profit margin (line)
-months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
-sales = [120, 130, 145, 160, 170, 190]
-profit_margin = [15.2, 16.8, 16.2, 17.5, 18.1, 19.2]
-
-result = create_combined_chart(
-    primary_data=sales,
-    secondary_data=profit_margin,
-    output_path="output/sales_and_margins.png",
-    title="Sales and Profit Margins",
-    primary_type="bar",
-    secondary_type="line",
-    x_data=months,
-    x_label="Month",
-    primary_y_label="Sales ($K)",
-    secondary_y_label="Profit Margin (%)",
-    primary_color="royalblue",
-    secondary_color="crimson"
+# Use max_items for bar charts
+create_bar_plot(
+    large_categories,
+    "top_categories.png",
+    "Top 20 Categories",
+    max_items=20  # Show only top 20
 )
-print(f"Visualization saved to: {result}")
 ```
 
-## Usage Guidelines for Functional Modules
-
-When integrating visualizations into functional modules, follow these guidelines:
-
-### 1. Choose the Right Visualization Type
-
-Select the appropriate visualization type based on the data you're analyzing:
-
-|Data Type|Visualization Type|
-|---|---|
-|Categorical distributions|Bar plot, Pie chart|
-|Numeric distributions|Histogram, Box plot|
-|Time series|Line plot|
-|Relationships between variables|Scatter plot, Correlation matrix|
-|Multiple metrics comparison|Spider/Radar chart|
-|Hierarchical data|Sunburst chart|
-|Mixed metrics with different scales|Combined chart|
-
-### 2. Proper Path Management
-
-Use a consistent approach to output path management:
+### 3. Batch Processing
 
 ```python
 from pathlib import Path
 
-# Create base output directory
-output_dir = Path("output/profiling/contacts")
-output_dir.mkdir(parents=True, exist_ok=True)
-
-# Generate visualization paths
-domain_chart_path = output_dir / "email_domains.png"
-completeness_path = output_dir / "completeness.png"
-```
-
-### 3. Error Handling
-
-Always check for errors in the returned paths:
-
-```python
-result = create_bar_plot(data, output_path, "Title")
-if result.startswith("Error"):
-    # Handle the error
-    logger.error(f"Visualization failed: {result}")
-    # Consider providing fallback or alternative
-else:
-    # Use the successful result
-    logger.info(f"Visualization created at: {result}")
-    # Include in report, etc.
-```
-
-### 4. Basic Integration Pattern
-
-Follow this pattern for integrating visualizations into functional modules:
-
-```python
-from pamola_core.utils.visualization import create_bar_plot, create_line_plot
-
-def analyze_user_data(input_file, output_dir):
-    """Analyze user data and generate reports with visualizations."""
-    # Create output directory
+def batch_visualize(datasets, output_dir):
+    """Generate visualizations for multiple datasets."""
     output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(exist_ok=True)
     
-    # Load and prepare data
-    df = ...  # Load data
+    results = {}
+    for name, data in datasets.items():
+        # Generate appropriate visualization based on data type
+        if isinstance(data, dict):
+            path = create_bar_plot(
+                data, 
+                output_dir / f"{name}_bar.png",
+                f"{name} Distribution"
+            )
+        elif isinstance(data, pd.DataFrame):
+            path = create_heatmap(
+                data.corr(),
+                output_dir / f"{name}_corr.png",
+                f"{name} Correlations"
+            )
+        results[name] = path
     
-    # Generate visualizations
-    visualizations = {}
+    return results
+```
+
+## Advanced Features
+
+### 1. Dynamic Backend Selection
+
+```python
+def create_visualization_with_fallback(data, output_path, title):
+    """Try Plotly first, fall back to Matplotlib if needed."""
+    for backend in ["plotly", "matplotlib"]:
+        try:
+            return create_bar_plot(
+                data, output_path, title,
+                backend=backend,
+                strict=True
+            )
+        except Exception as e:
+            logger.warning(f"{backend} failed: {e}")
     
-    # Create distribution chart
-    distribution_data = df['category'].value_counts().to_dict()
-    distribution_path = output_dir / "category_distribution.png"
-    visualizations['category_distribution'] = create_bar_plot(
-        data=distribution_data,
-        output_path=distribution_path,
-        title="Category Distribution",
-        orientation="h",
-        sort_by="value"
+    return "Error: No backend available"
+```
+
+### 2. Custom Context Management
+
+```python
+from pamola_core.utils.vis_helpers.context import visualization_context
+
+# Create a custom context with specific settings
+@contextmanager
+def report_context():
+    """Context for generating report visualizations."""
+    with visualization_context(
+        theme="professional",
+        backend="plotly",
+        auto_close=True,
+        headless=True
+    ):
+        yield
+
+# Use custom context
+with report_context():
+    # All visualizations use report settings
+    create_bar_plot(...)
+    create_line_plot(...)
+```
+
+### 3. Extending the System
+
+```python
+from pamola_core.utils.vis_helpers.base import PlotlyFigure, FigureRegistry
+
+class PlotlySankeyDiagram(PlotlyFigure):
+    """Custom Sankey diagram implementation."""
+    
+    def create(self, source, target, value, **kwargs):
+        import plotly.graph_objects as go
+        
+        fig = go.Figure(data=[go.Sankey(
+            node=dict(label=kwargs.get('labels', [])),
+            link=dict(source=source, target=target, value=value)
+        )])
+        
+        fig.update_layout(title=kwargs.get('title', 'Sankey Diagram'))
+        return fig
+
+# Register new visualization type
+FigureRegistry.register("sankey", "plotly", PlotlySankeyDiagram)
+```
+
+## Performance Considerations
+
+### Memory Management
+
+- Figures are automatically closed after saving
+- Use context managers for batch operations
+- Set `auto_close=True` in visualization context
+
+### Optimization Tips
+
+1. **Limit Data Points**: 
+   - Scatter plots: Max 10,000 points
+   - Line plots: Max 5,000 points per series
+   - Histograms: Use appropriate bin counts
+
+2. **Disable Interactive Features for Large Datasets**:
+   ```python
+   create_scatter_plot(
+       x_data, y_data, "output.png", "Large Dataset",
+       hover_text=None,  # Disable hover for performance
+       **{"hovermode": False}
+   )
+   ```
+
+3. **Use Appropriate File Sizes**:
+   ```python
+   # Smaller files for web
+   create_bar_plot(data, "web_chart.png", "Web Chart", 
+                   width=600, height=400)
+   
+   # Larger for print
+   create_bar_plot(data, "print_chart.png", "Print Chart",
+                   width=1200, height=800)
+   ```
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| "No module named 'kaleido'" | Install kaleido: `pip install kaleido` |
+| Empty visualization | Check data isn't empty/all zeros |
+| Black squares in PNG | Update kaleido: `pip install -U kaleido` |
+| Memory leaks | Ensure using context managers |
+| Concurrent execution errors | Update to latest version with contextvars |
+
+### Debug Mode
+
+```python
+import logging
+
+# Enable debug logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Now visualization calls will show detailed logs
+create_bar_plot(data, "debug.png", "Debug Test")
+```
+
+## Examples
+
+### Example 1: Complete Analysis Pipeline
+
+```python
+from pamola_core.utils.visualization import *
+import pandas as pd
+import numpy as np
+
+def analyze_dataset(df: pd.DataFrame, output_dir: str):
+    """Complete visual analysis of a dataset."""
+    Path(output_dir).mkdir(exist_ok=True)
+    
+    # 1. Distribution of numeric columns
+    for col in df.select_dtypes(include=[np.number]):
+        create_histogram(
+            df[col],
+            f"{output_dir}/{col}_dist.png",
+            f"Distribution of {col}",
+            bins=30,
+            kde=True
+        )
+    
+    # 2. Category counts
+    for col in df.select_dtypes(include=['object']):
+        counts = df[col].value_counts().to_dict()
+        create_bar_plot(
+            counts,
+            f"{output_dir}/{col}_counts.png",
+            f"Count of {col}",
+            orientation="h",
+            max_items=20
+        )
+    
+    # 3. Correlation matrix
+    numeric_df = df.select_dtypes(include=[np.number])
+    if len(numeric_df.columns) > 1:
+        create_correlation_matrix(
+            numeric_df.corr(),
+            f"{output_dir}/correlations.png",
+            "Feature Correlations",
+            annotate=True
+        )
+    
+    # 4. Time series if date column exists
+    if 'date' in df.columns:
+        daily_avg = df.groupby('date')['value'].mean()
+        create_line_plot(
+            daily_avg,
+            f"{output_dir}/time_series.png",
+            "Daily Average Values",
+            x_label="Date",
+            y_label="Average Value"
+        )
+```
+
+### Example 2: K-Anonymity Visualization
+
+```python
+def visualize_k_anonymity_results(k_results: dict, output_dir: str):
+    """Visualize K-anonymity analysis results."""
+    
+    # 1. K-value distribution
+    create_histogram(
+        k_results['k_values'],
+        f"{output_dir}/k_distribution.png",
+        "K-Anonymity Value Distribution",
+        x_label="K Value",
+        bins=50,
+        kde=False
     )
     
-    # Create trend chart
-    trend_data = df.groupby('date')['value'].mean()
-    trend_path = output_dir / "value_trend.png"
-    visualizations['value_trend'] = create_line_plot(
-        data=trend_data,
-        output_path=trend_path,
-        title="Value Trend Over Time",
-        x_label="Date",
-        y_label="Average Value"
-    )
-    
-    # Return results, including visualization paths
-    return {
-        'summary': {...},
-        'visualizations': visualizations
+    # 2. Risk levels by quasi-identifier combination
+    risk_data = {
+        "Low Risk (k≥10)": k_results['low_risk_count'],
+        "Medium Risk (5≤k<10)": k_results['medium_risk_count'],
+        "High Risk (2≤k<5)": k_results['high_risk_count'],
+        "Critical Risk (k=1)": k_results['critical_risk_count']
     }
+    
+    create_pie_chart(
+        risk_data,
+        f"{output_dir}/risk_distribution.png",
+        "Privacy Risk Distribution",
+        hole=0.3,  # Donut chart
+        pull_largest=True
+    )
+    
+    # 3. Comparison across QI combinations
+    create_spider_chart(
+        k_results['qi_metrics'],
+        f"{output_dir}/qi_comparison.png",
+        "Quasi-Identifier Combination Analysis",
+        normalize_values=True
+    )
 ```
 
-### 5. Performance Best Practices
-
-- For large datasets, consider sampling or aggregating data before visualization
-- Use the `max_items` parameter to limit the number of items shown in bar plots
-- Set `show_points=False` for line plots with many data points
-- Avoid creating many visualizations in tight loops
-
-## Working with K-Anonymity Visualizations
-
-For K-anonymity analysis, the new visualization types are particularly useful:
-
-### Range Distribution Chart (Bar Chart)
+### Example 3: Parallel Report Generation
 
 ```python
-from pamola_core.utils.visualization import create_bar_plot
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing as mp
 
-# K ranges distribution for different quasi-identifier combinations
-k_ranges = {
-    "k=1": {"KA_ar_p": 25, "KA_sar_p": 22, "KA_ed_sar_p": 28, "KA_ed_sar_pme": 30},
-    "k=2-4": {"KA_ar_p": 15, "KA_sar_p": 18, "KA_ed_sar_p": 20, "KA_ed_sar_pme": 22},
-    "k=5-9": {"KA_ar_p": 12, "KA_sar_p": 14, "KA_ed_sar_p": 15, "KA_ed_sar_pme": 14},
-    "k=10-19": {"KA_ar_p": 10, "KA_sar_p": 11, "KA_ed_sar_p": 12, "KA_ed_sar_pme": 10},
-    "k=20-49": {"KA_ar_p": 8, "KA_sar_p": 7, "KA_ed_sar_p": 9, "KA_ed_sar_pme": 7},
-    "k=50-99": {"KA_ar_p": 5, "KA_sar_p": 4, "KA_ed_sar_p": 6, "KA_ed_sar_pme": 5},
-    "k=100+": {"KA_ar_p": 2, "KA_sar_p": 3, "KA_ed_sar_p": 4, "KA_ed_sar_pme": 3}
-}
+def generate_report_section(args):
+    """Generate one section of a report."""
+    section_name, data, output_dir = args
+    
+    try:
+        # Each process has isolated context
+        with visualization_context(theme="professional"):
+            if section_name == "overview":
+                return create_bar_plot(
+                    data, f"{output_dir}/overview.png", 
+                    "System Overview"
+                )
+            elif section_name == "trends":
+                return create_line_plot(
+                    data, f"{output_dir}/trends.png",
+                    "Monthly Trends"
+                )
+            # ... more sections
+    except Exception as e:
+        return f"Error in {section_name}: {e}"
 
-# Convert to appropriate format (DataFrame is easiest for grouped bars)
-df = pd.DataFrame(k_ranges)
+# Generate report sections in parallel
+sections = [
+    ("overview", overview_data, "output/report"),
+    ("trends", trend_data, "output/report"),
+    ("distribution", dist_data, "output/report"),
+]
 
-# Create the visualization
-result = create_bar_plot(
-    data=df,
-    output_path="output/k_range_distribution.png",
-    title="K-Anonymity Range Distribution",
-    orientation="h",
-    y_label="K Range",
-    x_label="Percentage of Records"
-)
+with ProcessPoolExecutor(max_workers=mp.cpu_count()) as executor:
+    results = list(executor.map(generate_report_section, sections))
 ```
 
-### Threshold Visualization (Line Chart)
+## Version History
 
-```python
-from pamola_core.utils.visualization import create_line_plot
+- **2.1.0** (Current): Added sunburst charts, improved thread safety documentation
+- **2.0.0**: Major refactoring for thread safety using contextvars
+- **1.5.0**: Added spider, combined, and correlation visualizations
+- **1.0.0**: Initial release with basic chart types
 
-# K threshold data for different quasi-identifier combinations
-thresholds = {
-    "k≥2": {"KA_ar_p": 80, "KA_sar_p": 70, "KA_ed_sar_p": 60, "KA_ed_sar_pme": 45},
-    "k≥5": {"KA_ar_p": 65, "KA_sar_p": 55, "KA_ed_sar_p": 42, "KA_ed_sar_pme": 32},
-    "k≥10": {"KA_ar_p": 52, "KA_sar_p": 42, "KA_ed_sar_p": 30, "KA_ed_sar_pme": 20},
-    "k≥20": {"KA_ar_p": 42, "KA_sar_p": 35, "KA_ed_sar_p": 22, "KA_ed_sar_pme": 15}
-}
+## Support & Contributing
 
-# Convert to DataFrame
-df = pd.DataFrame(thresholds)
+For issues, feature requests, or contributions:
+1. Check existing issues in the PAMOLA repository
+2. Follow the PAMOLA contribution guidelines
+3. Ensure all new visualizations include tests
+4. Update documentation for any API changes
 
-# Create the visualization
-result = create_line_plot(
-    data=df.T,  # Transpose for better format
-    output_path="output/k_threshold_compliance.png",
-    title="Records Meeting K-Anonymity Thresholds",
-    x_label="K Threshold",
-    y_label="Percentage of Records",
-    add_markers=True
-)
-```
+---
 
-### Multi-Metric Comparison (Spider Chart)
-
-```python
-from pamola_core.utils.visualization import create_spider_chart
-
-# Multiple metrics for different quasi-identifier combinations
-metrics = {
-    "KA_ar_p": {"Unique Records (%)": 20, "Vulnerable Records (k<5) (%)": 35, 
-                "Normalized Average K": 0.8, "Entropy": 0.7},
-    "KA_sar_p": {"Unique Records (%)": 30, "Vulnerable Records (k<5) (%)": 45, 
-                 "Normalized Average K": 0.6, "Entropy": 0.5},
-    "KA_ed_sar_p": {"Unique Records (%)": 40, "Vulnerable Records (k<5) (%)": 58, 
-                    "Normalized Average K": 0.4, "Entropy": 0.45},
-    "KA_ed_sar_pme": {"Unique Records (%)": 50, "Vulnerable Records (k<5) (%)": 68, 
-                      "Normalized Average K": 0.3, "Entropy": 0.35}
-}
-
-# Create the spider chart
-result = create_spider_chart(
-    data=metrics,
-    output_path="output/ka_metrics_comparison.png",
-    title="K-Anonymity Metrics Comparison",
-    normalize_values=False,  # Values are already normalized
-    fill_area=True
-)
-```
-
-### Quasi-Identifier Analysis (Combined Chart)
-
-```python
-from pamola_core.utils.visualization import create_combined_chart
-
-# Data for unique values and uniqueness percentage
-fields = ["education_level", "salary_range", "area_name", "post", "metro_station_name"]
-unique_counts = [10, 45, 520, 420, 305]
-uniqueness_percent = [0.5, 1.2, 5.5, 4.2, 22.5]
-
-# Create the combined chart
-result = create_combined_chart(
-    primary_data=dict(zip(fields, unique_counts)),
-    secondary_data=dict(zip(fields, uniqueness_percent)),
-    output_path="output/quasi_identifier_analysis.png",
-    title="Quasi-Identifier Analysis",
-    primary_type="bar",
-    secondary_type="line",
-    x_label="Field",
-    primary_y_label="Unique Values Count",
-    secondary_y_label="Uniqueness (%)",
-    primary_color="steelblue",
-    secondary_color="crimson"
-)
-```
-
-## Conclusion
-
-The extended PAMOLA.CORE visualization system now provides a comprehensive set of visualization tools that cover all common data analysis needs. With the addition of spider charts, pie/donut charts, sunburst charts, and combined charts, the system can handle more complex visualization requirements while maintaining a consistent and simple API.
-
-By following the usage guidelines and best practices outlined in this documentation, functional modules can easily integrate these visualizations into their workflows, resulting in more informative and useful outputs.
+*This documentation is designed for both human developers and AI assistants. It provides comprehensive information about the PAMOLA Visualization System's capabilities, usage patterns, and best practices.*

@@ -2,75 +2,118 @@
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
 Module:        Base Anonymization Operation
-Package:       pamola.core.operations.base
-Version:       1.1.0+refactor.2025.08.21
+Package:       pamola_core.anonymization
+Version:       3.0.0
 Status:        stable
 Author:        PAMOLA Core Team
-Created:       2024
+Created:       Mar 2025
+Updated:       2025-06-15
 License:       BSD 3-Clause
 Description:
-    This module provides the base class for all anonymization operations,
-    defining common functionality, interface, and behavior with thread-safe
-    visualization support.
+  This module provides the base class for all anonymization operations,
+  defining common functionality, interface, and behavior with enhanced
+  support for conditional processing, profiling integration, memory-efficient
+  operations, and Dask-based distributed processing for large datasets.
 
 Key Features:
-    - Standardized operation lifecycle with validation, execution, and result handling
-    - Support for both in-place (REPLACE) and new field creation (ENRICH) modes
-    - Configurable null value handling strategies (PRESERVE, EXCLUDE, ERROR)
-    - Memory-efficient chunk-based processing for large datasets
-    - Comprehensive metrics collection and visualization generation
-    - Robust caching mechanism for operation results
-    - Progress tracking and reporting throughout the operation
-    - Secure output generation with optional encryption
-    - Thread-safe visualization generation with context isolation
+  - Standardized operation lifecycle with validation, execution, and result handling
+  - Support for both in-place (REPLACE) and new field creation (ENRICH) modes
+  - Configurable null value handling strategies (PRESERVE, EXCLUDE, ERROR)
+  - Memory-efficient chunk-based processing for large datasets
+  - Comprehensive metrics collection and visualization generation
+  - Robust caching mechanism for operation results
+  - Progress tracking and reporting throughout the operation
+  - Secure output generation with optional encryption
+  - Conditional processing based on field values and risk scores
+  - Integration with k-anonymity profiling results
+  - Enhanced memory management with automatic optimization
+  - Dask integration for distributed processing of large datasets
 
 Framework:
-    Implementation follows the PAMOLA.CORE operation framework with standardized interfaces
-    for input/output, progress tracking, and result reporting.
+  Implementation follows the PAMOLA.CORE operation framework with standardized interfaces
+  for input/output, progress tracking, and result reporting.
 
-TODO:
-    - Add support for distributed processing using Dask for very large datasets
-    - Implement delta metrics calculation for cached vs. fresh execution
-    - Support custom visualization options beyond default charts
-    - Add configuration option for metrics verbosity levels
-    - Implement optimization for batch sizes based on data characteristics
-    - Support resumable operations for very large datasets
-    - Add integration with privacy model validation
+Changelog:
+  v3.0.0 (2025-01-24):
+      - Added full Dask support with automatic engine switching
+      - Added pandas/Dask DataFrame conversion utilities
+      - Added engine parameter (pandas/dask/auto)
+      - Added dask_partition_size parameter for partition control
+      - Implemented process_batch_dask() base method
+      - Enhanced DataWriter integration for Dask DataFrames
+      - Added distributed processing metrics collection
+  v2.0.0 (2025-12-16):
+      - Integrated with pamola_core/utils/ops/data_processing.py for memory optimization
+      - Integrated with pamola_core/utils/ops/field_utils.py for field management
+      - Added conditional processing support with complex conditions
+      - Added k-anonymity risk-based processing
+      - Enhanced memory management with automatic dtype optimization
+      - Improved progress tracking with hierarchical trackers
+      - Standardized artifact generation through framework utilities
 """
 
 import logging
 import time
+import dask.dataframe as dd
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
-from pamola_core.anonymization.commons.processing_utils import (
-    process_dataframe_dask,
-    process_dataframe_parallel,
-    process_in_chunks,
+# Import anonymization-specific utilities
+from pamola_core.anonymization.commons.data_utils import handle_vulnerable_records
+from pamola_core.anonymization.commons.metric_utils import (
+    calculate_anonymization_effectiveness,
 )
-from pamola_core.anonymization.commons.visualization_utils import sample_large_dataset
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.anonymization.commons.processing_utils import (
+    process_dataframe_using_chunk,
+    process_dataframe_using_dask,
+    process_dataframe_using_joblib,
+)
+from pamola_core.anonymization.commons.visualization_utils import (
+    create_metric_visualization,
+    create_comparison_visualization,
+    sample_large_dataset,
+)
+from pamola_core.common.constants import Constants
+from pamola_core.utils.io import (
+    load_data_operation,
+    load_settings_operation,
+)
+from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.utils.ops.op_base import BaseOperation
+
+# Import framework utilities
 from pamola_core.utils.ops.op_cache import OperationCache
+from pamola_core.utils.ops.op_data_processing import (
+    optimize_dataframe_dtypes,
+    get_memory_usage,
+    force_garbage_collection,
+    process_null_values as process_nulls_framework,
+)
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
+from pamola_core.utils.ops.op_field_utils import (
+    apply_condition_operator,
+    create_field_mask,
+    create_multi_field_mask,
+)
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.visualization import create_histogram, create_bar_plot
-from pamola_core.common.constants import Constants
+from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 
 class AnonymizationOperation(BaseOperation):
     """
-    Base class for all anonymization operations.
+    Base class for all anonymization operations with Dask support.
 
     This class provides common functionality for all anonymization operations,
-    including data source handling, result processing, and metric generation.
+    including data source handling, result processing, metric generation,
+    integration with profiling results for risk-based processing, and
+    automatic switching to Dask for large dataset processing.
     """
 
     def __init__(
@@ -81,44 +124,82 @@ class AnonymizationOperation(BaseOperation):
         column_prefix: str = "_",
         null_strategy: str = "PRESERVE",
         description: str = "",
+        # Conditional processing parameters
+        condition_field: Optional[str] = None,
+        condition_values: Optional[List] = None,
+        condition_operator: str = "in",
+        # Multi-field conditions
+        multi_conditions: Optional[List[Dict[str, Any]]] = None,
+        condition_logic: str = "AND",
+        # K-anonymity integration
+        ka_risk_field: Optional[str] = None,
+        risk_threshold: float = 5.0,
+        vulnerable_record_strategy: str = "suppress",
+        # Memory optimization
+        optimize_memory: bool = True,
+        adaptive_chunk_size: bool = True,
+        # Specific parameters
         chunk_size: int = 10000,
         use_dask: bool = False,
         npartitions: Optional[int] = None,
+        dask_partition_size: Optional[str] = None,
         use_vectorization: bool = False,
         parallel_processes: Optional[int] = None,
         use_cache: bool = True,
         use_encryption: bool = False,
+        encryption_mode: Optional[str] = None,
         encryption_key: Optional[Union[str, Path]] = None,
         visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = None,
+        visualization_backend: Optional[str] = "plotly",
         visualization_strict: bool = False,
         visualization_timeout: int = 120,
         output_format: str = "csv",
-        encryption_mode: Optional[str] = None
     ):
         """
-        Initialize the anonymization operation.
+        Initialize the anonymization operation with Dask support.
 
         Parameters:
         -----------
         field_name : str
             Field to anonymize
         mode : str, optional
-            "REPLACE" to modify the field in-place, or "ENRICH" to create a new field (default: "REPLACE")
+            "REPLACE" to modify the field in-place, or "ENRICH" to create a new field
         output_field_name : str, optional
-            Name for the output field if mode is "ENRICH" (default: None)
+            Name for the output field if mode is "ENRICH"
         column_prefix : str, optional
-            Prefix for new column if mode is "ENRICH" (default: "_")
+            Prefix for new column if mode is "ENRICH"
         null_strategy : str, optional
-            How to handle NULL values: "PRESERVE", "EXCLUDE", or "ERROR" (default: "PRESERVE")
+            How to handle NULL values: "PRESERVE", "EXCLUDE", or "ERROR"
         description : str, optional
-            Operation description (default: "")
+            Operation description
+        condition_field : str, optional
+            Field to use for conditional processing
+        condition_values : List, optional
+            Values to match for conditional processing
+        condition_operator : str, optional
+            Operator for condition matching: "in", "not_in", "gt", "lt", "eq", "range"
+        multi_conditions : List[Dict], optional
+            List of conditions for complex filtering
+        condition_logic : str, optional
+            Logic to combine conditions: "AND" or "OR"
+        ka_risk_field : str, optional
+            Field containing k-anonymity risk scores
+        risk_threshold : float, optional
+            Threshold for identifying vulnerable records (k < threshold)
+        vulnerable_record_strategy : str, optional
+            Strategy for handling vulnerable records
+        optimize_memory : bool, optional
+            Whether to optimize DataFrame memory usage
+        adaptive_chunk_size : bool, optional
+            Whether to adjust chunk size based on available memory
         chunk_size : int, optional
             Size of chunks for processing (default: 10000)
         use_dask : bool, optional
             Whether to use Dask for parallel processing (default: False)
         npartitions : Optional[int], optional
             Number of partitions to use with Dask (default: None)
+        dask_partition_size : Optional[str], optional
+            Size of Dask partitions (default: None, auto-determined)
         use_vectorization : bool, optional
             Whether to use vectorized operations (default: False)
         parallel_processes : Optional[int], optional
@@ -129,6 +210,8 @@ class AnonymizationOperation(BaseOperation):
             Whether to encrypt output files (default: False)
         encryption_key : str or Path, optional
             The encryption key or path to a key file (default: None)
+        encryption_mode : Optional[str], optional
+            The encryption mode to use (default: None)
         visualization_theme : Optional[str], optional
             Theme for visualizations (default: None)
         visualization_backend : Optional[str], optional
@@ -150,21 +233,22 @@ class AnonymizationOperation(BaseOperation):
             description=description,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
-            encryption_mode=encryption_mode
+            encryption_mode=encryption_mode,
         )
 
-        # Store parameters
+        # Store basic parameters
         self.field_name = field_name
-        self.mode = mode.upper()  # Ensure uppercase
+        self.mode = mode.upper()
         self.output_field_name = output_field_name
         self.column_prefix = column_prefix
-        self.null_strategy = null_strategy.upper()  # Ensure uppercase
+        self.null_strategy = null_strategy.upper()
         self.chunk_size = chunk_size
+        self.use_cache = use_cache
         self.use_dask = use_dask
         self.npartitions = npartitions
+        self.dask_partition_size = dask_partition_size
         self.use_vectorization = use_vectorization
         self.parallel_processes = parallel_processes
-        self.use_cache = use_cache
         self.use_encryption = use_encryption
         self.encryption_key = encryption_key
         self.encryption_mode = encryption_mode
@@ -174,10 +258,27 @@ class AnonymizationOperation(BaseOperation):
         self.visualization_timeout = visualization_timeout
         self.output_format = output_format
         self.version = getattr(
-            self, "version", "1.1.0"
+            self, "version", "3.0.0"
         )  # Updated version for visualization context support
 
-        # Set up performance tracking variables
+        # Conditional processing parameters
+        self.condition_field = condition_field
+        self.condition_values = condition_values
+        self.condition_operator = condition_operator
+        self.multi_conditions = multi_conditions
+        self.condition_logic = condition_logic
+
+        # K-anonymity parameters
+        self.ka_risk_field = ka_risk_field
+        self.risk_threshold = risk_threshold
+        self.vulnerable_record_strategy = vulnerable_record_strategy
+
+        # Memory optimization parameters
+        self.optimize_memory = optimize_memory
+        self.adaptive_chunk_size = adaptive_chunk_size
+        self.original_chunk_size = chunk_size
+
+        # Performance tracking
         self.start_time = None
         self.end_time = None
         self.process_count = 0
@@ -185,8 +286,8 @@ class AnonymizationOperation(BaseOperation):
         # Set up common variables
         self.force_recalculation = False  # Skip cache check
         self.generate_visualization = True  # Create visualizations
-        self.encrypt_output = False  # Override encryption setting
         self.save_output = True  # Save processed data to output directory
+        self.process_kwargs = {}
 
         # Initialize logger
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -200,7 +301,7 @@ class AnonymizationOperation(BaseOperation):
         **kwargs,
     ) -> OperationResult:
         """
-        Execute the anonymization operation.
+        Execute the anonymization operation with enhanced features including Dask support.
 
         Parameters:
         -----------
@@ -211,139 +312,141 @@ class AnonymizationOperation(BaseOperation):
         reporter : Any
             Reporter object for tracking progress and artifacts
         progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker for the operation (default: None)
+            Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation
-            - force_recalculation: bool - Force operation even if cached results exist
-            - encrypt_output: bool - Override encryption setting for outputs
-            - generate_visualization: bool - Create visualizations
-            - save_output: bool - Save processed data to output directory
-            - visualization_theme: str - Theme for visualizations
-            - visualization_backend: str - Backend for visualizations ("plotly" or "matplotlib")
-            - visualization_strict: bool - If True, raise exceptions for visualization config errors
-            - visualization_timeout: int - Timeout for visualization generation in seconds (default: 120)
+            Additional parameters including profiling_results
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-        # Start timing
-        self.start_time = time.time()
-        self.logger = kwargs.get("logger", self.logger)
-        self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-        self.process_count = 0
-        df = None
-
-        # Initialize result object
-        result = OperationResult(status=OperationStatus.PENDING)
-
-        # Prepare directories for artifacts
-        directories = self._prepare_directories(task_dir)
-
-        # Initialize operation cache
-        self.operation_cache = OperationCache(
-            cache_dir=task_dir / "cache",
-        )
-
-        # Create writer for consistent output handling
-        writer = DataWriter(
-            task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-        )
-
-        # Save operation configuration
-        self.save_config(task_dir)
-
-        # Decompose kwargs and introduce variables for clarity
-        self.encrypt_output = kwargs.get("encrypt_output", False) or self.use_encryption
-        self.generate_visualization = kwargs.get("generate_visualization", True)
-        self.save_output = kwargs.get("save_output", True)
-        self.force_recalculation = kwargs.get("force_recalculation", False)
-        dataset_name = kwargs.get("dataset_name", "main")
-
-        # Extract visualization parameters
-        self.visualization_theme = kwargs.get(
-            "visualization_theme", self.visualization_theme
-        )
-        self.visualization_backend = kwargs.get(
-            "visualization_backend", self.visualization_backend
-        )
-        self.visualization_strict = kwargs.get(
-            "visualization_strict", self.visualization_strict
-        )
-        self.visualization_timeout = kwargs.get(
-            "visualization_timeout", self.visualization_timeout
-        )
-
-        self.logger.info(
-            f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
-        )
-
-        # Load settings operation
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-
-        # Set up progress tracking with proper steps
-        # Main steps: 1. Cache check, 2. Data loading, 3. Validation, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
-        TOTAL_MAIN_STEPS = 6 + (
-            1 if self.use_cache and not self.force_recalculation else 0
-        )
-        main_progress = progress_tracker
-        current_steps = 0
-        if main_progress:
-            self.logger.info(
-                f"Setting up progress tracker with {TOTAL_MAIN_STEPS} main steps"
-            )
-            try:
-                main_progress.total = TOTAL_MAIN_STEPS
-                main_progress.update(
-                    current_steps,
-                    {
-                        "step": f"Starting {self.name}",
-                        "field": self.field_name,
-                    },
-                )
-            except Exception as e:
-                self.logger.warning(f"Could not update progress tracker: {e}")
-
         try:
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if main_progress:
-                    current_steps += 1
+            # Start timing
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting {self.name} operation at {self.start_time}")
+            self.process_count = 0
+            df = None
+
+            # Initialize result object
+            result = OperationResult(status=OperationStatus.PENDING)
+
+            # Prepare directories for artifacts
+            self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=task_dir / "cache",
+            )
+
+            # Create writer for consistent output handling
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
+            # Save operation configuration
+            self.save_config(task_dir)
+
+            # Decompose kwargs and introduce variables for clarity
+            self.generate_visualization = kwargs.get("generate_visualization", True)
+            self.save_output = kwargs.get("save_output", True)
+            self.force_recalculation = kwargs.get("force_recalculation", False)
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Extract visualization parameters
+            self.visualization_theme = kwargs.get(
+                "visualization_theme", self.visualization_theme
+            )
+            self.visualization_backend = kwargs.get(
+                "visualization_backend", self.visualization_backend
+            )
+            self.visualization_strict = kwargs.get(
+                "visualization_strict", self.visualization_strict
+            )
+            self.visualization_timeout = kwargs.get(
+                "visualization_timeout", self.visualization_timeout
+            )
+
+            self.logger.info(
+                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
+            )
+
+            # Load settings operation
+            settings_operation = load_settings_operation(
+                data_source, dataset_name, **kwargs
+            )
+
+            # Set up progress tracking with proper steps
+            # Main steps: 1. Cache check, 2. Data Loading & Validation, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            TOTAL_MAIN_STEPS = 6 + (
+                1 if self.use_cache and not self.force_recalculation else 0
+            )
+            main_progress = progress_tracker
+            current_steps = 0
+            if main_progress:
+                self.logger.info(
+                    f"Setting up progress tracker with {TOTAL_MAIN_STEPS} main steps"
+                )
+                try:
+                    main_progress.total = TOTAL_MAIN_STEPS
                     main_progress.update(
                         current_steps,
-                        {"step": "Checking cache", "field": self.field_name},
+                        {
+                            "step": f"Starting {self.name}",
+                            "field": self.field_name,
+                        },
                     )
-                # Load data for cache check
-                df = load_data_operation(data_source, dataset_name, **settings_operation)
+                except Exception as e:
+                    self.logger.warning(f"Could not update progress tracker: {e}")
 
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df, reporter)
-
-                if cache_result:
-                    self.logger.info(
-                        f"Using cached result for {self.field_name} generalization"
-                    )
-
-                    # Update progress
+            # Step 1: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                try:
                     if main_progress:
+                        current_steps += 1
                         main_progress.update(
                             current_steps,
-                            {"step": "Complete (cached)", "field": self.field_name},
+                            {"step": "Checking cache", "field": self.field_name},
+                        )
+                    # Load data for cache check
+                    df = self._validate_and_get_dataframe(
+                        data_source, dataset_name, **settings_operation
+                    )
+
+                    self.logger.info("Checking operation cache...")
+                    cache_result = self._check_cache(df, reporter)
+
+                    if cache_result:
+                        self.logger.info(
+                            f"Using cached result for {self.field_name} generalization"
                         )
 
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Anonymization of {self.field_name} (from cache)",
-                            details={"cached": True},
-                        )
+                        # Update progress
+                        if main_progress:
+                            main_progress.update(
+                                current_steps,
+                                {"step": "Complete (cached)", "field": self.field_name},
+                            )
 
-                    return cache_result
+                        # Report cache hit to reporter
+                        if reporter:
+                            reporter.add_operation(
+                                f"Anonymization of {self.field_name} (from cache)",
+                                details={"cached": True},
+                            )
 
-            # Step 2: Data Loading
+                        return cache_result
+                except Exception as e:
+                    error_message = f"Error checking cache: {str(e)}"
+                    self.logger.error(error_message)
+                    return OperationResult(
+                        status=OperationStatus.ERROR,
+                        error_message=error_message,
+                        exception=e,
+                    )
+
+            # Step 2: Data Loading & Validation
             if main_progress:
                 current_steps += 1
                 main_progress.update(
@@ -353,30 +456,38 @@ class AnonymizationOperation(BaseOperation):
             # Validate and get dataframe
             try:
                 if df is None:
-                    df = self._validate_and_get_dataframe(data_source, dataset_name, **settings_operation)
+                    self.logger.info(f"Loading data for field '{self.field_name}'")
+                    df = self._validate_and_get_dataframe(
+                        data_source, dataset_name, **settings_operation
+                    )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
                 )
 
-            # Step 3: Validation
+            # Step 3: Prepare output field
             if main_progress:
                 current_steps += 1
                 main_progress.update(
-                    current_steps, {"step": "Validation", "field": self.field_name}
+                    current_steps,
+                    {"step": "Preparing output field", "field": self.field_name},
                 )
 
             try:
-                output_field = self._prepare_output_field(df)
-                self._report_operation_details(reporter, output_field)
-                original_data = df[self.field_name].copy(deep=True)
+                self.output_field_name = self._prepare_output_field(df)
+                self.logger.info(f"Prepared output_field: '{self.output_field_name}'")
+                self._report_operation_details(reporter, self.output_field_name)
             except Exception as e:
-                error_message = f"Validation error: {str(e)}"
+                error_message = f"Preparing output field error: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Step 4: Processing
@@ -387,6 +498,9 @@ class AnonymizationOperation(BaseOperation):
                 )
 
             try:
+                # Copy original data for processing
+                original_data = df[self.field_name].copy(deep=True)
+
                 # Create child progress tracker for Chunk processing
                 data_tracker = None
                 if main_progress and hasattr(main_progress, "create_subtask"):
@@ -401,11 +515,38 @@ class AnonymizationOperation(BaseOperation):
                             f"Could not create child progress tracker: {e}"
                         )
 
-                result_df = self._process_dataframe(
-                    df=df, progress_tracker=data_tracker
+                # Apply conditional filtering
+                mask, filtered_df = self._apply_conditional_filtering(df)
+
+                # Process the filtered data
+                is_use_batch_dask = hasattr(self, "process_batch_dask")
+                processed_df = self._process_data_with_config(
+                    df=filtered_df,
+                    is_use_batch_dask=is_use_batch_dask,
+                    progress_tracker=data_tracker,
                 )
 
-                anonymized_data = result_df[output_field]
+                # Apply the processed data back to the original DataFrame
+                if self.mode == "ENRICH":
+                    df[self.output_field_name] = (
+                        original_data  # Initialize with original
+                    )
+
+                df.loc[mask, self.output_field_name] = processed_df.loc[
+                    mask, self.output_field_name
+                ]
+
+                # Handle vulnerable records if k-anonymity is enabled
+                if self.ka_risk_field and self.ka_risk_field in df.columns:
+                    df = self._handle_vulnerable_records(df, self.output_field_name)
+
+                # Get the anonymized data
+                anonymized_data = (
+                    df[self.output_field_name]
+                    if self.mode == "ENRICH"
+                    else df[self.field_name]
+                )
+
                 # Close child progress tracker
                 if data_tracker:
                     try:
@@ -416,10 +557,12 @@ class AnonymizationOperation(BaseOperation):
                 error_message = f"Processing error: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
                 )
 
-            # Record end time after processing
+            # Record end time after processing metrics
             self.end_time = time.time()
 
             # Generate single timestamp for all artifacts
@@ -437,10 +580,14 @@ class AnonymizationOperation(BaseOperation):
             metrics = {}
 
             try:
-                metrics = self._calculate_all_metrics(original_data, anonymized_data)
+                metrics = self._collect_all_metrics(
+                    original_data, anonymized_data, mask
+                )
 
                 # Generate metrics file name (in self.name existed field_name)
-                metrics_file_name = f"{self.field_name}_{self.__class__.__name__}_metrics_{operation_timestamp}"
+                metrics_file_name = (
+                    f"{self.field_name}_{self.name}_metrics_{operation_timestamp}"
+                )
 
                 # Save metrics using writer
                 metrics_result = writer.write_metrics(
@@ -448,7 +595,7 @@ class AnonymizationOperation(BaseOperation):
                     name=metrics_file_name,
                     timestamp_in_name=False,
                     encryption_key=(
-                        self.encryption_key if self.encrypt_output else None
+                        self.encryption_key if self.use_encryption else None
                     ),
                 )
 
@@ -493,7 +640,7 @@ class AnonymizationOperation(BaseOperation):
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
-                        "use_encryption": self.encrypt_output,
+                        "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
                     visualization_paths = self._handle_visualizations(
@@ -526,24 +673,29 @@ class AnonymizationOperation(BaseOperation):
                     current_steps,
                     {"step": "Save Output Data", "field": self.field_name},
                 )
+
             # Save output data if required
+            output_result_path = None
             if self.save_output:
                 try:
+                    safe_kwargs = filter_used_kwargs(kwargs, self._save_output_data)
                     output_result_path = self._save_output_data(
-                        result_df=result_df,
-                        is_encryption_required=self.encrypt_output,
+                        result_df=df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        **kwargs,
+                        use_encryption=self.use_encryption,
+                        **safe_kwargs,
                     )
                 except Exception as e:
                     error_message = f"Error saving output data: {str(e)}"
                     self.logger.error(error_message)
                     return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
+                        status=OperationStatus.ERROR,
+                        error_message=error_message,
+                        exception=e,
                     )
 
             # Cache the result if caching is enabled
@@ -553,60 +705,54 @@ class AnonymizationOperation(BaseOperation):
                         original_data=original_data,
                         anonymized_data=anonymized_data,
                         metrics=metrics,
+                        task_dir=task_dir,
                         visualization_paths=visualization_paths,
                         metrics_result_path=str(metrics_result.path),
                         output_result_path=output_result_path,
-                        task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            ## Clean up memory AFTER all write operations are complete
+            # Clean up memory AFTER all write operations are complete
             self.logger.info("Cleaning up memory after all file operations")
             self._cleanup_memory(
-                processed_df=result_df,
+                processed_df=df,
                 original_data=original_data,
                 anonymized_data=anonymized_data,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
             # Report completion
             if reporter:
-                # Create the details dictionary with checks for all values
-                details = {
-                    "records_processed": self.process_count,
-                    "execution_time": (
-                        self.end_time - self.start_time
-                        if self.end_time and self.start_time
-                        else None
-                    ),
-                }
-
-                # Only add generalization_ratio if metrics exists and has this key
-                if metrics and isinstance(metrics, dict):
-                    generalization_ratio = metrics.get("generalization_ratio")
-                    if generalization_ratio is not None:
-                        details["generalization_ratio"] = generalization_ratio
-
-                # Add the operation to the reporter
                 reporter.add_operation(
-                    f"Anonymization of {self.field_name} completed", details=details
+                    f"Anonymization of {self.field_name} completed",
+                    details={
+                        "records_processed": self.process_count,
+                        "execution_time": self.end_time - self.start_time,
+                        "records_filtered": len(filtered_df),
+                        "vulnerable_records_handled": metrics.get(
+                            "vulnerable_records", 0
+                        ),
+                    },
                 )
-
-            self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
-            )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
+            self.logger.info(
+                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            # Handle any unexpected errors
             error_message = f"Error in anonymization operation: {str(e)}"
             self.logger.exception(error_message)
             return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message
+                status=OperationStatus.ERROR,
+                error_message=error_message,
+                exception=e,
             )
 
     def _validate_and_get_dataframe(
@@ -646,7 +792,75 @@ class AnonymizationOperation(BaseOperation):
             self.logger.error(error_message)
             raise ValueError(error_message)
 
+        df = self._optimize_data(df)
+
         return df
+
+    def _optimize_data(self, df: pd.DataFrame) -> Optional[pd.DataFrame]:
+        """
+        Load data and optimize memory usage.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            DataFrame to optimize
+
+        Returns:
+        --------
+        Optional[pd.DataFrame]
+            Loaded and optimized DataFrame or None if error
+        """
+        # Optimize memory if enabled
+        if self.optimize_memory and len(df) > 10000:
+            self.logger.info("Optimizing DataFrame memory usage")
+            initial_memory = get_memory_usage(df)
+
+            df, optimization_info = optimize_dataframe_dtypes(
+                df,
+                categorical_threshold=0.5,
+                downcast_integers=True,
+                downcast_floats=True,
+            )
+
+            self.logger.info(
+                f"Memory optimization: {initial_memory['total_mb']:.2f}MB -> "
+                f"{optimization_info['memory_after_mb']:.2f}MB "
+                f"(saved {optimization_info['memory_saved_percent']:.1f}%)"
+            )
+
+            # Adjust chunk size if adaptive
+            if self.adaptive_chunk_size:
+                self._adjust_chunk_size(df)
+
+        return df
+
+    def _adjust_chunk_size(self, df: pd.DataFrame) -> None:
+        """
+        Adjust chunk size based on available memory.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            DataFrame to process
+        """
+        memory_info = get_memory_usage(df)
+        row_memory = memory_info["per_row_bytes"]
+
+        # Target to use at most 100MB per chunk
+        target_memory_mb = 100
+        target_rows = int((target_memory_mb * 1024 * 1024) / row_memory)
+
+        # Adjust chunk size within reasonable bounds
+        self.chunk_size = max(1000, min(target_rows, 100000))
+
+        # Ensure chunk size doesn't exceed data size
+        self.chunk_size = min(self.chunk_size, len(df))
+
+        if self.chunk_size != self.original_chunk_size:
+            self.logger.info(
+                f"Adjusted chunk size from {self.original_chunk_size} "
+                f"to {self.chunk_size} based on memory usage"
+            )
 
     def _prepare_output_field(self, df: pd.DataFrame) -> str:
         """
@@ -676,10 +890,6 @@ class AnonymizationOperation(BaseOperation):
                 self.logger.warning(
                     f"Output field '{output_field}' already exists and will be overwritten"
                 )
-
-        # Update the output field name
-        self.output_field_name = output_field
-
         return output_field
 
     def _report_operation_details(self, reporter: Any, output_field: str) -> None:
@@ -705,10 +915,71 @@ class AnonymizationOperation(BaseOperation):
                 },
             )
 
-    def _process_dataframe(
+    def _apply_conditional_filtering(
         self,
         df: pd.DataFrame,
-        progress_tracker: Optional[HierarchicalProgressTracker],
+    ) -> Tuple[pd.Series, pd.DataFrame]:
+        """
+        Apply conditional filtering based on conditions and profiling results.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            DataFrame to filter
+
+        Returns:
+        --------
+        Tuple[pd.Series, pd.DataFrame]
+            (mask, filtered_dataframe)
+        """
+        # Start with all records
+        mask = pd.Series(True, index=df.index)
+
+        # Apply simple condition if specified
+        if self.condition_field and self.condition_values:
+            field_mask = create_field_mask(
+                df,
+                self.field_name,
+                self.condition_field,
+                self.condition_values,
+                self.condition_operator,
+            )
+            mask = mask & field_mask
+            self.logger.info(
+                f"Applied condition on '{self.condition_field}': "
+                f"{mask.sum()} records match"
+            )
+
+        # Apply multi-field conditions if specified
+        if self.multi_conditions:
+            multi_mask = create_multi_field_mask(
+                df, self.multi_conditions, self.condition_logic
+            )
+            mask = mask & multi_mask
+            self.logger.info(
+                f"Applied {len(self.multi_conditions)} conditions: "
+                f"{mask.sum()} records match"
+            )
+
+        # Apply k-anonymity filtering if specified
+        if self.ka_risk_field and self.ka_risk_field in df.columns:
+            risk_mask = df[self.ka_risk_field] < self.risk_threshold
+            mask = mask & risk_mask
+            self.logger.info(
+                f"Applied k-anonymity filter (k < {self.risk_threshold}): "
+                f"{mask.sum()} vulnerable records"
+            )
+
+        # Create filtered DataFrame
+        filtered_df = df[mask].copy()
+
+        return mask, filtered_df
+
+    def _process_data_with_config(
+        self,
+        df: pd.DataFrame,
+        is_use_batch_dask: bool = False,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
     ) -> pd.DataFrame:
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
@@ -717,8 +988,8 @@ class AnonymizationOperation(BaseOperation):
         -----------
         df : pd.DataFrame
             The dataframe to process
-        use_dask : bool
-            Whether to use Dask for distributed processing
+        is_use_batch_dask : bool
+            Whether to use Dask for batch processing
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
@@ -731,7 +1002,13 @@ class AnonymizationOperation(BaseOperation):
         if len(df) == 0:
             self.logger.warning("Empty DataFrame provided, returning as is")
             return df
-        
+
+        # Handle null values based on strategy
+        if self.null_strategy != "PRESERVE":
+            df[self.field_name] = process_nulls_framework(
+                df[self.field_name], strategy=self.null_strategy.lower()
+            )
+
         processed_df = None
         flag_processed = False
         self.logger.info("Process with config")
@@ -750,17 +1027,27 @@ class AnonymizationOperation(BaseOperation):
 
                 self.logger.info("Process using Dask")
 
-                processed_df = process_dataframe_dask(
-                    df=df,
-                    process_function=self.process_with_dask,
-                    process_function_backup=self.process_batch,
-                    chunk_size=self.chunk_size,
-                    npartitions=self.npartitions,
-                    progress_tracker=progress_tracker,
-                )
+                # Process with Dask - delegate to subclass method
+                if is_use_batch_dask:
+                    processed_df, flag_processed = process_dataframe_using_dask(
+                        df=df,
+                        process_function=self.process_batch_dask,
+                        is_use_batch_dask=is_use_batch_dask,
+                        progress_tracker=progress_tracker,
+                        task_logger=self.logger,
+                        **self.process_kwargs,
+                    )
+                else:
+                    processed_df, flag_processed = process_dataframe_using_dask(
+                        df=df,
+                        process_function=self.process_batch,
+                        is_use_batch_dask=is_use_batch_dask,
+                        progress_tracker=progress_tracker,
+                        task_logger=self.logger,
+                        **self.process_kwargs,
+                    )
 
-                if processed_df is not None:
-                    flag_processed = True
+                if flag_processed:
                     self.logger.info("Completed using Dask")
 
             except Exception as e:
@@ -783,17 +1070,15 @@ class AnonymizationOperation(BaseOperation):
 
                 self.logger.info("Process using Joblib")
 
-                processed_df = process_dataframe_parallel(
+                processed_df, flag_processed = process_dataframe_using_joblib(
                     df=df,
                     process_function=self.process_batch,
-                    n_jobs=self.parallel_processes
-                    or 1,  # Use specified threads for vectorization
-                    chunk_size=self.chunk_size,
                     progress_tracker=progress_tracker,
+                    task_logger=self.logger,
+                    **self.process_kwargs,
                 )
 
-                if processed_df is not None:
-                    flag_processed = True
+                if flag_processed:
                     self.logger.info("Completed using Joblib")
 
             except Exception as e:
@@ -801,85 +1086,149 @@ class AnonymizationOperation(BaseOperation):
                     f"Error in vectorized processing: {e}, falling back to chunk processing"
                 )
 
-            if not flag_processed and self.chunk_size > 1:
-                try:
-                    # Regular chunk processing
-                    self.logger.info(
-                        f"Processing in chunks with chunk size {self.chunk_size}"
+        if not flag_processed and self.chunk_size > 1:
+            try:
+                # Regular chunk processing
+                self.logger.info(
+                    f"Processing in chunks with chunk size {self.chunk_size}"
+                )
+                total_chunks = (len(df) + self.chunk_size - 1) // self.chunk_size
+                self.logger.info(f"Total chunks to process: {total_chunks}")
+                if progress_tracker:
+                    progress_tracker.update(
+                        0,
+                        {
+                            "step": "Processing in chunks",
+                            "total_chunks": total_chunks,
+                        },
                     )
-                    total_chunks = (len(df) + self.chunk_size - 1) // self.chunk_size
-                    self.logger.info(f"Total chunks to process: {total_chunks}")
-                    if progress_tracker:
-                        progress_tracker.update(
-                            0,
-                            {
-                                "step": "Processing in chunks",
-                                "total_chunks": total_chunks,
-                            },
-                        )
+                self.logger.info("Process using chunk")
+                processed_df, flag_processed = process_dataframe_using_chunk(
+                    df=df,
+                    process_function=self.process_batch,
+                    progress_tracker=progress_tracker,
+                    task_logger=self.logger,
+                    **self.process_kwargs,
+                )
+                if flag_processed:
+                    self.logger.info("Completed using chunk")
+            except Exception as e:
+                self.logger.warning(f"Error in chunk processing: {e}")
 
-                    self.logger.info("Process using chunk")
+        if not flag_processed:
+            self.logger.info("Fallback process as usual")
+            processed_df = self.process_batch(df, **self.process_kwargs)
+            flag_processed = True
 
-                    processed_df = process_in_chunks(
-                        df=df,
-                        process_function=self.process_batch,
-                        chunk_size=self.chunk_size,
-                        progress_tracker=progress_tracker,
-                    )
-
-                    if processed_df is not None:
-                        flag_processed = True
-                        self.logger.info("Completed using chunk")
-
-                except Exception as e:
-                    self.logger.warning(f"Error in chunk processing: {e}")
-                    
-            if not flag_processed:
-                self.logger.info("Fallback process as usual")
-                processed_df = self.process_batch(df)
-                flag_processed = True
-
+        # Update process count
+        self.process_count += len(df)
         return processed_df
 
-    def _calculate_all_metrics(
-        self, original_data: pd.Series, anonymized_data: pd.Series
+    def _handle_vulnerable_records(
+        self,
+        df: pd.DataFrame,
+        output_field: str,
+    ) -> pd.DataFrame:
+        """
+        Handle records identified as vulnerable by k-anonymity analysis.
+
+        Parameters:
+        -----------
+        df : pd.DataFrame
+            DataFrame with processed data
+        output_field : str
+            Output field name
+
+        Returns:
+        --------
+        pd.DataFrame
+            DataFrame with vulnerable records handled
+        """
+        # Identify vulnerable records
+        vulnerability_mask = df[self.ka_risk_field] < self.risk_threshold
+        vulnerable_count = vulnerability_mask.sum()
+
+        if vulnerable_count > 0:
+            self.logger.info(
+                f"Handling {vulnerable_count} vulnerable records "
+                f"with strategy: {self.vulnerable_record_strategy}"
+            )
+
+            # Apply strategy using commons utility
+            df = handle_vulnerable_records(
+                df, output_field, vulnerability_mask, self.vulnerable_record_strategy
+            )
+
+        return df
+
+    def _collect_all_metrics(
+        self,
+        original_data: pd.Series,
+        anonymized_data: pd.Series,
+        mask: Optional[pd.Series] = None,
     ) -> Dict[str, Any]:
         """
-        Calculate all metrics for the operation.
+        Collect comprehensive metrics.
 
         Parameters:
         -----------
         original_data : pd.Series
-            The original data before anonymization
+            Original data
         anonymized_data : pd.Series
-            The anonymized data after processing
+            Anonymized data
+        mask : pd.Series, optional
+            Processing mask
 
         Returns:
         --------
         Dict[str, Any]
-            A dictionary of calculated metrics
+            Collected metrics
         """
-        # Calculate basic metrics
-        metrics = self._collect_metrics(original_data, anonymized_data)
+        # Basic anonymization effectiveness metrics
+        metrics: Dict[str, Any] = calculate_anonymization_effectiveness(
+            original_data, anonymized_data
+        )
 
         # Add performance metrics
+        if self.start_time and self.end_time:
+            duration = self.end_time - self.start_time
+            metrics.update(
+                {
+                    "duration_seconds": round(duration, 2),
+                    "records_processed": self.process_count,
+                    "records_per_second": (
+                        round(self.process_count / duration, 2) if duration > 0 else 0
+                    ),
+                    "chunk_count": (
+                        int((self.process_count - 1) / self.chunk_size + 1)
+                        if self.process_count > 0
+                        else 0
+                    ),
+                }
+            )
+
+        # Add operation-specific metrics
+        metrics.update(self._collect_specific_metrics(original_data, anonymized_data))
+        # Calculate effective mask
+        effective_mask = mask.sum() if mask is not None else len(anonymized_data)
+        # Add filtering metrics
         metrics.update(
             {
-                "execution_time_seconds": (
-                    self.end_time - self.start_time
-                    if self.end_time and self.start_time
-                    else 0
-                ),
-                "records_processed": self.process_count,
-                "records_per_second": (
-                    self.process_count / (self.end_time - self.start_time)
-                    if self.end_time
-                    and self.start_time
-                    and (self.end_time - self.start_time) > 0
+                "total_records": len(original_data),
+                "processed_records": effective_mask,
+                "filtered_records": len(original_data) - effective_mask,
+                "processing_rate": (
+                    (effective_mask / len(original_data)) * 100
+                    if len(original_data) > 0
                     else 0
                 ),
             }
         )
+
+        # Add memory metrics if optimization was performed
+        if self.optimize_memory:
+            metrics["chunk_size_used"] = self.chunk_size
+            metrics["adaptive_chunk_size"] = self.adaptive_chunk_size
 
         return metrics
 
@@ -988,7 +1337,7 @@ class AnonymizationOperation(BaseOperation):
                         anonymized_data=anonymized_data,
                         task_dir=task_dir,
                         vis_theme=vis_theme,
-                        vis_backend=vis_backend,
+                        vis_backend=vis_backend or "plotly",
                         vis_strict=vis_strict,
                         progress_tracker=viz_progress,
                         timestamp=operation_timestamp,  # Pass the same timestamp
@@ -1092,15 +1441,156 @@ class AnonymizationOperation(BaseOperation):
 
         return visualization_paths
 
+    def _generate_visualizations(
+        self,
+        original_data: pd.Series,
+        anonymized_data: pd.Series,
+        task_dir: Path,
+        vis_theme: Optional[str] = None,
+        vis_backend: Optional[str] = None,
+        vis_strict: bool = False,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        timestamp: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Path]:
+        """
+        Generate visualizations using the core visualization utilities with thread-safe context support.
+
+        This is a base implementation that provides a basic distribution comparison.
+        Subclasses should override to provide operation-specific visualizations.
+
+        Parameters:
+        -----------
+        original_data : pd.Series
+            Original data before anonymization
+        anonymized_data : pd.Series
+            Anonymized data after processing
+        task_dir : Path
+            Task directory for saving visualizations
+        result : OperationResult
+            Operation result to add artifacts to
+        reporter : Any
+            Reporter object for tracking artifacts
+        vis_theme : str, optional
+            Theme to use for visualizations
+        vis_backend : str, optional
+            Backend to use: "plotly" or "matplotlib"
+        vis_strict : bool, optional
+            If True, raise exceptions for configuration errors
+        **kwargs : dict
+            Additional parameters for the operation
+
+        Returns:
+        --------
+        Dict[str, Path]
+            Dictionary with visualization types and paths
+        """
+        visualization_paths = {}
+        viz_dir = task_dir / "visualizations"
+        viz_dir.mkdir(parents=True, exist_ok=True)
+
+        # Use provided timestamp or generate new one
+        if timestamp is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Check if visualization should be skipped
+        if vis_backend is None:
+            self.logger.info(
+                f"Skipping visualization for {self.field_name} (backend=None)"
+            )
+            return visualization_paths
+
+        self.logger.info(
+            f"[VIZ] Starting visualization generation for {self.field_name} using {self.null_strategy} strategy"
+        )
+        self.logger.debug(
+            f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
+        )
+
+        try:
+            # Step 1: Prepare data
+            if progress_tracker:
+                progress_tracker.update(1, {"step": "Preparing visualization data"})
+
+            # Sample large datasets for visualization
+            if len(original_data) > 10000:
+                self.logger.info(
+                    f"[VIZ] Sampling large dataset: {len(original_data)} -> 10000 samples"
+                )
+                original_for_viz = sample_large_dataset(
+                    original_data, max_samples=10000
+                )
+                anonymized_for_viz = sample_large_dataset(
+                    anonymized_data, max_samples=10000
+                )
+            else:
+                original_for_viz = original_data
+                anonymized_for_viz = anonymized_data
+
+            self.logger.debug(
+                f"[VIZ] Data prepared for visualization: {len(original_for_viz)} samples"
+            )
+            self.logger.debug(
+                f"[VIZ] Original data type: {original_for_viz.dtype}, Anonymized data type: {anonymized_for_viz.dtype}"
+            )
+
+            # Step 2: Create visualization
+            if progress_tracker:
+                progress_tracker.update(2, {"step": "Creating visualization"})
+
+            # Create comparison visualization
+            comparison_path = create_comparison_visualization(
+                original_data=original_for_viz,
+                anonymized_data=anonymized_for_viz,
+                task_dir=viz_dir,
+                field_name=self.field_name,
+                operation_name=self.__class__.__name__,
+                timestamp=timestamp,
+                theme=vis_theme,
+                backend=vis_backend,
+                strict=vis_strict,
+                **kwargs,
+            )
+
+            if comparison_path:
+                visualization_paths["comparison"] = comparison_path
+
+            # Create distribution visualization for anonymized data
+            metric_data = anonymized_for_viz.value_counts().to_dict()
+            dist_path = create_metric_visualization(
+                metric_name="distribution",
+                metric_data=metric_data,
+                task_dir=viz_dir,
+                field_name=self.field_name,
+                operation_name=self.__class__.__name__,
+                timestamp=timestamp,
+                theme=vis_theme,
+                backend=vis_backend,
+                strict=vis_strict,
+                **kwargs,
+            )
+
+            if dist_path:
+                visualization_paths["distribution"] = dist_path
+
+            # Step 3: Finalize visualizations
+            if progress_tracker:
+                progress_tracker.update(3, {"step": "Finalizing visualizations"})
+
+        except Exception as e:
+            self.logger.warning(f"Error generating visualizations: {e}")
+
+        return visualization_paths
+
     def _save_output_data(
         self,
         result_df: pd.DataFrame,
-        is_encryption_required: bool,
         writer: DataWriter,
         result: OperationResult,
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
         timestamp: Optional[str] = None,
+        use_encryption: Optional[bool] = False,
         **kwargs,
     ) -> str:
         """
@@ -1110,7 +1600,7 @@ class AnonymizationOperation(BaseOperation):
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
-        is_encryption_required : bool
+        use_encryption : bool
             Whether to encrypt the output
         writer : DataWriter
             The writer to use for saving data
@@ -1128,22 +1618,22 @@ class AnonymizationOperation(BaseOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Saving output data"})
 
-        custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
-
         # Generate standardized output filename with timestamp
-        field_name_output = (
-            f"{self.field_name}_{self.__class__.__name__}_output_{timestamp}"
-        )
+        operation_name = self.__class__.__name__
+        field_name_output = f"{self.field_name}_{operation_name}_output_{timestamp}"
 
         # Use the DataWriter to save the DataFrame
+        safe_kwargs = filter_used_kwargs(kwargs, writer.write_dataframe)
+        safe_kwargs["encryption_mode"] = get_encryption_mode(result_df, **kwargs)
         output_result = writer.write_dataframe(
             df=result_df,
             name=field_name_output,
             format=self.output_format,
             subdir="output",
             timestamp_in_name=False,
-            encryption_key=self.encryption_key if is_encryption_required else None,
-            **custom_kwargs,
+            encryption_key=self.encryption_key if use_encryption else None,
+            overwrite=True,
+            **safe_kwargs,
         )
 
         # Register output artifact with the result
@@ -1194,129 +1684,131 @@ class AnonymizationOperation(BaseOperation):
         if anonymized_data is not None:
             del anonymized_data
 
+        # Clear operation cache
+        if hasattr(self, "operation_cache"):
+            self.operation_cache = None
+
+        # Clear process kwargs
+        if hasattr(self, "process_kwargs"):
+            self.process_kwargs = {}
+
         # Additional cleanup for any temporary attributes
         for attr_name in list(vars(self).keys()):
             if attr_name.startswith("_temp_"):
                 delattr(self, attr_name)
 
-        # Optional: Force garbage collection for large datasets
-        # Uncomment if memory pressure is an issue
-        # import gc
-        # gc.collect()
+        # Force garbage collection
+        force_garbage_collection()
 
-    def _generate_data_hash(self, data: pd.Series) -> str:
+    def _should_process_record(self, record: pd.Series) -> bool:
         """
-        Generate a hash representing the key characteristics of the data.
+        Determine if a record should be processed based on conditions.
 
         Parameters:
         -----------
-        data : pd.Series
-            Input data for the operation
+        record : pd.Series
+            Record to check
 
         Returns:
         --------
-        str
-            Hash string representing the data
+        bool
+            True if record should be processed
         """
-        import hashlib
-        import json
-        from typing import Any
+        # No conditions means process all records
+        if not self.condition_field:
+            return True
 
-        try:
-            # Create dictionary of key data characteristics with proper typing
-            # Use Dict[str, Any] to allow mixed value types (int, float, dict)
-            characteristics: dict[str, Any] = {
-                "length": len(data),
-                "null_count": int(data.isna().sum()),
-                "unique_count": int(data.nunique()),
-            }
+        # Check simple condition
+        if self.condition_field in record.index:
+            value = record[self.condition_field]
+            mask = apply_condition_operator(
+                pd.Series([value]), self.condition_values, self.condition_operator
+            )
+            return mask.iloc[0]
 
-            # Add data type-specific characteristics
-            if pd.api.types.is_numeric_dtype(data):
-                # For numeric data, add statistical measures
-                non_null = data.dropna()
-                if len(non_null) > 0:
-                    characteristics.update(
-                        {
-                            "min": float(non_null.min()),
-                            "max": float(non_null.max()),
-                            "mean": float(non_null.mean()),
-                            "median": float(non_null.median()),
-                            "std": float(non_null.std()),
-                        }
-                    )
-            elif isinstance(
-                data.dtype, pd.CategoricalDtype
-            ) or pd.api.types.is_object_dtype(data):
-                # For categorical data, sample most common values
-                top_values = data.value_counts().head(10)
-                # Convert to dictionary with string keys and int values for JSON serialization
-                top_values_dict: dict[str, int] = {}
-                for k, v in top_values.items():
-                    top_values_dict[str(k)] = int(v)
-                characteristics["top_values"] = top_values_dict
+        return True
 
-            # Convert to JSON string and hash
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode()).hexdigest()
-
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-            # Fallback to a simple hash of the data length and type
-            return hashlib.md5(f"{len(data)}_{str(data.dtype)}".encode()).hexdigest()
-
-    def _get_basic_parameters(self) -> Dict[str, str]:
-        """Get the basic parameters for the cache key generation."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "version": self.version,
-        }
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
+    @classmethod
+    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
-        Get operation-specific parameters for cache key generation.
+        Process a batch of data. Must be implemented by subclasses.
 
-        This method should be overridden by subclasses to provide
-        operation-specific parameters for caching.
+        Parameters:
+        -----------
+        batch : pd.DataFrame
+            DataFrame batch to process
+        kwargs : dict
+            Additional keyword arguments for processing
+
+        Returns:
+        --------
+        pd.DataFrame
+            Processed DataFrame batch
+        """
+        raise NotImplementedError("Subclasses must implement process_batch method")
+
+    @classmethod
+    def process_batch_dask(cls, ddf: dd.DataFrame, **kwargs) -> dd.DataFrame:
+        """
+        Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
+
+        Parameters:
+        -----------
+        ddf : dd.DataFrame
+            Dask DataFrame to process
+        kwargs : dict
+            Additional keyword arguments for processing
+
+        Returns:
+        --------
+        dd.DataFrame
+            Processed Dask DataFrame
+        """
+
+        # Default implementation: process each partition with process_batch
+        def process_partition(partition):
+            return cls.process_batch(partition, **kwargs)
+
+        return ddf.map_partitions(process_partition)
+
+    @classmethod
+    def process_value(cls, value, **kwargs):
+        """
+        Process a single value. Must be implemented by subclasses.
+
+        Parameters:
+        -----------
+        value : Any
+            Value to process
+        kwargs : dict
+            Additional parameters
+
+        Returns:
+        --------
+        Any
+            Processed value
+        """
+        raise NotImplementedError("Subclasses must implement process_value method")
+
+    def _collect_specific_metrics(
+        self, original_data: pd.Series, anonymized_data: pd.Series
+    ) -> Dict[str, Any]:
+        """
+        Collect operation-specific metrics. Should be overridden by subclasses.
+
+        Parameters:
+        -----------
+        original_data : pd.Series
+            Original data
+        anonymized_data : pd.Series
+            Anonymized data
 
         Returns:
         --------
         Dict[str, Any]
-            Parameters for cache key generation
+            Operation-specific metrics
         """
-        # Base implementation returns minimal parameters
         return {}
-
-    def _generate_cache_key(self, data: pd.Series) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        data : pd.Series
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        # Get basic operation parameters
-        parameters = self._get_basic_parameters()
-
-        # Add operation-specific parameters through method that subclasses can override
-        parameters.update(self._get_cache_parameters())
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(data)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return self.operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
 
     def _check_cache(
         self, df: pd.DataFrame, reporter: Any
@@ -1474,7 +1966,7 @@ class AnonymizationOperation(BaseOperation):
             else:
                 self.logger.warning(f"Cached file not found: {artifact_path}")
 
-        # Restore main output and metrics artifacts
+        # Restore main output and metrics and mapping artifacts
         restore_file_artifact(
             cached.get("output_file"),
             self.output_format,
@@ -1486,6 +1978,12 @@ class AnonymizationOperation(BaseOperation):
             "json",
             "generalization metrics",
             Constants.Artifact_Category_Metrics,
+        )
+        restore_file_artifact(
+            cached.get("mapping_file"),
+            "json",
+            "generalized mapping",
+            Constants.Artifact_Category_Mapping,
         )
 
         # Restore visualizations
@@ -1504,10 +2002,11 @@ class AnonymizationOperation(BaseOperation):
         original_data: pd.Series,
         anonymized_data: pd.Series,
         metrics: Dict[str, Any],
-        visualization_paths: Dict[str, Path],
         task_dir: Path,
-        metrics_result_path: Optional[str] = "",
-        output_result_path: Optional[str] = "",
+        visualization_paths: Dict[str, Path] = {},
+        metrics_result_path: Optional[str] = None,
+        output_result_path: Optional[str] = None,
+        mapping_result_path: Optional[str] = None,
     ) -> bool:
         """
         Save operation results to cache.
@@ -1529,6 +2028,9 @@ class AnonymizationOperation(BaseOperation):
             If not provided, a default path will be used.
         output_result_path : Optional[str]
             Path to the output result file
+            If not provided, a default path will be used.
+        mapping_result_path : Optional[str]
+            Path to the mapping result file
             If not provided, a default path will be used.
 
         Returns:
@@ -1564,6 +2066,7 @@ class AnonymizationOperation(BaseOperation):
                 },
                 "output_file": output_result_path,  # Path to main output file
                 "metrics_file": metrics_result_path,  # Path to metrics file
+                "mapping_file": mapping_result_path,  # Path to mapping file if applicable
                 "visualizations": {
                     k: str(v) for k, v in visualization_paths.items()
                 },  # Paths to visualizations
@@ -1594,505 +2097,87 @@ class AnonymizationOperation(BaseOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
+    def _generate_cache_key(self, data: pd.Series) -> str:
         """
-        Process a batch of data.
-
-        Parameters:
-        -----------
-        batch : pd.DataFrame
-            DataFrame batch to process
-
-        Returns:
-        --------
-        pd.DataFrame
-            Processed DataFrame batch
-        """
-        # This method should be implemented by subclasses
-        field_data = batch[self.field_name]
-        batch[self.output_field_name] = field_data
-        return batch
-        # raise NotImplementedError("Subclasses must implement process_batch method")
-
-    def process_value(self, value, **params):
-        """
-        Process a single value.
-
-        Parameters:
-        -----------
-        value : Any
-            Value to process
-        **params : dict
-            Additional parameters for processing
-
-        Returns:
-        --------
-        Any
-            Processed value
-        """
-        # This method should be implemented by subclasses
-        raise NotImplementedError("Subclasses must implement process_value method")
-
-    def process_with_dask(
-        self, df: Any, npartitions: Optional[int] = None
-    ) -> pd.DataFrame:
-        """
-        Process a DataFrame with Dask.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame to process
-        chunk_size : int, optional
-            Number of rows to process in each chunk (default: 10000)
-        npartitions : int, optional
-            Number of partitions to use for Dask (default: None)
-
-        Returns:
-        --------
-        pd.DataFrame
-            Processed DataFrame with Dask
-        """
-        # This method should be implemented by subclasses
-        raise NotImplementedError("Subclasses must implement process_with_dask method")
-
-    def _collect_metrics(
-        self, original_data: pd.Series, anonymized_data: pd.Series
-    ) -> Dict[str, Any]:
-        """
-        Collect metrics for the operation.
-
-        Parameters:
-        -----------
-        original_data : pd.Series
-            Original data before anonymization
-        anonymized_data : pd.Series
-            Anonymized data after processing
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Dictionary with metrics
-        """
-        # Basic metrics that apply to all anonymization operations
-        metrics: Dict[str, Any] = {
-            "operation_type": self.__class__.__name__,
-            "field_name": self.field_name,
-            "mode": self.mode,
-            "null_strategy": self.null_strategy,
-            "total_records": len(original_data),
-            "null_count": int(original_data.isna().sum()),
-            "unique_values_before": int(original_data.nunique()),
-            "unique_values_after": int(anonymized_data.nunique()),
-        }
-
-        # If the field is numeric, add numeric metrics
-        if pd.api.types.is_numeric_dtype(original_data):
-            try:
-                # Filter out nulls for calculations
-                orig_non_null = original_data.dropna()
-                anon_non_null = anonymized_data.dropna()
-
-                # Handle case where anonymized values might be strings (e.g., in binning)
-                try:
-                    anon_numeric = pd.to_numeric(anon_non_null, errors="coerce")
-                    anon_is_numeric = not anon_numeric.isna().all()
-                except Exception:
-                    anon_is_numeric = False
-                    anon_numeric = None  # Add a default definition
-
-                # Add additional metrics if anonymized data is still numeric
-                if anon_is_numeric and anon_numeric is not None:
-                    try:
-                        # Compare statistical properties
-                        metrics.update(
-                            {
-                                "mean_original": float(orig_non_null.mean()),
-                                "mean_anonymized": float(anon_numeric.mean()),
-                                "std_original": float(orig_non_null.std()),
-                                "std_anonymized": float(anon_numeric.std()),
-                                "min_original": float(orig_non_null.min()),
-                                "min_anonymized": float(anon_numeric.min()),
-                                "max_original": float(orig_non_null.max()),
-                                "max_anonymized": float(anon_numeric.max()),
-                                "median_original": float(orig_non_null.median()),
-                                "median_anonymized": float(anon_numeric.median()),
-                            }
-                        )
-
-                        # Calculate mean absolute difference if possible
-                        if orig_non_null.index.equals(anon_numeric.index):
-                            metrics["mean_absolute_difference"] = float(
-                                (orig_non_null - anon_numeric).abs().mean()
-                            )
-                    except Exception as e:
-                        self.logger.warning(
-                            f"Could not compute all numeric comparison metrics: {e}"
-                        )
-            except Exception as e:
-                self.logger.warning(f"Error calculating numeric metrics: {e}")
-
-        # Calculate generalization ratio (reduction in unique values)
-        unique_values_before = metrics.get("unique_values_before", 0)
-        if unique_values_before > 0:
-            unique_values_after = metrics.get("unique_values_after", 0)
-            metrics["generalization_ratio"] = 1.0 - (
-                unique_values_after / unique_values_before
-            )
-        else:
-            metrics["generalization_ratio"] = 0.0
-
-        # Add operation-specific metrics (to be implemented by subclasses)
-        specific_metrics = self._collect_specific_metrics(
-            original_data, anonymized_data
-        )
-        if specific_metrics:
-            metrics.update(specific_metrics)
-
-        return metrics
-
-    def _collect_specific_metrics(
-        self, original_data: pd.Series, anonymized_data: pd.Series
-    ) -> Dict[str, Any]:
-        """
-        Collect operation-specific metrics.
-
-        Parameters:
-        -----------
-        original_data : pd.Series
-            Original data before anonymization
-        anonymized_data : pd.Series
-            Anonymized data after processing
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Dictionary with operation-specific metrics
-        """
-        # This method should be overridden by subclasses to add specific metrics
-        return {}
-
-    def _generate_visualizations(
-        self,
-        original_data: pd.Series,
-        anonymized_data: pd.Series,
-        task_dir: Path,
-        vis_theme: Optional[str] = None,
-        vis_backend: Optional[str] = None,
-        vis_strict: bool = False,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        timestamp: Optional[str] = None,
-        **kwargs,
-    ) -> Dict[str, Path]:
-        """
-        Generate visualizations using the core visualization utilities with thread-safe context support.
-
-        This is a base implementation that provides a basic distribution comparison.
-        Subclasses should override to provide operation-specific visualizations.
-
-        Parameters:
-        -----------
-        original_data : pd.Series
-            Original data before anonymization
-        anonymized_data : pd.Series
-            Anonymized data after processing
-        task_dir : Path
-            Task directory for saving visualizations
-        result : OperationResult
-            Operation result to add artifacts to
-        reporter : Any
-            Reporter object for tracking artifacts
-        vis_theme : str, optional
-            Theme to use for visualizations
-        vis_backend : str, optional
-            Backend to use: "plotly" or "matplotlib"
-        vis_strict : bool, optional
-            If True, raise exceptions for configuration errors
-        **kwargs : dict
-            Additional parameters for the operation
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with visualization types and paths
-        """
-        visualization_paths = {}
-        viz_dir = task_dir / "visualizations"
-        viz_dir.mkdir(parents=True, exist_ok=True)
-
-        # Use provided timestamp or generate new one
-        if timestamp is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        # Check if visualization should be skipped
-        if vis_backend is None:
-            self.logger.info(
-                f"Skipping visualization for {self.field_name} (backend=None)"
-            )
-            return visualization_paths
-
-        self.logger.info(
-            f"[VIZ] Starting visualization generation for {self.field_name} using {self.null_strategy} strategy"
-        )
-        self.logger.debug(
-            f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
-        )
-
-        try:
-            # Step 1: Prepare data
-            if progress_tracker:
-                progress_tracker.update(1, {"step": "Preparing visualization data"})
-
-            # Sample large datasets for visualization
-            if len(original_data) > 10000:
-                self.logger.info(
-                    f"[VIZ] Sampling large dataset: {len(original_data)} -> 10000 samples"
-                )
-                original_for_viz = sample_large_dataset(
-                    original_data, max_samples=10000
-                )
-                anonymized_for_viz = sample_large_dataset(
-                    anonymized_data, max_samples=10000
-                )
-            else:
-                original_for_viz = original_data
-                anonymized_for_viz = anonymized_data
-
-            self.logger.debug(
-                f"[VIZ] Data prepared for visualization: {len(original_for_viz)} samples"
-            )
-            self.logger.debug(
-                f"[VIZ] Original data type: {original_for_viz.dtype}, Anonymized data type: {anonymized_for_viz.dtype}"
-            )
-
-            # Step 2: Create visualization
-            if progress_tracker:
-                progress_tracker.update(2, {"step": "Creating visualization"})
-
-            # Determine if data is numeric or categorical
-            is_numeric = pd.api.types.is_numeric_dtype(original_for_viz)
-            # Create a basic distribution comparison
-            if is_numeric:
-                # Clean data (drop nulls) for visualization
-                original_clean = original_for_viz.dropna()
-
-                # Try to convert anonymized data to numeric if possible
-                try:
-                    anonymized_numeric = pd.to_numeric(
-                        anonymized_for_viz.dropna(), errors="coerce"
-                    )
-                    has_numeric_data = not anonymized_numeric.isna().all()
-                except:
-                    has_numeric_data = False
-                    anonymized_numeric = None
-
-                if has_numeric_data and anonymized_numeric is not None:
-                    self.logger.info(
-                        "[VIZ] Data is still numeric after rounding, using histogram"
-                    )
-                    # Determining the adaptive number of bins
-                    n_bins = min(20, max(5, int(np.sqrt(len(original_clean)))))
-
-                    self.logger.debug(f"[VIZ] Using {n_bins} bins for histogram")
-
-                    # Create histogram comparison
-                    hist_filename = f"{self.field_name}_{self.__class__.__name__}_histogram_{timestamp}.png"
-                    hist_path = viz_dir / hist_filename
-
-                    # Prepare data for histogram - use Any to avoid typing conflicts
-                    hist_data: Any = {
-                        "Original": original_clean.tolist(),
-                        "Anonymized": anonymized_numeric.dropna().tolist(),
-                    }
-
-                    self.logger.debug(
-                        f"[VIZ] Comparison data prepared: Original={len(hist_data['Original'])}, Anonymized={len(hist_data['Anonymized'])}"
-                    )
-                    # Step 3: Save visualization
-                    if progress_tracker:
-                        progress_tracker.update(1, {"step": "Saving visualization"})
-
-                    # Create histogram using standard utility with context support
-                    self.logger.info(f"[VIZ] Calling create_histogram...")
-                    call_start = time.time()
-
-                    # Create histogram comparison with context support
-                    save_path = create_histogram(
-                        data=hist_data,
-                        output_path=str(hist_path),
-                        title=f"Distribution Comparison for {self.field_name}",
-                        x_label=self.field_name,
-                        y_label="Frequency",
-                        bins=n_bins,
-                        kde=True,
-                        theme=vis_theme,
-                        backend=vis_backend or "plotly",
-                        strict=vis_strict,
-                        **kwargs,
-                    )
-
-                    call_time = time.time() - call_start
-                    self.logger.info(
-                        f"[VIZ] create_histogram returned after {call_time:.2f}s: {save_path}"
-                    )
-
-                    # Check if visualization was created successfully
-                    if not save_path.startswith("Error"):
-                        self.logger.info(
-                            f"[VIZ] Histogram created successfully: {save_path}"
-                        )
-                        visualization_paths["distribution_comparison"] = save_path
-                    else:
-                        self.logger.error(
-                            f"[VIZ] Failed to create histogram: {hist_path}"
-                        )
-            else:
-                self.logger.info("[VIZ] Data is categorical, using bar chart")
-                # For categorical data, create a bar chart
-                # Get value distribution (top N categories)
-                max_categories = 10
-                orig_counts = original_data.value_counts().head(max_categories)
-                anon_counts = anonymized_data.value_counts().head(max_categories)
-
-                # Create bar chart
-                bar_filename = f"{self.field_name}_{self.__class__.__name__}_categories_{timestamp}.png"
-                bar_path = viz_dir / bar_filename
-
-                # Prepare data for bar plot - use Any to avoid typing conflicts
-                bar_data: Any = {
-                    "Original": orig_counts.to_dict(),
-                    "Anonymized": anon_counts.to_dict(),
-                }
-
-                self.logger.debug(
-                    f"[VIZ] Bar data prepared: Original={len(bar_data['Original'])}, Anonymized={len(bar_data['Anonymized'])}"
-                )
-
-                # Step 3: Save visualization
-                if progress_tracker:
-                    progress_tracker.update(1, {"step": "Saving visualization"})
-
-                # Create bar plot using standard utility with context support
-                self.logger.info(f"[VIZ] Calling create_bar_plot...")
-                call_start = time.time()
-
-                # Create bar plot with context support
-                save_path = create_bar_plot(
-                    data=bar_data,
-                    output_path=str(bar_path),
-                    title=f"Category Comparison for {self.field_name}",
-                    x_label="Category",
-                    y_label="Count",
-                    orientation="v",
-                    sort_by="value",
-                    max_items=max_categories,
-                    theme=vis_theme,
-                    backend=vis_backend or "plotly",
-                    strict=vis_strict,
-                    **kwargs,
-                )
-
-                call_time = time.time() - call_start
-                self.logger.info(
-                    f"[VIZ] create_bar_plot returned after {call_time:.2f}s: {save_path}"
-                )
-
-                # Check if visualization was created successfully
-                if not save_path.startswith("Error"):
-                    self.logger.info(
-                        f"[VIZ] Bar plot created successfully: {save_path}"
-                    )
-                    visualization_paths["category_comparison"] = save_path
-                else:
-                    self.logger.error(f"[VIZ] Failed to create bar plot: {bar_path}")
-
-        except Exception as e:
-            self.logger.error(
-                f"[VIZ] Error creating visualization: {type(e).__name__}: {e}"
-            )
-            self.logger.error(f"[VIZ] Stack trace:", exc_info=True)
-
-        return visualization_paths
-
-    def _is_visualizable(self, data: pd.Series) -> bool:
-        """
-        Check if the data can be visualized.
+        Generate a deterministic cache key based on operation parameters and data characteristics.
 
         Parameters:
         -----------
         data : pd.Series
-            Data to check
+            Input data for the operation
 
         Returns:
         --------
-        bool
-            Whether the data can be visualized
+        str
+            Unique cache key
         """
-        # Check if series is empty
-        if len(data) == 0:
-            return False
+        # Get basic operation parameters
+        parameters = self._get_basic_parameters()
 
-        # Check if all values are null
-        if data.isnull().all():
-            return False
+        # Add operation-specific parameters through method that subclasses can override
+        parameters.update(self._get_cache_parameters())
 
-        # If data is numeric or categorical, it can be visualized
-        column_dtype = data.dtype
-        is_categorical = isinstance(column_dtype, pd.CategoricalDtype)
-        is_string = pd.api.types.is_string_dtype(data)
-        is_object = pd.api.types.is_object_dtype(data)
-        is_numeric = pd.api.types.is_numeric_dtype(data)
+        # Generate data hash based on key characteristics
+        data_hash = self._generate_data_hash(data)
 
-        if is_numeric or is_categorical or is_string or is_object:
-            return True
-
-        return False
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts following PAMOLA.CORE conventions.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories following PAMOLA.CORE conventions
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["logs"] = task_dir / "logs"
-        directories["cache"] = task_dir / "cache"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
-    
-    def _get_custom_kwargs(self, df, **kwargs):
-        custom_kwargs = {
-            k: v
-            for k, v in kwargs.items()
-            if k
-            not in [
-                "df",
-                "name",
-                "format",
-                "subdir",
-                "timestamp_in_name",
-                "encryption_key",
-            ]
-        }
-        custom_kwargs["encryption_mode"] = get_encryption_mode(
-            df, **kwargs
+        # Use the operation_cache utility to generate a consistent cache key
+        return self.operation_cache.generate_cache_key(
+            operation_name=self.__class__.__name__,
+            parameters=parameters,
+            data_hash=data_hash,
         )
-        
-        return custom_kwargs
+
+    def _generate_data_hash(self, df: pd.DataFrame) -> str:
+        """
+        Generate a hash representing the key characteristics of the DataFrame.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input data for the operation
+
+        Returns
+        -------
+        str
+            Hash string representing the data
+        """
+        import hashlib
+        import json
+
+        try:
+            # Generate summary statistics for all columns (numeric and non-numeric)
+            characteristics = df.describe(include="all")
+
+            # Convert to JSON string with consistent formatting (ISO for dates)
+            json_str = characteristics.to_json(date_format="iso")
+        except Exception as e:
+            self.logger.warning(f"Error generating data hash: {str(e)}")
+
+            # Fallback: use length and column data types
+            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
+
+        return hashlib.md5(json_str.encode()).hexdigest()
+
+    def _get_basic_parameters(self) -> Dict[str, str]:
+        """Get the basic parameters for the cache key generation."""
+        return {
+            "name": self.name,
+            "null_strategy": self.null_strategy,
+            "description": self.description,
+            "version": self.version,
+        }
+
+    def _get_cache_parameters(self) -> Dict[str, Any]:
+        """
+        Get operation-specific parameters for cache key generation.
+
+        This method should be overridden by subclasses to provide
+        operation-specific parameters for caching.
+
+        Returns:
+        --------
+        Dict[str, Any]
+            Parameters for cache key generation
+        """
+        # Base implementation returns minimal parameters
+        return {}

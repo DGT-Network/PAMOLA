@@ -196,7 +196,7 @@ def execute(self,
 - `reporter` (required): Reporter object for tracking progress and artifacts
 - `progress_tracker` (optional): Progress tracker for the operation
 - `**kwargs`: Additional parameters:
-  - `generate_plots` (default: True): Whether to generate visualizations
+  - `generate_visualization` (default: True): Whether to generate visualizations
   - `include_timestamp` (default: True): Whether to include timestamps in filenames
   - `profile_type` (default: 'mvf'): Type of profiling for organizing artifacts
   - `format_type` (default: None): Format type hint for parsing
@@ -228,7 +228,7 @@ def analyze_mvf_fields(
 - `**kwargs`: Additional parameters passed to each operation:
   - `top_n` (default: 20): Number of top values to include in results
   - `min_frequency` (default: 1): Minimum frequency for inclusion in dictionary
-  - `generate_plots` (default: True): Whether to generate plots
+  - `generate_visualization` (default: True): Whether to generate visualization
   - `include_timestamp` (default: True): Whether to include timestamps in filenames
   - `format_type` (default: None): Format type hint for parsing
   - `parse_kwargs` (default: {}): Additional parameters for MVF parsing
@@ -319,7 +319,7 @@ result = operation.execute(
     data_source=data_source,
     task_dir=task_dir,
     reporter=reporter,
-    generate_plots=True
+    generate_visualization=True
 )
 
 # Check results

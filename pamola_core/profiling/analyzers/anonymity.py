@@ -1,498 +1,259 @@
 """
-K-anonymity profiling operation for the project.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module:        K-Anonymity Profiling Operation
+Package:       pamola.pamola_core.profiling.analyzers
+Version:       2.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025
+License:       BSD 3-Clause
 
-This module provides operations for analyzing k-anonymity in data, identifying
-quasi-identifiers that may compromise privacy, and generating visualizations
-and reports about data anonymization risks.
+Description:
+  This module provides K-anonymity profiling operations for privacy risk analysis.
+  It evaluates quasi-identifier combinations to assess re-identification risks,
+  generates comprehensive metrics, and optionally creates visualizations and reports.
+
+Key Features:
+  - K-anonymity metric calculation for single and multiple QI combinations
+  - Optional DataFrame enrichment with k-values
+  - Configurable visualization generation
+  - Support for large datasets via chunked processing
+  - Integration with PAMOLA visualization system
+  - Comprehensive vulnerability analysis
+  - Thread-safe operation execution
+
+Design Principles:
+  - Follows PAMOLA Operations Framework patterns
+  - Leverages existing field utilities
+  - Modular visualization generation
+  - Efficient memory usage for large datasets
+  - Clear separation of analysis and reporting
+
+Changelog:
+  2.0.0 - Major refactoring for improved modularity and performance
+        - Added ENRICH mode for DataFrame extension
+        - Made visualizations and metrics export optional
+        - Integrated with op_field_utils for consistent naming
+        - Added chunked processing support
+        - Simplified API for common use cases
+  1.0.0 - Initial implementation with visualization support
+
+TODO:
+  - Add approximate k-anonymity for very large datasets
+  - Support for streaming data processing
+  - Add l-diversity and t-closeness metrics
+  - Implement parallel processing for multiple QI combinations
+  - Add incremental analysis capabilities
 """
 
-import time
+from collections import Counter
 from datetime import datetime
 import json
 import logging
 from pathlib import Path
+import time
 from typing import Dict, List, Any, Optional, Union
+from enum import Enum
+from itertools import combinations
 
+from joblib import Parallel, delayed
+import numpy as np
 import pandas as pd
 
-from pamola_core.profiling.commons.anonymity_utils import (
-    get_field_combinations,
-    create_ka_index_map,
-    calculate_k_anonymity,
-    find_vulnerable_records,
-    prepare_metrics_for_spider_chart,
-    prepare_field_uniqueness_data,
-    save_ka_index_map,
-    save_ka_metrics,
-    save_vulnerable_records
-)
-from pamola_core.utils.io import ensure_directory, write_json, get_timestamped_filename, load_data_operation, load_settings_operation
+from pamola_core.common.constants import Constants
+from pamola_core.privacy_models.k_anonymity import ka_visualization
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_registry import register
+from pamola_core.utils.ops.op_registry import register_operation
 from pamola_core.utils.ops.op_result import OperationArtifact, OperationResult, OperationStatus
-from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.visualization import (
-    create_bar_plot,
-    create_line_plot,
-    create_spider_chart,
-    create_combined_chart
+from pamola_core.utils.ops.op_field_utils import (
+    generate_ka_field_name,
+    generate_output_field_name,
+    get_field_statistics,
 )
-from pamola_core.common.constants import Constants
+from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
+from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.utils.io import ensure_directory, load_data_operation, load_settings_operation, write_json, get_timestamped_filename, write_parquet
+from pamola_core.utils.visualization import create_bar_plot, create_spider_chart
+from pamola_core.utils.vis_helpers.context import visualization_context
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
-class PreKAnonymityAnalyzer:
-    """
-    Analyzer for k-anonymity profiling on tabular data.
 
-    This class provides methods to analyze k-anonymity for a given DataFrame, identify quasi-identifier field combinations,
-    compute k-anonymity metrics, and detect vulnerable records. It supports both chunked and Dask-based processing for scalability.
-    The results include detailed metrics, mapping of field combinations, and field uniqueness statistics for further reporting or visualization.
+class AnalysisMode(Enum):
+    """K-anonymity analysis modes."""
+
+    ANALYZE = "ANALYZE"  # Generate metrics and reports
+    ENRICH = "ENRICH"  # Add k-values to DataFrame
+    BOTH = "BOTH"  # Both analyze and enrich
+
+
+class KAnonymityProfilerOperation(BaseOperation):
+    """
+    Operation for k-anonymity profiling with optional DataFrame enrichment.
+
+    This operation can work in three modes:
+    1. ANALYZE: Generate metrics, reports, and visualizations
+    2. ENRICH: Add k-anonymity values as a new column
+    3. BOTH: Perform both analysis and enrichment
     """
 
-    def analyze(
+    def __init__(
         self,
-        df: pd.DataFrame,
-        min_combination_size: int = 2,
-        max_combination_size: int = 4,
+        name: str = "KAnonymityProfiler",
+        description: str = "K-anonymity profiling and risk assessment",
+        quasi_identifiers: List[str] = None,
+        mode: str = "ANALYZE",
         threshold_k: int = 5,
-        id_fields: List[str] = [],
-        fields_combinations: List = None,
-        excluded_combinations: List = None,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        chunk_size: int = 10000,
+        generate_visualizations: bool = True,
+        export_metrics: bool = True,
+        visualization_theme: str = "professional",
+        max_combinations: int = 50,
+        chunk_size: int = 100000,
+        output_field_suffix: str = "k_anon",
+        quasi_identifier_sets = List[List[str]],
+        id_fields = List[str],
         use_dask: bool = False,
+        use_cache: bool = True,
         use_vectorization: bool = False,
-        current_steps: int = 3,
-        parallel_processes: Optional[int] = 1,
-        npartitions: Optional[int] = 1,
-        task_logger: Optional[logging.Logger] = None,
-        **kwargs
-    ) -> dict:
+        parallel_processes: int = 1,
+        npartitions: int = 1,
+        visualization_backend: Optional[str] = "plotly",
+        visualization_strict: bool = False,
+        visualization_timeout: int = 120,
+        use_encryption: bool = False,
+        encryption_key: Optional[Union[str, Path]] = None,
+        encryption_mode: Optional[str] = None
+    ):
         """
-        Analyze k-anonymity on the provided DataFrame and return profiling results.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            The DataFrame containing the data to analyze
-        min_combination_size : int, optional
-            Minimum size of field combinations to consider as quasi-identifiers
-        max_combination_size : int, optional
-            Maximum size of field combinations to consider as quasi-identifiers
-        threshold_k : int, optional
-            The k threshold below which records are considered vulnerable
-        id_fields : List[str], optional
-            List of identifier fields to help detect vulnerable records
-        fields_combinations : List[List[str]], optional
-            List of field combinations to analyze. If None, will be generated automatically
-        excluded_combinations : List[List[str]], optional
-            List of field combinations to exclude from analysis
-        progress_tracker : HierarchicalProgressTracker, optional
-            Progress tracker for reporting analysis progress
-        chunk_size : int, optional
-            Number of combinations to process per chunk (for large datasets)
-        use_dask : bool, optional
-            Whether to use Dask for parallel processing (recommended for large datasets)
-        task_logger : Optional[logging.Logger]
-            Logger for tracking task progress and debugging.
-
-        **kwargs : dict
-            Additional keyword arguments for advanced configuration
-        
-        Returns:
-        --------
-        dict
-            Dictionary containing k-anonymity metrics, vulnerable records, field combination mapping, and field uniqueness statistics
-        """
-        # Initialize task logger
-        if task_logger:
-            logger = task_logger
-
-        # Ensure id_fields is not None to prevent errors
-        if id_fields is None:
-            id_fields = []
-        
-        # Generate field combinations if not provided
-        if not fields_combinations:
-            all_fields = list(df.columns)
-            # Filter out ID fields to create quasi-identifier fields
-            quasi_identifier_fields = [field for field in all_fields if field not in id_fields]
-            
-            # Generate all possible combinations within size limits
-            field_combinations = get_field_combinations(
-                quasi_identifier_fields,
-                min_size=min_combination_size,
-                max_size=max_combination_size,
-                excluded_combinations=excluded_combinations
-            )
-        else:
-            # Use provided field combinations
-            field_combinations = fields_combinations
-            
-        # Validate that we have combinations to analyze
-        if not field_combinations:
-            return {"error": "No valid field combinations to analyze"}
-          # Get dataset size for processing strategy decisions
-        total_rows = len(df)
-        
-        # Initialize progress tracking for the analysis
-        if progress_tracker:
-            progress_tracker.update(current_steps, {
-                "step": "Initializing k-anonymity analysis",
-                "field": "\n".join([str(combo) for combo in field_combinations])
-            })
-        
-        # Determine if dataset is large enough to warrant chunked processing
-        # Analyzer processes entire dataset, so bypass parallel and chunked processing
-        is_large_df = total_rows > chunk_size
-        if use_dask and is_large_df:
-            # TODO: Implement Dask-based processing for large datasets
-            logger.warning("Dask processing not yet implemented, falling back to normal processing")
-            pass
-
-        # Chunked processing with vectorization and parallel processing
-        if use_vectorization and parallel_processes > 1:
-            # TODO: Implement parallel vectorized processing
-            logger.warning("Parallel vectorized processing not yet implemented, falling back to normal processing")
-            pass
-        elif use_vectorization and not use_dask:
-            # TODO: Implement vectorized processing without Dask
-            logger.warning("Vectorized processing not yet implemented, falling back to normal processing")
-            pass
-        
-        return self._analyze_normal(
-            df,
-            field_combinations,
-            threshold_k,
-            id_fields,
-            progress_tracker=progress_tracker,
-            task_logger=logger,
-            **kwargs
-        )
-    
-    def _analyze_normal(
-        self,
-        df: pd.DataFrame,
-        field_combinations: List,
-        threshold_k: int,
-        id_fields: List[str] = [],
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        current_steps: int = 3,
-        task_logger: Optional[logging.Logger] = None,
-        **kwargs
-    ) -> dict:
-        """
-        Analyze k-anonymity for combinations without Dask or chunking.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            The DataFrame containing the data to analyze
-        field_combinations : list
-            List of field combinations to analyze
-        threshold_k : int
-            The k threshold below which records are considered vulnerable
-        id_fields : list
-            List of identifier fields to help detect vulnerable records
-        progress_tracker : HierarchicalProgressTracker, optional
-            Progress tracker for the operation
-        task_logger : Optional[logging.Logger]
-            Logger for tracking task progress and debugging.
-        **kwargs : dict
-            Additional parameters for the analysis
-
-        Returns:
-        --------
-        dict
-            Dictionary containing k-anonymity metrics, vulnerable records, field combination mapping, and field uniqueness statistics
-        """
-        # Initialize task logger
-        if task_logger:
-            logger = task_logger
-
-        if progress_tracker:
-            progress_tracker.update(1, {
-                "step": "Generated field combinations",
-                "combinations_count": len(field_combinations)
-            })
-
-        # Create KA index map
-        ka_index_map = create_ka_index_map(field_combinations)
-
-        # Log the index map
-        logger.info(f"Created {len(ka_index_map)} KA indices")
-
-        if progress_tracker:
-            progress_tracker.update(current_steps, {"step": "Created KA index map"})
-
-        ka_metrics = {}
-        vulnerable_records = {}
-        total_combinations = len(ka_index_map)
-        combination_tracker = None
-        if progress_tracker:
-            combination_tracker = HierarchicalProgressTracker(
-                total=total_combinations,
-                description="Analyzing field combinations",
-                unit="combinations"
-            )
-
-        for i, (ka_index, fields) in enumerate(ka_index_map.items()):
-            logger.info(f"Analyzing combination {i + 1}/{total_combinations}: {ka_index} ({', '.join(fields)})")
-            # Note: calculate_k_anonymity expects ProgressTracker, not HierarchicalProgressTracker
-            metrics = calculate_k_anonymity(df, fields, progress_tracker=None)
-
-            # Add to results
-            if "error" not in metrics:
-                ka_metrics[ka_index] = metrics
-
-                # Find vulnerable records
-                vuln_records = find_vulnerable_records(
-                    df,
-                    fields,
-                    k_threshold=threshold_k,
-                    id_field=id_fields[0] if id_fields else None
-                )
-                vulnerable_records[ka_index] = {
-                    **vuln_records,
-                    "min_k": metrics.get("min_k", 0)
-                }
-            else:
-                logger.warning(f"Error analyzing {ka_index}: {metrics.get('error')}")
-
-            # Update main progress
-            if combination_tracker:
-                combination_tracker.update(current_steps, {
-                    "combination": ka_index,
-                    "fields": ", ".join(fields),
-                    "progress": f"{i + 1}/{total_combinations}"
-                })
-
-        # Close combination tracker
-        if combination_tracker:
-            combination_tracker.close()
-
-        # Update progress
-        if progress_tracker:
-            progress_tracker.update(1, {
-                "step": "Calculated k-anonymity metrics",
-                "metrics_count": len(ka_metrics)
-            })
-
-        all_fields = set()
-        for fields in field_combinations:
-            all_fields.update(fields)
-
-        # Prepare data for field uniqueness visualization
-        field_uniqueness = prepare_field_uniqueness_data(df, list(all_fields))
-
-        return {
-            "ka_metrics": ka_metrics,
-            "vulnerable_records": vulnerable_records,
-            "ka_index_map": ka_index_map,
-            "field_combinations": field_combinations,
-            "field_uniqueness": field_uniqueness
-        }
-
-@register()
-class PreKAnonymityProfilingOperation(BaseOperation):
-    """
-    Operation for preliminary profiling of data for k-anonymity analysis.
-
-    This operation analyzes combinations of fields to assess their potential
-    as quasi-identifiers and calculates k-anonymity metrics for each combination.
-    It generates visualizations and reports about anonymization risks.
-    """
-
-    def __init__(self,
-                 name: str = "PreKAnonymityProfiling",
-                 description: str = "Preliminary profiling for k-anonymity analysis",
-                 min_combination_size: int = 2,
-                 max_combination_size: int = 4,
-                 threshold_k: int = 5,
-                 fields_combinations: List = None,
-                 excluded_combinations: List = None,
-                 id_fields: List = [],
-                 use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None,
-                 use_dask: bool = False,
-                 use_cache: bool = True,
-                 use_vectorization: bool = False,
-                 chunk_size: int = 10000,
-                 parallel_processes: int = 1,
-                 npartitions: int = 1,
-                 visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = None,
-                 visualization_strict: bool = False,
-                 visualization_timeout: int = 120,
-                 encryption_mode: Optional[str] = None):
-        """
-        Initialize the k-anonymity profiling operation.
+        Initialize the k-anonymity profiler.
 
         Parameters:
         -----------
         name : str
-            Name of the operation
+            Operation name
         description : str
-            Description of the operation
-        min_combination_size : int
-            Minimum size of field combinations to analyze
-        max_combination_size : int
-            Maximum size of field combinations to analyze
+            Operation description
+        quasi_identifiers : List[str]
+            List of quasi-identifier fields to analyze
+        mode : str
+            Analysis mode: "ANALYZE", "ENRICH", or "BOTH"
         threshold_k : int
-            Threshold for vulnerability (k < threshold_k is considered vulnerable)
-        fields_combinations : Optional[List[List[str]]]
-            Specific field combinations to analyze. If None, combinations will be generated automatically
-        excluded_combinations : Optional[List[List[str]]]
-            List of field combinations to exclude from analysis
-        id_fields : List[str]
-            List of identifier fields to help detect vulnerable records
-        use_encryption : bool
-            Whether to encrypt output files (default: False)
-        encryption_key : Optional[Union[str, Path]]
-            Key or path to key file used for encryption
-        use_dask : bool
-            Whether to use Dask for processing (default: False)
-        use_cache : bool
-            Whether to use operation caching (default: True)
-        use_vectorization : bool, optional
-            Whether to use vectorized (parallel) processing (default: False)
+            Threshold for considering records vulnerable (k < threshold)
+        generate_visualizations : bool
+            Whether to generate visualization artifacts
+        export_metrics : bool
+            Whether to export metrics to JSON/CSV files
+        visualization_theme : str
+            Theme for visualizations
+        max_combinations : int
+            Maximum number of QI combinations to analyze
         chunk_size : int
-            Batch size for processing large datasets (default: 10000)
-        parallel_processes : int, optional
-            Number of processes use with vectorized (parallel) (default: 1)
-        npartitions : int, optional
-            Number of partitions for Dask processing (default: None)
-        visualization_theme : str, optional
-            Theme for visualizations (default: None, uses PAMOLA default)
-        visualization_backend : str, optional
-            Backend for visualizations (default: None, uses PAMOLA default)
-        visualization_strict : bool, optional
-            Whether to enforce strict visualization rules (default: False)
-        visualization_timeout : int, optional
-            Timeout for visualization generation in seconds (default: 120)
+            Size of chunks for processing large datasets
+        output_field_suffix : str
+            Suffix for the k-anonymity field in ENRICH mode
         """
         super().__init__(
             name=name,
             description=description,
             use_encryption=use_encryption,
             encryption_key=encryption_key,
-            encryption_mode=encryption_mode
-        )
-        self.min_combination_size = min_combination_size
-        self.max_combination_size = max_combination_size
+            encryption_mode=encryption_mode)
+
+        self.quasi_identifiers = quasi_identifiers or []
+        self.analysis_mode = AnalysisMode(mode)
         self.threshold_k = threshold_k
-        self.fields_combinations = fields_combinations
-        self.excluded_combinations = excluded_combinations
-        self.id_fields = id_fields
+        self.generate_visualizations = generate_visualizations
+        self.export_metrics = export_metrics
+        self.visualization_theme = visualization_theme
+        self.max_combinations = max_combinations
+        self.chunk_size = chunk_size
+        self.output_field_suffix = output_field_suffix
+        self.mode = mode
         self.use_dask = use_dask
         self.use_cache = use_cache
         self.use_vectorization = use_vectorization
-        self.chunk_size = chunk_size
         self.parallel_processes = parallel_processes
         self.npartitions = npartitions
-
-        self.visualization_theme = visualization_theme
         self.visualization_backend = visualization_backend
         self.visualization_strict = visualization_strict
         self.visualization_timeout = visualization_timeout
+        self.quasi_identifier_sets = quasi_identifier_sets
+        self.id_fields = id_fields
 
-        self.analyzer = PreKAnonymityAnalyzer()
-
-    def execute(self,
-                data_source: DataSource,
-                task_dir: Path,
-                reporter: Any,
-                progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                **kwargs) -> OperationResult:
+    def execute(
+        self,
+        data_source: DataSource,
+        task_dir: Path,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
+    ) -> OperationResult:
         """
-        Execute the k-anonymity profiling operation.
+        Execute k-anonymity profiling operation.
 
         Parameters:
         -----------
         data_source : DataSource
-            Source of data for the operation
+            Input data source
         task_dir : Path
-            Directory where task artifacts should be saved
+            Directory for operation artifacts
         reporter : Any
-            Reporter object for tracking progress and artifacts
-        progress_tracker : HierarchicalProgressTracker, optional
-            Progress tracker for the operation
+            Reporter for operation tracking
+        progress_tracker : HierarchicalProgressTracker
+            Optional progress tracker
         **kwargs : dict
             Additional parameters:
-            - fields_combinations: List of fields combinations to analyze
-            - id_fields: List of ID fields for vulnerable records identification
-            - excluded_combinations: List of combinations to exclude
-            - threshold_k: Threshold for vulnerability (overrides constructor value)
-            - include_timestamp: bool -  Whether to include timestamps in filenames
-            - chunk_size: Number of records to process in each chunk (for large datasets)
-            - npartitions: Number of partitions for Dask
-            - force_recalculation: bool - Skip cache check
+            - quasi_identifier_sets: List of QI combinations to analyze
+            - id_fields: Fields to identify vulnerable records
+            - include_timestamp: Whether to timestamp output files
 
         Returns:
         --------
         OperationResult
-            Results of the operation
+            Operation result with status and artifacts
         """
-        if kwargs.get('logger'):
-            self.logger = kwargs['logger']
+        # Save configuration
+        self.save_config(task_dir)
 
-        # Extract parameters from kwargs, defaulting to instance variables
-        dataset_name = kwargs.get('dataset_name', "main")
-        excluded_combinations = kwargs.get('excluded_combinations', self.excluded_combinations)
-        id_fields = kwargs.get('id_fields', self.id_fields)
-        threshold_k = kwargs.get('threshold_k', self.threshold_k)
-        include_timestamp = kwargs.get('include_timestamp', True)
-        min_combination_size = kwargs.get('min_combination_size', self.min_combination_size)
-        max_combination_size = kwargs.get('max_combination_size', self.max_combination_size)
-        self.chunk_size = kwargs.get('chunk_size', self.chunk_size)
-        self.use_dask = kwargs.get('use_dask', self.use_dask)
-        self.use_vectorization= kwargs.get('use_vectorization', self.use_vectorization)
-        self.use_cache = kwargs.get('use_cache', self.use_cache)
-        self.parallel_processes = kwargs.get("parallel_processes", self.parallel_processes)
-        encryption_key = kwargs.get('encryption_key', self.encryption_key)
-        self.npartitions = kwargs.get('npartitions', self.npartitions)
+        # Extract additional parameters
+        qi_sets = kwargs.get("quasi_identifier_sets", self.quasi_identifier_sets)
+        id_fields = kwargs.get("id_fields", self.id_fields)
+        include_timestamp = kwargs.get("include_timestamp", True)
         force_recalculation = kwargs.get("force_recalculation", False)
+        dataset_name = kwargs.get('dataset_name', "main")
 
-        # Extract visualization parameters
         self.visualization_theme = kwargs.get("visualization_theme", self.visualization_theme)
         self.visualization_backend = kwargs.get("visualization_backend", self.visualization_backend)
         self.visualization_strict = kwargs.get("visualization_strict", self.visualization_strict)
         self.visualization_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
 
-        # Set up directories
-        dirs = self._prepare_directories(task_dir)
-        output_dir = dirs['output']
-        visualizations_dir = dirs['visualizations']
-        dictionaries_dir = dirs['dictionaries']
 
-        # Create the main result object with initial status
+        # Initialize result
         result = OperationResult(status=OperationStatus.SUCCESS)
 
         # Set up progress tracking
-        # Preparation, Cache Check, Data Loading, Analysis, Metrics, Visualizations, Finalization
-        total_steps = 5 + (1 if self.use_cache and not force_recalculation else 0)
+        # Initializing, Prepared QI combinations, Completed
+        total_steps = 4 + (1 if self.use_cache and not force_recalculation else 0) + (1 if self.analysis_mode == AnalysisMode.ANALYZE else 0)
         current_steps = 0
 
-        # Update progress if tracker provided
+        # Set up progress tracking
+        # Step 1: Initializing
         if progress_tracker:
             progress_tracker.total = total_steps
-            progress_tracker.update(current_steps, {
-                "step": "Preparation", 
-                "operation": self.name,
-                "total_steps": total_steps
-            })
+            current_steps+=1
+            progress_tracker.update(current_steps, {"step": "Initializing", "operation": self.name, "total_steps": total_steps})
 
-        # Step 1: Check Cache (if enabled and not forced to recalculate)
+        # Step 2: Check Cache (if enabled and not forced to recalculate)
         if self.use_cache and not force_recalculation:
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Checking Cache"})
 
-            logger.info("Checking operation cache...")
+            self.logger.info("Checking operation cache...")
             cache_result = self._check_cache(data_source, dataset_name, **kwargs)
 
             if cache_result:
@@ -509,14 +270,14 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                         details={"cached": True}
                     )
                 return cache_result
-
-        # Step 2: Data Loading
+            
+        # Step 3: Data Loading
         if progress_tracker:
             current_steps += 1
             progress_tracker.update(current_steps, {"step": "Data Loading"}) 
 
         try:
-            # Get DataFrame from data source
+            # Get DataFrame
             settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
             df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
@@ -524,177 +285,104 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                     status=OperationStatus.ERROR,
                     error_message="No valid DataFrame found in data source"
                 )
-
-            # Log basic information
-            self.logger.info(
-                f"Starting k-anonymity profiling on DataFrame with {len(df)} rows and {len(df.columns)} columns")
-
-            # Add operation to reporter
-            if reporter:
-                reporter.add_operation(f"K-Anonymity Profiling", details={
-                    "records_count": len(df),
-                    "columns_count": len(df.columns),
-                    "threshold_k": threshold_k,
-                    "operation_type": "ka_profiling"
-                })
-
-            # Step 3: Analysis
-            if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "K-Anonymity Analysis"}) 
             
-            analysis = self.analyzer.analyze(
-                df=df,
-                min_combination_size=min_combination_size,
-                max_combination_size=max_combination_size,
-                threshold_k=threshold_k,
-                id_fields=id_fields,
-                fields_combinations=self.fields_combinations,
-                excluded_combinations=excluded_combinations,
-                progress_tracker=progress_tracker,
-                chunk_size=self.chunk_size,
-                use_dask=self.use_dask,
-                use_vectorization=self.use_vectorization,
-                current_steps=current_steps,
-                parallel_processes=self.parallel_processes,
-                npartitions=self.npartitions,
-                task_logger=self.logger
-            )
-            
-            if 'error' in analysis:
-                if progress_tracker:
-                    progress_tracker.update(current_steps, {"step": "Error", "error": analysis['error']})
+            # Check if field exists
+            missing_fields = [field for field in id_fields if field not in df.columns]
+            if missing_fields:
+                raise ValueError(f"The following id_fields are not in the DataFrame columns: {missing_fields}")
+
+            # Prepare QI combinations
+            qi_combinations = self._prepare_qi_combinations(df, qi_sets, id_fields)
+            if not qi_combinations:
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message=analysis['error']
+                    error_message="No quasi-identifiers specified or detected",
                 )
-            
-            if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Created KA index map"})
-            
-            # Create KA index map
-            ka_metrics = analysis['ka_metrics']
-            vulnerable_records = analysis['vulnerable_records']
-            ka_index_map = analysis['ka_index_map']
-            field_combinations = analysis['field_combinations']
-            field_uniqueness = analysis['field_uniqueness']
-            
-            # Step 4: Saving Metrics
-            if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Saving Metrics"})
 
-            # Log the index map
-            self.logger.info(f"Created {len(ka_index_map)} KA indices")
-
-            # Save KA index map to CSV
-            ka_index_map_filename = get_timestamped_filename("ka_index_map", "csv", include_timestamp)
-            ka_index_map_path = dictionaries_dir / ka_index_map_filename
-            save_ka_index_map(ka_index_map, str(ka_index_map_path), encryption_key=encryption_key)
-            
-            # Add to result and reporter
-            result.add_artifact("csv", ka_index_map_path, "KA Index Map", category="dictionary")
-            if reporter:
-                reporter.add_artifact("csv", str(ka_index_map_path), "KA Index Map")
-
-            # Save metrics to CSV
-            metrics_filename = get_timestamped_filename("ka_metrics", "csv", include_timestamp)
-            metrics_path = output_dir / metrics_filename
-            save_ka_metrics(ka_metrics, str(metrics_path), ka_index_map, **kwargs)
-
-            # Add to result and reporter
-            result.add_artifact("csv", metrics_path, "KA Metrics", category=Constants.Artifact_Category_Metrics)
-            if reporter:
-                reporter.add_artifact("csv", str(metrics_path), "KA Metrics")
-
-            # Save vulnerable records to JSON
-            vulnerable_filename = get_timestamped_filename("ka_vulnerable_records", "json", include_timestamp)
-            vulnerable_path = output_dir / vulnerable_filename
-            encryption_mode_vulnerable_records = get_encryption_mode(vulnerable_records, **kwargs)
-            save_vulnerable_records(vulnerable_records, str(vulnerable_path), encryption_key, self.use_encryption, encryption_mode_vulnerable_records)
-
-            # Add to result and reporter
-            result.add_artifact("json", vulnerable_path, "KA Vulnerable Records", category=Constants.Artifact_Category_Metrics)
-            if reporter:
-                reporter.add_artifact("json", str(vulnerable_path), "KA Vulnerable Records")
+            self.logger.info(
+                f"Analyzing {len(qi_combinations)} quasi-identifier combinations"
+            )
 
             # Update progress
+            # Step 4: Prepared QI combinations
             if progress_tracker:
-                progress_tracker.update(current_steps, {"step": "Generated metrics files"})
+                current_steps+=1
+                progress_tracker.update(
+                    current_steps,
+                    {
+                        "step": "Prepared QI combinations",
+                        "combinations": len(qi_combinations),
+                    },
+                )
 
-            # Step 5: Creating Visualizations
-            if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Creating Visualizations"})
-
-            # Create visualizations if metrics are available
-            if ka_metrics and self.visualization_backend is not None:
-                kwargs_encryption = {
-                    "use_encryption": kwargs.get('use_encryption', False),
-                    "encryption_key": encryption_key
+            kwargs_encryption = {
+                    "use_encryption": kwargs.get("use_encryption", False),
+                    "encryption_key": kwargs.get("encryption_key", None),
+                    "encryption_mode": kwargs.get("encryption_mode", "none")
                 }
-                self._handle_visualizations(
-                    ka_metrics=ka_metrics,
-                    field_uniqueness=field_uniqueness,
-                    vis_dir=visualizations_dir,
-                    include_timestamp=include_timestamp,
-                    result=result,
-                    reporter=reporter,
-                    vis_theme=self.visualization_theme,
-                    vis_backend=self.visualization_backend,
-                    vis_strict=self.visualization_strict,
-                    vis_timeout=self.visualization_timeout,
-                    progress_tracker=progress_tracker,
+            
+            # Perform analysis based on mode
+            if self.analysis_mode in [AnalysisMode.ANALYZE, AnalysisMode.BOTH]:
+                analysis_results = self._perform_analysis(
+                    df,
+                    qi_combinations,
+                    task_dir,
+                    id_fields,
+                    include_timestamp,
+                    result,
+                    reporter,
+                    progress_tracker,
                     **kwargs_encryption
                 )
-                
 
+                # Add metrics to result
+                for qi_name, metrics in analysis_results.items():
+                    result.add_nested_metric(
+                        "k_anonymity",
+                        qi_name,
+                        {
+                            "min_k": metrics.get("min_k", 0),
+                            "mean_k": metrics.get("mean_k", 0),
+                            "vulnerable_percent": metrics.get("vulnerable_percent", 0),
+                        },
+                    )
 
-            # Calculate individual field uniqueness
-            all_fields = set()
-            for fields in field_combinations:
-                all_fields.update(fields)
+            # Perform enrichment if requested
+            if self.analysis_mode in [AnalysisMode.ENRICH, AnalysisMode.BOTH]:
+                enriched_df = self._perform_enrichment(
+                    df,
+                    qi_combinations[0],
+                    task_dir,
+                    include_timestamp,
+                    result,
+                    reporter,
+                    progress_tracker,
+                    **kwargs_encryption
+                )
 
-            field_uniqueness = prepare_field_uniqueness_data(df, list(all_fields))
+                # Update data source with enriched DataFrame
+                if enriched_df is not None:
+                    if hasattr(data_source, 'dataframes'):
+                        data_source.dataframes["main"] = enriched_df
+                    else:
+                        self.logger.warning(f"Cannot update data source: expected DataSource object but got {type(data_source)}")
 
-            # Save field uniqueness data
-            uniqueness_filename = get_timestamped_filename("field_uniqueness", "json", include_timestamp)
-            uniqueness_path = output_dir / uniqueness_filename
-            encryption_mode_field_uniqueness = get_encryption_mode(field_uniqueness, **kwargs)
-            write_json(field_uniqueness, str(uniqueness_path), encryption_key=encryption_key, encryption_mode=encryption_mode_field_uniqueness)
-
-            # Add to result and reporter
-            result.add_artifact("json", uniqueness_path, "Field Uniqueness Metrics", category=Constants.Artifact_Category_Metrics)
-            if reporter:
-                reporter.add_artifact("json", str(uniqueness_path), "Field Uniqueness Metrics")
-
-            # Step 6: Finalization
+            # Final progress update
             if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Operation complete", "status": "success"})
-
-            # Add metrics to the result for easy access
-            for ka_index, metrics in ka_metrics.items():
-                result.add_nested_metric("ka_metrics", ka_index, {
-                    "min_k": metrics.get("min_k", 0),
-                    "mean_k": metrics.get("mean_k", 0),
-                    "unique_percentage": metrics.get("unique_percentage", 0),
-                    "vulnerable_percentage": 100 - metrics.get("threshold_metrics", {}).get("k≥5", 0)
-                })
+                current_steps+=1
+                progress_tracker.update(
+                    current_steps, {"step": "Completed", "status": "success"}
+                )
 
             # Add operation summary to reporter
-            top_risks = sorted(
-                [(ka, metrics.get("min_k", float('inf'))) for ka, metrics in ka_metrics.items()],
-                key=lambda x: x[1]
-            )[:3]
-            
-            if reporter:
-                reporter.add_operation("K-Anonymity Profiling Completed", details={
-                    "analyzed_combinations": len(ka_metrics),
-                    "top_risk_combinations": [f"{ka} (min_k={k})" for ka, k in top_risks],
-                    "threshold_k": threshold_k
-                })
+            reporter.add_operation(
+                "K-Anonymity Profiling Completed",
+                details={
+                    "mode": self.analysis_mode.value,
+                    "combinations_analyzed": len(qi_combinations),
+                    "threshold_k": self.threshold_k,
+                },
+            )
 
             # Cache the result if caching is enabled
             if self.use_cache:
@@ -712,222 +400,700 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             return result
 
         except Exception as e:
-            self.logger.exception(f"Error in k-anonymity profiling operation: {e}")
+            self.logger.exception(f"Error in k-anonymity profiling: {e}")
 
-            # Update progress tracker on error
             if progress_tracker:
                 progress_tracker.update(0, {"step": "Error", "error": str(e)})
 
-            # Add error to reporter
-            if reporter:
-                reporter.add_operation("K-Anonymity Profiling",
-                                    status="error",
-                                    details={"error": str(e)})
+            reporter.add_operation(
+                "K-Anonymity Profiling", status="error", details={"error": str(e)}
+            )
 
             return OperationResult(
                 status=OperationStatus.ERROR,
-                error_message=f"Error in k-anonymity profiling: {str(e)}"
+                error_message=f"K-anonymity profiling failed: {str(e)}",
+                exception=e,
             )
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
+    def _prepare_qi_combinations(
+        self, df: pd.DataFrame, qi_sets: Optional[List[List[str]]], id_fields: List[str]
+    ) -> List[List[str]]:
         """
-        Prepare required directories for artifacts.
+        Prepare quasi-identifier combinations for analysis.
+        """
+        if qi_sets:
+            # Use provided combinations
+            return qi_sets[: self.max_combinations]
+        elif self.quasi_identifiers:
+            # Use single combination from constructor
+            return [self.quasi_identifiers]
+        else:
+            # Auto-detect potential quasi-identifiers
+            return self._detect_quasi_identifiers(df, id_fields)
+
+    def _detect_quasi_identifiers(
+        self, df: pd.DataFrame, exclude_fields: List[str]
+    ) -> List[List[str]]:
+        """
+        Auto-detect potential quasi-identifier combinations.
+        """
+        # Get all columns except excluded
+        potential_qis = [col for col in df.columns if col not in exclude_fields]
+
+        # Filter to categorical and low-cardinality numeric fields
+        selected_qis = []
+        for col in potential_qis:
+            stats = get_field_statistics(df[col])
+
+            # Include if categorical or numeric with reasonable cardinality
+            if stats["dtype"] in ["object", "category"] or (
+                stats["dtype"] in ["int64", "float64"] and stats["unique_count"] < 100
+            ):
+                selected_qis.append(col)
+
+        # Generate combinations (limit to avoid explosion)
+        qi_combinations = []
+        for size in range(2, min(4, len(selected_qis) + 1)):
+            for combo in combinations(selected_qis, size):
+                qi_combinations.append(list(combo))
+                if len(qi_combinations) >= self.max_combinations:
+                    break
+            if len(qi_combinations) >= self.max_combinations:
+                break
+
+        return qi_combinations
+
+    def _perform_analysis(
+        self,
+        df: pd.DataFrame,
+        qi_combinations: List[List[str]],
+        task_dir: Path,
+        id_fields: List[str],
+        include_timestamp: bool,
+        result: OperationResult,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        **kwargs
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Perform k-anonymity analysis for multiple QI combinations.
+        """
+        # Prepare directories
+        dirs = self._prepare_directories(task_dir)
+
+        # Analyze each combination
+        all_metrics = {}
+        vulnerable_records = {}
+
+        for qi_fields in qi_combinations:
+            # Generate name for this combination
+            qi_name = generate_ka_field_name(qi_fields)
+
+            self.logger.info(f"Analyzing combination: {qi_name} ({', '.join(qi_fields)})")
+
+            # Calculate k-anonymity metrics
+            metrics = self._calculate_k_anonymity(df,
+                                                  qi_fields,
+                                                  self.use_dask,
+                                                  self.use_vectorization,
+                                                  self.chunk_size,
+                                                  self.parallel_processes,
+                                                  self.npartitions)
+
+            # Store metrics
+            all_metrics[qi_name] = metrics
+
+            # Find vulnerable records if ID fields provided
+            if id_fields:
+                vuln_records = self._find_vulnerable_records(
+                    df, qi_fields, self.threshold_k, id_fields[0]
+                )
+                vulnerable_records[qi_name] = vuln_records
+
+        # Export metrics if requested
+        if self.export_metrics:
+            self._export_metrics(
+                all_metrics,
+                vulnerable_records,
+                dirs["output"],
+                include_timestamp,
+                result,
+                reporter,
+                **kwargs
+            )
+
+        # Generate visualizations if requested
+        if self.generate_visualizations and all_metrics:
+            self._handle_visualizations(
+                all_metrics=all_metrics,
+                include_timestamp=include_timestamp,
+                progress_tracker=progress_tracker,
+                reporter=reporter,
+                result=result,
+                vis_dir=dirs["visualizations"],
+                vis_backend=self.visualization_backend,
+                vis_strict=self.visualization_strict,
+                vis_theme=self.visualization_theme,
+                vis_timeout=self.visualization_timeout,
+                **kwargs
+                )
+            self._create_visualizations(
+                all_metrics, dirs["visualizations"], include_timestamp, result, reporter, **kwargs
+            )
+
+        # Update progress
+        if progress_tracker:
+            progress_tracker.update(1, {"step": "Analysis completed"})
+
+        return all_metrics
+
+    def _perform_enrichment(
+        self,
+        df: pd.DataFrame,
+        qi_fields: List[str],
+        task_dir: Path,
+        include_timestamp: bool,
+        result: OperationResult,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        **kwargs
+    ) -> Optional[pd.DataFrame]:
+        """
+        Enrich DataFrame with k-anonymity values.
+        """
+        try:
+            # Generate output field name using standard naming convention
+            output_field = generate_output_field_name(
+                field_name=generate_ka_field_name(qi_fields),
+                mode="ENRICH",
+                operation_suffix=self.output_field_suffix,
+            )
+
+            self.logger.info(f"Enriching DataFrame with k-values in column: {output_field}")
+
+            # Calculate k-values for each record
+            k_values = self._calculate_k_values(df, qi_fields)
+
+            # Add to DataFrame
+            enriched_df = df.copy()
+            enriched_df[output_field] = k_values
+
+            # Save enriched data
+            output_dir = task_dir / "output"
+            ensure_directory(output_dir)
+
+            output_filename = get_timestamped_filename(
+                "enriched_data", "parquet", include_timestamp
+            )
+            output_path = output_dir / output_filename
+
+            encryption_mode_enriched_df = get_encryption_mode(enriched_df, **kwargs)
+            write_parquet(df=enriched_df, file_path=output_path, index=False, encryption_key=kwargs.get("encryption_key", None), encryption_mode=encryption_mode_enriched_df)
+
+            # Register artifact
+            result.add_artifact(
+                "parquet",
+                output_path,
+                f"Data enriched with {output_field}",
+                category="output",
+            )
+            reporter.add_artifact("parquet", str(output_path), "Enriched data")
+
+            # Add enrichment metrics
+            result.add_metric("enrichment_field", output_field)
+            result.add_metric("enrichment_min_k", int(k_values.min()))
+            result.add_metric("enrichment_max_k", int(k_values.max()))
+
+            # Update progress
+            if progress_tracker:
+                progress_tracker.update(1, {"step": "Enrichment completed"})
+
+            return enriched_df
+
+        except Exception as e:
+            self.logger.error(f"Error in enrichment: {e}")
+            return None
+
+    def _calculate_k_anonymity(
+        self,
+        df: pd.DataFrame,
+        fields: List[str],
+        use_dask: bool = False,
+        use_vectorization: bool = False,
+        chunk_size: int = 10000,
+        parallel_processes: Optional[int] = 1,
+        npartitions: Optional[int] = 1,
+    ) -> Dict[str, Any]:
+        """
+        Calculate k-anonymity metrics for a field combination.
+        """
+        k_values = self._calculate_group_sizes(df,
+                                               fields,
+                                               use_dask,
+                                               use_vectorization,
+                                               chunk_size,
+                                               parallel_processes,
+                                               npartitions) 
+
+        # Calculate metrics
+        total_records = len(df)
+        unique_groups = len(k_values)
+
+        metrics = {
+            "min_k": int(k_values.min()) if len(k_values) > 0 else 0,
+            "max_k": int(k_values.max()) if len(k_values) > 0 else 0,
+            "mean_k": float(k_values.mean()) if len(k_values) > 0 else 0,
+            "median_k": float(np.median(k_values)) if len(k_values) > 0 else 0,
+            "unique_groups": unique_groups,
+            "unique_percent": (
+                (unique_groups / total_records * 100) if total_records > 0 else 0
+            ),
+            "vulnerable_count": int(np.sum(k_values < self.threshold_k)),
+            "vulnerable_percent": (
+                float(np.sum(k_values < self.threshold_k) / total_records * 100)
+                if total_records > 0
+                else 0
+            ),
+            "k_distribution": self._calculate_k_distribution(k_values),
+            "threshold_compliance": self._calculate_threshold_compliance(
+                k_values, total_records
+            ),
+        }
+
+        # Calculate entropy
+        probabilities = k_values / total_records
+        entropy = -np.sum(probabilities * np.log2(probabilities + 1e-10))
+        metrics["entropy"] = float(entropy)
+        metrics["normalized_entropy"] = (
+            float(entropy / np.log2(unique_groups)) if unique_groups > 1 else 0
+        )
+
+        return metrics
+    
+    def _calculate_group_sizes(
+            self,
+            df: pd.DataFrame,
+            fields: List[str],
+            use_dask: bool = False,
+            use_vectorization: bool = False,
+            chunk_size: int = 10000,
+            parallel_processes: Optional[int] = 1,
+            npartitions: Optional[int] = 1,
+    ):
+        """
+        Calculate k-values representing group sizes for k-anonymity analysis
+        based on specified combinations of fields.
 
         Parameters:
         -----------
-        task_dir : Path
-            Base directory for the task
+        df : pd.DataFrame
+            The input DataFrame containing the data to analyze.
+        fields : List[str]
+            List of column names to group by (quasi-identifiers).
+        use_dask : bool, default=False
+            If True, use Dask for scalable parallel processing.
+        use_vectorization : bool, default=False
+            If True, use Joblib for parallel processing across chunks.
+        chunk_size : int, default=10000
+            Number of rows per chunk when splitting the DataFrame.
+        parallel_processes : int, optional
+            Number of parallel processes to use with Joblib.
+        npartitions : int, optional
+            Number of Dask partitions (used only if use_dask is True).
 
         Returns:
         --------
-        Dict[str, Path]
-            Dictionary of directory paths
+        np.ndarray
+            An array of group sizes (frequencies) representing the k-values.
         """
-        # Create required directories
-        output_dir = task_dir / 'output'
-        visualizations_dir = task_dir / 'visualizations'
-        dictionaries_dir = task_dir / 'dictionaries'
+        total_rows = len(df)
+        is_large_df = total_rows > chunk_size
 
-        ensure_directory(output_dir)
-        ensure_directory(visualizations_dir)
-        ensure_directory(dictionaries_dir)
+        if use_dask:
+            self.logger.info("Parallel Enabled")
+            self.logger.info("Parallel Engine: Dask")
+            self.logger.info("Parallel Workers: {npartitions}")
 
-        return {
-            'output': output_dir,
-            'visualizations': visualizations_dir,
-            'dictionaries': dictionaries_dir
+            import dask.dataframe as dd
+
+            # Convert the DataFrame to a Dask DataFrame with the specified number of partitions
+            ddf = dd.from_pandas(df, npartitions=npartitions)
+
+            # Function to group by columns and count sizes within a partition
+            def _group_sizes(partition, group_cols):
+                return partition.groupby(group_cols, dropna=False).size()
+
+            # Apply groupby-size on each partition
+            partial = ddf.map_partitions(_group_sizes, fields, meta=pd.Series(dtype="int64"))
+
+            # Aggregate the group sizes across all partitions
+            group_sizes = partial.groupby(partial.index).sum().compute()
+
+        elif use_vectorization and parallel_processes > 1:
+            self.logger.info("Process using Joblib")
+            self.logger.info("Parallel Enabled")
+            self.logger.info("Parallel Engine: Joblib")
+            self.logger.info(f"Parallel Workers: {parallel_processes}")
+
+            # Split the DataFrame into chunks
+            chunks = list(get_dataframe_chunks(df, chunk_size=chunk_size))
+
+            # Function to process each chunk: group by and count
+            def process_chunk(chunk):
+                return chunk.groupby(fields, dropna=False).size().to_dict()
+
+            # Run the processing function in parallel across chunks
+            partial_counts = Parallel(n_jobs=parallel_processes)(
+                delayed(process_chunk)(chunk) for chunk in chunks
+            )
+
+            # Merge counts from all chunks using a Counter
+            group_counts = Counter()
+            for chunk_counts in partial_counts:
+                group_counts.update(chunk_counts)
+
+            group_sizes = pd.Series(list(group_counts.values()), dtype="int64")
+            
+        elif is_large_df:
+            # Manual chunked processing without parallelism
+            group_counts = {}
+
+            for chunk in get_dataframe_chunks(df, chunk_size=chunk_size):
+                chunk_counts = chunk.groupby(fields, dropna=False).size()
+                for group, count in chunk_counts.items():
+                    group_counts[group] = group_counts.get(group, 0) + count
+
+            # Convert to NumPy array
+            group_sizes = pd.Series(list(group_counts.values()), dtype="int64")
+        else:
+            # Small dataset: process directly without chunking or parallelism
+            group_sizes = df.groupby(fields, dropna=False).size()
+        
+        # Count the frequency of each group size → k-values
+        k_values = group_sizes.value_counts().values
+
+        return k_values
+
+    def _calculate_k_anonymity_chunked(
+        self, df: pd.DataFrame, fields: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Calculate k-anonymity metrics using chunked processing.
+        """
+        # Aggregate counts across chunks
+        group_counts = {}
+
+        for chunk in get_dataframe_chunks(df, self.chunk_size):
+            chunk_counts = chunk.groupby(fields, dropna=False).size()
+            for group, count in chunk_counts.items():
+                group_counts[group] = group_counts.get(group, 0) + count
+
+        # Convert to array of k-values
+        k_values = np.array(list(group_counts.values()))
+
+        # Calculate metrics (same as non-chunked version)
+        total_records = len(df)
+        unique_groups = len(k_values)
+
+        metrics = {
+            "min_k": int(k_values.min()) if len(k_values) > 0 else 0,
+            "max_k": int(k_values.max()) if len(k_values) > 0 else 0,
+            "mean_k": float(k_values.mean()) if len(k_values) > 0 else 0,
+            "median_k": float(np.median(k_values)) if len(k_values) > 0 else 0,
+            "unique_groups": unique_groups,
+            "unique_percent": (
+                (unique_groups / total_records * 100) if total_records > 0 else 0
+            ),
+            "vulnerable_count": int(np.sum(k_values < self.threshold_k)),
+            "vulnerable_percent": (
+                float(np.sum(k_values < self.threshold_k) / total_records * 100)
+                if total_records > 0
+                else 0
+            ),
+            "k_distribution": self._calculate_k_distribution(k_values),
+            "threshold_compliance": self._calculate_threshold_compliance(
+                k_values, total_records
+            ),
         }
 
-    def _create_visualizations(self,
-                               ka_metrics: Dict[str, Dict[str, Any]],
-                               field_uniqueness:  Dict[str, Dict[str, Any]],
-                               vis_dir: Path,
-                               include_timestamp: bool,
-                               result: OperationResult,
-                               reporter: Any,
-                               visualization_theme: Optional[str] = None,
-                               visualization_backend: Optional[str] = None,
-                               visualization_strict: bool = False,
-                               **kwargs):
-        """
-        Create visualizations for k-anonymity metrics.
+        # Calculate entropy
+        probabilities = k_values / total_records
+        entropy = -np.sum(probabilities * np.log2(probabilities + 1e-10))
+        metrics["entropy"] = float(entropy)
+        metrics["normalized_entropy"] = (
+            float(entropy / np.log2(unique_groups)) if unique_groups > 1 else 0
+        )
 
-        Parameters:
-        -----------
-        ka_metrics : Dict[str, Dict[str, Any]]
-            Dictionary mapping KA indices to their computed metrics.
-        field_uniqueness : Dict[str, Dict[str, Any]]
-            Dictionary with uniqueness statistics for each field.
-        vis_dir : Path
-            Directory where visualization files will be saved.
-        include_timestamp : bool
-            Whether to include a timestamp in output filenames.
-        result : OperationResult
-            The operation result object to which visualization artifacts will be added.
-        reporter : Any
-            Reporter object for logging and artifact registration.
-        visualization_theme : Optional[str], default=None
-            Theme to use for visualizations.
-        visualization_backend : Optional[str], default=None
-            Visualization backend to use (e.g., "matplotlib", "plotly").
-        visualization_strict : bool, default=False
-            If True, enforce strict visualization rules and raise errors on failure.
+        return metrics
+
+    def _calculate_k_values(self, df: pd.DataFrame, fields: List[str]) -> pd.Series:
+        """
+        Calculate k-value for each record.
+        """
+        if len(df) > self.chunk_size:
+            return self._calculate_k_values_chunked(df, fields)
+
+        # Group and calculate sizes
+        return df.groupby(fields, dropna=False)[fields[0]].transform("size")
+
+    def _calculate_k_values_chunked(
+        self, df: pd.DataFrame, fields: List[str]
+    ) -> pd.Series:
+        """
+        Calculate k-values using chunked processing.
+        """
+        # First pass: count groups
+        group_counts = {}
+
+        for chunk in get_dataframe_chunks(df, self.chunk_size):
+            chunk_counts = chunk.groupby(fields, dropna=False).size()
+            for group, count in chunk_counts.items():
+                group_counts[group] = group_counts.get(group, 0) + count
+
+        # Second pass: assign k-values
+        k_values = pd.Series(index=df.index, dtype="int64")
+
+        for i, chunk in enumerate(get_dataframe_chunks(df, self.chunk_size)):
+            start_idx = i * self.chunk_size
+            end_idx = min((i + 1) * self.chunk_size, len(df))
+
+            # Get group keys for this chunk
+            chunk_groups = chunk[fields].apply(tuple, axis=1)
+
+            # Map to k-values
+            chunk_k = chunk_groups.map(group_counts)
+            k_values.iloc[start_idx:end_idx] = chunk_k
+
+        return k_values
+
+    def _calculate_k_distribution(self, k_values: np.ndarray) -> Dict[str, float]:
+        """
+        Calculate distribution of k-values across ranges.
+        """
+        total = len(k_values)
+        if total == 0:
+            return {}
+
+        ranges = {
+            "k=1": np.sum(k_values == 1),
+            "k=2-4": np.sum((k_values >= 2) & (k_values <= 4)),
+            "k=5-9": np.sum((k_values >= 5) & (k_values <= 9)),
+            "k=10-19": np.sum((k_values >= 10) & (k_values <= 19)),
+            "k=20-49": np.sum((k_values >= 20) & (k_values <= 49)),
+            "k=50-99": np.sum((k_values >= 50) & (k_values <= 99)),
+            "k≥100": np.sum(k_values >= 100),
+        }
+
+        # Convert to percentages
+        return {k: float(v / total * 100) for k, v in ranges.items()}
+
+    def _calculate_threshold_compliance(
+        self, k_values: np.ndarray, total_records: int
+    ) -> Dict[str, float]:
+        """
+        Calculate percentage of records meeting various k-thresholds.
+        """
+        if total_records == 0:
+            return {}
+
+        thresholds = [2, 5, 10, 20, 50, 100]
+        compliance = {}
+
+        for t in thresholds:
+            compliant = np.sum(k_values >= t)
+            compliance[f"k≥{t}"] = float(compliant / total_records * 100)
+
+        return compliance
+
+    def _find_vulnerable_records(
+        self, df: pd.DataFrame, fields: List[str], threshold: int, id_field: str
+    ) -> Dict[str, Any]:
+        """
+        Identify records with k < threshold.
+        """
+        # Ensure fields is a list
+        if isinstance(fields, str):
+            fields = [fields]
+
+        # Calculate k for each group
+        group_sizes = df.groupby(fields, dropna=False).size().reset_index(name="k")
+
+        # Find vulnerable groups
+        vulnerable_groups = group_sizes[group_sizes["k"] < threshold]
+
+        # Merge back to get record IDs
+        vulnerable_df = pd.merge(
+            df[[id_field] + fields], vulnerable_groups, on=fields, how="inner"
+        )
+
+        # Get sample IDs (limit to 100 for performance)
+        sample_ids = vulnerable_df[id_field].head(100).tolist()
+
+        return {
+            "total_vulnerable": len(vulnerable_df),
+            "vulnerable_percent": (
+                len(vulnerable_df) / len(df) * 100 if len(df) > 0 else 0
+            ),
+            "sample_ids": sample_ids,
+            "vulnerable_groups": len(vulnerable_groups),
+        }
+
+    def _export_metrics(
+        self,
+        all_metrics: Dict[str, Dict[str, Any]],
+        vulnerable_records: Dict[str, Dict[str, Any]],
+        output_dir: Path,
+        include_timestamp: bool,
+        result: OperationResult,
+        reporter: Any,
         **kwargs
-            Additional keyword arguments for visualization functions.
-        """
-        if not ka_metrics:
-            self.logger.warning("No metrics available for visualization")
-            return
+    ):
+        """Export metrics to JSON files."""
+        # Export summary metrics
+        summary_filename = get_timestamped_filename(
+            "k_anonymity_summary", "json", include_timestamp
+        )
+        summary_path = output_dir / summary_filename
 
+        summary_data = {
+            qi_name: {
+                "fields": qi_name,
+                "min_k": metrics["min_k"],
+                "mean_k": metrics["mean_k"],
+                "vulnerable_percent": metrics["vulnerable_percent"],
+                "entropy": metrics["entropy"],
+            }
+            for qi_name, metrics in all_metrics.items()
+        }
+
+        encryption_mode_summary_data = get_encryption_mode(summary_data, **kwargs)
+        write_json(summary_data, str(summary_path), encryption_key=kwargs.get("encryption_key", None), encryption_mode=encryption_mode_summary_data)
+        result.add_artifact(
+            "json", summary_path, "K-anonymity summary", category="metrics"
+        )
+        reporter.add_artifact("json", str(summary_path), "K-anonymity summary")
+
+        # Export detailed metrics if needed
+        if vulnerable_records:
+            vuln_filename = get_timestamped_filename(
+                "vulnerable_records", "json", include_timestamp
+            )
+            vuln_path = output_dir / vuln_filename
+            encryption_mode_records = get_encryption_mode(vulnerable_records, **kwargs)
+            write_json(vulnerable_records, str(vuln_path), encryption_key=kwargs.get("encryption_key", None), encryption_mode=encryption_mode_records)
+            result.add_artifact(
+                "json", vuln_path, "Vulnerable records", category="metrics"
+            )
+            reporter.add_artifact("json", str(vuln_path), "Vulnerable records")
+
+    def _create_visualizations(
+        self,
+        all_metrics: Dict[str, Dict[str, Any]],
+        vis_dir: Path,
+        include_timestamp: bool,
+        result: OperationResult,
+        reporter: Any,
+        vis_theme: Optional[str] = None,
+        vis_backend: Optional[str] = None,
+        vis_strict: bool = False,
+        **kwargs
+    ):
+        """Generate visualizations for k-anonymity metrics."""
         try:
-            # 1. Create k-range distribution visualization
-            k_range_data = {}
-            for ka_index, metrics in ka_metrics.items():
-                if "k_range_distribution" in metrics:
-                    k_range_data[ka_index] = metrics["k_range_distribution"]
+            with visualization_context(theme=self.visualization_theme,
+                                       backend=self.visualization_backend,
+                                       strict=self.visualization_strict):
+                # 1. Vulnerability comparison
+                vuln_data = {
+                    qi: metrics["vulnerable_percent"]
+                    for qi, metrics in all_metrics.items()
+                }
 
-            if k_range_data:
-                # Convert to DataFrame for easier plotting
-                df_k_range = pd.DataFrame(k_range_data)
+                if vuln_data:
+                    vuln_filename = get_timestamped_filename(
+                        "vulnerability_comparison", "png", include_timestamp
+                    )
+                    vuln_path = vis_dir / vuln_filename
 
-                # Create bar plot
-                k_range_filename = get_timestamped_filename("ka_k_distribution", "png", include_timestamp)
-                k_range_path = vis_dir / k_range_filename
+                    create_bar_plot(
+                        vuln_data,
+                        str(vuln_path),
+                        f"Vulnerability Comparison (k < {self.threshold_k})",
+                        orientation="v",
+                        y_label="Vulnerable Records (%)",
+                        x_label="QI Combination",
+                        sort_by="value",
+                        theme=vis_theme,
+                        backend=vis_backend,
+                        strict=vis_strict,
+                        **kwargs
+                    )
 
-                # Convert DataFrame to dictionary format expected by create_bar_plot
-                k_range_result = create_bar_plot(
-                    data={str(k): v for k, v in df_k_range.to_dict().items()},  # Convert to dictionary format
-                    output_path=str(k_range_path),
-                    title="K-Anonymity Range Distribution",
-                    orientation="h",
-                    y_label="K Range",
-                    x_label="Percentage of Records (%)",
-                    visualization_theme=visualization_theme,
-                    visualization_backend=visualization_backend,
-                    visualization_strict=visualization_strict,
-                    **kwargs
-                )
+                    result.add_artifact(
+                        "png",
+                        vuln_path,
+                        "Vulnerability comparison",
+                        category="visualization",
+                    )
+                    reporter.add_artifact(
+                        "png", str(vuln_path), "Vulnerability comparison"
+                    )
 
-                if not k_range_result.startswith("Error"):
-                    result.add_artifact("png", k_range_path, "K-anonymity range distribution", category=Constants.Artifact_Category_Visualization)
-                    if reporter:
-                        reporter.add_artifact("png", str(k_range_path), "K-anonymity range distribution")
+                # 2. Multi-metric spider chart (if multiple QIs)
+                if len(all_metrics) > 2:
+                    spider_data = {}
+                    for qi_name, metrics in all_metrics.items():
+                        spider_data[qi_name] = {
+                            "Min K": min(metrics["min_k"] / 10, 1),  # Normalize
+                            "Mean K": min(metrics["mean_k"] / 50, 1),  # Normalize
+                            "Vulnerability": metrics["vulnerable_percent"] / 100,
+                            "Entropy": metrics["normalized_entropy"],
+                            "Uniqueness": metrics["unique_percent"] / 100,
+                        }
 
-            # 2. Create threshold curve visualization
-            threshold_data = {}
-            for ka_index, metrics in ka_metrics.items():
-                if "threshold_metrics" in metrics:
-                    threshold_data[ka_index] = metrics["threshold_metrics"]
+                    spider_filename = get_timestamped_filename(
+                        "k_anonymity_spider", "png", include_timestamp
+                    )
+                    spider_path = vis_dir / spider_filename
 
-            if threshold_data:
-                # Convert to DataFrame for easier plotting
-                df_threshold = pd.DataFrame(threshold_data)
+                    create_spider_chart(
+                        spider_data,
+                        str(spider_path),
+                        "K-Anonymity Multi-Metric Comparison",
+                        normalize_values=False,  # Already normalized
+                        theme=vis_theme,
+                        backend=vis_backend,
+                        strict=vis_strict,
+                        **kwargs
+                    )
 
-                # Create line plot
-                threshold_filename = get_timestamped_filename("ka_vulnerable_curve", "png", include_timestamp)
-                threshold_path = vis_dir / threshold_filename
-
-                threshold_result = create_line_plot(
-                    data=df_threshold.T,  # Transpose for better format
-                    output_path=str(threshold_path),
-                    title="Records Meeting K-Anonymity Thresholds",
-                    x_label="K Threshold",
-                    y_label="Percentage of Records (%)",
-                    add_markers=True,
-                    theme=visualization_theme,
-                    backend=visualization_backend,
-                    strict=visualization_strict,
-                    **kwargs
-                )
-
-                if not threshold_result.startswith("Error"):
-                    result.add_artifact("png", threshold_path, "K-anonymity threshold compliance", category=Constants.Artifact_Category_Visualization)
-                    if reporter:
-                        reporter.add_artifact("png", str(threshold_path), "K-anonymity threshold compliance")
-
-            # 3. Create spider chart for multi-metric comparison
-            spider_data = prepare_metrics_for_spider_chart(ka_metrics)
-
-            if spider_data:
-                spider_filename = get_timestamped_filename("ka_comparison_spider", "png", include_timestamp)
-                spider_path = vis_dir / spider_filename
-
-                spider_result = create_spider_chart(
-                    data=spider_data,
-                    output_path=str(spider_path),
-                    title="K-Anonymity Metrics Comparison",
-                    normalize_values=False,  # Values are already normalized
-                    fill_area=True,
-                    theme=visualization_theme,
-                    backend=visualization_backend,
-                    strict=visualization_strict,
-                )
-
-                if not spider_result.startswith("Error"):
-                    result.add_artifact("png", spider_path, "K-anonymity metrics comparison", category=Constants.Artifact_Category_Visualization)
-                    if reporter:
-                        reporter.add_artifact("png", str(spider_path), "K-anonymity metrics comparison")
-
-            # 4. Create field uniqueness visualization
-            # Get all individual fields
-            if field_uniqueness:
-                # Prepare data for the combined chart
-                fields = list(field_uniqueness.keys())
-                unique_counts = [field_uniqueness[f].get("unique_values", 0) for f in fields]
-                uniqueness_percent = [field_uniqueness[f].get("uniqueness_percentage", 0) for f in fields]
-
-                # Create combined chart
-                uniqueness_filename = get_timestamped_filename("ka_field_uniqueness", "png", include_timestamp)
-                uniqueness_path = vis_dir / uniqueness_filename
-
-                uniqueness_result = create_combined_chart(
-                    primary_data=dict(zip(fields, unique_counts)),
-                    secondary_data=dict(zip(fields, uniqueness_percent)),
-                    output_path=str(uniqueness_path),
-                    title="Quasi-Identifier Analysis",
-                    primary_type="bar",
-                    secondary_type="line",
-                    x_label="Field",
-                    primary_y_label="Unique Values Count",
-                    secondary_y_label="Uniqueness (%)",
-                    primary_color="steelblue",
-                    secondary_color="crimson",
-                    theme=visualization_theme,
-                    backend=visualization_backend,
-                    strict=visualization_strict,
-                )
-
-                if not uniqueness_result.startswith("Error"):
-                    result.add_artifact("png", uniqueness_path, "Field uniqueness analysis", category=Constants.Artifact_Category_Visualization)
-                    if reporter:
-                        reporter.add_artifact("png", str(uniqueness_path), "Field uniqueness analysis")
+                    result.add_artifact(
+                        "png",
+                        spider_path,
+                        "Multi-metric comparison",
+                        category="visualization",
+                    )
+                    reporter.add_artifact(
+                        "png", str(spider_path), "Multi-metric comparison"
+                    )
 
         except Exception as e:
-            self.logger.error(f"Error creating visualizations: {e}", exc_info=True)
-            if reporter:
-                reporter.add_operation("Creating visualizations", status="warning",
-                                   details={"warning": f"Error creating some visualizations: {str(e)}"})
-                
+            self.logger.warning(f"Error creating visualizations: {e}")
+            # Don't fail the operation due to visualization errors
+
+    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
+        """Prepare required directories for artifacts."""
+        dirs = {
+            "output": task_dir / "output",
+            "visualizations": task_dir / "visualizations",
+            "dictionaries": task_dir / "dictionaries",
+        }
+
+        for dir_path in dirs.values():
+            ensure_directory(dir_path)
+
+        return dirs
+    
     def _check_cache(
             self,
             data_source: DataSource,
@@ -985,14 +1151,13 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 metrics = cached_data.get("metrics", {})
                 if isinstance(metrics, dict):
                     for key, value in metrics.items():
-                        if isinstance(value, (int, float, str, bool)):
-                            cached_result.add_metric(key, value)
+                        cached_result.add_metric(key, value)
 
                 # Add cached artifacts to result
                 artifacts = cached_data.get("artifacts", [])
                 if isinstance(artifacts, list):
                     for artifact in artifacts:
-                        artifact_type = artifact.get("artifact_type", "")
+                        artifact_type = artifact.get("type", "")
                         artifact_path = artifact.get("path", "")
                         artifact_name = artifact.get("description", "")
                         artifact_category = artifact.get("category", "output")
@@ -1009,8 +1174,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             return None
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
-        
+    
     def _save_to_cache(
             self,
             original_df: pd.DataFrame,
@@ -1123,11 +1287,11 @@ class PreKAnonymityProfilingOperation(BaseOperation):
         """
         # Get basic operation parameters
         parameters = {
-            "fields_combinations": self.fields_combinations,
-            "excluded_combinations": self.excluded_combinations,
+            "quasi_identifiers": self.quasi_identifiers,
+            "mode": self.mode,
+            "threshold_k": self.threshold_k,
+            "max_combinations": self.max_combinations,
             "id_fields": self.id_fields,
-            "min_combination_size": self.min_combination_size,
-            "max_combination_size": self.max_combination_size,
             "threshold_k": self.threshold_k
         }
 
@@ -1181,11 +1345,10 @@ class PreKAnonymityProfilingOperation(BaseOperation):
             json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
 
         return hashlib.md5(json_str.encode()).hexdigest()
-
+    
     def _handle_visualizations(
             self,
-            ka_metrics: Dict[str, Dict[str, Any]],
-            field_uniqueness:  Dict[str, Dict[str, Any]],
+            all_metrics: Dict[str, Dict[str, Any]],
             vis_dir: Path,
             include_timestamp: bool,
             result: OperationResult,
@@ -1202,18 +1365,18 @@ class PreKAnonymityProfilingOperation(BaseOperation):
 
         Parameters:
         -----------
-        ka_metrics : Dict[str, Dict[str, Any]]
-            Dictionary mapping KA indices to their computed metrics.
-        field_uniqueness : Dict[str, Dict[str, Any]]
-            Dictionary with uniqueness statistics for each field.
+        df : pd.DataFrame
+            DataFrame containing the data
+        analysis_results : Dict[str, Any]
+            Results of the analysis
         vis_dir : Path
-            Directory where visualization files will be saved.
+            Directory to save visualizations
         include_timestamp : bool
-            Whether to include a timestamp in output filenames.
+            Whether to include timestamps in output filenames
         result : OperationResult
-            The operation result to add artifacts to
+            Operation result to add artifacts to
         reporter : Any
-            The reporter to log artifacts to
+            Reporter to add artifacts to
         vis_theme : str, optional
             Theme to use for visualizations
         vis_backend : str, optional
@@ -1233,7 +1396,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+        self.logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
 
         try:
             import threading
@@ -1247,22 +1410,22 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
-                logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+                self.logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
+                self.logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
 
                 start_time = time.time()
 
                 try:
                     # Log context variables
-                    logger.info(f"[DIAG] Checking context variables...")
+                    self.logger.info(f"[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                        self.logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
                     except Exception as ctx_e:
-                        logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+                        self.logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
 
                     # Generate visualizations with visualization context parameters
-                    logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1274,12 +1437,11 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            logger.debug(f"Could not create child progress tracker: {e}")
+                            self.logger.debug(f"Could not create child progress tracker: {e}")
 
                     # Generate visualizations
                     self._create_visualizations(
-                        ka_metrics,
-                        field_uniqueness,
+                        all_metrics,
                         vis_dir,
                         include_timestamp,
                         result,
@@ -1298,17 +1460,17 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                             pass
 
                     elapsed = time.time() - start_time
-                    logger.info(
+                    self.logger.info(
                         f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
                     )
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
-                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    self.logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -1319,7 +1481,7 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            self.logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
             thread_start_time = time.time()
             viz_thread.start()
 
@@ -1330,22 +1492,22 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+                    self.logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
 
             if viz_thread.is_alive():
-                logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
-                logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                self.logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
+                self.logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
                 visualization_paths = {}
             elif visualization_error:
-                logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                self.logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
                 visualization_paths = {}
             else:
                 total_time = time.time() - thread_start_time
-                logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
-                logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+                self.logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
+                self.logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
         except Exception as e:
-            logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
-            logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            self.logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
         # Register visualization artifacts
@@ -1367,3 +1529,15 @@ class PreKAnonymityProfilingOperation(BaseOperation):
                 )
 
         return visualization_paths
+
+
+# Register the operation
+register_operation(KAnonymityProfilerOperation)
+
+# Module metadata
+__version__ = "2.0.0"
+__author__ = "PAMOLA Core Team"
+__license__ = "BSD 3-Clause"
+
+# Export main classes
+__all__ = ["KAnonymityProfilerOperation", "AnalysisMode"]

@@ -2,226 +2,310 @@
 
 ## Overview
 
-The `pamola_core.utils.nlp` package provides a comprehensive set of natural language processing (NLP) utilities designed for the PAMOLA.CORE (Privacy-Preserving AI Data Processors) project. This package enables robust text analysis with graceful degradation when specialized NLP libraries are unavailable, making it ideal for processing multilingual resume and job posting data in diverse environments.
+The `pamola_core.utils.nlp` package is a comprehensive natural language processing framework within PAMOLA.CORE, designed specifically for privacy-preserving data operations. It provides advanced text processing capabilities essential for anonymization, entity extraction, and data transformation workflows while maintaining graceful degradation when optional dependencies are unavailable.
 
-The package is designed with flexibility, extensibility, and resilience in mind, allowing it to work effectively even in constrained environments while leveraging advanced NLP capabilities when available.
+## Package Purpose
 
-## Package Architecture
+The NLP package serves as the foundation for text-based privacy operations in PAMOLA.CORE by providing:
 
-The package is structured into four primary modules:
+- **Privacy-Preserving Text Processing**: LLM-powered anonymization and transformation
+- **Entity Recognition and Extraction**: Multi-language identification of sensitive entities
+- **Text Analysis and Clustering**: Similarity matching and diversity assessment for k-anonymity
+- **Efficient Data Processing**: Scalable handling of large text datasets with intelligent caching
 
-1. **compatibility.py**: Manages dependency checking and graceful degradation
-2. **language.py**: Provides language detection and multilingual text analysis
-3. **stopwords.py**: Handles stopword management across multiple languages
-4. **tokenization.py**: Offers flexible text tokenization and lemmatization
-
-Supporting modules include:
-- **tokenization_helpers.py**: Utilities for tokenization resource management
-
-The architecture follows a layered approach, where each module can operate independently while also working together seamlessly:
+## Architecture
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                      pamola_core.utils.nlp                             │
-└────────────────────────────────────────────────────────────────┘
-          │                │                │               │
-┌─────────▼──────┐  ┌─────▼─────┐  ┌───────▼────────┐ ┌────▼─────┐
-│ compatibility  │  │  language  │  │    stopwords   │ │tokenization│
-└────────────────┘  └────────────┘  └────────────────┘ └────────────┘
-          ▲                                              │
-          │                                              ▼
-          │                                     ┌────────────────────┐
-          └─────────────────────────────────────┤tokenization_helpers│
-                                                └────────────────────┘
+pamola_core/utils/nlp/
+├── Core Infrastructure
+│   ├── base.py                    # Exception hierarchy, utilities, dependency management
+│   ├── compatibility.py           # Graceful degradation for optional dependencies
+│   └── cache.py                   # Multi-backend caching system (memory/file/model/text)
+│
+├── Text Processing
+│   ├── text_utils.py              # Text normalization, similarity calculations
+│   ├── tokenization.py            # Multi-method tokenization and lemmatization
+│   ├── tokenization_ext.py        # Extended tokenization capabilities
+│   ├── tokenization_helpers.py    # Resource management for tokenization
+│   ├── stopwords.py               # Multi-language stopword management
+│   └── language.py                # Language detection and analysis
+│
+├── Entity Processing
+│   ├── entity_extraction.py       # Generic entity extraction interface
+│   └── entity/                    # Specialized entity extractors
+│       ├── __init__.py
+│       ├── job_positions.py       # Job title extraction
+│       ├── organizations.py       # Company/organization extraction
+│       ├── skills.py              # Technical/soft skills extraction
+│       └── locations.py           # Geographic entity extraction
+│
+├── Analysis and Metrics
+│   ├── clustering.py              # Text clustering algorithms
+│   ├── minhash.py                 # Efficient similarity computation
+│   ├── diversity_metrics.py       # Text diversity assessment
+│   └── category_matching.py       # Hierarchical category classification
+│
+├── LLM Integration (llm/)
+│   ├── __init__.py
+│   ├── client.py                  # Multi-provider LLM connectivity
+│   ├── config.py                  # Model configurations and presets
+│   ├── processing.py              # Pre/post-processing pipeline
+│   ├── prompt.py                  # Template management
+│   └── metrics.py                 # Performance tracking
+│
+├── Data Operations
+│   ├── text_transformer.py        # High-level LLM text processing interface
+│   ├── dataframe_utils.py         # Pandas DataFrame utilities
+│   └── model_manager.py           # NLP model lifecycle management
+│
+└── __init__.py                    # Package exports and initialization
 ```
 
-## Key Features
+## Key Design Principles
 
-### 1. Graceful Degradation
+### 1. **Graceful Degradation**
+All modules implement fallback strategies to ensure functionality even when specialized NLP libraries (NLTK, spaCy, transformers) are unavailable. This is managed through the `compatibility.py` module and `DependencyManager` class.
 
-All modules implement multiple fallback strategies to ensure functionality even when advanced NLP libraries are unavailable:
+### 2. **Privacy-First Design**
+Every component is designed with privacy operations in mind:
+- Entity extraction identifies sensitive information for anonymization
+- Text clustering supports k-anonymity grouping
+- LLM integration includes built-in anonymization prompts
+- Caching respects privacy boundaries
 
-- **Primary Strategy**: Utilize specialized libraries (NLTK, spaCy, langdetect, FastText, etc.)
-- **Secondary Strategy**: Fall back to simpler methods when primary libraries are unavailable
-- **Baseline Strategy**: Ensure minimal functionality using only the Python standard library
+### 3. **Performance Optimization**
+- **Multi-level Caching**: Memory, file, model, and text-specific caches
+- **Batch Processing**: Efficient handling of large datasets
+- **Resource Management**: Intelligent loading and unloading of models
+- **Parallel Processing**: Support for multi-core operations
 
-### 2. Multilingual Support
+### 4. **Multilingual Support**
+- Language detection for 20+ languages
+- Language-specific tokenization and lemmatization
+- Multilingual stopword management
+- Cross-language entity extraction
 
-The package provides comprehensive support for multiple languages:
+## Core Components
 
-- **Language Detection**: Accurate identification of text language with confidence scores
-- **Mixed Language Analysis**: Detection and analysis of texts containing multiple languages
-- **Language-specific Resources**: Management of language-specific stopwords and tokenization rules
-- **Script Analysis**: Detection and quantification of different writing systems (Latin, Cyrillic, CJK, etc.)
+### Infrastructure Layer
 
-### 3. Flexible Text Processing
+#### base.py
+Provides foundational utilities including:
+- **Exception Hierarchy**: `NLPError`, `ResourceNotFoundError`, `ModelNotAvailableError`, `LLMError` family
+- **Dependency Management**: `DependencyManager` for checking and loading optional modules
+- **Common Utilities**: `batch_process()`, `normalize_language_code()`, resource path management
 
-The tokenization module offers multiple approaches to text processing:
+#### cache.py
+Implements comprehensive caching with multiple backends:
+- **MemoryCache**: In-memory with LRU/LFU/FIFO policies
+- **FileCache**: Disk-based with modification tracking
+- **ModelCache**: Memory-aware caching for ML models
+- **TextCache**: Specialized for text with canonicalization
 
-- **Multiple Tokenizer Types**: SimpleTokenizer, NLTKTokenizer, SpacyTokenizer, TransformersTokenizer
-- **Lemmatization**: Language-specific lemmatization with customizable dictionaries
-- **N-gram Extraction**: Generation and filtering of n-grams of various sizes
-- **Pattern Preservation**: Preservation of special patterns (URLs, emails, etc.) during tokenization
+#### compatibility.py
+Manages optional dependencies and provides fallback mechanisms for all NLP libraries.
 
-### 4. Resource Management
+### Text Processing Layer
 
-The package includes sophisticated resource management capabilities:
+#### text_utils.py
+Essential text manipulation functions:
+- **Normalization**: Multi-level text normalization (basic/advanced/aggressive)
+- **Similarity**: Multiple algorithms (ratio, partial, token, Levenshtein)
+- **Utilities**: Category name cleaning, composite value splitting
 
-- **Resource Discovery**: Automatic discovery of language resources in configured directories
-- **Multiple Formats**: Support for resources in various formats (JSON, CSV, text)
-- **Resource Combination**: Merging of resources from multiple sources
-- **Caching**: Efficient caching of resources and results for performance optimization
+#### tokenization.py
+Flexible tokenization with multiple backends:
+- **SimpleTokenizer**: Always available, regex-based
+- **NLTKTokenizer**: Advanced with language-specific rules
+- **SpacyTokenizer**: Linguistic-aware processing
+- **TransformersTokenizer**: Neural subword tokenization
 
-## Dependency Management
+#### language.py
+Robust language detection:
+- Multiple detection methods (FastText, langdetect, heuristics)
+- Mixed-language analysis
+- Script detection (Latin, Cyrillic, CJK)
+- Confidence scoring
 
-The compatibility module serves as the foundation for the package's resilience:
+### Entity Extraction Layer
 
-- **Dependency Checking**: Verification of NLP library availability at runtime
-- **Graceful Fallbacks**: Selection of appropriate alternatives when preferred libraries are unavailable
-- **Version Compatibility**: Verification of compatible library versions
-- **Status Reporting**: Comprehensive reporting of available NLP capabilities
+#### entity_extraction.py
+Unified interface for entity extraction with specialized extractors:
+- Organizations (companies, institutions)
+- Job positions (titles, seniority levels)
+- Skills (technical, soft skills)
+- Locations (cities, countries, regions)
+- Personal identifiers (names, emails, phones)
 
-## Module Highlights
+### Analysis Layer
 
-### 1. Language Module
+#### clustering.py
+Text clustering for grouping similar content:
+- Multiple distance metrics
+- Configurable thresholds
+- Batch processing support
 
-The language module provides:
+#### minhash.py
+Efficient similarity computation using MinHash signatures for large-scale deduplication.
 
-- **Multi-method Detection**: Neural, statistical, and heuristic-based language identification
-- **Confidence Scoring**: Quantitative assessment of detection reliability
-- **Multilingual Analysis**: Segmentation and proportion analysis for mixed-language texts
-- **Script Analysis**: Identification of writing systems used in texts
+#### diversity_metrics.py
+Assessment of text diversity in datasets:
+- Lexical diversity (TTR, MTLD)
+- Semantic diversity (token overlap)
+- Statistical measures
 
-### 2. Stopwords Module
+### LLM Integration Layer
 
-The stopwords module offers:
+#### text_transformer.py
+Primary interface for LLM-based text processing:
+- Unified API for multiple LLM providers
+- Built-in anonymization templates
+- Intelligent caching and batch processing
+- Checkpoint support for long operations
+- Comprehensive metrics collection
 
-- **Multi-source Loading**: Loading from files, directories, in-memory sets, and NLTK
-- **Flexible Language Support**: Language-specific stopword collection
-- **File Management**: Automatic discovery and combination of stopword sources
-- **Efficient Filtering**: Fast removal of stopwords from token lists
+#### llm/ subsystem
+Complete LLM integration framework:
+- **client.py**: WebSocket/HTTP connectivity for LMStudio, OpenAI
+- **config.py**: Model presets and parameter management
+- **processing.py**: Text preprocessing and response validation
+- **prompt.py**: Template library with anonymization prompts
+- **metrics.py**: Token usage and performance tracking
 
-### 3. Tokenization Module
+### Data Operations Layer
 
-The tokenization module provides:
+#### dataframe_utils.py
+Specialized pandas operations:
+- Marker-based processing tracking
+- Batch processing utilities
+- Progress monitoring
+- Error handling
 
-- **Tokenization Interface**: Common interface across multiple tokenizer implementations
-- **Advanced Processing**: Lemmatization, normalization, and n-gram extraction
-- **Resource Efficiency**: Caching and parallel processing optimizations
-- **High-level API**: TextProcessor class for streamlined text analysis
+#### model_manager.py
+Lifecycle management for NLP models:
+- Automatic loading/unloading
+- Memory pressure monitoring
+- Model metadata tracking
 
-## Usage Examples
+## Usage Patterns
 
-### Basic Usage
-
+### Basic Text Processing
 ```python
-from pamola_core.utils.nlp import detect_language, tokenize, get_stopwords, remove_stopwords
+from pamola_core.utils.nlp import normalize_text, tokenize, extract_entities
 
-# Language detection
-text = "The quick brown fox jumps over the lazy dog."
-language = detect_language(text)
-print(f"Detected language: {language}")
+# Normalize text for consistency
+normalized = normalize_text(text, level="advanced")
 
-# Tokenization
-tokens = tokenize(text, language=language)
-print(f"Tokens: {tokens}")
+# Tokenize with language detection
+tokens = tokenize(text, language="auto")
 
-# Stopword removal
-stopwords = get_stopwords([language])
-filtered_tokens = remove_stopwords(tokens, stopwords)
-print(f"Filtered tokens: {filtered_tokens}")
+# Extract entities
+entities = extract_entities(text, entity_type="all")
 ```
 
-### Advanced Language Analysis
-
+### LLM-Based Anonymization
 ```python
-from pamola_core.utils.nlp import analyze_language_structure
+from pamola_core.utils.nlp.text_transformer import TextTransformer
 
-mixed_text = """First paragraph in English.
-Второй абзац на русском языке.
-Third paragraph in English again."""
-
-analysis = analyze_language_structure(mixed_text)
-print(f"Primary language: {analysis['primary_language']}")
-print(f"Is multilingual: {analysis['is_multilingual']}")
-print(f"Language proportions: {analysis['language_proportions']}")
-```
-
-### Comprehensive Text Processing
-
-```python
-from pamola_core.utils.nlp import TextProcessor
-
-processor = TextProcessor(tokenizer_type="auto")
-
-text = "Senior Software Engineer with 5+ years of experience in Python and JavaScript"
-
-# Process text with all available features
-result = processor.process_text(
-    text,
-    lemmatize_tokens=True,
-    extract_ngrams=True,
-    ngram_sizes=[2, 3]
+# Initialize transformer
+transformer = TextTransformer(
+    llm_config={'provider': 'lmstudio', 'model_name': 'gemma-2-2b-it'},
+    processing_config={'batch_size': 10},
+    generation_config={'temperature': 0.3},
+    prompt_template='anonymize_experience_ru',
+    task_dir='./anonymization_output'
 )
 
-print(f"Detected language: {result.get('detected_language')}")
-print(f"Tokens: {result['tokens']}")
-print(f"Lemmas: {result['lemmas']}")
-print(f"Bigrams: {result['ngrams'][2]}")
+# Process DataFrame
+result_df = transformer.process_dataframe(
+    df, 
+    source_column='biography',
+    target_column='biography_anonymized'
+)
 ```
 
-### Dependency Checking
-
+### Entity-Based Anonymization
 ```python
-from pamola_core.utils.nlp import get_nlp_status, dependency_info
+from pamola_core.utils.nlp import extract_entities, CategoryDictionary
 
-# Check basic NLP library availability
-status = get_nlp_status()
-for module, available in status.items():
-    print(f"{module}: {'Available' if available else 'Not available'}")
+# Extract sensitive entities
+entities = extract_entities(texts, entity_type="person")
 
-# Get detailed dependency information
-details = dependency_info(verbose=True)
-print(f"Python version: {details['python_version']}")
-print(f"Available libraries: {details['count']['available']}/{details['count']['total']}")
+# Categorize for generalization
+category_dict = CategoryDictionary.from_file('job_categories.json')
+category, score = category_dict.get_best_match(job_title)
 ```
 
-## Package Dependencies
+### Text Clustering for K-Anonymity
+```python
+from pamola_core.utils.nlp.clustering import TextClusterer
 
-### Pamola Core Dependencies
+# Cluster similar texts
+clusterer = TextClusterer(threshold=0.8)
+clusters = clusterer.cluster_texts(job_descriptions)
 
-- Python 3.6+
-- Standard library modules (re, os, json, logging, etc.)
+# Use clusters for k-anonymity grouping
+for cluster_id, indices in clusters.items():
+    # Apply same anonymization to cluster members
+    generalized_value = generalize_cluster(df.iloc[indices])
+```
 
-### Optional Dependencies
+## Integration with PAMOLA.CORE Operations
 
-For enhanced functionality, the package leverages:
+The NLP package integrates seamlessly with PAMOLA.CORE anonymization operations:
 
-- **NLTK**: For tokenization and English lemmatization
-- **spaCy**: For high-quality linguistics-aware tokenization
-- **pymorphy2**: For Russian morphological analysis
-- **langdetect**: For statistical language detection
-- **FastText**: For neural network-based language identification
-- **transformers**: For advanced neural tokenization
+1. **Pre-processing**: Entity extraction identifies sensitive data
+2. **Anonymization**: Text transformation removes/generalizes PII
+3. **Post-processing**: Validation and quality assessment
+4. **Metrics**: Privacy and utility measurement
 
-## Resource Configuration
+## Performance Characteristics
 
-The package supports flexible resource configuration via environment variables:
+- **Caching**: Reduces redundant processing by up to 90%
+- **Batch Processing**: Handles millions of records efficiently
+- **Memory Management**: Automatic cleanup for large datasets
+- **Parallel Processing**: Utilizes all available cores
 
-- `PAMOLA_STOPWORDS_DIR`: Custom path to stopwords resources
-- `PAMOLA_TOKENIZATION_DIR`: Custom path to tokenization resources
-- `PAMOLA_LANGUAGE_RESOURCES_DIR`: Custom path to language resources
-- `PAMOLA_FASTTEXT_MODEL_PATH`: Custom path to FastText language model
+## Configuration
 
-## Performance Considerations
+### Environment Variables
+```bash
+# Resource directories
+export PAMOLA_NLP_RESOURCES=/path/to/resources
+export PAMOLA_STOPWORDS_DIR=/path/to/stopwords
+export PAMOLA_TOKENIZATION_DIR=/path/to/tokenization
 
-The package implements several optimizations:
+# Cache configuration
+export PAMOLA_CACHE_SIZE=1000
+export PAMOLA_CACHE_TTL=3600
+export PAMOLA_DISABLE_CACHE=0
 
-1. **Caching**: Resources and results are cached for efficient reuse
-2. **Lazy Loading**: Models and resources are loaded only when needed
-3. **Parallel Processing**: Batch operations support parallel processing
-4. **Resource Timestamps**: Change detection prevents using stale cached resources
+# Model paths
+export PAMOLA_FASTTEXT_MODEL=/path/to/fasttext/model
+```
 
-## Conclusion
+### Dependency Management
+The package automatically detects available libraries and adjusts functionality:
+- **Required**: Python 3.6+, pandas
+- **Optional**: nltk, spacy, transformers, langdetect, fasttext, pymorphy2
 
-The `pamola_core.utils.nlp` package provides a robust, flexible foundation for natural language processing in the PAMOLA.CORE (Privacy-Preserving AI Data Processors) project. Its architecture ensures reliable operation across varied environments while offering advanced capabilities when specialized libraries are available. The package's multilingual support, graceful degradation, and comprehensive text processing make it ideal for analyzing diverse resume and job posting content.
+## Best Practices
+
+1. **Use Appropriate Cache Backend**
+   - Memory cache for speed
+   - File cache for persistence
+   - Redis cache for distributed systems
+
+2. **Configure Batch Sizes**
+   - Start small (5-10) for LLM operations
+   - Increase for simple operations (100-1000)
+
+3. **Monitor Resource Usage**
+   - Enable memory profiling for large datasets
+   - Use ModelCache for ML models
+   - Set appropriate cleanup intervals
+
+4. **Handle Multilingual Content**
+   - Let language detection run automatically
+   - Provide language hints when known
+   - Use language-specific resources

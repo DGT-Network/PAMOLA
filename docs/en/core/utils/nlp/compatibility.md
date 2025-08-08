@@ -1,288 +1,511 @@
-# PAMOLA Core: NLP Compatibility Utilities Module
+# PAMOLA.CORE NLP Compatibility Module Technical Documentation
 
-## Overview
+**Module:** `pamola_core.utils.nlp.compatibility`  
+**Version:** 1.0.0  
+**Last Updated:** December 2024  
+**Status:** Stable  
 
-The `compatibility.py` module provides robust utilities for managing and validating NLP-related dependencies within the PAMOLA Core framework. It ensures that NLP features gracefully degrade when optional dependencies are missing, and offers a unified interface for dependency checking, resource setup, and status reporting. This module is essential for building resilient NLP pipelines that can adapt to varying environments and configurations.
+## 1. Overview
 
----
+### 1.1 Purpose
 
-## Key Features
+The compatibility module provides a unified interface for managing NLP dependencies and handling graceful degradation when certain libraries are unavailable. It acts as a lightweight wrapper around `DependencyManager` while providing additional utilities for resource management and system diagnostics.
 
-- **Dependency Checking**: Verify the presence of required Python modules for NLP tasks.
-- **Dependency Status Logging**: Log the availability of all NLP dependencies for diagnostics.
-- **Dependency Information**: Retrieve detailed status, versions, and metadata for all NLP dependencies.
-- **Best-Available Module Selection**: Select the most preferred available module from a list.
-- **Dependency Cache Management**: Clear cached dependency checks to force re-evaluation.
-- **Requirements Validation**: Check if feature requirements are met based on available modules.
-- **NLP Resource Setup**: Check and optionally download required NLP resources (e.g., NLTK data, spaCy models).
-- **Graceful Degradation**: Provides fallback logic when dependencies or resources are missing.
+### 1.2 Key Features
 
----
+- **Dependency Checking**: Verify availability of NLP libraries
+- **Resource Management**: Setup and download NLP resources (NLTK data, spaCy models)
+- **System Information**: Comprehensive dependency status reporting
+- **Graceful Degradation**: Enable partial functionality when dependencies are missing
+- **Caching**: Efficient dependency status caching to minimize overhead
 
-## Dependencies
+### 1.3 Design Principles
 
-### Standard Library
-- `logging`
-- `typing` (`Dict`, `Any`, `Optional`, `List`)
-- `sys`
+1. **Zero Required Dependencies**: The module itself has no hard dependencies
+2. **Lazy Loading**: Dependencies are only imported when needed
+3. **Comprehensive Reporting**: Detailed status information for debugging
+4. **Resource Automation**: Automatic download of missing resources when possible
+5. **Performance Conscious**: Cached results to avoid repeated checks
 
-### Internal Modules
-- `pamola_core.utils.nlp.base.DependencyManager`
-- `pamola_core.utils.nlp.cache.cache_function`
+## 2. Core Functions
 
----
+### 2.1 Dependency Checking
 
-## Exception Classes
+#### `check_dependency(module_name: str) -> bool`
 
-> **Note:** This module does not define custom exception classes directly. All exceptions are raised by the underlying `DependencyManager` or standard library modules. Typical exceptions to handle include `ImportError`, `OSError`, and custom exceptions from `DependencyManager`.
-
-### Example: Handling Dependency Errors
+Checks if a specific Python module is available for import.
 
 ```python
-try:
-    if not check_dependency('spacy'):
-        raise ImportError('spaCy is not installed')
-except ImportError as e:
-    # Handle missing dependency gracefully
-    logger.warning(f"Dependency error: {e}")
+# Example usage
+if check_dependency('spacy'):
+    # Use spaCy functionality
+    import spacy
+    nlp = spacy.load('en_core_web_sm')
+else:
+    # Fall back to simpler tokenization
+    logger.warning("spaCy not available, using basic tokenization")
 ```
 
-**When Raised:**
-- When a required module is not installed or importable.
-- When a resource (e.g., NLTK data) is missing and cannot be downloaded.
+**Parameters:**
+- `module_name`: Name of the Python module to check
 
----
+**Returns:**
+- `bool`: True if module is installed and importable
 
-## Main Functions and Their Usage
+**Notes:**
+- Results are cached internally by `DependencyManager`
+- Thread-safe implementation
 
-### check_dependency
+### 2.2 Status Reporting
+
+#### `log_nlp_status() -> None`
+
+Logs the availability status of all NLP dependencies to the configured logger.
 
 ```python
-def check_dependency(module_name: str) -> bool:
-    """
-    Check if a specific Python module (dependency) is available.
-    """
+# Example output in logs
+# INFO: NLP dependencies status:
+# INFO:   - nltk: Available
+# INFO:   - spacy: Available
+# INFO:   - transformers: Not available
+# INFO:   - fasttext: Not available
+# INFO: NLP availability: 2/4 dependencies available
 ```
-- **Parameters:**
-    - `module_name`: Name of the Python module to check.
-- **Returns:**
-    - `bool`: `True` if the module is installed and importable, else `False`.
-- **Raises:**
-    - None (returns `False` on failure).
 
-### log_nlp_status
+**Use Cases:**
+- Application startup diagnostics
+- Debugging dependency issues
+- System health checks
+
+#### `dependency_info(verbose: bool = False) -> Dict[str, Any]`
+
+Returns comprehensive information about NLP dependencies and system configuration.
 
 ```python
-def log_nlp_status() -> None:
-    """
-    Log the status of all NLP dependencies.
-    """
+# Basic usage
+info = dependency_info()
+# Returns: {
+#     "available": {"nltk": True, "spacy": True, ...},
+#     "count": {"total": 10, "available": 6},
+#     "python_version": "3.9.7...",
+#     "system": "linux"
+# }
+
+# Verbose mode
+info = dependency_info(verbose=True)
+# Additionally includes:
+# - "versions": {"nltk": "3.7", "spacy": "3.4.1", ...}
+# - "details": module paths and dependencies (if verbose > 1)
 ```
-- **Parameters:** None
-- **Returns:** None
-- **Raises:** None
 
-### dependency_info
+**Parameters:**
+- `verbose`: Enable detailed information including versions and module paths
+
+**Returns:**
+- Dictionary with dependency status, counts, versions, and system information
+
+**Caching:**
+- Results cached for 1 hour (3600 seconds)
+- Use `clear_dependency_cache()` to force refresh
+
+### 2.3 Module Selection
+
+#### `get_best_available_module(module_preferences: List[str]) -> Optional[str]`
+
+Selects the first available module from a preference list.
 
 ```python
-@cache_function(ttl=3600)
-def dependency_info(verbose: bool = False) -> Dict[str, Any]:
-    ...
+# Example: Choose best available tokenizer
+tokenizer_module = get_best_available_module([
+    'spacy',          # Preferred
+    'nltk',           # Second choice
+    'regex'           # Fallback
+])
+
+if tokenizer_module == 'spacy':
+    # Use spaCy tokenizer
+    pass
+elif tokenizer_module == 'nltk':
+    # Use NLTK tokenizer
+    pass
+else:
+    # Use basic regex tokenizer
+    pass
 ```
-- **Parameters:**
-    - `verbose`: If `True`, includes version and metadata details.
-- **Returns:**
-    - `Dict[str, Any]`: Dictionary with dependency status, counts, Python version, and system info.
-- **Raises:**
-    - None (errors are logged and included in the result dictionary).
 
-### get_best_available_module
+**Parameters:**
+- `module_preferences`: List of module names in order of preference
+
+**Returns:**
+- Name of the first available module, or None if none available
+
+### 2.4 Requirements Checking
+
+#### `check_nlp_requirements(requirements: Dict[str, List[str]]) -> Dict[str, bool]`
+
+Checks availability of features based on required modules.
 
 ```python
-def get_best_available_module(module_preferences: List[str]) -> Optional[str]:
-    ...
+# Define feature requirements
+requirements = {
+    "entity_extraction": ["spacy", "nltk"],
+    "embeddings": ["sentence_transformers", "fasttext"],
+    "language_detection": ["langdetect", "fasttext"]
+}
+
+# Check what's available
+available_features = check_nlp_requirements(requirements)
+# Returns: {
+#     "entity_extraction": True,    # At least one module available
+#     "embeddings": False,         # No modules available
+#     "language_detection": True
+# }
 ```
-- **Parameters:**
-    - `module_preferences`: List of module names in order of preference.
-- **Returns:**
-    - `str` or `None`: Name of the best available module, or `None` if none are installed.
-- **Raises:** None
 
-### clear_dependency_cache
+**Parameters:**
+- `requirements`: Dictionary mapping feature names to lists of required modules
+
+**Returns:**
+- Dictionary mapping feature names to availability status
+
+**Logic:**
+- A feature is available if at least ONE of its required modules is installed
+- Useful for feature flags and conditional functionality
+
+### 2.5 Resource Management
+
+#### `setup_nlp_resources(download_if_missing: bool = True) -> Dict[str, bool]`
+
+Checks and optionally downloads NLP resources like NLTK data and spaCy models.
 
 ```python
-def clear_dependency_cache() -> None:
-    ...
+# Check and download missing resources
+resource_status = setup_nlp_resources(download_if_missing=True)
+# Returns: {
+#     "nltk_punkt": True,
+#     "nltk_wordnet": True,
+#     "nltk_stopwords": True,
+#     "spacy_en_core_web_sm": True,
+#     "spacy_ru_core_news_sm": False  # Failed to download
+# }
+
+# Just check without downloading
+resource_status = setup_nlp_resources(download_if_missing=False)
 ```
-- **Parameters:** None
-- **Returns:** None
-- **Raises:** None
 
-### check_nlp_requirements
+**Parameters:**
+- `download_if_missing`: Whether to attempt downloading missing resources
+
+**Returns:**
+- Dictionary mapping resource names to availability status
+
+**Supported Resources:**
+- **NLTK**: punkt (tokenizer), wordnet, stopwords
+- **spaCy**: en_core_web_sm, ru_core_news_sm
+
+**Notes:**
+- Downloads are performed quietly in the background
+- Errors during download are logged but don't raise exceptions
+- Network connectivity required for downloads
+
+### 2.6 Cache Management
+
+#### `clear_dependency_cache() -> None`
+
+Clears the dependency check cache.
 
 ```python
-def check_nlp_requirements(requirements: Dict[str, List[str]]) -> Dict[str, bool]:
-    ...
+# Force re-check of all dependencies
+clear_dependency_cache()
+
+# Useful after installing new packages
+import subprocess
+subprocess.run([sys.executable, "-m", "pip", "install", "spacy"])
+clear_dependency_cache()
 ```
-- **Parameters:**
-    - `requirements`: `{ feature_name: [list_of_required_modules] }`
-- **Returns:**
-    - `Dict[str, bool]`: `{ feature_name: True/False }`
-- **Raises:** None
 
-### setup_nlp_resources
+**Use Cases:**
+- After installing/uninstalling packages
+- When troubleshooting dependency issues
+- In development environments
+
+## 3. Integration Patterns
+
+### 3.1 Feature Degradation Pattern
 
 ```python
-def setup_nlp_resources(download_if_missing: bool = True) -> Dict[str, bool]:
-    ...
+from pamola_core.utils.nlp.compatibility import check_dependency, get_best_available_module
+
+class TextProcessor:
+    def __init__(self):
+        # Determine available features
+        self.has_advanced_nlp = check_dependency('spacy')
+        self.tokenizer_module = get_best_available_module(['spacy', 'nltk', 'regex'])
+        
+    def extract_entities(self, text):
+        if self.has_advanced_nlp:
+            return self._extract_entities_spacy(text)
+        else:
+            logger.warning("Advanced NLP not available, using pattern matching")
+            return self._extract_entities_regex(text)
 ```
-- **Parameters:**
-    - `download_if_missing`: Whether to attempt auto-downloading missing data.
-- **Returns:**
-    - `Dict[str, bool]`: Mapping of resource name to availability status.
-- **Raises:**
-    - Logs errors for failed downloads or missing resources.
 
----
-
-## Dependency Resolution and Validation Logic
-
-- **Dependency Checking**: Uses `DependencyManager.check_dependency` to determine if a module is importable.
-- **Version Validation**: Uses `DependencyManager.check_version` to verify module versions if needed.
-- **Best-Available Selection**: Returns the first available module from a preference list.
-- **Resource Setup**: Checks for required NLP resources (NLTK, spaCy) and attempts to download them if missing and permitted.
-- **Cache Management**: Dependency checks are cached for performance; can be cleared with `clear_dependency_cache()`.
-
----
-
-## Usage Examples
-
-### 1. Checking and Logging Dependency Status
+### 3.2 Startup Diagnostics Pattern
 
 ```python
-from pamola_core.utils.nlp.compatibility import log_nlp_status
-
-# Log the status of all NLP dependencies
-def main():
+def initialize_nlp_system():
+    """Initialize NLP system with diagnostics."""
+    # Log dependency status
     log_nlp_status()
+    
+    # Get detailed info for metrics
+    dep_info = dependency_info(verbose=True)
+    metrics.record("nlp.dependencies.available", dep_info["count"]["available"])
+    metrics.record("nlp.dependencies.total", dep_info["count"]["total"])
+    
+    # Setup resources
+    resources = setup_nlp_resources(download_if_missing=True)
+    
+    # Check critical features
+    critical_features = check_nlp_requirements({
+        "tokenization": ["nltk", "spacy"],
+        "entity_extraction": ["spacy"]
+    })
+    
+    if not critical_features["tokenization"]:
+        raise RuntimeError("No tokenization library available")
+    
+    return dep_info, resources
 ```
 
-### 2. Handling Failed Dependencies
+### 3.3 Conditional Import Pattern
 
 ```python
 from pamola_core.utils.nlp.compatibility import check_dependency
 
-if not check_dependency('spacy'):
-    # spaCy is not available; fallback to another library or skip feature
-    print('spaCy not available, using fallback.')
-```
-
-### 3. Using Best-Available Module
-
-```python
-from pamola_core.utils.nlp.compatibility import get_best_available_module
-
-preferred = ['spacy', 'nltk', 'textblob']
-best = get_best_available_module(preferred)
-if best:
-    print(f'Using {best} for NLP tasks')
+# Conditional imports with fallbacks
+if check_dependency('transformers'):
+    from transformers import pipeline
+    sentiment_analyzer = pipeline("sentiment-analysis")
 else:
-    print('No suitable NLP module found')
+    sentiment_analyzer = None
+    logger.info("Transformers not available, sentiment analysis disabled")
+
+def analyze_sentiment(text):
+    if sentiment_analyzer:
+        return sentiment_analyzer(text)
+    else:
+        return {"label": "NEUTRAL", "score": 0.5, "error": "No sentiment model available"}
 ```
 
-### 4. Setting Up NLP Resources
+## 4. Error Handling
+
+### 4.1 Common Scenarios
+
+1. **Missing Dependencies**
+   - Functions return False/None for unavailable modules
+   - No exceptions raised for missing dependencies
+   - Appropriate warnings logged
+
+2. **Download Failures**
+   - Errors logged but execution continues
+   - Status dictionary reflects failed downloads
+   - Network timeouts handled gracefully
+
+3. **Import Errors**
+   - Caught and logged internally
+   - Safe to call functions even if base dependencies missing
+
+### 4.2 Best Practices
 
 ```python
-from pamola_core.utils.nlp.compatibility import setup_nlp_resources
+# Always check before using optional features
+if check_dependency('optional_lib'):
+    from optional_lib import advanced_feature
+    result = advanced_feature(data)
+else:
+    # Provide meaningful fallback
+    result = basic_fallback(data)
+    logger.info("Using basic implementation due to missing dependencies")
 
-# Ensure all required resources are available (downloads if missing)
-resources_status = setup_nlp_resources(download_if_missing=True)
-print(resources_status)
-```
+# Use requirements checking for feature flags
+features = check_nlp_requirements({
+    "advanced_search": ["elasticsearch", "whoosh"],
+    "ml_models": ["transformers", "tensorflow", "torch"]
+})
 
-### 5. Clearing the Dependency Cache
-
-```python
-from pamola_core.utils.nlp.compatibility import clear_dependency_cache
-
-# Clear cached dependency checks (useful after installing new packages)
-clear_dependency_cache()
-```
-
-### 6. Integration with BaseTask
-
-```python
-from pamola_core.utils.nlp.compatibility import check_nlp_requirements
-
-requirements = {
-    'tokenization': ['spacy', 'nltk'],
-    'lemmatization': ['spacy'],
+app_config = {
+    "enable_advanced_search": features["advanced_search"],
+    "enable_ml_features": features["ml_models"]
 }
-status = check_nlp_requirements(requirements)
-# Use status dict to enable/disable features in your BaseTask
 ```
 
----
+## 5. Performance Considerations
 
-## Error Handling and Exception Hierarchy
+### 5.1 Caching Strategy
 
-- **ImportError**: Raised when a required module is missing.
-- **OSError**: Raised when a resource (e.g., NLTK data) is missing and cannot be downloaded.
-- **Custom Exceptions**: May be raised by `DependencyManager` (see its documentation for details).
+- Dependency checks are cached by `DependencyManager`
+- `dependency_info()` results cached for 1 hour
+- Resource availability not cached (checked each time)
 
-**Example:**
+### 5.2 Optimization Tips
+
+1. **Check dependencies once at startup**
+   ```python
+   class NLPService:
+       def __init__(self):
+           self._dependencies = dependency_info()
+           self._setup_complete = False
+       
+       def _ensure_setup(self):
+           if not self._setup_complete:
+               setup_nlp_resources()
+               self._setup_complete = True
+   ```
+
+2. **Batch dependency checks**
+   ```python
+   # Instead of multiple calls
+   # if check_dependency('nltk') and check_dependency('spacy'):
+   
+   # Use requirements checking
+   deps_available = check_nlp_requirements({
+       "all_required": ["nltk", "spacy"]
+   })
+   if deps_available["all_required"]:
+       # Both available
+   ```
+
+## 6. Configuration
+
+### 6.1 Environment Variables
+
+While the module doesn't directly use environment variables, it respects:
+- Standard Python module search paths
+- pip/conda installation locations
+- Virtual environment configurations
+
+### 6.2 Logging Configuration
+
+The module uses the standard Python logging framework:
+
 ```python
-try:
-    setup_nlp_resources()
-except OSError as e:
-    logger.error(f"Resource setup failed: {e}")
+import logging
+
+# Configure logging level for compatibility checks
+logging.getLogger('pamola_core.utils.nlp.compatibility').setLevel(logging.INFO)
 ```
 
----
+## 7. Testing
 
-## Configuration Requirements
-
-- No explicit configuration is required for this module.
-- For advanced use, ensure that the `DependencyManager` is properly configured (see its documentation).
-- If using in a pipeline, ensure that all required modules are listed in your environment or requirements file.
-
----
-
-## Security Considerations and Best Practices
-
-- **Path Security**: Avoid using absolute paths for dependencies unless necessary. Absolute paths may expose sensitive data or allow access to unintended files.
-- **Best Practice**: Use logical task IDs for internal dependencies; only use absolute paths for external data.
-
-### Security Failure Example
+### 7.1 Unit Testing
 
 ```python
-# BAD: Using an untrusted absolute path
-external_data = '/tmp/untrusted/data.csv'
-if check_dependency(external_data):
-    # This may expose or overwrite sensitive files
-    ...
+import unittest
+from unittest.mock import patch
+from pamola_core.utils.nlp.compatibility import check_dependency, dependency_info
 
-# GOOD: Use only trusted, validated paths or task IDs
-trusted_data = get_best_available_module(['my_internal_task', 'external_data'])
+class TestCompatibility(unittest.TestCase):
+    def test_check_dependency_builtin(self):
+        # Built-in modules should always be available
+        self.assertTrue(check_dependency('os'))
+        self.assertTrue(check_dependency('sys'))
+    
+    def test_check_dependency_missing(self):
+        # Fake module should not be available
+        self.assertFalse(check_dependency('definitely_not_a_real_module_12345'))
+    
+    @patch('pamola_core.utils.nlp.base.DependencyManager.get_nlp_status')
+    def test_dependency_info(self, mock_status):
+        mock_status.return_value = {'nltk': True, 'spacy': False}
+        info = dependency_info()
+        
+        self.assertEqual(info['count']['total'], 2)
+        self.assertEqual(info['count']['available'], 1)
 ```
 
-**Risks of Disabling Path Security:**
-- May allow access to files outside the intended project scope.
-- Increases risk of data leakage or unauthorized access.
+### 7.2 Integration Testing
 
----
+```python
+def test_nlp_system_integration():
+    """Test full NLP system initialization."""
+    # Clear any cached data
+    clear_dependency_cache()
+    
+    # Check and setup resources
+    resources = setup_nlp_resources(download_if_missing=False)
+    
+    # Verify critical dependencies
+    critical_deps = check_nlp_requirements({
+        "tokenization": ["nltk", "spacy", "regex"],
+        "language_detection": ["langdetect", "fasttext"]
+    })
+    
+    assert critical_deps["tokenization"], "No tokenization library available"
+    
+    # Log final status
+    log_nlp_status()
+```
 
-## Internal vs. External Dependencies
+## 8. Troubleshooting
 
-- **Internal Dependencies**: Use task IDs or logical names for data produced within the pipeline.
-- **External Dependencies**: Use absolute paths only for data not produced by the pipeline and ensure paths are validated.
+### 8.1 Common Issues
 
----
+1. **"Module available but import fails"**
+   - Check for version conflicts
+   - Verify virtual environment activation
+   - Clear dependency cache and retry
 
-## Best Practices
+2. **"Resources fail to download"**
+   - Check network connectivity
+   - Verify proxy settings
+   - Try manual download with library tools
 
-1. **Use Task IDs for Internal Dependencies**: Maintain logical connections within your project.
-2. **Use Absolute Paths Judiciously**: Only for truly external data.
-3. **Clear Dependency Cache After Installing New Packages**: Ensures up-to-date status.
-4. **Log Dependency Status Regularly**: For easier debugging and diagnostics.
-5. **Handle Missing Dependencies Gracefully**: Always provide fallbacks or user warnings.
+3. **"Dependency status incorrect"**
+   - Clear cache with `clear_dependency_cache()`
+   - Check Python path configuration
+   - Verify no namespace conflicts
+
+### 8.2 Debug Mode
+
+```python
+import logging
+
+# Enable debug logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('pamola_core.utils.nlp.compatibility')
+
+# Get verbose information
+debug_info = dependency_info(verbose=2)  # Maximum verbosity
+print(json.dumps(debug_info, indent=2))
+```
+
+## 9. Future Enhancements
+
+### 9.1 Planned Features
+
+1. **Dependency Version Requirements**
+   - Support for minimum version specifications
+   - Compatibility matrix checking
+
+2. **Resource Versioning**
+   - Track versions of downloaded resources
+   - Update notifications for outdated resources
+
+3. **Performance Profiling**
+   - Measure import times for each dependency
+   - Optimize startup based on usage patterns
+
+4. **Cloud Resource Support**
+   - Download resources from cloud storage
+   - Support for custom model repositories
+
+### 9.2 API Stability
+
+- Core functions are stable and backward compatible
+- New parameters will have sensible defaults
+- Deprecation warnings provided before removing features
+
+## 10. Conclusion
+
+The compatibility module provides essential infrastructure for building robust NLP applications that gracefully handle missing dependencies. By following the patterns and best practices outlined in this documentation, developers can create systems that provide the best possible functionality given available resources while maintaining reliability and performance.

@@ -5,7 +5,7 @@
 
 ### Предложенное имя модуля:
 
-`PreKAnonymityProfilingOperation`
+`KAnonymityProfilerOperation`
 
 ### Цель:
 
@@ -153,7 +153,7 @@ KA- индексы, это получаемые из названий полей
 
 ```json
 {
-  "operation": "PreKAnonymityProfilingOperation",
+  "operation": "KAnonymityProfilerOperation",
   "params": {
     "fields_combinations": [
       ["birth_day", "gender", "first_name"],

@@ -1,16 +1,68 @@
 """
-Caching utilities for the NLP module.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module:        NLP Cache Utilities
+Package:       pamola_core.utils.nlp.cache
+Version:       1.3.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025
+License:       BSD 3-Clause
+Description:
+ This module provides unified caching mechanisms for resources, models, and other
+ expensive objects used throughout the NLP package. It implements multiple cache
+ strategies with thread-safe operations and automatic expiration.
 
-This module provides unified caching mechanisms for resources, models, and other
-expensive objects used throughout the NLP package.
+Key Features:
+ - Multiple cache implementations (Memory, File, Model)
+ - Thread-safe operations with RLock
+ - Multiple eviction policies (LRU, LFU, FIFO, TTL, TLRU)
+ - Automatic expiration based on time-to-live
+ - File modification tracking for file-based cache
+ - Memory-aware eviction for model cache
+ - Bulk operations support for improved performance
+ - Cache statistics and monitoring
+ - Decorator for caching function results
+ - Global cache instances with environment configuration
+ - Text canonicalization for consistent cache keys
+
+Framework:
+ Part of PAMOLA.CORE infrastructure providing caching support for all
+ NLP operations and transformations.
+
+Changelog:
+ 1.3.0 - Added text canonicalization support for consistent cache keys,
+         fixed handling of processing markers, improved key generation
+ 1.2.0 - Added bulk operations (set_many, get_many), improved memory management,
+         enhanced statistics tracking, fixed TTL handling in set method
+ 1.1.0 - Added model cache with memory pressure monitoring
+ 1.0.0 - Initial implementation with memory and file caches
+
+TODO:
+ - Add Redis backend support for distributed caching
+ - Implement cache warming strategies
+ - Add cache persistence across sessions
+ - Support for cache clustering
 """
 
+import hashlib
 import logging
 import os
 import threading
 import time
+import psutil
 from collections import OrderedDict
-from typing import Dict, Any, Optional, TypeVar, Generic, OrderedDict as OrderedDictType
+from typing import (
+    Dict,
+    Any,
+    Optional,
+    TypeVar,
+    Generic,
+    OrderedDict as OrderedDictType,
+    List,
+    Tuple,
+    Callable,
+)
 
 from pamola_core.utils.nlp.base import CacheBase
 
@@ -18,19 +70,64 @@ from pamola_core.utils.nlp.base import CacheBase
 logger = logging.getLogger(__name__)
 
 # Type variable for generic typing
-T = TypeVar('T')
+T = TypeVar("T")
 
 # Cache policy constants
-POLICY_LRU = 'lru'   # Least Recently Used
-POLICY_LFU = 'lfu'   # Least Frequently Used
-POLICY_FIFO = 'fifo' # First In First Out
-POLICY_TTL = 'ttl'   # Time To Live
-POLICY_TLRU = 'tlru' # Time-aware Least Recently Used
+POLICY_LRU = "lru"  # Least Recently Used
+POLICY_LFU = "lfu"  # Least Frequently Used
+POLICY_FIFO = "fifo"  # First In First Out
+POLICY_TTL = "ttl"  # Time To Live
+POLICY_TLRU = "tlru"  # Time-aware Least Recently Used
 
 # Global cache settings from environment
-MAX_CACHE_SIZE = int(os.environ.get('PAMOLA_MAX_CACHE_SIZE', '100'))
-DEFAULT_CACHE_TTL = int(os.environ.get('PAMOLA_CACHE_TTL', '3600'))  # 1 hour
-CACHE_ENABLED = os.environ.get('PAMOLA_DISABLE_CACHE', '0') != '1'
+MAX_CACHE_SIZE = int(os.environ.get("PAMOLA_MAX_CACHE_SIZE", "100"))
+DEFAULT_CACHE_TTL = int(os.environ.get("PAMOLA_CACHE_TTL", "3600"))  # 1 hour
+CACHE_ENABLED = os.environ.get("PAMOLA_DISABLE_CACHE", "0") != "1"
+
+# Default processing marker for text canonicalization
+DEFAULT_PROCESSING_MARKER = "~"
+
+
+def canonicalize_text(
+    text: str, processing_marker: str = DEFAULT_PROCESSING_MARKER
+) -> str:
+    """
+    Canonicalize text for consistent cache key generation.
+
+    This function normalizes text by:
+    - Removing processing markers from the beginning
+    - Normalizing line endings
+    - Stripping leading/trailing whitespace
+
+    Parameters
+    ----------
+    text : str
+        Input text to canonicalize
+    processing_marker : str
+        Processing marker to remove (default: "~")
+
+    Returns
+    -------
+    str
+        Canonicalized text
+    """
+    if text is None or (hasattr(text, "isna") and text.isna()):
+        return ""
+
+    # Convert to string if not already
+    text = str(text)
+
+    # Remove processing marker if at the beginning
+    if text.startswith(processing_marker):
+        text = text[len(processing_marker) :]
+
+    # Normalize line endings
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Strip leading/trailing whitespace
+    text = text.strip()
+
+    return text
 
 
 class MemoryCache(CacheBase, Generic[T]):
@@ -45,7 +142,7 @@ class MemoryCache(CacheBase, Generic[T]):
         self,
         max_size: int = MAX_CACHE_SIZE,
         ttl: int = DEFAULT_CACHE_TTL,
-        policy: str = POLICY_TLRU
+        policy: str = POLICY_TLRU,
     ):
         """
         Initialize the memory cache.
@@ -75,6 +172,7 @@ class MemoryCache(CacheBase, Generic[T]):
         self._misses = 0
         self._evictions = 0
         self._expirations = 0
+        self._bulk_operations = 0
 
         logger.debug(
             f"Initialized {self.__class__.__name__} with "
@@ -125,6 +223,59 @@ class MemoryCache(CacheBase, Generic[T]):
 
             self._hits += 1
             return self._cache[key]
+
+    def get_many(self, keys: List[str]) -> Dict[str, Optional[T]]:
+        """
+        Get multiple values from the cache in a single operation.
+
+        Parameters
+        ----------
+        keys : List[str]
+            List of cache keys
+
+        Returns
+        -------
+        Dict[str, Optional[T]]
+            Dictionary mapping keys to values (None if not found or expired)
+        """
+        results = {}
+        with self._lock:
+            now = time.time()
+
+            for key in keys:
+                if key not in self._cache:
+                    self._misses += 1
+                    results[key] = None
+                    continue
+
+                # Check expiration
+                timestamp = self._timestamps.get(key, 0)
+                ttl = self._ttls.get(key, self._default_ttl)
+
+                if ttl > 0 and now - timestamp > ttl:
+                    # Key has expired
+                    self._remove_item(key)
+                    self._expirations += 1
+                    self._misses += 1
+                    results[key] = None
+                    continue
+
+                # Update eviction policy usage
+                if self._policy in (POLICY_LRU, POLICY_TLRU):
+                    # Move to end as most recently used
+                    value = self._cache.pop(key)
+                    self._cache[key] = value
+                    self._timestamps[key] = now
+
+                if self._policy == POLICY_LFU:
+                    # Increment hit count
+                    self._hit_counts[key] = self._hit_counts.get(key, 0) + 1
+
+                self._hits += 1
+                results[key] = self._cache[key]
+
+        self._bulk_operations += 1
+        return results
 
     def set(self, key: str, value: T, ttl: Optional[int] = None) -> None:
         """
@@ -179,6 +330,51 @@ class MemoryCache(CacheBase, Generic[T]):
             if self._policy == POLICY_LFU:
                 self._hit_counts[key] = 0
 
+    def set_many(self, mapping: Dict[str, T], ttl: Optional[int] = None) -> None:
+        """
+        Set multiple key-value pairs in the cache in a single operation.
+
+        Parameters
+        ----------
+        mapping : Dict[str, T]
+            Dictionary of key-value pairs to cache
+        ttl : int, optional
+            Time-to-live in seconds for all entries
+        """
+        if not CACHE_ENABLED:
+            return
+
+        with self._lock:
+            now = time.time()
+            effective_ttl = ttl if ttl is not None else self._default_ttl
+
+            for key, value in mapping.items():
+                # If key already exists
+                if key in self._cache:
+                    self._cache[key] = value
+                    self._timestamps[key] = now
+                    self._ttls[key] = effective_ttl
+
+                    if self._policy in (POLICY_LRU, POLICY_TLRU):
+                        self._cache.move_to_end(key)
+
+                    if self._policy == POLICY_LFU:
+                        self._hit_counts[key] = 0
+                else:
+                    # New key - check capacity
+                    if len(self._cache) >= self._max_size:
+                        self._evict_item()
+
+                    # Add new entry
+                    self._cache[key] = value
+                    self._timestamps[key] = now
+                    self._ttls[key] = effective_ttl
+
+                    if self._policy == POLICY_LFU:
+                        self._hit_counts[key] = 0
+
+        self._bulk_operations += 1
+
     def delete(self, key: str) -> bool:
         """
         Delete a key from the cache.
@@ -231,7 +427,8 @@ class MemoryCache(CacheBase, Generic[T]):
                 "hit_ratio": hit_ratio,
                 "evictions": self._evictions,
                 "expirations": self._expirations,
-                "policy": self._policy
+                "bulk_operations": self._bulk_operations,
+                "policy": self._policy,
             }
 
     def _evict_item(self) -> None:
@@ -270,7 +467,8 @@ class MemoryCache(CacheBase, Generic[T]):
             # First check for expired items
             now = time.time()
             expired_keys = [
-                k for k, ts in self._timestamps.items()
+                k
+                for k, ts in self._timestamps.items()
                 if now - ts > self._ttls.get(k, self._default_ttl)
             ]
             if expired_keys:
@@ -305,6 +503,7 @@ class FileCache(CacheBase):
     Cache implementation for file-based resources with timestamp validation.
 
     This cache keeps track of file modification times to detect changes.
+    Supports bulk operations for improved I/O efficiency.
     """
 
     def __init__(self, max_size: int = MAX_CACHE_SIZE):
@@ -327,6 +526,11 @@ class FileCache(CacheBase):
         self._hits = 0
         self._misses = 0
         self._evictions = 0
+        self._bulk_operations = 0
+
+        # Batch write buffer for improved I/O
+        self._write_buffer: List[Tuple[str, Any, Optional[str]]] = []
+        self._buffer_size = 10  # Flush after this many writes
 
         logger.debug(f"Initialized {self.__class__.__name__} with max_size={max_size}")
 
@@ -367,6 +571,50 @@ class FileCache(CacheBase):
             self._hits += 1
             return self._cache[key]
 
+    def get_many(self, keys: List[str]) -> Dict[str, Optional[Any]]:
+        """
+        Get multiple values from the cache in a single operation.
+
+        Parameters
+        ----------
+        keys : List[str]
+            List of cache keys
+
+        Returns
+        -------
+        Dict[str, Optional[Any]]
+            Dictionary mapping keys to values (None if not found or file changed)
+        """
+        results = {}
+        with self._lock:
+            for key in keys:
+                if key not in self._cache:
+                    self._misses += 1
+                    results[key] = None
+                    continue
+
+                file_path = self._file_paths.get(key)
+                if file_path and os.path.exists(file_path):
+                    try:
+                        current_mtime = os.path.getmtime(file_path)
+                        if current_mtime > self._mtimes.get(key, 0):
+                            # File has changed
+                            self._remove_item(key)
+                            self._misses += 1
+                            results[key] = None
+                            continue
+                    except OSError:
+                        self._remove_item(key)
+                        self._misses += 1
+                        results[key] = None
+                        continue
+
+                self._hits += 1
+                results[key] = self._cache[key]
+
+        self._bulk_operations += 1
+        return results
+
     def set(self, key: str, value: Any, file_path: Optional[str] = None) -> None:
         """
         Set a value in the cache.
@@ -384,6 +632,44 @@ class FileCache(CacheBase):
             return
 
         with self._lock:
+            # Add to write buffer for batch processing
+            self._write_buffer.append((key, value, file_path))
+
+            # Flush buffer if it's full
+            if len(self._write_buffer) >= self._buffer_size:
+                self._flush_write_buffer()
+
+    def set_many(
+        self, mapping: Dict[str, Any], file_paths: Optional[Dict[str, str]] = None
+    ) -> None:
+        """
+        Set multiple key-value pairs in the cache with batch write optimization.
+
+        Parameters
+        ----------
+        mapping : Dict[str, Any]
+            Dictionary of key-value pairs to cache
+        file_paths : Dict[str, str], optional
+            Dictionary mapping keys to file paths
+        """
+        if not CACHE_ENABLED:
+            return
+
+        with self._lock:
+            for key, value in mapping.items():
+                file_path = file_paths.get(key) if file_paths else None
+                self._write_buffer.append((key, value, file_path))
+
+            # Always flush for bulk operations
+            self._flush_write_buffer()
+            self._bulk_operations += 1
+
+    def _flush_write_buffer(self) -> None:
+        """Flush the write buffer to cache storage."""
+        if not self._write_buffer:
+            return
+
+        for key, value, file_path in self._write_buffer:
             if key not in self._cache and len(self._cache) >= self._max_size:
                 self._evict_item()
 
@@ -396,6 +682,8 @@ class FileCache(CacheBase):
                         self._mtimes[key] = os.path.getmtime(file_path)
                 except OSError:
                     self._mtimes[key] = time.time()
+
+        self._write_buffer.clear()
 
     def is_valid(self, key: str) -> bool:
         """
@@ -440,6 +728,9 @@ class FileCache(CacheBase):
             True if key was found and deleted, False otherwise
         """
         with self._lock:
+            # Flush any pending writes first
+            self._flush_write_buffer()
+
             if key in self._cache:
                 self._remove_item(key)
                 return True
@@ -450,6 +741,7 @@ class FileCache(CacheBase):
         Clear all items from the cache.
         """
         with self._lock:
+            self._write_buffer.clear()
             self._cache.clear()
             self._file_paths.clear()
             self._mtimes.clear()
@@ -475,7 +767,9 @@ class FileCache(CacheBase):
                 "misses": self._misses,
                 "hit_ratio": hit_ratio,
                 "evictions": self._evictions,
-                "file_tracked": len(self._file_paths)
+                "file_tracked": len(self._file_paths),
+                "bulk_operations": self._bulk_operations,
+                "pending_writes": len(self._write_buffer),
             }
 
     def _evict_item(self) -> None:
@@ -519,7 +813,7 @@ class ModelCache(CacheBase):
         self,
         max_size: int = 5,
         memory_threshold: float = 0.75,  # 75% memory usage
-        check_memory: bool = True
+        check_memory: bool = True,
     ):
         """
         Initialize the model cache.
@@ -581,7 +875,9 @@ class ModelCache(CacheBase):
             self._hits += 1
             return model
 
-    def set(self, key: str, model: Any, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def set(
+        self, key: str, model: Any, metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
         """
         Store a model in the cache.
 
@@ -612,7 +908,7 @@ class ModelCache(CacheBase):
             if metadata:
                 self._metadata[key] = metadata.copy()
             else:
-                self._metadata[key] = {'created': time.time()}
+                self._metadata[key] = {"created": time.time()}
 
     def delete(self, key: str) -> bool:
         """
@@ -648,6 +944,7 @@ class ModelCache(CacheBase):
             self._last_used.clear()
 
             import gc
+
             gc.collect()
 
             logger.debug(f"Model cache cleared: {self.__class__.__name__}")
@@ -659,11 +956,44 @@ class ModelCache(CacheBase):
         Returns
         -------
         Dict[str, Any]
-            Cache statistics
+            Cache statistics including memory info if psutil is available.
+            Memory-related keys will have None values if psutil is not installed.
         """
         with self._lock:
             total = self._hits + self._misses
             hit_ratio = self._hits / total if total > 0 else 0
+
+            # Initialize memory info with None values as defaults
+            # This ensures these keys always exist in the return dict,
+            # even if psutil is not available
+            memory_info: Dict[str, Optional[float]] = {
+                "memory_percent": None,
+                "memory_available_gb": None,
+                "memory_total_gb": None,
+            }
+
+            # Try to get actual memory stats if psutil is available
+            try:
+                # Import psutil here as it's an optional dependency
+                # If import fails, we'll keep the None values initialized above
+
+                # Get virtual memory stats
+                # This line will only execute if psutil import succeeded
+                memory = psutil.virtual_memory()
+
+                # Update the dictionary with actual values
+                # Using update() preserves the original structure
+                memory_info.update(
+                    {
+                        "memory_percent": memory.percent,
+                        "memory_available_gb": memory.available / (1024**3),
+                        "memory_total_gb": memory.total / (1024**3),
+                    }
+                )
+            except ImportError:
+                # psutil is not installed - this is fine for optional dependency
+                # The memory_info dict already has None values, so nothing to do
+                pass
 
             return {
                 "size": len(self._cache),
@@ -673,7 +1003,8 @@ class ModelCache(CacheBase):
                 "hit_ratio": hit_ratio,
                 "evictions": self._evictions,
                 "memory_evictions": self._memory_evictions,
-                "memory_threshold": self._memory_threshold
+                "memory_threshold": self._memory_threshold,
+                **memory_info,  # Spread operator merges memory stats
             }
 
     def get_model_info(self, key: Optional[str] = None) -> Dict[str, Any]:
@@ -694,9 +1025,9 @@ class ModelCache(CacheBase):
             if key is not None:
                 if key in self._metadata:
                     return {
-                        'loaded': key in self._cache,
-                        'last_used': self._last_used.get(key, 0),
-                        **self._metadata[key]
+                        "loaded": key in self._cache,
+                        "last_used": self._last_used.get(key, 0),
+                        **self._metadata[key],
                     }
                 return {}
 
@@ -704,9 +1035,9 @@ class ModelCache(CacheBase):
             result = {}
             for k in self._metadata:
                 result[k] = {
-                    'loaded': k in self._cache,
-                    'last_used': self._last_used.get(k, 0),
-                    **self._metadata[k]
+                    "loaded": k in self._cache,
+                    "last_used": self._last_used.get(k, 0),
+                    **self._metadata[k],
                 }
             return result
 
@@ -737,9 +1068,10 @@ class ModelCache(CacheBase):
             model = None
 
         self._last_used.pop(key, None)
-        # we keep self._metadata because it can store historical info
+        # We keep self._metadata because it can store historical info
 
         import gc
+
         gc.collect()
 
     def _is_memory_pressure(self) -> bool:
@@ -753,6 +1085,7 @@ class ModelCache(CacheBase):
         """
         try:
             import psutil
+
             memory = psutil.virtual_memory()
             return memory.percent / 100 > self._memory_threshold
         except ImportError:
@@ -769,6 +1102,7 @@ class ModelCache(CacheBase):
 
         try:
             import psutil
+
             while len(self._cache) > 1:
                 memory = psutil.virtual_memory()
                 if memory.percent / 100 <= self._memory_threshold:
@@ -789,35 +1123,166 @@ class ModelCache(CacheBase):
                 self._memory_evictions += 1
 
 
+class TextCache(MemoryCache[str]):
+    """
+    Specialized cache for text content with built-in canonicalization.
+
+    This cache automatically canonicalizes text keys to ensure consistent
+    caching regardless of processing markers or whitespace variations.
+    """
+
+    def __init__(
+        self,
+        max_size: int = MAX_CACHE_SIZE,
+        ttl: int = DEFAULT_CACHE_TTL,
+        policy: str = POLICY_TLRU,
+        processing_marker: str = DEFAULT_PROCESSING_MARKER,
+        canonicalize_func: Optional[Callable[[str], str]] = None,
+    ):
+        """
+        Initialize the text cache.
+
+        Parameters
+        ----------
+        max_size : int
+            Maximum number of items in the cache
+        ttl : int
+            Default time-to-live in seconds
+        policy : str
+            Cache eviction policy
+        processing_marker : str
+            Processing marker to handle during canonicalization
+        canonicalize_func : Callable, optional
+            Custom canonicalization function
+        """
+        super().__init__(max_size, ttl, policy)
+        self._processing_marker = processing_marker
+        self._canonicalize_func = canonicalize_func or self._default_canonicalize
+
+        # Track original keys for reverse lookup
+        self._canonical_to_original: Dict[str, str] = {}
+
+    def _default_canonicalize(self, text: str) -> str:
+        """Default canonicalization using the module function."""
+        return canonicalize_text(text, self._processing_marker)
+
+    def _generate_key(self, text: str) -> str:
+        """
+        Generate a cache key from canonicalized text.
+
+        Parameters
+        ----------
+        text : str
+            Input text
+
+        Returns
+        -------
+        str
+            Cache key (hash of canonicalized text)
+        """
+        canonical = self._canonicalize_func(text)
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def get(self, text: str) -> Optional[str]:
+        """
+        Get a value from the cache using canonicalized key.
+
+        Parameters
+        ----------
+        text : str
+            Text to look up (will be canonicalized)
+
+        Returns
+        -------
+        str or None
+            Cached value or None if not found
+        """
+        key = self._generate_key(text)
+        return super().get(key)
+
+    def set(self, text: str, value: str, ttl: Optional[int] = None) -> None:
+        """
+        Set a value in the cache using canonicalized key.
+
+        Parameters
+        ----------
+        text : str
+            Text key (will be canonicalized)
+        value : str
+            Value to cache
+        ttl : int, optional
+            Time-to-live in seconds
+        """
+        key = self._generate_key(text)
+        canonical = self._canonicalize_func(text)
+
+        # Track the mapping
+        with self._lock:
+            self._canonical_to_original[canonical] = text
+
+        super().set(key, value, ttl)
+
+    def delete(self, text: str) -> bool:
+        """
+        Delete a key from the cache using canonicalized lookup.
+
+        Parameters
+        ----------
+        text : str
+            Text key to delete
+
+        Returns
+        -------
+        bool
+            True if deleted, False if not found
+        """
+        key = self._generate_key(text)
+        canonical = self._canonicalize_func(text)
+
+        with self._lock:
+            self._canonical_to_original.pop(canonical, None)
+
+        return super().delete(key)
+
+    def clear(self) -> None:
+        """Clear all items from the cache."""
+        with self._lock:
+            self._canonical_to_original.clear()
+        super().clear()
+
+
 # Global cache instances
 _memory_cache = MemoryCache()  # Default memory cache
-_file_cache = FileCache()      # File-based cache for resources
-_model_cache = ModelCache()    # Specialized model cache
+_file_cache = FileCache()  # File-based cache for resources
+_model_cache = ModelCache()  # Specialized model cache
+_text_cache = TextCache()  # Specialized text cache with canonicalization
 
 
-def get_cache(cache_type: str = 'memory') -> CacheBase:
+def get_cache(cache_type: str = "memory") -> CacheBase:
     """
     Get a global cache instance.
 
     Parameters
     ----------
     cache_type : str
-        Type of cache: 'memory', 'file', or 'model'
+        Type of cache: 'memory', 'file', 'model', or 'text'
 
     Returns
     -------
     CacheBase
         Cache instance
     """
-    if cache_type == 'file':
+    if cache_type == "file":
         return _file_cache
-    elif cache_type == 'model':
+    elif cache_type == "model":
         return _model_cache
+    elif cache_type == "text":
+        return _text_cache
     else:
         return _memory_cache
 
 
-def cache_function(ttl: int = DEFAULT_CACHE_TTL, cache_type: str = 'memory'):
+def cache_function(ttl: int = DEFAULT_CACHE_TTL, cache_type: str = "memory"):
     """
     Decorator to cache function results.
 
@@ -864,7 +1329,7 @@ def cache_function(ttl: int = DEFAULT_CACHE_TTL, cache_type: str = 'memory'):
     return decorator
 
 
-def detect_file_encoding(file_path: str, fallback_encoding: str = 'utf-8') -> str:
+def detect_file_encoding(file_path: str, fallback_encoding: str = "utf-8") -> str:
     """
     Detect encoding of a file with caching.
 
@@ -881,7 +1346,7 @@ def detect_file_encoding(file_path: str, fallback_encoding: str = 'utf-8') -> st
         Detected encoding
     """
     cache_key = f"file_encoding:{file_path}"
-    cache = get_cache('memory')
+    cache = get_cache("memory")
 
     encoding = cache.get(cache_key)
     if encoding is not None:
@@ -889,9 +1354,10 @@ def detect_file_encoding(file_path: str, fallback_encoding: str = 'utf-8') -> st
 
     try:
         import chardet
-        with open(file_path, 'rb') as f:
+
+        with open(file_path, "rb") as f:
             result = chardet.detect(f.read())
-        encoding = result['encoding'] if result['encoding'] else fallback_encoding
+        encoding = result["encoding"] if result["encoding"] else fallback_encoding
     except (ImportError, IOError):
         encoding = fallback_encoding
 

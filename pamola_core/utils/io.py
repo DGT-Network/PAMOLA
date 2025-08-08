@@ -2,8 +2,8 @@
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
 Module:      Pamola Core I/O Utilities
-Package:       core.utils
-Version:       2.0.0+refactor.2025.05.22
+Package:       pamola_core.utils
+Version:       2.0.1+refactor.2025.06.03
 Status:        stable
 Author:        PAMOLA Core Team
 Created:       2025
@@ -23,12 +23,18 @@ Key Features:
    - Secure temporary file handling for encrypted data
    - Backward-compatible function signatures ensuring stable public API
    - Compression support for CSV and other formats
+   - CSV quoting control for proper handling of multiline and special character content
 
 Framework:
    This module serves as the main entry point for all I/O operations in PAMOLA.CORE,
    delegating to specialized helper modules for specific formats and operations.
 
 Changelog:
+   2.0.1 (2025-06-03): CSV quoting support
+       - Added 'quoting' parameter to write_dataframe_to_csv() as keyword-only argument
+       - Enables proper handling of multiline text fields in CSV exports
+       - Maintains full backward compatibility with existing code
+       - Supports all pandas/csv module quoting constants (QUOTE_ALL, QUOTE_MINIMAL, etc.)
    2.0.0 (2025-05-22): Major refactoring
        - Unified default encoding to UTF-8 across all functions
        - Added compression parameter support throughout
@@ -51,12 +57,15 @@ TODO:
    - Conduct security audit focusing on key management and input sanitization
 """
 
+import csv
 import re
 import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Counter, Dict, List, Union, Optional, Iterator, Any, Tuple
 
+import dask
+import dask.dataframe as dd
 import pandas as pd
 import plotly.graph_objects as go
 from PIL import Image
@@ -98,7 +107,10 @@ COMPRESSION_FORMATS = [None, "infer", "gzip", "bz2", "zip", "xz", "zstd"]
 
 @contextmanager
 def temporary_decrypted_file(
-    file_path: Union[str, Path], encryption_key: Optional[str], suffix: str = "", encryption_mode: str = 'simple'
+    file_path: Union[str, Path],
+    encryption_key: Optional[str],
+    suffix: str = "",
+    encryption_mode: str = "simple",
 ):
     """
     Context manager for handling temporary decrypted files.
@@ -117,15 +129,15 @@ def temporary_decrypted_file(
     Path
         Path to the file to read (original or decrypted temporary)
     """
-    if encryption_mode == 'age':
+    if encryption_mode == "age":
         pass
     else:
         if not encryption_key:
             yield Path(file_path)
             return
-        
+
         # encryption_key is NOT None => encryption_mode = 'simple'
-        encryption_mode = 'simple'
+        encryption_mode = "simple"
 
     temp_file_path = None
     try:
@@ -135,7 +147,10 @@ def temporary_decrypted_file(
         )
 
         crypto_utils.decrypt_file(
-            source_path=file_path, destination_path=temp_file_path, key=encryption_key, mode=encryption_mode
+            source_path=file_path,
+            destination_path=temp_file_path,
+            key=encryption_key,
+            mode=encryption_mode,
         )
 
         logger.debug(f"File decrypted to temporary location: {temp_file_path}")
@@ -151,7 +166,10 @@ def temporary_decrypted_file(
 
 @contextmanager
 def temporary_file_for_encryption(
-    file_path: Union[str, Path], encryption_key: Optional[str], suffix: str = "", encryption_mode: str = 'simple'
+    file_path: Union[str, Path],
+    encryption_key: Optional[str],
+    suffix: str = "",
+    encryption_mode: str = "simple",
 ):
     """
     Context manager for handling temporary files before encryption.
@@ -170,15 +188,15 @@ def temporary_file_for_encryption(
     Path
         Path to write to (temporary if encrypting, target if not)
     """
-    if encryption_mode == 'age':
+    if encryption_mode == "age":
         pass
     else:
         if not encryption_key:
             yield Path(file_path)
             return
-        
+
         # encryption_key is NOT None => encryption_mode = 'simple'
-        encryption_mode = 'simple'
+        encryption_mode = "simple"
 
     temp_file_path = None
     try:
@@ -192,7 +210,10 @@ def temporary_file_for_encryption(
         # After writing, encrypt to final destination
         logger.info(f"Encrypting and saving to final destination: {file_path}")
         crypto_utils.encrypt_file(
-            source_path=temp_file_path, destination_path=file_path, key=encryption_key, mode=encryption_mode
+            source_path=temp_file_path,
+            destination_path=file_path,
+            key=encryption_key,
+            mode=encryption_mode,
         )
 
     except Exception as e:
@@ -201,6 +222,112 @@ def temporary_file_for_encryption(
     finally:
         if temp_file_path:
             directory_utils.safe_remove_temp_file(temp_file_path)
+
+
+@contextmanager
+def temporary_decrypted_files(
+        file_paths: List[Union[str, Path]],
+        encryption_key: Optional[str],
+        suffix: str = "dec",
+        encryption_mode: str = 'none'
+):
+    """
+    Context manager for handling temporary decrypted files.
+
+    Parameters:
+    -----------
+    file_paths : List[Union[str, Path]]
+        Path to the encrypted files
+    encryption_key : Optional[str]
+        Decryption key (if None, yields original file)
+    suffix : str
+        File extension for temporary files
+
+    Yields:
+    -------
+    List[Union[str, Path]]
+        Path to the files to read (original or decrypted temporary)
+    """
+    temp_file_path = None
+    temp_file_paths = []
+    try:
+        logger.info("Decryption requested for files reading")
+        for file_path in file_paths:
+            temp_file_path = directory_utils.get_temp_file_for_decryption(original_file=file_path, suffix=suffix)
+
+            crypto_utils.decrypt_file(
+                source_path=file_path,
+                destination_path=temp_file_path,
+                key=encryption_key,
+                mode=encryption_mode
+            )
+
+            temp_file_paths.append(temp_file_path)
+
+        logger.debug(f"Files decrypted to temporary location: {temp_file_paths}")
+        yield temp_file_paths
+
+    except Exception as e:
+        logger.error(f"Decryption failed: {e}")
+        raise
+    finally:
+        if temp_file_paths and False:
+            for temp_file_path in temp_file_paths:
+                directory_utils.safe_remove_temp_file(temp_file_path)
+
+
+@contextmanager
+def temporary_files_for_encryption(
+        file_paths: List[Union[str, Path]],
+        encryption_key: Optional[str],
+        suffix: str = "enc",
+        encryption_mode: str = 'none'
+):
+    """
+    Context manager for handling temporary files before encryption.
+
+    Parameters:
+    -----------
+    file_paths : List[Union[str, Path]]
+        Target path for the encrypted files
+    encryption_key : Optional[str]
+        Encryption key (if None, yields target path directly)
+    suffix : str
+        File extension for temporary files
+
+    Yields:
+    -------
+    List[Union[str, Path]]
+        Paths to write to (temporary if encrypting, target if not)
+    """
+    temp_file_path = None
+    temp_file_paths = []
+    try:
+        logger.info("Encryption requested for files writing")
+        for file_path in file_paths:
+            temp_file_path = directory_utils.get_temp_file_for_decryption(original_file=file_path, suffix=suffix)
+
+            temp_file_paths.append(temp_file_path)
+
+        yield temp_file_paths
+
+        # After writing, encrypt to final destination
+        logger.info(f"Encrypting and saving to final destination: {file_paths}")
+        for file_path, temp_file_path in list(zip(file_paths, temp_file_paths)):
+            crypto_utils.encrypt_file(
+                source_path=temp_file_path,
+                destination_path=file_path,
+                key=encryption_key,
+                mode=encryption_mode
+            )
+
+    except Exception as e:
+        logger.error(f"Encryption failed: {e}")
+        raise
+    finally:
+        if temp_file_path:
+            for temp_file_path in temp_file_paths:
+                directory_utils.safe_remove_temp_file(temp_file_path)
 
 
 # ====================
@@ -620,7 +747,7 @@ def read_full_csv(
     nrows: Optional[int] = None,
     skiprows: Optional[Union[int, List[int]]] = None,
     use_encryption: bool = False,
-    encryption_mode: Optional[str] = None
+    encryption_mode: Optional[str] = None,
 ) -> pd.DataFrame:
     """
     Reads an entire CSV file into a DataFrame.
@@ -648,6 +775,10 @@ def read_full_csv(
         Maximum number of rows to read
     skiprows : Union[int, List[int]], optional
         Row indices to skip or number of rows to skip from the start
+    use_encryption : bool, optional
+        Whether to use encryption for reading the file (default: False)
+    encryption_mode : str, optional
+        Encryption mode to use (default: "simple")
 
     Returns:
     --------
@@ -710,7 +841,11 @@ def read_full_csv(
     # Handle potential decryption
     start_time = time.time()
 
-    with temporary_decrypted_file(file_path=file_path, encryption_key=encryption_key, encryption_mode=encryption_mode) as file_to_read:
+    with temporary_decrypted_file(
+        file_path=file_path,
+        encryption_key=encryption_key,
+        encryption_mode=encryption_mode,
+    ) as file_to_read:
         try:
             # Prepare CSV reader options
             reader_options = csv_utils.prepare_csv_reader_options(
@@ -817,6 +952,7 @@ def write_dataframe_to_csv(
     compression: Optional[str] = None,
     use_encryption: bool = False,
     encryption_mode: Optional[str] = None,
+    quoting: Optional[int] = None,
     **kwargs,
 ) -> Path:
     """
@@ -844,8 +980,19 @@ def write_dataframe_to_csv(
         Key for encrypting the file
     compression : str, optional
         Compression algorithm: 'infer', 'gzip', 'bz2', 'zip', 'xz', 'zstd', or None
+    use_encryption : bool, optional
+        Whether to use encryption for the output file (default: False)
+    encryption_mode : str, optional
+        Encryption mode to use (default: "simple")
+    quoting : int, optional
+        Control field quoting behavior per csv.QUOTE_* constants:
+        - None: Use pandas default (csv.QUOTE_MINIMAL)
+        - csv.QUOTE_ALL (1): Quote all fields
+        - csv.QUOTE_MINIMAL (0): Quote only when necessary
+        - csv.QUOTE_NONNUMERIC (2): Quote all non-numeric fields
+        - csv.QUOTE_NONE (3): Never quote (use escapechar)
     **kwargs
-        Additional arguments to pass to pd.DataFrame.to_csv
+        Additional keyword arguments for the CSV writer
 
     Returns:
     --------
@@ -869,7 +1016,11 @@ def write_dataframe_to_csv(
     start_time = time.time()
 
     # Use context manager for encryption handling
-    with temporary_file_for_encryption(file_path=file_path, encryption_key=encryption_key, encryption_mode=encryption_mode) as output_path:
+    with temporary_file_for_encryption(
+        file_path=file_path,
+        encryption_key=encryption_key,
+        encryption_mode=encryption_mode,
+    ) as output_path:
         try:
             # If Dask is enabled and DataFrame is large, use it
             if (
@@ -921,6 +1072,10 @@ def write_dataframe_to_csv(
                     )
                     writer_options["compression"] = compression
 
+                    # Add quoting parameter if specified
+                    if quoting is not None:
+                        writer_options["quoting"] = quoting
+
                     # Split into chunks for progress updates
                     num_chunks = (len(df) + WRITE_CHUNK_SIZE - 1) // WRITE_CHUNK_SIZE
 
@@ -956,6 +1111,10 @@ def write_dataframe_to_csv(
                 encoding=encoding, delimiter=delimiter, quotechar=quotechar, index=index
             )
             writer_options["compression"] = compression
+
+            # Add quoting parameter if specified
+            if quoting is not None:
+                writer_options["quoting"] = quoting
 
             df.to_csv(output_path, **writer_options)
 
@@ -1078,7 +1237,32 @@ def write_chunks_to_csv(
         except Exception as e:
             logger.exception(f"Unexpected error writing chunks to CSV: {e}")
             raise
+            
+def write_csv(data: dict, path: Union[str, Path]) -> str:
+    """
+    Writes dictionary data to a CSV file.
 
+    Parameters:
+    -----------
+    data : dict
+        The dictionary to save in CSV format.
+    path : str or Path
+        The path to save the file.
+
+    Returns:
+    --------
+    str
+        Path to the saved file.
+    """
+    path = Path(path)  # Ensure path is a Path object
+
+    with open(path, "w", newline="", encoding="utf-8") as f:  # Type hint as TextIO
+        writer = csv.writer(f)
+        writer.writerow(["Metric", "Value"])
+        for key, value in data.items():
+            writer.writerow([key, value])
+
+    return str(path)
 
 # ====================
 # Text File Reading Functions
@@ -1263,6 +1447,10 @@ def read_excel(
         Maximum number of rows to read
     skiprows : Union[int, List[int]], optional
         Row indices to skip or number of rows to skip from the start
+    use_encryption : bool, optional
+        Whether to use encryption for reading the file (default: False)
+    encryption_mode : str, optional
+        Encryption mode to use (default: "simple")
     **kwargs
         Additional arguments passed to pandas.read_excel
 
@@ -1403,6 +1591,10 @@ def read_json(
         File encoding (default: "utf-8")
     encryption_key : str, optional
         Key for decrypting the file
+    use_encryption : bool, optional
+        Whether to use encryption for reading the file (default: False)
+    encryption_mode : str, optional
+        Encryption mode to use (default: "simple")
     **kwargs
         Additional arguments passed to json.loads
 
@@ -1479,8 +1671,12 @@ def write_json(
         Whether to convert NumPy types to standard Python types (default: True)
     encryption_key : str, optional
         Key for encrypting the file
-    **kwargs
-        Additional arguments to pass to pd.DataFrame.to_json
+    use_encryption : bool, optional
+        Whether to use encryption for the output file (default: False)
+    encryption_mode : str, optional
+        Encryption mode to use (default: "simple")
+    **kwargs : dict
+        Additional keyword arguments for the JSON writer
 
     Returns:
     --------
@@ -1728,6 +1924,10 @@ def read_parquet(
         Specific columns to read (reduces memory usage)
     encryption_key : str, optional
         Key for decrypting the file
+    use_encryption : bool, optional
+        Whether to use encryption for reading the file (default: False)
+    encryption_mode : str, optional
+        Encryption mode to use (default: "simple")
     **kwargs
         Additional arguments to pass to pandas.read_parquet
 
@@ -1750,7 +1950,10 @@ def read_parquet(
 
         # Handle decryption if needed
         with temporary_decrypted_file(
-            file_path, encryption_key, suffix=".parquet", encryption_mode=encryption_mode
+            file_path,
+            encryption_key,
+            suffix=".parquet",
+            encryption_mode=encryption_mode,
         ) as file_to_read:
             # Read the file
             df = pd.read_parquet(file_to_read, columns=columns, **kwargs)
@@ -1792,6 +1995,10 @@ def write_parquet(
         Whether to include the index (default: False)
     encryption_key : str, optional
         Key for encrypting the file
+    use_encryption : bool, optional
+        Whether to use encryption for the output file (default: False)
+    encryption_mode : str, optional
+        Encryption mode to use (default: "simple")
     **kwargs
         Additional arguments to pass to pd.DataFrame.to_parquet
 
@@ -1814,7 +2021,10 @@ def write_parquet(
 
         # Handle encryption if needed
         with temporary_file_for_encryption(
-            file_path, encryption_key, suffix=".parquet", encryption_mode=encryption_mode
+            file_path,
+            encryption_key,
+            suffix=".parquet",
+            encryption_mode=encryption_mode,
         ) as output_path:
             # Write to file
             df.to_parquet(output_path, compression=compression, index=index, **kwargs)
@@ -1907,7 +2117,9 @@ def save_visualization(
                     logger.warning(f"Warning saving visualization to {file_path}: {e}")
                     # We’re using bbox_inches='tight', sometimes the tight layout can change the output size unexpectedly.
                     # It lead to error: "Image size of 3460x314385 pixels is too large. It must be less than 2^16 in each direction"
-                    kwargs.pop('bbox_inches', None) # Resolve this error => Remove bbox_inches from kwargs and retry savefig
+                    kwargs.pop(
+                        "bbox_inches", None
+                    )  # Resolve this error => Remove bbox_inches from kwargs and retry savefig
                     figure.savefig(output_path, format=format, dpi=dpi, **kwargs)
 
             # Handle PIL Image
@@ -2175,7 +2387,13 @@ def read_dataframe(
     elif file_format.lower() == "json":
         # For JSON, we need to specify the orient
         orient_value = kwargs.pop("orient", "records")
-        json_data = read_json(file_path, encryption_key=encryption_key, use_encryption=use_encryption, encryption_mode=encryption_mode, **kwargs)
+        json_data = read_json(
+            file_path,
+            encryption_key=encryption_key,
+            use_encryption=use_encryption,
+            encryption_mode=encryption_mode,
+            **kwargs,
+        )
 
         # Handle each possible orient value
         if orient_value == "columns":
@@ -2224,7 +2442,12 @@ def read_dataframe(
                 df = df.loc[keep_mask].reset_index(drop=True)
     elif file_format.lower() == "parquet":
         df = read_parquet(
-            file_path, columns=columns, encryption_key=encryption_key, use_encryption=use_encryption, encryption_mode=encryption_mode, **kwargs
+            file_path,
+            columns=columns,
+            encryption_key=encryption_key,
+            use_encryption=use_encryption,
+            encryption_mode=encryption_mode,
+            **kwargs,
         )
 
         # Apply row filtering for nrows and skiprows
@@ -2296,6 +2519,122 @@ def read_dataframe(
 # ====================
 # Multi-file Processing Functions
 # ====================
+
+
+def read_multi_file_dask(
+    file_paths: List[Union[str, Path]],
+    encoding: str = DEFAULT_ENCODING,
+    delimiter: str = DEFAULT_CSV_DELIMITER,
+    quotechar: str = DEFAULT_CSV_QUOTECHAR,
+    columns: Optional[List[str]] = None,
+    nrows: Optional[int] = None,
+    skiprows: Optional[Union[int, List[int]]] = None,
+    npartitions: Optional[int] = None,
+    show_progress: bool = True,
+    encryption_key: Optional[str] = None
+) -> Optional[dd.DataFrame]:
+    """
+    Read multiple files using dask.
+
+    Parameters:
+    -----------
+    file_paths : List[Union[str, Path]]
+        List of CSV file paths to read
+    encoding : str
+        File encoding (default: "utf-8")
+    delimiter : str
+        Field delimiter (default: ",")
+    quotechar : str
+        Text qualifier character (default: '"')
+    columns : List[str], optional
+        Specific columns to read
+    nrows : int, optional
+        Maximum number of rows to read from each file
+    skiprows : Union[int, List[int]], optional
+        Row indices to skip or number of rows to skip from the start
+    npartitions : int
+        Number of partitions
+    show_progress : bool
+        Whether to show a progress bar
+    encryption_key : str, optional
+        Key for decrypting encrypted files
+
+    Returns:
+    --------
+    Optional[dd.DataFrame]
+        Dask DataFrame
+    """
+    # Get file format of the first file
+    file_format = file_paths[0].suffix.lower().lstrip('.')
+
+    with temporary_decrypted_files(
+            file_paths=file_paths,
+            encryption_key=encryption_key,
+            suffix=f".{file_format}"
+    ) as files_to_read:
+        if file_format in ('csv', 'tsv', 'txt'):
+            # For TSV format, override delimiter
+            if file_format == 'tsv':
+                delimiter = '\t'
+
+            return dd.read_csv(
+                urlpath=files_to_read,
+                encoding=encoding,
+                delimiter=delimiter,
+                quotechar=quotechar,
+                usecols=columns,
+                skiprows=skiprows
+            )
+
+        elif file_format in ["json"]:
+            return dd.read_json(
+                url_path=files_to_read,
+                encoding=encoding
+            )
+
+        elif file_format in ["parquet", "pq"]:
+            return dd.read_parquet(
+                path=files_to_read,
+                columns=columns
+            )
+
+        elif file_format in ["xlsx", "xls"]:
+            # Use dask.delayed to read each sheet as a separate delayed object
+            delayed_dfs = []
+
+            for file_path in files_to_read:
+                # Read all sheets from each Excel file
+                sheets = dask.delayed(pd.read_excel)(
+                    io=file_path,
+                    sheet_name=None,
+                    usecols=columns,
+                    nrows=nrows,
+                    skiprows=skiprows
+                )
+
+                # Split the sheets and create a delayed dataframe for each sheet
+                for sheet_name, sheet_df in sheets.items():
+                    delayed_dfs.append(dask.delayed(pd.DataFrame)(sheet_df))
+
+            # Compute metadata (sample from the first file) to create a Dask DataFrame
+            sample_df = dask.delayed(pd.read_excel)(
+                io=file_paths[0],
+                sheet_name=0,
+                usecols=columns,
+                nrows=nrows,
+                skiprows=skiprows
+            ).compute()
+
+            # Convert delayed DataFrames into a Dask DataFrame
+            dask_df = dd.from_delayed(delayed_dfs, meta=sample_df)
+
+            # Repartition Dask DataFrame based on npartitions (this can be adjusted)
+            #npartitions = len(delayed_dfs)
+            #dask_df = dask_df.repartition(npartitions=npartitions)
+
+            return dask_df
+
+    return None
 
 
 def read_multi_csv(
@@ -2409,6 +2748,35 @@ def read_similar_files(
 # ====================
 
 
+def get_system_memory() -> Dict[str, float]:
+   """
+   Get information about system memory.
+
+   Returns:
+   --------
+   Dict[str, float]
+       Dictionary with system memory information in GB
+   """
+   return memory_utils.get_system_memory()
+
+
+def estimate_file_memory_list(file_paths: List[Union[str, Path]]) -> List[Dict[str, Any]]:
+    """
+    Estimate memory requirements for loading a file based on its format.
+
+    Parameters:
+    -----------
+    file_paths : list
+        Path to the files
+
+    Returns:
+    --------
+    List[Dict[str, Any]]
+        List of dictionary with memory requirement estimates
+    """
+    return [memory_utils.estimate_file_memory(file_path) for file_path in file_paths]
+
+
 def estimate_file_memory(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Estimate memory requirements for loading a file based on its format.
@@ -2451,9 +2819,9 @@ def optimize_dataframe_memory(
     )
 
 
-def detect_csv_dialect(file_path: Union[str, Path],
-                       max_lines: int = 5,
-                       encoding: str = "utf-8") -> Dict[str, Any]:
+def detect_csv_dialect(
+    file_path: Union[str, Path], max_lines: int = 5, encoding: str = DEFAULT_ENCODING
+) -> Dict[str, Any]:
     """
     Detects the dialect of a CSV file (delimiter, quotechar, etc.).
 
@@ -2472,9 +2840,7 @@ def detect_csv_dialect(file_path: Union[str, Path],
         Dictionary with detected dialect information
     """
     return csv_utils.detect_csv_dialect(
-        file_path=file_path,
-        max_lines=max_lines,
-        encoding=encoding
+        file_path=file_path, max_lines=max_lines, encoding=encoding
     )
 
 
@@ -2517,6 +2883,7 @@ def is_encrypted_file(file_path: Union[str, Path]) -> bool:
     """
     return format_utils.is_encrypted_file(file_path)
 
+
 def load_settings_operation(data_source, data_source_name, **kwargs) -> Dict[str, Any]:
     """
     Generates a dictionary of settings for loading data, with optional overrides.
@@ -2533,16 +2900,20 @@ def load_settings_operation(data_source, data_source_name, **kwargs) -> Dict[str
     encryption_key = data_source.encryption_keys.get(data_source_name)
     encryption_mode = data_source.encryption_modes.get(data_source_name)
     return {
-                "encoding": kwargs.get('encoding', 'utf-8'),
-                "delimiter": kwargs.get('delimiter', ','),
-                "quotechar": kwargs.get('quotechar', '"'),
-                "use_encryption": kwargs.get('use_encryption', False),
-                "encryption_key": encryption_key,
-                "encryption_mode": encryption_mode,
-                "detect_parameters": False
-            }
+        "encoding": kwargs.get("encoding", "utf-8"),
+        "delimiter": kwargs.get("delimiter", ","),
+        "quotechar": kwargs.get("quotechar", '"'),
+        "use_encryption": kwargs.get("use_encryption", False),
+        "encryption_key": encryption_key,
+        "encryption_mode": encryption_mode,
+        "detect_parameters": False,
+        "use_dask": False
+    }
 
-def load_data_operation(data_source: Any, dataset_name: str = "main", **kwargs) -> pd.DataFrame:
+
+def load_data_operation(
+    data_source: Any, dataset_name: str = "main", **kwargs
+) -> pd.DataFrame:
     """
     Loads data from the data source.
 
@@ -2559,7 +2930,9 @@ def load_data_operation(data_source: Any, dataset_name: str = "main", **kwargs) 
     if hasattr(data_source, "get_dataframe"):
         df, error_info = data_source.get_dataframe(dataset_name, **kwargs)
         if df is None:
-            raise ValueError(f"Failed to load input data: {error_info.get('message', 'Unknown error')}")      
+            raise ValueError(
+                f"Failed to load input data: {error_info.get('message', 'Unknown error')}"
+            )
         return df
     elif isinstance(data_source, pd.DataFrame):
         return data_source
@@ -2572,9 +2945,9 @@ def load_data_operation(data_source: Any, dataset_name: str = "main", **kwargs) 
     else:
         raise ValueError(f"Unsupported data source type: {type(data_source)}")
 
+
 def generate_word_frequencies(
-    text: str,
-    exclude_words: Optional[List[str]] = None
+    text: str, exclude_words: Optional[List[str]] = None
 ) -> Dict[str, int]:
     """
     Generate word frequencies from a text string.
@@ -2592,7 +2965,7 @@ def generate_word_frequencies(
         Dictionary of word frequencies.
     """
     # Normalize text: lowercase and remove non-alphabetic characters
-    words = re.findall(r'\b\w+\b', text.lower())
+    words = re.findall(r"\b\w+\b", text.lower())
     if exclude_words:
         exclude_set = set(word.lower() for word in exclude_words)
         words = [w for w in words if w not in exclude_set]

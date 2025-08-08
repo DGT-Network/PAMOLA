@@ -142,7 +142,7 @@ class MergeDatasetsOperation(TransformationOperation):
         use_encryption: bool = False,
         encryption_key: Optional[Union[str, Path]] = None,
         visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = None,
+        visualization_backend: Optional[str] = "plotly",
         visualization_strict: bool = False,
         visualization_timeout: int = 120,
         output_format: str = "csv",
@@ -524,7 +524,7 @@ class MergeDatasetsOperation(TransformationOperation):
                 error_message = f"Processing error: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR, error_message=error_message, exception=e
                 )
 
             # Step 5: Metrics Calculation
@@ -652,7 +652,7 @@ class MergeDatasetsOperation(TransformationOperation):
                     error_message = f"Error saving output data: {str(e)}"
                     self.logger.error(error_message)
                     return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
+                        status=OperationStatus.ERROR, error_message=error_message, exception=e
                     )
 
             # Cache the result if caching is enabled
@@ -703,7 +703,7 @@ class MergeDatasetsOperation(TransformationOperation):
             error_message = f"Error in transformation operation: {str(e)}"
             self.logger.exception(error_message)
             return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message
+                status=OperationStatus.ERROR, error_message=error_message, exception=e
             )
 
     def process_batch(self, batch_df: pd.DataFrame, **kwargs) -> pd.DataFrame:
@@ -755,7 +755,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
         if left_key_is_unique and right_key_is_unique:
             detected_relationship = RelationshipType.ONE_TO_ONE.value
-        elif left_key_is_unique and not right_key_is_unique:
+        elif right_key_is_unique:
             detected_relationship = RelationshipType.ONE_TO_MANY.value
         else:
             raise ValueError(
@@ -1923,7 +1923,8 @@ class MergeDatasetsOperation(TransformationOperation):
 
         if left_key_is_unique and right_key_is_unique:
             detected_relationship = RelationshipType.ONE_TO_ONE.value
-        elif left_key_is_unique and not right_key_is_unique:
+        elif right_key_is_unique:
+
             detected_relationship = RelationshipType.ONE_TO_MANY.value
         else:
             raise ValueError(

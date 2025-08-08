@@ -762,7 +762,7 @@ class EmailGenerator(BaseGenerator):
                 return ""
             elif self.handle_invalid_email == "generate_with_default_domain":
                 # Generate with default domain
-                params["domain"] = self._domain_list[0] if self._domain_list else "example.com"
+                params["domain"] = random.choice(self._domain_list) if self._domain_list else "example.com"
                 return self._generate_email(**params)
             else:  # generate_new (default)
                 return self._generate_email(**params)

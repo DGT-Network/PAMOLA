@@ -26,6 +26,7 @@ a convenient abstraction layer for operational code.
 from pathlib import Path
 from typing import Dict, Any, List, Union, Optional, Tuple, Generator, TypeVar
 
+import dask.dataframe as dd
 import pandas as pd
 
 from pamola_core.utils import logging as custom_logging
@@ -45,7 +46,7 @@ class DataSource:
     """
 
     def __init__(self,
-                 dataframes: Dict[str, pd.DataFrame] = None,
+                 dataframes: Dict[str, Union[pd.DataFrame, dd.DataFrame]] = None,
                  file_paths: Dict[str, Union[Path, List[Path]]] = None,
                  encryption_keys: Dict[str, Union[str, Path]] = None,
                  encryption_modes: Dict[str, Union[str, Path]] = None):
@@ -54,7 +55,7 @@ class DataSource:
 
         Parameters:
         -----------
-        dataframes : Dict[str, pd.DataFrame], optional
+        dataframes : Dict[str, Union[pd.DataFrame, dd.DataFrame]], optional
             Dictionary of named DataFrames
         file_paths : Dict[str, Union[Path, List[Path]]], optional
             Dictionary of named file paths (can be single paths or lists of paths)
@@ -102,7 +103,7 @@ class DataSource:
 
         return False  # Don't suppress exceptions
 
-    def add_dataframe(self, name: str, df: pd.DataFrame):
+    def add_dataframe(self, name: str, df: Union[pd.DataFrame, dd.DataFrame]):
         """
         Add a DataFrame to the data source.
 
@@ -110,11 +111,15 @@ class DataSource:
         -----------
         name : str
             Name of the DataFrame
-        df : pd.DataFrame
+        df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame to add
         """
         self.dataframes[name] = df
-        self.logger.debug(f"Added DataFrame '{name}' with {len(df)} rows and {len(df.columns)} columns")
+        self.logger.debug(
+            f"Added DataFrame '{name}'"
+            f" with {len(df) if isinstance(df, pd.DataFrame) else int(df.map_partitions(len).sum().compute())} rows"
+            f" and {len(df.columns)} columns"
+        )
 
         # Clear cached schema for this dataframe
         if name in self._schema_cache:
@@ -169,6 +174,28 @@ class DataSource:
             del self._schema_cache[name]
             self.logger.debug(f"Cleared schema cache for '{name}'")
 
+    def suggest_engine(
+            self,
+            name: str
+    ) -> str:
+        """
+        Suggest engine should to use.
+
+        Parameters:
+        -----------
+        name : str
+            Name of the DataFrame
+
+        Returns:
+        --------
+        str
+            Engine should use
+        """
+        available_engines = ["dask", "pandas"]
+        suggest_engine = "pandas"
+
+        return suggest_engine
+
     def get_dataframe(
             self,
             name: str,
@@ -222,7 +249,7 @@ class DataSource:
 
         Returns:
         --------
-        Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
+        Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
         """
         # Try getting from memory first
@@ -277,13 +304,15 @@ class DataSource:
         self.logger.debug(error_info["message"])
         return None, error_info
 
-    def _validate_dataframe_schema(self, df: pd.DataFrame, expected_schema: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    def _validate_dataframe_schema(
+            self, df: Union[pd.DataFrame, dd.DataFrame], expected_schema: Dict[str, Any]
+    ) -> Tuple[bool, List[str]]:
         """
         Validate a DataFrame against an expected schema.
 
         Parameters:
         -----------
-        df : pd.DataFrame
+        df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame to validate
         expected_schema : Dict[str, Any]
             Expected schema information
@@ -303,13 +332,13 @@ class DataSource:
             logger=self.logger
         )
 
-    def _build_schema_from_df(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def _build_schema_from_df(self, df: Union[pd.DataFrame, dd.DataFrame]) -> Dict[str, Any]:
         """
         Build schema information from DataFrame.
 
         Parameters:
         -----------
-        df : pd.DataFrame
+        df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame to build schema from
 
         Returns:
@@ -320,16 +349,20 @@ class DataSource:
         # Build actual schema from DataFrame
         schema = {
             'columns': list(df.columns),
-            'dtypes': {col: str(df[col].dtype) for col in df.columns},
-            'num_rows': len(df),
+            'dtypes': {col: str(df[col].dtype) for col in df.columns} if isinstance(df, pd.DataFrame)
+            else {col: str(df[col].map_partitions(lambda x: x.dtype).compute().iloc[0]) for col in df.columns},
+            'num_rows': len(df) if isinstance(df, pd.DataFrame)
+            else int(df.map_partitions(len).sum().compute()),
             'num_cols': len(df.columns),
-            'null_counts': {col: int(df[col].isna().sum()) for col in df.columns}
+            'null_counts': {col: int(df[col].isna().sum()) for col in df.columns} if isinstance(df, pd.DataFrame)
+            else {col: int(df[col].isna().map_partitions(lambda part: part.sum()).sum().compute()) for col in df.columns}
         }
 
         # Try to get unique counts for columns (not for very large datasets)
-        if len(df) < 100000:
+        if schema.get("num_rows", 100000) < 100000:
             try:
-                schema['unique_counts'] = {col: int(df[col].nunique()) for col in df.columns}
+                sample = df if isinstance(df, pd.DataFrame) else df.compute()
+                schema['unique_counts'] = {col: int(sample[col].nunique()) for col in sample.columns}
             except Exception as e:
                 self.logger.debug(f"Could not compute unique counts: {e}")
 
@@ -349,7 +382,7 @@ class DataSource:
 
         Returns:
         --------
-        Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
+        Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
         """
         if name in self.dataframes:
@@ -426,7 +459,7 @@ class DataSource:
 
         Returns:
         --------
-        Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
+        Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
         """
         if name not in self.file_paths:

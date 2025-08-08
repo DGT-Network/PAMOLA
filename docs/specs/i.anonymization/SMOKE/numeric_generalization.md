@@ -10,10 +10,10 @@ Provide a self-contained smoke-test for the **NumericGeneralizationOperation**, 
 
 ## 2. Scope & Environment
 
-* **Project root:** `D:\VK\_DEVEL\PAMOLA.CORE`
+* **Project root:** `D:\VK\_DEVEL\PAMOLA`
 * **Smoke framework:** `scripts/smoke/base/base_smoke_task.py` (abstract BaseSmokeTask)
 * **Concrete task:** `scripts/smoke/numeric_generalization.py` (NumericGeneralizationSmokeTask)
-* **Data repository:** `D:\VK\_DEVEL\PAMOLA.CORE\DATA`
+* **Data repository:** `D:\VK\_DEVEL\PAMOLA\DATA`
 * **Input file:** `DATA/raw/bank_txs/txs.csv` (UTF-8, comma delimiter)
 * **Task ID:** `numerictxs`
 * **Working directory:** `DATA/processed/smoke/numerictxs`
@@ -255,7 +255,7 @@ class CategoricalGeneralizationSmokeTask(BaseSmokeTask):
 ## 12. File Structure
 
 ```
-D:\VK\_DEVEL\PAMOLA.CORE\
+D:\VK\_DEVEL\PAMOLA\
 ├── scripts/
 │   └── smoke/
 │       ├── base/

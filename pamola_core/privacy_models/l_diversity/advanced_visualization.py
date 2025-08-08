@@ -32,7 +32,7 @@ import matplotlib.patches as mpatches
 import seaborn as sns
 
 # Import file saving utility
-from pamola_core.utils__old_15_04.file_io import save_plot
+from pamola_core.utils.io import save_plot
 
 # Configure logging
 logger = logging.getLogger(__name__)

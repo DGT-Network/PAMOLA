@@ -35,7 +35,7 @@ import pandas as pd
 # Import only the essential base classes and utilities
 # Note: MinHash-related imports are moved to conditional imports inside methods
 from pamola_core.profiling.commons.group_utils import analyze_group, calculate_field_metrics
-from pamola_core.profiling.commons.helpers import filter_used_kwargs
+from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -265,7 +265,7 @@ class GroupAnalyzerOperation(BaseOperation):
                  npartitions: Optional[int] = 1,
                  parallel_processes: Optional[int] = None,
                  visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_strict: bool = False,
                  visualization_timeout: int = 120,
                  description: str = ""):
@@ -407,7 +407,6 @@ class GroupAnalyzerOperation(BaseOperation):
         # Use the subset name instead of "main" to get the correct dataframe
         dataset_name = kwargs.get('dataset_name', 'main')
 
-
         self.logger.info(f"Starting group analysis for field: {self.field_name}")
 
         # Initialize result object
@@ -448,7 +447,7 @@ class GroupAnalyzerOperation(BaseOperation):
                         details={"cached": True}
                     )
                 return cache_result
-            
+
         try:
             dirs = self._prepare_directories(task_dir)
             visualizations_dir = dirs['visualizations']
@@ -491,7 +490,7 @@ class GroupAnalyzerOperation(BaseOperation):
             if progress_tracker:
                 current_steps+=1
                 progress_tracker.update(current_steps, {"step": "Grouping data"})
-            
+
             safe_kwargs = filter_used_kwargs(kwargs, GroupAnalyzer.analyze)
             metrics = self.analyzer.analyze(
                 df=df,
@@ -588,7 +587,9 @@ class GroupAnalyzerOperation(BaseOperation):
         except Exception as e:
             error_message = f"Error executing group analysis: {str(e)}"
             self.logger.error(error_message, exc_info=True)
-            return OperationResult(status=OperationStatus.ERROR, error_message=error_message)
+            return OperationResult(
+                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            )
 
     def _calculate_field_variance(self, field_series: pd.Series) -> Tuple[float, float]:
         """
@@ -1060,7 +1061,7 @@ class GroupAnalyzerOperation(BaseOperation):
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
-        
+
     def _save_to_cache(
             self,
             original_df: pd.DataFrame,
@@ -1102,7 +1103,6 @@ class GroupAnalyzerOperation(BaseOperation):
 
             artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
 
-
             cache_data = {
                 "timestamp": datetime.now().isoformat(),
                 "parameters": operation_parameters,
@@ -1129,7 +1129,7 @@ class GroupAnalyzerOperation(BaseOperation):
         except Exception as e:
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
-        
+
     def _generate_cache_key(
             self,
             df: pd.DataFrame
@@ -1190,7 +1190,7 @@ class GroupAnalyzerOperation(BaseOperation):
         parameters.update(self._get_cache_parameters())
 
         return parameters
-    
+
     def _get_cache_parameters(
             self
     ) -> Dict[str, Any]:
@@ -1203,8 +1203,7 @@ class GroupAnalyzerOperation(BaseOperation):
             Parameters for cache key generation
         """
         return {}
-        
-    
+
     def _generate_data_hash(
             self,
             df: pd.DataFrame
@@ -1233,11 +1232,11 @@ class GroupAnalyzerOperation(BaseOperation):
         except Exception as e:
             self.logger.warning(f"Error generating data hash: {str(e)}")
 
-            # Fallback to a simple hash of the data length and type         
+            # Fallback to a simple hash of the data length and type
             json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
 
         return hashlib.md5(json_str.encode()).hexdigest()
-    
+
     def _handle_visualizations(
             self,
             threshold_metrics: Dict[str, Any],

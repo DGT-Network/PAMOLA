@@ -21,33 +21,45 @@ from pathlib import Path
 import time
 from typing import Dict, Any, List, Optional, Union
 
+import dask
+import dask.dataframe as dd
+
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 
-from pamola_core.anonymization.commons.processing_utils import get_dataframe_chunks
 from pamola_core.profiling.commons.currency_utils import (
-    is_currency_field, parse_currency_field, analyze_currency_stats,
+    is_currency_field,
+    parse_currency_field,
+    analyze_currency_stats,
     detect_currency_from_sample,
-    generate_currency_samples, create_empty_currency_stats
+    generate_currency_samples,
+    create_empty_currency_stats,
 )
 from pamola_core.profiling.commons.numeric_utils import (
-    calculate_percentiles, calculate_histogram
+    calculate_percentiles,
+    calculate_histogram,
 )
-from pamola_core.utils.io import (
-    get_timestamped_filename, load_data_operation, write_dataframe_to_csv, write_json, load_settings_operation
-)
+from pamola_core.utils.io import write_dataframe_to_csv, write_json
 from pamola_core.utils.ops.op_base import FieldOperation
+from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.ops.op_result import OperationArtifact, OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import (
+    OperationArtifact,
+    OperationResult,
+    OperationStatus,
+)
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import (
-    create_histogram, create_boxplot, create_correlation_pair
+    create_histogram,
+    create_boxplot,
+    create_correlation_pair_plot,
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons.helpers import filter_used_kwargs
+from pamola_core.utils.helpers import filter_used_kwargs
+
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -61,20 +73,21 @@ class CurrencyAnalyzer:
     parsing and robust error handling.
     """
 
-    def analyze(self,
-                df: pd.DataFrame,
-                field_name: str,
-                locale: str = 'en_US',
-                bins: int = 10,
-                detect_outliers: bool = True,
-                test_normality: bool = True,
-                chunk_size: int = 10000,
-                use_dask: bool = False,
-                use_vectorization: bool = False,
-                parallel_processes: int = 1,
-                progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                task_logger: Optional[logging.Logger] = None,
-                **kwargs) -> Dict[str, Any]:
+    def analyze(
+        self,
+        df: Union[pd.DataFrame, dd.DataFrame],
+        field_name: str,
+        locale: str = "en_US",
+        bins: int = 10,
+        detect_outliers: bool = True,
+        test_normality: bool = True,
+        chunk_size: int = 10000,
+        use_dask: bool = False,
+        use_vectorization: bool = False,
+        parallel_processes: int = 1,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        task_logger: Optional[logging.Logger] = None
+    ) -> Dict[str, Any]:
         """
         Analyze a currency field in the given DataFrame.
 
@@ -100,8 +113,6 @@ class CurrencyAnalyzer:
             Progress tracker for the operation
         task_logger : Optional[logging.Logger]
             Logger for tracking task progress and debugging.
-        **kwargs : dict
-            Additional parameters for the analysis
 
         Returns:
         --------
@@ -109,6 +120,7 @@ class CurrencyAnalyzer:
             The results of the analysis
         """
         if task_logger:
+            global logger
             logger = task_logger
 
         logger.info(f"Analyzing currency field: {field_name}")
@@ -116,113 +128,170 @@ class CurrencyAnalyzer:
         # Validate input
         if field_name not in df.columns:
             logger.error(f"Field {field_name} not found in DataFrame")
-            return {'error': f"Field {field_name} not found in DataFrame"}
+            return {"error": f"Field {field_name} not found in DataFrame"}
 
-        total_rows = len(df)
-
-        # Initialize progress tracking
-        if progress_tracker:
-            progress_tracker.update(0, {
-                "step": "Initializing currency analysis",
-                "field": field_name
-            })
+        total_rows = (
+            int(df.map_partitions(len).sum().compute())
+            if isinstance(df, dd.DataFrame)
+            else len(df)
+        )
 
         # Check if this is actually a currency field
         # This is both a validation step and may determine parsing approach
         is_detected_currency = is_currency_field(field_name)
-        force_currency = kwargs.get('force_currency', False)
 
-        if not is_detected_currency and not force_currency:
-            logger.info(f"Field {field_name} does not appear to be a currency field. "
-                        f"Use force_currency=True to override.")
+        if not is_detected_currency:
+            logger.info(
+                f"Field {field_name} does not appear to be a currency field. "
+            )
             if progress_tracker:
-                progress_tracker.update(1, {
-                    "step": "Field validation",
-                    "warning": "Not likely a currency field"
-                })
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Field validation",
+                        "warning": "Not likely a currency field",
+                    },
+                )
 
         # Initialize result structure
         result = {
-            'field_name': field_name,
-            'total_rows': total_rows,
-            'is_detected_currency': is_detected_currency,
-            'locale_used': locale
+            "field_name": field_name,
+            "total_rows": total_rows,
+            "is_detected_currency": is_detected_currency,
+            "locale_used": locale,
         }
 
         # Handle large datasets with chunking if needed
         is_large_df = total_rows > chunk_size
 
+        if is_large_df is False:
+            task_logger.warning("Small DataFrame! Process as usual")
+            return self._analyze_small_dataset(
+                df.compute() if isinstance(df, dd.DataFrame) else df,
+                field_name,
+                locale,
+                bins,
+                total_rows,
+                detect_outliers,
+                test_normality,
+                progress_tracker,
+                logger,
+            )
+
         if use_dask and is_large_df:
             try:
-                import dask.dataframe as dd
                 logger.info(f"Using Dask for large dataset with {total_rows} rows")
-                return self._analyze_with_dask(df, field_name, locale, bins,
-                                               detect_outliers, test_normality,
-                                               progress_tracker, logger, **kwargs)
+                return self._analyze_with_dask(
+                    df,
+                    field_name,
+                    locale,
+                    bins,
+                    detect_outliers,
+                    test_normality,
+                    progress_tracker,
+                    logger
+                )
             except ImportError:
-                logger.warning("Dask requested but not available. Falling back to chunked processing.")
+                logger.warning(
+                    "Dask requested but not available. Falling back to chunked processing."
+                )
                 if progress_tracker:
-                    progress_tracker.update(0, {
-                        "step": "Dask fallback",
-                        "warning": "Dask not available, using chunks"
-                    })
-        
+                    progress_tracker.update(
+                        0,
+                        {
+                            "step": "Dask fallback",
+                            "warning": "Dask not available, using chunks",
+                        },
+                    )
+
         # Process in parallel
         if use_vectorization and parallel_processes > 0:
-            return self._analyze_with_parallel(df, field_name, locale,
-                                               chunk_size, bins, detect_outliers, 
-                                               test_normality, parallel_processes,
-                                               progress_tracker, logger)
+            return self._analyze_with_parallel(
+                df,
+                field_name,
+                locale,
+                chunk_size,
+                bins,
+                detect_outliers,
+                test_normality,
+                parallel_processes,
+                progress_tracker,
+                logger,
+            )
         # Process in chunks for large datasets
         elif is_large_df and not use_dask:
-            return self._analyze_in_chunks(df, field_name, locale, bins,
-                                           detect_outliers, test_normality,
-                                           chunk_size, progress_tracker, logger, **kwargs)
-        
+            return self._analyze_in_chunks(
+                df,
+                field_name,
+                locale,
+                bins,
+                detect_outliers,
+                test_normality,
+                chunk_size,
+                progress_tracker,
+                logger
+            )
+
         # Standard processing for smaller datasets
         if progress_tracker:
-            progress_tracker.update(1, {
-                "step": "Parsing currency values",
-                "rows": total_rows
-            })
+            progress_tracker.update(
+                1, {"step": "Parsing currency values", "rows": total_rows}
+            )
 
         # Parse currency values
         try:
-            normalized_values, currency_counts = parse_currency_field(df, field_name, locale)
+            normalized_values, currency_counts = parse_currency_field(
+                df, field_name, locale
+            )
 
             # Count valid, null, and invalid values
-            if hasattr(normalized_values, 'valid_flags'):
+            if hasattr(normalized_values, "valid_flags"):
                 valid_flags = normalized_values.valid_flags
-                valid_count = sum(1 for flag, val in zip(valid_flags, normalized_values) if flag and pd.notna(val))
+                valid_count = sum(
+                    1
+                    for flag, val in zip(valid_flags, normalized_values)
+                    if flag and pd.notna(val)
+                )
             else:
                 valid_count = normalized_values.notna().sum()
             null_count = normalized_values.isna().sum()
             invalid_count = total_rows - valid_count - null_count
 
-            result.update({
-                'valid_count': valid_count,
-                'null_count': null_count,
-                'invalid_count': invalid_count,
-                'null_percentage': (null_count / total_rows * 100) if total_rows > 0 else 0.0,
-                'invalid_percentage': (invalid_count / total_rows * 100) if total_rows > 0 else 0.0,
-                'currency_counts': currency_counts,
-                'multi_currency': len(currency_counts) > 1
-            })
+            result.update(
+                {
+                    "valid_count": valid_count,
+                    "null_count": null_count,
+                    "invalid_count": invalid_count,
+                    "null_percentage": (
+                        (null_count / total_rows * 100) if total_rows > 0 else 0.0
+                    ),
+                    "invalid_percentage": (
+                        (invalid_count / total_rows * 100) if total_rows > 0 else 0.0
+                    ),
+                    "currency_counts": currency_counts,
+                    "multi_currency": len(currency_counts) > 1,
+                }
+            )
 
             if progress_tracker:
-                progress_tracker.update(1, {
-                    "step": "Currency parsing complete",
-                    "valid": valid_count,
-                    "null": null_count,
-                    "invalid": invalid_count
-                })
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Currency parsing complete",
+                        "valid": valid_count,
+                        "null": null_count,
+                        "invalid": invalid_count,
+                    },
+                )
 
         except Exception as e:
-            logger.error(f"Error parsing currency field {field_name}: {e}", exc_info=True)
+            logger.error(
+                f"Error parsing currency field {field_name}: {e}", exc_info=True
+            )
             return {
-                'error': f"Error parsing currency field: {str(e)}",
-                'field_name': field_name,
-                'total_rows': total_rows
+                "error": f"Error parsing currency field: {str(e)}",
+                "field_name": field_name,
+                "total_rows": total_rows,
             }
 
         # Calculate statistics on valid values
@@ -230,13 +299,16 @@ class CurrencyAnalyzer:
 
         if len(valid_values) == 0:
             stats = create_empty_currency_stats()
-            result['stats'] = stats
+            result["stats"] = stats
 
             if progress_tracker:
-                progress_tracker.update(1, {
-                    "step": "Statistics calculation",
-                    "warning": "No valid values for statistics"
-                })
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Statistics calculation",
+                        "warning": "No valid values for statistics",
+                    },
+                )
 
             return result
 
@@ -245,110 +317,129 @@ class CurrencyAnalyzer:
             stats = analyze_currency_stats(valid_values, currency_counts)
 
             if progress_tracker:
-                progress_tracker.update(1, {
-                    "step": "Basic statistics calculated",
-                    "min": stats.get('min'),
-                    "max": stats.get('max')
-                })
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Basic statistics calculated",
+                        "min": stats.get("min"),
+                        "max": stats.get("max"),
+                    },
+                )
 
             # Calculate percentiles
-            stats['percentiles'] = calculate_percentiles(valid_values)
+            stats["percentiles"] = calculate_percentiles(valid_values)
 
             # Calculate histogram data
-            stats['histogram'] = calculate_histogram(valid_values, bins)
+            stats["histogram"] = calculate_histogram(valid_values, bins)
 
             # Detect outliers if requested
             if detect_outliers:
-                from pamola_core.profiling.commons.numeric_utils import detect_outliers as detect_outliers_func
+                from pamola_core.profiling.commons.numeric_utils import (
+                    detect_outliers as detect_outliers_func,
+                )
+
                 outlier_results = detect_outliers_func(valid_values)
-                stats['outliers'] = outlier_results
+                stats["outliers"] = outlier_results
 
                 if progress_tracker:
-                    progress_tracker.update(1, {
-                        "step": "Outlier detection",
-                        "outliers_found": outlier_results.get('count', 0)
-                    })
+                    progress_tracker.update(
+                        1,
+                        {
+                            "step": "Outlier detection",
+                            "outliers_found": outlier_results.get("count", 0),
+                        },
+                    )
 
             # Test normality if requested and we have enough data
             if test_normality and len(valid_values) >= 8:
                 try:
-                    from pamola_core.profiling.commons.numeric_utils import test_normality as test_normality_func
+                    from pamola_core.profiling.commons.numeric_utils import (
+                        test_normality as test_normality_func,
+                    )
+
                     normality_results = test_normality_func(valid_values)
-                    stats['normality'] = normality_results
+                    stats["normality"] = normality_results
 
                     if progress_tracker:
-                        progress_tracker.update(1, {
-                            "step": "Normality testing",
-                            "is_normal": normality_results.get('is_normal', False)
-                        })
+                        progress_tracker.update(
+                            1,
+                            {
+                                "step": "Normality testing",
+                                "is_normal": normality_results.get("is_normal", False),
+                            },
+                        )
                 except Exception as e:
-                    logger.warning(f"Error during normality testing for {field_name}: {e}")
-                    stats['normality'] = {
-                        'error': str(e),
-                        'is_normal': False
-                    }
+                    logger.warning(
+                        f"Error during normality testing for {field_name}: {e}"
+                    )
+                    stats["normality"] = {"error": str(e), "is_normal": False}
             else:
-                stats['normality'] = {
-                    'is_normal': False,
-                    'message': 'Insufficient data for normality testing' if len(
-                        valid_values) < 8 else 'Normality testing skipped'
+                stats["normality"] = {
+                    "is_normal": False,
+                    "message": (
+                        "Insufficient data for normality testing"
+                        if len(valid_values) < 8
+                        else "Normality testing skipped"
+                    ),
                 }
 
             # Generate samples for JSON output
-            stats['samples'] = generate_currency_samples(stats)
+            stats["samples"] = generate_currency_samples(stats)
 
             # Currency-specific semantic analysis
-            negative_count = stats.get('negative_count', 0)
+            negative_count = stats.get("negative_count", 0)
             if negative_count > 0:
-                stats['semantic_notes'] = stats.get('semantic_notes', []) + [
+                stats["semantic_notes"] = stats.get("semantic_notes", []) + [
                     f"Field contains {negative_count} negative values, possibly representing debits or expenses."
                 ]
 
-            zero_count = stats.get('zero_count', 0)
+            zero_count = stats.get("zero_count", 0)
             if zero_count > 0:
-                stats['semantic_notes'] = stats.get('semantic_notes', []) + [
+                stats["semantic_notes"] = stats.get("semantic_notes", []) + [
                     f"Field contains {zero_count} zero values, possibly representing unpaid/free items or placeholder values."
                 ]
 
             # Check for suspiciously large values (potential data entry errors)
-            if stats.get('max', 0) > stats.get('mean', 0) * 100:
-                stats['semantic_notes'] = stats.get('semantic_notes', []) + [
+            if stats.get("max", 0) > stats.get("mean", 0) * 100:
+                stats["semantic_notes"] = stats.get("semantic_notes", []) + [
                     "Field contains extremely large values that may be data entry errors."
                 ]
 
             # Add to result
-            result['stats'] = stats
+            result["stats"] = stats
 
             # Finalize progress
             if progress_tracker:
-                progress_tracker.update(1, {
-                    "step": "Analysis complete",
-                    "field": field_name
-                })
+                progress_tracker.update(
+                    1, {"step": "Analysis complete", "field": field_name}
+                )
 
             return result
 
         except Exception as e:
-            logger.error(f"Error calculating statistics for {field_name}: {e}", exc_info=True)
-            result['error'] = f"Error calculating statistics: {str(e)}"
+            logger.error(
+                f"Error calculating statistics for {field_name}: {e}", exc_info=True
+            )
+            result["error"] = f"Error calculating statistics: {str(e)}"
             return result
 
-    def _analyze_with_dask(self,
-                           df: pd.DataFrame,
-                           field_name: str,
-                           locale: str,
-                           bins: int,
-                           detect_outliers: bool,
-                           test_normality: bool,
-                           progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                           task_logger: Optional[logging.Logger] = None,
-                           **kwargs) -> Dict[str, Any]:
+    def _analyze_with_dask(
+        self,
+        ddf: dd.DataFrame,
+        field_name: str,
+        locale: str,
+        bins: int,
+        detect_outliers: bool,
+        test_normality: bool,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        task_logger: Optional[logging.Logger] = None,
+    ) -> Dict[str, Any]:
         """
         Analyze a currency field using Dask for large datasets.
 
         Parameters:
         -----------
-        df : pd.DataFrame
+        df : dd.DataFrame
             The DataFrame containing the data to analyze
         field_name : str
             The name of the field to analyze
@@ -364,8 +455,6 @@ class CurrencyAnalyzer:
             Progress tracker for the operation
         task_logger : Optional[logging.Logger]
             Logger for tracking task progress and debugging.
-        **kwargs : dict
-            Additional parameters for the analysis (e.g., npartitions for Dask)
 
         Returns:
         --------
@@ -374,41 +463,29 @@ class CurrencyAnalyzer:
         """
         try:
             if task_logger:
+                global logger
                 logger = task_logger
-            npartitions=kwargs.get('npartitions', None)
 
             logger.info("Parallel Enabled")
             logger.info("Parallel Engine: Dask")
-            logger.info("Parallel Workers: {npartitions}")
-            
-            import dask.dataframe as dd
-            
-            # Convert to Dask DataFrame
-            ddf = dd.from_pandas(df, npartitions)
-
-            if progress_tracker:
-                progress_tracker.update(1, {
-                    "step": "Dask initialization",
-                    "partitions": ddf.npartitions
-                })
 
             # Basic counts that can be done with Dask
-            total_rows = len(df)
+            total_rows = len(ddf)
             null_count = ddf[field_name].isna().sum().compute()
 
             # For currency parsing, we need custom logic that may not work well with Dask
             # Do a sample-based analysis first
             sample_size = min(1000, total_rows)
-            sample_df = df.sample(n=sample_size) if total_rows > sample_size else df
+            sample_df = ddf.sample(n=sample_size) if total_rows > sample_size else ddf
 
             # Detect currency from sample
             detected_currency = detect_currency_from_sample(sample_df, field_name)
 
             if progress_tracker:
-                progress_tracker.update(1, {
-                    "step": "Sample analysis",
-                    "detected_currency": detected_currency
-                })
+                progress_tracker.update(
+                    1,
+                    {"step": "Sample analysis", "detected_currency": detected_currency},
+                )
 
             # Define a function to normalize values that can be applied to Dask partitions
             def normalize_partition(partition):
@@ -416,73 +493,89 @@ class CurrencyAnalyzer:
                 return normalized
 
             # Apply to Dask DataFrame
-            normalized_values = ddf.map_partitions(normalize_partition, meta=pd.Series(dtype='float64'))
+            normalized_values = ddf.map_partitions(
+                normalize_partition, meta=pd.Series(dtype="float64")
+            )
 
             # Compute basic statistics
-            mean = normalized_values.mean().compute()
-            median = normalized_values.quantile(0.5).compute()
-            std = normalized_values.std().compute()
-            min_val = normalized_values.min().compute()
-            max_val = normalized_values.max().compute()
+            (mean, median, std, min_val, max_val) = dask.compute(
+                normalized_values.mean(),
+                normalized_values.quantile(0.5),
+                normalized_values.std(),
+                normalized_values.min(),
+                normalized_values.max(),
+            )
 
             # Create results structure
             valid_count = total_rows - null_count
             result = {
-                'field_name': field_name,
-                'total_rows': total_rows,
-                'valid_count': valid_count,
-                'null_count': null_count,
-                'null_percentage': (null_count / total_rows * 100) if total_rows > 0 else 0.0,
-                'is_detected_currency': True,
-                'locale_used': locale,
-                'detected_currency': detected_currency,
-                'stats': {
-                    'min': float(min_val),
-                    'max': float(max_val),
-                    'mean': float(mean),
-                    'median': float(median),
-                    'std': float(std),
-                    'valid_count': int(valid_count),
-                    'multi_currency': False,  # Simplified assumption with Dask
-                    'currency_distribution': {detected_currency: valid_count} if detected_currency != 'UNKNOWN' else {}
-                }
+                "field_name": field_name,
+                "total_rows": total_rows,
+                "valid_count": valid_count,
+                "null_count": null_count,
+                "null_percentage": (
+                    (null_count / total_rows * 100) if total_rows > 0 else 0.0
+                ),
+                "valid_values": normalized_values.dropna(),
+                "is_detected_currency": True,
+                "locale_used": locale,
+                "detected_currency": detected_currency,
+                "stats": {
+                    "min": float(min_val),
+                    "max": float(max_val),
+                    "mean": float(mean),
+                    "median": float(median),
+                    "std": float(std),
+                    "valid_count": int(valid_count),
+                    "multi_currency": False,  # Simplified assumption with Dask
+                    "currency_distribution": (
+                        {detected_currency: valid_count}
+                        if detected_currency != "UNKNOWN"
+                        else {}
+                    ),
+                },
             }
 
             if progress_tracker:
-                progress_tracker.update(1, {
-                    "step": "Dask statistics calculated",
-                    "min": result['stats']['min'],
-                    "max": result['stats']['max']
-                })
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Dask statistics calculated",
+                        "min": result["stats"]["min"],
+                        "max": result["stats"]["max"],
+                    },
+                )
 
             # For more advanced statistics, we'd need to bring data back to pandas
             # which may defeat the purpose of using Dask for large datasets
             # Consider implementing with Dask's built-in histogram, etc.
 
             # Add note about Dask usage
-            result[
-                'note'] = "Analysis performed using Dask for large dataset. Some detailed metrics may be unavailable."
+            result["note"] = (
+                "Analysis performed using Dask for large dataset. Some detailed metrics may be unavailable."
+            )
 
             return result
 
         except Exception as e:
             logger.error(f"Error in Dask analysis for {field_name}: {e}", exc_info=True)
             return {
-                'error': f"Error in Dask analysis: {str(e)}",
-                'field_name': field_name
+                "error": f"Error in Dask analysis: {str(e)}",
+                "field_name": field_name,
             }
 
-    def _analyze_in_chunks(self,
-                           df: pd.DataFrame,
-                           field_name: str,
-                           locale: str,
-                           bins: int,
-                           detect_outliers: bool,
-                           test_normality: bool,
-                           chunk_size: int,
-                           progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                           task_logger: Optional[logging.Logger] = None,
-                           **kwargs) -> Dict[str, Any]:
+    def _analyze_in_chunks(
+        self,
+        df: pd.DataFrame,
+        field_name: str,
+        locale: str,
+        bins: int,
+        detect_outliers: bool,
+        test_normality: bool,
+        chunk_size: int,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        task_logger: Optional[logging.Logger] = None
+    ) -> Dict[str, Any]:
         """
         Analyze a currency field in chunks for large datasets.
 
@@ -506,8 +599,6 @@ class CurrencyAnalyzer:
             Progress tracker for the operation
         task_logger : Optional[logging.Logger]
             Logger for tracking task progress and debugging.
-        **kwargs : dict
-            Additional parameters for the analysis
 
         Returns:
         --------
@@ -521,11 +612,14 @@ class CurrencyAnalyzer:
         total_chunks = (total_rows + chunk_size - 1) // chunk_size
 
         if progress_tracker:
-            progress_tracker.update(1, {
-                "step": "Chunked processing setup",
-                "total_chunks": total_chunks,
-                "chunk_size": chunk_size
-            })
+            progress_tracker.update(
+                1,
+                {
+                    "step": "Chunked processing setup",
+                    "total_chunks": total_chunks,
+                    "chunk_size": chunk_size,
+                },
+            )
 
         # Initialize accumulators
         all_values = []
@@ -540,7 +634,9 @@ class CurrencyAnalyzer:
             chunk = df.iloc[start_idx:end_idx]
 
             # Parse chunk
-            normalized_values, currency_counts = parse_currency_field(chunk, field_name, locale)
+            normalized_values, currency_counts = parse_currency_field(
+                chunk, field_name, locale
+            )
 
             # Count nulls and invalids
             chunk_valid_count = normalized_values.notna().sum()
@@ -557,12 +653,15 @@ class CurrencyAnalyzer:
                 all_currencies[currency] = all_currencies.get(currency, 0) + count
 
             if progress_tracker:
-                progress_tracker.update(0, {
-                    "step": f"Processing chunk {i + 1}/{total_chunks}",
-                    "valid": chunk_valid_count,
-                    "null": chunk_null_count,
-                    "invalid": chunk_invalid_count
-                })
+                progress_tracker.update(
+                    0,
+                    {
+                        "step": f"Processing chunk {i + 1}/{total_chunks}",
+                        "valid": chunk_valid_count,
+                        "null": chunk_null_count,
+                        "invalid": chunk_invalid_count,
+                    },
+                )
 
         # Combine values from all chunks
         if all_values:
@@ -575,107 +674,124 @@ class CurrencyAnalyzer:
             if not isinstance(combined_values, pd.Series):
                 combined_values = pd.Series([combined_values])
         else:
-            combined_values = pd.Series(dtype='float64')
+            combined_values = pd.Series(dtype="float64")
 
         valid_count = len(combined_values)
 
         # Create result structure
         result = {
-            'field_name': field_name,
-            'total_rows': total_rows,
-            'valid_count': valid_count,
-            'null_count': null_count,
-            'invalid_count': invalid_count,
-            'null_percentage': (null_count / total_rows * 100) if total_rows > 0 else 0.0,
-            'invalid_percentage': (invalid_count / total_rows * 100) if total_rows > 0 else 0.0,
-            'currency_counts': all_currencies,
-            'multi_currency': len(all_currencies) > 1,
-            'is_detected_currency': is_currency_field(field_name),
-            'locale_used': locale
+            "field_name": field_name,
+            "total_rows": total_rows,
+            "valid_count": valid_count,
+            "null_count": null_count,
+            "invalid_count": invalid_count,
+            "null_percentage": (
+                (null_count / total_rows * 100) if total_rows > 0 else 0.0
+            ),
+            "valid_values": normalized_values.dropna(),
+            "invalid_percentage": (
+                (invalid_count / total_rows * 100) if total_rows > 0 else 0.0
+            ),
+            "currency_counts": all_currencies,
+            "multi_currency": len(all_currencies) > 1,
+            "is_detected_currency": is_currency_field(field_name),
+            "locale_used": locale,
         }
 
         if progress_tracker:
-            progress_tracker.update(1, {
-                "step": "Chunks processed",
-                "valid_total": valid_count,
-                "currencies_detected": len(all_currencies)
-            })
+            progress_tracker.update(
+                1,
+                {
+                    "step": "Chunks processed",
+                    "valid_total": valid_count,
+                    "currencies_detected": len(all_currencies),
+                },
+            )
 
         # If we have no valid values, return early
         if valid_count == 0:
-            result['stats'] = create_empty_currency_stats()
+            result["stats"] = create_empty_currency_stats()
             return result
 
         # Calculate statistics on combined values
         stats = analyze_currency_stats(combined_values, all_currencies)
 
         if progress_tracker:
-            progress_tracker.update(1, {
-                "step": "Statistics calculated",
-                "min": stats.get('min'),
-                "max": stats.get('max')
-            })
+            progress_tracker.update(
+                1,
+                {
+                    "step": "Statistics calculated",
+                    "min": stats.get("min"),
+                    "max": stats.get("max"),
+                },
+            )
 
         # Add percentiles and histogram
-        stats['percentiles'] = calculate_percentiles(combined_values)
-        stats['histogram'] = calculate_histogram(combined_values, bins)
+        stats["percentiles"] = calculate_percentiles(combined_values)
+        stats["histogram"] = calculate_histogram(combined_values, bins)
 
         # Detect outliers if requested and we have enough data
         if detect_outliers and len(combined_values) >= 5:
-            from pamola_core.profiling.commons.numeric_utils import detect_outliers as detect_outliers_func
-            stats['outliers'] = detect_outliers_func(combined_values)
+            from pamola_core.profiling.commons.numeric_utils import (
+                detect_outliers as detect_outliers_func,
+            )
+
+            stats["outliers"] = detect_outliers_func(combined_values)
         else:
-            stats['outliers'] = {
-                'count': 0,
-                'percentage': 0.0,
-                'message': 'Outlier detection skipped or insufficient data'
+            stats["outliers"] = {
+                "count": 0,
+                "percentage": 0.0,
+                "message": "Outlier detection skipped or insufficient data",
             }
 
         # Test normality if requested and we have enough data
         if test_normality and len(combined_values) >= 8:
             try:
-                from pamola_core.profiling.commons.numeric_utils import test_normality as test_normality_func
-                stats['normality'] = test_normality_func(combined_values)
+                from pamola_core.profiling.commons.numeric_utils import (
+                    test_normality as test_normality_func,
+                )
+
+                stats["normality"] = test_normality_func(combined_values)
             except Exception as e:
                 logger.warning(f"Error in normality testing for {field_name}: {e}")
-                stats['normality'] = {
-                    'is_normal': False,
-                    'error': str(e)
-                }
+                stats["normality"] = {"is_normal": False, "error": str(e)}
         else:
-            stats['normality'] = {
-                'is_normal': False,
-                'message': 'Insufficient data for normality testing' if len(
-                    combined_values) < 8 else 'Normality testing skipped'
+            stats["normality"] = {
+                "is_normal": False,
+                "message": (
+                    "Insufficient data for normality testing"
+                    if len(combined_values) < 8
+                    else "Normality testing skipped"
+                ),
             }
 
         # Generate samples for JSON output
-        stats['samples'] = generate_currency_samples(stats)
+        stats["samples"] = generate_currency_samples(stats)
 
         # Add to result
-        result['stats'] = stats
-        result['note'] = "Analysis performed in chunks due to large dataset size"
+        result["stats"] = stats
+        result["note"] = "Analysis performed in chunks due to large dataset size"
 
         if progress_tracker:
-            progress_tracker.update(1, {
-                "step": "Chunked analysis complete",
-                "field": field_name
-            })
+            progress_tracker.update(
+                1, {"step": "Chunked analysis complete", "field": field_name}
+            )
 
         return result
 
-    def _analyze_with_parallel(self,
-                           df: pd.DataFrame,
-                           field_name: str,
-                           locale: str,
-                           chunk_size: int,
-                           bins: int,
-                           detect_outliers: bool,
-                           test_normality: bool,
-                           parallel_processes: int = -1,
-                           progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                           task_logger: Optional[logging.Logger] = None,
-                           **kwargs) -> Dict[str, Any]:
+    def _analyze_with_parallel(
+        self,
+        df: pd.DataFrame,
+        field_name: str,
+        locale: str,
+        chunk_size: int,
+        bins: int,
+        detect_outliers: bool,
+        test_normality: bool,
+        parallel_processes: int = -1,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        task_logger: Optional[logging.Logger] = None
+    ) -> Dict[str, Any]:
         """
         Analyze a currency field using parallel processing for large datasets.
 
@@ -701,8 +817,6 @@ class CurrencyAnalyzer:
             Number of parallel processes to use (default: None, uses all available cores)
         progress_tracker : HierarchicalProgressTracker, optional
             Progress tracker for the operation
-        **kwargs : dict
-            Additional parameters
 
         Returns:
         --------
@@ -711,6 +825,7 @@ class CurrencyAnalyzer:
         """
         try:
             if task_logger:
+                global logger
                 logger = task_logger
 
             logger.info(f"Starting parallel analysis for field: {field_name}")
@@ -720,30 +835,43 @@ class CurrencyAnalyzer:
 
             if progress_tracker:
                 progress_tracker.total = total_chunks
-                progress_tracker.update(0, {
-                    "step": "Parallel processing setup",
-                    "total_chunks": total_chunks,
-                    "chunk_size": chunk_size
-                })
+                progress_tracker.update(
+                    0,
+                    {
+                        "step": "Parallel processing setup",
+                        "total_chunks": total_chunks,
+                        "chunk_size": chunk_size,
+                    },
+                )
 
-            logger.info(f"Processing {total_rows} rows in {total_chunks} chunks with {parallel_processes} workers")
+            logger.info(
+                f"Processing {total_rows} rows in {total_chunks} chunks with {parallel_processes} workers"
+            )
             start_time = time.time()
 
             def process_chunk(chunk_idx, chunk_df):
                 """Process a single chunk of data"""
-                logger.debug(f"Processing chunk {chunk_idx+1}/{total_chunks} (rows {chunk_df.index[0]}-{chunk_df.index[-1]})")
-                normalized_values, currency_counts = parse_currency_field(chunk_df, field_name, locale)
+                logger.debug(
+                    f"Processing chunk {chunk_idx+1}/{total_chunks} (rows {chunk_df.index[0]}-{chunk_df.index[-1]})"
+                )
+                normalized_values, currency_counts = parse_currency_field(
+                    chunk_df, field_name, locale
+                )
                 valid_values = normalized_values.dropna()
 
-                logger.debug(f"Chunk {chunk_idx+1}: valid={len(valid_values)}, null={normalized_values.isna().sum()}, invalid={len(chunk_df) - len(valid_values) - normalized_values.isna().sum()}")
+                logger.debug(
+                    f"Chunk {chunk_idx+1}: valid={len(valid_values)}, null={normalized_values.isna().sum()}, invalid={len(chunk_df) - len(valid_values) - normalized_values.isna().sum()}"
+                )
                 return {
-                    'chunk_idx': chunk_idx,
-                    'valid_values': valid_values,
-                    'currency_counts': currency_counts,
-                    'valid_count': len(valid_values),
-                    'null_count': normalized_values.isna().sum(),
-                    'invalid_count': len(chunk_df) - len(valid_values) - normalized_values.isna().sum(),
-                    'chunk_size': len(chunk_df)
+                    "chunk_idx": chunk_idx,
+                    "valid_values": valid_values,
+                    "currency_counts": currency_counts,
+                    "valid_count": len(valid_values),
+                    "null_count": normalized_values.isna().sum(),
+                    "invalid_count": len(chunk_df)
+                    - len(valid_values)
+                    - normalized_values.isna().sum(),
+                    "chunk_size": len(chunk_df),
                 }
 
             logger.info("Launching parallel processing of chunks...")
@@ -753,10 +881,13 @@ class CurrencyAnalyzer:
             logger.info("Parallel processing of chunks complete.")
 
             if progress_tracker:
-                progress_tracker.update(total_chunks, {
-                    "step": "Parallel processing complete",
-                    "chunks_processed": len(processed_chunks)
-                })
+                progress_tracker.update(
+                    total_chunks,
+                    {
+                        "step": "Parallel processing complete",
+                        "chunks_processed": len(processed_chunks),
+                    },
+                )
 
             all_values = []
             all_currencies = {}
@@ -768,19 +899,25 @@ class CurrencyAnalyzer:
                 if chunk is None:
                     logger.warning(f"Chunk {i} is None. Skipping.")
                     continue
-                if not chunk.get('valid_values', pd.Series(dtype='float64')).empty:
-                    all_values.append(chunk['valid_values'])
+                if not chunk.get("valid_values", pd.Series(dtype="float64")).empty:
+                    all_values.append(chunk["valid_values"])
 
-                for currency, count in chunk.get('currency_counts', {}).items():
+                for currency, count in chunk.get("currency_counts", {}).items():
                     all_currencies[currency] = all_currencies.get(currency, 0) + count
 
-                total_valid_count += chunk.get('valid_count', 0)
-                total_null_count += chunk.get('null_count', 0)
-                total_invalid_count += chunk.get('invalid_count', 0)
+                total_valid_count += chunk.get("valid_count", 0)
+                total_null_count += chunk.get("null_count", 0)
+                total_invalid_count += chunk.get("invalid_count", 0)
 
-            logger.info(f"Aggregated results: valid={total_valid_count}, null={total_null_count}, invalid={total_invalid_count}, currencies={all_currencies}")
+            logger.info(
+                f"Aggregated results: valid={total_valid_count}, null={total_null_count}, invalid={total_invalid_count}, currencies={all_currencies}"
+            )
 
-            combined_values = pd.concat(all_values, ignore_index=True) if all_values else pd.Series(dtype='float64')
+            combined_values = (
+                pd.concat(all_values, ignore_index=True)
+                if all_values
+                else pd.Series(dtype="float64")
+            )
             if isinstance(combined_values, pd.DataFrame):
                 combined_values = combined_values.squeeze()
             if not isinstance(combined_values, pd.Series):
@@ -790,124 +927,358 @@ class CurrencyAnalyzer:
             detected_currency = detect_currency_from_sample(sample_df, field_name)
 
             if progress_tracker:
-                progress_tracker.update(1, {
-                    "step": "Sample analysis",
-                    "detected_currency": detected_currency
-                })
+                progress_tracker.update(
+                    1,
+                    {"step": "Sample analysis", "detected_currency": detected_currency},
+                )
 
             result = {
-                'field_name': field_name,
-                'total_rows': total_rows,
-                'valid_count': total_valid_count,
-                'null_count': total_null_count,
-                'invalid_count': total_invalid_count,
-                'null_percentage': (total_null_count / total_rows * 100) if total_rows else 0.0,
-                'invalid_percentage': (total_invalid_count / total_rows * 100) if total_rows else 0.0,
-                'currency_counts': all_currencies,
-                'multi_currency': len(all_currencies) > 1,
-                'is_detected_currency': is_currency_field(field_name),
-                'locale_used': locale,
-                'detected_currency': detected_currency
+                "field_name": field_name,
+                "total_rows": total_rows,
+                "valid_count": total_valid_count,
+                "null_count": total_null_count,
+                "invalid_count": total_invalid_count,
+                "null_percentage": (
+                    (total_null_count / total_rows * 100) if total_rows else 0.0
+                ),
+                "valid_values": combined_values.dropna(),
+                "invalid_percentage": (
+                    (total_invalid_count / total_rows * 100) if total_rows else 0.0
+                ),
+                "currency_counts": all_currencies,
+                "multi_currency": len(all_currencies) > 1,
+                "is_detected_currency": is_currency_field(field_name),
+                "locale_used": locale,
+                "detected_currency": detected_currency,
             }
 
             if progress_tracker:
-                progress_tracker.update(0, {
-                    "step": "Aggregating results",
-                    "valid_total": total_valid_count,
-                    "currencies_detected": len(all_currencies)
-                })
+                progress_tracker.update(
+                    0,
+                    {
+                        "step": "Aggregating results",
+                        "valid_total": total_valid_count,
+                        "currencies_detected": len(all_currencies),
+                    },
+                )
 
             if combined_values.empty:
-                logger.warning("No valid currency values found after parallel processing.")
-                result['stats'] = create_empty_currency_stats()
-                result['note'] = "Analysis completed with parallel processing. No valid currency values found."
+                logger.warning(
+                    "No valid currency values found after parallel processing."
+                )
+                result["stats"] = create_empty_currency_stats()
+                result["note"] = (
+                    "Analysis completed with parallel processing. No valid currency values found."
+                )
                 return result
 
             logger.info("Calculating statistics on combined values...")
             stats = analyze_currency_stats(combined_values, all_currencies)
-            stats['percentiles'] = calculate_percentiles(combined_values)
-            stats['histogram'] = calculate_histogram(combined_values, bins)
+            stats["percentiles"] = calculate_percentiles(combined_values)
+            stats["histogram"] = calculate_histogram(combined_values, bins)
 
             # Outlier Detection
             if detect_outliers and len(combined_values) >= 5:
                 try:
-                    from pamola_core.profiling.commons.numeric_utils import detect_outliers as detect_outliers_func
-                    stats['outliers'] = detect_outliers_func(combined_values)
-                    logger.info(f"Outlier detection complete. Outliers found: {stats['outliers'].get('count', 0)}")
+                    from pamola_core.profiling.commons.numeric_utils import (
+                        detect_outliers as detect_outliers_func,
+                    )
+
+                    stats["outliers"] = detect_outliers_func(combined_values)
+                    logger.info(
+                        f"Outlier detection complete. Outliers found: {stats['outliers'].get('count', 0)}"
+                    )
                     if progress_tracker:
-                        progress_tracker.update(0, {
-                            "step": "Outlier detection complete",
-                            "outliers_found": stats['outliers'].get('count', 0)
-                        })
+                        progress_tracker.update(
+                            0,
+                            {
+                                "step": "Outlier detection complete",
+                                "outliers_found": stats["outliers"].get("count", 0),
+                            },
+                        )
                 except Exception as e:
                     logger.warning(f"Error in outlier detection for {field_name}: {e}")
-                    stats['outliers'] = {'count': 0, 'percentage': 0.0, 'error': str(e)}
+                    stats["outliers"] = {"count": 0, "percentage": 0.0, "error": str(e)}
             else:
-                stats['outliers'] = {'count': 0, 'percentage': 0.0, 'message': 'Skipped or insufficient data'}
+                stats["outliers"] = {
+                    "count": 0,
+                    "percentage": 0.0,
+                    "message": "Skipped or insufficient data",
+                }
 
             # Normality Test
             if test_normality and len(combined_values) >= 8:
                 try:
-                    from pamola_core.profiling.commons.numeric_utils import test_normality as test_normality_func
-                    stats['normality'] = test_normality_func(combined_values)
-                    logger.info(f"Normality testing complete. Is normal: {stats['normality'].get('is_normal', False)}")
+                    from pamola_core.profiling.commons.numeric_utils import (
+                        test_normality as test_normality_func,
+                    )
+
+                    stats["normality"] = test_normality_func(combined_values)
+                    logger.info(
+                        f"Normality testing complete. Is normal: {stats['normality'].get('is_normal', False)}"
+                    )
                     if progress_tracker:
-                        progress_tracker.update(0, {
-                            "step": "Normality testing complete",
-                            "is_normal": stats['normality'].get('is_normal', False)
-                        })
+                        progress_tracker.update(
+                            0,
+                            {
+                                "step": "Normality testing complete",
+                                "is_normal": stats["normality"].get("is_normal", False),
+                            },
+                        )
                 except Exception as e:
                     logger.warning(f"Error in normality testing for {field_name}: {e}")
-                    stats['normality'] = {'is_normal': False, 'error': str(e)}
+                    stats["normality"] = {"is_normal": False, "error": str(e)}
             else:
-                stats['normality'] = {
-                    'is_normal': False,
-                    'message': 'Insufficient data for normality testing' if len(combined_values) < 8 else 'Skipped'
+                stats["normality"] = {
+                    "is_normal": False,
+                    "message": (
+                        "Insufficient data for normality testing"
+                        if len(combined_values) < 8
+                        else "Skipped"
+                    ),
                 }
 
-            stats['samples'] = generate_currency_samples(stats)
+            stats["samples"] = generate_currency_samples(stats)
 
             # Semantic Notes
             semantic_notes = []
-            if stats.get('negative_count', 0) > 0:
-                semantic_notes.append(f"Field contains {stats['negative_count']} negative values.")
-            if stats.get('zero_count', 0) > 0:
-                semantic_notes.append(f"Field contains {stats['zero_count']} zero values.")
-            if stats.get('max', 0) > stats.get('mean', 0) * 100:
-                semantic_notes.append("Field contains extremely large values that may be data entry errors.")
+            if stats.get("negative_count", 0) > 0:
+                semantic_notes.append(
+                    f"Field contains {stats['negative_count']} negative values."
+                )
+            if stats.get("zero_count", 0) > 0:
+                semantic_notes.append(
+                    f"Field contains {stats['zero_count']} zero values."
+                )
+            if stats.get("max", 0) > stats.get("mean", 0) * 100:
+                semantic_notes.append(
+                    "Field contains extremely large values that may be data entry errors."
+                )
             if semantic_notes:
-                stats['semantic_notes'] = semantic_notes
+                stats["semantic_notes"] = semantic_notes
 
             processing_time = round(time.time() - start_time, 2)
-            stats['processing_metadata'] = {
-                'method': 'parallel',
-                'chunks_processed': total_chunks,
-                'n_jobs': parallel_processes,
-                'chunk_size': chunk_size,
-                'processing_time_seconds': processing_time
+            stats["processing_metadata"] = {
+                "method": "parallel",
+                "chunks_processed": total_chunks,
+                "n_jobs": parallel_processes,
+                "chunk_size": chunk_size,
+                "processing_time_seconds": processing_time,
             }
 
             logger.info(f"Parallel analysis completed in {processing_time:.2f} seconds")
-            result['stats'] = stats
-            result['note'] = f"Analysis performed using parallel processing with {total_chunks} chunks and {parallel_processes} workers."
-            result['processing_time'] = processing_time
+            result["stats"] = stats
+            result["note"] = (
+                f"Analysis performed using parallel processing with {total_chunks} chunks and {parallel_processes} workers."
+            )
+            result["processing_time"] = processing_time
 
             if progress_tracker:
-                progress_tracker.update(0, {
-                    "step": "Parallel analysis complete",
-                    "field": field_name,
-                    "processing_time": processing_time
-                })
+                progress_tracker.update(
+                    0,
+                    {
+                        "step": "Parallel analysis complete",
+                        "field": field_name,
+                        "processing_time": processing_time,
+                    },
+                )
 
             return result
 
         except Exception as e:
-            logger.error(f"Error in parallel analysis for {field_name}: {e}", exc_info=True)
+            logger.error(
+                f"Error in parallel analysis for {field_name}: {e}", exc_info=True
+            )
             return {
-                'error': f"Error in parallel analysis: {str(e)}",
-                'field_name': field_name,
-                'processing_method': 'parallel'
+                "error": f"Error in parallel analysis: {str(e)}",
+                "field_name": field_name,
+                "processing_method": "parallel",
             }
+
+    def _analyze_small_dataset(
+        self,
+        df: pd.DataFrame,
+        field_name: str,
+        locale: str,
+        bins: int,
+        total_rows: int,
+        detect_outliers: bool,
+        test_normality: bool,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        logger: logging.Logger
+    ) -> Dict[str, Any]:
+        result = {
+            "field_name": field_name,
+            "total_rows": total_rows,
+            "locale_used": locale,
+        }
+
+        # Step 1: Parse currency values
+        if progress_tracker:
+            progress_tracker.update(
+                1, {"step": "Parsing currency values", "rows": total_rows}
+            )
+
+        try:
+            normalized_values, currency_counts = parse_currency_field(
+                df, field_name, locale
+            )
+
+            if hasattr(normalized_values, "valid_flags"):
+                valid_flags = normalized_values.valid_flags
+                valid_count = sum(
+                    1
+                    for flag, val in zip(valid_flags, normalized_values)
+                    if flag and pd.notna(val)
+                )
+            else:
+                valid_count = normalized_values.notna().sum()
+
+            null_count = normalized_values.isna().sum()
+            invalid_count = total_rows - valid_count - null_count
+
+            result.update(
+                {
+                    "valid_count": valid_count,
+                    "null_count": null_count,
+                    "invalid_count": invalid_count,
+                    "null_percentage": (
+                        (null_count / total_rows * 100) if total_rows > 0 else 0.0
+                    ),
+                    "valid_values": normalized_values.dropna(),
+                    "invalid_percentage": (
+                        (invalid_count / total_rows * 100) if total_rows > 0 else 0.0
+                    ),
+                    "currency_counts": currency_counts,
+                    "multi_currency": len(currency_counts) > 1,
+                }
+            )
+
+            if progress_tracker:
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Currency parsing complete",
+                        "valid": valid_count,
+                        "null": null_count,
+                        "invalid": invalid_count,
+                    },
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Error parsing currency field {field_name}: {e}", exc_info=True
+            )
+            return {
+                "error": f"Error parsing currency field: {str(e)}",
+                "field_name": field_name,
+                "total_rows": total_rows,
+            }
+
+        valid_values = normalized_values.dropna()
+
+        if len(valid_values) == 0:
+            stats = create_empty_currency_stats()
+            result["stats"] = stats
+
+            if progress_tracker:
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Statistics calculation",
+                        "warning": "No valid values for statistics",
+                    },
+                )
+
+            return result
+
+        try:
+            stats = analyze_currency_stats(valid_values, currency_counts)
+
+            if progress_tracker:
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Basic statistics calculated",
+                        "min": stats.get("min"),
+                        "max": stats.get("max"),
+                    },
+                )
+
+            stats["percentiles"] = calculate_percentiles(valid_values)
+            stats["histogram"] = calculate_histogram(
+                valid_values, bins
+            )
+
+            if detect_outliers:
+                from pamola_core.profiling.commons.numeric_utils import (
+                    detect_outliers as detect_outliers_func,
+                )
+
+                stats["outliers"] = detect_outliers_func(valid_values)
+                if progress_tracker:
+                    progress_tracker.update(
+                        1,
+                        {
+                            "step": "Outlier detection",
+                            "outliers_found": stats["outliers"].get("count", 0),
+                        },
+                    )
+
+            if test_normality and len(valid_values) >= 8:
+                from pamola_core.profiling.commons.numeric_utils import (
+                    test_normality as test_normality_func,
+                )
+
+                stats["normality"] = test_normality_func(valid_values)
+                if progress_tracker:
+                    progress_tracker.update(
+                        1,
+                        {
+                            "step": "Normality testing",
+                            "is_normal": stats["normality"].get("is_normal", False),
+                        },
+                    )
+            else:
+                stats["normality"] = {
+                    "is_normal": False,
+                    "message": (
+                        "Insufficient data for normality testing"
+                        if len(valid_values) < 8
+                        else "Normality testing skipped"
+                    ),
+                }
+
+            stats["samples"] = generate_currency_samples(stats)
+
+            if stats.get("negative_count", 0) > 0:
+                stats.setdefault("semantic_notes", []).append(
+                    f"Field contains {stats['negative_count']} negative values, possibly representing debits or expenses."
+                )
+            if stats.get("zero_count", 0) > 0:
+                stats.setdefault("semantic_notes", []).append(
+                    f"Field contains {stats['zero_count']} zero values, possibly representing unpaid/free items or placeholder values."
+                )
+            if stats.get("max", 0) > stats.get("mean", 0) * 100:
+                stats.setdefault("semantic_notes", []).append(
+                    "Field contains extremely large values that may be data entry errors."
+                )
+
+            result["stats"] = stats
+
+            if progress_tracker:
+                progress_tracker.update(
+                    1, {"step": "Analysis complete", "field": field_name}
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(
+                f"Error calculating statistics for {field_name}: {e}", exc_info=True
+            )
+            result["error"] = f"Error calculating statistics: {str(e)}"
+            return result
 
 
 @register(version="1.0.0")
@@ -919,29 +1290,28 @@ class CurrencyOperation(FieldOperation):
     executing currency field analysis, including visualization generation and result reporting.
     """
 
-    def __init__(self,
-                 field_name: str,
-                 locale: str = 'en_US',
-                 bins: int = 10,
-                 detect_outliers: bool = True,
-                 test_normality: bool = True,
-                 description: str = "",
-                 generate_plots: bool = True,
-                 include_timestamp: bool = True,
-                 use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None,
-                 use_dask: bool = False,
-                 use_cache: bool = True,
-                 use_vectorization: bool = False,
-                 chunk_size: int = 10000,
-                 parallel_processes: int = 1,
-                 npartitions: int = 1,
-                 visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = None,
-                 visualization_strict: bool = False,
-                 visualization_timeout: int = 120,
-                 encryption_mode: Optional[str] = None,
-                 **kwargs):
+    def __init__(
+        self,
+        field_name: str,
+        locale: str = "en_US",
+        bins: int = 10,
+        detect_outliers: bool = True,
+        test_normality: bool = True,
+        description: str = "",
+        use_encryption: bool = False,
+        encryption_key: Optional[Union[str, Path]] = None,
+        use_dask: bool = False,
+        use_cache: bool = True,
+        use_vectorization: bool = False,
+        chunk_size: int = 10000,
+        parallel_processes: int = 1,
+        npartitions: int = 2,
+        visualization_theme: Optional[str] = None,
+        visualization_backend: Optional[str] = "plotly",
+        visualization_strict: bool = False,
+        visualization_timeout: int = 120,
+        encryption_mode: Optional[str] = None
+    ):
         """
         Initialize a currency field operation.
 
@@ -959,10 +1329,6 @@ class CurrencyOperation(FieldOperation):
             Whether to perform normality testing
         description : str
             Description of the operation (optional)
-        generate_plots : bool
-            Whether to generate visualizations
-        include_timestamp : bool
-            Whether to include timestamps in output filenames
         use_encryption : bool
             Whether to encrypt output files
         encryption_key : Optional[Union[str, Path]]
@@ -987,22 +1353,18 @@ class CurrencyOperation(FieldOperation):
             Whether to enforce strict visualization rules (default: False)
         visualization_timeout : int, optional
             Timeout for visualization generation in seconds (default: 120)
-        **kwargs : dict
-            Additional parameters passed to the base class
         """
         super().__init__(
             field_name=field_name,
             description=description or f"Analysis of currency field '{field_name}'",
             use_encryption=use_encryption,
             encryption_key=encryption_key,
-            encryption_mode=encryption_mode
+            encryption_mode=encryption_mode,
         )
         self.locale = locale
         self.bins = bins
         self.detect_outliers = detect_outliers
         self.test_normality = test_normality
-        self.generate_plots = generate_plots
-        self.include_timestamp = include_timestamp
         self.use_dask = use_dask
         self.use_cache = use_cache
         self.use_vectorization = use_vectorization
@@ -1017,12 +1379,14 @@ class CurrencyOperation(FieldOperation):
 
         self.analyzer = CurrencyAnalyzer()
 
-    def execute(self,
-                data_source: DataSource,
-                task_dir: Path,
-                reporter: Any,
-                progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                **kwargs) -> OperationResult:
+    def execute(
+        self,
+        data_source: DataSource,
+        task_dir: Path,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
+    ) -> OperationResult:
         """
         Execute the currency field analysis operation.
 
@@ -1038,147 +1402,165 @@ class CurrencyOperation(FieldOperation):
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for the operation:
-            - locale: str, locale to use for parsing
-            - generate_plots: bool, whether to generate visualizations
-            - include_timestamp: bool, whether to include timestamps in filenames
-            - chunk_size: int, size of chunks for processing
-            - use_dask: bool, whether to use Dask for large datasets
-            - npartitions: Number of partitions for Dask
+            - generate_visualization: bool, whether to generate visualizations
             - force_recalculation: bool - Skip cache check
-            - parallel_processes: int - Number of parallel processes
             - dataset_name : str - The name of the dataset to load.
+            - visualization_theme: str - Theme for visualizations
+            - visualization_backend: str - Backend for visualizations ("plotly" or "matplotlib")
+            - visualization_strict: bool - If True, raise exceptions for visualization config errors
+            - visualization_timeout: int - Timeout for visualization generation in seconds (default: 120)
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-        if kwargs.get('logger'):
-            self.logger = kwargs['logger']
+        if kwargs.get("logger"):
+            self.logger = kwargs["logger"]
 
         # Extract parameters from kwargs with defaults
-        locale = kwargs.get('locale', self.locale)
-        generate_plots = kwargs.get('generate_plots', self.generate_plots)
-        encryption_key = kwargs.get('encryption_key', None)
-        self.use_dask = kwargs.get('use_dask', self.use_dask)
-        self.chunk_size = kwargs.get('chunk_size', self.chunk_size)
-        self.use_vectorization = kwargs.get('use_vectorization', self.use_vectorization)
-        self.include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
+        generate_visualization = kwargs.get("generate_visualization", True)
         force_recalculation = kwargs.get("force_recalculation", False)
-        parallel_processes = kwargs.get("parallel_processes", self.parallel_processes)
-        npartitions = kwargs.get('npartitions', self.npartitions)
-        dataset_name = kwargs.get('dataset_name', "main")
+        dataset_name = kwargs.get("dataset_name", "main")
 
         # Extract visualization parameters
-        self.visualization_theme = kwargs.get("visualization_theme", self.visualization_theme)
-        self.visualization_backend = kwargs.get("visualization_backend", self.visualization_backend)
-        self.visualization_strict = kwargs.get("visualization_strict", self.visualization_strict)
-        self.visualization_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
+        self.visualization_theme = kwargs.get(
+            "visualization_theme", self.visualization_theme
+        )
+        self.visualization_backend = kwargs.get(
+            "visualization_backend", self.visualization_backend
+        )
+        self.visualization_strict = kwargs.get(
+            "visualization_strict", self.visualization_strict
+        )
+        self.visualization_timeout = kwargs.get(
+            "visualization_timeout", self.visualization_timeout
+        )
 
         # Set up directories
         dirs = self._prepare_directories(task_dir)
-        output_dir = dirs['output']
-        visualizations_dir = dirs['visualizations']
-        dictionaries_dir = dirs['dictionaries']
+        output_dir = dirs["output"]
+        visualizations_dir = dirs["visualizations"]
+        dictionaries_dir = dirs["dictionaries"]
+
+        # Generate single timestamp for all artifacts
+        operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # Create the main result object with initial status
         result = OperationResult(status=OperationStatus.SUCCESS)
 
         # Set up progress tracking
-        # Preparation, Cache Check, Data Loading, Analysis, Visualizations, Finalization
+        # Preparation, Data Loading, Cache Check, Analysis, Visualizations, Finalization
         total_steps = 5 + (1 if self.use_cache and not force_recalculation else 0)
         current_steps = 0
 
         # Step 1: Preparation
         if progress_tracker:
-            progress_tracker.update(current_steps, {"step": "Preparation", "operation": self.name})
             progress_tracker.total = total_steps  # Define total steps for tracking
+            progress_tracker.update(
+                current_steps, {"step": "Preparation", "operation": self.name}
+            )
 
-        # Step 2: Check Cache (if enabled and not forced to recalculate)
+        # Step 2: Data Loading
+        if progress_tracker:
+            current_steps += 1
+            progress_tracker.update(current_steps, {"step": "Data Loading"})
+
+        try:
+            # Load data
+            df, error_info = data_source.get_dataframe(
+                name=dataset_name,
+                use_dask=self.use_dask,
+                use_encryption=self.use_encryption,
+                encryption_mode=self.encryption_mode,
+                encryption_key=self.encryption_key,
+            )
+            if df is None:
+                error_message = "Failed to load input data"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR, error_message=error_message
+                )
+        except Exception as e:
+            error_message = f"Error loading data: {str(e)}"
+            self.logger.error(error_message)
+            return OperationResult(
+                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            )
+
+        # Step 3: Check Cache (if enabled and not forced to recalculate)
         if self.use_cache and not force_recalculation:
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Checking Cache"})
 
             logger.info("Checking operation cache...")
-            cache_result = self._check_cache(data_source, dataset_name, **kwargs)
+            cache_result = self._check_cache(df, dataset_name, **kwargs)
 
             if cache_result:
                 self.logger.info("Cache hit! Using cached results.")
 
                 # Update progress
                 if progress_tracker:
-                    progress_tracker.update(total_steps,{"step": "Complete (cached)"})
+                    progress_tracker.update(total_steps, {"step": "Complete (cached)"})
 
                 # Report cache hit to reporter
                 if reporter:
                     reporter.add_operation(
-                        f"Clean invalid values (from cache)",
-                        details={"cached": True}
+                        f"Date field analysis for '{self.field_name}' (from cache)",
+                        details={"cached": True},
                     )
                 return cache_result
-        
-        # Step 3: Data Loading
-        if progress_tracker:
-            current_steps += 1
-            progress_tracker.update(current_steps, {"step": "Data Loading"}) 
-            
+
         try:
-            # Get DataFrame from data source
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source"
-                )
 
             # Check if field exists
             if self.field_name not in df.columns:
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message=f"Field {self.field_name} not found in DataFrame"
+                    error_message=f"Field {self.field_name} not found in DataFrame",
                 )
 
             # Add operation to reporter
             if reporter:
-                reporter.add_operation(f"Analyzing currency field: {self.field_name}", details={
-                    "field_name": self.field_name,
-                    "locale": locale,
-                    "bins": self.bins,
-                    "detect_outliers": self.detect_outliers,
-                    "test_normality": self.test_normality,
-                    "operation_type": "currency_analysis"
-                })
+                reporter.add_operation(
+                    f"Analyzing currency field: {self.field_name}",
+                    details={
+                        "field_name": self.field_name,
+                        "locale": self.locale,
+                        "bins": self.bins,
+                        "detect_outliers": self.detect_outliers,
+                        "test_normality": self.test_normality,
+                        "operation_type": "currency_analysis",
+                    },
+                )
 
             # Step 4: Analysis
             if progress_tracker:
                 current_steps += 1
-                progress_tracker.update(current_steps, {"step": "K-Anonymity Analysis"}) 
+                progress_tracker.update(current_steps, {"step": "K-Anonymity Analysis"})
 
             # Execute the analyzer
-            safe_kwargs = filter_used_kwargs(kwargs, CurrencyAnalyzer.analyze)
             analysis_results = self.analyzer.analyze(
                 df=df,
                 field_name=self.field_name,
-                locale=locale,
+                locale=self.locale,
                 bins=self.bins,
                 detect_outliers=self.detect_outliers,
                 test_normality=self.test_normality,
                 chunk_size=self.chunk_size,
                 use_dask=self.use_dask,
                 use_vectorization=self.use_vectorization,
-                parallel_processes=parallel_processes,
+                parallel_processes=self.parallel_processes,
                 progress_tracker=progress_tracker,
                 task_logger=self.logger,
-                **safe_kwargs
             )
 
             # Check for errors
-            if 'error' in analysis_results:
+            if "error" in analysis_results:
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message=analysis_results['error']
+                    error_message=analysis_results["error"],
                 )
 
             # Save analysis results to JSON
@@ -1186,38 +1568,47 @@ class CurrencyOperation(FieldOperation):
             stats_path = output_dir / stats_filename
 
             encryption_mode = get_encryption_mode(analysis_results, **kwargs)
-            write_json(analysis_results, stats_path, encryption_key=encryption_key, encryption_mode=encryption_mode)
-            result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis", category=Constants.Artifact_Category_Output)
+            write_json(
+                analysis_results,
+                stats_path,
+                encryption_key=self.encryption_key,
+                encryption_mode=encryption_mode,
+            )
+            result.add_artifact(
+                "json",
+                stats_path,
+                f"{self.field_name} statistical analysis",
+                category=Constants.Artifact_Category_Output,
+            )
 
             # Add to reporter
-            reporter.add_artifact("json", str(stats_path), f"{self.field_name} currency analysis")
-            
+            reporter.add_artifact(
+                "json", str(stats_path), f"{self.field_name} currency analysis"
+            )
+
             # Generate visualizations if requested
-            if generate_plots:
+            if generate_visualization:
 
                 # Step 5: Creating Visualizations
                 if progress_tracker:
                     current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Creating Visualizations"})
-                    
-                kwargs_encryption = {
-                    "use_encryption": kwargs.get('use_encryption', False),
-                    "encryption_key": encryption_key
-                }
+                    progress_tracker.update(
+                        current_steps, {"step": "Creating Visualizations"}
+                    )
 
                 self._handle_visualizations(
-                    df = df,
-                    analysis_results = analysis_results,
-                    vis_dir = visualizations_dir,
-                    include_timestamp = self.include_timestamp,
-                    result = result,
-                    reporter = reporter,
-                    vis_theme = self.visualization_theme,
-                    vis_backend = self.visualization_backend,
-                    vis_strict = self.visualization_strict,
-                    vis_timeout = self.visualization_timeout,
-                    progress_tracker = progress_tracker,
-                    **kwargs_encryption
+                    analysis_results=analysis_results,
+                    vis_dir=visualizations_dir,
+                    timestamp=operation_timestamp,
+                    result=result,
+                    reporter=reporter,
+                    vis_theme=self.visualization_theme,
+                    vis_backend=self.visualization_backend,
+                    vis_strict=self.visualization_strict,
+                    vis_timeout=self.visualization_timeout,
+                    progress_tracker=progress_tracker,
+                    use_encryption=self.use_encryption,
+                    encryption_key=self.encryption_key
                 )
 
             # Save sample records with original currency values
@@ -1227,7 +1618,7 @@ class CurrencyOperation(FieldOperation):
                 dictionaries_dir,
                 result,
                 reporter,
-                encryption_key=encryption_key
+                self.encryption_key,
             )
 
             # Add metrics to the result
@@ -1236,17 +1627,23 @@ class CurrencyOperation(FieldOperation):
             # Step 6: Finalization
             if progress_tracker:
                 current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Operation complete", "status": "success"})
-
+                progress_tracker.update(
+                    current_steps, {"step": "Operation complete", "status": "success"}
+                )
 
             # Add final operation status to reporter
-            reporter.add_operation(f"Analysis of currency field {self.field_name} completed", details={
-                "valid_values": analysis_results.get('valid_count', 0),
-                "null_percentage": analysis_results.get('null_percentage', 0),
-                "multi_currency": analysis_results.get('multi_currency', False),
-                "currencies_detected": len(analysis_results.get('currency_counts', {}))
-            })
-            
+            reporter.add_operation(
+                f"Analysis of currency field {self.field_name} completed",
+                details={
+                    "valid_values": analysis_results.get("valid_count", 0),
+                    "null_percentage": analysis_results.get("null_percentage", 0),
+                    "multi_currency": analysis_results.get("multi_currency", False),
+                    "currencies_detected": len(
+                        analysis_results.get("currency_counts", {})
+                    ),
+                },
+            )
+
             # Cache the result if caching is enabled
             if self.use_cache:
                 try:
@@ -1254,7 +1651,7 @@ class CurrencyOperation(FieldOperation):
                         artifacts=result.artifacts,
                         original_df=df,
                         metrics=result.metrics,
-                        task_dir=task_dir
+                        task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -1263,29 +1660,35 @@ class CurrencyOperation(FieldOperation):
             return result
 
         except Exception as e:
-            self.logger.exception(f"Error in currency operation for {self.field_name}: {e}")
+            self.logger.exception(
+                f"Error in currency operation for {self.field_name}: {e}"
+            )
 
             # Add error to reporter
-            reporter.add_operation(f"Error analyzing currency field {self.field_name}",
-                                   status="error",
-                                   details={"error": str(e)})
+            reporter.add_operation(
+                f"Error analyzing currency field {self.field_name}",
+                status="error",
+                details={"error": str(e)},
+            )
 
             return OperationResult(
                 status=OperationStatus.ERROR,
-                error_message=f"Error analyzing currency field {self.field_name}: {str(e)}"
+                error_message=f"Error analyzing currency field {self.field_name}: {str(e)}",
+                exception=e,
             )
 
-    def _generate_visualizations(self,
-                                 df: pd.DataFrame,
-                                 analysis_results: Dict[str, Any],
-                                 vis_dir: Path,
-                                 include_timestamp: bool,
-                                 result: OperationResult,
-                                 reporter: Any,
-                                 vis_theme: Optional[str] = None,
-                                 vis_backend: Optional[str] = None,
-                                 vis_strict: bool = False,
-                                 **kwargs):
+    def _generate_visualizations(
+        self,
+        analysis_results: Dict[str, Any],
+        vis_dir: Path,
+        timestamp: Optional[str],
+        result: OperationResult,
+        reporter: Any,
+        vis_theme: Optional[str] = None,
+        vis_backend: Optional[str] = None,
+        vis_strict: bool = False,
+        **kwargs,
+    ):
         """
         Generate visualizations for the currency field analysis.
 
@@ -1297,8 +1700,8 @@ class CurrencyOperation(FieldOperation):
             Results of the analysis
         vis_dir : Path
             Directory to save visualizations
-        include_timestamp : bool
-            Whether to include timestamps in output filenames
+        timestamp : Optional[str]
+            Timestamp for naming visualization files
         result : OperationResult
             Operation result to add artifacts to
         reporter : Any
@@ -1308,36 +1711,52 @@ class CurrencyOperation(FieldOperation):
         vis_backend : str, optional
             Backend to use: "plotly" or "matplotlib"
         vis_strict : bool, optional
-            If True, raise exceptions for configuration errors
-        """
-        stats_dict = analysis_results.get('stats', {})
+            If True, raise exceptions for configuration errors"""
+        stats_dict = analysis_results.get("stats", {})
 
-        # Parse currency values for visualization
-        normalized_values, _ = parse_currency_field(df, self.field_name, analysis_results.get('locale_used', 'en_US'))
-        valid_values = normalized_values.dropna()
+        # Handle both old and new key names for backward compatibility
+        valid_values = analysis_results.get("valid_values")
+        if valid_values is None:
+            valid_values = analysis_results.get("valid_value")
 
-        if len(valid_values) == 0:
-            self.logger.warning(f"No valid currency values for visualization in {self.field_name}")
+        if valid_values is None:
+            self.logger.warning(
+                f"No valid currency values found in analysis results for {self.field_name}"
+            )
             return
 
+        if len(valid_values) == 0:
+            self.logger.warning(
+                f"No valid currency values for visualization in {self.field_name}"
+            )
+            return
+
+        # Use provided timestamp or generate new one
+        if timestamp is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         # Generate distribution histogram
-        if 'histogram' in stats_dict:
+        if "histogram" in stats_dict:
             try:
-                hist_filename = get_timestamped_filename(f"{self.field_name}_distribution", "png", include_timestamp) 
+                hist_filename = f"{self.field_name}_distribution_{timestamp}.png"
                 hist_path = vis_dir / hist_filename
 
                 # Create histogram using the visualization module
-                min_value = stats_dict.get('min')
-                max_value = stats_dict.get('max')
+                min_value = stats_dict.get("min")
+                max_value = stats_dict.get("max")
 
                 title = f"Distribution of {self.field_name}"
                 if min_value is not None and max_value is not None:
                     title += f" (min: {min_value:.2f}, max: {max_value:.2f})"
 
                 # Add currency information if available
-                currencies = analysis_results.get('currency_counts', {})
+                currencies = analysis_results.get("currency_counts", {})
                 if currencies:
-                    main_currency = max(currencies.items(), key=lambda x: x[1])[0] if currencies else "Unknown"
+                    main_currency = (
+                        max(currencies.items(), key=lambda x: x[1])[0]
+                        if currencies
+                        else "Unknown"
+                    )
                     if main_currency != "UNKNOWN":
                         title += f" ({main_currency})"
 
@@ -1352,19 +1771,30 @@ class CurrencyOperation(FieldOperation):
                     theme=vis_theme,
                     backend=vis_backend,
                     strict=vis_strict,
-                    **kwargs
+                    **kwargs,
                 )
 
                 if not hist_result.startswith("Error"):
-                    result.add_artifact("png", hist_path, f"{self.field_name} distribution histogram", category=Constants.Artifact_Category_Visualization)
-                    reporter.add_artifact("png", str(hist_path), f"{self.field_name} distribution histogram")
+                    result.add_artifact(
+                        "png",
+                        hist_path,
+                        f"{self.field_name} distribution histogram",
+                        category=Constants.Artifact_Category_Visualization,
+                    )
+                    reporter.add_artifact(
+                        "png",
+                        str(hist_path),
+                        f"{self.field_name} distribution histogram",
+                    )
             except Exception as e:
-                self.logger.warning(f"Error creating histogram for {self.field_name}: {e}")
+                self.logger.warning(
+                    f"Error creating histogram for {self.field_name}: {e}"
+                )
 
         # Generate boxplot
         if len(valid_values) >= 5:
             try:
-                boxplot_filename = get_timestamped_filename(f"{self.field_name}_boxplot", "png", include_timestamp)
+                boxplot_filename = f"{self.field_name}_boxplot_{timestamp}.png"
                 boxplot_path = vis_dir / boxplot_filename
 
                 # Create boxplot using the visualization module
@@ -1377,41 +1807,57 @@ class CurrencyOperation(FieldOperation):
                     theme=vis_theme,
                     backend=vis_backend,
                     strict=vis_strict,
-                    **kwargs
+                    **kwargs,
                 )
 
                 if not boxplot_result.startswith("Error"):
-                    result.add_artifact("png", boxplot_path, f"{self.field_name} boxplot", category=Constants.Artifact_Category_Visualization)
-                    reporter.add_artifact("png", str(boxplot_path), f"{self.field_name} boxplot")
+                    result.add_artifact(
+                        "png",
+                        boxplot_path,
+                        f"{self.field_name} boxplot",
+                        category=Constants.Artifact_Category_Visualization,
+                    )
+                    reporter.add_artifact(
+                        "png", str(boxplot_path), f"{self.field_name} boxplot"
+                    )
             except Exception as e:
-                self.logger.warning(f"Error creating boxplot for {self.field_name}: {e}")
+                self.logger.warning(
+                    f"Error creating boxplot for {self.field_name}: {e}"
+                )
 
         # Generate Q-Q plot for normality if requested
-        if self.test_normality and 'normality' in stats_dict and len(valid_values) >= 10:
+        if (
+            self.test_normality
+            and "normality" in stats_dict
+            and len(valid_values) >= 10
+        ):
             try:
-                qq_filename = get_timestamped_filename(f"{self.field_name}_qq_plot", "png", include_timestamp)
+                qq_filename = f"{self.field_name}_qq_plot_{timestamp}.png"
                 qq_path = vis_dir / qq_filename
 
                 # Generate synthetic normal data for comparison
                 np.random.seed(42)  # For reproducibility
-                normal_data = np.random.normal(loc=valid_values.mean(), scale=valid_values.std(),
-                                               size=len(valid_values))
+                normal_data = np.random.normal(
+                    loc=valid_values.mean(),
+                    scale=valid_values.std(),
+                    size=len(valid_values),
+                )
                 normal_data.sort()
 
                 # Sort the actual data for Q-Q plot
                 sorted_data = valid_values.sort_values()
 
                 # Create scatter plot comparing theoretical quantiles to actual data
-                normality_info = stats_dict['normality']
-                is_normal = normality_info.get('is_normal', False)
-                p_value = normality_info.get('shapiro', {}).get('p_value', None)
+                normality_info = stats_dict["normality"]
+                is_normal = normality_info.get("is_normal", False)
+                p_value = normality_info.get("shapiro", {}).get("p_value", None)
 
                 title = f"Q-Q Plot for {self.field_name}"
                 if p_value is not None:
                     title += f" (Shapiro p-value: {p_value:.4f})"
 
                 # Create the Q-Q plot
-                qq_result = create_correlation_pair(
+                qq_result = create_correlation_pair_plot(
                     x_data=normal_data,
                     y_data=sorted_data,
                     output_path=str(qq_path),
@@ -1422,22 +1868,33 @@ class CurrencyOperation(FieldOperation):
                     theme=vis_theme,
                     backend=vis_backend,
                     strict=vis_strict,
-                    **kwargs
+                    **kwargs,
                 )
 
                 if not qq_result.startswith("Error"):
-                    result.add_artifact("png", qq_path, f"{self.field_name} Q-Q plot (normality test)", category=Constants.Artifact_Category_Visualization)
-                    reporter.add_artifact("png", str(qq_path), f"{self.field_name} Q-Q plot")
+                    result.add_artifact(
+                        "png",
+                        qq_path,
+                        f"{self.field_name} Q-Q plot (normality test)",
+                        category=Constants.Artifact_Category_Visualization,
+                    )
+                    reporter.add_artifact(
+                        "png", str(qq_path), f"{self.field_name} Q-Q plot"
+                    )
             except Exception as e:
-                self.logger.warning(f"Error creating Q-Q plot for {self.field_name}: {e}")
+                self.logger.warning(
+                    f"Error creating Q-Q plot for {self.field_name}: {e}"
+                )
 
-    def _save_sample_records(self,
-                             df: pd.DataFrame,
-                             analysis_results: Dict[str, Any],
-                             dict_dir: Path,
-                             result: OperationResult,
-                             reporter: Any,
-                             encryption_key: Optional[str] = None):
+    def _save_sample_records(
+        self,
+        df: Union[pd.DataFrame, dd.DataFrame],
+        analysis_results: Dict[str, Any],
+        dict_dir: Path,
+        result: OperationResult,
+        reporter: Any,
+        encryption_key: Optional[str] = None,
+    ):
         """
         Save sample records with original currency values.
 
@@ -1474,33 +1931,51 @@ class CurrencyOperation(FieldOperation):
             indices = []
 
             # Start with any outliers if available
-            stats_dict = analysis_results.get('stats', {})
-            outliers = stats_dict.get('outliers', {})
+            stats_dict = analysis_results.get("stats", {})
+            outliers = stats_dict.get("outliers", {})
 
-            if outliers and 'indices' in outliers and outliers['indices']:
+            if outliers and "indices" in outliers and outliers["indices"]:
                 # Take up to 20% of the sample from outliers
-                outlier_indices = outliers['indices']
+                outlier_indices = outliers["indices"]
                 outlier_sample_size = min(len(outlier_indices), int(sample_size * 0.2))
                 if outlier_sample_size > 0:
-                    indices.extend(np.random.choice(outlier_indices, size=outlier_sample_size, replace=False))
+                    indices.extend(
+                        np.random.choice(
+                            outlier_indices, size=outlier_sample_size, replace=False
+                        )
+                    )
 
             # Handle multi-currency examples if available
-            if analysis_results.get('multi_currency', False):
-                # Get normalized values and currencies
-                normalized_values, _ = parse_currency_field(df, self.field_name,
-                                                            analysis_results.get('locale_used', 'en_US'))
-                currencies = getattr(normalized_values, 'currencies', [None] * len(normalized_values))
+            if analysis_results.get("multi_currency", False):
+                # Handle both old and new key names for backward compatibility
+                valid_values_data = analysis_results.get("valid_values")
+                if valid_values_data is None:
+                    valid_values_data = analysis_results.get("valid_value")
 
-                # Get indices for each currency
-                for currency in set(currencies):
-                    if currency:
-                        currency_indices = [i for i, c in enumerate(currencies) if c == currency]
-                        if currency_indices:
-                            # Take up to 10% of the sample from each currency
-                            currency_sample_size = min(len(currency_indices), int(sample_size * 0.1))
-                            if currency_sample_size > 0:
-                                indices.extend(
-                                    np.random.choice(currency_indices, size=currency_sample_size, replace=False))
+                if valid_values_data is not None:
+                    currencies = getattr(
+                        valid_values_data, "currencies", [None] * len(valid_values_data)
+                    )
+
+                    # Get indices for each currency
+                    for currency in set(currencies):
+                        if currency:
+                            currency_indices = [
+                                i for i, c in enumerate(currencies) if c == currency
+                            ]
+                            if currency_indices:
+                                # Take up to 10% of the sample from each currency
+                                currency_sample_size = min(
+                                    len(currency_indices), int(sample_size * 0.1)
+                                )
+                                if currency_sample_size > 0:
+                                    indices.extend(
+                                        np.random.choice(
+                                            currency_indices,
+                                            size=currency_sample_size,
+                                            replace=False,
+                                        )
+                                    )
 
             # Add some null values if available
             null_indices = df[df[self.field_name].isna()].index.tolist()
@@ -1508,7 +1983,11 @@ class CurrencyOperation(FieldOperation):
                 # Take up to 10% of the sample from null values
                 null_sample_size = min(len(null_indices), int(sample_size * 0.1))
                 if null_sample_size > 0:
-                    indices.extend(np.random.choice(null_indices, size=null_sample_size, replace=False))
+                    indices.extend(
+                        np.random.choice(
+                            null_indices, size=null_sample_size, replace=False
+                        )
+                    )
 
             # Fill the rest with random samples
             if len(indices) < sample_size:
@@ -1517,8 +1996,12 @@ class CurrencyOperation(FieldOperation):
 
                 if remaining_indices and remaining_sample_size > 0:
                     indices.extend(
-                        np.random.choice(remaining_indices, size=min(len(remaining_indices), remaining_sample_size),
-                                         replace=False))
+                        np.random.choice(
+                            remaining_indices,
+                            size=min(len(remaining_indices), remaining_sample_size),
+                            replace=False,
+                        )
+                    )
 
             # Deduplicate and sort indices
             indices = sorted(set(indices))
@@ -1536,16 +2019,29 @@ class CurrencyOperation(FieldOperation):
             sample_filename = f"{self.field_name}_sample.csv"
             sample_path = dict_dir / sample_filename
 
-            write_dataframe_to_csv(sample_df, sample_path, encryption_key=encryption_key)
+            write_dataframe_to_csv(
+                sample_df, sample_path, encryption_key=encryption_key
+            )
 
             # Add to result
-            result.add_artifact("csv", sample_path, f"{self.field_name} sample records", category=Constants.Artifact_Category_Dictionary)
-            reporter.add_artifact("csv", str(sample_path), f"{self.field_name} sample records")
+            result.add_artifact(
+                "csv",
+                sample_path,
+                f"{self.field_name} sample records",
+                category=Constants.Artifact_Category_Dictionary,
+            )
+            reporter.add_artifact(
+                "csv", str(sample_path), f"{self.field_name} sample records"
+            )
 
         except Exception as e:
-            self.logger.warning(f"Error saving sample records for {self.field_name}: {e}")
+            self.logger.warning(
+                f"Error saving sample records for {self.field_name}: {e}"
+            )
 
-    def _add_metrics_to_result(self, analysis_results: Dict[str, Any], result: OperationResult):
+    def _add_metrics_to_result(
+        self, analysis_results: Dict[str, Any], result: OperationResult
+    ):
         """
         Add metrics from the analysis results to the operation result.
 
@@ -1557,76 +2053,111 @@ class CurrencyOperation(FieldOperation):
             Operation result to add metrics to
         """
         # Add basic metrics
-        result.add_metric("total_rows", analysis_results.get('total_rows', 0))
-        result.add_metric("valid_count", analysis_results.get('valid_count', 0))
-        result.add_metric("null_count", analysis_results.get('null_count', 0))
-        result.add_metric("invalid_count", analysis_results.get('invalid_count', 0))
-        result.add_metric("null_percentage", analysis_results.get('null_percentage', 0.0))
-        result.add_metric("invalid_percentage", analysis_results.get('invalid_percentage', 0.0))
-        result.add_metric("multi_currency", analysis_results.get('multi_currency', False))
-        result.add_metric("currency_count", len(analysis_results.get('currency_counts', {})))
+        result.add_metric("total_rows", analysis_results.get("total_rows", 0))
+        result.add_metric("valid_count", analysis_results.get("valid_count", 0))
+        result.add_metric("null_count", analysis_results.get("null_count", 0))
+        result.add_metric("invalid_count", analysis_results.get("invalid_count", 0))
+        result.add_metric(
+            "null_percentage", analysis_results.get("null_percentage", 0.0)
+        )
+        result.add_metric(
+            "invalid_percentage", analysis_results.get("invalid_percentage", 0.0)
+        )
+        result.add_metric(
+            "multi_currency", analysis_results.get("multi_currency", False)
+        )
+        result.add_metric(
+            "currency_count", len(analysis_results.get("currency_counts", {}))
+        )
 
         # Add statistics metrics
-        stats_dict = analysis_results.get('stats', {})
+        stats_dict = analysis_results.get("stats", {})
 
         if stats_dict:
             # Add basic statistics
-            result.add_nested_metric("statistics", "min", stats_dict.get('min'))
-            result.add_nested_metric("statistics", "max", stats_dict.get('max'))
-            result.add_nested_metric("statistics", "mean", stats_dict.get('mean'))
-            result.add_nested_metric("statistics", "median", stats_dict.get('median'))
-            result.add_nested_metric("statistics", "std", stats_dict.get('std'))
+            result.add_nested_metric("statistics", "min", stats_dict.get("min"))
+            result.add_nested_metric("statistics", "max", stats_dict.get("max"))
+            result.add_nested_metric("statistics", "mean", stats_dict.get("mean"))
+            result.add_nested_metric("statistics", "median", stats_dict.get("median"))
+            result.add_nested_metric("statistics", "std", stats_dict.get("std"))
 
             # Add distribution statistics
-            result.add_nested_metric("statistics", "skewness", stats_dict.get('skewness'))
-            result.add_nested_metric("statistics", "kurtosis", stats_dict.get('kurtosis'))
+            result.add_nested_metric(
+                "statistics", "skewness", stats_dict.get("skewness")
+            )
+            result.add_nested_metric(
+                "statistics", "kurtosis", stats_dict.get("kurtosis")
+            )
 
             # Add zero and negative counts
-            result.add_nested_metric("statistics", "zero_count", stats_dict.get('zero_count', 0))
-            result.add_nested_metric("statistics", "zero_percentage", stats_dict.get('zero_percentage', 0.0))
-            result.add_nested_metric("statistics", "negative_count", stats_dict.get('negative_count', 0))
-            result.add_nested_metric("statistics", "negative_percentage", stats_dict.get('negative_percentage', 0.0))
+            result.add_nested_metric(
+                "statistics", "zero_count", stats_dict.get("zero_count", 0)
+            )
+            result.add_nested_metric(
+                "statistics", "zero_percentage", stats_dict.get("zero_percentage", 0.0)
+            )
+            result.add_nested_metric(
+                "statistics", "negative_count", stats_dict.get("negative_count", 0)
+            )
+            result.add_nested_metric(
+                "statistics",
+                "negative_percentage",
+                stats_dict.get("negative_percentage", 0.0),
+            )
 
             # Add outlier metrics
-            outliers = stats_dict.get('outliers', {})
+            outliers = stats_dict.get("outliers", {})
             if outliers:
-                result.add_nested_metric("outliers", "count", outliers.get('count', 0))
-                result.add_nested_metric("outliers", "percentage", outliers.get('percentage', 0.0))
-                result.add_nested_metric("outliers", "lower_bound", outliers.get('lower_bound'))
-                result.add_nested_metric("outliers", "upper_bound", outliers.get('upper_bound'))
+                result.add_nested_metric("outliers", "count", outliers.get("count", 0))
+                result.add_nested_metric(
+                    "outliers", "percentage", outliers.get("percentage", 0.0)
+                )
+                result.add_nested_metric(
+                    "outliers", "lower_bound", outliers.get("lower_bound")
+                )
+                result.add_nested_metric(
+                    "outliers", "upper_bound", outliers.get("upper_bound")
+                )
 
             # Add normality metrics
-            normality = stats_dict.get('normality', {})
+            normality = stats_dict.get("normality", {})
             if normality:
-                result.add_nested_metric("normality", "is_normal", normality.get('is_normal', False))
-                shapiro = normality.get('shapiro', {})
+                result.add_nested_metric(
+                    "normality", "is_normal", normality.get("is_normal", False)
+                )
+                shapiro = normality.get("shapiro", {})
                 if shapiro:
-                    result.add_nested_metric("normality", "shapiro_stat", shapiro.get('statistic'))
-                    result.add_nested_metric("normality", "shapiro_p_value", shapiro.get('p_value'))
+                    result.add_nested_metric(
+                        "normality", "shapiro_stat", shapiro.get("statistic")
+                    )
+                    result.add_nested_metric(
+                        "normality", "shapiro_p_value", shapiro.get("p_value")
+                    )
 
         # Add currency metrics
-        currency_counts = analysis_results.get('currency_counts', {})
+        currency_counts = analysis_results.get("currency_counts", {})
         if currency_counts:
             for currency, count in currency_counts.items():
                 result.add_nested_metric("currencies", currency, count)
 
     def _check_cache(
-            self,
-            data_source: DataSource,
-            dataset_name: str = "main",
-            **kwargs
+        self,
+        df: Union[pd.DataFrame, dd.DataFrame],
+        task_dir: Path,
+        reporter: Any,
+        **kwargs,
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
         Parameters:
         -----------
-        data_source : DataSource
-            Data source for the operation
+        df : Union[pd.DataFrame, dd.DataFrame]
+            DataFrame for the operation
         task_dir : Path
             Task directory
-        dataset_name: str
-            Dataset name
+        reporter : Any
+            The reporter to log artifacts to
 
         Returns:
         --------
@@ -1638,23 +2169,17 @@ class CurrencyOperation(FieldOperation):
 
         try:
             # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
+            from pamola_core.utils.ops.op_cache import OperationCache
 
-            # Get DataFrame from data source
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                self.logger.warning("No valid DataFrame found in data source")
-                return None
+            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
 
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
-                cache_key=cache_key,
-                operation_type=self.__class__.__name__
+            cached_data = operation_cache_dir.get_cache(
+                cache_key=cache_key, operation_type=self.__class__.__name__
             )
 
             if cached_data:
@@ -1677,12 +2202,19 @@ class CurrencyOperation(FieldOperation):
                         artifact_path = artifact.get("path", "")
                         artifact_name = artifact.get("description", "")
                         artifact_category = artifact.get("category", "output")
-                        cached_result.add_artifact(artifact_type, artifact_path, artifact_name, artifact_category) 
+                        cached_result.add_artifact(
+                            artifact_type,
+                            artifact_path,
+                            artifact_name,
+                            artifact_category,
+                        )
 
                 # Add cache information to result
                 cached_result.add_metric("cached", True)
                 cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric("cache_timestamp", cached_data.get("timestamp", "unknown"))
+                cached_result.add_metric(
+                    "cache_timestamp", cached_data.get("timestamp", "unknown")
+                )
 
                 return cached_result
 
@@ -1691,23 +2223,21 @@ class CurrencyOperation(FieldOperation):
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
-        
+
     def _save_to_cache(
-            self,
-            original_df: pd.DataFrame,
-            artifacts: List[OperationArtifact],
-            metrics: Dict[str, Any],
-            task_dir: Path
+        self,
+        original_df: Union[pd.DataFrame, dd.DataFrame],
+        artifacts: List[OperationArtifact],
+        metrics: Dict[str, Any],
+        task_dir: Path,
     ) -> bool:
         """
         Save operation results to cache.
 
         Parameters:
         -----------
-        original_df : pd.DataFrame
+        original_df : Union[pd.DataFrame, dd.DataFrame]
             Original input data
-        processed_df : pd.DataFrame
-            Processed DataFrame
         metrics : dict
             The metrics of operation
         task_dir : Path
@@ -1746,7 +2276,7 @@ class CurrencyOperation(FieldOperation):
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,
-                metadata={"task_dir": str(task_dir)}
+                metadata={"task_dir": str(task_dir)},
             )
 
             if success:
@@ -1758,18 +2288,15 @@ class CurrencyOperation(FieldOperation):
         except Exception as e:
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
-        
-    def _generate_cache_key(
-            self,
-            df: pd.DataFrame
-    ) -> str:
+
+    def _generate_cache_key(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
         """
         Generate a deterministic cache key based on operation parameters and data characteristics.
 
         Parameters:
         -----------
-        df : pd.DataFrame
-            Input data for the operation
+        df : Union[pd.DataFrame, dd.DataFrame]
+            DataFrame for the operation
 
         Returns:
         --------
@@ -1788,12 +2315,10 @@ class CurrencyOperation(FieldOperation):
         return operation_cache.generate_cache_key(
             operation_name=self.__class__.__name__,
             parameters=parameters,
-            data_hash=data_hash
+            data_hash=data_hash,
         )
 
-    def _get_operation_parameters(
-            self
-    ) -> Dict[str, Any]:
+    def _get_operation_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1808,16 +2333,27 @@ class CurrencyOperation(FieldOperation):
             "bins": self.bins,
             "detect_outliers": self.detect_outliers,
             "test_normality": self.test_normality,
+            "use_dask": self.use_dask,
+            "npartitions": self.npartitions,
+            "use_vectorization": self.use_vectorization,
+            "parallel_processes": self.parallel_processes,
+            "chunk_size": self.chunk_size,
+            "visualization_theme": self.visualization_theme,
+            "visualization_backend": self.visualization_backend,
+            "visualization_strict": self.visualization_strict,
+            "visualization_timeout": self.visualization_timeout,
+            "use_cache": self.use_cache,
+            "use_encryption": self.use_encryption,
+            "encryption_mode": self.encryption_mode,
+            "encryption_key": self.encryption_key,
         }
 
         # Add operation-specific parameters
         parameters.update(self._get_cache_parameters())
 
         return parameters
-    
-    def _get_cache_parameters(
-            self
-    ) -> Dict[str, Any]:
+
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for cache key generation.
 
@@ -1827,12 +2363,8 @@ class CurrencyOperation(FieldOperation):
             Parameters for cache key generation
         """
         return {}
-        
-    
-    def _generate_data_hash(
-            self,
-            df: pd.DataFrame
-    ) -> str:
+
+    def _generate_data_hash(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
         """
         Generate a hash representing the key characteristics of the data.
 
@@ -1853,29 +2385,28 @@ class CurrencyOperation(FieldOperation):
             characteristics = df.describe(include="all")
 
             # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format='iso')
+            json_str = characteristics.to_json(date_format="iso")
         except Exception as e:
             self.logger.warning(f"Error generating data hash: {str(e)}")
 
-            # Fallback to a simple hash of the data length and type         
+            # Fallback to a simple hash of the data length and type
             json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
 
         return hashlib.md5(json_str.encode()).hexdigest()
-    
+
     def _handle_visualizations(
-            self,
-            df: pd.DataFrame,
-            analysis_results: Dict[str, Any],
-            vis_dir: Path,
-            include_timestamp: bool,
-            result: OperationResult,
-            reporter: Any,
-            vis_theme: Optional[str] = None,
-            vis_backend: Optional[str] = None,
-            vis_strict: bool = False,
-            vis_timeout: int = 120,
-            progress_tracker: Optional[HierarchicalProgressTracker] = None,
-            **kwargs
+        self,
+        analysis_results: Dict[str, Any],
+        vis_dir: Path,
+        timestamp: Optional[str],
+        result: OperationResult,
+        reporter: Any,
+        vis_theme: Optional[str] = None,
+        vis_backend: Optional[str] = None,
+        vis_strict: bool = False,
+        vis_timeout: int = 120,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
     ) -> Dict[str, Path]:
         """
         Generate and save visualizations.
@@ -1888,8 +2419,8 @@ class CurrencyOperation(FieldOperation):
             Results of the analysis
         vis_dir : Path
             Directory to save visualizations
-        include_timestamp : bool
-            Whether to include timestamps in output filenames
+        timestamp : Optional[str]
+            Timestamp for naming visualization files
         result : OperationResult
             Operation result to add artifacts to
         reporter : Any
@@ -1913,7 +2444,9 @@ class CurrencyOperation(FieldOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+        logger.info(
+            f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
+        )
 
         try:
             import threading
@@ -1927,8 +2460,12 @@ class CurrencyOperation(FieldOperation):
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
-                logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+                logger.info(
+                    f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
+                )
+                logger.info(
+                    f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
+                )
 
                 start_time = time.time()
 
@@ -1937,7 +2474,9 @@ class CurrencyOperation(FieldOperation):
                     logger.info(f"[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                        logger.info(
+                            f"[DIAG] Context vars count: {len(list(current_context))}"
+                        )
                     except Exception as ctx_e:
                         logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
 
@@ -1954,20 +2493,21 @@ class CurrencyOperation(FieldOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            logger.debug(f"Could not create child progress tracker: {e}")
+                            logger.debug(
+                                f"Could not create child progress tracker: {e}"
+                            )
 
                     # Generate visualizations
                     self._generate_visualizations(
-                        df,
                         analysis_results,
                         vis_dir,
-                        include_timestamp,
+                        timestamp,
                         result,
                         reporter,
                         vis_theme,
                         vis_backend,
                         vis_strict,
-                        **kwargs
+                        **kwargs,
                     )
 
                     # Close visualization progress tracker
@@ -1984,7 +2524,9 @@ class CurrencyOperation(FieldOperation):
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    logger.error(
+                        f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
+                    )
                     logger.error(f"[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
@@ -1999,7 +2541,9 @@ class CurrencyOperation(FieldOperation):
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            logger.info(
+                f"[DIAG] Starting visualization thread with timeout={vis_timeout}s"
+            )
             thread_start_time = time.time()
             viz_thread.start()
 
@@ -2010,21 +2554,35 @@ class CurrencyOperation(FieldOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+                    logger.info(
+                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
+                    )
 
             if viz_thread.is_alive():
-                logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
-                logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                logger.error(
+                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
+                )
+                logger.error(
+                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
+                )
                 visualization_paths = {}
             elif visualization_error:
-                logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                logger.error(
+                    f"[DIAG] Visualization failed with error: {visualization_error}"
+                )
                 visualization_paths = {}
             else:
                 total_time = time.time() - thread_start_time
-                logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
-                logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+                logger.info(
+                    f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s"
+                )
+                logger.info(
+                    f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}"
+                )
         except Exception as e:
-            logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            logger.error(
+                f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
+            )
             logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
@@ -2035,7 +2593,7 @@ class CurrencyOperation(FieldOperation):
                 artifact_type="png",
                 path=path,
                 description=f"{viz_type} visualization",
-                category=Constants.Artifact_Category_Visualization
+                category=Constants.Artifact_Category_Visualization,
             )
 
             # Report to reporter
@@ -2043,7 +2601,7 @@ class CurrencyOperation(FieldOperation):
                 reporter.add_artifact(
                     artifact_type="png",
                     path=str(path),
-                    description=f"{viz_type} visualization"
+                    description=f"{viz_type} visualization",
                 )
 
         return visualization_paths

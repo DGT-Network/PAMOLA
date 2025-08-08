@@ -96,7 +96,7 @@ result = operation.execute(
     data_source=data_source,
     task_dir=task_dir,
     reporter=reporter,
-    generate_plots=True
+    generate_visualization=True
 )
 
 # Check the result
@@ -134,7 +134,7 @@ if result.status.name == "SUCCESS":
 | `reporter` | Any | Yes | - | Reporter object for tracking artifacts |
 | `progress_tracker` | ProgressTracker | No | None | Progress tracking object |
 | `near_zero_threshold` | float | No | 1e-10 | Threshold for near-zero detection |
-| `generate_plots` | bool | No | True | Whether to create visualizations |
+| `generate_visualization` | bool | No | True | Whether to create visualizations |
 | `include_timestamp` | bool | No | True | Whether to include timestamps in filenames |
 | `profile_type` | str | No | "numeric" | Type of profiling for organizing artifacts |
 

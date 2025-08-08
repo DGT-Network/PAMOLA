@@ -10,7 +10,17 @@ from pamola_core.fake_data.generators.email import EmailGenerator
 from pamola_core.utils.ops.op_registry import unregister_operation, get_operation_class
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus, OperationArtifact
 
-
+class DummyDataSource:
+    def __init__(self, df=None, error=None):
+        self.df = df
+        self.error = error
+        self.encryption_keys = {}
+        self.encryption_modes = {}
+    def get_dataframe(self, dataset_name, **kwargs):
+        if self.df is not None:
+            return self.df, None
+        return None, {"message": self.error or "No data"}
+    
 class TestFakeEmailOperationInit(unittest.TestCase):
 
     #@patch('pamola_core.fake_data.operations.email_op.register')
@@ -365,7 +375,7 @@ class PrepareData:
         }
 
     def create_task_dir(self):
-        task_dir = Path("C:/fake_data/unittest/operation/email")
+        task_dir = Path("test_task_dir/fake_data/unittest/operation/email")
         os.makedirs(task_dir, exist_ok=True)
         return task_dir
 
@@ -382,120 +392,176 @@ class TestFakeEmailOperationExecute(unittest.TestCase):
             unregister_operation("FakeEmailOperation")
 
     def test_execute_success_with_enrich_mode(self):
+        df_data_source = self.data_source
+        df = DummyDataSource(df_data_source)
         op = FakeEmailOperation(**self.kwargs)
-
-        result = op.execute(
-            data_source=self.data_source,
-            task_dir=self.task_dir,
-            reporter=None,
-            progress_tracker=None,
-            **self.kwargs
-        )
-
-        # Check result is an instance of OperationResult
-        self.assertIsInstance(result, OperationResult)
-
-        # Check that status is SUCCESS
-        self.assertEqual(result.status, OperationStatus.SUCCESS)
-
-        # Check error message is None
-        self.assertIsNone(result.error_message)
-
-        # Check mapping store
-        mapping_path = Path(self.task_dir) / "maps" / f"{op.name}_{op.field_name}_mapping.json"
-        self.assertTrue(mapping_path.is_file(), msg=f"Mapping file not found at: {mapping_path}")
-
-        # Check artifacts
-        self.assertIsInstance(result.artifacts, list)
-        for artifact in result.artifacts:
-            self.assertIsInstance(artifact, OperationArtifact)
-            self.assertTrue(
-                artifact.path.is_file(),
-                msg=f"Artifact file does not exist: {artifact.path}"
+        
+        with patch("pamola_core.utils.io.load_settings_operation", return_value={}), \
+         patch("pamola_core.utils.io.load_data_operation", return_value=df_data_source.copy()):
+            result = op.execute(
+                data_source=df,
+                task_dir=self.task_dir,
+                reporter=None,
+                progress_tracker=None,
+                **self.kwargs
             )
-            self.assertTrue(
-                str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
-                msg=f"Unexpected artifact file type: {artifact.path}"
-            )
-            self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
-            self.assertIsInstance(artifact.tags, list)
-            self.assertIsInstance(artifact.creation_time, str)
-            self.assertIsInstance(artifact.size, int)
 
-        # Check metrics
-        if self.kwargs.get("detailed_metrics") and hasattr(result, "metrics"):
-            self.assertIsInstance(result.metrics, dict)
-            self.assertEqual(result.metrics["output_field"]["name"], "email_enriched")
-            self.assertIsInstance(result.metrics["original_data"], dict)
-            self.assertIsInstance(result.metrics["generated_data"], dict)
-            self.assertEqual(len(result.metrics["original_data"]), len(result.metrics["generated_data"]))
+            # Check result is an instance of OperationResult
+            self.assertIsInstance(result, OperationResult)
 
-        # Check that execution time is recorded
-        self.assertIsInstance(result.execution_time, float)
+            # Check that status is SUCCESS
+            self.assertEqual(result.status, OperationStatus.SUCCESS)
+
+            # Check error message is None
+            self.assertIsNone(result.error_message)
+
+            # Check mapping store
+            mapping_path = Path(self.task_dir) / "maps" / f"{op.name}_{op.field_name}_mapping.json"
+            self.assertTrue(mapping_path.is_file(), msg=f"Mapping file not found at: {mapping_path}")
+
+            # Check artifacts
+            self.assertIsInstance(result.artifacts, list)
+            for artifact in result.artifacts:
+                self.assertIsInstance(artifact, OperationArtifact)
+                self.assertTrue(
+                    artifact.path.is_file(),
+                    msg=f"Artifact file does not exist: {artifact.path}"
+                )
+                self.assertTrue(
+                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
+                    msg=f"Unexpected artifact file type: {artifact.path}"
+                )
+                self.assertIsInstance(artifact.description, str)
+                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIsInstance(artifact.tags, list)
+                self.assertIsInstance(artifact.creation_time, str)
+                self.assertIsInstance(artifact.size, int)
+
+            # Check metrics
+            if self.kwargs.get("detailed_metrics") and hasattr(result, "metrics"):
+                self.assertIsInstance(result.metrics, dict)
+                self.assertEqual(result.metrics["output_field"]["name"], "email_enriched")
+                self.assertIsInstance(result.metrics["original_data"], dict)
+                self.assertIsInstance(result.metrics["generated_data"], dict)
+                self.assertEqual(len(result.metrics["original_data"]), len(result.metrics["generated_data"]))
+
+            # Check that execution time is recorded
+            self.assertIsInstance(result.execution_time, float)
 
     def test_execute_success_with_replace_mode(self):
         self.kwargs["mode"] = "REPLACE"
+        df_data_source = self.data_source
+        df = DummyDataSource(df_data_source)
         op = FakeEmailOperation(**self.kwargs)
-
-        result = op.execute(
-            data_source=self.data_source,
-            task_dir=self.task_dir,
-            reporter=None,
-            progress_tracker=None,
-            **self.kwargs
-        )
-
-        # Check result is an instance of OperationResult
-        self.assertIsInstance(result, OperationResult)
-
-        # Check that status is SUCCESS
-        self.assertEqual(result.status, OperationStatus.SUCCESS)
-
-        # Check error message is None
-        self.assertIsNone(result.error_message)
-
-        # Check mapping store
-        mapping_path = Path(self.task_dir) / "maps" / f"{op.name}_{op.field_name}_mapping.json"
-        self.assertTrue(mapping_path.is_file(), msg=f"Mapping file not found at: {mapping_path}")
-
-        # Check artifacts
-        self.assertIsInstance(result.artifacts, list)
-        for artifact in result.artifacts:
-            self.assertIsInstance(artifact, OperationArtifact)
-            self.assertTrue(
-                artifact.path.is_file(),
-                msg=f"Artifact file does not exist: {artifact.path}"
+        
+        with patch("pamola_core.utils.io.load_settings_operation", return_value={}), \
+         patch("pamola_core.utils.io.load_data_operation", return_value=df_data_source.copy()):
+            result = op.execute(
+                data_source=df,
+                task_dir=self.task_dir,
+                reporter=None,
+                progress_tracker=None,
+                **self.kwargs
             )
-            self.assertTrue(
-                str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
-                msg=f"Unexpected artifact file type: {artifact.path}"
-            )
-            self.assertIsInstance(artifact.description, str)
-            self.assertIn(artifact.category, ["output", "metrics", "visualization"])
-            self.assertIsInstance(artifact.tags, list)
-            self.assertIsInstance(artifact.creation_time, str)
-            self.assertIsInstance(artifact.size, int)
 
-        # Check that execution time is recorded
-        self.assertIsInstance(result.execution_time, float)
+            # Check result is an instance of OperationResult
+            self.assertIsInstance(result, OperationResult)
+
+            # Check that status is SUCCESS
+            self.assertEqual(result.status, OperationStatus.SUCCESS)
+
+            # Check error message is None
+            self.assertIsNone(result.error_message)
+
+            # Check mapping store
+            mapping_path = Path(self.task_dir) / "maps" / f"{op.name}_{op.field_name}_mapping.json"
+            self.assertTrue(mapping_path.is_file(), msg=f"Mapping file not found at: {mapping_path}")
+
+            # Check artifacts
+            self.assertIsInstance(result.artifacts, list)
+            for artifact in result.artifacts:
+                self.assertIsInstance(artifact, OperationArtifact)
+                self.assertTrue(
+                    artifact.path.is_file(),
+                    msg=f"Artifact file does not exist: {artifact.path}"
+                )
+                self.assertTrue(
+                    str(artifact.path).endswith((".json", ".csv", ".txt", ".png")),
+                    msg=f"Unexpected artifact file type: {artifact.path}"
+                )
+                self.assertIsInstance(artifact.description, str)
+                self.assertIn(artifact.category, ["output", "metrics", "visualization"])
+                self.assertIsInstance(artifact.tags, list)
+                self.assertIsInstance(artifact.creation_time, str)
+                self.assertIsInstance(artifact.size, int)
+
+            # Check that execution time is recorded
+            self.assertIsInstance(result.execution_time, float)
 
     def test_execute_missing_field_name_column(self):
-        df = self.data_source.drop(columns=["email"])   # Missing field_name column in data_source
+        df_data_source = self.data_source.drop(columns=["email"])
+        df = DummyDataSource(df_data_source)   # Missing field_name column in data_source
         op = FakeEmailOperation(**self.kwargs)
+        
+        with patch("pamola_core.utils.io.load_settings_operation", return_value={}), \
+         patch("pamola_core.utils.io.load_data_operation", return_value=df_data_source.copy()):
+            result = op.execute(
+                data_source=df,
+                task_dir=self.task_dir,
+                reporter=None,
+                progress_tracker=None,
+                **self.kwargs
+            )
 
-        result = op.execute(
-            data_source=df,
-            task_dir=self.task_dir,
-            reporter=None,
-            progress_tracker=None,
-            **self.kwargs
-        )
+            self.assertEqual(result.status, OperationStatus.ERROR)
+            self.assertIsInstance(result.error_message, str)
+            self.assertIn("email", result.error_message.lower())
 
-        self.assertEqual(result.status, OperationStatus.ERROR)
-        self.assertIsInstance(result.error_message, str)
-        self.assertIn("email", result.error_message.lower())
+    def test_calculate_quality_metrics_all_nan(self):
+        import pandas as pd
+        orig = pd.Series([None, None, None])
+        gen = pd.Series([None, None, None])
+        op = FakeEmailOperation(**self.kwargs)
+        metrics = op._calculate_quality_metrics(orig, gen)
+        assert isinstance(metrics, dict)
+        assert metrics == {}
 
+    def test_calculate_quality_metrics_partial_nan(self):
+        orig = pd.Series(['a@x.com', None, 'c@z.com'])
+        gen = pd.Series(['a@x.com', 'b@y.com', None])
+        op = FakeEmailOperation(**self.kwargs)
+        metrics = op._calculate_quality_metrics(orig, gen)
+        assert 'length_similarity' in metrics
+        assert 'domain_preservation_ratio' in metrics
+        assert 'domain_diversity_ratio' in metrics
+        assert 'local_part_length_similarity' in metrics
+        assert 'separator_similarity' in metrics
+
+    def test_calculate_quality_metrics_no_at_symbol(self):
+        orig = pd.Series(['axcom', 'bycom', 'czcom'])
+        gen = pd.Series(['axcom', 'bycom', 'czcom'])
+        op = FakeEmailOperation(**self.kwargs)
+        metrics = op._calculate_quality_metrics(orig, gen)
+        # Should not raise, but metrics may be missing domain/local part keys
+        assert isinstance(metrics, dict)
+
+    def test_analyze_domain_distribution_with_none(self):
+        op = FakeEmailOperation(**self.kwargs)
+        op._domain_stats = None
+        df = self.data_source
+        result = op._analyze_domain_distribution(df)
+        # Should return an empty dict or handle None gracefully
+        self.assertIsInstance(result, dict)
+        self.assertEqual(result, {})
+
+    def test_analyze_domain_distribution_with_REPLACE_mode(self):
+        self.kwargs["mode"] = "REPLACE"
+        op = FakeEmailOperation(**self.kwargs)
+        op._domain_stats = None
+        df = self.data_source
+        result = op._analyze_domain_distribution(df)
+        self.assertIsInstance(result, dict)
+        assert result['total_emails'] > 0
 
 if __name__ == "__main__":
     unittest.main()

@@ -74,12 +74,13 @@ class FakeEmailOperation(GeneratorOperation):
                  npartitions: int = 1,
                  use_vectorization: bool = False,
                  parallel_processes: int = 1,
-                 use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_theme: Optional[str] = None,
                  visualization_strict: bool = False,
-                 encryption_mode: Optional[str] = None):  # Maximum retry attempts on error
+                 visualization_timeout: int = 120,
+                 use_encryption: bool = False,
+                 encryption_key: Optional[Union[str, Path]] = None,
+                 encryption_mode: Optional[str] = None):
 
         """
         Initialize email generation operation.
@@ -183,7 +184,8 @@ class FakeEmailOperation(GeneratorOperation):
             encryption_mode=encryption_mode,
             visualization_backend=visualization_backend,
             visualization_theme=visualization_theme,
-            visualization_strict=visualization_strict
+            visualization_strict=visualization_strict,
+            visualization_timeout=visualization_timeout
         )
 
         # Set up performance metrics

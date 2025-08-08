@@ -92,7 +92,7 @@ Normalizes entropy to a [0,1] range for easier comparison.
 
 ### anonymity.py
 
-#### `PreKAnonymityProfilingOperation`
+#### `KAnonymityProfilerOperation`
 
 Main operation class that implements the k-anonymity profiling workflow.
 
@@ -120,7 +120,7 @@ data_source = DataSource.from_file_path("resume_data.csv", load=True)
 
 # Create operation
 operation = create_operation_instance(
-    "PreKAnonymityProfilingOperation",
+    "KAnonymityProfilerOperation",
     min_combination_size=2,
     max_combination_size=3,
     treshold_k=5

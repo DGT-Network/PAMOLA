@@ -25,6 +25,7 @@ from typing import Dict, List, Any, Optional, Union
 
 import pandas as pd
 
+from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.profiling.commons.phone_utils import (
     analyze_phone_field,
     analyze_phone_field_with_chunk,
@@ -312,13 +313,13 @@ class PhoneOperation(FieldOperation):
                 field_name: str,
                 min_frequency: int = 1,
                 patterns_csv: Optional[str] = None,
-                generate_plots: bool = True,
+                generate_visualization: bool = True,
                 include_timestamp: bool = True,
                 profile_type: str = 'phone',
                 track_progress: bool = True,
                 country_code: Any = None,
                  visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_strict: bool = False,
                  visualization_timeout: int = 120,
                  chunk_size: int = 10000,
@@ -376,7 +377,7 @@ class PhoneOperation(FieldOperation):
         
         self.min_frequency = min_frequency
         self.patterns_csv = patterns_csv
-        self.generate_plots = generate_plots
+        self.generate_visualization = generate_visualization
         self.include_timestamp = include_timestamp
         self.profile_type = profile_type
         self.track_progress = track_progress
@@ -420,7 +421,7 @@ class PhoneOperation(FieldOperation):
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for the operation:
-            - generate_plots: bool, whether to generate visualizations
+            - generate_visualization: bool, whether to generate visualizations
             - include_timestamp: bool, whether to include timestamps in filenames
             - profile_type: str, type of profiling for organizing artifacts
             - country_code: str, specific country code to focus on for operator analysis
@@ -452,14 +453,13 @@ class PhoneOperation(FieldOperation):
             result = OperationResult(status=OperationStatus.SUCCESS)
 
             # Decompose kwargs and introduce variables for clarity
-            generate_plots = kwargs.get('generate_plots', self.generate_plots)
+            generate_visualization = kwargs.get('generate_visualization', self.generate_visualization)
             include_timestamp = kwargs.get('include_timestamp', self.include_timestamp)
             profile_type = kwargs.get('profile_type', self.profile_type)
             country_code = kwargs.get('country_code', self.country_code)
             force_recalculation = kwargs.get("force_recalculation", False)
             use_dask = kwargs.get("use_dask", self.use_dask)
             parallel_processes = kwargs.get("parallel_processes", 1)
-            generate_visualization = kwargs.get("generate_visualization", True)
             save_output = kwargs.get("save_output", True)
             is_encryption_required = (kwargs.get("encrypt_output", False) or self.use_encryption)
             encryption_key = kwargs.get('encryption_key', None)
@@ -529,7 +529,7 @@ class PhoneOperation(FieldOperation):
 
             # Adjust progress tracker total steps if provided
             total_steps = 4  # Preparation, analysis, saving results, dictionaries
-            if generate_plots:
+            if generate_visualization:
                 total_steps += 1  # Add step for generating visualizations
 
             if progress_tracker:
@@ -537,6 +537,7 @@ class PhoneOperation(FieldOperation):
                 progress_tracker.update(0, {"status": "Analyzing field"})
 
             # Execute the analyzer
+            safe_kwargs = filter_used_kwargs(kwargs, PhoneAnalyzer.analyze)
             analysis_results = PhoneAnalyzer.analyze(
                 df=df,
                 field_name=self.field_name,
@@ -546,7 +547,7 @@ class PhoneOperation(FieldOperation):
                 npartitions=self.npartitions,
                 use_vectorization=self.use_vectorization,
                 parallel_processes=self.parallel_processes,
-                **kwargs
+                **safe_kwargs
             )
 
             # Check for errors
@@ -583,7 +584,7 @@ class PhoneOperation(FieldOperation):
                 progress_tracker.update(1, {"step": "Saved analysis results"})
 
             # Generate visualizations if requested
-            if generate_plots and self.visualization_backend is not None:
+            if generate_visualization and self.visualization_backend is not None:
                 # Update progress
                 if progress_tracker:
                     progress_tracker.update(0, {"step": "Generating visualizations"})
@@ -799,7 +800,8 @@ class PhoneOperation(FieldOperation):
 
             return OperationResult(
                 status=OperationStatus.ERROR,
-                error_message=f"Error analyzing phone field {self.field_name}: {str(e)}"
+                error_message=f"Error analyzing phone field {self.field_name}: {str(e)}",
+                exception=e,
             )
 
     def _check_cache(
@@ -1348,29 +1350,12 @@ class PhoneOperation(FieldOperation):
             else:
                 total_time = time.time() - thread_start_time
                 logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
-                logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+                for vis_result in visualization_paths:
+                    logger.info(f"[DIAG] Generated visualizations: {vis_result['path']}")
         except Exception as e:
             logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
             logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
-
-        # Register visualization artifacts
-        for viz_type, path in visualization_paths.items():
-            # Add to result
-            result.add_artifact(
-                artifact_type="png",
-                path=path,
-                description=f"{viz_type} visualization",
-                category=Constants.Artifact_Category_Visualization
-            )
-
-            # Report to reporter
-            if reporter:
-                reporter.add_artifact(
-                    artifact_type="png",
-                    path=str(path),
-                    description=f"{viz_type} visualization"
-                )
 
         return visualization_paths
 
@@ -1431,7 +1416,7 @@ def analyze_phone_fields(
     **kwargs : dict
         Additional parameters for the operations:
         - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
-        - generate_plots: bool, whether to generate plots (default: True)
+        - generate_visualization: bool, whether to generate visualization (default: True)
         - include_timestamp: bool, whether to include timestamps in filenames (default: True)
         - profile_type: str, type of profiling for organizing artifacts (default: 'phone')
         - country_code: str, specific country code to focus on for operator analysis

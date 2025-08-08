@@ -215,7 +215,7 @@ def execute(self,
 - `reporter` (required): Reporter object for tracking progress and artifacts
 - `progress_tracker` (optional): Progress tracker for the operation
 - `**kwargs`: Additional parameters:
-  - `generate_plots` (default: True): Whether to generate visualizations
+  - `generate_visualization` (default: True): Whether to generate visualizations
   - `include_timestamp` (default: True): Whether to include timestamps in filenames
   - `profile_type` (default: 'correlation'): Type of profiling for organizing artifacts
   - `null_handling` (default: 'drop'): Method for handling nulls
@@ -244,7 +244,7 @@ def execute(self,
 - `reporter` (required): Reporter object for tracking progress and artifacts
 - `progress_tracker` (optional): Progress tracker for the operation
 - `**kwargs`: Additional parameters:
-  - `generate_plots` (default: True): Whether to generate visualizations
+  - `generate_visualization` (default: True): Whether to generate visualizations
   - `include_timestamp` (default: True): Whether to include timestamps
   - `profile_type` (default: 'correlation'): Type of profiling for artifacts
   - `null_handling` (default: 'drop'): Method for handling nulls
@@ -272,7 +272,7 @@ def analyze_correlations(
 - `**kwargs`: Additional parameters:
   - `methods`: Dictionary mapping field pairs to correlation methods
   - `null_handling` (default: 'drop'): Method for handling nulls
-  - `generate_plots` (default: True): Whether to generate plots
+  - `generate_visualization` (default: True): Whether to generate visualization
   - `track_progress` (default: True): Whether to track overall progress
 
 **Returns:**
@@ -340,7 +340,7 @@ result = operation.execute(
     data_source=data_source,
     task_dir=task_dir,
     reporter=reporter,
-    generate_plots=True
+    generate_visualization=True
 )
 
 # Check results

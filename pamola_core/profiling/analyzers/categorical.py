@@ -152,9 +152,10 @@ class CategoricalOperation(FieldOperation):
                  generate_visualization: bool = True,
                  use_cache: bool = True,
                  force_recalculation: bool = False,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_theme: Optional[str] = None,
                  visualization_strict: bool = False,
+                 visualization_timeout: int = 120,
                  use_encryption: bool = False,
                  encryption_key: Optional[Union[str, Path]] = None,
                  encryption_mode: Optional[str] = None):
@@ -203,6 +204,7 @@ class CategoricalOperation(FieldOperation):
         self.visualization_backend = visualization_backend
         self.visualization_theme = visualization_theme
         self.visualization_strict = visualization_strict
+        self.visualization_timeout = visualization_timeout
 
     def execute(self,
                 data_source: DataSource,
@@ -224,11 +226,22 @@ class CategoricalOperation(FieldOperation):
         progress_tracker : ProgressTracker, optional
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation:
-            - generate_visualization: bool, whether to generate visualizations
-            - include_timestamp: bool, whether to include timestamps in filenames
+            Optional overrides for instance attributes and execution parameters:
             - profile_type: str, type of profiling for organizing artifacts
             - analyze_anomalies: bool, whether to analyze anomalies
+            - dataset_name (str): Name of the dataset to load from the data source.
+            - include_timestamp (bool): Whether to append a timestamp to output filenames (default: True)
+            - output_format (str): Format for saving output files (e.g., "csv", "json") (default: csv)
+            - save_output (bool): Whether to save partitioned outputs to disk (default: True)
+            - generate_visualization (bool): Whether to generate visualizations for the output data (default: True)
+            - use_cache (bool): Enable caching of intermediate results (default: True)
+            - force_recalculation (bool): If True, bypass cached results and force full reprocessing (default: False)
+            - visualization_backend (str): Backend for visualizations (default: None)
+            - visualization_theme (str): Theme for visualizations (default: None)
+            - visualization_strict (bool): Whether to enforce strict visualization rules (default: False)
+            - visualization_timeout (int): Timeout for visualization generation in seconds (default: 120)
+            - use_encryption (bool): If True, encrypt output files (default: False)
+            - encryption_key (str or Path): Encryption key or path for encrypting outputs (default: None)
 
         Returns:
         --------
@@ -393,11 +406,10 @@ class CategoricalOperation(FieldOperation):
                 if progress_tracker:
                     progress_tracker.update(1, {"step": "Generate visualizations", "operation": caller_operation})
 
-                viz_result = self._generate_visualizations(
+                viz_result = self._handle_visualizations(
                     analysis_results=analysis_results,
                     visualizations_dir=visualizations_dir,
-                    result=result,
-                    **kwargs
+                    result=result
                 )
 
                 if not viz_result.startswith("Error"):
@@ -452,7 +464,7 @@ class CategoricalOperation(FieldOperation):
                                            "error": str(e)
                                        })
 
-            return OperationResult(status=OperationStatus.ERROR, error_message=str(e))
+            return OperationResult(status=OperationStatus.ERROR, error_message=str(e), exception=e)
 
     def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
         """
@@ -564,8 +576,7 @@ class CategoricalOperation(FieldOperation):
             self,
             analysis_results: dict,
             visualizations_dir: Path,
-            result: OperationResult,
-            **kwargs
+            result: OperationResult
     ) -> str:
         """
         Generate and save a visualization from top categorical values.
@@ -591,9 +602,13 @@ class CategoricalOperation(FieldOperation):
             self.logger.warning(warning_msg)
             return f"Error: {warning_msg}"
 
-        kwargs["backend"] = kwargs.pop("visualization_backend", self.visualization_backend)
-        kwargs["theme"] = kwargs.pop("visualization_theme", self.visualization_theme)
-        kwargs["strict"] = kwargs.pop("visualization_strict", self.visualization_strict)
+        kwargs_visualization = {
+            "use_encryption": self.use_encryption,
+            "encryption_key": self.encryption_key,
+            "backend": self.visualization_backend,
+            "theme": self.visualization_theme,
+            "strict": self.visualization_strict
+        }
 
         viz_filename = get_timestamped_filename(f"{self.field_name}_distribution", "png", self.include_timestamp)
         viz_path = visualizations_dir / viz_filename
@@ -604,7 +619,7 @@ class CategoricalOperation(FieldOperation):
             output_path=str(viz_path),
             title=title,
             max_items=self.top_n,
-            **kwargs
+            **kwargs_visualization
         )
 
         if not viz_result.startswith("Error"):
@@ -612,6 +627,58 @@ class CategoricalOperation(FieldOperation):
                                 category=Constants.Artifact_Category_Visualization)
 
         return viz_result
+
+    def _handle_visualizations(
+            self,
+            analysis_results: dict,
+            visualizations_dir: Path,
+            result: OperationResult
+    ) -> str:
+        """
+        Run _generate_visualizations in a separate thread with timeout.
+
+        Returns
+        -------
+        str
+            The visualization result (success path or error string).
+        """
+        import threading
+        import contextvars
+
+        self.logger.info("[VIZ] Launching visualization in a separate thread")
+
+        viz_result_holder = {"result": "Error: Visualization did not complete"}
+
+        def run():
+            try:
+                viz_result_holder["result"] = self._generate_visualizations(
+                    analysis_results=analysis_results,
+                    visualizations_dir=visualizations_dir,
+                    result=result
+                )
+            except Exception as e:
+                self.logger.error(f"[VIZ] Exception during visualization: {type(e).__name__}: {e}", exc_info=True)
+                viz_result_holder["result"] = f"Error: {str(e)}"
+
+        try:
+            ctx = contextvars.copy_context()
+            thread = threading.Thread(
+                target=ctx.run,
+                args=(run,),
+                name=f"VizThread-{self.name}",
+                daemon=True
+            )
+            thread.start()
+            thread.join(timeout=self.visualization_timeout)
+
+            if thread.is_alive():
+                self.logger.warning(f"[VIZ] Visualization timed out after {self.visualization_timeout} seconds")
+                return "Error: Visualization thread timeout"
+            return viz_result_holder["result"]
+
+        except Exception as e:
+            self.logger.error(f"[VIZ] Error setting up visualization thread: {e}", exc_info=True)
+            return f"Error: {str(e)}"
 
     def _save_anomalies_to_csv(self,
                                analysis_results: Dict[str, Any],
@@ -910,9 +977,10 @@ class CategoricalOperation(FieldOperation):
         self.use_cache = kwargs.get("use_cache", getattr(self, "use_cache", True))
         self.force_recalculation = kwargs.get("force_recalculation", getattr(self, "force_recalculation", False))
 
-        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", False))
+        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", None))
         self.visualization_theme = kwargs.get("visualization_theme", getattr(self, "visualization_theme", None))
-        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", None))
+        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", False))
+        self.visualization_timeout = kwargs.get("visualization_timeout", getattr(self, "visualization_timeout", None))
 
         self.use_encryption = kwargs.get("use_encryption", getattr(self, "use_encryption", False))
         self.encryption_key = kwargs.get("encryption_key",
@@ -1010,7 +1078,7 @@ def analyze_categorical_fields(
         Additional parameters for the operations:
         - top_n: int, number of top values to include in results (default: 15)
         - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
-        - generate_visualization: bool, whether to generate plots (default: True)
+        - generate_visualization: bool, whether to generate visualization (default: True)
         - include_timestamp: bool, whether to include timestamps in filenames (default: True)
         - profile_type: str, type of profiling for organizing artifacts (default: 'categorical')
 
@@ -1119,7 +1187,7 @@ def analyze_categorical_fields(
                                                    "error": result.error_message})
 
             except Exception as e:
-                print(f"Error analyzing categorical field {field}: {e}", exc_info=True)
+                print(f"Error analyzing categorical field {field}: {e}")
                 if reporter:
                     reporter.add_operation(f"Analyzing {field} field", status="error",
                                            details={"error": str(e)})

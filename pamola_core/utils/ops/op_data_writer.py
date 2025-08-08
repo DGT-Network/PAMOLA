@@ -411,7 +411,7 @@ class DataWriter:
                     ensure_directory(output_dir)
 
                     # Write partitioned CSVs
-                    df.to_csv(output_dir / "part-*.csv", **kwargs)
+                    df.to_csv(output_dir / "part-*.csv")
 
                     # Log success
                     self.logger.info(f"Large Dask DataFrame written to {output_dir} (partitioned CSV)")

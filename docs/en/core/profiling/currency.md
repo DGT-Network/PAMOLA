@@ -434,7 +434,7 @@ def profile_large_financial_dataset(csv_path, output_dir):
         progress_tracker=progress.create_subtask(10, "Analyzing transaction_amount"),
         use_dask=True,             # Enable Dask for distributed processing
         chunk_size=100000,         # Process in 100K row chunks
-        generate_plots=True        # Generate visualizations
+        generate_visualization=True        # Generate visualizations
     )
     
     progress.update(1, {"step": "Finalizing"})

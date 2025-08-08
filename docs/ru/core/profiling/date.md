@@ -106,7 +106,7 @@ result = operation.execute(
     data_source=data_source,
     task_dir=task_dir,
     reporter=reporter,
-    generate_plots=True
+    generate_visualization=True
 )
 
 # Check the result
@@ -144,7 +144,7 @@ if result.status.name == "SUCCESS":
 | `task_dir` | Path | Yes | - | Directory for saving artifacts |
 | `reporter` | Any | Yes | - | Reporter object for tracking artifacts |
 | `progress_tracker` | ProgressTracker | No | None | Progress tracking object |
-| `generate_plots` | bool | No | True | Whether to create visualizations |
+| `generate_visualization` | bool | No | True | Whether to create visualizations |
 | `include_timestamp` | bool | No | True | Whether to include timestamps in filenames |
 | `profile_type` | str | No | "date" | Type of profiling for organizing artifacts |
 
@@ -229,7 +229,7 @@ results = analyze_date_fields(
     date_fields=["birth_date", "creation_date", "modification_date"],
     id_column="resume_id",
     uid_column="UID",
-    generate_plots=True
+    generate_visualization=True
 )
 
 # Process results

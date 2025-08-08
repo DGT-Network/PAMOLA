@@ -72,7 +72,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                  parallel_processes: int = 1,
                  npartitions: int = 1,
                  visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = None,
+                 visualization_backend: Optional[str] = "plotly",
                  visualization_strict: bool = False,
                  visualization_timeout: int = 120,
                  encryption_mode: Optional[str] = None):
@@ -471,7 +471,8 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             return OperationResult(
                 status=OperationStatus.ERROR,
-                error_message=f"Error in attribute profiling: {str(e)}"
+                error_message=f"Error in attribute profiling: {str(e)}",
+                exception=e,
             )
 
     def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
@@ -510,7 +511,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                                result: OperationResult,
                                reporter: Any,
                                visualization_theme: Optional[str] = None,
-                               visualization_backend: Optional[str] = None,
+                               visualization_backend: Optional[str] = "plotly",
                                visualization_strict: bool = False,
                                **kwargs):
         """

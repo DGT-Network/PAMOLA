@@ -1,35 +1,73 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
-Module: Visualization System
-Description: Thread-safe visualization capabilities for data analysis and privacy metrics
-Author: PAMOLA Core Team
-Created: 2025
-License: BSD 3-Clause
+Module:        Visualization System
+Package:       pamola_core.utils.visualization
+Version:       2.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025
+License:       BSD 3-Clause
 
-This module provides a unified interface for creating various types of visualizations
-primarily using Plotly. It coordinates with other modules in the vis_helpers package
-to implement specific visualization types.
+Description:
+    This module provides a unified, thread-safe interface for generating a wide variety
+    of data visualizations for analytical and privacy-preserving workflows. It integrates
+    with modular vis_helpers to support specialized chart types including bar plots,
+    histograms, boxplots, line and scatter plots, heatmaps, pie/donut, spider (radar),
+    combined (dual axis), correlation, and word cloud visualizations.
 
-All functions accept data, create visualizations, save them as PNG files,
-and return the path to the saved file or an error message.
+Key Features:
+    - Unified API for all major visualization types (tabular, distribution, categorical, correlation, text)
+    - Thread/context-safe execution for use in parallel workflows (via contextvars)
+    - Dynamic backend selection (Plotly, Matplotlib, and wordcloud where appropriate)
+    - Extensible registry/factory for specialized and future chart types
+    - Flexible customization via parameters and keyword arguments (colormaps, labels, annotations, etc.)
+    - Error handling with strict/warning modes for robust production use
+    - Full integration with IO subsystem for secure and reliable file output
+    - Modular architecture for easy extension and integration
 
-The implementation uses contextvars to ensure that visualization state (themes, backends)
-is properly isolated between concurrent execution contexts, eliminating state interference
-when multiple visualization operations run in parallel.
+Framework:
+    This module follows the PAMOLA.CORE visualization framework, with standardized
+    interfaces for figure construction, backend/context management, and output routines.
+    It works in conjunction with the vis_helpers package, and supports composable
+    and extensible visualization workflows across the PAMOLA analytics and privacy pipeline.
+
+Changelog:
+    2.0.0 - Unified API for all visualization types, new modular architecture
+          - Added thread/context isolation for parallel execution
+          - Enhanced backend selection and extensibility
+          - Expanded documentation and error handling
+          - Added new chart types: spider, combined, correlation, word cloud
+    1.0.0 - Initial implementation with basic bar, histogram, and boxplot support
+
+Dependencies:
+    - pandas       - DataFrame operations
+    - numpy        - Numeric operations, arrays
+    - matplotlib   - Matplotlib backend and figure handling
+    - plotly       - Plotly backend for interactive figures
+    - wordcloud    - Word cloud generation (text analytics)
+    - PIL          - Image processing for text-based visualizations
+    - contextvars  - Thread/context management for isolation
+    - logging      - Error and event reporting
+    - typing       - Type hints and validation
+    - pathlib      - Path operations
+    - pamola_core.utils.io - PAMOLA IO utilities for file management
+
+TODO:
+    - Add more interactive features for Jupyter and dashboard environments
+    - Extend Matplotlib backend support for all chart types
+    - Add real-time and streaming visualization support
+    - Expand auto-theming and accessibility features
+    - Integrate with distributed and cloud execution pipelines
 """
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union
-
+from typing import Dict, List, Any, Optional, Tuple, Union
 import matplotlib
 import numpy as np
 import pandas as pd
 import plotly
-import plotly.graph_objects as go
-from matplotlib.figure import Figure as MplFigure
-
 from pamola_core.utils.vis_helpers.base import FigureFactory
 from pamola_core.utils.vis_helpers.context import visualization_context, register_figure
 
@@ -44,7 +82,8 @@ logger = logging.getLogger(__name__)
 
 def _save_figure(
     fig: Union["plotly.graph_objects.Figure", "matplotlib.figure.Figure"],
-    output_path: Union[str, Path], **kwargs
+    output_path: Union[str, Path],
+    **kwargs,
 ) -> str:
     """
     Saves a figure using the IO system.
@@ -73,8 +112,8 @@ def _save_figure(
         # Use the IO module's save_visualization function
         from pamola_core.utils.io import save_visualization
 
-        use_encryption = kwargs.get('use_encryption', False)
-        encryption_key= kwargs.get('encryption_key', None) if use_encryption else None
+        use_encryption = kwargs.get("use_encryption", False)
+        encryption_key = kwargs.get("encryption_key", None) if use_encryption else None
         saved_path = save_visualization(fig, output_path, encryption_key=encryption_key)
 
         # Close matplotlib figure if it's a matplotlib figure
@@ -95,6 +134,34 @@ def _save_figure(
         return f"Error saving figure: {e}"
 
 
+def _filter_kwargs(**kwargs):
+    """
+    Filter out unsupported parameters from kwargs.
+
+    Parameters:
+    -----------
+    **kwargs : dict
+        Keyword arguments passed to the visualization functions.
+
+    Returns:
+    --------
+    dict
+        Filtered kwargs containing only supported parameters.
+    """
+    # List of unsupported keys to exclude
+    unsupported_keys = [
+        "encryption_mode",
+        "encryption_key",
+        "use_encryption",
+        "timestamp",
+    ]
+
+    # Filter kwargs to exclude unsupported keys
+    custom_kwargs = {k: v for k, v in kwargs.items() if k not in unsupported_keys}
+
+    return custom_kwargs
+
+
 # ============================================================================
 # Basic visualization functions
 # ============================================================================
@@ -109,6 +176,11 @@ def create_bar_plot(
     y_label: Optional[str] = None,
     sort_by: str = "value",
     max_items: int = 15,
+    show_values: bool = True,
+    text: Optional[Union[List[str], pd.Series]] = None,
+    colorscale: Optional[str] = None,
+    color: Optional[Any] = None,
+    figsize: Optional[Any] = None,
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
@@ -135,6 +207,16 @@ def create_bar_plot(
         How to sort the data: "value" (descending) or "key" (alphabetical)
     max_items : int
         Maximum number of items to show
+    show_values : bool, optional
+        Whether to display value labels on bars (default True)
+    text : list of str or pd.Series, optional
+        Custom text labels for bars (overrides automatic value labels)
+    colorscale : str, optional
+        Plotly colorscale name to use for bars (e.g., "Viridis", "Blues")
+    color : Any, optional
+        Custom color or color array for bars (for Matplotlib or Plotly)
+    figsize : Any, optional
+        Figure size for Matplotlib backend (tuple of (width, height), e.g., (12, 8))
     theme : str, optional
         Theme name to use for this visualization
     backend : str, optional
@@ -157,6 +239,9 @@ def create_bar_plot(
         factory = FigureFactory()
         fig_creator = factory.create_figure("bar")
 
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
+        
         try:
             # Convert pandas Series to dict to avoid ambiguous truth value errors
             plot_data = data.to_dict() if isinstance(data, pd.Series) else data
@@ -169,7 +254,13 @@ def create_bar_plot(
                 x_label=x_label,
                 y_label=y_label,
                 sort_by=sort_by,
-                max_items=max_items
+                max_items=max_items,
+                show_values=show_values,
+                text=text,
+                colorscale=colorscale,
+                color=color,
+                figsize=figsize,
+                **custom_viz_kwargs,
             )
 
             # Register figure for cleanup
@@ -190,6 +281,7 @@ def create_histogram(
     y_label: Optional[str] = "Count",
     bins: int = 20,
     kde: bool = True,
+    cumulative: bool = False,
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
@@ -214,6 +306,8 @@ def create_histogram(
         Number of bins for the histogram
     kde : bool
         Whether to show a kernel density estimate
+    cumulative : bool
+        Whether to show cumulative distribution
     theme : str, optional
         Theme name to use for this visualization
     backend : str, optional
@@ -236,6 +330,9 @@ def create_histogram(
         factory = FigureFactory()
         fig_creator = factory.create_figure("histogram")
 
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
+
         try:
             # Create the figure
             fig = fig_creator.create(
@@ -245,6 +342,8 @@ def create_histogram(
                 y_label=y_label,
                 bins=bins,
                 kde=kde,
+                cumulative=cumulative,
+                **custom_viz_kwargs,
             )
 
             # Register figure for cleanup
@@ -267,6 +366,10 @@ def create_scatter_plot(
     add_trendline: bool = False,
     correlation: Optional[float] = None,
     method: Optional[str] = None,
+    hover_text: Optional[List[str]] = None,
+    marker_size: Optional[Union[List[float], float]] = None,
+    color_scale: Optional[Union[List[str], str]] = None,
+    color_values: Optional[List[float]] = None,
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
@@ -277,9 +380,9 @@ def create_scatter_plot(
 
     Parameters:
     -----------
-    x_data : List[float], np.ndarray, or pd.Series
+    x_data : list, ndarray, or Series
         Data for the x-axis
-    y_data : List[float], np.ndarray, or pd.Series
+    y_data : list, ndarray, or Series
         Data for the y-axis
     output_path : str or Path
         Path where the PNG file should be saved
@@ -289,25 +392,33 @@ def create_scatter_plot(
         Label for the x-axis
     y_label : str, optional
         Label for the y-axis
-    add_trendline : bool
-        Whether to add a trendline to the plot
+    add_trendline : bool, optional
+        Whether to add a linear regression trendline (default False)
     correlation : float, optional
-        Correlation coefficient to display on the plot
+        Correlation coefficient to display
     method : str, optional
-        Correlation method used (e.g., "pearson", "spearman")
+        Method used for correlation (e.g., "Pearson", "Spearman")
+    hover_text : list of str, optional
+        Custom hover text for each point
+    marker_size : float or list of float, optional
+        Marker size(s), either single value or per-point
+    color_scale : str or list of str, optional
+        Color scale for markers
+    color_values : list of float, optional
+        Values used for marker color mapping
     theme : str, optional
-        Theme name to use for this visualization
+        Theme to use for the visualization
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
-        If True, raise exceptions for invalid configuration; otherwise log warnings
+        Backend to use: "plotly" (only supported)
+    strict : bool, optional
+        Strict mode for error handling
     **kwargs:
-        Additional arguments to pass to the underlying plotting function
+        Additional customization parameters passed to plotly.graph_objects.Scatter
 
     Returns:
     --------
     str
-        Path to the saved PNG file or error message
+        Path to saved PNG file or error message
     """
     # Use context manager to isolate theme and backend settings
     with visualization_context(
@@ -316,6 +427,9 @@ def create_scatter_plot(
         # Get the appropriate figure creator
         factory = FigureFactory()
         fig_creator = factory.create_figure("scatter", backend=backend)
+
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
 
         try:
             # Create the figure
@@ -328,6 +442,11 @@ def create_scatter_plot(
                 add_trendline=add_trendline,
                 correlation=correlation,
                 method=method,
+                hover_text=hover_text,
+                marker_size=marker_size,
+                color_scale=color_scale,
+                color_values=color_values,
+                **custom_viz_kwargs,
             )
 
             # Register figure for cleanup
@@ -349,9 +468,17 @@ def create_boxplot(
     orientation: str = "v",
     show_points: bool = True,
     notched: bool = False,
+    points: str = "outliers",
+    box_width: float = 0.5,
+    color: Optional[Any] = None,
+    opacity: float = 0.7,
+    boxmean: bool = True,
+    figsize: Optional[Any] = None,
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
+    height: Optional[int] = 600,
+    width: Optional[int] = 800,
     **kwargs,
 ) -> str:
     """
@@ -360,29 +487,44 @@ def create_boxplot(
     Parameters:
     -----------
     data : Dict[str, List[float]], pd.DataFrame, or pd.Series
-        Data to visualize
+        Data to visualize. Each key/column represents a category.
     output_path : str or Path
         Path where the PNG file should be saved
     title : str
         Title for the plot
     x_label : str, optional
-        Label for the x-axis (categorical axis for vertical orientation)
+        Label for the x-axis (category axis for vertical orientation)
     y_label : str, optional
         Label for the y-axis (value axis for vertical orientation)
-    orientation : str
-        Orientation of the boxes: "v" for vertical, "h" for horizontal
-    show_points : bool
-        Whether to show outlier points
-    notched : bool
-        Whether to show notched boxes
+    orientation : str, optional
+        Orientation of the boxes: "v" (vertical, default) or "h" (horizontal)
+    show_points : bool, optional
+        Whether to show outlier points (default True)
+    notched : bool, optional
+        Whether to show notched boxes (default False)
+    points : str, optional
+        How to show points: "outliers", "suspected", "all", or False
+    box_width : float, optional
+        Width of the boxes as a fraction of available space (default 0.5)
+    color : Any, optional
+        Color or palette for boxes (global or per column)
+    opacity : float, optional
+        Opacity for boxes (default 0.7)
+    boxmean : bool, optional
+        Whether to show the mean in boxes (default True)
+    figsize : tuple or None, optional
+        Figure size for Matplotlib
+    height : int, optional
+        Plot height (for Plotly)
+    width : int, optional
+        Plot width (for Plotly)
     theme : str, optional
-        Theme name to use for this visualization
+        Theme name to use
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
-        If True, raise exceptions for invalid configuration; otherwise log warnings
-    **kwargs:
-        Additional arguments to pass to the underlying plotting function
+        Backend to use: "plotly" or "matplotlib"
+    strict : bool, optional
+        Strict mode for error handling
+    **kwargs : additional parameters passed to plotting backend
 
     Returns:
     --------
@@ -397,6 +539,9 @@ def create_boxplot(
         factory = FigureFactory()
         fig_creator = factory.create_figure("boxplot", backend=backend)
 
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
+
         try:
             # Create the figure
             fig = fig_creator.create(
@@ -407,7 +552,15 @@ def create_boxplot(
                 orientation=orientation,
                 show_points=show_points,
                 notched=notched,
-                **kwargs,
+                points=points,
+                box_width=box_width,
+                color=color,
+                opacity=opacity,
+                boxmean=boxmean,
+                figsize=figsize,
+                height=height,
+                width=width,
+                **custom_viz_kwargs,
             )
 
             # Register figure for cleanup
@@ -427,12 +580,17 @@ def create_heatmap(
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
     colorscale: Optional[str] = None,
+    cmap: Optional[str] = None,
     annotate: bool = True,
     annotation_format: str = ".2f",
+    annotation_color_threshold: Optional[float] = 0.5,
+    mask_values: Optional[np.ndarray] = None,
+    colorbar_title: Optional[str] = None,
+    colorbar_label: Optional[str] = None,
+    figsize: Optional[Any] = (12, 10),
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
-    textfont_color: str = '#000000',
     **kwargs,
 ) -> str:
     """
@@ -451,24 +609,35 @@ def create_heatmap(
     y_label : str, optional
         Label for the y-axis
     colorscale : str, optional
-        Colorscale to use (default from theme if None)
-    annotate : bool
-        Whether to annotate the heatmap with values
-    annotation_format : str
-        Format string for annotations (e.g., ".2f" for 2 decimal places)
+        Plotly colorscale to use (Plotly backend)
+    cmap : str, optional
+        Matplotlib colormap to use (Matplotlib backend)
+    annotate : bool, optional
+        Show values on the heatmap
+    annotation_format : str, optional
+        Value format for annotations (default ".2f")
+    annotation_color_threshold : float, optional
+        Threshold (0-1) for switching text color (white/black)
+    mask_values : np.ndarray, optional
+        Boolean mask to hide some cells (True=show, False=mask)
+    colorbar_title : str, optional
+        Title for colorbar (Plotly backend)
+    colorbar_label : str, optional
+        Label for colorbar (Matplotlib backend)
+    figsize : tuple or None, optional
+        Figure size for Matplotlib
     theme : str, optional
-        Theme name to use for this visualization
+        Theme to use
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
-        If True, raise exceptions for invalid configuration; otherwise log warnings
-    **kwargs:
-        Additional arguments to pass to the underlying plotting function
+        Backend: "plotly" or "matplotlib"
+    strict : bool, optional
+        Strict mode for error handling
+    **kwargs: additional arguments for plotly.graph_objects.Heatmap or ax.imshow
 
     Returns:
     --------
     str
-        Path to the saved PNG file or error message
+        Path to saved PNG file or error message
     """
     # Use context manager to isolate theme and backend settings
     with visualization_context(
@@ -478,6 +647,9 @@ def create_heatmap(
         factory = FigureFactory()
         fig_creator = factory.create_figure("heatmap", backend=backend)
 
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
+
         try:
             # Create the figure
             fig = fig_creator.create(
@@ -486,9 +658,15 @@ def create_heatmap(
                 x_label=x_label,
                 y_label=y_label,
                 colorscale=colorscale,
+                cmap=cmap,
                 annotate=annotate,
                 annotation_format=annotation_format,
-                textfont={'color': textfont_color},
+                annotation_color_threshold=annotation_color_threshold,
+                mask_values=mask_values,
+                colorbar_title=colorbar_title,
+                colorbar_label=colorbar_label,
+                figsize=figsize,
+                **custom_viz_kwargs,
             )
 
             # Register figure for cleanup
@@ -511,6 +689,10 @@ def create_line_plot(
     add_markers: bool = True,
     add_area: bool = False,
     smooth: bool = False,
+    highlight_regions: Optional[List[Dict[str, Any]]] = None,
+    line_width: float = 2.0,
+    color: Optional[Any] = None,
+    figsize: Optional[Any] = None,
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
@@ -521,37 +703,45 @@ def create_line_plot(
 
     Parameters:
     -----------
-    data : Dict[str, List[float]], pd.DataFrame, or pd.Series
-        Data to visualize
+    data : dict, DataFrame, or Series
+        Data to visualize. Keys/columns are series, values are y-values.
     output_path : str or Path
         Path where the PNG file should be saved
     title : str
         Title for the plot
-    x_data : List, np.ndarray, or pd.Series, optional
-        Data for the x-axis. If None, indices are used
+    x_data : list, ndarray, or Series, optional
+        X-axis data (default: index)
     x_label : str, optional
-        Label for the x-axis
+        X-axis label
     y_label : str, optional
-        Label for the y-axis
-    add_markers : bool
-        Whether to add markers at data points
-    add_area : bool
-        Whether to fill area under lines
-    smooth : bool
-        Whether to use spline interpolation for smoother lines
+        Y-axis label
+    add_markers : bool, optional
+        Add markers at points (default True)
+    add_area : bool, optional
+        Fill area under line (default False)
+    smooth : bool, optional
+        Smooth (spline) lines (default False)
+    highlight_regions : list of dict, optional
+        Regions to highlight: each dict has 'start', 'end', 'color', 'label'
+    line_width : float, optional
+        Line width (default 2.0)
+    color : any, optional
+        Color for all series or per-series (see docs)
+    figsize : any, optional
+        (Reserved for future Matplotlib implementation)
     theme : str, optional
-        Theme name to use for this visualization
+        Theme name
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
-        If True, raise exceptions for invalid configuration; otherwise log warnings
+        Backend name ("plotly" only for now)
+    strict : bool, optional
+        Strict mode for error handling
     **kwargs:
-        Additional arguments to pass to the underlying plotting function
+        Additional parameters for plotly.graph_objects.Scatter
 
     Returns:
     --------
     str
-        Path to the saved PNG file or error message
+        Path to saved PNG file or error message
     """
     # Use context manager to isolate theme and backend settings
     with visualization_context(
@@ -560,6 +750,9 @@ def create_line_plot(
         # Get the appropriate figure creator
         factory = FigureFactory()
         fig_creator = factory.create_figure("line", backend=backend)
+
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
 
         try:
             # Create the figure
@@ -572,7 +765,11 @@ def create_line_plot(
                 add_markers=add_markers,
                 add_area=add_area,
                 smooth=smooth,
-                **kwargs,
+                highlight_regions=highlight_regions,
+                line_width=line_width,
+                color=color,
+                figsize=figsize,
+                **custom_viz_kwargs,
             )
 
             # Register figure for cleanup
@@ -596,6 +793,9 @@ def create_correlation_matrix(
     annotation_format: str = ".2f",
     mask_upper: bool = False,
     mask_diagonal: bool = False,
+    colorbar_title: Optional[str] = "Correlation",
+    significant_threshold: Optional[float] = None,
+    method_labels: Optional[Dict[str, str]] = None,
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
@@ -604,41 +804,47 @@ def create_correlation_matrix(
     """
     Create a correlation matrix visualization and save it as PNG.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : pd.DataFrame or np.ndarray
-        Correlation matrix data
+        Correlation matrix data.
     output_path : str or Path
-        Path where the PNG file should be saved
+        Path where the PNG file should be saved.
     title : str
-        Title for the plot
+        Title for the plot.
     x_label : str, optional
-        Label for the x-axis
+        Label for the x-axis.
     y_label : str, optional
-        Label for the y-axis
+        Label for the y-axis.
     colorscale : str, optional
-        Colorscale to use (default from theme if None)
-    annotate : bool
-        Whether to annotate the matrix with correlation values
-    annotation_format : str
-        Format string for annotations (e.g., ".2f" for 2 decimal places)
-    mask_upper : bool
-        Whether to mask the upper triangle (above diagonal)
-    mask_diagonal : bool
-        Whether to mask the diagonal
+        Plotly colorscale (default: RdBu_r).
+    annotate : bool, optional
+        Show values on matrix (default True).
+    annotation_format : str, optional
+        Format for value annotation (default ".2f").
+    mask_upper : bool, optional
+        Mask upper triangle (default False).
+    mask_diagonal : bool, optional
+        Mask diagonal (default False).
+    colorbar_title : str, optional
+        Title for colorbar (default "Correlation").
+    significant_threshold : float, optional
+        Threshold to highlight significant correlations (draws rectangle).
+    method_labels : dict, optional
+        Mapping of method codes to labels (for mixed methods).
     theme : str, optional
-        Theme name to use (optional)
+        Visualization theme.
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
-        If True, raise exceptions for invalid configuration; otherwise log warnings
-    **kwargs:
-        Additional arguments to pass to the underlying plotting function
+        Backend ("plotly" only).
+    strict : bool, optional
+        Strict mode.
+    **kwargs :
+        Other Plotly go.Heatmap parameters.
 
-    Returns:
-    --------
+    Returns
+    -------
     str
-        Path to the saved PNG file or error message
+        Path to saved PNG file or error message.
     """
     # Use context manager to isolate theme and backend settings
     with visualization_context(
@@ -646,6 +852,9 @@ def create_correlation_matrix(
     ) as context_info:
         factory = FigureFactory()
         fig_creator = factory.create_figure("correlation_matrix", backend=backend)
+
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
 
         try:
             fig = fig_creator.create(
@@ -658,7 +867,10 @@ def create_correlation_matrix(
                 annotation_format=annotation_format,
                 mask_upper=mask_upper,
                 mask_diagonal=mask_diagonal,
-                **kwargs,
+                colorbar_title=colorbar_title,
+                significant_threshold=significant_threshold,
+                method_labels=method_labels,
+                **custom_viz_kwargs,
             )
 
             register_figure(fig, context_info)
@@ -668,7 +880,7 @@ def create_correlation_matrix(
             return f"Error creating correlation matrix: {e}"
 
 
-def create_correlation_pair(
+def create_correlation_pair_plot(
     x_data: Union[List[float], np.ndarray, pd.Series],
     y_data: Union[List[float], np.ndarray, pd.Series],
     output_path: Union[str, Path],
@@ -679,49 +891,55 @@ def create_correlation_pair(
     method: Optional[str] = "Pearson",
     add_trendline: bool = True,
     add_histogram: bool = True,
+    color: Optional[str] = None,
+    marker_size: int = 8,
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
     **kwargs,
 ) -> str:
     """
-    Create a correlation plot for a pair of variables and save it as PNG.
+    Create a correlation pair plot (scatter + optional histograms and trendline) and save as PNG.
 
-    Parameters:
-    -----------
-    x_data : List[float], np.ndarray, or pd.Series
-        Data for the x-axis
-    y_data : List[float], np.ndarray, or pd.Series
-        Data for the y-axis
+    Parameters
+    ----------
+    x_data : list, ndarray, or Series
+        X data.
+    y_data : list, ndarray, or Series
+        Y data.
     output_path : str or Path
-        Path where the PNG file should be saved
+        Path to save file.
     title : str
-        Title for the plot
+        Plot title.
     x_label : str, optional
-        Label for the x-axis
+        X-axis label.
     y_label : str, optional
-        Label for the y-axis
+        Y-axis label.
     correlation : float, optional
-        Correlation coefficient to display on the plot
+        Correlation value to display (calculated if not given).
     method : str, optional
-        Correlation method name (for annotation)
-    add_trendline : bool
-        Whether to add a trendline
-    add_histogram : bool
-        Whether to add histograms for both variables
+        Correlation method name ("Pearson", etc).
+    add_trendline : bool, optional
+        Show trendline (default True).
+    add_histogram : bool, optional
+        Show marginal histograms (default True).
+    color : str, optional
+        Color for scatter and histograms.
+    marker_size : int, optional
+        Marker size (default 8).
     theme : str, optional
-        Theme name to use (optional)
+        Visualization theme.
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
-        If True, raise exceptions for invalid configuration; otherwise log warnings
-    **kwargs:
-        Additional arguments to pass to the underlying plotting function
+        Backend ("plotly" only).
+    strict : bool, optional
+        Strict mode.
+    **kwargs :
+        Other Plotly go.Scatter or layout parameters.
 
-    Returns:
-    --------
+    Returns
+    -------
     str
-        Path to the saved PNG file or error message
+        Path to saved PNG file or error message.
     """
     # Use context manager to isolate theme and backend settings
     with visualization_context(
@@ -729,6 +947,9 @@ def create_correlation_pair(
     ) as context_info:
         factory = FigureFactory()
         fig_creator = factory.create_figure("correlation_pair", backend=backend)
+
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
 
         try:
             fig = fig_creator.create(
@@ -741,7 +962,9 @@ def create_correlation_pair(
                 method=method,
                 add_trendline=add_trendline,
                 add_histogram=add_histogram,
-                **kwargs,
+                color=color,
+                marker_size=marker_size,
+                **custom_viz_kwargs,
             )
 
             register_figure(fig, context_info)
@@ -807,6 +1030,9 @@ def create_venn_diagram(
         factory = FigureFactory()
         fig_creator = factory.create_figure("venn_diagram", backend=backend)
 
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
+
         try:
             fig = fig_creator.create(
                 set1=set1,
@@ -816,6 +1042,7 @@ def create_venn_diagram(
                 title=title,
                 figsize=figsize,
                 annotation=annotation,
+                **custom_viz_kwargs,
             )
             register_figure(fig, context_info)
             return _save_figure(fig, output_path, **kwargs)
@@ -834,48 +1061,55 @@ def create_spider_chart(
     show_gridlines: bool = True,
     angle_start: float = 90,
     show_legend: bool = True,
+    spider_type: str = "scatterpolar",
+    max_value: Optional[float] = None,
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
     **kwargs,
 ) -> str:
     """
-    Create a spider/radar chart and save it as PNG.
+    Create a spider (radar) chart visualization and save it as a PNG file.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : Dict[str, Dict[str, float]] or pd.DataFrame
-        Data to visualize. If dict, outer keys are series names, inner keys are categories.
-        If DataFrame, columns are categories, index values are series names.
+        Data to visualize. The outer keys (dict) or index (DataFrame) represent series (e.g., samples or groups),
+        and the inner keys (dict) or columns (DataFrame) are the categories/axes.
     output_path : str or Path
-        Path where the PNG file should be saved
+        File path where the PNG file should be saved.
     title : str
-        Title for the plot
-    categories : List[str], optional
-        List of categories to include (if None, all categories in data will be used)
+        Chart title.
+    categories : list of str, optional
+        List of categories (axes). If None, all categories found in the data will be used.
     normalize_values : bool, optional
-        Whether to normalize values to 0-1 range for each category
+        Whether to normalize all values to [0, 1] range per category (default: True).
     fill_area : bool, optional
-        Whether to fill the area under the radar lines
+        If True, fills the area under the radar lines (default: True).
     show_gridlines : bool, optional
-        Whether to show gridlines on the radar
+        Whether to show gridlines on the spider chart (default: True).
     angle_start : float, optional
-        Starting angle for the first axis in degrees (90 = top)
+        Starting angle in degrees for the first axis (default: 90, i.e., up).
     show_legend : bool, optional
-        Whether to show the legend
+        If True, shows the legend for series/groups (default: True).
+    spider_type : str, optional
+        Plotly trace type: "scatterpolar" (default, regular spider) or "barpolar" (polar bar chart).
+    max_value : float, optional
+        Explicit maximum value for the radius axis (if None, determined automatically).
     theme : str, optional
-        Theme name to use for this visualization
+        Visualization theme to use for the plot (applies to Plotly layout/colors).
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
-        If True, raise exceptions for invalid configuration; otherwise log warnings
-    **kwargs:
-        Additional arguments to pass to the underlying plotting function
+        Backend to use ("plotly" only, required).
+    strict : bool, optional
+        If True, raises exceptions for invalid configuration; otherwise, logs warnings and continues.
+    **kwargs :
+        Additional keyword arguments passed to the underlying plotting backend
+        (e.g., line_width, marker, color, height, width, opacity, etc.).
 
-    Returns:
-    --------
+    Returns
+    -------
     str
-        Path to the saved PNG file or error message
+        Path to the saved PNG file or an error message if the visualization failed.
     """
     # Use context manager to isolate theme and backend settings
     with visualization_context(
@@ -883,6 +1117,9 @@ def create_spider_chart(
     ) as context_info:
         factory = FigureFactory()
         fig_creator = factory.create_figure("spider", backend=backend or "plotly")
+
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
 
         try:
             fig = fig_creator.create(
@@ -894,7 +1131,9 @@ def create_spider_chart(
                 show_gridlines=show_gridlines,
                 angle_start=angle_start,
                 show_legend=show_legend,
-                **kwargs,
+                spider_type=spider_type,
+                max_value=max_value,
+                **custom_viz_kwargs,
             )
             register_figure(fig, context_info)
             return _save_figure(fig, output_path, **kwargs)
@@ -908,53 +1147,67 @@ def create_pie_chart(
     output_path: Union[str, Path],
     title: str,
     labels: Optional[List[str]] = None,
-    hole: float = 0,  # 0 for pie chart, >0 for donut
+    hole: float = 0,
     show_values: bool = True,
+    value_format: str = ".1f",
     show_percentages: bool = True,
     sort_values: bool = False,
     pull_largest: bool = False,
+    pull_value: float = 0.1,
+    clockwise: bool = True,
+    start_angle: float = 90,
+    textposition: str = "auto",
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
     **kwargs,
 ) -> str:
     """
-    Create a pie chart visualization and save it as PNG.
+    Create a pie or donut chart and save it as PNG.
 
     Parameters:
     -----------
-    data : Dict[str, float], pd.Series, or List[float]
-        Data to visualize. If dict or Series, keys are used as labels.
-        If list, separate labels should be provided.
+    data : Dict[str, float], pd.Series, or list of float
+        Data to visualize
     output_path : str or Path
         Path where the PNG file should be saved
     title : str
         Title for the plot
-    labels : List[str], optional
-        List of labels for pie slices (not needed if data is dict or Series)
+    labels : list of str, optional
+        Labels for the slices (needed only if data is a list)
     hole : float, optional
-        Size of the hole for a donut chart (0-1, default 0 for a normal pie)
+        Size of the hole (0 for pie, >0 for donut)
     show_values : bool, optional
-        Whether to show values on pie slices
+        Show raw values on slices
+    value_format : str, optional
+        Format for values (e.g., ".1f")
     show_percentages : bool, optional
-        Whether to show percentages on pie slices
+        Show percentages on slices
     sort_values : bool, optional
-        Whether to sort slices by value (descending)
+        Sort slices by value descending
     pull_largest : bool, optional
-        Whether to pull out the largest slice
+        Explode the largest slice
+    pull_value : float, optional
+        Distance to pull (0–1)
+    clockwise : bool, optional
+        Draw slices clockwise
+    start_angle : float, optional
+        Start angle in degrees
+    textposition : str, optional
+        "inside", "outside", or "auto"
     theme : str, optional
-        Theme name to use for this visualization
+        Visualization theme
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
-        If True, raise exceptions for invalid configuration; otherwise log warnings
+        Backend ("plotly" only)
+    strict : bool, optional
+        Strict mode
     **kwargs:
-        Additional arguments to pass to the underlying plotting function
+        Other plotly Pie parameters
 
     Returns:
     --------
     str
-        Path to the saved PNG file or error message
+        Path to saved PNG or error message
     """
     # Use context manager to isolate theme and backend settings
     with visualization_context(
@@ -963,6 +1216,9 @@ def create_pie_chart(
         factory = FigureFactory()
         fig_creator = factory.create_figure("pie", backend=backend or "plotly")
 
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
+
         try:
             fig = fig_creator.create(
                 data=data,
@@ -970,15 +1226,125 @@ def create_pie_chart(
                 labels=labels,
                 hole=hole,
                 show_values=show_values,
+                value_format=value_format,
                 show_percentages=show_percentages,
                 sort_values=sort_values,
                 pull_largest=pull_largest,
+                pull_value=pull_value,
+                clockwise=clockwise,
+                start_angle=start_angle,
+                textposition=textposition,
+                **custom_viz_kwargs,
             )
             register_figure(fig, context_info)
             return _save_figure(fig, output_path, **kwargs)
         except Exception as e:
             logger.error(f"Error creating pie chart: {e}")
             return f"Error creating pie chart: {e}"
+
+
+def create_word_cloud(
+    text_data: Union[str, List[str], Dict[str, float]],
+    output_path: Union[str, Path],
+    title: str,
+    max_words: int = 200,
+    background_color: str = "white",
+    width: int = 800,
+    height: int = 400,
+    colormap: Optional[str] = "viridis",
+    mask: Optional[np.ndarray] = None,
+    contour_width: int = 1,
+    contour_color: str = "steelblue",
+    exclude_words: Optional[List[str]] = None,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: bool = False,
+    **kwargs,
+) -> str:
+    """
+    Create a word cloud visualization and save it as a PNG file.
+
+    Parameters
+    ----------
+    text_data : str, List[str], or Dict[str, float]
+        Text data to visualize. If a string, interpreted as raw text; if a list, each element is a document;
+        if a dict, it is interpreted as word-frequency pairs.
+    output_path : str or Path
+        File path where the PNG should be saved.
+    title : str
+        Title for the visualization.
+    max_words : int, optional
+        Maximum number of words to include in the word cloud (default 200).
+    background_color : str, optional
+        Background color for the word cloud (default "white").
+    width : int, optional
+        Width of the image (default 800).
+    height : int, optional
+        Height of the image (default 400).
+    colormap : str, optional
+        Matplotlib colormap for word colors (default "viridis").
+    mask : np.ndarray, optional
+        Image mask for the word cloud shape.
+    contour_width : int, optional
+        Width of the contour line around the cloud (default 1).
+    contour_color : str, optional
+        Color of the contour line (default 'steelblue').
+    exclude_words : List[str], optional
+        Words to exclude from the word cloud.
+    theme : str, optional
+        Visualization theme (currently not used, for future compatibility).
+    backend : str, optional
+        Backend to use (default only).
+    strict : bool, optional
+        If True, raise exceptions for invalid configuration; otherwise log warnings.
+    **kwargs :
+        Additional keyword arguments passed to the wordcloud.WordCloud constructor.
+
+    Returns
+    -------
+    str
+        Path to the saved PNG file or an error message.
+    """
+    with visualization_context(
+        backend=backend, theme=theme, strict=strict
+    ) as context_info:
+        factory = FigureFactory()
+        fig_creator = factory.create_figure("wordcloud")
+
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
+
+        try:
+            # Create the word cloud result (dictionary with PIL image)
+            result = fig_creator.create(
+                text_data=text_data,
+                title=title,
+                max_words=max_words,
+                background_color=background_color,
+                width=width,
+                height=height,
+                colormap=colormap,
+                mask=mask,
+                contour_width=contour_width,
+                contour_color=contour_color,
+                exclude_words=exclude_words,
+                **custom_viz_kwargs,
+            )
+            # Save as PNG (WordCloudGenerator returns {'image': PIL.Image...})
+            image = result.get("image")
+            if image is not None:
+                from pamola_core.utils.vis_helpers.word_clouds import WordCloudGenerator
+
+                saved_path = WordCloudGenerator.save_as_png(result, str(output_path))
+                if saved_path:
+                    return saved_path
+                else:
+                    return f"Error saving word cloud image to file: {output_path}"
+            else:
+                return f"Word cloud image not created: {result.get('message', 'Unknown error')}"
+        except Exception as e:
+            logger.error(f"Error creating word cloud: {e}")
+            return f"Error creating word cloud: {e}"
 
 
 def create_sunburst_chart(
@@ -988,7 +1354,9 @@ def create_sunburst_chart(
     path_column: Optional[str] = None,
     values_column: Optional[str] = None,
     color_column: Optional[str] = None,
+    branchvalues: str = "total",
     maxdepth: Optional[int] = None,
+    sort_siblings: bool = False,
     theme: Optional[str] = None,
     backend: Optional[str] = None,
     strict: bool = False,
@@ -999,7 +1367,7 @@ def create_sunburst_chart(
 
     Parameters:
     -----------
-    data : Dict or pd.DataFrame
+    data : Union[Dict, pd.DataFrame]
         Data to visualize. If DataFrame, it needs columns for path, values, and optionally colors.
         If Dict, it should be hierarchical with nested dictionaries.
     output_path : str or Path
@@ -1012,16 +1380,20 @@ def create_sunburst_chart(
         For DataFrame data, the column containing values
     color_column : str, optional
         For DataFrame data, the column to use for coloring
+    branchvalues : str, optional
+        How to sum values: "total" (default) or "remainder"
     maxdepth : int, optional
         Maximum depth to display
+    sort_siblings : bool, optional
+        Whether to sort siblings by value
     theme : str, optional
         Theme name to use for this visualization
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
+        Backend to use: "plotly" (only supported)
+    strict : bool, optional
         If True, raise exceptions for invalid configuration; otherwise log warnings
-    **kwargs:
-        Additional arguments to pass to the underlying plotting function
+    **kwargs :
+        Additional keyword arguments to pass to the plotting backend
 
     Returns:
     --------
@@ -1035,6 +1407,9 @@ def create_sunburst_chart(
         factory = FigureFactory()
         fig_creator = factory.create_figure("sunburst", backend=backend or "plotly")
 
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
+
         try:
             fig = fig_creator.create(
                 data=data,
@@ -1042,8 +1417,10 @@ def create_sunburst_chart(
                 path_column=path_column,
                 values_column=values_column,
                 color_column=color_column,
+                branchvalues=branchvalues,
                 maxdepth=maxdepth,
-                **kwargs,
+                sort_siblings=sort_siblings,
+                **custom_viz_kwargs,
             )
             register_figure(fig, context_info)
             return _save_figure(fig, output_path, **kwargs)
@@ -1057,14 +1434,15 @@ def create_combined_chart(
     secondary_data: Union[Dict[str, Any], pd.Series, pd.DataFrame],
     output_path: Union[str, Path],
     title: str,
-    primary_type: str = "bar",  # "bar", "line", "scatter", "area"
-    secondary_type: str = "line",  # "line", "scatter", "area", "bar"
+    primary_type: str = "bar",
+    secondary_type: str = "line",
     x_data: Optional[Union[List, np.ndarray, pd.Series]] = None,
     x_label: Optional[str] = None,
     primary_y_label: Optional[str] = None,
     secondary_y_label: Optional[str] = None,
     primary_color: Optional[str] = None,
     secondary_color: Optional[str] = None,
+    show_grid: bool = True,
     primary_on_right: bool = False,
     vertical_alignment: bool = True,
     theme: Optional[str] = None,
@@ -1073,51 +1451,53 @@ def create_combined_chart(
     **kwargs,
 ) -> str:
     """
-    Create a combined chart with dual Y-axes and save it as PNG.
+    Create a combined chart (bar+line, bar+area, etc.) with dual Y-axes and save as PNG.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     primary_data : Dict[str, Any], pd.Series, or pd.DataFrame
         Data for the primary Y-axis
     secondary_data : Dict[str, Any], pd.Series, or pd.DataFrame
         Data for the secondary Y-axis
     output_path : str or Path
-        Path where the PNG file should be saved
+        File path to save the PNG
     title : str
         Title for the plot
     primary_type : str, optional
-        Type of visualization for primary data: "bar", "line", "scatter", "area"
+        Type for primary data: "bar", "line", "scatter", "area" (default "bar")
     secondary_type : str, optional
-        Type of visualization for secondary data: "line", "scatter", "area", "bar"
-    x_data : List, np.ndarray, or pd.Series, optional
-        Data for the x-axis. If None, indices are used.
+        Type for secondary data: "line", "scatter", "area", "bar" (default "line")
+    x_data : list, ndarray, or Series, optional
+        X-axis values (if None, uses indices from primary data)
     x_label : str, optional
-        Label for the x-axis
+        Label for x-axis
     primary_y_label : str, optional
-        Label for the primary Y-axis
+        Label for primary Y-axis
     secondary_y_label : str, optional
-        Label for the secondary Y-axis
+        Label for secondary Y-axis
     primary_color : str, optional
         Color for the primary series
     secondary_color : str, optional
         Color for the secondary series
+    show_grid : bool, optional
+        Show grid lines (default True)
     primary_on_right : bool, optional
-        Whether to display primary Y-axis on the right side
+        Place primary Y-axis on the right (default False)
     vertical_alignment : bool, optional
-        Whether to align zero values across both axes
+        Align zero on both Y-axes (default True)
     theme : str, optional
-        Theme name to use for this visualization
+        Visualization theme
     backend : str, optional
-        Backend to use: "plotly" or "matplotlib" (overrides global setting)
-    strict : bool
-        If True, raise exceptions for invalid configuration; otherwise log warnings
-    **kwargs:
-        Additional arguments to pass to the underlying plotting function
+        Backend ("plotly" only)
+    strict : bool, optional
+        Strict mode for error handling
+    **kwargs :
+        Additional keyword arguments passed to Plotly traces/layout
 
-    Returns:
-    --------
+    Returns
+    -------
     str
-        Path to the saved PNG file or error message
+        Path to saved PNG file or error message
     """
     # Use context manager to isolate theme and backend settings
     with visualization_context(
@@ -1125,6 +1505,9 @@ def create_combined_chart(
     ) as context_info:
         factory = FigureFactory()
         fig_creator = factory.create_figure("combined", backend=backend or "plotly")
+
+        # Filter unsupported kwargs
+        custom_viz_kwargs = _filter_kwargs(**kwargs)
 
         try:
             fig = fig_creator.create(
@@ -1139,9 +1522,10 @@ def create_combined_chart(
                 secondary_y_label=secondary_y_label,
                 primary_color=primary_color,
                 secondary_color=secondary_color,
+                show_grid=show_grid,
                 primary_on_right=primary_on_right,
                 vertical_alignment=vertical_alignment,
-                **kwargs,
+                **custom_viz_kwargs,
             )
             register_figure(fig, context_info)
             return _save_figure(fig, output_path, **kwargs)
@@ -1149,7 +1533,77 @@ def create_combined_chart(
             logger.error(f"Error creating combined chart: {e}")
             return f"Error creating combined chart: {e}"
 
+def create_network_diagram(
+    nodes: List[str],
+    edges: List[Tuple[str, str]],
+    output_path: Union[str, Path],
+    node_labels: Optional[Dict[str, str]] = None,
+    title: str = "Network Diagram",
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: bool = False,
+    **kwargs,
+) -> str:
+    """
+    Create a network diagram visualization and save it as PNG.
 
+    Parameters:
+    -----------
+    nodes : List[str]
+        List of node names.
+    edges : List[Tuple[str, str]]
+        List of edges as (source, target) tuples.
+    output_path : Union[str, Path]
+        Path where the PNG file should be saved.
+    node_labels : Dict[str, str], optional
+        Labels for nodes.
+    title : str
+        Title for the diagram.
+    theme : str, optional
+        Visualization theme to apply.
+    backend : str, optional
+        Visualization backend ("plotly" or "matplotlib").
+    strict : bool
+        If True, exceptions will be raised on errors; otherwise errors are logged.
+    **kwargs:
+        Additional arguments passed to the figure saving function.
+
+    Returns:
+    --------
+    str
+        Path to the saved PNG file or error message.
+    """
+    try:
+        # Context manager for visualization settings
+        with visualization_context(
+            backend=backend, theme=theme, strict=strict
+        ) as context_info:
+            # Get the appropriate figure creator
+            factory = FigureFactory()
+            fig_creator = factory.create_figure("network_diagram", backend=backend)
+
+            # Filter unsupported kwargs
+            custom_viz_kwargs = _filter_kwargs(**kwargs)
+
+            # Create the figure
+            fig = fig_creator.create(
+                nodes=nodes,
+                edges=edges,
+                node_labels=node_labels,
+                title=title,
+                **custom_viz_kwargs,
+            )
+
+            # Register figure for cleanup
+            register_figure(fig, context_info)
+
+            # Save the figure
+            return _save_figure(fig, output_path, **kwargs)
+
+    except Exception as e:
+        logger.error(f"Error creating network diagram: {e}")
+        return f"Error creating network diagram: {e}"
+    
 # ============================================================================
 # Specialized visualization functions for profiling
 # ============================================================================
@@ -1786,6 +2240,7 @@ def plot_multiple_fields(
         logger.error(f"Error creating multiple fields plot: {e}")
         return f"Error creating multiple fields plot: {e}"
 
+
 def plot_field_subset_network(
     output_data: Dict[str, pd.DataFrame],
     output_path: Path,
@@ -1796,11 +2251,11 @@ def plot_field_subset_network(
     **kwargs,
 ) -> str:
     """
-    Create a network diagram showing how fields are distributed across subsets using Plotly,
+    Create a network diagram showing how fields are distributed across subsets using Plotly or Matplotlib,
     and save it as a PNG file.
 
     Parameters:
-    -----------
+    ----------- 
     output_data : Dict[str, pd.DataFrame]
         Dictionary mapping subset names to their corresponding DataFrames.
     output_path : Path
@@ -1822,73 +2277,34 @@ def plot_field_subset_network(
         Path to the saved PNG file or error message.
     """
     try:
-        # Context manager for visualization settings
-        with visualization_context(backend=backend, theme=theme, strict=strict) as context_info:
-            nodes = set()
-            edges = []
-            node_types = {}
+        # Prepare nodes, edges, and labels
+        nodes = set()
+        edges = []
+        node_labels = {}
 
-            for subset_name, df in output_data.items():
-                nodes.add(subset_name)
-                node_types[subset_name] = "subset"
-                for col in df.columns:
-                    nodes.add(col)
-                    node_types[col] = "field"
-                    edges.append((subset_name, col))
+        for subset_name, df in output_data.items():
+            nodes.add(subset_name)
+            node_labels[subset_name] = "subset"
+            for col in df.columns:
+                nodes.add(col)
+                node_labels[col] = "field"
+                edges.append((subset_name, col))
 
-            subset_nodes = [n for n in nodes if node_types[n] == "subset"]
-            field_nodes = [n for n in nodes if node_types[n] == "field"]
+        # Convert nodes to a list for consistent ordering
+        nodes = list(nodes)
 
-            positions = {n: (0, i * -1.5) for i, n in enumerate(subset_nodes)}
-            positions.update({n: (3, i * -1.2) for i, n in enumerate(field_nodes)})
-
-            edge_x, edge_y = [], []
-            for src, tgt in edges:
-                x0, y0 = positions[src]
-                x1, y1 = positions[tgt]
-                edge_x += [x0, x1, None]
-                edge_y += [y0, y1, None]
-
-            edge_trace = go.Scatter(
-                x=edge_x, y=edge_y,
-                line=dict(width=1, color='gray'),
-                hoverinfo='none',
-                mode='lines'
-            )
-
-            node_x, node_y, node_text, node_color = [], [], [], []
-            for node in nodes:
-                x, y = positions[node]
-                node_x.append(x)
-                node_y.append(y)
-                node_text.append(node)
-                node_color.append("skyblue" if node_types[node] == "subset" else "lightgreen")
-
-            node_trace = go.Scatter(
-                x=node_x, y=node_y,
-                mode='markers+text',
-                marker=dict(size=20, color=node_color, line=dict(width=1, color='black')),
-                text=node_text,
-                textposition="top center",
-                hoverinfo='text'
-            )
-
-            fig = go.Figure(data=[edge_trace, node_trace],
-                            layout=go.Layout(
-                                title=dict(text=title, font=dict(size=16)),
-                                showlegend=False,
-                                hovermode='closest',
-                                margin=dict(b=20, l=20, r=20, t=40),
-                                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                                plot_bgcolor='white'
-                            ))
-
-            register_figure(fig, context_info)
-
-            # Save the figure
-            return _save_figure(fig, output_path, **kwargs)
-
+        # Call create_network_diagram
+        return create_network_diagram(
+            nodes=nodes,
+            edges=edges,
+            output_path=output_path,
+            node_labels=node_labels,
+            title=title,
+            theme=theme,
+            backend=backend,
+            strict=strict,
+            **kwargs,
+        )
     except Exception as e:
         if strict:
             raise

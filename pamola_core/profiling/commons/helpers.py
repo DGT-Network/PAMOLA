@@ -594,14 +594,3 @@ def save_profiling_results(result: Dict[str, Any],
 
     # Return path as string for compatibility
     return str(file_path)
-
-def filter_used_kwargs(kwargs: dict, func) -> dict:
-    """
-    Remove keys from kwargs that conflict with the named parameters of the given function.
-
-    :param kwargs: A dictionary of keyword arguments to filter.
-    :param func: The target function or method to check against.
-    :return: A filtered kwargs dictionary excluding keys that match the function's parameters.
-    """
-    used_keys = set(inspect.signature(func).parameters)
-    return {k: v for k, v in kwargs.items() if k not in used_keys}

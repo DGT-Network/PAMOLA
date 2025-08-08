@@ -1,16 +1,16 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
-Module: Line Plot Visualization Implementation
+Module: Venn Diagram Visualization Implementation
 
 Description:
-    Thread-safe line plot visualization capabilities using both Plotly (primary) and Matplotlib (fallback) backends.
+    Thread-safe Venn diagram visualization capabilities using both Plotly (primary) and Matplotlib (fallback) backends.
 
 Author: PAMOLA Core Team
 Created: 2025
 License: BSD 3-Clause
 
-This module provides implementations for line plots using both Plotly and Matplotlib backends.
+This module provides implementations for Venn diagrams using both Plotly and Matplotlib backends.
 Plotly is the primary implementation, while Matplotlib serves as a fallback when needed.
 
 The implementation uses contextvars via the visualization_context

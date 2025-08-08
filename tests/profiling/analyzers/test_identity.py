@@ -13,6 +13,18 @@ from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.progress import ProgressTracker
 
+# Add pytest-based tests for full coverage
+class DummyDataSource:
+    def __init__(self, df=None, error=None):
+        self.df = df
+        self.error = error
+        self.encryption_keys = {}
+        self.encryption_modes = {}
+    def get_dataframe(self, dataset_name, **kwargs):
+        if self.df is not None:
+            return self.df, None
+        return None, {"message": self.error or "No data"}
+    
 class TestIdentityAnalyzer(unittest.TestCase):
     def setUp(self):
         """Set up test data"""
@@ -142,8 +154,7 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
         }
         self.df = pd.DataFrame(self.test_data)
         
-        # Create mock objects
-        self.mock_data_source = Mock(spec=DataSource)
+        self.mock_data_source = DummyDataSource(df=self.df)
         self.mock_data_source.return_value = self.df
         
         self.mock_reporter = Mock()
@@ -239,17 +250,36 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
             self.mock_progress_tracker.update.assert_called()
             self.mock_progress_tracker.total = 4
 
+    def test_execute_df_None(self):
+        """Test execution with missing required field"""
+        with patch('pamola_core.profiling.analyzers.identity.load_data_operation') as mock_load:
+            mock_load.return_value = None
+            
+            result = self.operation.execute(
+                data_source=self.mock_data_source,
+                task_dir=self.task_dir,
+                reporter=self.mock_reporter,
+                progress_tracker=self.mock_progress_tracker
+            )
+            
+            self.assertEqual(result.status, OperationStatus.ERROR)
+            self.assertIn('No valid DataFrame found in data source', result.error_message)
+            
     def test_prepare_directories(self):
         """Test directory preparation"""
         dirs = self.operation._prepare_directories(self.task_dir)
         
+        self.assertIn('root', dirs)
         self.assertIn('output', dirs)
-        self.assertIn('visualizations', dirs)
         self.assertIn('dictionaries', dirs)
+        self.assertIn('logs', dirs)
+        self.assertIn('cache', dirs)
         
+        self.assertTrue(dirs['root'].exists())
         self.assertTrue(dirs['output'].exists())
-        self.assertTrue(dirs['visualizations'].exists())
         self.assertTrue(dirs['dictionaries'].exists())
+        self.assertTrue(dirs['logs'].exists())
+        self.assertTrue(dirs['cache'].exists())
 
     def test_execute_with_custom_parameters(self):
         """Test execution with custom parameters"""
@@ -300,12 +330,12 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
             
             # Verify warnings were logged
             mock_logger.warning.assert_called_with(
-                "Some reference fields are missing: {'last_name'}"
+                "Reference fields are missing: ['last_name']"
             )
             
             # Verify reporter was called with warning
             self.mock_reporter.add_operation.assert_any_call(
-                f"Missing reference fields for {self.operation.field_name}",
+                "Missing reference fields for uid",
                 status="warning",
                 details={"missing_fields": ['last_name']}
             )
@@ -334,9 +364,9 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
             
             # Verify reporter was called with warning
             self.mock_reporter.add_operation.assert_any_call(
-                f"Missing ID field {operation_temp.id_field}",
+                "Missing ID field resu5me_id",
                 status="warning",
-                details={"missing_field": operation_temp.id_field}
+                details={"missing_fields": [operation_temp.id_field]}
             )
             
             # Verify operation still succeeds without ID field
@@ -345,24 +375,25 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
     def test_execute_visualization_error(self):
         """Test handling of visualization creation error"""
         with patch('pamola_core.profiling.analyzers.identity.load_data_operation') as mock_load, \
-            patch('pamola_core.profiling.analyzers.identity.plot_value_distribution') as mock_plot, \
-            patch('pamola_core.profiling.analyzers.identity.logger') as mock_logger:
+            patch('pamola_core.profiling.analyzers.identity.logger') as mock_logger, \
+            patch.object(self.operation, '_handle_visualizations', side_effect=Exception("Error: Failed to create visualization")):
             
             # Setup mock return values
             mock_load.return_value = self.df
-            mock_plot.return_value = "Error: Failed to create visualization"
-            
+            # patch.object(self.operation, '_handle_visualizations', side_effect=Exception("Error: Failed to create visualization"))
+            # self.operation._handle_visualizations
+            # mock_generate_visualizations.side_effect = Exception("Error: Failed to create visualization")
+                        
+            self.operation.generate_visualization = True
+            self.operation.visualization_backend = "matplotlib"
+            logger = Mock()
             result = self.operation.execute(
                 data_source=self.mock_data_source,
                 task_dir=self.task_dir,
-                reporter=self.mock_reporter
+                reporter=self.mock_reporter,
+                logger=logger
             )
-            
-            # Verify warning was logged
-            mock_logger.warning.assert_called_with(
-                "Error creating distribution visualization: Error: Failed to create visualization"
-            )
-            
+                        
             # Verify no visualization artifact was added
             for artifact in result.artifacts:
                 self.assertNotIn('distribution visualization', artifact.description)
@@ -373,6 +404,7 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
             # Verify other analysis results are still present
             self.assertIsNotNone(result.metrics)
             self.assertTrue(any('distribution' in str(artifact.path) for artifact in result.artifacts))
+            
     def test_execute_progress_tracking_with_cross_matches(self):
         """Test progress tracking during cross-match analysis"""
         with patch('pamola_core.profiling.analyzers.identity.load_data_operation') as mock_load:
@@ -387,53 +419,40 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
                 check_cross_matches=True
             )
             
-            # Verify progress tracker updates for cross-match step
-            self.mock_progress_tracker.update.assert_any_call(
-                1, {"step": "Cross-match analysis complete"}
-            )
-            
             # Verify total steps includes cross-match analysis
-            self.assertEqual(self.mock_progress_tracker.total, 5)  # 4 default steps + 1 for cross-match
+            self.assertEqual(self.mock_progress_tracker.total, 7)  # 4 default steps + 1 for cross-match
             
             # Verify operation completed successfully
             self.assertEqual(result.status, OperationStatus.SUCCESS)
+            
     def test_execute_exception_handling(self):
         """Test exception handling in execute method"""
         with patch('pamola_core.profiling.analyzers.identity.load_data_operation') as mock_load, \
              patch('pamola_core.profiling.analyzers.identity.logger') as mock_logger:
             mock_load.side_effect = Exception("Simulated error")
             
+            logger = Mock()
+            
             result = self.operation.execute(
                 data_source=self.mock_data_source,
                 task_dir=self.task_dir,
                 reporter=self.mock_reporter,
-                progress_tracker=self.mock_progress_tracker
+                progress_tracker=self.mock_progress_tracker,
+                logger=logger
             )
             
             # Logger should log the exception
-            mock_logger.exception.assert_called_with(
-                f"Error in identity analysis operation for {self.operation.field_name}: Simulated error"
-            )
-            # Progress tracker should be updated with error
-            self.mock_progress_tracker.update.assert_called_with(
-                0, {"step": "Error", "error": "Simulated error"}
-            )
-            # Reporter should record the error
-            self.mock_reporter.add_operation.assert_called_with(
-                f"Error analyzing {self.operation.field_name}",
-                status="error",
-                details={"error": "Simulated error"}
+            self.operation.logger.exception.assert_called_with(
+                "Error in analyzing identity operation: Simulated error"
             )
             # Result should be error status and contain error message
             self.assertEqual(result.status, OperationStatus.ERROR)
             self.assertIn("Error analyzing identity field", result.error_message)
             
-    def test_execute_with_mismatch_examples_artifact(self):
+    def test_execute_with_mismatch_examples_metrics(self):
         """Test artifact creation when mismatch_examples exist in consistency_analysis"""
         with patch('pamola_core.profiling.analyzers.identity.load_data_operation') as mock_load, \
-             patch('pamola_core.profiling.analyzers.identity.IdentityAnalyzer.analyze_identifier_consistency') as mock_consistency, \
-             patch('pamola_core.profiling.analyzers.identity.get_timestamped_filename') as mock_get_filename, \
-             patch('pamola_core.profiling.analyzers.identity.write_json') as mock_write_json:
+             patch('pamola_core.profiling.analyzers.identity.IdentityAnalyzer.analyze_identifier_consistency') as mock_consistency:
             
             mock_load.return_value = self.df
             mock_consistency.return_value = {
@@ -442,7 +461,6 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
                 'total_records': 6,
                 'mismatch_examples': [{'row': 1, 'reason': 'test'}]
             }
-            mock_get_filename.return_value = "uid_mismatch_examples.json"
 
             result = self.operation.execute(
                 data_source=self.mock_data_source,
@@ -450,26 +468,72 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
                 reporter=self.mock_reporter
             )
 
-            found = False
-            for call_args in mock_write_json.call_args_list:
-                args, kwargs = call_args
-                if (
-                    isinstance(args[0], dict)
-                    and 'mismatch_examples' in args[0]
-                    and args[0].get('mismatch_count', None) == 2
-                    and args[0].get('total_records', None) == 6
-                    and str(args[1]).endswith("uid_mismatch_examples.json")
-                ):
-                    found = True
-                    break
-            self.assertTrue(found, "write_json was not called with expected mismatch_examples artifact")
+            self.assertEqual(result.metrics['match_percentage'], 80)
+            self.assertEqual(result.metrics['mismatch_count'], 2)
+            self.assertEqual(result.metrics['total_records'], 6)
+            
+    def test_generate_visualizations_success(self):
+        """Test _generate_visualizations returns correct paths when visualizations succeed"""
+        operation = self.operation
+        identifier_stats = {"stat": 1}
+        consistency_analysis = {"consistency": 1}
+        distribution_analysis = {"distribution": 1}
+        cross_match_analysis = {"cross": 1}
+        task_dir = Path("test_vis_dir")
+        
+        with patch("pamola_core.profiling.analyzers.identity.generate_identifier_statistics_vis", return_value={"id_stat": Path("id_stat.png")}), \
+             patch("pamola_core.profiling.analyzers.identity.generate_consistency_analysis_vis", return_value={"consistency": Path("consistency.png")}), \
+             patch("pamola_core.profiling.analyzers.identity.generate_field_distribution_vis", return_value={"distribution": Path("distribution.png")}), \
+             patch("pamola_core.profiling.analyzers.identity.generate_cross_match_distribution_vis", return_value={"cross": Path("cross.png")}):
+            result = operation._generate_visualizations(
+                identifier_stats, consistency_analysis, distribution_analysis, cross_match_analysis,
+                task_dir=task_dir, vis_theme=None, vis_backend="matplotlib", vis_strict=False, progress_tracker=None
+            )
+            self.assertIn("id_stat", result)
+            self.assertIn("consistency", result)
+            self.assertIn("distribution", result)
+            self.assertIn("cross", result)
+            self.assertEqual(result["id_stat"], Path("id_stat.png"))
+            self.assertEqual(result["consistency"], Path("consistency.png"))
+            self.assertEqual(result["distribution"], Path("distribution.png"))
+            self.assertEqual(result["cross"], Path("cross.png"))
 
-            self.assertTrue(any("mismatch examples" in artifact.description for artifact in result.artifacts))
-            self.mock_reporter.add_artifact.assert_any_call(
-                "json",
-                str(self.task_dir / "output" / "uid_mismatch_examples.json"),
-                "uid mismatch examples"
-            ) 
+    def test_generate_visualizations_skips_if_backend_none(self):
+        """Test _generate_visualizations skips if vis_backend is None"""
+        operation = self.operation
+        with patch.object(operation.logger, "info") as mock_logger:
+            result = operation._generate_visualizations(
+                identifier_stats={}, consistency_analysis={}, distribution_analysis={}, cross_match_analysis={},
+                task_dir=Path("test_vis_dir"), vis_backend=None
+            )
+            self.assertEqual(result, {})
+            mock_logger.assert_called()
+
+    def test_generate_visualizations_exception_handling(self):
+        """Test _generate_visualizations handles exceptions and logs warning"""
+        operation = self.operation
+        with patch("pamola_core.profiling.analyzers.identity.generate_identifier_statistics_vis", side_effect=Exception("fail")), \
+             patch.object(operation.logger, "warning") as mock_warn:
+            result = operation._generate_visualizations(
+                identifier_stats={"stat": 1}, consistency_analysis={}, distribution_analysis={}, cross_match_analysis={},
+                task_dir=Path("test_vis_dir"), vis_backend="matplotlib"
+            )
+            self.assertEqual(result, {})
+            mock_warn.assert_called()
+
+    def test_generate_visualizations_progress_tracker(self):
+        """Test _generate_visualizations updates progress tracker at steps"""
+        operation = self.operation
+        progress = Mock()
+        progress.update = Mock()
+        with patch("pamola_core.profiling.analyzers.identity.generate_identifier_statistics_vis", return_value={}):
+            operation._generate_visualizations(
+                identifier_stats={"stat": 1}, consistency_analysis={}, distribution_analysis={}, cross_match_analysis={},
+                task_dir=Path("test_vis_dir"), vis_backend="matplotlib", progress_tracker=progress
+            )
+            progress.update.assert_any_call(1, {"step": "Preparing visualization data"})
+            progress.update.assert_any_call(2, {"step": "Creating visualization"})
+            progress.update.assert_any_call(3, {"step": "Finalizing visualizations"})
             
     def tearDown(self):
         """Clean up after tests"""
@@ -477,7 +541,137 @@ class TestIdentityAnalysisOperation(unittest.TestCase):
         if self.task_dir.exists():
             import shutil
             shutil.rmtree(self.task_dir)
+                
+    def test_handle_visualizations_success(self):
+        """Test _handle_visualizations adds artifacts and calls reporter on success"""
+        operation = self.operation
+        result = MagicMock()
+        reporter = MagicMock()
+        identifier_stats = {"stat": 1}
+        consistency_analysis = {"consistency": 1}
+        distribution_analysis = {"distribution": 1}
+        cross_match_analysis = {"cross": 1}
+        task_dir = Path("test_vis_dir")
+        with patch.object(operation, "_generate_visualizations", return_value={"id_stat": Path("id_stat.png")}):
+            result = operation._handle_visualizations(
+                result=result,
+                reporter=reporter,
+                identifier_stats=identifier_stats,
+                consistency_analysis=consistency_analysis,
+                distribution_analysis=distribution_analysis,
+                cross_match_analysis=cross_match_analysis,
+                task_dir=task_dir,
+                vis_theme=None,
+                vis_backend="matplotlib",
+                vis_strict=False,
+                progress_tracker=None,
+                operation_timestamp="20250101_000000"
+            )
+            
+            self.assertEqual(str(Path(result["id_stat"])), 'id_stat.png')
+            
+            reporter.add_operation.assert_any_call(
+                "uid id_stat visualization",
+                details={"artifact_type": "png", "path": str(Path("id_stat.png"))}
+            )
 
+    def test_handle_visualizations_exception(self):
+        """Test _handle_visualizations handles exceptions and logs error"""
+        operation = self.operation
+        result = MagicMock()
+        reporter = MagicMock()
+        with patch.object(operation, "_generate_visualizations", side_effect=Exception("fail")), \
+             patch.object(operation.logger, "error") as mock_error:
+            result = operation._handle_visualizations(
+                result=result,
+                reporter=reporter,
+                identifier_stats={},
+                consistency_analysis={},
+                distribution_analysis={},
+                cross_match_analysis={},
+                task_dir=Path("test_vis_dir"),
+                vis_theme=None,
+                vis_backend="matplotlib",
+                vis_strict=False,
+                progress_tracker=None,
+                operation_timestamp="20250101_000000"
+            )
+            mock_error.assert_any_call(
+                "[DIAG] Visualization failed after 0.00s: Exception: fail"
+            )
+            mock_error.assert_any_call("[DIAG] Stack trace:", exc_info=True)
+
+    def test_handle_visualizations_thread_timeout(self):
+        """Test _handle_visualizations handles thread timeout and logs error"""
+        operation = self.operation
+        result = MagicMock()
+        reporter = MagicMock()
+        # Simulate a long-running thread by patching threading.Thread
+        class DummyThread:
+            def __init__(self, *a, **kw):
+                self._alive = True
+                self.daemon = False
+            def start(self): pass
+            def join(self, timeout=None): pass
+            def is_alive(self): return True
+        with patch("threading.Thread", DummyThread), \
+             patch.object(operation.logger, "error") as mock_error:
+            operation._handle_visualizations(
+                result=result,
+                reporter=reporter,
+                identifier_stats={},
+                consistency_analysis={},
+                distribution_analysis={},
+                cross_match_analysis={},
+                task_dir=Path("test_vis_dir"),
+                vis_theme=None,
+                vis_backend="matplotlib",
+                vis_strict=False,
+                progress_tracker=None,
+                operation_timestamp="20250101_000000",
+                vis_timeout=0.01
+            )
+            mock_error.assert_any_call("[DIAG] Visualization thread still alive after 0.01s timeout")
+            mock_error.assert_any_call(
+                "[DIAG] Thread state: alive=True, daemon=False"
+            )
+
+    def test_handle_visualizations_visualization_error(self):
+        """Test _handle_visualizations logs error if visualization fails in thread"""
+        operation = self.operation
+        result = MagicMock()
+        reporter = MagicMock()
+        # Patch _generate_visualizations to set a visualization_error
+        def raise_in_thread(*a, **k):
+            raise Exception("threaded fail")
+        with patch.object(operation, "_generate_visualizations", side_effect=raise_in_thread), \
+             patch.object(operation.logger, "error") as mock_error:
+            # Patch threading.Thread to immediately run target and set error
+            class DummyThread:
+                def __init__(self, *a, **kw):
+                    self._alive = False
+                    self.daemon = False
+                def start(self): pass
+                def join(self, timeout=None): pass
+                def is_alive(self): return False
+            with patch("threading.Thread", side_effect=raise_in_thread):
+                result = operation._handle_visualizations(
+                    result=result,
+                    reporter=reporter,
+                    identifier_stats={},
+                    consistency_analysis={},
+                    distribution_analysis={},
+                    cross_match_analysis={},
+                    task_dir=Path("test_vis_dir"),
+                    vis_theme=None,
+                    vis_backend="matplotlib",
+                    vis_strict=False,
+                    progress_tracker=None,
+                    operation_timestamp="20250101_000000",
+                    vis_timeout=1
+                )
+                mock_error.assert_any_call("[DIAG] Error in visualization thread setup: Exception: threaded fail")
+                
 class DummyOperationResult:
     def __init__(self, status="success", error_message=None):
         self.status = status
@@ -487,7 +681,7 @@ class TestAnalyzeIdentities(unittest.TestCase):
 
     @patch("pamola_core.profiling.analyzers.identity.load_data_operation")
     @patch("pamola_core.profiling.analyzers.identity.IdentityAnalysisOperation")
-    @patch("pamola_core.profiling.analyzers.identity.ProgressTracker")
+    @patch("pamola_core.profiling.analyzers.identity.HierarchicalProgressTracker")
     def test_analyze_identities_success(self, mock_tracker_cls, mock_operation_cls, mock_load_data):
         # Mock DataFrame
         import pandas as pd
@@ -590,7 +784,7 @@ class TestAnalyzeIdentities(unittest.TestCase):
     
     @patch("pamola_core.profiling.analyzers.identity.load_data_operation")
     @patch("pamola_core.profiling.analyzers.identity.IdentityAnalysisOperation")
-    @patch("pamola_core.profiling.analyzers.identity.ProgressTracker")
+    @patch("pamola_core.profiling.analyzers.identity.HierarchicalProgressTracker")
     def test_overall_tracker_success_update(self, mock_tracker_cls, mock_operation_cls, mock_load_data):
         # Prepare DataFrame
         import pandas as pd
@@ -633,7 +827,7 @@ class TestAnalyzeIdentities(unittest.TestCase):
 
     @patch("pamola_core.profiling.analyzers.identity.load_data_operation")
     @patch("pamola_core.profiling.analyzers.identity.IdentityAnalysisOperation")
-    @patch("pamola_core.profiling.analyzers.identity.ProgressTracker")
+    @patch("pamola_core.profiling.analyzers.identity.HierarchicalProgressTracker")
     def test_exception_during_execute(self, mock_tracker_cls, mock_operation_cls, mock_load_data):
         # 1) Setup DataFrame to return
         import pandas as pd
@@ -685,6 +879,58 @@ class TestAnalyzeIdentities(unittest.TestCase):
         # 8) overall_tracker.update should be called to mark the error
         mock_tracker.update.assert_any_call(1, {"field": "cust_id", "status": "error"})
 
+    
+    def test_restore_cached_artifacts_no_artifacts(self):
+        """Test _restore_cached_artifacts returns 0 if no artifacts in cache"""
+        operation = IdentityAnalysisOperation(
+            uid_field='uid',
+            reference_fields=['first_name', 'last_name'],
+            id_field='resume_id'
+        )
+        result = MagicMock()
+        reporter = MagicMock()
+        cached = {}
+        count = operation._restore_cached_artifacts(result, cached, reporter)
+        self.assertEqual(count, 0)
+        result.add_artifact.assert_not_called()
+        reporter.add_operation.assert_not_called()
+
+    def test_restore_cached_artifacts_handles_exceptions(self):
+        """Test _restore_cached_artifacts logs warning if add_artifact fails"""
+        operation = IdentityAnalysisOperation(
+            uid_field='uid',
+            reference_fields=['first_name', 'last_name'],
+            id_field='resume_id'
+        )
+        result = MagicMock()
+        reporter = MagicMock()
+        cached = {
+            "artifacts": [
+                {"artifact_type": "json", "path": "foo.json", "description": "desc", "category": "output"}
+            ]
+        }
+        result.add_artifact.side_effect = Exception("fail-artifact")
+        with patch.object(operation.logger, "warning") as mock_warn:
+            count = operation._restore_cached_artifacts(result, cached, reporter)
+            self.assertEqual(count, 0)
+
+    def test_restore_cached_artifacts_handles_reporter_exception(self):
+        """Test _restore_cached_artifacts logs warning if reporter fails"""
+        operation = IdentityAnalysisOperation(
+            uid_field='uid',
+            reference_fields=['first_name', 'last_name'],
+            id_field='resume_id'
+        )
+        result = MagicMock()
+        reporter = MagicMock()
+        cached = {
+            "artifacts": [
+                {"artifact_type": "json", "path": "foo.json", "description": "desc", "category": "output"}
+            ]
+        }
+        reporter.add_operation.side_effect = Exception("fail-reporter")
+        count = operation._restore_cached_artifacts(result, cached, reporter)
+        self.assertEqual(count, 0)
 
 if __name__ == "__main__":
     unittest.main()

@@ -869,23 +869,17 @@ class BaseTask:
                 if last_completed_index >= 0:
                     # Log skipped operations
                     for i in range(last_completed_index + 1):
-                        if i < len(self.operations):
-                            operation = self.operations[i]
-                            operation_name = operation.name if hasattr(operation, 'name') else f"Operation {i + 1}"
-                            self.logger.info(f"Skipping already completed operation: {operation_name}")
+                        operation = self.operations[i]
+                        operation_name = operation.name if hasattr(operation, 'name') else f"Operation {i + 1}"
+                        self.logger.info(f"Skipping already completed operation: {operation_name}")                       
 
-                            # Update progress manager
-                            if self.progress_manager:
-                                # Handle different progress manager interfaces
-                                if hasattr(self.progress_manager, 'start_operation'):
-                                    self.progress_manager.start_operation(operation_name)
-                                elif hasattr(self.progress_manager, 'operations_completed'):
-                                    self.progress_manager.operations_completed += 1
-                                elif hasattr(self.progress_manager, 'complete_operation'):
-                                    self.progress_manager.complete_operation(operation_name, success=True)
-                                else:
-                                    self.logger.debug(
-                                        f"Progress manager does not support operation completion tracking for {operation_name}")
+                        # Update progress manager
+                        if self.progress_manager:
+                            if hasattr(self.progress_manager, 'complete_operation'):
+                                self.progress_manager.complete_operation(operation_name, success=True)
+                            else:
+                                self.logger.debug(
+                                    f"Progress manager does not support operation completion tracking for {operation_name}")
 
                     # Start from the next operation
                     start_idx = last_completed_index + 1

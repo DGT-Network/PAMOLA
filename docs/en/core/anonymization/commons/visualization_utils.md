@@ -1,51 +1,73 @@
-# PAMOLA.CORE Visualization Utilities
+Looking at the current documentation, I'll update it to reflect the new version 2.1.0 with the added categorical visualization functions.
 
-## 1. Overview
+```markdown
+# visualization_utils.py Documentation
 
-The `visualization_utils.py` module provides a set of helper utilities for creating visualizations in anonymization operations, simplifying interactions with the pamola core visualization system. This module is designed to work closely with the broader PAMOLA.CORE anonymization framework to provide consistent, standardized visualizations for comparing original and anonymized data.
+## Module Overview
 
-### 1.1 Purpose
+**Module:** `pamola_core.anonymization.commons.visualization_utils`  
+**Version:** 2.1.0  
+**Status:** Stable  
+**Created:** Mar 2025  
+**Modified:** Jun 2025  
+**License:** BSD 3-Clause
 
-The primary purpose of this module is to:
+## Description
 
-- Generate standardized filenames for visualization artifacts
-- Prepare data for different types of visualizations based on data characteristics
-- Handle sampling of large datasets for visualization
-- Create optimal visualization parameters (like bin counts for histograms)
-- Simplify the creation of visualization file paths
+The `visualization_utils.py` module provides helper utilities for creating visualizations of anonymization metrics calculated by `metric_utils.py` and `privacy_metric_utils.py`. It serves as a thin wrapper around `pamola_core.utils.visualization` with privacy-specific context, ensuring consistent visualization generation for anonymization operations.
 
-### 1.2 Key Features
+## Key Features
 
-- **Standardized Naming**: Consistent filename generation for all visualization types
-- **Data Preparation**: Automatic preparation of data for different visualization types
-- **Large Dataset Support**: Efficient sampling of large datasets for visualization
-- **Optimal Parameter Calculation**: Automatic calculation of optimal visualization parameters
-- **Path Management**: Simple path creation and management for visualization artifacts
-- **Format Agnostic**: Support for both numeric and categorical data visualizations
+- **Standardized Filename Generation**: Consistent naming for visualization files with timestamps
+- **Artifact Registration**: Automated registration of visualizations with operation results and reporters
+- **Large Dataset Sampling**: Intelligent sampling for visualization of large datasets
+- **Comparison Data Preparation**: Utilities for before/after anonymization comparisons
+- **Optimal Binning Calculation**: Automatic determination of histogram bins using statistical methods
+- **Metric-Specific Visualizations**: Tailored visualization creation based on metric types
+- **Categorical Distribution Comparison**: Specialized visualizations for categorical anonymization
+- **Hierarchy Visualization**: Sunburst charts for generalization hierarchy visualization
+- **Framework Integration**: Seamless integration with core visualization utilities
 
-## 2. Module Architecture
+## Architecture Position
 
-This module serves as a helper layer between anonymization operations and the pamola core visualization system:
+```
+pamola_core/
+├── utils/
+│   └── visualization.py          # Core visualization functions
+│
+└── anonymization/
+    └── commons/
+        ├── metric_utils.py       # Metrics calculation
+        ├── privacy_metric_utils.py   # Privacy metrics
+        └── visualization_utils.py    # This module (wrapper)
+            ↓
+        Uses pamola_core.utils.visualization functions
+        Provides privacy-specific context
+```
+
+The module acts as a bridge between anonymization operations and the core visualization framework, adding privacy-specific context and utilities while delegating actual plotting to `pamola_core.utils.visualization`.
 
 ```
 ┌─────────────────────┐
-│ anonymization_op.py │
+│ anonymization_op.py   │
 └──────────┬──────────┘
            │ calls
            ▼
-┌─────────────────────────┐     uses     ┌─────────────────┐
-│ visualization_utils.py   ├────────────►│ visualization.py │
-└─────────────────────────┘              └─────────────────┘
+┌──────────────────────────┐     uses         ┌──────────────────┐
+│ visualization_utils.py              ├──────────►│ visualization.py       │
+└──────────────────────────┘                     └──────────────────┘
 ```
 
-The module consists of a set of standalone functions that handle different aspects of visualization preparation, without maintaining any state. This makes it highly composable and easy to use in different contexts.
+## Function Reference
 
-## 3. Key Functions
+### Core Utility Functions
 
-### 3.1 `generate_visualization_filename`
+#### `generate_visualization_filename`
+
+Generates a standardized filename for visualization files.
 
 ```python
-generate_visualization_filename(
+def generate_visualization_filename(
     field_name: str,
     operation_name: str,
     visualization_type: str,
@@ -54,28 +76,32 @@ generate_visualization_filename(
 ) -> str
 ```
 
-Generates a standardized filename for a visualization.
-
 **Parameters:**
 - `field_name`: Name of the field being visualized
 - `operation_name`: Name of the operation creating the visualization
-- `visualization_type`: Type of visualization (e.g., "histogram", "distribution")
-- `timestamp`: Timestamp for file naming. If None, current timestamp is used.
+- `visualization_type`: Type of visualization (e.g., "histogram", "distribution", "comparison")
+- `timestamp`: Optional timestamp string (uses current time if None)
 - `extension`: File extension (default: "png")
 
 **Returns:**
-- Standardized filename string
+- Standardized filename following pattern: `{field}_{operation}_{visType}_{timestamp}.{ext}`
 
 **Example:**
 ```python
-filename = generate_visualization_filename("income", "binning", "histogram")
-# Result: "income_binning_histogram_20250504_152345.png"
+filename = generate_visualization_filename(
+    field_name="salary",
+    operation_name="generalization",
+    visualization_type="histogram"
+)
+# Result: "salary_generalization_histogram_20250115_143052.png"
 ```
 
-### 3.2 `register_visualization_artifact`
+#### `register_visualization_artifact`
+
+Registers a visualization artifact with the operation result and reporter.
 
 ```python
-register_visualization_artifact(
+def register_visualization_artifact(
     result: Any,
     reporter: Any,
     path: Path,
@@ -85,310 +111,486 @@ register_visualization_artifact(
 ) -> None
 ```
 
-Registers a visualization artifact with the result and reporter.
-
 **Parameters:**
-- `result`: Operation result to add the artifact to
-- `reporter`: Reporter to add the artifact to
+- `result`: OperationResult object to add the artifact to
+- `reporter`: Reporter object (can be None)
 - `path`: Path to the visualization file
 - `field_name`: Name of the field being visualized
 - `visualization_type`: Type of visualization
-- `description`: Custom description of the visualization
+- `description`: Optional custom description
 
 **Example:**
 ```python
 register_visualization_artifact(
-    result, 
-    reporter, 
-    Path("/path/to/visualization.png"), 
-    "income", 
-    "histogram",
-    "Income distribution comparison before and after anonymization"
+    result=operation_result,
+    reporter=reporter,
+    path=Path("/task_dir/salary_histogram.png"),
+    field_name="salary",
+    visualization_type="histogram",
+    description="Salary distribution after anonymization"
 )
 ```
 
-### 3.3 `sample_large_dataset`
+#### `sample_large_dataset`
+
+Samples large datasets to a manageable size for visualization.
 
 ```python
-sample_large_dataset(
+def sample_large_dataset(
     data: pd.Series,
     max_samples: int = 10000,
     random_state: int = 42
 ) -> pd.Series
 ```
 
-Samples a large dataset to a manageable size for visualization.
-
 **Parameters:**
-- `data`: Original large dataset
-- `max_samples`: Maximum number of samples to return
+- `data`: Original dataset
+- `max_samples`: Maximum number of samples to return (default: 10000)
 - `random_state`: Random seed for reproducibility
 
 **Returns:**
-- Sampled dataset as pd.Series
+- Sampled dataset if original exceeds max_samples, otherwise original
 
-**Example:**
-```python
-original_data = pd.Series(range(1000000))
-sampled_data = sample_large_dataset(original_data, max_samples=5000)
-# Result: Series with 5000 randomly sampled values
-```
+#### `prepare_comparison_data`
 
-### 3.4 `prepare_comparison_data`
+Prepares data for before/after comparison visualizations.
 
 ```python
-prepare_comparison_data(
+def prepare_comparison_data(
     original_data: pd.Series,
     anonymized_data: pd.Series,
-    data_type: str = "auto",
-    max_categories: int = 10
+    max_categories: int = 20
 ) -> Tuple[Dict[str, Any], str]
 ```
 
-Prepares data for comparison visualizations based on data type.
-
 **Parameters:**
-- `original_data`: Original data
-- `anonymized_data`: Anonymized data
-- `data_type`: Force specific data type ('numeric', 'categorical') or 'auto' to detect
-- `max_categories`: Maximum number of categories for categorical data
+- `original_data`: Original data before anonymization
+- `anonymized_data`: Data after anonymization
+- `max_categories`: Maximum categories to show for categorical data
 
 **Returns:**
-- Tuple containing prepared data dictionary and detected data type
+- Tuple of (prepared_data, data_type) where data_type is 'numeric' or 'categorical'
 
-**Example:**
-```python
-original = pd.Series([1, 2, 3, 4, 5])
-anonymized = pd.Series([1, 2, 3, 3, 4])
-data, dtype = prepare_comparison_data(original, anonymized)
-# Result: ({"Original": [1, 2, 3, 4, 5], "Anonymized": [1, 2, 3, 3, 4]}, "numeric")
-```
+#### `calculate_optimal_bins`
 
-### 3.5 `calculate_optimal_bins`
+Calculates optimal number of bins for histograms using Sturges' rule.
 
 ```python
-calculate_optimal_bins(
+def calculate_optimal_bins(
     data: pd.Series,
-    min_bins: int = 5,
+    min_bins: int = 10,
     max_bins: int = 30
 ) -> int
 ```
 
-Calculates optimal number of bins for histograms using square root rule.
-
 **Parameters:**
 - `data`: Data to calculate bins for
-- `min_bins`: Minimum number of bins
-- `max_bins`: Maximum number of bins
+- `min_bins`: Minimum number of bins (default: 10)
+- `max_bins`: Maximum number of bins (default: 30)
 
 **Returns:**
-- Optimal number of bins
+- Optimal number of bins based on Sturges' rule and square root rule
 
-**Example:**
-```python
-data = pd.Series(np.random.normal(size=10000))
-optimal_bins = calculate_optimal_bins(data)
-# Result: An integer value between 5 and 30 based on square root rule
-```
+### Visualization Creation Functions
 
-### 3.6 `create_visualization_path`
+#### `create_metric_visualization`
+
+Creates a visualization for a specific metric using appropriate chart type.
 
 ```python
-create_visualization_path(
+def create_metric_visualization(
+    metric_name: str,
+    metric_data: Union[Dict[str, Any], pd.Series, List],
     task_dir: Path,
-    filename: str
-) -> Path
+    field_name: str,
+    operation_name: str,
+    timestamp: Optional[str] = None
+) -> Optional[Path]
 ```
-
-Creates full path for visualization with directory creation if needed.
 
 **Parameters:**
-- `task_dir`: Base task directory
-- `filename`: Filename for the visualization
+- `metric_name`: Name of the metric (e.g., 'k_anonymity_distribution')
+- `metric_data`: The metric data to visualize
+- `task_dir`: Task directory where visualization will be saved
+- `field_name`: Field name for the visualization
+- `operation_name`: Operation name
+- `timestamp`: Optional timestamp for consistency
 
 **Returns:**
-- Full path to the visualization file
+- Path to created visualization or None if failed
+
+#### `create_comparison_visualization`
+
+Creates a before/after comparison visualization.
+
+```python
+def create_comparison_visualization(
+    original_data: pd.Series,
+    anonymized_data: pd.Series,
+    task_dir: Path,
+    field_name: str,
+    operation_name: str,
+    timestamp: Optional[str] = None
+) -> Optional[Path]
+```
+
+**Parameters:**
+- `original_data`: Original data
+- `anonymized_data`: Anonymized data
+- `task_dir`: Task directory
+- `field_name`: Field name
+- `operation_name`: Operation name
+- `timestamp`: Optional timestamp for consistency
+
+**Returns:**
+- Path to visualization or None if failed
+
+#### `create_distribution_visualization`
+
+Creates a distribution visualization for metrics like k-anonymity or risk scores.
+
+```python
+def create_distribution_visualization(
+    data: Union[pd.Series, Dict[str, int]],
+    task_dir: Path,
+    field_name: str,
+    operation_name: str,
+    metric_name: str,
+    timestamp: Optional[str] = None
+) -> Optional[Path]
+```
+
+**Parameters:**
+- `data`: Distribution data (e.g., {k_value: count} or Series of values)
+- `task_dir`: Task directory
+- `field_name`: Field name
+- `operation_name`: Operation name
+- `metric_name`: Name of the metric being visualized
+- `timestamp`: Optional timestamp for consistency
+
+**Returns:**
+- Path to visualization or None if failed
+
+### Categorical Visualization Functions (New in 2.1.0)
+
+#### `create_category_distribution_comparison`
+
+Creates a specialized comparison visualization for categorical distributions, showing top categories before and after anonymization with counts and optionally percentages.
+
+```python
+def create_category_distribution_comparison(
+    original_data: pd.Series,
+    anonymized_data: pd.Series,
+    task_dir: Path,
+    field_name: str,
+    operation_name: str,
+    max_categories: int = 15,
+    show_percentages: bool = True,
+    timestamp: Optional[str] = None
+) -> Optional[Path]
+```
+
+**Parameters:**
+- `original_data`: Original categorical data
+- `anonymized_data`: Anonymized categorical data
+- `task_dir`: Task directory
+- `field_name`: Field name
+- `operation_name`: Operation name
+- `max_categories`: Maximum number of categories to show (default: 15)
+- `show_percentages`: Whether to show percentage distribution (default: True)
+- `timestamp`: Optional timestamp for consistency
+
+**Returns:**
+- Path to visualization or None if failed
 
 **Example:**
 ```python
-task_dir = Path("/path/to/task_directory")
-path = create_visualization_path(task_dir, "income_histogram_20250504.png")
-# Result: Path object pointing to "/path/to/task_directory/income_histogram_20250504.png"
-```
+# Original data has many categories
+original = pd.Series(['A']*100 + ['B']*50 + ['C']*30 + ['D']*10 + ['E']*5)
+# After merge_low_freq
+anonymized = pd.Series(['A']*100 + ['B']*50 + ['C']*30 + ['OTHER']*15)
 
-## 4. Usage Patterns
-
-### 4.1 Typical Usage Flow
-
-A typical usage pattern in an anonymization operation would be:
-
-1. Process the original and anonymized data
-2. Prepare the data for visualization using `prepare_comparison_data`
-3. Generate a standardized filename with `generate_visualization_filename`
-4. Create the visualization path with `create_visualization_path`
-5. Call the pamola core visualization function from `visualization.py`
-6. Register the visualization artifact with `register_visualization_artifact`
-
-Example flow:
-
-```python
-# In an anonymization operation
-def _generate_visualizations(self, original_data, anonymized_data, task_dir):
-    # Prepare data based on its type
-    prepared_data, data_type = prepare_comparison_data(original_data, anonymized_data)
-    
-    # Generate standardized filename
-    filename = generate_visualization_filename(
-        self.field_name, self.__class__.__name__, "distribution"
-    )
-    
-    # Create full path
-    viz_path = create_visualization_path(task_dir, filename)
-    
-    # Create visualization based on data type
-    if data_type == "numeric":
-        bin_count = calculate_optimal_bins(original_data)
-        create_histogram(prepared_data, str(viz_path), f"{self.field_name} Distribution", 
-                        self.field_name, "Frequency", bins=bin_count)
-    else:
-        create_bar_plot(prepared_data, str(viz_path), f"{self.field_name} Categories", 
-                       "Category", "Count")
-    
-    # Register the visualization
-    register_visualization_artifact(self.result, self.reporter, viz_path, 
-                                   self.field_name, "distribution")
-    
-    return {"distribution": viz_path}
-```
-
-### 4.2 Handling Large Datasets
-
-For large datasets, use the sampling utility:
-
-```python
-# If dataset is large, sample it before visualization
-if len(original_data) > 10000:
-    original_data_sample = sample_large_dataset(original_data)
-    anonymized_data_sample = sample_large_dataset(anonymized_data)
-    prepared_data, data_type = prepare_comparison_data(
-        original_data_sample, anonymized_data_sample
-    )
-else:
-    prepared_data, data_type = prepare_comparison_data(original_data, anonymized_data)
-```
-
-## 5. Implementation Considerations
-
-### 5.1 Performance
-
-- The module is designed to efficiently handle large datasets through sampling
-- For visualization preparation, data is processed efficiently with vectorized operations
-- File paths are created with minimal overhead
-
-### 5.2 Memory Usage
-
-- Large datasets are sampled to reduce memory usage during visualization
-- Data processing is done in-place wherever possible
-
-### 5.3 Error Handling
-
-- Functions use appropriate exception handling and logging
-- Non-critical errors are logged and graceful fallbacks are provided
-- Return sensible defaults when calculations fail
-
-### 5.4 Dependencies
-
-- The module depends on:
-  - `pandas` and `numpy` for data manipulation
-  - `datetime` for timestamp generation
-  - `pathlib.Path` for path handling
-  - Pamola Core logging utilities
-
-## 6. Future Improvements
-
-1. Add support for more specialized visualization types (time series, geospatial)
-2. Implement adaptive sampling based on data characteristics
-3. Add theme support for consistent visualization styling
-4. Support for interactive visualization formats (HTML, SVG)
-5. Add visualization metadata capture for better reporting
-
-## 7. Integration Guidelines
-
-When using this module in anonymization operations:
-
-1. Always use standardized naming conventions
-2. Handle numeric and categorical data appropriately
-3. Use sampling for large datasets
-4. Register visualizations with both result and reporter
-5. Ensure visualization directories exist before saving files
-6. Use appropriate visualization types for different data characteristics
-
-## 8. Examples
-
-### 8.1 Numeric Data Visualization
-
-```python
-# For numeric data
-import pandas as pd
-from pathlib import Path
-from pamola_core.anonymization.commons.visualization_utils import *
-
-# Sample data
-original_data = pd.Series([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-anonymized_data = pd.Series([1, 3, 3, 5, 5, 7, 7, 9, 9, 10])
-
-# Prepare data
-prepared_data, data_type = prepare_comparison_data(original_data, anonymized_data)
-
-# Create visualization
-task_dir = Path("/path/to/task")
-filename = generate_visualization_filename("sample_field", "numeric_gen", "histogram")
-viz_path = create_visualization_path(task_dir, filename)
-
-# Use create_histogram from pamola_core.utils.visualization
-from pamola_core.utils.visualization import create_histogram
-create_histogram(
-    prepared_data,
-    str(viz_path),
-    "Sample Distribution Comparison",
-    "Value",
-    "Frequency",
-    bins=10
+viz_path = create_category_distribution_comparison(
+    original_data=original,
+    anonymized_data=anonymized,
+    task_dir=Path("/path/to/task"),
+    field_name="department",
+    operation_name="categorical_generalization",
+    show_percentages=True
 )
 ```
 
-### 8.2 Categorical Data Visualization
+#### `create_hierarchy_sunburst`
+
+Creates a sunburst visualization for hierarchical category structure, useful for visualizing generalization hierarchies and understanding the impact of hierarchy-based anonymization.
 
 ```python
-# For categorical data
-import pandas as pd
-from pathlib import Path
-from pamola_core.anonymization.commons.visualization_utils import *
+def create_hierarchy_sunburst(
+    hierarchy_data: Dict[str, Any],
+    task_dir: Path,
+    field_name: str,
+    operation_name: str,
+    max_depth: int = 3,
+    max_categories: int = 50,
+    timestamp: Optional[str] = None
+) -> Optional[Path]
+```
 
-# Sample data
-original_data = pd.Series(["A", "B", "C", "A", "B", "D", "E", "F", "G", "H"])
-anonymized_data = pd.Series(["Other", "Other", "C", "Other", "Other", "D", "Other", "Other", "Other", "H"])
+**Parameters:**
+- `hierarchy_data`: Hierarchical structure data. Can be:
+  - Nested dict: `{"parent": {"child1": count, "child2": count}}`
+  - Flat dict with parent info: `{"child": {"parent": "parent_name", "count": 10}}`
+- `task_dir`: Task directory
+- `field_name`: Field name
+- `operation_name`: Operation name
+- `max_depth`: Maximum hierarchy depth to visualize (default: 3)
+- `max_categories`: Maximum leaf categories to include (default: 50)
+- `timestamp`: Optional timestamp for consistency
 
-# Prepare data
-prepared_data, data_type = prepare_comparison_data(original_data, anonymized_data)
+**Returns:**
+- Path to visualization or None if failed
 
-# Create visualization
-task_dir = Path("/path/to/task")
-filename = generate_visualization_filename("category_field", "cat_gen", "categories")
-viz_path = create_visualization_path(task_dir, filename)
+**Example:**
+```python
+# Nested hierarchy format
+hierarchy = {
+    "Location": {
+        "North America": {
+            "USA": {"New York": 120, "California": 150},
+            "Canada": {"Ontario": 80, "Quebec": 70}
+        },
+        "Europe": {
+            "UK": 110,
+            "Germany": 130
+        }
+    }
+}
 
-# Use create_bar_plot from pamola_core.utils.visualization
-from pamola_core.utils.visualization import create_bar_plot
-create_bar_plot(
-    prepared_data,
-    str(viz_path),
-    "Category Comparison",
-    "Category",
-    "Count",
-    orientation="v"
+viz_path = create_hierarchy_sunburst(
+    hierarchy_data=hierarchy,
+    task_dir=Path("/path/to/task"),
+    field_name="location",
+    operation_name="hierarchy_generalization",
+    max_depth=3
 )
 ```
 
-## 9. Conclusion
+### Helper Functions (Internal)
 
-The `visualization_utils.py` module provides essential utilities for creating standardized visualizations in anonymization operations. By following consistent patterns and leveraging these utilities, operations can produce informative, comparable, and well-organized visualizations that help users understand the impact of anonymization techniques on their data.
+#### `_is_nested_hierarchy`
+
+Checks if data is in nested hierarchy format.
+
+```python
+def _is_nested_hierarchy(data: Dict[str, Any]) -> bool
+```
+
+#### `_limit_hierarchy_size`
+
+Limits the size and depth of a hierarchy for visualization.
+
+```python
+def _limit_hierarchy_size(
+    hierarchy: Dict[str, Any],
+    max_categories: int,
+    max_depth: int,
+    current_depth: int = 0
+) -> Dict[str, Any]
+```
+
+#### `_count_leaves`
+
+Counts leaf nodes in a hierarchy.
+
+```python
+def _count_leaves(hierarchy: Dict[str, Any]) -> int
+```
+
+#### `_convert_flat_to_nested_hierarchy`
+
+Converts flat hierarchy format to nested format for sunburst.
+
+```python
+def _convert_flat_to_nested_hierarchy(
+    flat_data: Dict[str, Dict[str, Any]],
+    max_categories: int,
+    max_depth: int
+) -> Dict[str, Any]
+```
+
+## Usage Examples
+
+### Complete Categorical Anonymization Visualization
+
+```python
+from pathlib import Path
+import pandas as pd
+from pamola_core.anonymization.commons import visualization_utils as viz_utils
+from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+
+# Setup
+task_dir = Path("/path/to/task_dir")
+field_name = "job_title"
+operation_name = "categorical_generalization"
+timestamp = "20250115_143052"
+
+# Sample data - many specific job titles
+original_data = pd.Series([
+    "Software Engineer I", "Software Engineer II", "Senior Software Engineer",
+    "Data Scientist", "Senior Data Scientist", "ML Engineer",
+    "Product Manager", "Senior Product Manager", "VP Product",
+    "Accountant", "Senior Accountant", "Accounting Manager"
+] * 10)
+
+# After hierarchy-based generalization
+anonymized_data = pd.Series([
+    "Engineering", "Engineering", "Engineering",
+    "Data Science", "Data Science", "Data Science",
+    "Product", "Product", "Product",
+    "Finance", "Finance", "Finance"
+] * 10)
+
+# Create operation result
+result = OperationResult(status=OperationStatus.SUCCESS)
+
+# 1. Create category distribution comparison
+dist_path = viz_utils.create_category_distribution_comparison(
+    original_data=original_data,
+    anonymized_data=anonymized_data,
+    task_dir=task_dir,
+    field_name=field_name,
+    operation_name=operation_name,
+    max_categories=10,
+    show_percentages=True,
+    timestamp=timestamp
+)
+
+# 2. Create hierarchy sunburst
+hierarchy_data = {
+    "Company": {
+        "Technical": {
+            "Engineering": {"Software Engineer I": 10, "Software Engineer II": 10},
+            "Data Science": {"Data Scientist": 10, "ML Engineer": 10}
+        },
+        "Business": {
+            "Product": {"Product Manager": 10, "VP Product": 10},
+            "Finance": {"Accountant": 10, "Accounting Manager": 10}
+        }
+    }
+}
+
+sunburst_path = viz_utils.create_hierarchy_sunburst(
+    hierarchy_data=hierarchy_data,
+    task_dir=task_dir,
+    field_name=field_name,
+    operation_name=operation_name,
+    max_depth=4,
+    timestamp=timestamp
+)
+
+# 3. Register visualizations
+for path, viz_type in [(dist_path, "category_distribution"), 
+                       (sunburst_path, "hierarchy_sunburst")]:
+    if path:
+        viz_utils.register_visualization_artifact(
+            result=result,
+            reporter=None,
+            path=path,
+            field_name=field_name,
+            visualization_type=viz_type
+        )
+```
+
+### Integration with Categorical Generalization Operation
+
+```python
+class CategoricalGeneralizationOperation(AnonymizationOperation):
+    def _generate_visualizations(self, original_data, anonymized_data, task_dir):
+        """Generate visualizations specific to categorical generalization."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        viz_paths = []
+        
+        # Standard comparison
+        comparison_path = viz_utils.create_comparison_visualization(
+            original_data=original_data,
+            anonymized_data=anonymized_data,
+            task_dir=task_dir,
+            field_name=self.field_name,
+            operation_name=self.name,
+            timestamp=timestamp
+        )
+        if comparison_path:
+            viz_paths.append(("comparison", comparison_path))
+        
+        # Category distribution comparison
+        if self.strategy in ["merge_low_freq", "frequency_based"]:
+            dist_path = viz_utils.create_category_distribution_comparison(
+                original_data=original_data,
+                anonymized_data=anonymized_data,
+                task_dir=task_dir,
+                field_name=self.field_name,
+                operation_name=self.name,
+                max_categories=20,
+                show_percentages=True,
+                timestamp=timestamp
+            )
+            if dist_path:
+                viz_paths.append(("category_distribution", dist_path))
+        
+        # Hierarchy sunburst
+        if self.strategy == "hierarchy" and self.hierarchy_dict:
+            hierarchy_data = self._build_hierarchy_structure()
+            sunburst_path = viz_utils.create_hierarchy_sunburst(
+                hierarchy_data=hierarchy_data,
+                task_dir=task_dir,
+                field_name=self.field_name,
+                operation_name=self.name,
+                timestamp=timestamp
+            )
+            if sunburst_path:
+                viz_paths.append(("hierarchy", sunburst_path))
+        
+        return viz_paths
+```
+
+## Best Practices
+
+1. **Consistent Timestamps**: Use the same timestamp for all visualizations in an operation to maintain consistency
+2. **Sample Large Data**: Always use `sample_large_dataset()` for datasets larger than 10,000 points
+3. **Error Handling**: Check return values from visualization functions as they return None on failure
+4. **Artifact Registration**: Always register visualizations with both result and reporter objects
+5. **Filename Standards**: Use `generate_visualization_filename()` for consistent naming
+6. **Category Limits**: For categorical visualizations, limit displayed categories to maintain readability
+7. **Hierarchy Depth**: Keep sunburst visualizations to 3-4 levels maximum for clarity
+
+## Dependencies
+
+- `pandas`: Data manipulation
+- `numpy`: Numerical operations
+- `pathlib`: Path handling
+- `pamola_core.utils.visualization`: Core visualization functions:
+  - `create_bar_plot`
+  - `create_histogram`
+  - `create_sunburst_chart`
+  - `create_pie_chart`
+- Standard logging module
+
+## Constants
+
+- `DEFAULT_MAX_SAMPLES`: 10000 - Maximum samples for visualization
+- `DEFAULT_MAX_CATEGORIES`: 20 - Default maximum categories to display
+- `DEFAULT_HISTOGRAM_BINS`: 30 - Maximum histogram bins
+- `DEFAULT_TOP_CATEGORIES_FOR_SUNBURST`: 50 - Maximum categories in sunburst
+
+## Version History
+
+- **2.1.0** (2025-01): Added categorical anonymization visualizations
+  - Added `create_category_distribution_comparison()`
+  - Added `create_hierarchy_sunburst()`
+  - Enhanced support for categorical metrics
+- **2.0.0** (2024-12): Refactored for integration with ops framework
+  - Removed path management (using task_dir directly)
+  - Focused on metric visualization only
+  - Added wrappers for core visualization functions
+- **1.0.0** (2024-01): Initial implementation with basic utilities
+```

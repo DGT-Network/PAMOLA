@@ -19,7 +19,7 @@
 - [ ] Complex operations have inline comments explaining logic
 - [ ] Maximum file length is ~700 lines for maintainability
 
-## Pamola Core Utilities Integration
+## Core Utilities Integration
 
 - [ ] File I/O operations use `pamola_core/utils/io.py` utilities
 - [ ] Visualization generation uses `pamola_core/utils/visualization.py` utilities only
@@ -38,7 +38,7 @@
 - [ ] Non-numeric fields are detected and handled gracefully
 - [ ] Null values are handled according to the null_strategy parameter
 - [ ] All errors are captured in the `OperationResult` with appropriate error codes
-- [ ] Critical errors are logged using the pamola core logging module
+- [ ] Critical errors are logged using the core logging module
 - [ ] Specific exception classes are used for different error types
 
 ## Metrics and Visualization

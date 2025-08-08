@@ -3,10 +3,28 @@ from unittest.mock import MagicMock, patch, call
 import pandas as pd
 from pathlib import Path
 from pamola_core.profiling.analyzers.text import TextSemanticCategorizerOperation
+from pamola_core.utils.ops.op_result import OperationStatus, OperationResult
 
+class DummyDataSource:
+    def __init__(self, df=None, error=None):
+        self.df = df
+        self.error = error
+        self.encryption_keys = {}
+        self.encryption_modes = {}
+    def get_dataframe(self, dataset_name, **kwargs):
+        if self.df is not None:
+            return self.df, None
+        return None, {"message": self.error or "No data"}
+    
 class TestTextSemanticCategorizerOperation(unittest.TestCase):
     def setUp(self):
-        self.op = TextSemanticCategorizerOperation(field_name="test_field", entity_type="job")
+        self.df = pd.DataFrame({'test_field': ['+84123', None]})
+        self.data_source = DummyDataSource(df=self.df)
+        self.data_source.__class__.__name__ = 'DataSource'
+        self.task_dir = Path('test_task_dir')
+        self.reporter = MagicMock()
+        self.progress = MagicMock()
+        self.op = TextSemanticCategorizerOperation(field_name="test_field", entity_type="job", use_cache=False)
 
     def test_init_sets_attributes(self):
         self.assertEqual(self.op.field_name, "test_field")
@@ -103,6 +121,36 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
     def test_perform_basic_analysis(self, mock_lang, mock_len, mock_null):
         df = pd.DataFrame({"test_field": ["a", "b"]})
         res = self.op._perform_basic_analysis(df, "test_field")
+        self.assertIn("null_empty_analysis", res)
+        self.assertIn("language_analysis", res)
+        self.assertIn("length_stats", res)
+        
+    @patch("pamola_core.profiling.analyzers.text.analyze_null_and_empty", return_value={"total_records": 2, "null_values": {"percentage": 0}, "empty_strings": {"percentage": 0}})
+    @patch("pamola_core.profiling.analyzers.text.calculate_length_stats", return_value={"mean": 1, "max": 2, "length_distribution": [1,2]})
+    @patch.object(TextSemanticCategorizerOperation, "_analyze_language", return_value={"predominant_language": "en", "language_distribution": {"en": 2}})
+    def test_perform_basic_analysis_use_dask(self, mock_lang, mock_len, mock_null):
+        df = pd.DataFrame({"test_field": ["a", "b"]})
+        res = self.op._perform_basic_analysis(df, "test_field", use_dask=True)
+        self.assertIn("null_empty_analysis", res)
+        self.assertIn("language_analysis", res)
+        self.assertIn("length_stats", res)
+        
+    @patch("pamola_core.profiling.analyzers.text.analyze_null_and_empty", return_value={"total_records": 2, "null_values": {"percentage": 0}, "empty_strings": {"percentage": 0}})
+    @patch("pamola_core.profiling.analyzers.text.calculate_length_stats", return_value={"mean": 1, "max": 2, "length_distribution": [1,2]})
+    @patch.object(TextSemanticCategorizerOperation, "_analyze_language", return_value={"predominant_language": "en", "language_distribution": {"en": 2}})
+    def test_perform_basic_analysis_use_vectorization(self, mock_lang, mock_len, mock_null):
+        df = pd.DataFrame({"test_field": ["a", "b"]})
+        res = self.op._perform_basic_analysis(df, "test_field", use_vectorization=True)
+        self.assertIn("null_empty_analysis", res)
+        self.assertIn("language_analysis", res)
+        self.assertIn("length_stats", res)
+        
+    @patch("pamola_core.profiling.analyzers.text.analyze_null_and_empty", return_value={"total_records": 2, "null_values": {"percentage": 0}, "empty_strings": {"percentage": 0}})
+    @patch("pamola_core.profiling.analyzers.text.calculate_length_stats", return_value={"mean": 1, "max": 2, "length_distribution": [1,2]})
+    @patch.object(TextSemanticCategorizerOperation, "_analyze_language", return_value={"predominant_language": "en", "language_distribution": {"en": 2}})
+    def test_perform_basic_analysis_chunk_size(self, mock_lang, mock_len, mock_null):
+        df = pd.DataFrame({"test_field": ["a", "b"]})
+        res = self.op._perform_basic_analysis(df, "test_field", chunk_size=1)
         self.assertIn("null_empty_analysis", res)
         self.assertIn("language_analysis", res)
         self.assertIn("length_stats", res)
@@ -214,6 +262,9 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
             result=dummy_result,
             reporter=dummy_reporter,
             description="desc",
+            vis_theme=None,
+            vis_backend="matplotlib",
+            vis_strict=False,
             additional_params={"show_percentages": True}
         )
         self.assertEqual(dummy_result.kwargs["artifact_type"], "png")
@@ -239,7 +290,10 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
             include_timestamp=True,
             result=dummy_result,
             reporter=dummy_reporter,
-            description="desc"
+            description="desc",
+            vis_theme=None,
+            vis_backend="matplotlib",
+            vis_strict=False,
         )
         self.assertFalse(hasattr(dummy_result, "kwargs"))
 
@@ -266,7 +320,10 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
             Path("/tmp/vis"),
             True,
             dummy_result,
-            dummy_reporter
+            dummy_reporter,
+            vis_theme=None,
+            vis_backend="matplotlib",
+            vis_strict=False,
         )
         self.assertEqual(dummy_result.kwargs["artifact_type"], "png")
 
@@ -348,24 +405,18 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
     @patch("pamola_core.profiling.analyzers.text.logger")
     @patch.object(TextSemanticCategorizerOperation, "_generate_visualizations")
     @patch.object(TextSemanticCategorizerOperation, "_load_cache")
-    @patch("pamola_core.profiling.analyzers.text.OperationResult")
     @patch("pamola_core.profiling.analyzers.text.load_data_operation")
     def test_execute_uses_cache(
-        self, mock_load_data, mock_op_result, mock_load_cache, mock_generate_vis, mock_logger
+        self, mock_load_data, mock_load_cache, mock_generate_vis, mock_logger
     ):
         # Setup
         df = pd.DataFrame({"test_field": ["a", "b"]})
         mock_load_data.return_value = df
         cached_result = {"metrics": {"m1": 1, "m2": 2}}
         mock_load_cache.return_value = cached_result
-        mock_result = MagicMock()
-        mock_op_result.return_value = mock_result
-        data_source = MagicMock()
-        task_dir = Path("/tmp/task")
-        reporter = MagicMock()
-        progress_tracker = MagicMock()
         # Patch _get_cache_key to avoid hashing
-        with patch.object(self.op, "_get_cache_key", return_value="cache_key"), \
+        with patch.object(self.op, "_check_cache", return_value=OperationResult(status=OperationStatus.SUCCESS)), \
+             patch.object(self.op, "_get_cache_key", return_value="cache_key"), \
              patch.object(self.op, "cache_dir", Path("/tmp/task/cache")), \
              patch.object(self.op, "_prepare_directories", return_value={
                 "output": Path("/tmp/task/output"),
@@ -373,32 +424,53 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
                 "visualizations": Path("/tmp/task/visualizations"),
                 "cache": Path("/tmp/task/cache")
              }), \
-             patch.object(self.op, "_prepare_execution_parameters", return_value={"include_timestamp": True}):
+            patch.object(self.op, "_prepare_execution_parameters", return_value={"include_timestamp": True, "chunk_size": 10000}):
+            self.op.use_cache = True
             result = self.op.execute(
-                data_source=data_source,
-                task_dir=task_dir,
-                reporter=reporter,
-                progress_tracker=progress_tracker,
-                dataset_name="main"
+                data_source=self.data_source,
+                task_dir=self.task_dir,
+                reporter=self.reporter,
+                progress_tracker=self.progress
             )
+            self.assertEqual(result.status, OperationStatus.SUCCESS)
         # logger.info is called
         mock_logger.info.assert_any_call(f"Using cached results for {self.op.field_name}")
         # progress_tracker.update is called with step Loaded from cache
-        progress_tracker.update.assert_any_call(5, {"step": "Loaded from cache", "field": self.op.field_name})
-        # _generate_visualizations is called with cached_result
-        mock_generate_vis.assert_called_with(
-            cached_result,
-            Path("/tmp/task/visualizations"),
-            True,
-            mock_result,
-            reporter
-        )
-        # Metrics are added to result
-        mock_result.add_metric.assert_any_call("m1", 1)
-        mock_result.add_metric.assert_any_call("m2", 2)
-        # The function returns the correct result
-        self.assertEqual(result, mock_result)
+        self.progress.update.assert_any_call(5, {"step": "Loaded from cache", "field": self.op.field_name})
 
+    @patch("pamola_core.profiling.analyzers.text.logger")
+    @patch.object(TextSemanticCategorizerOperation, "_generate_visualizations")
+    @patch.object(TextSemanticCategorizerOperation, "_load_cache")
+    @patch("pamola_core.profiling.analyzers.text.load_data_operation")
+    def test_execute_visualization(
+        self, mock_load_data, mock_load_cache, mock_generate_vis, mock_logger
+    ):
+        # Setup
+        df = pd.DataFrame({"test_field": ["a", "b"]})
+        mock_load_data.return_value = df
+        cached_result = {"metrics": {"m1": 1, "m2": 2}}
+        # Patch _get_cache_key to avoid hashing
+        with patch.object(self.op, "_check_cache", return_value=OperationResult(status=OperationStatus.SUCCESS)), \
+             patch.object(self.op, "_get_cache_key", return_value="cache_key"), \
+             patch.object(self.op, "cache_dir", Path("/tmp/task/cache")), \
+             patch.object(self.op, "_prepare_directories", return_value={
+                "output": Path("/tmp/task/output"),
+                "dictionaries": Path("/tmp/task/dictionaries"),
+                "visualizations": Path("/tmp/task/visualizations"),
+                "cache": Path("/tmp/task/cache")
+             }), \
+            patch.object(self.op, "_prepare_execution_parameters",
+                         return_value={"include_timestamp": True, "chunk_size": 10000, "perform_categorization": None}):
+            self.op.generate_visualization = True
+            self.op.visualization_backend = 'plotly'
+            result = self.op.execute(
+                data_source=self.data_source,
+                task_dir=self.task_dir,
+                reporter=self.reporter,
+                progress_tracker=self.progress
+            )
+            self.assertEqual(result.status, OperationStatus.SUCCESS)
+    
     @patch("pamola_core.profiling.analyzers.text.logger")
     @patch("pamola_core.profiling.analyzers.text.read_json")
     def test_perform_semantic_categorization_basic(self, mock_read_json, mock_logger):
@@ -505,6 +577,66 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
         self.assertIn("category_distribution", result)
         self.assertEqual(len(result["categorization"]), 0)
         self.assertEqual(len(result["unresolved"]), 0)
+        
+    def test_categorize_texts_in_chunks_use_dask(self):
+        with patch("pamola_core.profiling.analyzers.text.read_json") as mock_read_json:
+            text_values = ["engineer", "doctor", "unknown", ""]
+            record_ids = ["0", "1", "2", "3"]
+            dictionary = {"engineer": "STEM", "doctor": "Healthcare"}
+            mock_read_json.return_value = dictionary
+            dictionary_path = Path("/tmp/dict.json")
+            result = self.op._categorize_texts_in_chunks(
+                text_values, record_ids, dictionary_path,
+                language="en", match_strategy="exact",
+                use_ner=False, perform_clustering=False, clustering_threshold=0.8,
+                use_dask=True
+            )
+            self.assertIn("categorization", result)
+            self.assertIn("unresolved", result)
+            self.assertIn("summary", result)
+            self.assertIn("category_distribution", result)
+            self.assertEqual(len(result["categorization"]), 0)
+            self.assertEqual(len(result["unresolved"]), 0)
+            
+    def test_categorize_texts_in_chunks_use_vectorization(self):
+        with patch("pamola_core.profiling.analyzers.text.read_json") as mock_read_json:
+            text_values = ["engineer", "doctor", "unknown", ""]
+            record_ids = ["0", "1", "2", "3"]
+            dictionary = {"engineer": "STEM", "doctor": "Healthcare"}
+            mock_read_json.return_value = dictionary
+            dictionary_path = Path("/tmp/dict.json")
+            result = self.op._categorize_texts_in_chunks(
+                text_values, record_ids, dictionary_path,
+                language="en", match_strategy="exact",
+                use_ner=False, perform_clustering=False, clustering_threshold=0.8,
+                use_vectorization=True
+            )
+            self.assertIn("categorization", result)
+            self.assertIn("unresolved", result)
+            self.assertIn("summary", result)
+            self.assertIn("category_distribution", result)
+            self.assertEqual(len(result["categorization"]), 0)
+            self.assertEqual(len(result["unresolved"]), 0)
+            
+    def test_categorize_texts_in_chunks_chunk_size(self):
+        with patch("pamola_core.profiling.analyzers.text.read_json") as mock_read_json:
+            text_values = ["engineer", "doctor", "unknown", ""]
+            record_ids = ["0", "1", "2", "3"]
+            dictionary = {"engineer": "STEM", "doctor": "Healthcare"}
+            mock_read_json.return_value = dictionary
+            dictionary_path = Path("/tmp/dict.json")
+            result = self.op._categorize_texts_in_chunks(
+                text_values, record_ids, dictionary_path,
+                language="en", match_strategy="exact",
+                use_ner=False, perform_clustering=False, clustering_threshold=0.8,
+                chunk_size=2
+            )
+            self.assertIn("categorization", result)
+            self.assertIn("unresolved", result)
+            self.assertIn("summary", result)
+            self.assertIn("category_distribution", result)
+            self.assertEqual(len(result["categorization"]), 0)
+            self.assertEqual(len(result["unresolved"]), 0)
 
     @patch("pamola_core.profiling.analyzers.text.read_json")
     @patch("pamola_core.profiling.analyzers.text.logger")
@@ -659,3 +791,249 @@ class TestTextSemanticCategorizerOperation(unittest.TestCase):
             self.assertEqual(res, "error_result")
             reporter.add_operation.assert_called()
             progress_tracker.update.assert_called()
+            
+    @patch('threading.Thread')
+    def test_handle_visualizations_timeout(self, mock_thread):
+        class DummyThread:
+            def __init__(self): self._alive = True
+            def start(self): pass
+            def join(self, timeout=None): pass
+            def is_alive(self): return True
+            @property
+            def daemon(self): return False
+        mock_thread.return_value = DummyThread()
+        analysis_results = {
+            'stats': {
+                'histogram': {'bins': [0, 1], 'counts': [1, 2]},
+                'min': 1, 'max': 10, 'normality': {'is_normal': True, 'shapiro': {'p_value': 0.5}}
+            },
+            'country_codes':{
+                'phone': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            },
+            'operator_codes':{
+                'phone': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            },
+            'messenger_mentions':{
+                'phone': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            }
+        }
+        result = OperationResult(status=OperationStatus.SUCCESS)
+        result = self.op._handle_visualizations(analysis_results,
+                                       self.task_dir,
+                                       True,
+                                       result,
+                                       self.reporter,
+                                       vis_theme='theme',
+                                       vis_backend='matplotlib',
+                                       vis_strict=False,
+                                       vis_timeout=2,
+                                       progress_tracker=self.progress)
+        self.assertEqual(result, {})
+        
+        
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(TextSemanticCategorizerOperation, '_generate_cache_key')
+    def test_no_cache(self, mock_cache_key, mock_operation_cache):
+        mock_cache_key.return_value = 'cache_key'
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out, None)
+        
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.get_cache')
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(TextSemanticCategorizerOperation, '_generate_cache_key')
+    def test_cache(self, mock_cache_key, mock_operation_cache, mock_get_cache):
+        mock_cache_key.return_value = 'cache_key'
+        mock_get_cache.return_value = {
+            'analysis_results': {
+                'null_empty_analysis':{
+                    'total_records': 2,
+                    'null_values':{
+                        'percentage': 100
+                    },
+                    'empty_strings':{
+                        'percentage': 100
+                    }
+                },
+                'length_stats':{
+                    'mean': 1,
+                    'max': 2
+                },
+                'language_analysis':{
+                    'predominant_language': 'en'
+                }
+            }
+        }
+        mock_operation_cache.return_value = {'main': 'vis_path.png'}
+        self.op.use_cache = True
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out.status, OperationStatus.SUCCESS)
+        
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.get_cache')
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(TextSemanticCategorizerOperation, '_generate_cache_key')
+    def test_cache_match_summary(self, mock_cache_key, mock_operation_cache, mock_get_cache):
+        mock_cache_key.return_value = 'cache_key'
+        mock_get_cache.return_value = {
+            'analysis_results': {
+                'null_empty_analysis':{
+                    'total_records': 2,
+                    'null_values':{
+                        'percentage': 100
+                    },
+                    'empty_strings':{
+                        'percentage': 100
+                    }
+                },
+                'length_stats':{
+                    'mean': 1,
+                    'max': 2
+                },
+                'language_analysis':{
+                    'predominant_language': 'en'
+                },
+                'match_summary':{
+                    'num_matched': 1,
+                    'num_ner_matched': 2,
+                    'num_auto_clustered': 1,
+                    'num_unresolved': 0,
+                    'percentage_matched': 100
+                }
+            }
+        }
+        mock_operation_cache.return_value = {'main': 'vis_path.png'}
+        self.op.use_cache = True
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out.status, OperationStatus.SUCCESS)
+                 
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.get_cache')
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(TextSemanticCategorizerOperation, '_generate_cache_key')
+    def test_cache_exception(self, mock_cache_key, mock_operation_cache, mock_get_cache):
+        mock_cache_key.return_value = 'cache_key'
+        mock_get_cache.side_effect = Exception("Cache Exception")
+        self.op.use_cache = True
+        out = self.op._check_cache(
+            self.df, self.reporter, self.task_dir
+        )
+        self.assertEqual(out, None)
+        
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(TextSemanticCategorizerOperation, '_generate_cache_key', return_value='cache_key')
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.save_cache')
+    def test_save_to_cache_success(self, mock_save_cache, mock_cache_key, mock_operation_cache):
+        analysis_results = {
+            'analysis_results': {
+                'null_empty_analysis':{
+                    'total_records': 2,
+                    'null_values':{
+                        'percentage': 100
+                    },
+                    'empty_strings':{
+                        'percentage': 100
+                    }
+                },
+                'length_stats':{
+                    'mean': 1,
+                    'max': 2
+                },
+                'language_analysis':{
+                    'predominant_language': 'en'
+                }
+            }
+        }
+        analysis_result_path= {}
+        categorization_result_paths = {}
+        visualization_paths = []
+        self.op.use_cache = True
+        result = self.op._save_to_cache(self.df, analysis_results, analysis_result_path, categorization_result_paths, visualization_paths, self.task_dir)
+        self.assertTrue(result)
+        mock_cache_key.assert_called
+        
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(TextSemanticCategorizerOperation, '_generate_cache_key', return_value='cache_key')
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.save_cache')
+    def test_save_to_cache_false(self, mock_save_cache, mock_cache_key, mock_operation_cache):
+        mock_save_cache.return_value = False
+        self.op.use_cache = True
+        analysis_results = {
+            'analysis_results': {
+                'null_empty_analysis':{
+                    'total_records': 2,
+                    'null_values':{
+                        'percentage': 100
+                    },
+                    'empty_strings':{
+                        'percentage': 100
+                    }
+                },
+                'length_stats':{
+                    'mean': 1,
+                    'max': 2
+                },
+                'language_analysis':{
+                    'predominant_language': 'en'
+                }
+            }
+        }
+        analysis_result_path= {}
+        categorization_result_paths = {}
+        visualization_paths = []
+        self.op.use_cache = True
+        result = self.op._save_to_cache(self.df, analysis_results, analysis_result_path, categorization_result_paths, visualization_paths, self.task_dir)
+        self.assertFalse(result)
+        mock_save_cache.assert_called
+
+    @patch('pamola_core.utils.ops.op_cache.operation_cache', side_effect=Exception('Cache write error'))
+    @patch.object(TextSemanticCategorizerOperation, '_generate_cache_key', side_effect=Exception('Cache write error'))
+    @patch('pamola_core.utils.ops.op_cache.OperationCache.save_cache')
+    @patch('pamola_core.profiling.analyzers.phone.logger')
+    def test_save_to_cache_exception(self, mock_logger, mock_save_cache, mock_cache_key, mock_operation_cache):
+        self.op.use_cache = True
+        analysis_results = {
+            'analysis_results': {
+                'null_empty_analysis':{
+                    'total_records': 2,
+                    'null_values':{
+                        'percentage': 100
+                    },
+                    'empty_strings':{
+                        'percentage': 100
+                    }
+                },
+                'length_stats':{
+                    'mean': 1,
+                    'max': 2
+                },
+                'language_analysis':{
+                    'predominant_language': 'en'
+                }
+            }
+        }
+        analysis_result_path= {}
+        categorization_result_paths = {}
+        visualization_paths = []
+        self.op.use_cache = True
+        result = self.op._save_to_cache(self.df, analysis_results, analysis_result_path, categorization_result_paths, visualization_paths, self.task_dir)
+        self.assertFalse(result)
+
+    @patch('pamola_core.utils.ops.op_cache.operation_cache')
+    @patch.object(TextSemanticCategorizerOperation, '_generate_cache_key', return_value='cache_key')
+    def test_save_to_cache_empty_analysis_results(self, mock_cache_key, mock_operation_cache):
+        # Empty analysis_results
+        self.op.use_cache = True
+        analysis_results = {}
+        analysis_result_path= {}
+        categorization_result_paths = {}
+        visualization_paths = []
+        self.op.use_cache = True
+        result = self.op._save_to_cache(self.df, analysis_results, analysis_result_path, categorization_result_paths, visualization_paths, self.task_dir)
+        mock_cache_key.assert_called()
+
+if __name__ == "__main__":
+    unittest.main()

@@ -21,7 +21,7 @@ class TestDateOperation(unittest.TestCase):
             field_name=self.field_name,
             min_year=1940,
             max_year=2005,
-            generate_plots=True
+            generate_visualization=True
         )
 
     @patch("pamola_core.profiling.analyzers.date.load_data_operation")
@@ -54,6 +54,7 @@ class TestDateOperation(unittest.TestCase):
 
         with patch("pamola_core.profiling.analyzers.date.DateAnalyzer.analyze", return_value=analysis_results):
             # Execute operation
+            self.operation.use_cache = False
             result = self.operation.execute(
                 data_source=self.mock_data_source,
                 task_dir=self.task_dir,
@@ -70,7 +71,7 @@ class TestDateOperation(unittest.TestCase):
             mock_write_json.assert_called_once()
             self.mock_reporter.add_artifact.assert_called_once_with(
                 "json",
-                str(self.task_dir / "birth_date_stats.json"),
+                str(self.task_dir / "output" / "birth_date_stats.json"),
                 "birth_date statistical analysis"
             )
 
@@ -159,7 +160,7 @@ class TestDateOperation(unittest.TestCase):
         mock_progress_tracker = MagicMock()
 
         # Create DateOperation instance
-        operation = DateOperation(field_name="date_field")
+        operation = DateOperation(field_name="date_field", use_cache=False)
 
         # Execute operation
         result = operation.execute(
@@ -176,9 +177,10 @@ class TestDateOperation(unittest.TestCase):
             Path("/tmp/test_task_dir/dictionaries"),
             True,  # include_timestamp
             result,
-            unittest.mock.ANY  # reporter
+            unittest.mock.ANY,  # reporter
+            encryption_key=unittest.mock.ANY
         )
-        mock_progress_tracker.update.assert_any_call(1, {"step": "Saved anomalies data"})
+        mock_progress_tracker.update.assert_any_call(unittest.mock.ANY, {"step": "Saved anomalies data"})
 
     @patch('pamola_core.profiling.analyzers.date.plot_date_distribution')
     @patch('pamola_core.profiling.analyzers.date.plot_value_distribution')
@@ -213,7 +215,7 @@ class TestDateOperation(unittest.TestCase):
         reporter = MagicMock()
         
         # Execute
-        operation = DateOperation(field_name='test_field')
+        operation = DateOperation(field_name='test_field', use_cache=False)
         operation._generate_visualizations(
             analysis_results,
             vis_dir,
@@ -228,7 +230,8 @@ class TestDateOperation(unittest.TestCase):
         mock_plot_date.assert_called_once_with(
             {'year_distribution': analysis_results['year_distribution']},
             str(vis_dir / 'field_year_distribution.png'),
-            title='Birth Year Distribution'
+            title='Birth Year Distribution',
+            theme=unittest.mock.ANY, backend=unittest.mock.ANY, strict=unittest.mock.ANY
         )
         
         # Check other distribution plots
@@ -236,29 +239,32 @@ class TestDateOperation(unittest.TestCase):
             unittest.mock.call(
                 analysis_results['month_distribution'],
                 str(vis_dir / 'field_month_distribution.png'),
-                title='Birth Month Distribution'
+                title='Birth Month Distribution',
+                theme=unittest.mock.ANY, backend=unittest.mock.ANY, strict=unittest.mock.ANY
             ),
             unittest.mock.call(
                 analysis_results['day_of_week_distribution'],
                 str(vis_dir / 'field_dow_distribution.png'),
-                title='Birth Day of Week Distribution'
+                title='Birth Day of Week Distribution',
+                theme=unittest.mock.ANY, backend=unittest.mock.ANY, strict=unittest.mock.ANY
             ),
             unittest.mock.call(
                 analysis_results['age_distribution'],
                 str(vis_dir / 'field_age_distribution.png'),
                 title='Age Distribution',
                 x_label='Age Group',
-                y_label='Count'
+                y_label='Count',
+                theme=unittest.mock.ANY, backend=unittest.mock.ANY, strict=unittest.mock.ANY
             )
         ]
         
         mock_plot_value.assert_has_calls(expected_plot_value_calls)
         
         expected_artifact_calls = [
-            unittest.mock.call('png', vis_dir / 'field_year_distribution.png', 'test_field year distribution'),
-            unittest.mock.call('png', vis_dir / 'field_month_distribution.png', 'test_field month distribution'),
-            unittest.mock.call('png', vis_dir / 'field_dow_distribution.png', 'test_field day of week distribution'),
-            unittest.mock.call('png', vis_dir / 'field_age_distribution.png', 'Age distribution')
+            unittest.mock.call('png', vis_dir / 'field_year_distribution.png', 'test_field year distribution', category='visualization'),
+            unittest.mock.call('png', vis_dir / 'field_month_distribution.png', 'test_field month distribution', category='visualization'),
+            unittest.mock.call('png', vis_dir / 'field_dow_distribution.png', 'test_field day of week distribution', category='visualization'),
+            unittest.mock.call('png', vis_dir / 'field_age_distribution.png', 'Age distribution', category='visualization')
         ]
         
         result.add_artifact.assert_has_calls(expected_artifact_calls)
@@ -288,7 +294,7 @@ class TestDateOperation(unittest.TestCase):
         }
         include_timestamp = False
 
-        operation = DateOperation(field_name='birth_date')
+        operation = DateOperation(field_name='birth_date', use_cache=False)
         operation._save_anomalies_to_csv(
             analysis_results=analysis_results,
             dict_dir=tmp_dir,
@@ -310,11 +316,6 @@ class TestDateOperation(unittest.TestCase):
         # Check that artifact was added to result and reporter
         self.assertTrue(any(str(getattr(artifact, "path", "" )).endswith(".csv") for artifact in result.artifacts))
         reporter.add_artifact.assert_called()
-
-        # Clean up temporary files
-        for f in tmp_dir.glob("*"):
-            f.unlink()
-        tmp_dir.rmdir()
 
     
     @patch('pandas.DataFrame.to_csv')
@@ -389,12 +390,11 @@ class TestDateOperation(unittest.TestCase):
             details={"warning": "CSV write error"}
         )
     def test_initialization_with_defaults(self):
-        operation = DateOperation(field_name='created_at')
+        operation = DateOperation(field_name='created_at', use_cache=False)
         self.assertEqual(operation.field_name, 'created_at')
         self.assertEqual(operation.min_year, 1940)
         self.assertEqual(operation.max_year, 2005)
-        self.assertTrue(operation.generate_plots)
-        self.assertTrue(operation.include_timestamp)
+        self.assertTrue(operation.generate_visualization)
         self.assertEqual(operation.profile_type, 'date')
         self.assertFalse(operation.is_birth_date)
 
@@ -419,8 +419,7 @@ class TestDateOperation(unittest.TestCase):
             id_column='group_id',
             uid_column='user_id',
             description='Custom test',
-            generate_plots=False,
-            include_timestamp=False,
+            generate_visualization=False,
             profile_type='custom_type'
         )
         self.assertEqual(operation.min_year, 1900)
@@ -428,8 +427,7 @@ class TestDateOperation(unittest.TestCase):
         self.assertEqual(operation.id_column, 'group_id')
         self.assertEqual(operation.uid_column, 'user_id')
         self.assertEqual(operation.description, 'Custom test')
-        self.assertFalse(operation.generate_plots)
-        self.assertFalse(operation.include_timestamp)
+        self.assertFalse(operation.generate_visualization)
         self.assertEqual(operation.profile_type, 'custom_type')
 
     def test_analyzer_instance_created(self):
@@ -695,39 +693,13 @@ class TestAnalyzeDateFields(unittest.TestCase):
                     'parameters': {}
                 }
             ),
-            # Birth date field analysis
-            unittest.mock.call(
-                "Analyzing date field: birth_date",
-                details={
-                    'field_name': 'birth_date',
-                    'min_year': 1940,
-                    'max_year': 2005,
-                    'id_column': None,
-                    'uid_column': None,
-                    'is_birth_date': True,
-                    'operation_type': 'date_analysis'
-                }
-            ),
-            # Created at field analysis
-            unittest.mock.call(
-                "Analyzing date field: created_at",
-                details={
-                    'field_name': 'created_at',
-                    'min_year': 1940,
-                    'max_year': 2005,
-                    'id_column': None,
-                    'uid_column': None,
-                    'is_birth_date': False,
-                    'operation_type': 'date_analysis'
-                }
-            ),
             # Final completion call
             unittest.mock.call(
                 "Date fields analysis completed",
                 details={
                     'fields_analyzed': 2,
-                    'successful': 0,
-                    'failed': 2
+                    'successful': 2,
+                    'failed': 0
                 }
             )
         ]
@@ -826,7 +798,7 @@ class TestAnalyzeDateFields(unittest.TestCase):
         mock_execute.return_value = mock_result
 
         # Patch ProgressTracker to monitor update calls
-        with patch("pamola_core.profiling.analyzers.date.ProgressTracker") as MockTracker:
+        with patch("pamola_core.profiling.analyzers.date.HierarchicalProgressTracker") as MockTracker:
             tracker_instance = MockTracker.return_value
 
             from pamola_core.profiling.analyzers.date import analyze_date_fields
@@ -842,10 +814,9 @@ class TestAnalyzeDateFields(unittest.TestCase):
             tracker_instance.update.assert_any_call(1, {"field": "birth_date", "status": "completed"})
 
     @patch("pamola_core.profiling.analyzers.date.DateOperation.execute")
-    @patch("pamola_core.profiling.analyzers.date.ProgressTracker")
+    @patch("pamola_core.profiling.analyzers.date.HierarchicalProgressTracker")
     @patch("pamola_core.profiling.analyzers.date.load_data_operation")
-    @patch("pamola_core.profiling.analyzers.date.logger")
-    def test_analyze_date_fields_exception_handling(self, mock_logger, mock_load_data, MockProgressTracker, mock_execute):
+    def test_analyze_date_fields_exception_handling(self, mock_load_data, MockProgressTracker, mock_execute):
         # Setup DataFrame with a date field
         df = pd.DataFrame({"birth_date": ["2000-01-01", "1990-05-15"]})
         mock_load_data.return_value = df
@@ -863,8 +834,6 @@ class TestAnalyzeDateFields(unittest.TestCase):
             date_fields=["birth_date"]
         )
 
-        # Check that logger.error was called
-        mock_logger.error.assert_called()
         # Check that reporter.add_operation was called with status="error"
         self.reporter.add_operation.assert_any_call(
             "Analyzing birth_date field",
@@ -873,3 +842,6 @@ class TestAnalyzeDateFields(unittest.TestCase):
         )
         # Check that overall_tracker.update was called with status="error"
         tracker_instance.update.assert_any_call(1, {"field": "birth_date", "status": "error"})
+        
+if __name__ == "__main__":
+    unittest.main()
