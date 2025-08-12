@@ -1,0 +1,107 @@
+{
+  "null_condition": {
+    "field_name": "name",
+    "suppression_condition": "null",
+    "description": "Suppress records where the name field is null/missing"
+  },
+  "value_condition": {
+    "field_name": "department",
+    "suppression_condition": "value",
+    "suppression_values": ["IT", "HR"],
+    "description": "Suppress records where department is IT or HR"
+  },
+  "range_condition": {
+    "field_name": "age",
+    "suppression_condition": "range",
+    "suppression_range": [30, 50],
+    "description": "Suppress records where age is between 30 and 50 (inclusive)"
+  },
+  "risk_condition": {
+    "field_name": "id",
+    "suppression_condition": "risk",
+    "ka_risk_field": "risk_score",
+    "risk_threshold": 5.0,
+    "description": "Suppress records where k-anonymity risk score is below 5.0"
+  },
+  "custom_condition": {
+    "field_name": "id",
+    "suppression_condition": "custom",
+    "multi_conditions": [
+      {
+        "field": "age",
+        "condition": "range",
+        "min": 30,
+        "max": 50
+      },
+      {
+        "field": "department",
+        "condition": "value",
+        "values": ["IT"]
+      }
+    ],
+    "condition_logic": "OR",
+    "description": "Suppress records where age is 30-50 OR department is IT"
+  },
+  "advanced_features": {
+    "save_suppressed_records": true,
+    "suppression_reason_field": "_suppression_reason",
+    "use_encryption": false,
+    "generate_visualization": true,
+    "use_cache": true,
+    "use_dask": false,
+    "npartitions": 1,
+    "use_vectorization": false,
+    "parallel_processes": 1,
+    "chunk_size": 10000,
+    "output_format": "csv",
+    "visualization_backend": "plotly",
+    "visualization_theme": "light",
+    "optimization_features": {
+      "optimize_memory": true,
+      "adaptive_chunk_size": true,
+      "force_recalculation": false
+    }
+  },
+  "test_data_schema": {
+    "fields": {
+      "id": "integer",
+      "name": "string (nullable)",
+      "age": "integer (nullable)",
+      "salary": "float",
+      "department": "string",
+      "risk_score": "float"
+    },
+    "sample_size": 10,
+    "null_positions": {
+      "name": [2],
+      "age": [3]
+    }
+  },
+  "expected_results": {
+    "null_condition": {
+      "suppressed_count": 1,
+      "remaining_count": 9,
+      "suppressed_indices": [2]
+    },
+    "value_condition": {
+      "suppressed_count": 6,
+      "remaining_count": 4,
+      "suppressed_departments": ["IT", "HR"]
+    },
+    "range_condition": {
+      "suppressed_count": 3,
+      "remaining_count": 7,
+      "age_range": [30, 50]
+    },
+    "risk_condition": {
+      "suppressed_count": 4,
+      "remaining_count": 6,
+      "risk_threshold": 5.0
+    },
+    "custom_condition": {
+      "suppressed_count": 7,
+      "remaining_count": 3,
+      "logic": "OR combination of age range and department"
+    }
+  }
+}

@@ -1,0 +1,596 @@
+{
+  "format_version": "1.0",
+  "hierarchy_type": "product",
+  "levels": ["product", "subcategory", "category", "department"],
+  "description": "Consumer electronics product hierarchy",
+  "data": {
+    "iPhone 15 Pro": {
+      "subcategory": "Premium Smartphones",
+      "category": "Mobile Devices",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["iPhone 15 Pro Max", "Apple iPhone 15 Pro", "iPhone15Pro"]
+    },
+    "iPhone 14": {
+      "subcategory": "Smartphones",
+      "category": "Mobile Devices",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["iPhone 14 Plus", "Apple iPhone 14", "iPhone14"]
+    },
+    "Samsung Galaxy S24": {
+      "subcategory": "Premium Smartphones",
+      "category": "Mobile Devices",
+      "department": "Electronics",
+      "brand": "Samsung",
+      "aliases": ["Galaxy S24", "Samsung S24", "S24 Ultra"]
+    },
+    "Samsung Galaxy A54": {
+      "subcategory": "Mid-range Smartphones",
+      "category": "Mobile Devices",
+      "department": "Electronics",
+      "brand": "Samsung",
+      "aliases": ["Galaxy A54", "Samsung A54", "A54 5G"]
+    },
+    "Google Pixel 8": {
+      "subcategory": "Premium Smartphones",
+      "category": "Mobile Devices",
+      "department": "Electronics",
+      "brand": "Google",
+      "aliases": ["Pixel 8", "Google Pixel 8 Pro", "Pixel8"]
+    },
+    "OnePlus 12": {
+      "subcategory": "Premium Smartphones",
+      "category": "Mobile Devices",
+      "department": "Electronics",
+      "brand": "OnePlus",
+      "aliases": ["OnePlus 12 Pro", "OP12", "1+12"]
+    },
+    "Xiaomi 14": {
+      "subcategory": "Premium Smartphones",
+      "category": "Mobile Devices",
+      "department": "Electronics",
+      "brand": "Xiaomi",
+      "aliases": ["Mi 14", "Xiaomi 14 Pro", "Xiaomi14"]
+    },
+    "iPad Pro": {
+      "subcategory": "Premium Tablets",
+      "category": "Tablets",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["Apple iPad Pro", "iPad Pro M2", "iPadPro"]
+    },
+    "iPad Air": {
+      "subcategory": "Tablets",
+      "category": "Tablets",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["Apple iPad Air", "iPad Air 5", "iPadAir"]
+    },
+    "Samsung Galaxy Tab S9": {
+      "subcategory": "Premium Tablets",
+      "category": "Tablets",
+      "department": "Electronics",
+      "brand": "Samsung",
+      "aliases": ["Galaxy Tab S9", "Tab S9", "Samsung Tab S9"]
+    },
+    "Microsoft Surface Pro": {
+      "subcategory": "2-in-1 Tablets",
+      "category": "Tablets",
+      "department": "Electronics",
+      "brand": "Microsoft",
+      "aliases": ["Surface Pro 9", "Surface Pro", "MS Surface"]
+    },
+    "MacBook Pro 16": {
+      "subcategory": "Premium Laptops",
+      "category": "Computers",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["MacBook Pro 16-inch", "MBP 16", "MacBookPro16"]
+    },
+    "MacBook Air": {
+      "subcategory": "Ultrabooks",
+      "category": "Computers",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["MacBook Air M2", "MBA", "MacBookAir"]
+    },
+    "Dell XPS 15": {
+      "subcategory": "Premium Laptops",
+      "category": "Computers",
+      "department": "Electronics",
+      "brand": "Dell",
+      "aliases": ["XPS 15", "Dell XPS15", "XPS 15 9530"]
+    },
+    "HP Spectre x360": {
+      "subcategory": "2-in-1 Laptops",
+      "category": "Computers",
+      "department": "Electronics",
+      "brand": "HP",
+      "aliases": ["Spectre x360", "HP Spectre", "Spectre360"]
+    },
+    "Lenovo ThinkPad X1": {
+      "subcategory": "Business Laptops",
+      "category": "Computers",
+      "department": "Electronics",
+      "brand": "Lenovo",
+      "aliases": ["ThinkPad X1", "X1 Carbon", "ThinkPadX1"]
+    },
+    "ASUS ROG Strix": {
+      "subcategory": "Gaming Laptops",
+      "category": "Computers",
+      "department": "Electronics",
+      "brand": "ASUS",
+      "aliases": ["ROG Strix", "ASUS Gaming", "Strix G15"]
+    },
+    "Apple Watch Series 9": {
+      "subcategory": "Smart Watches",
+      "category": "Wearables",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["Apple Watch 9", "AW9", "Watch Series 9"]
+    },
+    "Samsung Galaxy Watch": {
+      "subcategory": "Smart Watches",
+      "category": "Wearables",
+      "department": "Electronics",
+      "brand": "Samsung",
+      "aliases": ["Galaxy Watch 6", "Samsung Watch", "GW6"]
+    },
+    "Fitbit Charge": {
+      "subcategory": "Fitness Trackers",
+      "category": "Wearables",
+      "department": "Electronics",
+      "brand": "Fitbit",
+      "aliases": ["Fitbit Charge 6", "Charge 6", "FitbitCharge"]
+    },
+    "Garmin Forerunner": {
+      "subcategory": "Sports Watches",
+      "category": "Wearables",
+      "department": "Electronics",
+      "brand": "Garmin",
+      "aliases": ["Forerunner 965", "Garmin FR", "Forerunner"]
+    },
+    "Sony WH-1000XM5": {
+      "subcategory": "Premium Headphones",
+      "category": "Audio",
+      "department": "Electronics",
+      "brand": "Sony",
+      "aliases": ["Sony XM5", "WH1000XM5", "1000XM5"]
+    },
+    "Bose QuietComfort": {
+      "subcategory": "Noise-Cancelling Headphones",
+      "category": "Audio",
+      "department": "Electronics",
+      "brand": "Bose",
+      "aliases": ["Bose QC45", "QuietComfort 45", "QC45"]
+    },
+    "AirPods Pro": {
+      "subcategory": "Wireless Earbuds",
+      "category": "Audio",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["Apple AirPods Pro", "AirPods Pro 2", "APP"]
+    },
+    "Samsung Galaxy Buds": {
+      "subcategory": "Wireless Earbuds",
+      "category": "Audio",
+      "department": "Electronics",
+      "brand": "Samsung",
+      "aliases": ["Galaxy Buds Pro", "Samsung Buds", "Buds2Pro"]
+    },
+    "JBL Flip": {
+      "subcategory": "Portable Speakers",
+      "category": "Audio",
+      "department": "Electronics",
+      "brand": "JBL",
+      "aliases": ["JBL Flip 6", "Flip 6", "JBLFlip"]
+    },
+    "Sonos One": {
+      "subcategory": "Smart Speakers",
+      "category": "Audio",
+      "department": "Electronics",
+      "brand": "Sonos",
+      "aliases": ["Sonos One SL", "SonosOne", "One SL"]
+    },
+    "Amazon Echo": {
+      "subcategory": "Smart Speakers",
+      "category": "Smart Home",
+      "department": "Electronics",
+      "brand": "Amazon",
+      "aliases": ["Echo Dot", "Alexa", "Amazon Alexa"]
+    },
+    "Google Nest Hub": {
+      "subcategory": "Smart Displays",
+      "category": "Smart Home",
+      "department": "Electronics",
+      "brand": "Google",
+      "aliases": ["Nest Hub", "Google Home Hub", "NestHub"]
+    },
+    "Ring Video Doorbell": {
+      "subcategory": "Smart Doorbells",
+      "category": "Smart Home",
+      "department": "Electronics",
+      "brand": "Ring",
+      "aliases": ["Ring Doorbell", "Ring Pro", "RingDoorbell"]
+    },
+    "Philips Hue": {
+      "subcategory": "Smart Lighting",
+      "category": "Smart Home",
+      "department": "Electronics",
+      "brand": "Philips",
+      "aliases": ["Hue Bulbs", "Philips Smart Lights", "HueLights"]
+    },
+    "Nest Thermostat": {
+      "subcategory": "Smart Thermostats",
+      "category": "Smart Home",
+      "department": "Electronics",
+      "brand": "Google",
+      "aliases": ["Google Nest Thermostat", "Nest", "NestThermostat"]
+    },
+    "PlayStation 5": {
+      "subcategory": "Gaming Consoles",
+      "category": "Gaming",
+      "department": "Electronics",
+      "brand": "Sony",
+      "aliases": ["PS5", "PlayStation5", "Sony PS5"]
+    },
+    "Xbox Series X": {
+      "subcategory": "Gaming Consoles",
+      "category": "Gaming",
+      "department": "Electronics",
+      "brand": "Microsoft",
+      "aliases": ["Series X", "Xbox X", "XboxSeriesX"]
+    },
+    "Nintendo Switch": {
+      "subcategory": "Portable Gaming",
+      "category": "Gaming",
+      "department": "Electronics",
+      "brand": "Nintendo",
+      "aliases": ["Switch OLED", "Nintendo Switch OLED", "NSwitch"]
+    },
+    "Steam Deck": {
+      "subcategory": "Portable Gaming",
+      "category": "Gaming",
+      "department": "Electronics",
+      "brand": "Valve",
+      "aliases": ["Valve Steam Deck", "SteamDeck", "Deck"]
+    },
+    "LG OLED TV": {
+      "subcategory": "Premium TVs",
+      "category": "TVs",
+      "department": "Electronics",
+      "brand": "LG",
+      "aliases": ["LG OLED", "LG C3", "OLED TV"]
+    },
+    "Samsung QLED": {
+      "subcategory": "Premium TVs",
+      "category": "TVs",
+      "department": "Electronics",
+      "brand": "Samsung",
+      "aliases": ["Samsung QLED TV", "QLED", "Q90C"]
+    },
+    "Sony Bravia": {
+      "subcategory": "Premium TVs",
+      "category": "TVs",
+      "department": "Electronics",
+      "brand": "Sony",
+      "aliases": ["Sony Bravia XR", "Bravia", "SonyTV"]
+    },
+    "TCL Roku TV": {
+      "subcategory": "Smart TVs",
+      "category": "TVs",
+      "department": "Electronics",
+      "brand": "TCL",
+      "aliases": ["TCL Smart TV", "Roku TV", "TCLRoku"]
+    },
+    "Canon EOS R": {
+      "subcategory": "Mirrorless Cameras",
+      "category": "Cameras",
+      "department": "Electronics",
+      "brand": "Canon",
+      "aliases": ["EOS R5", "Canon R5", "EOSR"]
+    },
+    "Sony Alpha": {
+      "subcategory": "Mirrorless Cameras",
+      "category": "Cameras",
+      "department": "Electronics",
+      "brand": "Sony",
+      "aliases": ["Sony A7", "Alpha 7", "A7IV"]
+    },
+    "Nikon Z": {
+      "subcategory": "Mirrorless Cameras",
+      "category": "Cameras",
+      "department": "Electronics",
+      "brand": "Nikon",
+      "aliases": ["Nikon Z9", "Z9", "NikonZ"]
+    },
+    "GoPro Hero": {
+      "subcategory": "Action Cameras",
+      "category": "Cameras",
+      "department": "Electronics",
+      "brand": "GoPro",
+      "aliases": ["GoPro Hero 12", "Hero12", "GoPro12"]
+    },
+    "DJI Mavic": {
+      "subcategory": "Consumer Drones",
+      "category": "Drones",
+      "department": "Electronics",
+      "brand": "DJI",
+      "aliases": ["Mavic 3", "DJI Mavic 3", "Mavic3Pro"]
+    },
+    "DJI Mini": {
+      "subcategory": "Compact Drones",
+      "category": "Drones",
+      "department": "Electronics",
+      "brand": "DJI",
+      "aliases": ["DJI Mini 3", "Mini 3 Pro", "MiniDrone"]
+    },
+    "Kindle Paperwhite": {
+      "subcategory": "E-Readers",
+      "category": "E-Readers",
+      "department": "Electronics",
+      "brand": "Amazon",
+      "aliases": ["Kindle", "Paperwhite", "AmazonKindle"]
+    },
+    "Kobo Clara": {
+      "subcategory": "E-Readers",
+      "category": "E-Readers",
+      "department": "Electronics",
+      "brand": "Kobo",
+      "aliases": ["Kobo Clara HD", "Clara 2E", "KoboReader"]
+    },
+    "Raspberry Pi": {
+      "subcategory": "Single Board Computers",
+      "category": "DIY Electronics",
+      "department": "Electronics",
+      "brand": "Raspberry Pi",
+      "aliases": ["RPi", "Raspberry Pi 5", "Pi5"]
+    },
+    "Arduino Uno": {
+      "subcategory": "Microcontrollers",
+      "category": "DIY Electronics",
+      "department": "Electronics",
+      "brand": "Arduino",
+      "aliases": ["Arduino", "Uno R3", "ArduinoBoard"]
+    },
+    "Oculus Quest": {
+      "subcategory": "VR Headsets",
+      "category": "VR/AR",
+      "department": "Electronics",
+      "brand": "Meta",
+      "aliases": ["Meta Quest 3", "Quest 3", "OculusVR"]
+    },
+    "Apple Vision Pro": {
+      "subcategory": "AR Headsets",
+      "category": "VR/AR",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["Vision Pro", "Apple AR", "VisionPro"]
+    },
+    "Logitech MX Master": {
+      "subcategory": "Premium Mice",
+      "category": "Computer Accessories",
+      "department": "Electronics",
+      "brand": "Logitech",
+      "aliases": ["MX Master 3", "Logitech Mouse", "MXMaster"]
+    },
+    "Keychron K2": {
+      "subcategory": "Mechanical Keyboards",
+      "category": "Computer Accessories",
+      "department": "Electronics",
+      "brand": "Keychron",
+      "aliases": ["K2 Wireless", "Keychron Keyboard", "K2v2"]
+    },
+    "Samsung T7": {
+      "subcategory": "Portable SSDs",
+      "category": "Storage",
+      "department": "Electronics",
+      "brand": "Samsung",
+      "aliases": ["T7 Shield", "Samsung SSD", "T7SSD"]
+    },
+    "WD My Passport": {
+      "subcategory": "Portable HDDs",
+      "category": "Storage",
+      "department": "Electronics",
+      "brand": "Western Digital",
+      "aliases": ["My Passport", "WD Passport", "WDHDD"]
+    },
+    "Synology NAS": {
+      "subcategory": "Network Storage",
+      "category": "Storage",
+      "department": "Electronics",
+      "brand": "Synology",
+      "aliases": ["DiskStation", "Synology DS", "NAS"]
+    },
+    "Anker PowerCore": {
+      "subcategory": "Power Banks",
+      "category": "Mobile Accessories",
+      "department": "Electronics",
+      "brand": "Anker",
+      "aliases": ["PowerCore 20000", "Anker Battery", "PowerBank"]
+    },
+    "Belkin MagSafe": {
+      "subcategory": "Wireless Chargers",
+      "category": "Mobile Accessories",
+      "department": "Electronics",
+      "brand": "Belkin",
+      "aliases": ["MagSafe Charger", "Belkin Wireless", "MagSafe3in1"]
+    },
+    "PopSocket": {
+      "subcategory": "Phone Grips",
+      "category": "Mobile Accessories",
+      "department": "Electronics",
+      "brand": "PopSocket",
+      "aliases": ["PopGrip", "Phone Grip", "PopSocketGrip"]
+    },
+    "Tile Mate": {
+      "subcategory": "Bluetooth Trackers",
+      "category": "Smart Accessories",
+      "department": "Electronics",
+      "brand": "Tile",
+      "aliases": ["Tile Tracker", "Bluetooth Tag", "TileMate"]
+    },
+    "Apple AirTag": {
+      "subcategory": "Bluetooth Trackers",
+      "category": "Smart Accessories",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["AirTag", "Apple Tracker", "AirTags"]
+    },
+    "Roku Streaming Stick": {
+      "subcategory": "Streaming Devices",
+      "category": "TV Accessories",
+      "department": "Electronics",
+      "brand": "Roku",
+      "aliases": ["Roku 4K", "Streaming Stick+", "RokuStick"]
+    },
+    "Chromecast": {
+      "subcategory": "Streaming Devices",
+      "category": "TV Accessories",
+      "department": "Electronics",
+      "brand": "Google",
+      "aliases": ["Chromecast with Google TV", "Google TV", "ChromecastHD"]
+    },
+    "Apple TV 4K": {
+      "subcategory": "Streaming Devices",
+      "category": "TV Accessories",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["Apple TV", "ATV4K", "AppleTV4K"]
+    },
+    "Fire TV Stick": {
+      "subcategory": "Streaming Devices",
+      "category": "TV Accessories",
+      "department": "Electronics",
+      "brand": "Amazon",
+      "aliases": ["Fire Stick", "Amazon Fire TV", "FireTV4K"]
+    },
+    "Sonos Soundbar": {
+      "subcategory": "Soundbars",
+      "category": "TV Accessories",
+      "department": "Electronics",
+      "brand": "Sonos",
+      "aliases": ["Sonos Arc", "Sonos Beam", "SonosSoundbar"]
+    },
+    "Bose Soundbar": {
+      "subcategory": "Soundbars",
+      "category": "TV Accessories",
+      "department": "Electronics",
+      "brand": "Bose",
+      "aliases": ["Bose Smart Soundbar", "Soundbar 900", "BoseSB"]
+    },
+    "Epson EcoTank": {
+      "subcategory": "Inkjet Printers",
+      "category": "Printers",
+      "department": "Electronics",
+      "brand": "Epson",
+      "aliases": ["EcoTank ET", "Epson Printer", "EcoTankPrinter"]
+    },
+    "HP LaserJet": {
+      "subcategory": "Laser Printers",
+      "category": "Printers",
+      "department": "Electronics",
+      "brand": "HP",
+      "aliases": ["LaserJet Pro", "HP Printer", "HPLaser"]
+    },
+    "Brother MFC": {
+      "subcategory": "All-in-One Printers",
+      "category": "Printers",
+      "department": "Electronics",
+      "brand": "Brother",
+      "aliases": ["Brother Printer", "MFC Series", "BrotherAIO"]
+    },
+    "Wacom Intuos": {
+      "subcategory": "Graphics Tablets",
+      "category": "Creative Tools",
+      "department": "Electronics",
+      "brand": "Wacom",
+      "aliases": ["Intuos Pro", "Wacom Tablet", "IntuosTablet"]
+    },
+    "iPad Pro with Pencil": {
+      "subcategory": "Digital Drawing",
+      "category": "Creative Tools",
+      "department": "Electronics",
+      "brand": "Apple",
+      "aliases": ["iPad for Artists", "Apple Pencil", "iPadDrawing"]
+    },
+    "Blue Yeti": {
+      "subcategory": "USB Microphones",
+      "category": "Audio Production",
+      "department": "Electronics",
+      "brand": "Blue",
+      "aliases": ["Yeti Mic", "Blue Microphone", "YetiUSB"]
+    },
+    "Rode PodMic": {
+      "subcategory": "Podcast Microphones",
+      "category": "Audio Production",
+      "department": "Electronics",
+      "brand": "Rode",
+      "aliases": ["PodMic USB", "Rode Mic", "PodcastMic"]
+    },
+    "Elgato Stream Deck": {
+      "subcategory": "Streaming Gear",
+      "category": "Content Creation",
+      "department": "Electronics",
+      "brand": "Elgato",
+      "aliases": ["Stream Deck XL", "Elgato Deck", "StreamController"]
+    },
+    "Razer Kiyo": {
+      "subcategory": "Webcams",
+      "category": "Content Creation",
+      "department": "Electronics",
+      "brand": "Razer",
+      "aliases": ["Kiyo Pro", "Razer Webcam", "StreamCam"]
+    },
+    "Logitech Brio": {
+      "subcategory": "4K Webcams",
+      "category": "Content Creation",
+      "department": "Electronics",
+      "brand": "Logitech",
+      "aliases": ["Brio 4K", "Logitech Webcam", "BrioWebcam"]
+    },
+    "Netgear Nighthawk": {
+      "subcategory": "WiFi Routers",
+      "category": "Networking",
+      "department": "Electronics",
+      "brand": "Netgear",
+      "aliases": ["Nighthawk AX", "Netgear Router", "WiFi6Router"]
+    },
+    "ASUS ROG Router": {
+      "subcategory": "Gaming Routers",
+      "category": "Networking",
+      "department": "Electronics",
+      "brand": "ASUS",
+      "aliases": ["ROG Rapture", "ASUS Router", "GamingRouter"]
+    },
+    "Ubiquiti UniFi": {
+      "subcategory": "Enterprise Networking",
+      "category": "Networking",
+      "department": "Electronics",
+      "brand": "Ubiquiti",
+      "aliases": ["UniFi Dream Machine", "Ubiquiti AP", "UniFiRouter"]
+    },
+    "TP-Link Deco": {
+      "subcategory": "Mesh WiFi",
+      "category": "Networking",
+      "department": "Electronics",
+      "brand": "TP-Link",
+      "aliases": ["Deco Mesh", "TP-Link Mesh", "DecoWiFi"]
+    },
+    "Eero Pro": {
+      "subcategory": "Mesh WiFi",
+      "category": "Networking",
+      "department": "Electronics",
+      "brand": "Amazon",
+      "aliases": ["Eero Pro 6", "Amazon Eero", "EeroMesh"]
+    },
+    "Google Nest WiFi": {
+      "subcategory": "Mesh WiFi",
+      "category": "Networking",
+      "department": "Electronics",
+      "brand": "Google",
+      "aliases": ["Nest WiFi Pro", "Google Mesh", "NestMesh"]
+    }
+  }
+}

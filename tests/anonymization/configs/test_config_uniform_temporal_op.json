@@ -1,0 +1,162 @@
+{
+  "test_scenarios": {
+    "basic_temporal_shift": {
+      "description": "Basic temporal shift with days range",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_days": 30,
+        "direction": "both",
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Adds random time shifts within ±30 days"
+    },
+    "forward_only_shift": {
+      "description": "Forward-only temporal shift with hours range",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_hours": 24,
+        "direction": "forward",
+        "mode": "ENRICH",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Adds positive time shifts up to +24 hours"
+    },
+    "backward_only_shift": {
+      "description": "Backward-only temporal shift with minutes range",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_minutes": 120,
+        "direction": "backward",
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Adds negative time shifts up to -120 minutes"
+    },
+    "multi_unit_shift": {
+      "description": "Multi-unit temporal shift with complex range",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_days": 7,
+        "noise_range_hours": 12,
+        "noise_range_minutes": 30,
+        "noise_range_seconds": 45,
+        "direction": "both",
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Combines multiple time units for shift range"
+    },
+    "bounded_shift": {
+      "description": "Temporal shift with datetime boundaries",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_days": 60,
+        "direction": "both",
+        "min_datetime": "2020-01-01",
+        "max_datetime": "2025-12-31",
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Respects min/max datetime boundaries"
+    },
+    "weekend_preserving": {
+      "description": "Temporal shift preserving weekend status",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_days": 14,
+        "direction": "both",
+        "preserve_weekends": true,
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Maintains weekend/weekday status after shift"
+    },
+    "time_preserving": {
+      "description": "Date-only shift preserving time of day",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_days": 30,
+        "direction": "both",
+        "preserve_time_of_day": true,
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Shifts date only, preserves original time"
+    },
+    "granular_output": {
+      "description": "Temporal shift with day granularity output",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_hours": 48,
+        "direction": "both",
+        "output_granularity": "day",
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Rounds output to day granularity"
+    },
+    "special_dates_preserving": {
+      "description": "Temporal shift preserving special dates",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_days": 30,
+        "direction": "both",
+        "preserve_special_dates": true,
+        "special_dates": ["2023-01-01", "2023-12-25"],
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Preserves specified special dates unchanged"
+    },
+    "reproducible_shift": {
+      "description": "Reproducible temporal shift with seed",
+      "config": {
+        "field_name": "timestamp",
+        "noise_range_days": 30,
+        "direction": "both",
+        "random_seed": 42,
+        "use_secure_random": false,
+        "mode": "REPLACE",
+        "null_strategy": "PRESERVE"
+      },
+      "expected_behavior": "Produces reproducible results with fixed seed"
+    }
+  },
+  "test_data": {
+    "datetime_ranges": {
+      "recent_dates": ["2023-01-01", "2023-06-15", "2023-12-31"],
+      "historical_dates": ["2020-01-01", "2021-06-15", "2022-12-31"],
+      "future_dates": ["2025-01-01", "2025-06-15", "2025-12-31"],
+      "mixed_times": [
+        "2023-01-01 00:00:00", "2023-01-01 12:30:45", "2023-01-01 23:59:59",
+        "2023-06-15 06:00:00", "2023-06-15 18:15:30", "2023-12-31 11:45:00"
+      ],
+      "weekend_dates": ["2023-01-07", "2023-01-08", "2023-01-14", "2023-01-15"],
+      "weekday_dates": ["2023-01-09", "2023-01-10", "2023-01-11", "2023-01-12", "2023-01-13"]
+    },
+    "edge_cases": {
+      "null_values": [null, null, null],
+      "invalid_formats": ["not_a_date", "2023-13-45", "invalid"],
+      "boundary_dates": ["1900-01-01", "2100-12-31"],
+      "leap_year_dates": ["2020-02-29", "2024-02-29"]
+    }
+  },
+  "validation_criteria": {
+    "temporal_constraints": {
+      "max_shift_tolerance": 0.01,
+      "boundary_compliance": 1.0,
+      "preservation_accuracy": 1.0
+    },
+    "statistical_properties": {
+      "distribution_type": "uniform",
+      "direction_balance_tolerance": 0.1,
+      "mean_shift_tolerance": 0.1
+    },
+    "output_validation": {
+      "datetime_format_compliance": 1.0,
+      "null_handling_accuracy": 1.0,
+      "granularity_compliance": 1.0
+    }
+  }
+}
