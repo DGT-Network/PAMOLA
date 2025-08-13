@@ -1,0 +1,60 @@
+field_name,type,description
+encounter_id,integer,Unique encounter identifier
+patient_id,integer,Stable patient id (synthetic)
+provider_id,integer,Provider id
+provider_specialty,string,Provider specialty (high-level)
+facility_id,integer,Facility site id
+facility_name,string,Facility name
+facility_city,string,City
+facility_province,string,Province
+facility_country,string,Country (CA)
+facility_lat,number,Facility latitude (jittered)
+facility_lng,number,Facility longitude (jittered)
+encounter_start,datetime,Encounter start time
+encounter_end,datetime,Encounter end time
+encounter_duration_min,number,Duration in minutes (can be negative due to clock skew)
+chief_complaint_text,string,Short CC text
+triage_note,string,Triage note
+diagnoses_icd10,string (MVF),ICD-10-CA codes (semicolon)
+diag_primary,string,Primary diagnosis ICD code
+procedures,string (MVF),Procedure codes (semicolon)
+medications_text,string (MVF),Medication list (pipe-separated text)
+labs_json,string (JSON),"Array of {loinc, name, value, units, ref_range, abnormal_flag}"
+abnormal_lab_count,integer,Count of abnormal labs in this encounter
+vital_hr,integer,Heart rate
+vital_sbp,integer,Systolic BP
+vital_dbp,integer,Diastolic BP
+vital_rr,integer,Respiratory rate
+vital_spo2,integer,SpO2 %
+vital_temp_c,number,Temperature °C
+payer_type,string,public/private/self-pay
+allowed_amount,number,Allowed claim amount
+patient_copay,number,Patient copay
+claim_status,string,paid/denied/adjusted/pending
+clinical_note,long text,120–600 chars clinical note (synthetic)
+has_phi_in_text,boolean,Flag if email/phone/date injected
+phi_email_count,integer,Emails in clinical_note
+phi_phone_count,integer,Phones in clinical_note
+phi_date_count,integer,Dates in clinical_note
+home_city,string,Patient home city
+home_province,string,Patient home province
+home_postal_fsa,string,Patient postal FSA
+home_lat,number,Patient home latitude
+home_lng,number,Patient home longitude
+birth_year,integer,Birth year
+sex,string,F/M/X
+language_pref,string,EN/FR/EN/FR
+cond_dm2,boolean,Diabetes type 2
+cond_htn,boolean,Hypertension
+cond_ckd,boolean,Chronic kidney disease
+cond_asthma,boolean,Asthma
+source_system,string,Source identifier
+created_at,date,Creation date (record)
+updated_at,date,Last update date
+revisit_30d,boolean,Next encounter within 30 days
+mortality_30d,boolean,Mortality within 30 days (synthetic)
+hour,integer,Encounter start hour
+weekday,integer,0=Mon
+is_weekend,boolean,Weekend flag
+distance_home_to_facility_km,number,Haversine distance home→facility (km)
+next_encounter_start,datetime,Next encounter start for same patient (for label auditing)
