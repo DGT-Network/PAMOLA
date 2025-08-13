@@ -1,0 +1,27 @@
+field_name,type,description
+resume_id,integer,Stable resume identifier; duplicates indicate multiple snapshots of the same person.
+snapshot_date,date (YYYY-MM-DD),Record snapshot date to emulate updates/duplicates.
+first_name,string,Given name (Western style).
+last_name,string,Family name (Western style).
+email,string,Fake contact; may include plus-aliasing; ~12% missing.
+phone,string,Canadian format; may include notes like 'ext.' or 'WhatsApp'; ~22% missing.
+job_title_current,string,Current/most recent title (Indeed/Monster style naming).
+company_current,string,Current/most recent employer (fictional).
+years_of_experience,integer,Approximate total years of experience.
+current_salary_cad,number,Annual salary in CAD; includes outliers and missing values.
+salary_period,string,Compensation period; fixed 'annual' here for simplicity.
+employment_type,string,Full-time/Contract/Part-time.
+location_city,string,City; includes odd/edge cases for ~2% of rows.
+location_province,string,"Canadian province/territory, sometimes malformed for testing."
+location_country,string,Country (fixed: Canada).
+work_authorization,string,Citizen/PR/Work Permit/Student Visa; some missing.
+remote_preference,string,Remote/Hybrid/Onsite.
+relocation_preference,string,Yes/No/Open to discuss.
+education_level,string,Highest achieved education level.
+degree_major,string,Major/field of study; missing for some rows.
+university_name,string,Institution name; fictional selection of Canadian universities; missing in some rows.
+graduation_year,integer,Graduation year; missing for some rows.
+skills,string (semi-colon list),Multi-valued field of skills (MVF) relevant to specialization.
+summary,long text (100–420 chars),"Human-like paragraph with tech/company mentions, punctuation, and style artifacts."
+experience_summary,long text (180–600 chars),"Longer narrative with technologies, companies, compliance/process terms, and measurable impact."
+specialization,string,"One of: IT (70%), Finance (15%), Marketing (15%)."
