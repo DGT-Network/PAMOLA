@@ -1,0 +1,53 @@
+field_name,type,description
+transaction_id,integer,Unique transaction id
+transaction_ts,datetime,Transaction timestamp (local time)
+account_id,integer,Customer account id
+merchant_id,integer,Merchant id
+channel,category,POS / Ecommerce / Interac
+payment_method,category,chip/tap/swipe/keyed/web/app/interac
+card_present,boolean,Card present flag
+device_type,category,mobile/desktop/pos_terminal
+device_id,string,Device identifier (stable per account); '_new' indicates unfamiliar device
+browser,category,Browser (if online)
+os,category,Operating system (if online)
+amount,number,Transaction amount in native currency
+currency,category,CAD/UTC; mostly CAD
+fx_rate_to_cad,number,Conversion rate to CAD (1 if CAD)
+merchant_category_code,string,MCC code
+merchant_category,string,MCC description
+merchant_city,string,Merchant city
+merchant_province,string,Merchant province
+merchant_country,string,Merchant country
+merchant_lat,number,Merchant latitude (jittered)
+merchant_lng,number,Merchant longitude (jittered)
+ip_lat,number,IP geo latitude (approx)
+ip_lng,number,IP geo longitude (approx)
+home_lat,number,Account home latitude
+home_lng,number,Account home longitude
+home_postal_fsa,string,Account postal FSA (A1A)
+home_city,string,Account home city
+home_province,string,Account home province
+segment,category,Customer segment
+primary_card_brand,category,Visa/Mastercard/Amex/Discover/Interac
+kyc_level,category,basic/standard/enhanced
+three_ds_result,category,3DS result for ecommerce
+merchant_risk_score,number,"Intrinsic merchant risk [0,1]"
+device_trust_score,number,"Device trust [0,1]"
+dist_km_home_to_merchant,number,Haversine distance home→merchant (km)
+dist_km_ip_to_merchant,number,Haversine distance IP→merchant (km)
+hour,integer,Hour of day [0..23]
+is_night,boolean,Night-time flag
+weekday,integer,Day of week [0..6]
+is_weekend,boolean,Weekend flag
+prev_ts,datetime,Previous txn time for this account
+secs_since_prev_txn_acct,number,Seconds since previous txn for this account (-1 if none)
+txns_last_1h_acct,integer,# of account txns in previous hour
+amt_last_1h_acct,number,Sum of account amount in previous hour
+txns_last_1h_device,integer,# of device txns in previous hour
+acct_median_amount,number,Account median amount (historical)
+amount_to_median_ratio,number,amount / acct_median_amount
+is_high_risk_mcc,boolean,High-risk MCC flag
+is_cross_border,boolean,Cross-border signal (USD or merchant not CA)
+new_device,boolean,Device not seen before for the account
+is_fraud,boolean,Fraud label (≈5%)
+chargeback_date,datetime,If fraud: chargeback posting date

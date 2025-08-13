@@ -1,0 +1,996 @@
+{
+  "dataset_name": "PAMOLA_CANADA_FRAUD_V1",
+  "filename": "PAMOLA_CANADA_FRAUD_V1_10k.csv",
+  "records": 10000,
+  "encoding": "UTF-8",
+  "has_header": true,
+  "generated_at": "2025-08-11T23:56:36.905102Z",
+  "privacy_categories": {
+    "direct": [
+      "account_id",
+      "device_id",
+      "merchant_id"
+    ],
+    "quasi": [
+      "browser",
+      "channel",
+      "device_type",
+      "home_city",
+      "home_country",
+      "home_postal_fsa",
+      "home_province",
+      "merchant_category_code",
+      "merchant_city",
+      "merchant_country",
+      "merchant_province",
+      "os",
+      "payment_method",
+      "primary_card_brand",
+      "three_ds_result"
+    ],
+    "sensitive": [
+      "acct_median_amount",
+      "amount",
+      "amount_to_median_ratio",
+      "amt_last_1h_acct",
+      "chargeback_date",
+      "currency",
+      "device_trust_score",
+      "dist_km_home_to_merchant",
+      "dist_km_ip_to_merchant",
+      "fx_rate_to_cad",
+      "home_lat",
+      "home_lng",
+      "hour",
+      "ip_lat",
+      "ip_lng",
+      "is_cross_border",
+      "is_fraud",
+      "is_high_risk_mcc",
+      "is_night",
+      "is_weekend",
+      "kyc_level",
+      "merchant_lat",
+      "merchant_lng",
+      "merchant_risk_score",
+      "new_device",
+      "secs_since_prev_txn_acct",
+      "transaction_ts",
+      "txns_last_1h_acct",
+      "txns_last_1h_device",
+      "weekday"
+    ],
+    "indirect": [
+      "card_present",
+      "merchant_category",
+      "prev_ts",
+      "segment",
+      "transaction_id"
+    ]
+  },
+  "field_specs": [
+    {
+      "field": "transaction_id",
+      "type": "string",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 1.0,
+      "description": "Unique transaction id",
+      "anonymization": "keep",
+      "len_min": 1,
+      "len_max": 5,
+      "len_p50": 4,
+      "top_values": [
+        {
+          "value": "5107",
+          "count": 1
+        },
+        {
+          "value": "523",
+          "count": 1
+        },
+        {
+          "value": "3226",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "field": "transaction_ts",
+      "type": "date",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.9997,
+      "description": "Transaction timestamp (local time)",
+      "anonymization": "coarsen to minute or hour; optionally shift by fixed per-account jitter"
+    },
+    {
+      "field": "account_id",
+      "type": "number",
+      "category": "Direct",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.2169,
+      "description": "Customer account id",
+      "anonymization": "pseudonymize: SHA-256(account_id + project salt); keep stable hash",
+      "min": 100000.0,
+      "max": 102199.0,
+      "mean": 101089.2259,
+      "std": 631.8099463202443
+    },
+    {
+      "field": "merchant_id",
+      "type": "number",
+      "category": "Direct",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.08,
+      "description": "Merchant id",
+      "anonymization": "pseudonymize: SHA-256(account_id + project salt); keep stable hash",
+      "min": 1.0,
+      "max": 800.0,
+      "mean": 399.9467,
+      "std": 232.81768545174998
+    },
+    {
+      "field": "channel",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0003,
+      "description": "POS / Ecommerce / Interac",
+      "anonymization": "keep",
+      "len_min": 3,
+      "len_max": 9,
+      "len_p50": 3,
+      "top_values": [
+        {
+          "value": "POS",
+          "count": 5464
+        },
+        {
+          "value": "Ecommerce",
+          "count": 3511
+        },
+        {
+          "value": "Interac",
+          "count": 1025
+        }
+      ]
+    },
+    {
+      "field": "payment_method",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0006,
+      "description": "chip/tap/swipe/keyed/web/app/interac",
+      "anonymization": "keep",
+      "len_min": 3,
+      "len_max": 7,
+      "len_p50": 3,
+      "top_values": [
+        {
+          "value": "chip",
+          "count": 3248
+        },
+        {
+          "value": "web",
+          "count": 2475
+        },
+        {
+          "value": "tap",
+          "count": 1660
+        }
+      ]
+    },
+    {
+      "field": "card_present",
+      "type": "boolean",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "Card present flag",
+      "anonymization": "keep"
+    },
+    {
+      "field": "device_type",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0003,
+      "description": "mobile/desktop/pos_terminal",
+      "anonymization": "keep",
+      "len_min": 6,
+      "len_max": 12,
+      "len_p50": 12,
+      "top_values": [
+        {
+          "value": "pos_terminal",
+          "count": 5464
+        },
+        {
+          "value": "mobile",
+          "count": 2907
+        },
+        {
+          "value": "desktop",
+          "count": 1629
+        }
+      ]
+    },
+    {
+      "field": "device_id",
+      "type": "string",
+      "category": "Direct",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.5076,
+      "description": "Device identifier (stable per account); '_new' indicates unfamiliar device",
+      "anonymization": "pseudonymize: SHA-256(account_id + project salt); keep stable hash",
+      "len_min": 9,
+      "len_max": 15,
+      "len_p50": 9,
+      "top_values": [
+        {
+          "value": "d100812_1",
+          "count": 11
+        },
+        {
+          "value": "d100198_1",
+          "count": 11
+        },
+        {
+          "value": "d101355_1",
+          "count": 10
+        }
+      ]
+    },
+    {
+      "field": "browser",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.5464,
+      "unique_ratio": 0.0011,
+      "description": "Browser (if online)",
+      "anonymization": "keep",
+      "len_min": 4,
+      "len_max": 7,
+      "len_p50": 6,
+      "top_values": [
+        {
+          "value": "Firefox",
+          "count": 964
+        },
+        {
+          "value": "Safari",
+          "count": 911
+        },
+        {
+          "value": "Other",
+          "count": 911
+        }
+      ]
+    },
+    {
+      "field": "os",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.5464,
+      "unique_ratio": 0.0011,
+      "description": "Operating system (if online)",
+      "anonymization": "keep",
+      "len_min": 3,
+      "len_max": 7,
+      "len_p50": 5,
+      "top_values": [
+        {
+          "value": "iOS",
+          "count": 939
+        },
+        {
+          "value": "macOS",
+          "count": 925
+        },
+        {
+          "value": "Windows",
+          "count": 911
+        }
+      ]
+    },
+    {
+      "field": "amount",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.6534,
+      "description": "Transaction amount in native currency",
+      "anonymization": "Laplace noise (ε≈0.3) + clipping; or log-bucketing to ranges",
+      "min": 0.51,
+      "max": 16075.87,
+      "mean": 148.697954,
+      "std": 938.5659028217965
+    },
+    {
+      "field": "currency",
+      "type": "string",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "CAD/UTC; mostly CAD",
+      "anonymization": "keep",
+      "len_min": 3,
+      "len_max": 3,
+      "len_p50": 3,
+      "top_values": [
+        {
+          "value": "CAD",
+          "count": 9591
+        },
+        {
+          "value": "USD",
+          "count": 409
+        }
+      ]
+    },
+    {
+      "field": "fx_rate_to_cad",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0308,
+      "description": "Conversion rate to CAD (1 if CAD)",
+      "anonymization": "round to 3–4 decimals",
+      "min": 1.0,
+      "max": 1.3882,
+      "mean": 1.0139579200000002,
+      "std": 0.0677023942506733
+    },
+    {
+      "field": "merchant_category_code",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0012,
+      "description": "MCC code",
+      "anonymization": "map to high-level merchant_category; drop fine-grained code",
+      "len_min": 4,
+      "len_max": 4,
+      "len_p50": 4,
+      "top_values": [
+        {
+          "value": "5311",
+          "count": 980
+        },
+        {
+          "value": "4829",
+          "count": 970
+        },
+        {
+          "value": "5732",
+          "count": 950
+        }
+      ]
+    },
+    {
+      "field": "merchant_category",
+      "type": "string",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0012,
+      "description": "MCC description",
+      "anonymization": "keep",
+      "len_min": 14,
+      "len_max": 48,
+      "len_p50": 21,
+      "top_values": [
+        {
+          "value": "Department Stores",
+          "count": 980
+        },
+        {
+          "value": "Money Transfer—Wire Transfer",
+          "count": 970
+        },
+        {
+          "value": "Electronics Stores",
+          "count": 950
+        }
+      ]
+    },
+    {
+      "field": "merchant_city",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0039,
+      "description": "Merchant city",
+      "anonymization": "keep; group rare categories into 'Other'",
+      "len_min": 5,
+      "len_max": 13,
+      "len_p50": 9,
+      "top_values": [
+        {
+          "value": "Iqaluit",
+          "count": 932
+        },
+        {
+          "value": "St. John's",
+          "count": 778
+        },
+        {
+          "value": "Charlottetown",
+          "count": 676
+        }
+      ]
+    },
+    {
+      "field": "merchant_province",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0013,
+      "description": "Merchant province",
+      "anonymization": "keep; group rare categories into 'Other'",
+      "len_min": 2,
+      "len_max": 2,
+      "len_p50": 2,
+      "top_values": [
+        {
+          "value": "NU",
+          "count": 932
+        },
+        {
+          "value": "NB",
+          "count": 900
+        },
+        {
+          "value": "ON",
+          "count": 883
+        }
+      ]
+    },
+    {
+      "field": "merchant_country",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0001,
+      "description": "Merchant country",
+      "anonymization": "keep; group rare categories into 'Other'",
+      "len_min": 2,
+      "len_max": 2,
+      "len_p50": 2,
+      "top_values": [
+        {
+          "value": "CA",
+          "count": 10000
+        }
+      ]
+    },
+    {
+      "field": "merchant_lat",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.2266,
+      "unique_ratio": 0.0817,
+      "description": "Merchant latitude (jittered)",
+      "anonymization": "round to 2 decimals OR map to city centroid; drop out-of-CA coords",
+      "min": 42.953891118016216,
+      "max": 63.8631948706828,
+      "mean": 51.54130396769024,
+      "std": 7.155985377718791
+    },
+    {
+      "field": "merchant_lng",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.2266,
+      "unique_ratio": 0.0817,
+      "description": "Merchant longitude (jittered)",
+      "anonymization": "round to 2 decimals OR map to city centroid; drop out-of-CA coords",
+      "min": -135.14166934812326,
+      "max": -52.6231870724561,
+      "mean": -85.61007647619876,
+      "std": 26.58576006780619
+    },
+    {
+      "field": "ip_lat",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.1877,
+      "unique_ratio": 1.0,
+      "description": "IP geo latitude (approx)",
+      "anonymization": "generalize to region (city/province) or drop; avoid precise IP geo",
+      "min": 25.045686181093807,
+      "max": 64.45279802447011,
+      "mean": 50.13126652709287,
+      "std": 8.499409657503923
+    },
+    {
+      "field": "ip_lng",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.1877,
+      "unique_ratio": 1.0,
+      "description": "IP geo longitude (approx)",
+      "anonymization": "generalize to region (city/province) or drop; avoid precise IP geo",
+      "min": -139.94886096148508,
+      "max": -52.049293524299166,
+      "mean": -88.63131483216034,
+      "std": 27.25403344050622
+    },
+    {
+      "field": "home_lat",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.2039,
+      "unique_ratio": 0.2183,
+      "description": "Account home latitude",
+      "anonymization": "round to 2 decimals OR map to city centroid; drop out-of-CA coords",
+      "min": 42.88935351691418,
+      "max": 63.86936036340415,
+      "mean": 51.52218566558159,
+      "std": 7.022070767507941
+    },
+    {
+      "field": "home_lng",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.2039,
+      "unique_ratio": 0.2183,
+      "description": "Account home longitude",
+      "anonymization": "round to 2 decimals OR map to city centroid; drop out-of-CA coords",
+      "min": -135.15683869421233,
+      "max": -52.59479247866589,
+      "mean": -87.07780375264228,
+      "std": 27.400782066433724
+    },
+    {
+      "field": "home_postal_fsa",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.1546,
+      "description": "Account postal FSA (A1A)",
+      "anonymization": "keep FSA (A1A) if k≥5; else generalize to first letter area",
+      "len_min": 3,
+      "len_max": 3,
+      "len_p50": 3,
+      "top_values": [
+        {
+          "value": "M6T",
+          "count": 27
+        },
+        {
+          "value": "V4P",
+          "count": 24
+        },
+        {
+          "value": "T4N",
+          "count": 23
+        }
+      ]
+    },
+    {
+      "field": "home_city",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0039,
+      "description": "Account home city",
+      "anonymization": "keep; group rare categories into 'Other'",
+      "len_min": 5,
+      "len_max": 13,
+      "len_p50": 9,
+      "top_values": [
+        {
+          "value": "St. John's",
+          "count": 919
+        },
+        {
+          "value": "Whitehorse",
+          "count": 778
+        },
+        {
+          "value": "Charlottetown",
+          "count": 765
+        }
+      ]
+    },
+    {
+      "field": "home_province",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0013,
+      "description": "Account home province",
+      "anonymization": "keep; group rare categories into 'Other'",
+      "len_min": 2,
+      "len_max": 2,
+      "len_p50": 2,
+      "top_values": [
+        {
+          "value": "NL",
+          "count": 919
+        },
+        {
+          "value": "QC",
+          "count": 842
+        },
+        {
+          "value": "SK",
+          "count": 815
+        }
+      ]
+    },
+    {
+      "field": "segment",
+      "type": "string",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0005,
+      "description": "Customer segment",
+      "anonymization": "keep",
+      "len_min": 6,
+      "len_max": 8,
+      "len_p50": 6,
+      "top_values": [
+        {
+          "value": "family",
+          "count": 4006
+        },
+        {
+          "value": "student",
+          "count": 1990
+        },
+        {
+          "value": "senior",
+          "count": 1568
+        }
+      ]
+    },
+    {
+      "field": "primary_card_brand",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0005,
+      "description": "Visa/Mastercard/Amex/Discover/Interac",
+      "anonymization": "keep",
+      "len_min": 4,
+      "len_max": 10,
+      "len_p50": 4,
+      "top_values": [
+        {
+          "value": "Visa",
+          "count": 4594
+        },
+        {
+          "value": "Mastercard",
+          "count": 3883
+        },
+        {
+          "value": "Amex",
+          "count": 1029
+        }
+      ]
+    },
+    {
+      "field": "kyc_level",
+      "type": "string",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0003,
+      "description": "basic/standard/enhanced",
+      "anonymization": "keep; ensure categories limited (basic/standard/enhanced)",
+      "len_min": 5,
+      "len_max": 8,
+      "len_p50": 8,
+      "top_values": [
+        {
+          "value": "standard",
+          "count": 6004
+        },
+        {
+          "value": "basic",
+          "count": 2010
+        },
+        {
+          "value": "enhanced",
+          "count": 1986
+        }
+      ]
+    },
+    {
+      "field": "three_ds_result",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0004,
+      "description": "3DS result for ecommerce",
+      "anonymization": "keep",
+      "len_min": 6,
+      "len_max": 14,
+      "len_p50": 14,
+      "top_values": [
+        {
+          "value": "not_applicable",
+          "count": 6489
+        },
+        {
+          "value": "authenticated",
+          "count": 2437
+        },
+        {
+          "value": "attempted",
+          "count": 739
+        }
+      ]
+    },
+    {
+      "field": "merchant_risk_score",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0333,
+      "description": "Intrinsic merchant risk [0,1]",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 0.516,
+      "mean": 0.20613269999999997,
+      "std": 0.09705616461982206
+    },
+    {
+      "field": "device_trust_score",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0876,
+      "description": "Device trust [0,1]",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 1.0,
+      "mean": 0.7416249,
+      "std": 0.17992569077257978
+    },
+    {
+      "field": "dist_km_home_to_merchant",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.3731,
+      "unique_ratio": 0.9976,
+      "description": "Haversine distance home→merchant (km)",
+      "anonymization": "bucket/clip (quantiles)",
+      "min": 0.4335081535527806,
+      "max": 5188.6339505667,
+      "mean": 2275.880855512377,
+      "std": 1441.61573874637
+    },
+    {
+      "field": "dist_km_ip_to_merchant",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.3463,
+      "unique_ratio": 1.0,
+      "description": "Haversine distance IP→merchant (km)",
+      "anonymization": "bucket/clip (quantiles)",
+      "min": 1.9440861541220016,
+      "max": 7656.577986704447,
+      "mean": 2395.10552759729,
+      "std": 1479.4405307225509
+    },
+    {
+      "field": "hour",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0024,
+      "description": "Hour of day [0..23]",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 23.0,
+      "mean": 12.6599,
+      "std": 6.302795569427903
+    },
+    {
+      "field": "is_night",
+      "type": "boolean",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "Night-time flag",
+      "anonymization": "keep"
+    },
+    {
+      "field": "weekday",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0007,
+      "description": "Day of week [0..6]",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 6.0,
+      "mean": 3.0178,
+      "std": 1.981333682144429
+    },
+    {
+      "field": "is_weekend",
+      "type": "boolean",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "Weekend flag",
+      "anonymization": "keep"
+    },
+    {
+      "field": "prev_ts",
+      "type": "date",
+      "category": "Indirect",
+      "missing_rate": 0.2169,
+      "unique_ratio": 0.9997,
+      "description": "Previous txn time for this account",
+      "anonymization": "coarsen to minute or hour; optionally shift by fixed per-account jitter"
+    },
+    {
+      "field": "secs_since_prev_txn_acct",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.7825,
+      "description": "Seconds since previous txn for this account (-1 if none)",
+      "anonymization": "keep",
+      "min": -590.0,
+      "max": 10338337.0,
+      "mean": 1439373.8988,
+      "std": 1686316.2108168828
+    },
+    {
+      "field": "txns_last_1h_acct",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "# of account txns in previous hour",
+      "anonymization": "keep; optionally cap at P99",
+      "min": 0.0,
+      "max": 1.0,
+      "mean": 0.0011,
+      "std": 0.033148001448051134
+    },
+    {
+      "field": "amt_last_1h_acct",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0012,
+      "description": "Sum of account amount in previous hour",
+      "anonymization": "keep; optionally cap at P99",
+      "min": 0.0,
+      "max": 96.71999999999998,
+      "mean": 0.046585000000000064,
+      "std": 1.5773762353271983
+    },
+    {
+      "field": "txns_last_1h_device",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0001,
+      "description": "# of device txns in previous hour",
+      "anonymization": "keep; optionally cap at P99",
+      "min": 0.0,
+      "max": 0.0,
+      "mean": 0.0,
+      "std": 0.0
+    },
+    {
+      "field": "acct_median_amount",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.1996,
+      "description": "Account median amount (historical)",
+      "anonymization": "bucket/clip (quantiles)",
+      "min": 1.76,
+      "max": 9359.08,
+      "mean": 51.256413,
+      "std": 226.44555278568276
+    },
+    {
+      "field": "amount_to_median_ratio",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.8873,
+      "description": "amount / acct_median_amount",
+      "anonymization": "bucket/clip (quantiles)",
+      "min": 0.0025032168679335,
+      "max": 1261.8378746594003,
+      "mean": 3.529902683478354,
+      "std": 27.16031832693496
+    },
+    {
+      "field": "is_high_risk_mcc",
+      "type": "boolean",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "High-risk MCC flag",
+      "anonymization": "keep"
+    },
+    {
+      "field": "is_cross_border",
+      "type": "boolean",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "Cross-border signal (USD or merchant not CA)",
+      "anonymization": "keep"
+    },
+    {
+      "field": "new_device",
+      "type": "boolean",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "Device not seen before for the account",
+      "anonymization": "keep"
+    },
+    {
+      "field": "is_fraud",
+      "type": "boolean",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "Fraud label (≈5%)",
+      "anonymization": "keep"
+    },
+    {
+      "field": "chargeback_date",
+      "type": "date",
+      "category": "Sensitive",
+      "missing_rate": 0.8306,
+      "unique_ratio": 1.0,
+      "description": "If fraud: chargeback posting date",
+      "anonymization": "coarsen to minute or hour; optionally shift by fixed per-account jitter"
+    }
+  ],
+  "distribution_notes": {
+    "fraud_rate_%": 24.2,
+    "channels_%": {
+      "POS": 54.6,
+      "Ecommerce": 35.099999999999994,
+      "Interac": 10.2
+    },
+    "night_%": 18.05,
+    "high_risk_mcc_%": 39.93,
+    "cross_border_%": 4.09,
+    "new_device_%": 15.21,
+    "amount_quartiles": {
+      "0.25": 20.04,
+      "0.5": 36.0,
+      "0.75": 65.33,
+      "0.95": 163.59,
+      "0.99": 5518.96
+    },
+    "distance_home_to_merchant_km_quartiles": {
+      "0.5": 2126.73,
+      "0.9": 4273.39,
+      "0.99": 5176.02
+    },
+    "chargeback_lag_days_quartiles": {
+      "0.5": 62.0,
+      "0.9": 109.0,
+      "0.99": 118.0
+    }
+  },
+  "anonymization_pipeline": [
+    "Normalize/canonicalize categorical values; trim whitespace; validate timestamps",
+    "Pseudonymize `account_id`, `device_id`, `merchant_id` using salted SHA-256",
+    "Coarsen timestamps to minute/hour (per-account jitter optional)",
+    "Generalize/round geolocation (2 decimals) or map to centroids; remove abnormal IP geos",
+    "Bucket/perturb amounts; clip extremes; round fx_rate",
+    "Map MCC to high-level category; group rare categories into 'Other'",
+    "Bucket derived features (distance, ratios); cap rolling counts at P99",
+    "QA: class imbalance check, leakage scan (time splits), distribution tests (KS/χ²)"
+  ]
+}
