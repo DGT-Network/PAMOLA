@@ -1,0 +1,42 @@
+field_name,type,description
+application_id,integer,Application id
+gt_person_id,integer,Ground-truth person id for evaluation (drop for real linkage/FL)
+link_shared_id,string,Cross-source hash (≈85% of overlaps)
+bank_internal_id,string,Bank-local stable hash
+application_ts,datetime,Application timestamp
+product,string,CreditCard/PersonalLoan/AutoLoan/LineOfCredit
+amount_requested,number,Requested amount (CAD)
+term_months,integer,Loan term months
+interest_rate,number,APR (0..1)
+birth_year,integer,Birth year
+sex,string,F/M/X
+home_postal_fsa,string,Postal FSA (A1A)
+home_province,string,Province code
+home_lat,number,Home latitude
+home_lng,number,Home longitude
+employment_type,string,Employment type
+employer_industry,string,Industry
+employment_tenure_months,integer,Months employed
+pay_frequency,string,monthly/biweekly/weekly
+dependents,integer,Household dependents
+residence_months,integer,Months at current address
+declared_income_cad,number,Declared gross annual income
+verified_income_cad,number,Verified income estimate
+avg_balance_3m_cad,number,Avg balance 3m
+inflow_payroll_3m_cad,number,Payroll inflow 3m
+card_spend_3m_cad,number,Card spend 3m
+atm_withdraw_3m_cad,number,ATM withdrawals 3m
+nsf_count_3m,integer,NSF count 3m
+late_fee_count_3m,integer,Late fee count 3m
+overdraft_days_3m,integer,Days in overdraft 3m
+device_type,string,mobile/desktop
+browser,string,Browser
+os,string,Operating system
+device_id,string,Device id
+ip_lat,number,IP geolocation latitude
+ip_lng,number,IP geolocation longitude
+internal_risk_score,number,Internal risk [0..1]
+default_12m,boolean,Default within 12 months (label)
+created_at,date,Creation date
+updated_at,date,Last update
+source_system,string,Source tag

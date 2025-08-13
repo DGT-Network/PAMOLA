@@ -1,0 +1,585 @@
+{
+  "dataset_name": "PAMOLA_FIN_BUREAU",
+  "filename": "PAMOLA_FIN_BUREAU_10k.csv",
+  "records": 10000,
+  "encoding": "UTF-8",
+  "generated_at": "2025-08-12T00:27:13.176118Z",
+  "privacy_categories": {
+    "direct": [
+      "bureau_internal_id",
+      "bureau_row_id"
+    ],
+    "quasi": [
+      "birth_year",
+      "home_postal_fsa",
+      "home_province",
+      "sex"
+    ],
+    "sensitive": [
+      "balance_total",
+      "bankruptcy_flag",
+      "bureau_score",
+      "consumer_proposal_flag",
+      "credit_limit_total",
+      "delinq_30d_12m",
+      "delinq_60d_12m",
+      "delinq_90d_12m",
+      "derogatory_count",
+      "gt_person_id",
+      "link_shared_id",
+      "months_since_bankruptcy"
+    ],
+    "indirect": [
+      "addresses_count_24m",
+      "bureau_pull_ts",
+      "created_at",
+      "credit_utilization_pct",
+      "employers_count_24m",
+      "inquiries_12m",
+      "inquiries_90d",
+      "max_utilization_12m_pct",
+      "source_system",
+      "thin_file_flag",
+      "tradelines_installment",
+      "tradelines_mortgage",
+      "tradelines_open",
+      "tradelines_revolving",
+      "updated_at"
+    ]
+  },
+  "field_specs": [
+    {
+      "field": "bureau_row_id",
+      "type": "string",
+      "category": "Direct",
+      "missing_rate": 0.0,
+      "unique_ratio": 1.0,
+      "description": "Bureau row id",
+      "anonymization": "hash with salted SHA-256",
+      "len_min": 1,
+      "len_max": 5,
+      "len_p50": 4,
+      "top_values": [
+        {
+          "value": "1",
+          "count": 1
+        },
+        {
+          "value": "6671",
+          "count": 1
+        },
+        {
+          "value": "6664",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "field": "gt_person_id",
+      "type": "string",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.5305,
+      "description": "Ground-truth person id for evaluation (drop for real linkage/FL)",
+      "anonymization": "for eval only; drop before release (or pseudonymize)",
+      "len_min": 1,
+      "len_max": 4,
+      "len_p50": 4,
+      "top_values": [
+        {
+          "value": "6026",
+          "count": 8
+        },
+        {
+          "value": "5464",
+          "count": 8
+        },
+        {
+          "value": "4426",
+          "count": 7
+        }
+      ]
+    },
+    {
+      "field": "link_shared_id",
+      "type": "string",
+      "category": "Sensitive",
+      "missing_rate": 0.338,
+      "unique_ratio": 0.5323,
+      "description": "Cross-source hash (≈85% of overlaps)",
+      "anonymization": "for eval only; drop before release (or pseudonymize)",
+      "len_min": 16,
+      "len_max": 16,
+      "len_p50": 16,
+      "top_values": [
+        {
+          "value": "993615e28e0f21f1",
+          "count": 8
+        },
+        {
+          "value": "b5f8e0ebe2f14bc9",
+          "count": 7
+        },
+        {
+          "value": "9b9c62657b9b3890",
+          "count": 7
+        }
+      ]
+    },
+    {
+      "field": "bureau_internal_id",
+      "type": "string",
+      "category": "Direct",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.5305,
+      "description": "Bureau-local stable hash",
+      "anonymization": "hash with salted SHA-256",
+      "len_min": 16,
+      "len_max": 16,
+      "len_p50": 16,
+      "top_values": [
+        {
+          "value": "b17294493a33d1df",
+          "count": 8
+        },
+        {
+          "value": "5c6e13cf70b379f0",
+          "count": 8
+        },
+        {
+          "value": "ff72df3a0e5f1e10",
+          "count": 7
+        }
+      ]
+    },
+    {
+      "field": "bureau_pull_ts",
+      "type": "date",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.999,
+      "description": "Bureau pull timestamp",
+      "anonymization": "coarsen to day"
+    },
+    {
+      "field": "birth_year",
+      "type": "number",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.006,
+      "description": "Birth year",
+      "anonymization": "keep",
+      "min": 1945.0,
+      "max": 2004.0,
+      "mean": 1974.9758,
+      "std": 17.403735643820838
+    },
+    {
+      "field": "sex",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0003,
+      "description": "F/M/X",
+      "anonymization": "keep",
+      "len_min": 1,
+      "len_max": 1,
+      "len_p50": 1,
+      "top_values": [
+        {
+          "value": "F",
+          "count": 5013
+        },
+        {
+          "value": "M",
+          "count": 4859
+        },
+        {
+          "value": "X",
+          "count": 128
+        }
+      ]
+    },
+    {
+      "field": "home_postal_fsa",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.2615,
+      "description": "Postal FSA (A1A)",
+      "anonymization": "keep",
+      "len_min": 3,
+      "len_max": 3,
+      "len_p50": 3,
+      "top_values": [
+        {
+          "value": "P5N",
+          "count": 21
+        },
+        {
+          "value": "R0H",
+          "count": 18
+        },
+        {
+          "value": "E0C",
+          "count": 17
+        }
+      ]
+    },
+    {
+      "field": "home_province",
+      "type": "string",
+      "category": "Quasi",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0013,
+      "description": "Province code",
+      "anonymization": "keep",
+      "len_min": 2,
+      "len_max": 2,
+      "len_p50": 2,
+      "top_values": [
+        {
+          "value": "NL",
+          "count": 877
+        },
+        {
+          "value": "NS",
+          "count": 819
+        },
+        {
+          "value": "NT",
+          "count": 811
+        }
+      ]
+    },
+    {
+      "field": "bureau_score",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0486,
+      "description": "300–900 range score",
+      "anonymization": "keep",
+      "min": 346.0,
+      "max": 900.0,
+      "mean": 678.214,
+      "std": 88.96865854895194
+    },
+    {
+      "field": "inquiries_12m",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.001,
+      "description": "# of inquiries last 12 months",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 9.0,
+      "mean": 1.7966,
+      "std": 1.336124410375022
+    },
+    {
+      "field": "inquiries_90d",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0006,
+      "description": "# of inquiries last 90 days",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 5.0,
+      "mean": 0.6337,
+      "std": 0.7853179674501277
+    },
+    {
+      "field": "tradelines_open",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0017,
+      "description": "Open tradelines",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 16.0,
+      "mean": 4.9019,
+      "std": 2.688991705082037
+    },
+    {
+      "field": "tradelines_revolving",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0014,
+      "description": "Revolving trades",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 13.0,
+      "mean": 3.5152,
+      "std": 1.903725022160501
+    },
+    {
+      "field": "tradelines_installment",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.001,
+      "description": "Installment trades",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 9.0,
+      "mean": 1.9948,
+      "std": 1.4178762146252402
+    },
+    {
+      "field": "tradelines_mortgage",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0006,
+      "description": "Mortgage trades",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 5.0,
+      "mean": 0.7962,
+      "std": 0.8973659008453576
+    },
+    {
+      "field": "credit_utilization_pct",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.6072,
+      "description": "% utilization total",
+      "anonymization": "bucket/quantile-bin",
+      "min": 0.0,
+      "max": 162.8,
+      "mean": 47.362451,
+      "std": 28.584685624694195
+    },
+    {
+      "field": "max_utilization_12m_pct",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.6625,
+      "description": "% max utilization 12m",
+      "anonymization": "bucket/quantile-bin",
+      "min": 0.0,
+      "max": 209.65,
+      "mean": 74.00041,
+      "std": 30.537329940449936
+    },
+    {
+      "field": "credit_limit_total",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.9883,
+      "description": "Sum of limits",
+      "anonymization": "bucket/quantile-bin",
+      "min": 775.31,
+      "max": 300000.0,
+      "mean": 47694.250253,
+      "std": 52915.15287833915
+    },
+    {
+      "field": "balance_total",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.9956,
+      "description": "Sum of balances",
+      "anonymization": "bucket/quantile-bin",
+      "min": 143.51,
+      "max": 250000.0,
+      "mean": 21750.390518,
+      "std": 29845.206380080257
+    },
+    {
+      "field": "delinq_30d_12m",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0006,
+      "description": "30d delinq in 12m",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 5.0,
+      "mean": 0.601,
+      "std": 0.770453762402391
+    },
+    {
+      "field": "delinq_60d_12m",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0004,
+      "description": "60d delinq in 12m",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 3.0,
+      "mean": 0.2505,
+      "std": 0.49734268869663706
+    },
+    {
+      "field": "delinq_90d_12m",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0004,
+      "description": "90d delinq in 12m",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 3.0,
+      "mean": 0.1239,
+      "std": 0.35064054243626763
+    },
+    {
+      "field": "derogatory_count",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0003,
+      "description": "Derogatory items",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 2.0,
+      "mean": 0.0761,
+      "std": 0.27732434079972135
+    },
+    {
+      "field": "bankruptcy_flag",
+      "type": "boolean",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "Bankruptcy present",
+      "anonymization": "keep"
+    },
+    {
+      "field": "months_since_bankruptcy",
+      "type": "number",
+      "category": "Sensitive",
+      "missing_rate": 0.9704,
+      "unique_ratio": 0.3243,
+      "description": "Months since bankruptcy (nullable)",
+      "anonymization": "cap at P99; bucket",
+      "min": 0.0,
+      "max": 228.0,
+      "mean": 34.270270270270274,
+      "std": 37.32736743177067
+    },
+    {
+      "field": "consumer_proposal_flag",
+      "type": "boolean",
+      "category": "Sensitive",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "Consumer proposal present",
+      "anonymization": "keep"
+    },
+    {
+      "field": "addresses_count_24m",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0008,
+      "description": "# of addresses in 24m",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 7.0,
+      "mean": 1.1983,
+      "std": 1.0920517890649692
+    },
+    {
+      "field": "employers_count_24m",
+      "type": "number",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0007,
+      "description": "# of employers in 24m",
+      "anonymization": "keep",
+      "min": 0.0,
+      "max": 6.0,
+      "mean": 0.806,
+      "std": 0.9020886874359971
+    },
+    {
+      "field": "thin_file_flag",
+      "type": "boolean",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0002,
+      "description": "Thin file indicator",
+      "anonymization": "keep"
+    },
+    {
+      "field": "created_at",
+      "type": "date",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0248,
+      "description": "Creation date",
+      "anonymization": "coarsen to day"
+    },
+    {
+      "field": "updated_at",
+      "type": "date",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0228,
+      "description": "Last update",
+      "anonymization": "coarsen to day"
+    },
+    {
+      "field": "source_system",
+      "type": "string",
+      "category": "Indirect",
+      "missing_rate": 0.0,
+      "unique_ratio": 0.0001,
+      "description": "Source tag",
+      "anonymization": "keep",
+      "len_min": 9,
+      "len_max": 9,
+      "len_p50": 9,
+      "top_values": [
+        {
+          "value": "bureau_v1",
+          "count": 10000
+        }
+      ]
+    }
+  ],
+  "distribution_notes": {
+    "rows": 10000,
+    "bureau_score_quartiles": {
+      "0.1": 563.0,
+      "0.25": 618.0,
+      "0.5": 678.0,
+      "0.75": 739.0,
+      "0.9": 795.0
+    },
+    "inq_12m_quartiles": {
+      "0.5": 2.0,
+      "0.9": 4.0,
+      "0.99": 5.0
+    },
+    "utilization_quartiles": {
+      "0.25": 26.0,
+      "0.5": 46.5,
+      "0.75": 66.5,
+      "0.9": 85.2
+    },
+    "thin_file_%": 12.09,
+    "bankruptcy_%": 2.96,
+    "shared_id_present_%": 66.2
+  },
+  "anonymization_pipeline": [
+    "Pseudonymize IDs with salted SHA-256; maintain `link_shared_id` for cross-source join (partial).",
+    "Coarsen timestamps to day/hour; per-person time-jitter optional.",
+    "Round geolocation to 2 decimals or drop where k-anonymity < 5.",
+    "Bucket sensitive numeric fields (income, balances, limits) or add Laplace noise.",
+    "Group rare categories; enforce leakage checks (no post-outcome fields).",
+    "QA: linkage metrics using `gt_person_id` (drop in real use), drift checks across months."
+  ]
+}
