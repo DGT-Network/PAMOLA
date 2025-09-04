@@ -165,6 +165,62 @@ Dataset (Logical Container)
 
 #### 3.4.1 Provisional Risk Assessment (Fast, <10 seconds)
 
+**Purpose:**  
+To provide an immediate, automatically computed **Predicted Risk Score** for all datasets/versions that have not undergone detailed evaluation in projects (no Calculated results). This enables quick prioritization and visualization in the “risk thermometer”.
+
+**Methodology:**
+
+- Based on schema analysis and sampling of up to N=1,000 records.
+    
+- Uses rule-based detection (regex, dictionaries, keyword lists) and simple statistical estimates.
+    
+- No heavy computations or attack simulations are performed.
+    
+
+**Components:**
+
+1. **Direct Identifier Coverage (`coverage_direct`)**
+    
+    - Percentage of fields containing direct identifiers (e.g., email, phone, SSN, passport number).
+        
+    - Detection: regex/pattern matching.
+        
+    - Weight: **w1 = 0.40**.
+        
+2. **Quasi-Identifier Coverage (`coverage_quasi`)**
+    
+    - Percentage of fields containing quasi-identifiers (e.g., age, gender, ZIP, city, date of birth).
+        
+    - Detection: keyword mapping against predefined QI list.
+        
+    - Weight: **w2 = 0.25**.
+        
+3. **Uniqueness Estimate (`uniqueness_estimate`)**
+    
+    - Approximate proportion of unique records in sample based on combinations of quasi-identifiers.
+        
+    - Fast heuristic, no full k-anonymity calculation.
+        
+    - Weight: **w3 = 0.20**.
+        
+4. **Sensitive Pattern Detection (`sensitive_patterns_detected`)**
+    
+    - Boolean flag if financial, medical, or biometric terms are detected (via regex/keywords).
+        
+    - Adds a fixed penalty of **+10 points** to the risk score if present.
+        
+5. **Confidence Level (`confidence`)**
+    
+    - low / medium / high, depending on sample size and coverage consistency.
+        
+
+**Formula:**
+$$provisional_{score}=(w_1⋅coverage_{direct}+w_2⋅coverage_{quasi}+w_3⋅{uniqueness\_estimate})×100+penalty_{sensitive}$$​
+
+- Normalized to 0–100.
+    
+- Displayed as the **Predicted Risk Score** in UI
+
 ```python
 # Computed on sample + regex detection
 provisional_risk = {
@@ -214,6 +270,8 @@ assessed_risk = {
 
 ### 3.5 Data Quality & Profiling
 
+#### 3.5.1 Attributes 
+
 |Attribute|Type|Description|Required|UI Location|
 |---|---|---|---|---|
 |`profiling_state`|enum|`not_profiled`, `in_progress`, `complete`, `outdated`|Yes|Overview|
@@ -225,22 +283,74 @@ assessed_risk = {
 |└─ `timeliness`|object|Data freshness metrics|No|Analysis|
 |`data_quality_score`|float(0-100)|Overall quality metric|No|Overview|
 |`quality_issues[]`|array|Detected problems|No|Analysis|
+#### 3.5.2 Provisional Quality Assessment
 
+**Purpose:**  
+To provide a default **Predicted Quality %** for all datasets/versions and per-column Schema view, when no Calculated results are available. This highlights basic data health and utility readiness.
+
+**Methodology:**
+
+- Rule-based, computed on all fields.
+    
+- Uses simple metrics: completeness, validity, diversity.
+    
+
+**Components (per column):**
+
+1. **Completeness (`completeness`)**
+    
+    - Percentage of non-null / non-empty values.
+        
+    - Weight: **q1 = 0.50**.
+        
+2. **Validity (`validity`)**
+    
+    - Percentage of values conforming to declared data type (integer, float, date, boolean).
+        
+    - Regex applied for string formats (e.g., emails, phone numbers).
+        
+    - Weight: **q2 = 0.30**.
+        
+3. **Diversity (`diversity`)**
+    
+    - Ratio of unique values to total records (normalized).
+        
+    - Detects columns with too low/high entropy.
+        
+    - Weight: **q3 = 0.20**.
+        
+
+**Formula (per column):**
+
+$$column\_quality = (q_1 \cdot completeness + q_2 \cdot validity + q_3 \cdot diversity) \times 100$$
+
+**Formula (dataset level):**
+
+$$dataset\_quality = \frac{\sum_{i=1}^{m} column\_quality_i \cdot weight_i}{\sum_{i=1}^{m} weight_i}$$
+
+where m = number of columns, and weights = number of records (larger fields have higher influence).
+
+**Output:**
+
+- **Schema view:** per-column Quality %.
+    
+- **Dataset card:** overall Predicted Quality %.
+    
 ### 3.6 Field-Level Metadata
 
-|Attribute|Type|Description|Required|UI Location|
-|---|---|---|---|---|
-|`field_metadata[]`|array|Per-field characteristics|Yes*|Schema|
-|└─ `field_name`|string|Column identifier|Yes|Schema|
-|└─ `data_type`|enum|`integer`, `float`, `string`, `date`, `boolean`, `binary`|Yes|Schema|
-|└─ `semantic_type`|enum|`email`, `phone`, `ssn`, `credit_card`, `address`, `name`, `id`|No|Schema|
-|└─ `privacy_category`|enum|`direct_identifier`, `quasi_identifier`, `sensitive`, `non_sensitive`|Yes|Schema, Privacy|
-|└─ `nullable`|boolean|Can contain nulls|Yes|Schema|
-|└─ `cardinality`|integer|Unique values count|No|Schema|
-|└─ `null_ratio`|float|Percentage of nulls|No|Schema|
-|└─ `patterns[]`|array|Detected patterns/formats|No|Schema|
-|└─ `statistics`|object|Min/max/mean/median/std|No|Analysis|
-|└─ `privacy_methods[]`|array|Applied transformations|No|Privacy|
+| Attribute              | Type    | Description                                                           | Required | UI Location     |
+| ---------------------- | ------- | --------------------------------------------------------------------- | -------- | --------------- |
+| `field_metadata[]`     | array   | Per-field characteristics                                             | Yes*     | Schema          |
+| └─ `field_name`        | string  | Column identifier                                                     | Yes      | Schema          |
+| └─ `data_type`         | enum    | `integer`, `float`, `string`, `date`, `boolean`, `binary`             | Yes      | Schema          |
+| └─ `semantic_type`     | enum    | `email`, `phone`, `ssn`, `credit_card`, `address`, `name`, `id`       | No       | Schema          |
+| └─ `privacy_category`  | enum    | `direct_identifier`, `quasi_identifier`, `sensitive`, `non_sensitive` | Yes      | Schema, Privacy |
+| └─ `nullable`          | boolean | Can contain nulls                                                     | Yes      | Schema          |
+| └─ `cardinality`       | integer | Unique values count                                                   | No       | Schema          |
+| └─ `null_ratio`        | float   | Percentage of nulls                                                   | No       | Schema          |
+| └─ `patterns[]`        | array   | Detected patterns/formats                                             | No       | Schema          |
+| └─ `statistics`        | object  | Min/max/mean/median/std                                               | No       | Analysis        |
+| └─ `privacy_methods[]` | array   | Applied transformations                                               | No       | Privacy         |
 
 *For tabular data
 
