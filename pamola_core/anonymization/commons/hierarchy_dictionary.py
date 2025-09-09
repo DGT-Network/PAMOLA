@@ -109,6 +109,7 @@ class HierarchyDictionary:
         self._level_values: Dict[int, Set[str]] = {}
         self._file_path: Optional[Path] = None
         self._file_hash: Optional[str] = None
+        self._case_sensitive: bool = False
 
         # Thread safety
         self._lock = threading.RLock()
@@ -120,6 +121,7 @@ class HierarchyDictionary:
         self,
         filepath: Union[str, Path],
         format_type: str = "auto",
+        case_sensitive: bool = False,
         encryption_key: Optional[str] = None,
     ) -> None:
         """
@@ -174,6 +176,7 @@ class HierarchyDictionary:
                 )
 
             self._format = format_type
+            self._case_sensitive = case_sensitive
             logger.info(f"Loading {format_type} dictionary from {filepath}")
 
             try:
@@ -278,7 +281,9 @@ class HierarchyDictionary:
             # Prepare lookup key
             lookup_key = value
             if normalize:
-                normalized = normalize_text(value, level="basic").lower()
+                normalized = normalize_text(
+                    value, level="basic", preserve_case=self._case_sensitive
+                )
                 # Check normalized index
                 if normalized in self._normalized_index:
                     lookup_key = self._normalized_index[normalized]
@@ -429,8 +434,7 @@ class HierarchyDictionary:
     def get_all_values_at_level(self, level: int) -> Set[str]:
         """
         Get all unique values at a specific hierarchy level.
-
-        Thread-safe access to cached level values.
+        Level 0 => return all key_column values.
 
         Parameters:
         -----------
@@ -443,7 +447,10 @@ class HierarchyDictionary:
             Unique values at that level
         """
         with self._lock:
-            if level < 1 or level > len(self._levels):
+            if level == 0:
+                return set(self._data.keys())
+
+            if level > len(self._levels):
                 return set()
 
             if level in self._level_values:
@@ -582,8 +589,10 @@ class HierarchyDictionary:
         self._normalized_index.clear()
 
         for value in self._data.keys():
-            normalized = normalize_text(value, level="basic").lower()
-            if normalized != value.lower():
+            normalized = normalize_text(
+                value, level="basic", preserve_case=self._case_sensitive
+            )
+            if normalized != value:
                 self._normalized_index[normalized] = value
 
     def _build_alias_index(self) -> None:
@@ -607,7 +616,9 @@ class HierarchyDictionary:
 
                 # Add each alias to index
                 for alias in alias_list:
-                    normalized = normalize_text(alias, level="basic").lower()
+                    normalized = normalize_text(
+                        alias, level="basic", preserve_case=self._case_sensitive
+                    )
                     self._alias_index[normalized] = value
 
             # Also check 'common_names' field (medical dictionaries)
@@ -616,7 +627,9 @@ class HierarchyDictionary:
                 if isinstance(common_names, str):
                     names = [n.strip() for n in common_names.split(";") if n.strip()]
                     for name in names:
-                        normalized = normalize_text(name, level="basic").lower()
+                        normalized = normalize_text(
+                            name, level="basic", preserve_case=self._case_sensitive
+                        )
                         self._alias_index[normalized] = value
 
     def _cache_level_values(self) -> None:

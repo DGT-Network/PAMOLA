@@ -376,7 +376,7 @@ class NumericOperation(FieldOperation):
                  bins: int = 10,
                  detect_outliers: bool = True,
                  test_normality: bool = True,
-                 near_zero_threshold: int = 1e-10,
+                 near_zero_threshold: float = 1e-10,
                  generate_visualization: bool = True,
                  include_timestamp: bool = True,
                  profile_type: str = 'numeric',
@@ -752,8 +752,6 @@ class NumericOperation(FieldOperation):
                                  analysis_results: Dict[str, Any],
                                  vis_dir: Path,
                                  include_timestamp: bool,
-                                 result: OperationResult,
-                                 reporter: Any,
                                  vis_theme: Optional[str],
                                  vis_backend: Optional[str],
                                  vis_strict: bool,
@@ -804,7 +802,7 @@ class NumericOperation(FieldOperation):
                 min_value = stats_dict.get('min')
                 max_value = stats_dict.get('max')
 
-                title = f"Distribution of {self.field_name}"
+                title = f"Distribution of {self.field_name} histogram"
                 if min_value is not None and max_value is not None:
                     title += f" (min: {min_value:.2f}, max: {max_value:.2f})"
 
@@ -824,18 +822,16 @@ class NumericOperation(FieldOperation):
                     )
 
                     if not hist_result.startswith("Error"):
-                        result.add_artifact("png", hist_path, f"{self.field_name} distribution histogram", category=Constants.Artifact_Category_Visualization)
-                        reporter.add_artifact("png", str(hist_path), f"{self.field_name} distribution histogram")
                         visualization_paths.append({
                             "artifact_type": "png",
                             "path": str(hist_path),
-                            "description": f"{self.field_name} distribution histogram",
+                            "description": title,
                             "category": Constants.Artifact_Category_Visualization
                         })
 
         # Generate boxplot visualization if we have enough data
         if len(valid_data) > 5:
-            boxplot_filename = get_timestamped_filename(f"{self.field_name}_boxplot", "png", include_timestamp)
+            boxplot_filename = get_timestamped_filename(f"Boxplot of {self.field_name}", "png", include_timestamp)
             boxplot_path = vis_dir / boxplot_filename
 
             # Create boxplot using the visualization module
@@ -852,18 +848,16 @@ class NumericOperation(FieldOperation):
             )
 
             if not boxplot_result.startswith("Error"):
-                result.add_artifact("png", boxplot_path, f"{self.field_name} boxplot", category=Constants.Artifact_Category_Visualization)
-                reporter.add_artifact("png", str(boxplot_path), f"{self.field_name} boxplot")
                 visualization_paths.append({
                     "artifact_type": "png",
                     "path": str(boxplot_path),
-                    "description": f"{self.field_name} boxplot",
+                    "description": f"Boxplot of {self.field_name}",
                     "category": Constants.Artifact_Category_Visualization
                 })
 
         # Generate Q-Q plot for normality if requested and we have results
         if self.test_normality and 'normality' in stats_dict and len(valid_data) > 10:
-            qq_filename = get_timestamped_filename(f"{self.field_name}_qq_plot", "png", include_timestamp)
+            qq_filename = get_timestamped_filename(f"{self.field_name} Q-Q plot (normality test)", "png", include_timestamp)
             qq_path = vis_dir / qq_filename
 
             # Generate synthetic normal data for comparison
@@ -879,7 +873,7 @@ class NumericOperation(FieldOperation):
             is_normal = normality_info.get('is_normal', False)
             p_value = normality_info.get('shapiro', {}).get('p_value', None)
 
-            title = f"Q-Q Plot for {self.field_name}"
+            title = f"{self.field_name} Q-Q plot (normality test)"
             if p_value is not None:
                 title += f" (Shapiro p-value: {p_value:.4f})"
 
@@ -900,12 +894,10 @@ class NumericOperation(FieldOperation):
             )
 
             if not qq_result.startswith("Error"):
-                result.add_artifact("png", qq_path, f"{self.field_name} Q-Q plot (normality test)", category=Constants.Artifact_Category_Visualization)
-                reporter.add_artifact("png", str(qq_path), f"{self.field_name} Q-Q plot (normality test)")
                 visualization_paths.append({
                     "artifact_type": "png",
                     "path": str(qq_path),
-                    "description": f"{self.field_name} boxplot",
+                    "description": f"{self.field_name} Q-Q plot (normality test)",
                     "category": Constants.Artifact_Category_Visualization
                 })
 
@@ -1303,8 +1295,6 @@ class NumericOperation(FieldOperation):
                         analysis_results=analysis_results,
                         vis_dir=vis_dir,
                         include_timestamp=include_timestamp,
-                        result=result,
-                        reporter=reporter,
                         vis_theme=vis_theme,
                         vis_backend=vis_backend,
                         vis_strict=vis_strict,
@@ -1356,10 +1346,10 @@ class NumericOperation(FieldOperation):
             if viz_thread.is_alive():
                 logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
                 logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
-                visualization_paths = {}
+                visualization_paths = []
             elif visualization_error:
                 logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
-                visualization_paths = {}
+                visualization_paths = []
             else:
                 total_time = time.time() - thread_start_time
                 logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
@@ -1367,24 +1357,26 @@ class NumericOperation(FieldOperation):
         except Exception as e:
             logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
             logger.error(f"[DIAG] Stack trace:", exc_info=True)
-            visualization_paths = {}
+            visualization_paths = []
 
         # Register visualization artifacts
         for vis_result  in visualization_paths:
+            artifact_type = vis_result["artifact_type"]
+            path = vis_result["path"]
+            description = vis_result["description"]
+
             # Add to result
             result.add_artifact(
-                artifact_type="png",
-                path=vis_result['path'],
-                description=f"{vis_result['description']} visualization",
-                category=Constants.Artifact_Category_Visualization
+                artifact_type=artifact_type,
+                path=path,
+                description=description,
+                category=Constants.Artifact_Category_Visualization,
             )
 
             # Report to reporter
             if reporter:
                 reporter.add_artifact(
-                    artifact_type="png",
-                    path=str(vis_result['path']),
-                    description=f"{vis_result['description']} visualization"
+                    artifact_type=artifact_type, path=path, description=description
                 )
 
         return visualization_paths

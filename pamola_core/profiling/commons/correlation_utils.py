@@ -29,7 +29,10 @@ def analyze_correlation(
         df: pd.DataFrame,
         field1: str,
         field2: str,
+        mvf_parser: Optional[str] = None,
+        null_handling: str = 'drop',
         method: Optional[str] = None,
+        task_logger: Optional[logging.Logger] = None,
         **kwargs
 ) -> Dict[str, Any]:
     """
@@ -43,14 +46,17 @@ def analyze_correlation(
         Name of the first field
     field2 : str
         Name of the second field
+    mvf_parser : str, optional
+        String lambda to parse multi-valued fields (MVF) if applicable.
+    null_handling : str, optional
+        How to handle null values:
+        - 'drop': remove rows with nulls
+        - 'fill': fill nulls with a specified value (default NaN)
+        - 'pairwise': use pairwise deletion for correlation calculation
     method : str, optional
         Correlation method to use. If None, automatically selected based on data types.
         Options: 'pearson', 'spearman', 'cramers_v', 'correlation_ratio', 'point_biserial'
     **kwargs : dict
-        Additional parameters for analysis:
-        - mvf_parser: callable, function to parse multi-valued fields
-        - null_handling: str, method for handling nulls ('drop', 'fill', 'pairwise')
-        - include_plots: bool, whether to include plot data in results
 
     Returns:
     --------
@@ -66,6 +72,9 @@ def analyze_correlation(
         - null_stats: information about null values
         - plot_data: data for visualization (if requested)
     """
+    if task_logger is not None:
+        logger = task_logger
+
     # Validate fields
     if field1 not in df.columns or field2 not in df.columns:
         error_message = f"Field not found: "
@@ -75,15 +84,12 @@ def analyze_correlation(
             error_message += f" {field2}" if field1 not in df.columns else field2
         return {'error': error_message}
 
-    # Extract parameters
-    mvf_parser = kwargs.get('mvf_parser', None)
-    null_handling = kwargs.get('null_handling', 'drop')
-    include_plots = kwargs.get('include_plots', True)
-
     # Handle MVF fields if parser provided
     df_clean = df[[field1, field2]].copy()
-    if mvf_parser is not None and callable(mvf_parser):
-        df_clean = prepare_mvf_fields(df_clean, field1, field2, mvf_parser)
+    if mvf_parser is not None:
+        mvf_lamdable = eval(mvf_parser) if isinstance(mvf_parser, str) else mvf_parser
+        if callable(mvf_lamdable):
+            df_clean = prepare_mvf_fields(df_clean, field1, field2, mvf_lamdable)
 
     # Determine field types
     is_numeric1 = pd.api.types.is_numeric_dtype(df_clean[field1])
@@ -101,7 +107,7 @@ def analyze_correlation(
 
     # Calculate correlation based on field types
     correlation_info = calculate_correlation(
-        df_clean, field1, field2, method
+        df_clean, field1, field2, method, logger
     )
 
     # Prepare basic statistics
@@ -121,9 +127,8 @@ def analyze_correlation(
     }
 
     # Include plot data if requested
-    if include_plots:
-        plot_data = prepare_plot_data(df_clean, field1, field2, is_numeric1, is_numeric2)
-        stats['plot_data'] = plot_data
+    plot_data = prepare_plot_data(df_clean, field1, field2, is_numeric1, is_numeric2)
+    stats['plot_data'] = plot_data
 
     return stats
 
@@ -303,7 +308,9 @@ def detect_correlation_type(df: pd.DataFrame, field1: str, field2: str) -> str:
 def calculate_correlation(df: pd.DataFrame,
                           field1: str,
                           field2: str,
-                          method: Optional[str] = None) -> Dict[str, Any]:
+                          method: Optional[str] = None,
+                          task_logger: Optional[logging.Logger] = None
+                          ) -> Dict[str, Any]:
     """
     Calculate correlation between two fields based on their types.
 
@@ -323,6 +330,8 @@ def calculate_correlation(df: pd.DataFrame,
     Dict[str, Any]
         Correlation information including coefficient, method, and p-value if applicable
     """
+    if task_logger is not None:
+        logger = task_logger
     # Determine field types
     is_numeric1 = pd.api.types.is_numeric_dtype(df[field1])
     is_numeric2 = pd.api.types.is_numeric_dtype(df[field2])
@@ -340,12 +349,24 @@ def calculate_correlation(df: pd.DataFrame,
 
     try:
         if method == 'pearson':
-            coef, p_value = pearsonr(df[field1], df[field2])
+            if not (is_numeric1 and is_numeric2):
+                logger.error("Pearson correlation requires both fields to be numeric.")
+            
+            x = pd.to_numeric(df[field1], errors='coerce')
+            y = pd.to_numeric(df[field2], errors='coerce')
+
+            coef, p_value = pearsonr(x, y)
             correlation_info['coefficient'] = coef
             correlation_info['p_value'] = p_value
 
         elif method == 'spearman':
-            coef, p_value = spearmanr(df[field1], df[field2])
+            if not (is_numeric1 and is_numeric2):
+                logger.error("Spearman correlation requires both fields to be numeric.")
+            
+            x = pd.to_numeric(df[field1], errors='coerce')
+            y = pd.to_numeric(df[field2], errors='coerce')
+
+            coef, p_value = spearmanr(x, y)
             correlation_info['coefficient'] = coef
             correlation_info['p_value'] = p_value
 
@@ -355,9 +376,9 @@ def calculate_correlation(df: pd.DataFrame,
 
         elif method == 'point_biserial':
             if is_numeric1 and not is_numeric2:
-                coef, p_value = calculate_point_biserial(df[field2], df[field1])
+                coef, p_value = calculate_point_biserial(df[field2], pd.to_numeric(df[field1], errors='coerce'))
             else:
-                coef, p_value = calculate_point_biserial(df[field1], df[field2])
+                coef, p_value = calculate_point_biserial(df[field1], pd.to_numeric(df[field2], errors='coerce'))
             correlation_info['coefficient'] = coef
             correlation_info['p_value'] = p_value
 
@@ -372,7 +393,10 @@ def calculate_correlation(df: pd.DataFrame,
             # Fallback to a simple method
             logger.warning(f"Unknown correlation method: {method}. Using default.")
             if is_numeric1 and is_numeric2:
-                coef = df[field1].corr(df[field2])
+                x = pd.to_numeric(df[field1], errors='coerce')
+                y = pd.to_numeric(df[field2], errors='coerce')
+
+                coef = x.corr(y)
                 correlation_info['method'] = 'pearson'
                 correlation_info['coefficient'] = coef
             else:
@@ -385,13 +409,11 @@ def calculate_correlation(df: pd.DataFrame,
         correlation_info['coefficient'] = 0.0
         correlation_info['error'] = str(e)
     
+    # Clean up NaN values
     if correlation_info['coefficient'] is not None and np.isnan(correlation_info['coefficient']):
         correlation_info['coefficient'] = 0.0
-
     if correlation_info['p_value'] is not None and np.isnan(correlation_info['p_value']):
         correlation_info['p_value'] = 0.0
-
-    # Ensure coefficient is a float
     if correlation_info['coefficient'] is not None:
         correlation_info['coefficient'] = float(correlation_info['coefficient'])
 
@@ -685,8 +707,17 @@ def prepare_mvf_fields(df: pd.DataFrame,
 
     try:
         # Check if fields might be MVF by checking for string type
+        print(f"Preparing MVF fields: {field1}, {field2}")
+        print(f"Field types: {df[field1].dtype}, {df[field2].dtype}")
+        
         for field in [field1, field2]:
-            if df[field].dtype == 'object' and not pd.api.types.is_numeric_dtype(df[field]):
+            if (
+                (
+                    pd.api.types.is_string_dtype(df[field])
+                    or pd.api.types.is_object_dtype(df[field])
+                )
+                and not pd.api.types.is_numeric_dtype(df[field])
+            ):
                 # Try to parse as MVF and convert to string representation
                 try:
                     def mvf_to_string(value):

@@ -82,7 +82,7 @@ class TestOperationStatusEnum:
 class TestPrivacyLevelEnum:
     def test_valid_enum_values(self):
         assert data_types.PrivacyLevel.PUBLIC.value == "public"
-        assert data_types.PrivacyLevel.RESTRICTED.value == "restricted"
+        assert data_types.PrivacyLevel.HIGHLY_CONFIDENTAL.value == "highly_onfidential"
         assert data_types.PrivacyLevel.SENSITIVE.value == "sensitive"
         assert data_types.PrivacyLevel.IDENTIFIER.value == "identifier"
 

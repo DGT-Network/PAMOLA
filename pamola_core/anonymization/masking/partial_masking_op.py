@@ -893,6 +893,22 @@ class PartialMaskingOperation(AnonymizationOperation):
         if not self.mask_char or len(self.mask_char) != 1:
             raise ValueError("mask_char must be a single character")
 
+        # --- Masking strategy ---
+        valid_strategies = [
+            MaskStrategyEnum.FIXED.value,
+            MaskStrategyEnum.PATTERN.value,
+            MaskStrategyEnum.RANDOM.value,
+            MaskStrategyEnum.WORDS.value,
+        ]
+        if self.mask_strategy not in valid_strategies:
+            raise ValueError(f"mask_strategy must be one of {valid_strategies}")
+
+        if self.mask_pattern:
+            self._validate_pattern(self.mask_pattern, "mask_pattern")
+
+        if self.preserve_pattern:
+            self._validate_pattern(self.preserve_pattern, "preserve_pattern")
+
         # --- Prefix/suffix: validate non-negative numeric ---
         if self.unmasked_prefix is not None:
             if not isinstance(self.unmasked_prefix, int) or self.unmasked_prefix < 0:
@@ -910,29 +926,24 @@ class PartialMaskingOperation(AnonymizationOperation):
                     actual_type=type(self.unmasked_suffix).__name__,
                 )
 
-        if self.mask_pattern:
-            self._validate_pattern(self.mask_pattern, "mask_pattern")
+        # --- Pattern type / custom patterns ---
+        if self.mask_strategy == MaskStrategyEnum.PATTERN.value:
+            if not self.pattern_type and not (
+                self.mask_pattern or self.preserve_pattern
+            ):
+                raise ValueError(
+                    "The 'pattern' strategy requires either a valid pattern_type "
+                    "or a custom mask_pattern/preserve_pattern."
+                )
+            if self.pattern_type and not self._pattern_config:
+                raise ValueError(f"Unknown pattern type: {self.pattern_type}")
 
-        if self.preserve_pattern:
-            self._validate_pattern(self.preserve_pattern, "preserve_pattern")
-
-        # --- Pattern type ---
-        if (
-            self.mask_strategy == MaskStrategyEnum.PATTERN.value
-            and self.pattern_type
-            and not self._pattern_config
-        ):
-            raise ValueError(f"Unknown pattern type: {self.pattern_type}")
-
-        # --- Masking strategy ---
-        valid_strategies = [
-            MaskStrategyEnum.FIXED.value,
-            MaskStrategyEnum.PATTERN.value,
-            MaskStrategyEnum.RANDOM.value,
-            MaskStrategyEnum.WORDS.value,
-        ]
-        if self.mask_strategy not in valid_strategies:
-            raise ValueError(f"mask_strategy must be one of {valid_strategies}")
+        # --- Random strategy requires mask_percentage ---
+        if self.mask_strategy == MaskStrategyEnum.RANDOM.value:
+            if self.mask_percentage is None:
+                raise ValueError(
+                    "The 'random' strategy requires the mask_percentage parameter to be set"
+                )
 
         # --- Consistency fields ---
         if self.consistency_fields is not None and not isinstance(
@@ -1165,6 +1176,9 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         if not value or not mask_percentage:
             return value
+
+        # --- Normalize mask_percentage ---
+        mask_percentage = mask_percentage / 100.0
 
         value_len = len(value)
         num_to_mask = max(0, min(int(value_len * mask_percentage), value_len))

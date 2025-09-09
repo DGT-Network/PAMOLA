@@ -237,17 +237,14 @@ def apply_hierarchy(
     unknown_values = set()
 
     # Vectorized normalization
-    if not case_sensitive or text_normalization != 'none':
-        normalized_series = unique_series.astype(str)
-        if text_normalization != 'none':
-            # Apply normalization (vectorized where possible)
-            normalized_series = normalized_series.apply(
-                lambda x: normalize_text(x, text_normalization, case_sensitive)
-            )
-        if not case_sensitive:
-            normalized_series = normalized_series.str.lower()
-    else:
-        normalized_series = unique_series.astype(str)
+    normalized_series = unique_series.astype(str)
+    if text_normalization != 'none':
+        # Apply normalization (vectorized where possible)
+        normalized_series = normalized_series.apply(
+            lambda x: normalize_text(x, text_normalization, case_sensitive)
+        )
+    if not case_sensitive:
+        normalized_series = normalized_series.str.lower()
 
     # Calculate coverage on normalized data for accurate metric
     if case_sensitive:
@@ -275,7 +272,7 @@ def apply_hierarchy(
         category = hierarchy.get_hierarchy(
             norm_value,
             hierarchy_level,
-            normalize=False  # Already normalized
+            normalize=True
         )
 
         if category:
@@ -289,7 +286,7 @@ def apply_hierarchy(
             )
 
             if closest:
-                category = hierarchy.get_hierarchy(closest, hierarchy_level)
+                category = hierarchy.get_hierarchy(closest, hierarchy_level, normalize=True)
                 if category:
                     engine.add_mapping(str_value, category)
                     fuzzy_matches += 1

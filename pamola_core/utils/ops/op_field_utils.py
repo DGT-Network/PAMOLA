@@ -258,28 +258,18 @@ def apply_condition_operator(
         If operator is invalid or condition_values are missing when required
     TypeError
         If input types are invalid
-
-    Examples:
-    ---------
-    >>> s = pd.Series([1, 2, 3, 4, 5])
-    >>> apply_condition_operator(s, [2, 4], "in")
-    0    False
-    1     True
-    2    False
-    3     True
-    4    False
-    dtype: bool
     """
-    # Validate input types
+    # Validate input
     if not isinstance(series, pd.Series):
         raise TypeError("series must be a pandas Series")
 
+    # Special case: all
     if operator == "all":
         if condition_values is not None and len(condition_values) > 0:
             raise ValueError("Operator 'all' does not accept condition_values")
-        return pd.Series([True] * len(series), index=series.index, dtype=bool)
+        return pd.Series(True, index=series.index)
 
-    # Validate condition_values for operators that need them
+    # Validate condition_values
     if condition_values is None:
         raise ValueError(f"Operator '{operator}' requires condition_values")
     if not isinstance(condition_values, list):
@@ -287,32 +277,50 @@ def apply_condition_operator(
     if len(condition_values) == 0:
         raise ValueError(f"Operator '{operator}' requires non-empty condition_values")
 
+    # Helper: check comparable types
+    def ensure_comparable(val):
+        try:
+            _ = series.iloc[0] > val  # test comparability
+        except Exception:
+            raise TypeError(
+                f"Operator '{operator}' not supported for type '{type(series.iloc[0])}' "
+                f"with value type '{type(val)}'"
+            )
+
     try:
-        # Apply operators
         if operator == "in":
             return series.isin(condition_values)
+
         elif operator == "not_in":
             return ~series.isin(condition_values)
+
         elif operator == "eq":
-            return series == condition_values[0]  # type: ignore[return-value]
+            return series == condition_values[0]
+
         elif operator == "ne":
-            return series != condition_values[0]  # type: ignore[return-value]
-        elif operator == "gt":
-            return series > condition_values[0]  # type: ignore[return-value]
-        elif operator == "lt":
-            return series < condition_values[0]  # type: ignore[return-value]
-        elif operator == "ge":
-            return series >= condition_values[0]  # type: ignore[return-value]
-        elif operator == "le":
-            return series <= condition_values[0]  # type: ignore[return-value]
+            return series != condition_values[0]
+
+        elif operator in ("gt", "lt", "ge", "le"):
+            ensure_comparable(condition_values[0])
+            if operator == "gt":
+                return series > condition_values[0]
+            elif operator == "lt":
+                return series < condition_values[0]
+            elif operator == "ge":
+                return series >= condition_values[0]
+            elif operator == "le":
+                return series <= condition_values[0]
+
         elif operator == "range":
             if len(condition_values) < 2:
-                raise ValueError(
-                    "Operator 'range' requires at least 2 values [min, max]"
-                )
-            return (series >= condition_values[0]) & (series <= condition_values[1])  # type: ignore[return-value]
+                raise ValueError("Operator 'range' requires at least 2 values [min, max]")
+            ensure_comparable(condition_values[0])
+            ensure_comparable(condition_values[1])
+            return (series >= condition_values[0]) & (series <= condition_values[1])
+
         else:
             raise ValueError(f"Unknown operator: '{operator}'")
+
     except Exception as e:
         raise ValueError(f"Error applying operator '{operator}': {str(e)}") from e
 

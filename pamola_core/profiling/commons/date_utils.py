@@ -19,6 +19,7 @@ import dask.dataframe as dd
 from joblib import Parallel, delayed as joblib_delayed
 
 from pamola_core.common.constants import Constants
+from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.common.regex.patterns import CommonPatterns
 from pamola_core.utils.io_helpers.dask_utils import get_computed_df
 from pamola_core.utils.progress import HierarchicalProgressTracker
@@ -27,46 +28,39 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 logger = logging.getLogger(__name__)
 
 
-def _guess_date_formats(sample: List[str], default_formats: List[str]) -> List[str]:
-    """
-    Guess likely date formats from sample using regex pattern matching.
-    """
-    format_counts = {}
-    for val in sample:
-        for pattern, fmt in CommonPatterns.DATE_REGEX_FORMATS.items():
-            if re.fullmatch(pattern, val):
-                format_counts[fmt] = format_counts.get(fmt, 0) + 1
-                break
-
-    # Sort formats by descending frequency in sample
-    sorted_formats = sorted(format_counts, key=format_counts.get, reverse=True)
-    return sorted_formats + [f for f in default_formats if f not in sorted_formats]
-
-
 def convert_to_datetime_flexible(
-    series, date_formats: List[str], is_dask: bool = False, sample_size: int = 1000
+    series,
+    date_formats: List[str],
+    is_dask: bool = False,
+    sample_size: int = 1000,
+    success_threshold: float = 0.95,
 ) -> pd.Series:
     """
-    Convert a Series to datetime, trying pandas inference first, then a list of formats if needed.
+    Convert a Series to datetime, trying Pandas inference first,
+    then falling back to guessed formats if needed.
 
     Parameters
     ----------
     series : pd.Series or dask.Series
-        Input datetime-like string series
+        Input datetime-like string series.
     date_formats : List[str]
-        List of datetime formats to try (e.g. ['%Y-%m-%d', '%d/%m/%Y'])
+        List of datetime formats to try if Pandas inference is insufficient.
+        Example: ['%Y-%m-%d', '%d/%m/%Y']
     is_dask : bool
-        Whether this is a Dask Series
+        Whether this is a Dask Series.
     sample_size : int
-        Number of samples to use for format guessing
+        Number of samples to use for format guessing.
+    success_threshold : float
+        Minimum success rate to consider parsing good enough (skip guessing).
 
     Returns
     -------
     pd.Series or dask.Series
-        Datetime-parsed series
+        Datetime-parsed series.
     """
 
     def try_parse(s, fmt=None, meta=None):
+        """Attempt datetime parsing with optional format."""
         return (
             s.map_partitions(pd.to_datetime, format=fmt, errors="coerce", meta=meta)
             if is_dask
@@ -74,11 +68,12 @@ def convert_to_datetime_flexible(
         )
 
     def get_success_rate(s):
+        """Calculate fraction of non-null parsed values."""
         nulls = s.isna().sum().compute() if is_dask else s.isna().sum()
         total = s.size.compute() if is_dask else len(s)
         return 1.0 - (nulls / total) if total else 0.0
 
-    # Step 1: Sample for format inference
+    # --- Step 1: Sample data for guessing ---
     try:
         if is_dask:
             total_size = series.size.compute()
@@ -96,20 +91,23 @@ def convert_to_datetime_flexible(
             for v in sample_vals
             if isinstance(v, str) or isinstance(v, (np.str_, np.object_))
         ]
-        guessed_formats = _guess_date_formats(sample_strs, date_formats)
+        guessed_formats = DataHelper.guess_date_formats(
+            sample_strs, date_formats, success_threshold
+        )
     except Exception as e:
         logger.warning(f"Sampling for date format guessing failed: {e}")
-        guessed_formats = date_formats
+        guessed_formats = date_formats  # Fallback
 
-    # Step 2: Try pandas native inference
-    try:
-        inferred = try_parse(series, meta=pd.Series(dtype="datetime64[ns]"))
-        if get_success_rate(inferred) >= 0.9:
-            return inferred
-    except Exception as e:
-        logger.warning(f"Pandas datetime inference failed: {e}")
+    # --- Step 2: If Pandas parsing was good enough, skip guessing ---
+    if guessed_formats is None:
+        try:
+            return try_parse(series, meta=pd.Series(dtype="datetime64[ns]"))
+        except Exception as e:
+            logger.warning(
+                f"Pandas datetime inference failed despite good sample rate: {e}"
+            )
 
-    # Step 3: Try guessed formats
+    # --- Step 3: Try guessed formats in order ---
     best_result = None
     best_success_rate = 0.0
 
@@ -117,7 +115,9 @@ def convert_to_datetime_flexible(
         try:
             result = try_parse(
                 series,
-                fmt if fmt != "ISO8601" else None,
+                (
+                    fmt if fmt != "ISO8601" else None
+                ),  # Allow Pandas to auto-detect for ISO
                 meta=pd.Series(dtype="datetime64[ns]"),
             )
             success_rate = get_success_rate(result)
@@ -126,15 +126,16 @@ def convert_to_datetime_flexible(
                 best_success_rate = success_rate
                 best_result = result
 
-            if success_rate >= 0.95:
-                break  # early exit
+            if success_rate >= success_threshold:
+                break  # Early exit on good enough result
         except Exception:
             continue
 
+    # --- Step 4: Return best result found ---
     if best_result is not None and best_success_rate > 0:
         return best_result
 
-    # Fallback to loose pandas parser
+    # --- Step 5: Final fallback to loose Pandas parser ---
     return try_parse(series, meta=pd.Series(dtype="datetime64[ns]"))
 
 

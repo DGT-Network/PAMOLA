@@ -40,7 +40,7 @@ from pamola_core.profiling.commons.numeric_utils import (
     calculate_percentiles,
     calculate_histogram,
 )
-from pamola_core.utils.io import write_dataframe_to_csv, write_json
+from pamola_core.utils.io import write_dataframe_to_csv, write_json, load_data_operation, load_settings_operation
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -1468,13 +1468,8 @@ class CurrencyOperation(FieldOperation):
 
         try:
             # Load data
-            df, error_info = data_source.get_dataframe(
-                name=dataset_name,
-                use_dask=self.use_dask,
-                use_encryption=self.use_encryption,
-                encryption_mode=self.encryption_mode,
-                encryption_key=self.encryption_key,
-            )
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
                 error_message = "Failed to load input data"
                 self.logger.error(error_message)

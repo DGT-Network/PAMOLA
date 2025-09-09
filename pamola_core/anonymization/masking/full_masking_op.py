@@ -1280,7 +1280,7 @@ class FullMaskingOperation(AnonymizationOperation):
 
             if is_numeric:
                 if numeric_output == "numeric":
-                    return cls._mask_to_numeric(masked, str_value)
+                    return cls._mask_to_numeric(masked, str_value, **kwargs)
                 elif numeric_output == "preserve":
                     return value
         except:

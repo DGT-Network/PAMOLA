@@ -81,6 +81,7 @@ from pamola_core.anonymization.commons.visualization_utils import (
     sample_large_dataset,
 )
 from pamola_core.common.constants import Constants
+from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
@@ -501,6 +502,11 @@ class AnonymizationOperation(BaseOperation):
                 )
 
             try:
+                # Normalize integer dtype if required
+                df[self.field_name] = DataHelper.normalize_int_dtype_vectorized(
+                    df[self.field_name], safe_mode=False
+                )
+
                 # Copy original data for processing
                 original_data = df[self.field_name].copy(deep=True)
 

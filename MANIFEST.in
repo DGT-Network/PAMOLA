@@ -1,0 +1,12 @@
+# Include important documentation files
+include README.md
+include LICENSE
+
+# Include all files in the resources directory (e.g., JSON, CSV, config)
+recursive-include pamola_core/resources *
+
+# If there's sample test data, include it as well (if you want to publish the package with test data)
+recursive-include tests *.csv *.json *.yml *.yaml
+
+# Exclude cache, compiled files, notebook checkpoints
+global-exclude __pycache__ *.py[cod] *.so *.dylib .DS_Store .ipynb_checkpoints

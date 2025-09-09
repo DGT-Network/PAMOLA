@@ -418,10 +418,10 @@ class EmailOperation(FieldOperation):
                     include_timestamp=include_timestamp,
                     result=result,
                     reporter=reporter,
-                    visualization_theme=self.visualization_theme,
-                    visualization_backend=self.visualization_backend,
-                    visualization_strict=self.visualization_strict,
-                    visualization_timeout=self.visualization_timeout,
+                    vis_theme=self.visualization_theme,
+                    vis_backend=self.visualization_backend,
+                    vis_strict=self.visualization_strict,
+                    vis_timeout=self.visualization_timeout,
                     progress_tracker=progress_tracker,
                     **kwargs_encryption
                 )

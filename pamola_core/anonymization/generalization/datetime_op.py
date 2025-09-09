@@ -46,20 +46,18 @@ Changelog:
 from datetime import datetime, timedelta
 from pathlib import Path
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.categorical_config import NullStrategy
 from pamola_core.anonymization.commons.validation.exceptions import FieldValueError
 from pamola_core.anonymization.commons.validation_utils import (
-    BaseValidator,
-    ValidationResult,
-    ValidationError,
     validate_datetime_field,
 )
 import dask.dataframe as dd
 from pamola_core.common.constants import Constants
+from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_config import OperationConfig
@@ -373,16 +371,9 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         )
 
         # Set default input formats if missing
-        config_params["input_formats"] = config_params.get("input_formats") or [
-            "%Y-%m-%d",
-            "%Y-%m-%d %H:%M:%S",
-            "%Y/%m/%d",
-            "%Y/%m/%d %H:%M:%S",
-            "%d/%m/%Y",
-            "%d-%m-%Y",
-            "%m/%d/%Y",
-            "%m-%d-%Y",
-        ]
+        config_params["input_formats"] = (
+            config_params.get("input_formats") or Constants.COMMON_DATE_FORMATS
+        )
 
         # Parse reference date and custom bins
         config_params["reference_date"] = self._parse_reference_date(reference_date)
@@ -934,12 +925,13 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         output_field_name = kwargs.get("output_field_name", f"{field_name}_generalized")
         mode = kwargs.get("mode", "REPLACE")
         strategy = kwargs.get("strategy", "rounding")
+        input_formats = kwargs.get("input_formats", None)
 
         # Get field data and convert to datetime if needed
         field_data = batch[field_name]
 
         if not pd.api.types.is_datetime64_any_dtype(field_data):
-            field_data = cls._convert_to_datetime(field_data, **kwargs)
+            field_data = DataHelper.convert_to_datetime(field_data, input_formats)
 
         # Handle timezone
         field_values = cls._handle_timezone(field_data, **kwargs)
@@ -1035,25 +1027,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             return cls._relative_single_value(value, **kwargs)
         else:
             return value
-
-    @staticmethod
-    def _convert_to_datetime(series: pd.Series, **kwargs) -> pd.Series:
-        """Convert series to datetime trying multiple formats."""
-        # Default common date formats to try
-        input_formats = kwargs.get("input_formats", Constants.COMMON_DATE_FORMATS)
-        threshold = kwargs.get("threshold", 0.95)
-
-        # Try each provided format
-        for fmt in input_formats:
-            try:
-                parsed = pd.to_datetime(series, format=fmt, errors="coerce")
-                if parsed.notna().mean() >= threshold:
-                    return parsed
-            except (ValueError, TypeError):
-                continue
-
-        # Fallback: let pandas try to infer
-        return pd.to_datetime(series, errors="coerce", dayfirst=True)
 
     @staticmethod
     def _handle_timezone(series: pd.Series, **kwargs) -> pd.Series:

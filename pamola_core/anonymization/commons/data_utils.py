@@ -132,6 +132,7 @@ def process_nulls(
         - "PRESERVE": Keep null values as is
         - "EXCLUDE": Remove records with null values
         - "ANONYMIZE": Replace nulls with anonymize_value
+        - "ERROR": Raise an error if nulls are present
     anonymize_value : str, optional
         Value to use when strategy is "ANONYMIZE" (default: "SUPPRESSED")
 
