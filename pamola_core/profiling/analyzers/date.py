@@ -343,13 +343,8 @@ class DateOperation(FieldOperation):
             # Get and validate data
         try:
             # Load data
-            df, error_info = data_source.get_dataframe(
-                name=dataset_name,
-                use_dask=self.use_dask,
-                use_encryption=self.use_encryption,
-                encryption_mode=self.encryption_mode,
-                encryption_key=self.encryption_key,
-            )
+            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            df = load_data_operation(data_source, dataset_name, **settings_operation)
 
             if df is None:
                 error_message = "Failed to load input data"

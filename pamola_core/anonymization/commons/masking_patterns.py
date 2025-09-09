@@ -126,6 +126,15 @@ class MaskingPatterns:
             validation_regex=r"^\(\d{3}\) \d{3}-\d{4}$",
             min_length=14,
         ),
+        "phone_us_compact": PatternConfig(
+            regex=r"^\((\d{3})\)(\d{3})-(\d{4})$",
+            mask_groups=[2],
+            preserve_groups=[1, 3],
+            description="Keep area code and last 4 (US compact format)",
+            preserve_separators=True,
+            validation_regex=r"^\(\d{3}\)\d{3}-\d{4}$",
+            min_length=13,
+        ),
         # === SSN ===
         "ssn": PatternConfig(
             regex=r"^(\d{3})-?(\d{2})-?(\d{4})$",

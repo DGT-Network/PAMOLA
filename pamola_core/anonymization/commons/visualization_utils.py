@@ -197,19 +197,29 @@ def prepare_comparison_data(
         }, numeric_type
 
     # === Default categorical fallback ===
+    # Convert to str for categorical processing
+    orig_str = original_data.astype(str)
+    anon_str = anonymized_data.astype(str)
+
     # For categorical, get value counts
-    orig_counts = original_data.value_counts().head(max_categories)
-    anon_counts = anonymized_data.value_counts().head(max_categories)
+    orig_counts = orig_str.value_counts()
+    anon_counts = anon_str.value_counts()
 
-    # Get all unique categories from both
-    all_categories = sorted(
-        set(orig_counts.index) | set(anon_counts.index),
-        key=lambda x: -orig_counts.get(x, 0),
-    )[:max_categories]
+    # Get top on each side separately
+    top_orig = list(orig_counts.head(max_categories).index)
+    top_anon = list(anon_counts.head(max_categories).index)
 
-    # Create dictionaries with aligned categories
-    orig_dict = {str(cat): int(orig_counts.get(cat, 0)) for cat in all_categories}
-    anon_dict = {str(cat): int(anon_counts.get(cat, 0)) for cat in all_categories}
+    # Merge and keep order, avoid duplicates
+    all_categories = list(dict.fromkeys(top_orig + top_anon))
+
+    def safe_get(counts, key):
+        val = counts.get(key, 0)
+        if isinstance(val, pd.Series):
+            val = val.iloc[0] if not val.empty else 0
+        return int(val) if pd.notna(val) else 0
+
+    orig_dict = {str(cat): safe_get(orig_counts, cat) for cat in all_categories}
+    anon_dict = {str(cat): safe_get(anon_counts, cat) for cat in all_categories}
 
     return {"Original": orig_dict, "Anonymized": anon_dict}, "categorical"
 
@@ -465,51 +475,63 @@ def create_comparison_visualization(
         return None
 
 
-def generate_flat_counts(data: Dict[str, Any], data_type: str) -> Dict[str, Any]:
+def generate_flat_counts(
+    data: Dict[str, Any],
+    data_type: str,
+    max_items: int = DEFAULT_MAX_CATEGORIES
+) -> Dict[str, Any]:
     """
-    Flatten the prepared data into a Dict for bar chart plotting.
+    Generate flattened counts for Original and Anonymized data.
 
     Parameters
     ----------
-    data : Dict[str, Any]
-        Prepared data from prepare_comparison_data.
+    data : dict
+        {"Original": <list/dict>, "Anonymized": <list/dict>} value counts or raw values.
     data_type : str
-        One of: 'int', 'float', 'categorical'
+        "int", "float", or "categorical".
+    max_items : int
+        Max total items in result (split between Original and Anonymized).
 
     Returns
     -------
-    Dict[str, Any]
-        Flattened dict of form {"Original | 23": 1, "Anonymized | 23–26": 2, ...}
+    dict
+        {"Original | value": count, "Anonymized | value": count}, sorted by count desc.
     """
-    flat_counts: Dict[str, Any] = {}
-
     if data_type in ["int", "float"]:
-        orig_series = pd.Series(data["Original"])
-        anon_series = pd.Series(data["Anonymized"])
+        orig_counts = pd.Series(data["Original"]).value_counts()
+        anon_counts = pd.Series(data["Anonymized"]).value_counts()
+    else:  # categorical
+        orig_counts = pd.Series(data.get("Original", {}))
+        anon_counts = pd.Series(data.get("Anonymized", {}))
 
-        orig_counts = orig_series.value_counts().sort_index().to_dict()
-        anon_counts = anon_series.value_counts().sort_index().to_dict()
+    # Base split
+    half_limit = max_items // 2
+    extra = max_items % 2  # if odd, Original gets extra slot
 
-        all_labels = sorted(set(orig_counts.keys()).union(set(anon_counts.keys())), key=lambda x: str(x))
+    orig_limit = min(len(orig_counts), half_limit + extra)
+    anon_limit = min(len(anon_counts), half_limit)
 
-        for label in all_labels:
-            label_str = str(label)
+    # Fill leftover
+    leftover_orig = (half_limit + extra) - orig_limit
+    leftover_anon = half_limit - anon_limit
+    orig_limit += max(0, leftover_anon)
+    anon_limit += max(0, leftover_orig)
 
-            orig_val = int(orig_counts.get(label, 0))
-            anon_val = int(anon_counts.get(label, 0))
+    # Take top values
+    top_orig = orig_counts.sort_values(ascending=False).head(orig_limit)
+    top_anon = anon_counts.sort_values(ascending=False).head(anon_limit)
 
-            if orig_val > 0:
-                flat_counts[f"Original | {label_str}"] = orig_val
-            if anon_val > 0:
-                flat_counts[f"Anonymized | {label_str}"] = anon_val
+    # Merge counts
+    flat_counts = {}
+    for label, val in top_orig.items():
+        if val > 0:
+            flat_counts[f"Original | {label}"] = int(val)
+    for label, val in top_anon.items():
+        if val > 0:
+            flat_counts[f"Anonymized | {label}"] = int(val)
 
-    else:
-        # Categorical type — pre-counted already
-        for source in ["Original", "Anonymized"]:
-            for label, value in data.get(source, {}).items():
-                if int(value) > 0:
-                    label_str = str(label)
-                    flat_counts[f"{source} | {label_str}"] = int(value)
+    # Sort by total count (descending)
+    flat_counts = dict(sorted(flat_counts.items(), key=lambda x: x[1], reverse=True))
 
     return flat_counts
 

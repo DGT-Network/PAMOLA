@@ -982,6 +982,9 @@ def process_dataframe_using_dask(
     all_category_mapping: Dict[str, Any] = {}
     all_hierarchy_info: Dict[str, Any] = {}
     all_hierarchy_cache: Dict[str, Any] = {}
+    all_fuzzy_matches: int = 0
+    all_unknown_values: set[str] = set()
+
     result_df = pd.DataFrame()  # fallback in case of error
 
     try:
@@ -1039,11 +1042,13 @@ def process_dataframe_using_dask(
 
         # Collect results
         result_dfs = []
-        for df_chunk, cat_map, hier_info, hier_cache in results:
+        for df_chunk, cat_map, hier_info, hier_cache, fuz_mat, unkn_val in results:
             result_dfs.append(df_chunk)
             all_category_mapping.update(cat_map or {})
             all_hierarchy_info.update(hier_info or {})
             all_hierarchy_cache.update(hier_cache or {})
+            all_fuzzy_matches += fuz_mat
+            all_unknown_values.update(unkn_val or {})
 
         # Concatenate all DataFrames
         result_df = pd.concat(result_dfs, ignore_index=True)
@@ -1066,11 +1071,13 @@ def process_dataframe_using_dask(
             all_category_mapping,
             all_hierarchy_info,
             all_hierarchy_cache,
+            all_fuzzy_matches,
+            all_unknown_values,
         )
 
     except Exception as e:
         task_logger.exception("Dask processing failed")
-        return result_df, False, {}, {}, {}
+        return result_df, False, {}, {}, {}, 0, set()
 
 
 def process_dataframe_using_joblib(
@@ -1157,19 +1164,23 @@ def process_dataframe_using_joblib(
         # Check for any failed chunks
         if any(r is None for r in processed_chunks):
             task_logger.warning("Some chunks failed during processing.")
-            return df, False, {}, {}, {}
+            return df, False, {}, {}, {}, 0, set()
 
         # Combine all results
         result_dfs = []
         all_category_mapping: Dict[str, Any] = {}
         all_hierarchy_info: Dict[str, Any] = {}
         all_hierarchy_cache: Dict[str, Any] = {}
+        all_fuzzy_matches: int = 0
+        all_unknown_values: set[str] = set()
 
-        for batch_df, cat_map, hier_info, hier_cache in processed_chunks:
+        for batch_df, cat_map, hier_info, hier_cache, fuz_mat, unkn_val in processed_chunks:
             result_dfs.append(batch_df)
             all_category_mapping.update(cat_map or {})
             all_hierarchy_info.update(hier_info or {})
             all_hierarchy_cache.update(hier_cache or {})
+            all_fuzzy_matches += fuz_mat
+            all_unknown_values.update(unkn_val or {})
 
         return (
             pd.concat(result_dfs, ignore_index=True),
@@ -1177,11 +1188,13 @@ def process_dataframe_using_joblib(
             all_category_mapping,
             all_hierarchy_info,
             all_hierarchy_cache,
+            all_fuzzy_matches,
+            all_unknown_values,
         )
 
     except Exception as e:
         task_logger.exception("Error during Joblib processing.")
-        return df, False, {}, {}, {}
+        return df, False, {}, {}, {}, 0, set()
 
 
 def process_dataframe_using_chunk(
@@ -1214,6 +1227,8 @@ def process_dataframe_using_chunk(
     all_category_mapping: Dict[str, Any] = {}
     all_hierarchy_info: Dict[str, Any] = {}
     all_hierarchy_cache: Dict[str, Any] = {}
+    all_fuzzy_matches: int = 0
+    all_unknown_values: set[str] = set()
 
     try:
         chunks = list(get_dataframe_chunks(df, chunk_size))
@@ -1234,17 +1249,19 @@ def process_dataframe_using_chunk(
 
                 result = process_function(chunk, **kwargs)
 
-                if isinstance(result, tuple) and len(result) == 4:
-                    batch_df, cat_map, hier_info, hier_cache = result
+                if isinstance(result, tuple) and len(result) == 6:
+                    batch_df, cat_map, hier_info, hier_cache, fuz_mat, unkn_val = result
                 else:
                     raise ValueError(
-                        "Expected tuple of 4 elements from process_function"
+                        "Expected tuple of 6 elements from process_function"
                     )
 
                 processed_chunks.append(batch_df)
                 all_category_mapping.update(cat_map or {})
                 all_hierarchy_info.update(hier_info or {})
                 all_hierarchy_cache.update(hier_cache or {})
+                all_fuzzy_matches += fuz_mat
+                all_unknown_values.update(unkn_val or {})
 
             except Exception as e:
                 task_logger.error(f"Error processing chunk {i + 1}: {str(e)}")
@@ -1262,7 +1279,7 @@ def process_dataframe_using_chunk(
 
         if any(chunk is None for chunk in processed_chunks):
             task_logger.warning("Some chunks failed to process.")
-            return df, False, {}, {}, {}
+            return df, False, {}, {}, {}, 0, set()
 
         return (
             pd.concat(processed_chunks, ignore_index=True),
@@ -1270,11 +1287,13 @@ def process_dataframe_using_chunk(
             all_category_mapping,
             all_hierarchy_info,
             all_hierarchy_cache,
+            all_fuzzy_matches,
+            all_unknown_values
         )
 
     except Exception as e:
         task_logger.exception("Error during chunked processing.")
-        return df, False, {}, {}, {}
+        return df, False, {}, {}, {}, 0, set()
 
 
 # Module metadata

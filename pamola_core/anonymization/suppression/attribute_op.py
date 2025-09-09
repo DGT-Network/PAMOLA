@@ -903,6 +903,39 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             self.logger.info(f"Structured metrics saved to {metrics_path}")
 
+            # Save suppressed schema if requested
+            if self.save_suppressed_schema and self._suppressed_schema:
+                try:
+                    schema_filename = get_timestamped_filename(
+                        f"{operation_name}_suppressed_columns_schema", "json"
+                    )
+
+                    schema_path = metrics_dir / schema_filename
+
+                    # Write the schema using write_json method
+                    write_json(
+                        self._suppressed_schema,
+                        schema_path,
+                        encryption_key=self.encryption_key,
+                    )
+
+                    self.logger.info(
+                        f"Saved suppressed column schema to: {schema_path}"
+                    )
+
+                    # Register the schema file as an artifact
+                    result.add_artifact(
+                        artifact_type="json",
+                        path=schema_path,
+                        description=f"Metadata about suppressed columns including data types and statistics",
+                        category=Constants.Artifact_Category_Metrics,
+                    )
+
+                except Exception as e:
+                    self.logger.error(f"Failed to save suppressed schema: {e}")
+                    # Don't fail the operation if schema saving fails
+                    result.add_metric("suppressed_schema_error", str(e))
+
         except Exception as e:
             self.logger.error(
                 f"Failed to save metrics file to {metrics_path}: {e}", exc_info=True

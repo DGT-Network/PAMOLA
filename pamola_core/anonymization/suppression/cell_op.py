@@ -74,9 +74,11 @@ from pamola_core.anonymization.commons.metric_utils import (
     calculate_suppression_metrics,
     calculate_anonymization_effectiveness,
 )
+from pamola_core.anonymization.commons.validation.exceptions import FieldTypeError
 from pamola_core.anonymization.commons.validation_utils import (
     check_field_exists,
     FieldNotFoundError,
+    validate_numeric_field,
 )
 from pamola_core.anonymization.commons.visualization_utils import (
     create_histogram,
@@ -2664,20 +2666,24 @@ def apply_suppression_strategy(
     min_group_size: int = 5,
 ) -> pd.DataFrame:
     working_field = field_name
-    original = batch[working_field].copy()
+    original_dtype = batch[working_field].dtype
 
+    # --- Strategy cases ---
     if strategy == "null":
-        batch.loc[batch_mask, working_field] = None
+        if pd.api.types.is_numeric_dtype(original_dtype):
+            batch.loc[batch_mask, working_field] = np.nan
+        else:
+            batch.loc[batch_mask, working_field] = None
 
     elif strategy == "mean":
-        numeric_series = pd.to_numeric(batch[working_field], errors="coerce")
-        mean_val = numeric_series.mean()
+        _require_numeric(batch, working_field)
+        mean_val = pd.to_numeric(batch[working_field], errors="coerce").mean()
         if pd.notna(mean_val):
             batch.loc[batch_mask, working_field] = mean_val
 
     elif strategy == "median":
-        numeric_series = pd.to_numeric(batch[working_field], errors="coerce")
-        median_val = numeric_series.median()
+        _require_numeric(batch, working_field)
+        median_val = pd.to_numeric(batch[working_field], errors="coerce").median()
         if pd.notna(median_val):
             batch.loc[batch_mask, working_field] = median_val
 
@@ -2688,9 +2694,16 @@ def apply_suppression_strategy(
             batch.loc[batch_mask, working_field] = mode_val
 
     elif strategy == "constant":
-        batch.loc[batch_mask, working_field] = suppression_value
+        try:
+            suppression_value_casted = np.array([suppression_value]).astype(
+                original_dtype
+            )[0]
+        except Exception:
+            suppression_value_casted = suppression_value
+        batch.loc[batch_mask, working_field] = suppression_value_casted
 
     elif strategy == "group_mean":
+        _require_numeric(batch, working_field)
         if not group_by_field:
             raise ValueError("group_mean strategy requires group_by_field")
         global_mean = pd.to_numeric(batch[working_field], errors="coerce").mean()
@@ -2722,7 +2735,30 @@ def apply_suppression_strategy(
     else:
         raise ValueError(f"Unsupported suppression strategy: {strategy}")
 
+    # --- Restore dtype ---
+    try:
+        if pd.api.types.is_numeric_dtype(original_dtype):
+            batch[working_field] = pd.to_numeric(batch[working_field], errors="coerce")
+        else:
+            batch[working_field] = batch[working_field].astype(
+                original_dtype, errors="ignore"
+            )
+    except Exception:
+        pass
+
     return batch
+
+
+def _require_numeric(batch: pd.DataFrame, field_name: str) -> None:
+    """
+    Ensure that the field is numeric for strategies that require numeric values.
+    """
+    if not validate_numeric_field(batch, field_name, allow_null=True):
+        raise FieldTypeError(
+            field_name,
+            expected_type="numeric",
+            actual_type=str(batch[field_name].dtype),
+        )
 
 
 # Register the operation with the framework

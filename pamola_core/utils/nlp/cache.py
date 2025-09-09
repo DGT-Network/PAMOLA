@@ -1320,7 +1320,10 @@ def cache_function(ttl: int = DEFAULT_CACHE_TTL, cache_type: str = "memory"):
             # Otherwise compute and store
             result = func(*args, **kwargs)
             if result is not None:
-                cache.set(cache_key, result, ttl=ttl)
+                if "ttl" in cache.set.__code__.co_varnames:
+                    cache.set(cache_key, result, ttl=ttl)
+                else:
+                    cache.set(cache_key, result)
 
             return result
 
