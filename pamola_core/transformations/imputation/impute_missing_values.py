@@ -549,6 +549,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         for field_name, field_config in self.field_strategies.items():
             field_config = field_config or {}
+            data_type = field_config.get("data_type")
             imputation_strategy = field_config.get("imputation_strategy")
             constant_value = field_config.get("constant_value")
             invalid_values = (self.invalid_values or {}).get(field_name) or []
@@ -560,7 +561,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     output_field_name = f"{self.column_prefix}{field_name}"
                     batch[output_field_name] = batch[field_name]
 
-                if is_numeric_dtype(batch[output_field_name]):
+                if is_numeric_dtype(batch[output_field_name]) or data_type == "numeric":
                     # Impute with constant
                     if imputation_strategy == "constant":
                         if constant_value and constant_value not in invalid_values:
@@ -572,7 +573,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     if imputation_strategy == "mean":
                         batch[output_field_name] = batch[output_field_name].replace(invalid_values, np.nan)
 
-                        batch[output_field_name] = batch[output_field_name].fillna(batch[output_field_name].mean())
+                        batch[output_field_name] = batch[output_field_name].astype(float).fillna(batch[output_field_name].mean())
 
                     # Impute with median
                     if imputation_strategy == "median":
@@ -604,7 +605,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
 
                         batch[output_field_name] = batch[output_field_name].fillna(batch[output_field_name].interpolate())
 
-                if isinstance(batch[output_field_name].dtype, CategoricalDtype):
+                if isinstance(batch[output_field_name].dtype, CategoricalDtype) or data_type == "categorical":
                     # Impute with constant
                     if imputation_strategy == "constant":
                         if constant_value and constant_value not in invalid_values:
@@ -633,7 +634,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         )
                         batch[output_field_name] = batch[output_field_name].astype('category')
 
-                if is_datetime64_any_dtype(batch[output_field_name]):
+                if is_datetime64_any_dtype(batch[output_field_name]) or data_type == "date":
                     # Impute with constant_date
                     if imputation_strategy == "constant_date":
                         if constant_value and constant_value not in invalid_values:
@@ -675,7 +676,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
 
                         batch[output_field_name] = batch[output_field_name].bfill()
 
-                if is_string_dtype(batch[output_field_name]) or is_object_dtype(batch[output_field_name]):
+                if is_string_dtype(batch[output_field_name]) or is_object_dtype(batch[output_field_name]) or data_type == "text":
                     # Impute with constant
                     if imputation_strategy == "constant":
                         if constant_value and constant_value not in invalid_values:
@@ -1129,11 +1130,11 @@ class ImputeMissingValuesOperation(TransformationOperation):
                 original_field = processed_field
 
             changes = (
-                ~np.where(
+                np.logical_not(np.where(
+                    original_df[original_field].isna() | processed_df[processed_field].isna(),
                     original_df[original_field].isna() & processed_df[processed_field].isna(),
-                    True,
                     original_df[original_field] == processed_df[processed_field]
-                )
+                ))
             ).sum()
 
             imputed_values.update({

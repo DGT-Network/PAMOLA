@@ -564,6 +564,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         if self.field_constraints is None:
             self.field_constraints = {}
         for field_name, field_config in self.field_constraints.items():
+            data_type = field_config.get("data_type")
             constraint_type = field_config.get("constraint_type")
 
             if field_name and field_name in batch_columns:
@@ -574,7 +575,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     if output_field_name not in batch.columns:
                         batch[output_field_name] = batch[field_name]
 
-                if is_numeric_dtype(batch[output_field_name]):
+                if is_numeric_dtype(batch[output_field_name]) or data_type == "numeric":
                     try:
                         min_value = float(field_config.get("min_value"))
                     except (ValueError, TypeError):
@@ -608,7 +609,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     if constraint_type == "custom_function":
                         raise NotImplementedError("Not implement")
 
-                if isinstance(batch[output_field_name].dtype, CategoricalDtype):
+                if isinstance(batch[output_field_name].dtype, CategoricalDtype) or data_type == "categorical":
                     # Clean with allowed_values
                     if constraint_type == "allowed_values":
                         allowed_values = field_config.get("allowed_values")
@@ -653,7 +654,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             batch[output_field_name].astype(str).str.contains(pat=pattern,na=False,regex=True)
                         )
 
-                if is_datetime64_any_dtype(batch[output_field_name]):
+                if is_datetime64_any_dtype(batch[output_field_name]) or data_type == "date":
                     min_date = field_config.get("min_date")
                     max_date = field_config.get("max_date")
 
@@ -692,7 +693,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             errors='coerce'
                         )
 
-                if is_string_dtype(batch[output_field_name]) or is_object_dtype(batch[output_field_name]):
+                if is_string_dtype(batch[output_field_name]) or is_object_dtype(batch[output_field_name]) or data_type == "text":
                     # Clean with min_length
                     if constraint_type == "min_length":
                         min_length = field_config.get("min_length")
@@ -1239,11 +1240,11 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 original_field = processed_field
 
             changes = (
-                ~np.where(
+                np.logical_not(np.where(
+                    original_df[original_field].isna() | processed_df[processed_field].isna(),
                     original_df[original_field].isna() & processed_df[processed_field].isna(),
-                    True,
                     original_df[original_field] == processed_df[processed_field]
-                )
+                ))
             ).sum()
 
             constraint_type = self.field_constraints.get(original_field, {}).get("constraint_type", "")

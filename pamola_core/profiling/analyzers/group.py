@@ -514,6 +514,10 @@ class GroupAnalyzerOperation(BaseOperation):
                 progress_tracker.update(current_steps, {"step": "Generating visualizations"})
 
             self.logger.info(f"Generating visualizations")
+            encryption_kwargs = {
+                "use_encryption": self.use_encryption,
+                "encryption_key": self.encryption_key if self.use_encryption else None
+            }
             self._handle_visualizations(
                 threshold_metrics = metrics['threshold_metrics'],
                 field_metrics=metrics['field_metrics'],
@@ -526,6 +530,7 @@ class GroupAnalyzerOperation(BaseOperation):
                 vis_strict=self.visualization_strict,
                 vis_timeout=self.visualization_timeout,
                 progress_tracker=progress_tracker,
+                **encryption_kwargs
             )
 
             # Step 6: Save results

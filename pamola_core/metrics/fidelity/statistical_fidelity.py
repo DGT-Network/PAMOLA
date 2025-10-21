@@ -30,16 +30,16 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 import numpy as np
 import logging
-from typing import Dict, List, Tuple, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 from scipy import stats
 
-from pamola_core.metrics.base import FidelityMetric, round_metric_values
+from pamola_core.metrics.commons.normalize import round_metric_values
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class StatisticalFidelityMetric(FidelityMetric):
+class StatisticalFidelityMetric:
     """
     Assesses the statistical fidelity of anonymized data.
 
@@ -51,10 +51,12 @@ class StatisticalFidelityMetric(FidelityMetric):
     values indicating better preservation of statistical properties.
     """
 
-    def __init__(self,
-                 mean_weight: float = 0.4,
-                 variance_weight: float = 0.3,
-                 correlation_weight: float = 0.3):
+    def __init__(
+        self,
+        mean_weight: float = 0.4,
+        variance_weight: float = 0.3,
+        correlation_weight: float = 0.3,
+    ):
         """
         Initialize the statistical fidelity metric.
 
@@ -67,9 +69,9 @@ class StatisticalFidelityMetric(FidelityMetric):
         correlation_weight : float, optional
             Weight for correlation preservation in overall calculation (default: 0.3).
         """
-        super().__init__(
-            name="Statistical Fidelity",
-            description="Measures preservation of statistical properties after anonymization"
+        self.name = "Statistical Fidelity"
+        self.description = (
+            "Measures preservation of statistical properties after anonymization"
         )
         self.mean_weight = mean_weight
         self.variance_weight = variance_weight
@@ -82,10 +84,15 @@ class StatisticalFidelityMetric(FidelityMetric):
             self.variance_weight /= total_weight
             self.correlation_weight /= total_weight
 
-    def calculate(self, original_data: pd.DataFrame,
-                  anonymized_data: pd.DataFrame,
-                  columns: Optional[List[str]] = None,
-                  **kwargs) -> Dict[str, Any]:
+        self.last_result = {}
+
+    def calculate_metric(
+        self,
+        original_data: pd.DataFrame,
+        anonymized_data: pd.DataFrame,
+        columns: Optional[List[str]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Calculate statistical fidelity metrics.
 
@@ -115,22 +122,31 @@ class StatisticalFidelityMetric(FidelityMetric):
         try:
             # Identify numeric columns in both datasets
             if columns is None:
-                numeric_columns = [col for col in original_data.select_dtypes(include=['number']).columns
-                                   if col in anonymized_data.columns]
+                numeric_columns = [
+                    col
+                    for col in original_data.select_dtypes(include=["number"]).columns
+                    if col in anonymized_data.columns
+                ]
             else:
-                numeric_columns = [col for col in columns if col in original_data.columns
-                                   and col in anonymized_data.columns
-                                   and np.issubdtype(original_data[col].dtype, np.number)
-                                   and np.issubdtype(anonymized_data[col].dtype, np.number)]
+                numeric_columns = [
+                    col
+                    for col in columns
+                    if col in original_data.columns
+                    and col in anonymized_data.columns
+                    and np.issubdtype(original_data[col].dtype, np.number)
+                    and np.issubdtype(anonymized_data[col].dtype, np.number)
+                ]
 
             if not numeric_columns:
-                logger.warning("No common numeric columns found for fidelity calculation")
+                logger.warning(
+                    "No common numeric columns found for fidelity calculation"
+                )
                 return {
                     "mean_preservation": 0,
                     "variance_preservation": 0,
                     "correlation_preservation": 0,
                     "overall_fidelity": 0,
-                    "column_level_fidelity": {}
+                    "column_level_fidelity": {},
                 }
 
             # Calculate column-level fidelity
@@ -143,7 +159,10 @@ class StatisticalFidelityMetric(FidelityMetric):
             mean_preservations = {}
             for col in numeric_columns:
                 if abs(orig_means[col]) > 1e-10:  # Avoid division by zero
-                    preservation = 100 * (1 - abs(orig_means[col] - anon_means[col]) / abs(orig_means[col]))
+                    preservation = 100 * (
+                        1
+                        - abs(orig_means[col] - anon_means[col]) / abs(orig_means[col])
+                    )
                 else:
                     preservation = 100 if abs(anon_means[col]) < 1e-10 else 0
 
@@ -153,7 +172,9 @@ class StatisticalFidelityMetric(FidelityMetric):
                 column_fidelity[col] = {"mean_preservation": mean_preservations[col]}
 
             # Overall mean preservation
-            mean_preservation = np.mean(list(mean_preservations.values())) if mean_preservations else 0
+            mean_preservation = (
+                np.mean(list(mean_preservations.values())) if mean_preservations else 0
+            )
 
             # Calculate variance preservation
             orig_vars = original_data[numeric_columns].var()
@@ -162,7 +183,9 @@ class StatisticalFidelityMetric(FidelityMetric):
             var_preservations = {}
             for col in numeric_columns:
                 if orig_vars[col] > 1e-10:  # Avoid division by zero
-                    preservation = 100 * (1 - abs(orig_vars[col] - anon_vars[col]) / orig_vars[col])
+                    preservation = 100 * (
+                        1 - abs(orig_vars[col] - anon_vars[col]) / orig_vars[col]
+                    )
                 else:
                     preservation = 100 if anon_vars[col] < 1e-10 else 0
 
@@ -172,7 +195,9 @@ class StatisticalFidelityMetric(FidelityMetric):
                 column_fidelity[col]["variance_preservation"] = var_preservations[col]
 
             # Overall variance preservation
-            variance_preservation = np.mean(list(var_preservations.values())) if var_preservations else 0
+            variance_preservation = (
+                np.mean(list(var_preservations.values())) if var_preservations else 0
+            )
 
             # Calculate correlation preservation
             correlation_preservation = 100  # Default if only one column
@@ -203,13 +228,19 @@ class StatisticalFidelityMetric(FidelityMetric):
                             if "correlation_with" not in column_fidelity[col2]:
                                 column_fidelity[col2]["correlation_with"] = {}
 
-                            column_fidelity[col1]["correlation_with"][col2] = pair_preservation
-                            column_fidelity[col2]["correlation_with"][col1] = pair_preservation
+                            column_fidelity[col1]["correlation_with"][
+                                col2
+                            ] = pair_preservation
+                            column_fidelity[col2]["correlation_with"][
+                                col1
+                            ] = pair_preservation
 
             # Calculate overall fidelity (weighted average)
-            overall_fidelity = (self.mean_weight * mean_preservation +
-                                self.variance_weight * variance_preservation +
-                                self.correlation_weight * correlation_preservation)
+            overall_fidelity = (
+                self.mean_weight * mean_preservation
+                + self.variance_weight * variance_preservation
+                + self.correlation_weight * correlation_preservation
+            )
 
             # Calculate additional distribution similarity metrics if requested
             if kwargs.get("distribution_tests", False):
@@ -232,8 +263,8 @@ class StatisticalFidelityMetric(FidelityMetric):
                 "weights": {
                     "mean_weight": self.mean_weight,
                     "variance_weight": self.variance_weight,
-                    "correlation_weight": self.correlation_weight
-                }
+                    "correlation_weight": self.correlation_weight,
+                },
             }
 
             # Round numeric values for readability
@@ -242,16 +273,21 @@ class StatisticalFidelityMetric(FidelityMetric):
             # Store the result
             self.last_result = result
 
-            logger.info(f"Statistical fidelity analysis: Overall fidelity = {overall_fidelity:.2f}%")
+            logger.info(
+                f"Statistical fidelity analysis: Overall fidelity = {overall_fidelity:.2f}%"
+            )
             return result
 
         except Exception as e:
             logger.error(f"Error during statistical fidelity calculation: {e}")
             raise
 
-    def _calculate_distribution_similarity(self, original_data: pd.DataFrame,
-                                           anonymized_data: pd.DataFrame,
-                                           columns: List[str]) -> Dict[str, Dict[str, float]]:
+    def _calculate_distribution_similarity(
+        self,
+        original_data: pd.DataFrame,
+        anonymized_data: pd.DataFrame,
+        columns: List[str],
+    ) -> Dict[str, Dict[str, float]]:
         """
         Calculate distribution similarity metrics.
 
@@ -295,7 +331,9 @@ class StatisticalFidelityMetric(FidelityMetric):
 
                 # Mann-Whitney U test for similarity of distributions
                 try:
-                    mw_stat, mw_pvalue = stats.mannwhitneyu(orig_values, anon_values, alternative='two-sided')
+                    mw_stat, mw_pvalue = stats.mannwhitneyu(
+                        orig_values, anon_values, alternative="two-sided"
+                    )
                     col_metrics["mw_pvalue"] = mw_pvalue
                 except:
                     # Mann-Whitney can fail for some distributions
@@ -308,18 +346,24 @@ class StatisticalFidelityMetric(FidelityMetric):
                 percentile_diffs = []
                 for i, p in enumerate([25, 50, 75]):
                     if abs(orig_percentiles[i]) > 1e-10:
-                        diff = abs(orig_percentiles[i] - anon_percentiles[i]) / abs(orig_percentiles[i])
+                        diff = abs(orig_percentiles[i] - anon_percentiles[i]) / abs(
+                            orig_percentiles[i]
+                        )
                         percentile_diffs.append(diff)
 
                 if percentile_diffs:
                     percentile_similarity = 100 * (1 - np.mean(percentile_diffs))
-                    col_metrics["percentile_similarity"] = max(0, min(100, percentile_similarity))
+                    col_metrics["percentile_similarity"] = max(
+                        0, min(100, percentile_similarity)
+                    )
 
                 # Add result for this column
                 result[col] = col_metrics
 
             except Exception as e:
-                logger.warning(f"Error calculating distribution similarity for column {col}: {e}")
+                logger.warning(
+                    f"Error calculating distribution similarity for column {col}: {e}"
+                )
 
         return result
 
@@ -349,7 +393,7 @@ class StatisticalFidelityMetric(FidelityMetric):
             return f"Statistical Fidelity: {value:.2f}% - Excellent preservation of statistical properties"
 
 
-class DistributionFidelityMetric(FidelityMetric):
+class DistributionFidelityMetric:
     """
     Specialized metric for measuring the fidelity of data distributions.
 
@@ -362,15 +406,19 @@ class DistributionFidelityMetric(FidelityMetric):
         """
         Initialize the distribution fidelity metric.
         """
-        super().__init__(
-            name="Distribution Fidelity",
-            description="Measures preservation of data distributions after anonymization"
+        self.name = "Distribution Fidelity"
+        self.description = (
+            "Measures preservation of data distributions after anonymization"
         )
+        self.last_result = {}
 
-    def calculate(self, original_data: pd.DataFrame,
-                  anonymized_data: pd.DataFrame,
-                  columns: Optional[List[str]] = None,
-                  **kwargs) -> Dict[str, Any]:
+    def calculate_metric(
+        self,
+        original_data: pd.DataFrame,
+        anonymized_data: pd.DataFrame,
+        columns: Optional[List[str]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Calculate distribution fidelity metrics.
 
@@ -399,14 +447,22 @@ class DistributionFidelityMetric(FidelityMetric):
         try:
             # Identify columns to analyze
             if columns is None:
-                numeric_columns = [col for col in original_data.select_dtypes(include=['number']).columns
-                                   if col in anonymized_data.columns]
+                numeric_columns = [
+                    col
+                    for col in original_data.select_dtypes(include=["number"]).columns
+                    if col in anonymized_data.columns
+                ]
             else:
-                numeric_columns = [col for col in columns if col in original_data.columns
-                                   and col in anonymized_data.columns]
+                numeric_columns = [
+                    col
+                    for col in columns
+                    if col in original_data.columns and col in anonymized_data.columns
+                ]
 
             if not numeric_columns:
-                logger.warning("No common columns found for distribution fidelity calculation")
+                logger.warning(
+                    "No common columns found for distribution fidelity calculation"
+                )
                 return {
                     "overall_distribution_fidelity": 0,
                     "column_distribution_fidelity": {},
@@ -437,14 +493,20 @@ class DistributionFidelityMetric(FidelityMetric):
                     percentile_diffs = []
                     for i, p in enumerate([10, 25, 50, 75, 90]):
                         if abs(orig_percentiles[i]) > 1e-10:
-                            diff = abs(orig_percentiles[i] - anon_percentiles[i]) / abs(orig_percentiles[i])
+                            diff = abs(orig_percentiles[i] - anon_percentiles[i]) / abs(
+                                orig_percentiles[i]
+                            )
                             percentile_diffs.append(diff)
 
-                    percentile_similarity = 100 * (1 - np.mean(percentile_diffs)) if percentile_diffs else 0
+                    percentile_similarity = (
+                        100 * (1 - np.mean(percentile_diffs)) if percentile_diffs else 0
+                    )
                     percentile_similarity = max(0, min(100, percentile_similarity))
 
                     # Overall distribution similarity (weighted average)
-                    distribution_similarity = 0.6 * ks_similarity + 0.4 * percentile_similarity
+                    distribution_similarity = (
+                        0.6 * ks_similarity + 0.4 * percentile_similarity
+                    )
 
                     column_fidelity[col] = {
                         "distribution_fidelity": distribution_similarity,
@@ -460,8 +522,12 @@ class DistributionFidelityMetric(FidelityMetric):
                     all_categories = set(orig_counts.index) | set(anon_counts.index)
 
                     # Calculate Jensen-Shannon divergence
-                    orig_probs = np.array([orig_counts.get(cat, 0) for cat in all_categories])
-                    anon_probs = np.array([anon_counts.get(cat, 0) for cat in all_categories])
+                    orig_probs = np.array(
+                        [orig_counts.get(cat, 0) for cat in all_categories]
+                    )
+                    anon_probs = np.array(
+                        [anon_counts.get(cat, 0) for cat in all_categories]
+                    )
 
                     # Normalize if needed
                     if sum(orig_probs) > 0:
@@ -471,7 +537,9 @@ class DistributionFidelityMetric(FidelityMetric):
 
                     # Calculate JS divergence
                     try:
-                        js_divergence = _jensen_shannon_divergence(orig_probs, anon_probs)
+                        js_divergence = _jensen_shannon_divergence(
+                            orig_probs, anon_probs
+                        )
                         js_similarity = max(0, min(100, 100 * (1 - js_divergence)))
                     except:
                         js_similarity = 0
@@ -486,7 +554,9 @@ class DistributionFidelityMetric(FidelityMetric):
                         observed = []
                         expected = []
 
-                        for cat in set(orig_counts_abs.index) | set(anon_counts_abs.index):
+                        for cat in set(orig_counts_abs.index) | set(
+                            anon_counts_abs.index
+                        ):
                             observed.append(anon_counts_abs.get(cat, 0))
                             expected.append(orig_counts_abs.get(cat, 0))
 
@@ -494,7 +564,9 @@ class DistributionFidelityMetric(FidelityMetric):
                         expected = [max(1, e) for e in expected]
 
                         # Calculate chi-square statistic
-                        chi2_stat = sum([(o - e) ** 2 / e for o, e in zip(observed, expected)])
+                        chi2_stat = sum(
+                            [(o - e) ** 2 / e for o, e in zip(observed, expected)]
+                        )
 
                         # Convert to similarity percentage (lower chi2 = higher similarity)
                         chi2_similarity = max(0, min(100, 100 / (1 + chi2_stat)))
@@ -502,7 +574,9 @@ class DistributionFidelityMetric(FidelityMetric):
                         chi2_similarity = 0
 
                     # Overall distribution similarity (weighted average)
-                    distribution_similarity = 0.7 * js_similarity + 0.3 * chi2_similarity
+                    distribution_similarity = (
+                        0.7 * js_similarity + 0.3 * chi2_similarity
+                    )
 
                     column_fidelity[col] = {
                         "distribution_fidelity": distribution_similarity,
@@ -511,25 +585,35 @@ class DistributionFidelityMetric(FidelityMetric):
                     }
 
             # Calculate overall distribution fidelity
-            overall_fidelity = np.mean([metrics["distribution_fidelity"]
-                                        for metrics in column_fidelity.values()]) if column_fidelity else 0
+            overall_fidelity = (
+                np.mean(
+                    [
+                        metrics["distribution_fidelity"]
+                        for metrics in column_fidelity.values()
+                    ]
+                )
+                if column_fidelity
+                else 0
+            )
 
             # Find best and worst preserved columns
             best_column = None
             worst_column = None
 
             if column_fidelity:
-                best_column = max(column_fidelity.items(),
-                                  key=lambda x: x[1]["distribution_fidelity"])[0]
-                worst_column = min(column_fidelity.items(),
-                                   key=lambda x: x[1]["distribution_fidelity"])[0]
+                best_column = max(
+                    column_fidelity.items(), key=lambda x: x[1]["distribution_fidelity"]
+                )[0]
+                worst_column = min(
+                    column_fidelity.items(), key=lambda x: x[1]["distribution_fidelity"]
+                )[0]
 
             # Prepare result
             result = {
                 "overall_distribution_fidelity": overall_fidelity,
                 "column_distribution_fidelity": column_fidelity,
                 "best_preserved_column": best_column,
-                "worst_preserved_column": worst_column
+                "worst_preserved_column": worst_column,
             }
 
             # Round numeric values for readability
@@ -538,7 +622,9 @@ class DistributionFidelityMetric(FidelityMetric):
             # Store the result
             self.last_result = result
 
-            logger.info(f"Distribution fidelity analysis: Overall fidelity = {overall_fidelity:.2f}%")
+            logger.info(
+                f"Distribution fidelity analysis: Overall fidelity = {overall_fidelity:.2f}%"
+            )
             return result
 
         except Exception as e:
@@ -586,9 +672,9 @@ def _jensen_shannon_divergence(p: np.ndarray, q: np.ndarray) -> float:
 
 
 # Convenience function for calculating all fidelity metrics
-def calculate_fidelity_metrics(original_data: pd.DataFrame,
-                               anonymized_data: pd.DataFrame,
-                               **kwargs) -> Dict[str, Dict[str, Any]]:
+def calculate_fidelity_metrics(
+    original_data: pd.DataFrame, anonymized_data: pd.DataFrame, **kwargs
+) -> Dict[str, Dict[str, Any]]:
     """
     Calculate multiple fidelity metrics for anonymized data.
 
@@ -610,19 +696,21 @@ def calculate_fidelity_metrics(original_data: pd.DataFrame,
 
     # Calculate statistical fidelity
     stat_fidelity = StatisticalFidelityMetric(
-        mean_weight=kwargs.get('mean_weight', 0.4),
-        variance_weight=kwargs.get('variance_weight', 0.3),
-        correlation_weight=kwargs.get('correlation_weight', 0.3)
+        mean_weight=kwargs.get("mean_weight", 0.4),
+        variance_weight=kwargs.get("variance_weight", 0.3),
+        correlation_weight=kwargs.get("correlation_weight", 0.3),
     )
-    results["statistical_fidelity"] = stat_fidelity.calculate(
-        original_data, anonymized_data, kwargs.get('columns'),
-        distribution_tests=kwargs.get('distribution_tests', False)
+    results["statistical_fidelity"] = stat_fidelity.calculate_metric(
+        original_data,
+        anonymized_data,
+        kwargs.get("columns"),
+        distribution_tests=kwargs.get("distribution_tests", False),
     )
 
     # Calculate distribution fidelity
     dist_fidelity = DistributionFidelityMetric()
-    results["distribution_fidelity"] = dist_fidelity.calculate(
-        original_data, anonymized_data, kwargs.get('columns')
+    results["distribution_fidelity"] = dist_fidelity.calculate_metric(
+        original_data, anonymized_data, kwargs.get("columns")
     )
 
     return results

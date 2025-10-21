@@ -37,6 +37,7 @@ from pamola_core.profiling.commons.phone_utils import (
     estimate_resources
 )
 from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation, write_dataframe_to_csv, load_settings_operation
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -406,6 +407,8 @@ class PhoneOperation(FieldOperation):
         self.track_progress = track_progress,
         self.generate_visualization = generate_visualization
 
+        self.operation_cache = None  # Cache for operation results
+
     def execute(self,
                 data_source: DataSource,
                 task_dir: Path,
@@ -446,6 +449,10 @@ class PhoneOperation(FieldOperation):
 
         # Generate single timestamp for all artifacts
         operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        self.operation_cache = OperationCache(
+                cache_dir=task_dir / "cache",
+            )
 
         try:
             # Initialize timing and result
@@ -844,17 +851,12 @@ class PhoneOperation(FieldOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            operation_cache_dir = OperationCache(cache_dir=task_dir/"cache")
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
             logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache_dir.get_cache(
+            cached_data = self.operation_cache.get_cache(
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__
             )
@@ -956,12 +958,6 @@ class PhoneOperation(FieldOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            # Generate operation cache
-            operation_cache_dir = OperationCache(cache_dir=task_dir/"cache")
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
@@ -980,7 +976,7 @@ class PhoneOperation(FieldOperation):
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache_dir.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,
@@ -1014,7 +1010,6 @@ class PhoneOperation(FieldOperation):
         str
             Unique cache key
         """
-        from pamola_core.utils.ops.op_cache import operation_cache
 
         # Get operation parameters
         parameters = self._get_operation_parameters()
@@ -1023,7 +1018,7 @@ class PhoneOperation(FieldOperation):
         data_hash = self._generate_data_hash(df)
 
         # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
+        return self.operation_cache.generate_cache_key(
             operation_name=self.__class__.__name__,
             parameters=parameters,
             data_hash=data_hash

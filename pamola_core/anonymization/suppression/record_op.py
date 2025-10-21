@@ -35,6 +35,7 @@ Changelog:
         - Initial implementation based on REQ-REC-001 through REQ-REC-005
 """
 
+from datetime import datetime
 import hashlib
 import json
 import time
@@ -618,16 +619,29 @@ class RecordSuppressionOperation(AnonymizationOperation):
             The processed DataFrame, or a dictionary of DataFrames if applicable.
         """
         if self.use_dask and self.npartitions > 1:
+            self.logger.info("Parallel Enabled")
+            self.logger.info("Parallel Engine: Dask")
+            self.logger.info(f"Parallel Workers: {self.npartitions}")
             return self._process_with_dask(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
             )
 
         elif self.use_vectorization and self.parallel_processes > 1:
+            self.logger.info("Parallel Enabled")
+            self.logger.info("Parallel Engine: Joblib")
+            self.logger.info(f"Parallel Workers: {self.parallel_processes}")
+            self.logger.info(
+                f"Using vectorized processing with chunk size {self.chunk_size}"
+            )
             return self._process_with_joblib(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
             )
 
         else:
+            self.logger.info("Parallel Disabled")
+            self.logger.info(
+                f"Using Pandas processing with chunk size {self.chunk_size}"
+            )
             return self._process_with_pandas(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
             )
@@ -657,6 +671,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             total_rows = len(input_data)
             chunk_size = max(1, min(self.chunk_size or total_rows, total_rows))
             processed_chunks = []
+            suppressed_chunks = []
             global_mask = pd.Series(False, index=input_data.index)
 
             self._original_record_count = total_rows
@@ -680,7 +695,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     )
 
                     if self.save_suppressed_records:
-                        self._save_suppressed_batch(batch[mask], self._batch_number)
+                        suppressed_chunks.append(batch[mask].copy())
 
                 # Mark suppressed positions in the global mask
                 global_mask.iloc[start:end] = mask.values
@@ -695,6 +710,15 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 )
 
             output_data = pd.concat(processed_chunks, axis=0).reset_index(drop=True)
+
+            if self.save_suppressed_records and suppressed_chunks:
+                suppressed_df = pd.concat(suppressed_chunks, axis=0).reset_index(
+                    drop=True
+                )
+                if not suppressed_df.empty:
+                    self._save_suppressed_records(
+                        suppressed_df, record_num=self._suppressed_records_count
+                    )
 
             if reporter:
                 reporter.add_operation(
@@ -775,8 +799,16 @@ class RecordSuppressionOperation(AnonymizationOperation):
             self._original_record_count = len(input_data)
             self._suppressed_records_count = mask.sum()
             self._suppression_reasons[self.suppression_condition] = (
-                self._suppressed_records_count
+                self._suppression_reasons.get(self.suppression_condition, 0)
+                + self._suppressed_records_count
             )
+
+            if self.save_suppressed_records and self._suppressed_records_count > 0:
+                suppressed_df = input_data[mask].copy()
+                if not suppressed_df.empty:
+                    self._save_suppressed_records(
+                        suppressed_df, record_num=self._suppressed_records_count
+                    )
 
             if reporter:
                 reporter.add_operation(
@@ -854,16 +886,22 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 pd.concat(all_masks, axis=0).astype(bool).reset_index(drop=True)
             )
 
-            if self.save_suppressed_records:
-                for batch_id, suppressed_df in enumerate(suppressed_chunks):
-                    if suppressed_df is not None and not suppressed_df.empty:
-                        self._save_suppressed_batch(suppressed_df, batch_id)
-
+            # Total suppressed records
             self._original_record_count = len(input_data)
             self._suppressed_records_count = final_mask.sum()
             self._suppression_reasons[self.suppression_condition] = (
                 self._suppressed_records_count
             )
+
+            # Save suppressed records once
+            if self.save_suppressed_records and suppressed_chunks:
+                suppressed_df = pd.concat(suppressed_chunks, axis=0).reset_index(
+                    drop=True
+                )
+                if not suppressed_df.empty:
+                    self._save_suppressed_records(
+                        suppressed_df, record_num=self._suppressed_records_count
+                    )
 
             if reporter:
                 reporter.add_operation(
@@ -946,43 +984,44 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         return mask
 
-    def _save_suppressed_batch(
-        self, suppressed_df: pd.DataFrame, batch_num: int
+    def _save_suppressed_records(
+        self, suppressed_df: pd.DataFrame, record_num: int
     ) -> None:
         """
         Save suppressed records to disk immediately to manage memory.
 
         Args:
             suppressed_df: DataFrame of suppressed records
-            batch_num: Batch number for file naming
+            record_num: Record number for file naming (count of suppressed records or identifier)
         """
-        if len(suppressed_df) == 0:
+        if suppressed_df.empty:
             return
 
         try:
-            # Add metadata columns
             suppressed_df = suppressed_df.copy()
+            self.suppression_reason_field = (
+                self.suppression_reason_field or "ReasonForRemoval"
+            )
             suppressed_df[self.suppression_reason_field] = (
                 self._get_suppression_reason()
             )
-            suppressed_df[f"{self.suppression_reason_field}_timestamp"] = (
-                pd.Timestamp.now()
-            )
-            suppressed_df[f"{self.suppression_reason_field}_batch"] = batch_num
 
-            # Write to file immediately
             if self._writer and self._task_dir:
-                filename = f"suppressed_records_batch_{batch_num:04d}"
-                write_result = self._writer.write_dataframe(
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = (
+                    f"{self.field_name}_suppressed_records_{record_num:04d}_{timestamp}"
+                )
+                suppressed_record_result = self._writer.write_dataframe(
                     df=suppressed_df,
                     name=filename,
-                    format="parquet",
-                    subdir="audit/suppressed_batches",
+                    format="csv",
+                    subdir="output/suppressed_records",
                     timestamp_in_name=False,
                     encryption_key=self.encryption_key if self.use_encryption else None,
                 )
                 self.logger.debug(
-                    f"Saved {len(suppressed_df)} suppressed records to batch file"
+                    f"Saved {len(suppressed_df)} suppressed records (record_num={record_num}) "
+                    f"to file {suppressed_record_result.path}"
                 )
             else:
                 self.logger.warning(
@@ -990,7 +1029,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 )
 
         except Exception as e:
-            self.logger.error(f"Failed to save suppressed batch: {e}")
+            self.logger.error(f"Failed to save suppressed records: {e}", exc_info=True)
 
     def _get_suppression_reason(self) -> str:
         """

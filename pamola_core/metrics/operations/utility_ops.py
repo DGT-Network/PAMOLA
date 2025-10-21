@@ -54,6 +54,9 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils import logging
+from pamola_core.metrics.commons.validation import (
+    validate_dataframe
+)
 
 # Configure module logger
 logger = logging.get_logger(__name__)
@@ -312,6 +315,10 @@ class UtilityMetricOperation(MetricsOperation):
         """
         utility_metrics: List[str] = kwargs.get("utility_metrics", [])
         metric_params: Dict[str, Dict] = kwargs.get("metric_params", {})
+
+        # VALIDATE DATA Before calculation
+        validate_dataframe(original_df)
+        validate_dataframe(transformed_df)
 
         if not utility_metrics:
             raise ValueError("No utility metrics specified. 'utility_metrics' list is empty.")

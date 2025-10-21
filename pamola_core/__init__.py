@@ -21,3 +21,4 @@ It contains all essential modules for data transformation, anonymization, metric
 
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
+from ._version import __version__

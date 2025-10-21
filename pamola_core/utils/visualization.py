@@ -112,9 +112,10 @@ def _save_figure(
         # Use the IO module's save_visualization function
         from pamola_core.utils.io import save_visualization
 
+        viz_format = kwargs.get("viz_format", "png")
         use_encryption = kwargs.get("use_encryption", False)
         encryption_key = kwargs.get("encryption_key", None) if use_encryption else None
-        saved_path = save_visualization(fig, output_path, encryption_key=encryption_key)
+        saved_path = save_visualization(fig, output_path, format=viz_format, encryption_key=encryption_key)
 
         # Close matplotlib figure if it's a matplotlib figure
         # This helps prevent memory leaks
@@ -154,6 +155,7 @@ def _filter_kwargs(**kwargs):
         "encryption_key",
         "use_encryption",
         "timestamp",
+        "viz_format"
     ]
 
     # Filter kwargs to exclude unsupported keys

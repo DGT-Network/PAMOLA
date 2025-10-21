@@ -28,16 +28,26 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Any
 
-from pamola_core.metrics.base import UtilityMetric
 
-class MeanSquaredError(UtilityMetric):
+class MeanSquaredError:
     """Class to calculate Mean Squared Error (MSE) between real and synthetic data"""
 
-    def __init__(self, name: str = "Mean Squared Error",
-                 description: str = "Calculates the Mean Squared Error between real and synthetic data"):
-        super().__init__(name, description)  # Call the parent constructor
+    def __init__(
+        self,
+        name: str = "Mean Squared Error",
+        description: str = "Calculates the Mean Squared Error between real and synthetic data",
+    ):
+        """Initialize the Mean Squared Error metric."""
+        self.name = name
+        self.description = description
 
-    def calculate(self, real_data: pd.DataFrame, synthetic_data: pd.DataFrame, columns: list, **kwargs) -> Dict[str, Any]:
+    def calculate_metric(
+        self,
+        real_data: pd.DataFrame,
+        synthetic_data: pd.DataFrame,
+        columns: list,
+        **kwargs
+    ) -> Dict[str, Any]:
         """
         Calculate Mean Squared Error (MSE).
 
@@ -55,8 +65,12 @@ class MeanSquaredError(UtilityMetric):
         dict
             {'mse': Dict[str, float], 'overall_mse': float} - MSE values for each column and overall MSE.
         """
-        if not isinstance(real_data, pd.DataFrame) or not isinstance(synthetic_data, pd.DataFrame):
-            raise ValueError("Both real_data and synthetic_data must be pandas DataFrames.")
+        if not isinstance(real_data, pd.DataFrame) or not isinstance(
+            synthetic_data, pd.DataFrame
+        ):
+            raise ValueError(
+                "Both real_data and synthetic_data must be pandas DataFrames."
+            )
 
         if not columns:
             raise ValueError("A list of columns must be provided to calculate MSE!")
@@ -77,7 +91,4 @@ class MeanSquaredError(UtilityMetric):
         # Calculate overall MSE if at least one valid column was processed
         overall_mse = overall_mse / count if count > 0 else None
 
-        return {
-            "mse": mse_values,
-            "overall_mse": overall_mse
-        }
+        return {"mse": mse_values, "overall_mse": overall_mse}

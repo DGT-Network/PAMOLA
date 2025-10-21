@@ -9,9 +9,7 @@ License: BSD 3-Clause
 This module implements the regressors metric.
 """
 
-
 from typing import Any, Dict, List, Optional
-
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -30,11 +28,11 @@ class RegressionUtility:
     """Implements the regressors metric."""
 
     def __init__(
-            self,
-            models: Optional[List[str]] = None,
-            metrics: Optional[List[str]] = None,
-            cv_folds: int = 5,
-            test_size: float = 0.2
+        self,
+        models: Optional[List[str]] = None,
+        metrics: Optional[List[str]] = None,
+        cv_folds: int = 5,
+        test_size: float = 0.2,
     ):
         """
         Initialize.
@@ -61,25 +59,25 @@ class RegressionUtility:
         self.cv_folds = cv_folds
         self.test_size = test_size
 
-        self.specific_metrics = [] # "pmse"
-        self.specific_model_dict = {
-            "logistic": LogisticRegression(max_iter=1000)
-        }
+        self.specific_metrics = []  # "pmse"
+        self.specific_model_dict = {"logistic": LogisticRegression(max_iter=1000)}
 
-        self.base_metrics = [metric for metric in self.metrics if metric not in self.specific_metrics]
+        self.base_metrics = [
+            metric for metric in self.metrics if metric not in self.specific_metrics
+        ]
         self.model_dict = {
             "linear": LinearRegression(),
             "rf": RandomForestRegressor(),
-            "svr": SVR()
+            "svr": SVR(),
         }
 
     def calculate_metric(
-            self,
-            original_df: pd.DataFrame,
-            transformed_df: pd.DataFrame,
-            value_field: str,
-            key_fields: Optional[List[str]] = None,
-            aggregation: str = "sum"
+        self,
+        original_df: pd.DataFrame,
+        transformed_df: pd.DataFrame,
+        value_field: str,
+        key_fields: Optional[List[str]] = None,
+        aggregation: str = "sum",
     ) -> Dict[str, Any]:
         """
         Calculate metrics.
@@ -109,7 +107,7 @@ class RegressionUtility:
         model_based = self._calculate_model_based(
             original_df=original_df.copy(deep=True),
             transformed_df=transformed_df.copy(deep=True),
-            value_field=value_field
+            value_field=value_field,
         )
         results.update(model_based)
 
@@ -120,17 +118,14 @@ class RegressionUtility:
                 transformed_df=transformed_df.copy(deep=True),
                 key_fields=key_fields,
                 value_field=value_field,
-                aggregation=aggregation
+                aggregation=aggregation,
             )
             results["grouped_r2"] = r2_grouped
 
         return results
 
     def _calculate_model_based(
-            self,
-            original_df: pd.DataFrame,
-            transformed_df: pd.DataFrame,
-            value_field: str
+        self, original_df: pd.DataFrame, transformed_df: pd.DataFrame, value_field: str
     ) -> Dict[str, Any]:
         """
         Calculate model based metrics.
@@ -173,12 +168,27 @@ class RegressionUtility:
         if self.cv_folds > 2:
             cv = KFold(n_splits=self.cv_folds, shuffle=True, random_state=42)
         elif self.test_size > 0:
-            X_original_train, X_original_test, y_original_train, y_original_test = train_test_split(
-                X_original, y_original, test_size=self.test_size, random_state=42, shuffle=True
+            X_original_train, X_original_test, y_original_train, y_original_test = (
+                train_test_split(
+                    X_original,
+                    y_original,
+                    test_size=self.test_size,
+                    random_state=42,
+                    shuffle=True,
+                )
             )
 
-            X_transformed_train, X_transformed_test, y_transformed_train, y_transformed_test = train_test_split(
-                X_transformed, y_transformed, test_size=self.test_size, random_state=42, shuffle=True
+            (
+                X_transformed_train,
+                X_transformed_test,
+                y_transformed_train,
+                y_transformed_test,
+            ) = train_test_split(
+                X_transformed,
+                y_transformed,
+                test_size=self.test_size,
+                random_state=42,
+                shuffle=True,
             )
 
         for model_name in self.models:
@@ -192,8 +202,14 @@ class RegressionUtility:
 
             if self.cv_folds > 2:
                 for train_index, test_index in cv.split(X_original, y_original):
-                    X_train, X_test = X_original.iloc[train_index], X_transformed.iloc[test_index]
-                    y_train, y_test = y_original.iloc[train_index], y_transformed.iloc[test_index]
+                    X_train, X_test = (
+                        X_original.iloc[train_index],
+                        X_transformed.iloc[test_index],
+                    )
+                    y_train, y_test = (
+                        y_original.iloc[train_index],
+                        y_transformed.iloc[test_index],
+                    )
 
                     self._calculate_model(
                         model=model,
@@ -206,7 +222,7 @@ class RegressionUtility:
                         mae_scores=mae_scores,
                         mse_scores=mse_scores,
                         rmse_scores=rmse_scores,
-                        pmse_scores=[]
+                        pmse_scores=[],
                     )
 
             elif self.test_size > 0:
@@ -224,7 +240,7 @@ class RegressionUtility:
                     mae_scores=mae_scores,
                     mse_scores=mse_scores,
                     rmse_scores=rmse_scores,
-                    pmse_scores=[]
+                    pmse_scores=[],
                 )
 
             else:
@@ -242,7 +258,7 @@ class RegressionUtility:
                     mae_scores=mae_scores,
                     mse_scores=mse_scores,
                     rmse_scores=rmse_scores,
-                    pmse_scores=[]
+                    pmse_scores=[],
                 )
 
             # Aggregate metrics per model
@@ -265,12 +281,20 @@ class RegressionUtility:
 
         # Calculate for pMSE with specific model
         X_combined = pd.concat([X_original, X_transformed], ignore_index=True)
-        y_combined = pd.Series(np.concatenate([np.zeros(len(X_original)), np.ones(len(X_transformed))]))
+        y_combined = pd.Series(
+            np.concatenate([np.zeros(len(X_original)), np.ones(len(X_transformed))])
+        )
 
         X_combined_train = X_combined_test = y_combined_train = y_combined_test = None
         if self.cv_folds <= 2 and self.test_size > 0:
-            X_combined_train, X_combined_test, y_combined_train, y_combined_test = train_test_split(
-                X_combined, y_combined, test_size=self.test_size, random_state=42, shuffle=True
+            X_combined_train, X_combined_test, y_combined_train, y_combined_test = (
+                train_test_split(
+                    X_combined,
+                    y_combined,
+                    test_size=self.test_size,
+                    random_state=42,
+                    shuffle=True,
+                )
             )
 
         for model_name, model in self.specific_model_dict.items():
@@ -279,8 +303,14 @@ class RegressionUtility:
 
             if self.cv_folds > 2:
                 for train_index, test_index in cv.split(X_combined, y_combined):
-                    X_train, X_test = X_combined.iloc[train_index], X_combined.iloc[test_index]
-                    y_train, y_test = y_combined.iloc[train_index], y_combined.iloc[test_index]
+                    X_train, X_test = (
+                        X_combined.iloc[train_index],
+                        X_combined.iloc[test_index],
+                    )
+                    y_train, y_test = (
+                        y_combined.iloc[train_index],
+                        y_combined.iloc[test_index],
+                    )
 
                     self._calculate_model(
                         model=model,
@@ -293,7 +323,7 @@ class RegressionUtility:
                         mae_scores=[],
                         mse_scores=[],
                         rmse_scores=[],
-                        pmse_scores=pmse_scores
+                        pmse_scores=pmse_scores,
                     )
 
             elif self.test_size > 0:
@@ -311,7 +341,7 @@ class RegressionUtility:
                     mae_scores=[],
                     mse_scores=[],
                     rmse_scores=[],
-                    pmse_scores=pmse_scores
+                    pmse_scores=pmse_scores,
                 )
 
             else:
@@ -329,7 +359,7 @@ class RegressionUtility:
                     mae_scores=[],
                     mse_scores=[],
                     rmse_scores=[],
-                    pmse_scores=pmse_scores
+                    pmse_scores=pmse_scores,
                 )
 
             # Aggregate metrics per model
@@ -344,18 +374,18 @@ class RegressionUtility:
         return model_based
 
     def _calculate_model(
-            self,
-            model,
-            X_train,
-            y_train,
-            X_test,
-            y_test,
-            metrics,
-            r2_scores,
-            mae_scores,
-            mse_scores,
-            rmse_scores,
-            pmse_scores
+        self,
+        model,
+        X_train,
+        y_train,
+        X_test,
+        y_test,
+        metrics,
+        r2_scores,
+        mae_scores,
+        mse_scores,
+        rmse_scores,
+        pmse_scores,
     ) -> None:
         """
         Calculate model.
@@ -405,12 +435,12 @@ class RegressionUtility:
             pmse_scores.append(mean_squared_error(y_test, y_prob))
 
     def _calculate_grouped_r2(
-            self,
-            original_df: pd.DataFrame,
-            transformed_df: pd.DataFrame,
-            value_field: str,
-            key_fields: List[str],
-            aggregation: str
+        self,
+        original_df: pd.DataFrame,
+        transformed_df: pd.DataFrame,
+        value_field: str,
+        key_fields: List[str],
+        aggregation: str,
     ) -> Dict[str, Any]:
         """
         Calculate R² for grouped data.
@@ -438,13 +468,13 @@ class RegressionUtility:
             df=original_df,
             value_field=value_field,
             key_fields=key_fields,
-            aggregation=aggregation
+            aggregation=aggregation,
         )
         y_dict = self._create_value_dictionary(
             df=transformed_df,
             value_field=value_field,
             key_fields=key_fields,
-            aggregation=aggregation
+            aggregation=aggregation,
         )
 
         # Get common keys
@@ -507,15 +537,15 @@ class RegressionUtility:
             "slope": slope,
             "intercept": intercept,
             "mean_x": mean_x,
-            "mean_y": mean_y
+            "mean_y": mean_y,
         }
 
     def _create_value_dictionary(
-            self,
-            df: pd.DataFrame,
-            value_field: str,
-            key_fields: List[str],
-            aggregation: str = "sum"
+        self,
+        df: pd.DataFrame,
+        value_field: str,
+        key_fields: List[str],
+        aggregation: str = "sum",
     ) -> Dict[str, Any]:
         """
         Create aggregated value dictionary.

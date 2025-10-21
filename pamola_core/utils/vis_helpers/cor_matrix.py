@@ -39,6 +39,7 @@ from pamola_core.utils.vis_helpers.cor_utils import (
     parse_annotation_format,
     calculate_symmetric_colorscale_range,
 )
+from pamola_core.utils.vis_helpers.heatmap import prepare_text_values
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
     apply_theme_to_plotly_figure,
@@ -187,18 +188,10 @@ class PlotlyCorrelationMatrix(PlotlyFigure):
                     "zmin": vmin,
                     "zmax": vmax,
                     "hoverongaps": False,
+                    "hovertemplate": "x: %{x}<br>y: %{y}<br>value: %{z}<extra></extra>",
                     "showscale": True,
                     "colorbar": {"title": colorbar_title} if colorbar_title else None,
                 }
-
-                # Add text-related arguments if annotations are requested
-                if annotate:
-                    heatmap_args.update(
-                        {
-                            "texttemplate": text_template,
-                            "textfont": {"color": text_colors.flatten()},
-                        }
-                    )
 
                 # Add hover information
                 if hover_text is not None:
@@ -214,6 +207,26 @@ class PlotlyCorrelationMatrix(PlotlyFigure):
 
                 # Add heatmap trace
                 fig.add_trace(go.Heatmap(**heatmap_args))
+
+                # Add text annotations via scatter overlay if annotate is enabled
+                if annotate:
+                    text_values = prepare_text_values(matrix, annotation_format)
+                    # Flatten for 2D loop
+                    for i, y in enumerate(y_labels):
+                        for j, x in enumerate(x_labels):
+                            val = matrix[i][j]
+                            if not np.isnan(val):
+                                fig.add_trace(
+                                    go.Scatter(
+                                        x=[x],
+                                        y=[y],
+                                        text=[text_values[i][j]],
+                                        mode="text",
+                                        textfont=dict(color=text_colors[i][j]),
+                                        showlegend=False,
+                                        hoverinfo="skip",
+                                    )
+                                )
 
                 # Highlight significant correlations if threshold is provided
                 if significant_threshold is not None:
@@ -373,6 +386,8 @@ class PlotlyCorrelationMatrix(PlotlyFigure):
                             annotation_format = kwargs.get("annotation_format", ".2f")
 
                             if annotate:
+                                # Prepare text values and colors
+                                text_values = prepare_text_values(matrix, annotation_format)
                                 # Prepare text formatting
                                 text_template = parse_annotation_format(
                                     annotation_format
@@ -381,6 +396,7 @@ class PlotlyCorrelationMatrix(PlotlyFigure):
 
                                 # Update with annotations
                                 fig.update_traces(
+                                    text=text_values,
                                     texttemplate=text_template,
                                     textfont={"color": text_colors.flatten()},
                                     selector=dict(type="heatmap"),

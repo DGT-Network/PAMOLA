@@ -26,12 +26,14 @@ For details, see the LICENSE file or visit:
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-
 import datetime
 import re
-from typing import List
+from typing import List, Optional
 import numpy as np
 import pandas as pd
+from pamola_core.common.constants import Constants
+from pamola_core.common.regex.patterns import CommonPatterns
+
 
 class DataHelper:
     """
@@ -100,7 +102,9 @@ class DataHelper:
         return bool(re.match(r"^-?\d+\.\d*[1-9]\d*$", str(value)))
 
     @staticmethod
-    def determine_mostly_integer(df: pd.DataFrame, column: str, sample_size: int = 1000) -> bool:
+    def determine_mostly_integer(
+        df: pd.DataFrame, column: str, sample_size: int = 1000
+    ) -> bool:
         """
         Determines if a column contains mostly integer-like values.
 
@@ -117,7 +121,9 @@ class DataHelper:
             return False
 
         # Sample up to `sample_size` rows for better performance
-        sample_data = non_na_values.sample(n=min(sample_size, len(non_na_values)), random_state=42)
+        sample_data = non_na_values.sample(
+            n=min(sample_size, len(non_na_values)), random_state=42
+        )
 
         # Count integer and float-like values
         integer_count = sample_data.apply(DataHelper.is_integer).sum()
@@ -507,3 +513,191 @@ class DataHelper:
         return pd.Series(
             column_values, index=df.index
         )  # Return only the adjusted column
+
+    @staticmethod
+    def convert_to_datetime(
+        series: pd.Series,
+        input_formats: List[str] = None,
+        sample_ratio: float = 0.005,
+        min_sample: int = 1000,
+        max_sample: int = 5000,
+        success_threshold: float = 0.95,
+    ) -> pd.Series:
+        """
+        Convert a Pandas Series to datetime, trying multiple formats.
+        Uses a sampling-based approach to guess the most likely formats
+        when direct parsing is insufficient.
+
+        Parameters
+        ----------
+        series : pd.Series
+            Input series containing date-like strings.
+        input_formats : List[str], optional
+            List of explicit date formats to try if guessing is needed.
+            If not provided, defaults to Constants.COMMON_DATE_FORMATS.
+        sample_ratio : float
+            Fraction of the data to sample for format guessing.
+        min_sample : int
+            Minimum number of rows to include in the sample.
+        max_sample : int
+            Maximum number of rows to include in the sample.
+        success_threshold : float
+            Minimum fraction of successfully parsed values to accept
+            Pandas' direct parsing without guessing formats.
+
+        Returns
+        -------
+        pd.Series
+            Series converted to datetime, with unparseable values as NaT.
+        """
+        input_formats = input_formats or Constants.COMMON_DATE_FORMATS
+
+        # --- Step 1: Prepare sample for guessing ---
+        non_null_series = series.dropna().astype(str)
+        n_rows = len(non_null_series)
+
+        if n_rows <= min_sample:
+            sample_size = n_rows
+        else:
+            sample_size = min(max(int(n_rows * sample_ratio), min_sample), max_sample)
+
+        # Avoid zero sample (edge case for very small n_rows)
+        sample_size = max(sample_size, 1)
+
+        sample_values = (
+            non_null_series.sample(n=sample_size, random_state=42).tolist()
+            if sample_size > 0
+            else []
+        )
+
+        # --- Step 2: Guess formats ---
+        guessed_formats = DataHelper.guess_date_formats(
+            sample_values, input_formats, success_threshold
+        )
+
+        # --- Step 3: If guess_date_formats returned None, trust Pandas parsing ---
+        if guessed_formats is None:
+            return pd.to_datetime(series, errors="coerce")
+
+        # --- Step 4: Try guessed formats in order ---
+        best_result = None
+        best_success_rate = 0.0
+
+        for fmt in guessed_formats:
+            try:
+                parsed = pd.to_datetime(
+                    series, format=fmt if fmt != "ISO8601" else None, errors="coerce"
+                )
+                success_rate = parsed.notna().mean()
+
+                if success_rate > best_success_rate:
+                    best_success_rate = success_rate
+                    best_result = parsed
+
+                if success_rate >= success_threshold:
+                    break  # Early exit
+            except Exception:
+                continue
+
+        if best_result is not None and best_success_rate > 0:
+            return best_result
+
+        # --- Step 5: Fallback to loose Pandas parsing ---
+        return pd.to_datetime(series, errors="coerce")
+
+    @staticmethod
+    def guess_date_formats(
+        sample: List[str], default_formats: List[str], success_threshold: float = 0.95
+    ) -> Optional[List[str]]:
+        """
+        Guess likely date formats from sample using regex pattern matching.
+
+        This method first tries Pandas' built-in datetime parsing.
+        If parsing succeeds for more than `success_threshold` of values,
+        guessing is skipped and `None` is returned (so downstream code can use auto-parsing).
+        Otherwise, it falls back to regex-based format guessing using a predefined dictionary.
+
+        Parameters
+        ----------
+        sample : List[str]
+            A list of date-like strings to test.
+            Example: ["2021-01-01", "2021/02/15", "15-03-2021"]
+        default_formats : List[str]
+            List of fallback date formats to append after guessed formats.
+            Example: ["%Y-%m-%d", "%d/%m/%Y"]
+        success_threshold : float, optional (default=0.95)
+            Minimum fraction of successfully parsed values (via Pandas auto-detection)
+            to consider parsing "good enough" and skip guessing formats.
+
+        Returns
+        -------
+        Optional[List[str]]
+            - None if automatic parsing is sufficient (>= success_threshold).
+            - List of guessed formats (most frequent first) otherwise.
+        """
+        # --- Step 1: Clean sample (remove empty strings, trim spaces) ---
+        cleaned_sample = [s.strip() for s in sample if isinstance(s, str) and s.strip()]
+        if not cleaned_sample:
+            return default_formats  # No data → just return defaults
+
+        # --- Step 2: Try Pandas automatic detection ---
+        try:
+            parsed = pd.to_datetime(cleaned_sample, errors="coerce")  # Let Pandas infer
+            success_rate = parsed.notna().mean()
+            if success_rate >= success_threshold:
+                return None  # Good enough → skip guessing
+        except Exception:
+            pass  # Fall back to guessing if parsing fails
+
+        # --- Step 3: Regex-based guessing ---
+        format_counts = {}
+        for val in cleaned_sample:
+            for pattern, fmt in CommonPatterns.DATE_REGEX_FORMATS.items():
+                if re.fullmatch(pattern, val):
+                    format_counts[fmt] = format_counts.get(fmt, 0) + 1
+                    break  # Stop after first matching pattern
+
+        # --- Step 4: Sort guessed formats by frequency (desc), tie-break alphabetically ---
+        sorted_formats = [
+            fmt for fmt, _ in sorted(format_counts.items(), key=lambda x: (-x[1], x[0]))
+        ]
+
+        # --- Step 5: Append defaults not already included ---
+        return sorted_formats + [f for f in default_formats if f not in sorted_formats]
+
+    @staticmethod
+    def normalize_int_dtype_vectorized(
+        series: pd.Series, safe_mode: bool = False
+    ) -> pd.Series:
+        """
+        Vectorized version: Convert float Series containing only whole numbers into pandas nullable integer type (Int64).
+        Leaves other types unchanged.
+
+        Parameters
+        ----------
+        series : pd.Series
+            The input Series.
+        safe_mode : bool, default=False
+            If True, uses np.isclose for float precision tolerance (slower but safer).
+            If False, uses direct comparison (faster but may fail for precision edge cases).
+
+        Returns
+        -------
+        pd.Series
+            Converted Series if integer-like float, otherwise unchanged.
+        """
+        if pd.api.types.is_float_dtype(series):
+            values = series.values  # numpy array for speed
+            mask_notna = ~pd.isna(values)
+            vals_non_na = values[mask_notna]
+
+            if vals_non_na.size > 0:
+                if safe_mode:
+                    is_int_like = np.isclose(vals_non_na % 1, 0).all()
+                else:
+                    is_int_like = (vals_non_na % 1 == 0).all()
+
+                if is_int_like:
+                    return series.astype("Int64")
+
+        return series
