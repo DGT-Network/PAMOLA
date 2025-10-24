@@ -24,27 +24,39 @@ class AggregateRecordsOperationConfig(OperationConfig):
     """Configuration for AggregateRecordsOperation with BaseOperationConfig merged."""
 
     schema = {
+        "title": "AggregateRecordsOperationConfig",
+        "description": "Schema for configuring record aggregation operations in PAMOLA.CORE. Supports group by fields, standard and custom aggregations.",
         "type": "object",
         "allOf": [
             BaseOperationConfig.schema,  # merge common base fields
             {
                 "type": "object",
+                "title": "AggregateRecordsOperationConfig Properties",
+                "description": "Properties for grouping and aggregating records in transformation pipelines.",
                 "properties": {
                     "group_by_fields": {
                         "type": "array",
                         "items": {"type": "string"},
                         "minItems": 1,
+                        "title": "Group By Fields",
+                        "description": "List of fields to group records by (like SQL GROUP BY). Must have at least one field."
                     },
                     "aggregations": {
                         "type": "object",
+                        "title": "Aggregations",
+                        "description": "Dictionary mapping field names to a list of aggregation functions (e.g., sum, mean, count).",
                         "additionalProperties": {
                             "type": "array",
                             "items": {"type": "string"},
+                            "title": "Aggregation Functions",
+                            "description": "List of aggregation functions to apply to the field."
                         },
                     },
                     "custom_aggregations": {
                         "type": "object",
-                        "additionalProperties": {"type": "string"},
+                        "title": "Custom Aggregations",
+                        "description": "Dictionary mapping field names to custom aggregation function names or expressions.",
+                        "additionalProperties": {"type": "string", "title": "Custom Aggregation Function", "description": "Custom aggregation function or expression for the field."},
                     },
                 },
                 "required": ["group_by_fields", "aggregations"],

@@ -24,14 +24,26 @@ class ImputeMissingValuesConfig(OperationConfig):
     """Configuration for ImputeMissingValuesOperation with BaseOperationConfig merged."""
 
     schema = {
+        "title": "ImputeMissingValuesConfig",
+        "description": "Schema for imputing missing or invalid values in datasets. Supports field-specific imputation strategies and invalid value handling.",
         "type": "object",
         "allOf": [
             BaseOperationConfig.schema,  # merge common base fields
             {
                 "type": "object",
+                "title": "ImputeMissingValuesConfig Properties",
+                "description": "Properties for configuring field-level imputation strategies and invalid value handling.",
                 "properties": {
-                    "field_strategies": {"type": ["object", "null"]},
-                    "invalid_values": {"type": ["object", "null"]},
+                    "field_strategies": {
+                        "type": ["object", "null"],
+                        "title": "Field Strategies",
+                        "description": "Dictionary mapping field names to imputation strategies (e.g., mean, median, mode, constant, interpolation, etc.)."
+                    },
+                    "invalid_values": {
+                        "type": ["object", "null"],
+                        "title": "Invalid Values",
+                        "description": "Dictionary mapping field names to lists of values considered invalid and to be imputed."
+                    },
                 },
             },
         ],

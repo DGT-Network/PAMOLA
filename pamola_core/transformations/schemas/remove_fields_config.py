@@ -23,17 +23,27 @@ class RemoveFieldsOperationConfig(OperationConfig):
     """Configuration for RemoveFieldsOperation with BaseOperationConfig merged."""
 
     schema = {
+        "title": "RemoveFieldsOperationConfig",
+        "description": "Schema for removing one or more fields from a dataset, supporting both explicit field lists and regex pattern-based removal. Used for privacy and data minimization in transformation pipelines.",
         "type": "object",
         "allOf": [
             BaseOperationConfig.schema,  # merge common base fields
             {
                 "type": "object",
+                "title": "RemoveFieldsOperationConfig Properties",
+                "description": "Properties for configuring field removal, including explicit field names and regex pattern.",
                 "properties": {
                     "fields_to_remove": {
                         "type": ["array", "null"],
                         "items": {"type": "string"},
+                        "title": "Fields to Remove",
+                        "description": "List of field names to remove from the dataset. If null, no explicit fields are removed."
                     },
-                    "pattern": {"type": ["string", "null"]},
+                    "pattern": {
+                        "type": ["string", "null"],
+                        "title": "Pattern",
+                        "description": "Regex pattern to match field names for removal. If null, no pattern-based removal is performed."
+                    },
                 },
             },
         ],

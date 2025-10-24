@@ -25,15 +25,32 @@ class SplitByIDValuesOperationConfig(OperationConfig):
     """Configuration for SplitByIDValuesOperation with BaseOperationConfig merged."""
 
     schema = {
+        "title": "SplitByIDValuesOperationConfig",
+        "description": "Schema for splitting a dataset into multiple subsets based on ID field values or partitioning strategies. Supports explicit value groups, equal-size/random/modulo partitioning, and invalid value handling.",
         "type": "object",
         "allOf": [
             BaseOperationConfig.schema,  # merge common base fields
             {
                 "type": "object",
+                "title": "SplitByIDValuesOperationConfig Properties",
+                "description": "Properties for configuring dataset splitting by ID, value groups, partition method, and invalid value handling.",
                 "properties": {
-                    "id_field": {"type": "string"},
-                    "value_groups": {"type": ["object", "null"]},
-                    "number_of_partitions": {"type": "integer", "minimum": 0},
+                    "id_field": {
+                        "type": "string",
+                        "title": "ID Field",
+                        "description": "Name of the field used to identify records for splitting. Required for all partitioning strategies."
+                    },
+                    "value_groups": {
+                        "type": ["object", "null"],
+                        "title": "Value Groups",
+                        "description": "Dictionary mapping group names to lists of ID values for explicit group-based splitting. If null, automatic partitioning is used."
+                    },
+                    "number_of_partitions": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "title": "Number of Partitions",
+                        "description": "Number of partitions to create when using automatic partitioning (equal size, random, or modulo). Ignored if value_groups is provided."
+                    },
                     "partition_method": {
                         "type": "string",
                         "enum": [
@@ -41,8 +58,14 @@ class SplitByIDValuesOperationConfig(OperationConfig):
                             PartitionMethod.RANDOM.value,
                             PartitionMethod.MODULO.value,
                         ],
+                        "title": "Partition Method",
+                        "description": "Partitioning strategy to use when value_groups is not provided. Options: 'equal_size', 'random', or 'modulo'."
                     },
-                    "invalid_values": {"type": ["object", "null"]},
+                    "invalid_values": {
+                        "type": ["object", "null"],
+                        "title": "Invalid Values",
+                        "description": "Dictionary of invalid or excluded ID values to ignore during splitting. Optional."
+                    },
                 },
             },
         ],
