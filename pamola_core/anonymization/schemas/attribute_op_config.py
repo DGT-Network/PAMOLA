@@ -25,28 +25,71 @@ class AttributeSuppressionConfig(OperationConfig):
 
     schema = {
         "type": "object",
+        "title": "Attribute Suppression Operation Configuration",
+        "description": "Configuration schema for attribute-level suppression operations.",
         "allOf": [
             BaseOperationConfig.schema,  # merge common parameters
             {
                 "type": "object",
                 "properties": {
-                    "field_name": {"type": "string"},
+                    "field_name": {"type": "string", "title": "Field Name", "description": "Primary field to apply suppression."},
                     "additional_fields": {
                         "type": ["array", "null"],
                         "items": {"type": "string"},
+                        "title": "Additional Fields",
+                        "description": "Other fields to include in suppression operation.",
                     },
-                    "suppression_mode": {"type": "string", "enum": ["REMOVE"]},
-                    "save_suppressed_schema": {"type": "boolean"},
+                    "suppression_mode": {
+                        "type": "string",
+                        "enum": ["REMOVE"],
+                        "title": "Suppression Mode",
+                        "description": "Suppression strategy to apply (e.g., REMOVE)."
+                    },
+                    "save_suppressed_schema": {
+                        "type": "boolean",
+                        "title": "Save Suppressed Schema",
+                        "description": "Whether to save the schema after suppression."
+                    },
                     # Multi-field conditions
-                    "multi_conditions": {"type": ["array", "null"], "items": {"type": "object"}},
-                    "condition_logic": {"type": "string"},
+                    "multi_conditions": {
+                        "type": ["array", "null"],
+                        "items": {"type": "object"},
+                        "title": "Multi-field Conditions",
+                        "description": "List of conditions for multi-field suppression."
+                    },
+                    "condition_logic": {
+                        "type": "string",
+                        "title": "Condition Logic",
+                        "description": "Logic to combine multiple conditions (e.g., AND, OR)."
+                    },
                     # Conditional processing parameters
-                    "condition_field": {"type": ["string", "null"]},
-                    "condition_values": {"type": ["array", "null"], "items": {"type": "string"}},
-                    "condition_operator": {"type": "string"},
+                    "condition_field": {
+                        "type": ["string", "null"],
+                        "title": "Condition Field",
+                        "description": "Field to check for conditional suppression."
+                    },
+                    "condition_values": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                        "title": "Condition Values",
+                        "description": "Values that trigger conditional suppression."
+                    },
+                    "condition_operator": {
+                        "type": "string",
+                        "title": "Condition Operator",
+                        "description": "Operator for condition evaluation (e.g., EQUALS, IN)."
+                    },
                     # K-anonymity integration
-                    "ka_risk_field": {"type": ["string", "null"]},
-                    "risk_threshold": {"type": "number"},
+                    "ka_risk_field": {
+                        "type": ["string", "null"],
+                        "title": "K-anonymity Risk Field",
+                        "description": "Field used for k-anonymity risk assessment."
+                    },
+                    "risk_threshold": {
+                        "type": "number",
+                        "title": "Risk Threshold",
+                        "description": "Threshold for k-anonymity risk triggering suppression."
+                    },
                 },
                 "required": ["field_name", "suppression_mode"],
             },

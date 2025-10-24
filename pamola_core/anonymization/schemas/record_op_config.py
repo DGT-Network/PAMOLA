@@ -26,49 +26,84 @@ class RecordSuppressionConfig(OperationConfig):
 
     schema = {
         "type": "object",
+        "title": "Record Suppression Operation Configuration",
+        "description": "Configuration schema for record suppression operations.",
         "allOf": [
             BaseOperationConfig.schema,  # merge common fields
             {
                 "type": "object",
                 "properties": {
                     # Core parameters
-                    "field_name": {"type": "string"},
+                    "field_name": {
+                        "type": "string",
+                        "title": "Field Name",
+                        "description": "Name of the field to evaluate for suppression."
+                    },
                     "suppression_mode": {
                         "type": "string",
                         "enum": ["REMOVE"],
                         "default": "REMOVE",
+                        "title": "Suppression Mode",
+                        "description": "Suppression mode. Only 'REMOVE' (remove entire record) is supported."
                     },
                     # Suppression control parameters
                     "suppression_condition": {
                         "type": "string",
                         "enum": ["null", "value", "range", "risk", "custom"],
                         "default": "null",
+                        "title": "Suppression Condition",
+                        "description": "Condition for suppressing records: 'null', 'value', 'range', 'risk', or 'custom'."
                     },
                     "suppression_values": {
                         "type": ["array", "null"],
                         "items": {"type": "string"},
+                        "title": "Suppression Values",
+                        "description": "List of values to match for suppression (used with 'value' condition)."
                     },
                     "suppression_range": {
                         "type": ["array", "null"],
                         "items": {"type": "number"},
                         "minItems": 2,
                         "maxItems": 2,
+                        "title": "Suppression Range",
+                        "description": "Range [min, max] for suppression (used with 'range' condition)."
                     },
                     # Output control
                     "save_suppressed_records": {
                         "type": "boolean",
                         "default": False,
+                        "title": "Save Suppressed Records",
+                        "description": "Whether to save removed records to a separate artifact."
                     },
                     "suppression_reason_field": {
                         "type": "string",
                         "default": "_suppression_reason",
+                        "title": "Suppression Reason Field",
+                        "description": "Field name for storing the reason for suppression in the output."
                     },
                     # Multi-field conditions
-                    "multi_conditions": {"type": ["array", "null"], "items": {"type": "object"}},
-                    "condition_logic": {"type": "string"},
+                    "multi_conditions": {
+                        "type": ["array", "null"],
+                        "items": {"type": "object"},
+                        "title": "Multi-Conditions",
+                        "description": "List of multi-field conditions for custom suppression logic."
+                    },
+                    "condition_logic": {
+                        "type": "string",
+                        "title": "Condition Logic",
+                        "description": "Logical expression for combining multi-field conditions (e.g., 'AND', 'OR')."
+                    },
                     # K-anonymity integration
-                    "ka_risk_field": {"type": ["string", "null"]},
-                    "risk_threshold": {"type": "number"},
+                    "ka_risk_field": {
+                        "type": ["string", "null"],
+                        "title": "K-anonymity Risk Field",
+                        "description": "Field containing k-anonymity risk scores for suppression based on risk."
+                    },
+                    "risk_threshold": {
+                        "type": "number",
+                        "title": "Risk Threshold",
+                        "description": "Threshold for k-anonymity risk triggering suppression."
+                    },
                 },
                 "required": ["field_name", "suppression_condition"],
             },

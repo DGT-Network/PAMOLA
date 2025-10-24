@@ -39,6 +39,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
 
     schema = {
         "type": "object",
+        "title": "Categorical Generalization Operation Configuration",
+        "description": "Configuration schema for categorical generalization operations.",
         "allOf": [
             BaseOperationConfig.schema,
             {
@@ -47,143 +49,171 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     # Required fields
                     "field_name": {
                         "type": "string",
-                        "description": "Target field name for generalization",
+                        "title": "Field Name",
+                        "description": "Target field name for categorical operation.",
                     },
                     "strategy": {
                         "type": "string",
                         "enum": STRATEGY_VALUES,
-                        "description": "Generalization strategy to apply",
+                        "title": "Generalization Strategy",
+                        "description": "Generalization strategy to apply (e.g., hierarchy, frequency, dictionary).",
                     },
                     # Dictionary parameters
                     "external_dictionary_path": {
                         "type": ["string", "null"],
-                        "description": "Path to external hierarchy dictionary file",
+                        "title": "External Dictionary Path",
+                        "description": "Path to external hierarchy or mapping dictionary file.",
                     },
                     "dictionary_format": {
                         "type": "string",
                         "enum": SUPPORTED_DICT_FORMATS,
-                        "description": "Dictionary file format (auto-detected by default)",
+                        "title": "Dictionary Format",
+                        "description": "Dictionary file format (auto-detected by default).",
                     },
                     "hierarchy_level": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": MAX_HIERARCHY_LEVELS,
-                        "description": f"Hierarchy level (1-{MAX_HIERARCHY_LEVELS})",
+                        "title": "Hierarchy Level",
+                        "description": f"Hierarchy level to generalize to (1-{MAX_HIERARCHY_LEVELS}).",
                     },
                     # Frequency-based parameters
                     "merge_low_freq": {
                         "type": "boolean",
-                        "description": "Merge low-frequency categories",
+                        "title": "Merge Low Frequency",
+                        "description": "Merge low-frequency categories into a single group.",
                     },
                     "min_group_size": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "Minimum group size for privacy",
+                        "title": "Minimum Group Size",
+                        "description": "Minimum group size for privacy protection.",
                     },
                     "freq_threshold": {
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1,
-                        "description": "Frequency threshold (0-1) for category preservation",
+                        "title": "Frequency Threshold",
+                        "description": "Frequency threshold (0-1) for category preservation.",
                     },
                     "max_categories": {
                         "type": "integer",
                         "minimum": 0,
-                        "description": "Maximum number of categories to preserve",
+                        "title": "Max Categories",
+                        "description": "Maximum number of categories to preserve.",
                     },
                     # Unknown value handling
                     "allow_unknown": {
                         "type": "boolean",
-                        "description": "Allow unknown values in output",
+                        "title": "Allow Unknown",
+                        "description": "Allow unknown values in output.",
                     },
                     "unknown_value": {
                         "type": "string",
-                        "description": "Placeholder string for unknown values",
+                        "title": "Unknown Value Placeholder",
+                        "description": "Placeholder string for unknown values.",
                     },
                     "group_rare_as": {
                         "type": "string",
                         "enum": GROUP_RARE_VALUES,
-                        "description": "Strategy for grouping rare categories",
+                        "title": "Group Rare As",
+                        "description": "Strategy for grouping rare categories.",
                     },
                     "rare_value_template": {
                         "type": "string",
                         "pattern": ".*\\{n\\}.*",
-                        "description": "Template for numbered rare values (must contain {n})",
+                        "title": "Rare Value Template",
+                        "description": "Template for numbered rare values (must contain {n}).",
                     },
                     # Text processing
                     "text_normalization": {
                         "type": "string",
                         "enum": TEXT_NORM_VALUES,
-                        "description": "Text normalization level",
+                        "title": "Text Normalization",
+                        "description": "Text normalization level to apply.",
                     },
                     "case_sensitive": {
                         "type": "boolean",
-                        "description": "Use case-sensitive category matching",
+                        "title": "Case Sensitive",
+                        "description": "Use case-sensitive category matching.",
                     },
                     "fuzzy_matching": {
                         "type": "boolean",
-                        "description": "Enable fuzzy string matching",
+                        "title": "Fuzzy Matching",
+                        "description": "Enable fuzzy string matching for categories.",
                     },
                     "similarity_threshold": {
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1,
-                        "description": "Similarity threshold for fuzzy matching (0-1)",
+                        "title": "Similarity Threshold",
+                        "description": "Similarity threshold for fuzzy matching (0-1).",
                     },
                     # Privacy controls
                     "privacy_check_enabled": {
                         "type": "boolean",
-                        "description": "Enable privacy validation checks",
+                        "title": "Privacy Check Enabled",
+                        "description": "Enable privacy validation checks (e.g., k-anonymity).",
                     },
                     "min_acceptable_k": {
                         "type": "integer",
                         "minimum": 2,
-                        "description": "Minimum k-anonymity (must be ≥2)",
+                        "title": "Minimum Acceptable k",
+                        "description": "Minimum k-anonymity (must be ≥2).",
                     },
                     "max_acceptable_disclosure_risk": {
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1,
-                        "description": "Maximum acceptable disclosure risk (0-1)",
+                        "title": "Max Acceptable Disclosure Risk",
+                        "description": "Maximum acceptable disclosure risk (0-1).",
                     },
                     "quasi_identifiers": {
                         "type": ["array", "null"],
                         "items": {"type": "string"},
-                        "description": "List of quasi-identifier field names",
+                        "title": "Quasi-identifiers",
+                        "description": "List of quasi-identifier field names.",
                     },
                     # Conditional processing
                     "condition_field": {
                         "type": ["string", "null"],
-                        "description": "Field name for conditional processing",
+                        "title": "Condition Field",
+                        "description": "Field name for conditional processing.",
                     },
                     "condition_values": {
                         "type": ["array", "null"],
-                        "description": "Values for conditional processing",
+                        "title": "Condition Values",
+                        "description": "Values for conditional processing.",
                         "items": {
                             "type": "string"
                         },
                     },
                     "condition_operator": {
                         "type": "string",
-                        "description": "Conditional operator (in|not_in|eq|ne)",
+                        "title": "Condition Operator",
+                        "description": "Conditional operator (in|not_in|eq|ne).",
                     },
                     # Risk assessment
                     "ka_risk_field": {
                         "type": ["string", "null"],
-                        "description": "Field for k-anonymity risk assessment",
+                        "title": "K-anonymity Risk Field",
+                        "description": "Field for k-anonymity risk assessment.",
                     },
                     "risk_threshold": {
                         "type": "number",
-                        "description": "Risk threshold for vulnerability detection",
+                        "title": "Risk Threshold",
+                        "description": "Risk threshold for vulnerability detection.",
                     },
                     "vulnerable_record_strategy": {
                         "type": "string",
-                        "description": "Strategy for handling vulnerable records",
+                        "title": "Vulnerable Record Strategy",
+                        "description": "Strategy for handling vulnerable records.",
                     },
                     # Output field name configuration
                     "output_field_name": {
                         "type": ["string", "null"],
-                        "description": "Custom output field name (for ENRICH mode)",
+                        "title": "Output Field Name",
+                        "description": "Custom output field name (for ENRICH mode).",
                     },
                 },
                 "required": ["field_name", "strategy"],
