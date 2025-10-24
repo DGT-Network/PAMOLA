@@ -42,6 +42,7 @@ from pamola_core.profiling.commons.text_utils import (
     extract_text_and_ids,
     find_dictionary_file,
 )
+from pamola_core.profiling.schemas.text_config import TextSemanticCategorizerOperationConfig
 from pamola_core.utils.io import (
     ensure_directory,
     load_data_operation,
@@ -59,7 +60,6 @@ from pamola_core.utils.nlp.clustering import cluster_by_similarity
 from pamola_core.utils.nlp.entity import create_entity_extractor
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -77,48 +77,6 @@ logger = get_logger(__name__)
 # Get cache instances
 file_cache = get_cache("file")
 memory_cache = get_cache("memory")
-
-
-class TextSemanticCategorizerOperationConfig(OperationConfig):
-    """Configuration for TextSemanticCategorizerOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- Text Semantic Categorizer specific fields ---
-                    "field_name": {"type": "string"},
-                    "id_field": {"type": ["string", "null"]},
-                    "entity_type": {"type": "string", "default": "generic"},
-                    "dictionary_path": {"type": ["string", "null"], "default": None},
-                    "min_word_length": {"type": "integer", "minimum": 1, "default": 3},
-                    "clustering_threshold": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1,
-                        "default": 0.7,
-                    },
-                    "use_ner": {"type": "boolean", "default": True},
-                    "perform_categorization": {"type": "boolean", "default": True},
-                    "perform_clustering": {"type": "boolean", "default": True},
-                    "match_strategy": {
-                        "type": "string",
-                        "enum": [
-                            "specific_first",
-                            "domain_prefer",
-                            "alias_only",
-                            "user_override",
-                        ],
-                        "default": "specific_first",
-                    },
-                },
-                "required": ["field_name", "entity_type"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

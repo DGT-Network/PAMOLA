@@ -28,7 +28,6 @@ from pathlib import Path
 from typing import List, Dict, Union, Optional, Any
 import json
 import pandas as pd
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
 from pamola_core.utils.ops.op_registry import register
@@ -38,31 +37,10 @@ from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.transformations.schemas.remove_fields_config import RemoveFieldsOperationConfig
 
 # Configure module logger
 logger = logging.getLogger(__name__)
-
-
-class RemoveFieldsOperationConfig(OperationConfig):
-    """Configuration for RemoveFieldsOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    "fields_to_remove": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                    },
-                    "pattern": {"type": ["string", "null"]},
-                },
-            },
-        ],
-    }
-
 
 @register(version="1.0.0")
 class RemoveFieldsOperation(TransformationOperation):

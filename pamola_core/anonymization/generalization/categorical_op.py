@@ -67,7 +67,6 @@ from pamola_core.anonymization.commons.categorical_config import (
     DEFAULT_TOP_CATEGORIES_FOR_ANALYSIS,
     MAX_CATEGORIES,
     OPERATION_NAME,
-    CategoricalGeneralizationConfig,
     GeneralizationStrategy,
     GroupRareAs,
     OperationMode,
@@ -132,6 +131,7 @@ from pamola_core.anonymization.commons.visualization_utils import (
 )
 
 # Framework utilities
+from pamola_core.anonymization.schemas.categorical_op_config import CategoricalGeneralizationConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache

@@ -50,6 +50,7 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_numeric_field,
 )
 from pamola_core.anonymization.commons.visualization_utils import create_bar_plot
+from pamola_core.anonymization.schemas.record_op_config import RecordSuppressionConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
@@ -61,7 +62,6 @@ from pamola_core.utils.io import (
 from pamola_core.utils.io_helpers import crypto_utils, directory_utils
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_field_utils import create_multi_field_mask
@@ -75,61 +75,6 @@ from pamola_core.utils.ops.op_registry import register
 
 import dask.dataframe as dd
 from functools import partial
-
-
-class RecordSuppressionConfig(OperationConfig):
-    """Configuration for RecordSuppressionOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common fields
-            {
-                "type": "object",
-                "properties": {
-                    # Core parameters
-                    "field_name": {"type": "string"},
-                    "suppression_mode": {
-                        "type": "string",
-                        "enum": ["REMOVE"],
-                        "default": "REMOVE",
-                    },
-                    # Suppression control parameters
-                    "suppression_condition": {
-                        "type": "string",
-                        "enum": ["null", "value", "range", "risk", "custom"],
-                        "default": "null",
-                    },
-                    "suppression_values": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                    },
-                    "suppression_range": {
-                        "type": ["array", "null"],
-                        "items": {"type": "number"},
-                        "minItems": 2,
-                        "maxItems": 2,
-                    },
-                    # Output control
-                    "save_suppressed_records": {
-                        "type": "boolean",
-                        "default": False,
-                    },
-                    "suppression_reason_field": {
-                        "type": "string",
-                        "default": "_suppression_reason",
-                    },
-                    # Multi-field conditions
-                    "multi_conditions": {"type": ["array", "null"]},
-                    "condition_logic": {"type": "string"},
-                    # K-anonymity integration
-                    "ka_risk_field": {"type": ["string", "null"]},
-                    "risk_threshold": {"type": "number"},
-                },
-                "required": ["field_name", "suppression_condition"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

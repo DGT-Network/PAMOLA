@@ -40,6 +40,7 @@ from pamola_core.profiling.commons.group_utils import (
     analyze_group,
     calculate_field_metrics,
 )
+from pamola_core.profiling.schemas.group_config import GroupAnalyzerOperationConfig
 from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -233,61 +234,6 @@ class GroupAnalyzer:
         }
         return metrics
 
-
-class GroupAnalyzerOperationConfig(OperationConfig):
-    """Configuration schema for GroupAnalyzerOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge base common fields
-            {
-                "type": "object",
-                "properties": {
-                    "field_name": {"type": "string"},
-                    "fields_config": {
-                        "type": "object",
-                        "minProperties": 1,
-                        "additionalProperties": {"type": "integer", "minimum": 0},
-                    },
-                    # Thresholds and Variance
-                    "text_length_threshold": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "default": 100,
-                    },
-                    "variance_threshold": {
-                        "type": "number",
-                        "minimum": 0.0,
-                        "default": 0.2,
-                    },
-                    "large_group_threshold": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "default": 100,
-                    },
-                    "large_group_variance_threshold": {
-                        "type": "number",
-                        "minimum": 0.0,
-                        "default": 0.05,
-                    },
-                    # Hashing & Minhash
-                    "hash_algorithm": {
-                        "type": "string",
-                        "enum": ["md5", "minhash"],
-                        "default": "md5",
-                    },
-                    "minhash_similarity_threshold": {
-                        "type": "number",
-                        "minimum": 0.0,
-                        "maximum": 1.0,
-                        "default": 0.7,
-                    },
-                },
-                "required": ["field_name", "fields_config"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

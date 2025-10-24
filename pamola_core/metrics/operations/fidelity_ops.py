@@ -45,7 +45,7 @@ from pamola_core.metrics.base_metrics_op import MetricsOperation
 from pamola_core.metrics.commons.safe_instantiate import safe_instantiate
 from pamola_core.metrics.fidelity.distribution.kl_divergence import KLDivergence
 from pamola_core.metrics.fidelity.distribution.ks_test import KolmogorovSmirnovTest
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+from pamola_core.metrics.schemas.fidelity_ops_config import FidelityConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -57,55 +57,6 @@ FIDELITY_METRIC_FACTORY = {
     FidelityMetricsType.KL.value: KLDivergence,
     FidelityMetricsType.KS.value: KolmogorovSmirnovTest,
 }
-
-
-class FidelityConfig(OperationConfig):
-    """Configuration for FidelityOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common fields
-            {
-                "type": "object",
-                "properties": {
-                    "fidelity_metrics": {
-                        "type": "array",
-                        "items": {
-                            "type": "string",
-                            "enum": [
-                                FidelityMetricsType.KS.value,
-                                FidelityMetricsType.KL.value,
-                            ],
-                        },
-                        "default": [
-                            FidelityMetricsType.KS.value,
-                            FidelityMetricsType.KL.value,
-                        ],
-                    },
-                    "metric_params": {"type": ["object", "null"]},
-                    "columns": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "column_mapping": {"type": ["object", "null"]},
-                    "normalize": {"type": "boolean", "default": True},
-                    "confidence_level": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1,
-                        "default": 0.95,
-                    },
-                    "sample_size": {
-                        "type": ["integer", "null"],
-                        "minimum": 1,
-                        "description": "Size of dataset sample used for metric calculation.",
-                    },
-                },
-                "required": ["fidelity_metrics"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

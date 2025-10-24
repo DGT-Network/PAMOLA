@@ -12,8 +12,7 @@ from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
-from pamola_core.fake_data.commons import metrics
+from pamola_core.fake_data.schemas.name_op_config import FakeNameOperationConfig
 from pamola_core.fake_data.commons.prgn import PRNGenerator
 from pamola_core.fake_data.generators.name import NameGenerator
 from pamola_core.utils import io
@@ -21,57 +20,6 @@ from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.progress import HierarchicalProgressTracker
-
-
-class FakeNameOperationConfig(OperationConfig):
-    """Configuration for FakeNameOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- GeneratorOperation-specific fields ---
-                    "generator": {"type": ["object", "null"]},
-                    "generator_params": {"type": ["object", "null"]},
-                    "consistency_mechanism": {
-                        "type": "string",
-                        "enum": ["mapping", "prgn"],
-                        "default": "prgn",
-                    },
-                    "id_field": {"type": ["string", "null"]},
-                    "mapping_store_path": {"type": ["string", "null"]},
-                    "mapping_store": {"type": ["object", "null"]},
-                    "save_mapping": {"type": "boolean", "default": False},
-                    "output_field_name": {"type": ["string", "null"]},
-                    # --- FakeNameOperation-specific fields ---
-                    "field_name": {"type": "string"},
-                    "language": {"type": "string", "default": "en"},
-                    "gender_field": {"type": ["string", "null"]},
-                    "gender_from_name": {"type": "boolean", "default": False},
-                    "format": {"type": ["string", "null"]},
-                    "f_m_ratio": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1,
-                        "default": 0.5,
-                    },
-                    "use_faker": {"type": "boolean", "default": False},
-                    "case": {
-                        "type": "string",
-                        "enum": ["upper", "lower", "title"],
-                        "default": "title",
-                    },
-                    "dictionaries": {"type": ["object", "null"]},
-                    "key": {"type": ["string", "null"]},
-                    "context_salt": {"type": ["string", "null"]},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

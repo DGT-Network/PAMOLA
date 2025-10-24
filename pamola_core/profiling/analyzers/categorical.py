@@ -30,11 +30,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union, Tuple
 import pandas as pd
-from pamola_core.anonymization.masking.full_masking_op import OperationConfig
 from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources,
 )
+from pamola_core.profiling.schemas.categorical_config import CategoricalOperationConfig
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
@@ -43,7 +43,6 @@ from pamola_core.utils.io import (
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_cache import operation_cache
-from pamola_core.utils.ops.op_config import BaseOperationConfig
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -121,32 +120,6 @@ class CategoricalAnalyzer:
             Estimated resource requirements
         """
         return estimate_resources(df, field_name)
-
-
-class CategoricalOperationConfig(OperationConfig):
-    """Configuration for CategoricalOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge BaseOperation common fields
-            {
-                "type": "object",
-                "properties": {
-                    "field_name": {"type": "string"},
-                    "top_n": {"type": "integer", "minimum": 1, "default": 15},
-                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-                    "profile_type": {
-                        "type": "string",
-                        "enum": ["categorical", "string", "text"],
-                        "default": "categorical",
-                    },
-                    "analyze_anomalies": {"type": "boolean", "default": True},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

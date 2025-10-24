@@ -47,8 +47,8 @@ from pamola_core.transformations.commons.aggregation_utils import (
     generate_record_count_per_group_vis,
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
+from pamola_core.transformations.schemas.aggregate_records_op_config import AggregateRecordsOperationConfig
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
@@ -59,39 +59,6 @@ from pamola_core.common.constants import Constants
 
 # Configure module logger
 logger = logging.getLogger(__name__)
-
-
-class AggregateRecordsOperationConfig(OperationConfig):
-    """Configuration for AggregateRecordsOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    "group_by_fields": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 1,
-                    },
-                    "aggregations": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                    },
-                    "custom_aggregations": {
-                        "type": "object",
-                        "additionalProperties": {"type": "string"},
-                    },
-                },
-                "required": ["group_by_fields", "aggregations"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

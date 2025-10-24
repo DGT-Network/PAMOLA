@@ -51,6 +51,7 @@ from pamola_core.profiling.commons.numeric_utils import (
     calculate_percentiles,
     calculate_histogram,
 )
+from pamola_core.profiling.schemas.currency_config import CurrencyOperationConfig
 from pamola_core.utils.io import (
     write_dataframe_to_csv,
     write_json,
@@ -74,8 +75,6 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.utils.helpers import filter_used_kwargs
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -1292,28 +1291,6 @@ class CurrencyAnalyzer:
             )
             result["error"] = f"Error calculating statistics: {str(e)}"
             return result
-
-
-class CurrencyOperationConfig(OperationConfig):
-    """Configuration for CurrencyOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    "field_name": {"type": "string"},
-                    "locale": {"type": "string", "default": "en_US"},
-                    "bins": {"type": "integer", "minimum": 1, "default": 10},
-                    "detect_outliers": {"type": "boolean", "default": True},
-                    "test_normality": {"type": "boolean", "default": True},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

@@ -39,9 +39,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import pandas as pd
 from pamola_core.metrics.base_metrics_op import MetricsOperation
+from pamola_core.metrics.schemas.utility_ops_config import UtilityMetricConfig
 from pamola_core.metrics.utility.classification import ClassificationUtility
 from pamola_core.metrics.utility.regression import RegressionUtility
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -57,48 +57,6 @@ UTILITY_METRIC_FACTORY = {
     "classification": ClassificationUtility,
     "regression": RegressionUtility,
 }
-
-
-class UtilityMetricConfig(OperationConfig):
-    """
-    Configuration for UtilityMetricOperation merged with BaseOperationConfig.
-    """
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common/base fields
-            {
-                "type": "object",
-                "properties": {
-                    "utility_metrics": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "List of utility metric identifiers to compute.",
-                    },
-                    "metric_params": {"type": ["object", "null"]},
-                    "columns": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "column_mapping": {"type": ["object", "null"]},
-                    "normalize": {"type": "boolean", "default": True},
-                    "confidence_level": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1,
-                        "default": 0.95,
-                    },
-                    "sample_size": {
-                        "type": ["integer", "null"],
-                        "minimum": 1,
-                        "description": "Size of dataset sample used for metric calculation.",
-                    },
-                },
-                "required": ["utility_metrics"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

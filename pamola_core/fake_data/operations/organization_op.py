@@ -14,71 +14,12 @@ import numpy as np
 import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.organization import OrganizationGenerator
+from pamola_core.fake_data.schemas.organization_op_config import FakeOrganizationOperationConfig
 from pamola_core.utils import io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
-
-
-class FakeOrganizationOperationConfig(OperationConfig):
-    """Configuration for FakeOrganizationOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- GeneratorOperation / BaseOperation common fields ---
-                    "generator": {"type": ["object", "null"]},
-                    "generator_params": {"type": ["object", "null"]},
-                    "consistency_mechanism": {
-                        "type": "string",
-                        "enum": ["mapping", "prgn"],
-                        "default": "prgn",
-                    },
-                    "id_field": {"type": ["string", "null"]},
-                    "mapping_store_path": {"type": ["string", "null"]},
-                    "mapping_store": {"type": ["object", "null"]},
-                    "save_mapping": {"type": "boolean", "default": False},
-                    "output_field_name": {"type": ["string", "null"]},
-                    # --- FakeOrganizationOperation-specific fields ---
-                    "field_name": {"type": "string"},
-                    "organization_type": {"type": "string", "default": "general"},
-                    "dictionaries": {"type": ["object", "null"]},
-                    "prefixes": {"type": ["object", "null"]},
-                    "suffixes": {"type": ["object", "null"]},
-                    "add_prefix_probability": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1,
-                        "default": 0.3,
-                    },
-                    "add_suffix_probability": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1,
-                        "default": 0.5,
-                    },
-                    "region": {"type": "string", "default": "en"},
-                    "preserve_type": {"type": "boolean", "default": True},
-                    "industry": {"type": ["string", "null"]},
-                    # --- Advanced behavior & metrics ---
-                    "collect_type_distribution": {"type": "boolean", "default": True},
-                    "type_field": {"type": ["string", "null"]},
-                    "region_field": {"type": ["string", "null"]},
-                    "detailed_metrics": {"type": "boolean", "default": False},
-                    "max_retries": {"type": "integer", "minimum": 0, "default": 3},
-                    "key": {"type": ["string", "null"]},
-                    "context_salt": {"type": ["string", "null"]},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

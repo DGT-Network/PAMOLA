@@ -37,6 +37,7 @@ from pamola_core.profiling.commons.date_utils import (
     analyze_date_field,
     estimate_resources,
 )
+from pamola_core.profiling.schemas.date_config import DateOperationConfig
 from pamola_core.utils.io import (
     write_json,
     load_data_operation,
@@ -150,35 +151,6 @@ class DateAnalyzer:
             Estimated resource requirements
         """
         return estimate_resources(df, field_name)
-
-
-class DateOperationConfig(OperationConfig):
-    """Configuration for DateOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge base common fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- field & profiling options ---
-                    "field_name": {"type": "string"},
-                    "min_year": {"type": "integer", "minimum": 0, "default": 1940},
-                    "max_year": {"type": "integer", "minimum": 0, "default": 2005},
-                    "id_column": {"type": ["string", "null"], "default": None},
-                    "uid_column": {"type": ["string", "null"], "default": None},
-                    "profile_type": {
-                        "type": "string",
-                        "enum": ["date"],
-                        "default": "date",
-                    },
-                    "is_birth_date": {"type": ["boolean", "null"], "default": None},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

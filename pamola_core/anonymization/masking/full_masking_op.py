@@ -59,12 +59,12 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_comparison_visualization,
     sample_large_dataset,
 )
+from pamola_core.anonymization.schemas.full_masking_op_config import FullMaskingConfig
 from pamola_core.common.constants import Constants
 from pamola_core.io.base import DataWriter
 from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -74,48 +74,6 @@ from pamola_core.utils.ops.op_data_writer import DataWriter
 # Default values
 DEFAULT_SAMPLE_SIZE = 10000
 DEFAULT_TOP_CATEGORIES_FOR_ANALYSIS = 20
-
-
-class FullMaskingConfig(OperationConfig):
-    """Configuration for FullMaskingOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common fields
-            {
-                "type": "object",
-                "properties": {
-                    "field_name": {"type": "string"},
-                    "mask_char": {"type": "string", "default": "*"},
-                    "preserve_length": {"type": "boolean", "default": True},
-                    "fixed_length": {"type": ["integer", "null"], "minimum": 0},
-                    "random_mask": {"type": "boolean", "default": False},
-                    "mask_char_pool": {"type": ["string", "null"]},
-                    "preserve_format": {"type": "boolean", "default": False},
-                    "format_patterns": {"type": ["object", "null"]},
-                    "numeric_output": {
-                        "type": "string",
-                        "enum": ["string", "numeric", "preserve"],
-                        "default": "string",
-                    },
-                    "date_format": {"type": ["string", "null"]},
-                    # Conditional processing parameters
-                    "condition_field": {"type": ["string", "null"]},
-                    "condition_values": {"type": ["array", "null"]},
-                    "condition_operator": {"type": "string"},
-                    # K-anonymity integration
-                    "ka_risk_field": {"type": ["string", "null"]},
-                    "risk_threshold": {"type": "number"},
-                    "vulnerable_record_strategy": {"type": "string"},
-                    # Output field name configuration
-                    "output_field_name": {"type": ["string", "null"]},
-                },
-                "required": ["field_name", "mask_char"],
-            },
-        ],
-    }
-
 
 @register(version="1.0.0")
 class FullMaskingOperation(AnonymizationOperation):
