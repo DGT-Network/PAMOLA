@@ -25,23 +25,58 @@ class DateOperationConfig(OperationConfig):
 
     schema = {
         "type": "object",
+        "title": "Date Operation Configuration",
+        "description": "Configuration schema for date profiling operations. Defines parameters for analyzing a date field, including year range, group/UID columns, and birth date detection.",
         "allOf": [
             BaseOperationConfig.schema,  # merge base common fields
             {
                 "type": "object",
                 "properties": {
                     # --- field & profiling options ---
-                    "field_name": {"type": "string"},
-                    "min_year": {"type": "integer", "minimum": 0, "default": 1940},
-                    "max_year": {"type": "integer", "minimum": 0, "default": 2005},
-                    "id_column": {"type": ["string", "null"], "default": None},
-                    "uid_column": {"type": ["string", "null"], "default": None},
+                    "field_name": {
+                        "type": "string",
+                        "title": "Field Name",
+                        "description": "Name of the date field (column) to analyze. Must exist in the input DataFrame."
+                    },
+                    "min_year": {
+                        "type": "integer",
+                        "title": "Minimum Year",
+                        "description": "Minimum valid year for anomaly detection in the date field. Dates before this year are considered anomalies.",
+                        "minimum": 0,
+                        "default": 1940
+                    },
+                    "max_year": {
+                        "type": "integer",
+                        "title": "Maximum Year",
+                        "description": "Maximum valid year for anomaly detection in the date field. Dates after this year are considered anomalies.",
+                        "minimum": 0,
+                        "default": 2005
+                    },
+                    "id_column": {
+                        "type": ["string", "null"],
+                        "title": "Group ID Column",
+                        "description": "Optional column name to use for group-based analysis (e.g., grouping by user or entity).",
+                        "default": None
+                    },
+                    "uid_column": {
+                        "type": ["string", "null"],
+                        "title": "UID Column",
+                        "description": "Optional column name to use for unique identifier (UID) analysis.",
+                        "default": None
+                    },
                     "profile_type": {
                         "type": "string",
+                        "title": "Profile Type",
+                        "description": "Type of profiling for organizing artifacts. Default is 'date'.",
                         "enum": ["date"],
-                        "default": "date",
+                        "default": "date"
                     },
-                    "is_birth_date": {"type": ["boolean", "null"], "default": None},
+                    "is_birth_date": {
+                        "type": ["boolean", "null"],
+                        "title": "Is Birth Date Field",
+                        "description": "Whether the field is a birth date field. If None, auto-detected based on field name.",
+                        "default": None
+                    },
                 },
                 "required": ["field_name"],
             },

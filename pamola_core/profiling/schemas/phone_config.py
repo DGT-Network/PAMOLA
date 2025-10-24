@@ -26,19 +26,38 @@ class PhoneOperationConfig(OperationConfig):
 
     schema = {
         "type": "object",
+        "title": "Phone Operation Configuration",
+        "description": "Configuration schema for phone profiling operations.",
         "allOf": [
             BaseOperationConfig.schema,  # merge common base fields
             {
                 "type": "object",
                 "properties": {
                     # --- Phone-specific fields ---
-                    "field_name": {"type": "string"},
-                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-                    "patterns_csv": {"type": ["string", "null"], "default": None},
+                    "field_name": {
+                        "type": "string",
+                        "title": "Field Name",
+                        "description": "Name of the phone number field (column) to analyze. This should be a column in the DataFrame containing phone numbers."
+                    },
+                    "min_frequency": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "default": 1,
+                        "title": "Minimum Frequency",
+                        "description": "Minimum number of occurrences for a phone number or component to be included in the results. Values appearing fewer times will be excluded from the output."
+                    },
+                    "patterns_csv": {
+                        "type": ["string", "null"],
+                        "default": None,
+                        "title": "Patterns CSV",
+                        "description": "Path to a CSV file containing phone number patterns for validation and parsing. If null, default patterns will be used."
+                    },
                     "country_codes": {
                         "type": ["array", "null"],
                         "items": {"type": "string"},
                         "default": None,
+                        "title": "Country Codes",
+                        "description": "List of country codes to restrict the analysis to specific countries. If null, all detected country codes will be included."
                     },
                 },
                 "required": ["field_name"],

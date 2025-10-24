@@ -26,6 +26,8 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
 
     schema = {
         "type": "object",
+        "title": "K-Anonymity Profiler Operation Configuration",
+        "description": "Configuration schema for k-anonymity profiling operations.",
         "allOf": [
             BaseOperationConfig.schema,  # merge all common BaseOperation fields
             {
@@ -35,6 +37,8 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "type": ["array", "null"],
                         "items": {"type": "string"},
                         "default": None,
+                        "title": "Quasi-Identifiers",
+                        "description": "List of fields used as quasi-identifiers for k-anonymity analysis. These are the columns whose combinations are evaluated for re-identification risk."
                     },
                     "analysis_mode": {
                         "type": "string",
@@ -44,15 +48,35 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                             AnalysisMode.BOTH.value,
                         ],
                         "default": AnalysisMode.ANALYZE.value,
+                        "title": "Analysis Mode",
+                        "description": "Operation mode: 'ANALYZE' (generate metrics and visualizations), 'ENRICH' (add k-values to the DataFrame), or 'BOTH' (perform both analysis and enrichment)."
                     },
-                    "threshold_k": {"type": "integer", "minimum": 1, "default": 5},
-                    "export_metrics": {"type": "boolean", "default": True},
+                    "threshold_k": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "default": 5,
+                        "title": "k Threshold",
+                        "description": "Threshold for considering records as vulnerable. Records/groups with k < threshold_k are flagged as privacy risks."
+                    },
+                    "export_metrics": {
+                        "type": "boolean",
+                        "default": True,
+                        "title": "Export Metrics",
+                        "description": "If true, export k-anonymity metrics and vulnerability analysis to JSON/CSV files."
+                    },
                     "max_combinations": {
                         "type": "integer",
                         "minimum": 1,
                         "default": 50,
+                        "title": "Max QI Combinations",
+                        "description": "Maximum number of quasi-identifier combinations to analyze. Limits combinatorial explosion for large datasets."
                     },
-                    "output_field_suffix": {"type": "string", "default": "k_anon"},
+                    "output_field_suffix": {
+                        "type": "string",
+                        "default": "k_anon",
+                        "title": "Output Field Suffix",
+                        "description": "Suffix for the k-anonymity field added in ENRICH mode."
+                    },
                     "quasi_identifier_sets": {
                         "type": ["array", "null"],
                         "items": {
@@ -60,11 +84,15 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                             "items": {"type": "string"},
                         },
                         "default": None,
+                        "title": "Quasi-Identifier Sets",
+                        "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Overrides automatic detection."
                     },
                     "id_fields": {
                         "type": ["array", "null"],
                         "items": {"type": "string"},
                         "default": None,
+                        "title": "ID Fields",
+                        "description": "List of columns used as record identifiers for grouping or tracking vulnerable records."
                     },
                 },
                 "required": ["quasi_identifiers"],

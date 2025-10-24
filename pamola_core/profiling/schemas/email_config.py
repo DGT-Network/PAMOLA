@@ -25,21 +25,46 @@ class EmailOperationConfig(OperationConfig):
 
     schema = {
         "type": "object",
+        "title": "Email Operation Configuration",
+        "description": "Configuration schema for email profiling operations. Defines parameters for analyzing an email field, including domain statistics, frequency thresholds, and privacy risk assessment.",
         "allOf": [
             BaseOperationConfig.schema,  # merge all common operation fields
             {
                 "type": "object",
                 "properties": {
                     # --- Email-specific parameters ---
-                    "field_name": {"type": "string"},
-                    "top_n": {"type": "integer", "minimum": 1, "default": 20},
-                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
+                    "field_name": {
+                        "type": "string",
+                        "title": "Field Name",
+                        "description": "Name of the email field (column) to analyze. Must exist in the input DataFrame."
+                    },
+                    "top_n": {
+                        "type": "integer",
+                        "title": "Top N Domains",
+                        "description": "Number of top email domains to include in the results and visualizations. Must be at least 1.",
+                        "minimum": 1,
+                        "default": 20
+                    },
+                    "min_frequency": {
+                        "type": "integer",
+                        "title": "Minimum Domain Frequency",
+                        "description": "Minimum frequency for a domain to be included in the domain dictionary. Must be at least 1.",
+                        "minimum": 1,
+                        "default": 1
+                    },
                     "profile_type": {
                         "type": "string",
+                        "title": "Profile Type",
+                        "description": "Type of profiling for organizing artifacts. Default is 'email'.",
                         "enum": ["email"],
-                        "default": "email",
+                        "default": "email"
                     },
-                    "analyze_privacy_risk": {"type": "boolean", "default": True},
+                    "analyze_privacy_risk": {
+                        "type": "boolean",
+                        "title": "Analyze Privacy Risk",
+                        "description": "Whether to analyze potential privacy risks from email patterns and uniqueness.",
+                        "default": True
+                    },
                 },
                 "required": ["field_name"],
             },

@@ -25,17 +25,45 @@ class MVFAnalysisOperationConfig(OperationConfig):
 
     schema = {
         "type": "object",
+        "title": "MVF Analysis Operation Configuration",
+        "description": "Configuration schema for MVF profiling operations.",
         "allOf": [
             BaseOperationConfig.schema,  # merge shared base fields
             {
                 "type": "object",
                 "properties": {
                     # --- Operation-specific fields ---
-                    "field_name": {"type": "string"},
-                    "top_n": {"type": "integer", "minimum": 1, "default": 20},
-                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-                    "format_type": {"type": ["string", "null"], "default": None},
-                    "parse_kwargs": {"type": "object", "default": {}},
+                    "field_name": {
+                        "type": "string",
+                        "title": "Field Name",
+                        "description": "Name of the multi-valued field (column) to analyze. This should be a column in the DataFrame where each cell contains multiple values (e.g., a list, set, or delimited string)."
+                    },
+                    "top_n": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "default": 20,
+                        "title": "Top N Values",
+                        "description": "Number of most frequent values to include in the analysis results. Helps focus on the most common items in the multi-valued field."
+                    },
+                    "min_frequency": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "default": 1,
+                        "title": "Minimum Frequency",
+                        "description": "Minimum number of occurrences for a value to be included in the results. Values appearing fewer times will be excluded from the output."
+                    },
+                    "format_type": {
+                        "type": ["string", "null"],
+                        "default": None,
+                        "title": "Format Type",
+                        "description": "Format of the multi-valued field. Can specify how to parse the field (e.g., 'list', 'csv', 'json', or a custom delimiter). If null, auto-detection or default parsing is used."
+                    },
+                    "parse_kwargs": {
+                        "type": "object",
+                        "default": {},
+                        "title": "Parse Keyword Arguments",
+                        "description": "Additional keyword arguments for parsing the multi-valued field. Used to customize parsing logic, such as delimiter, quote character, or other options."
+                    },
                 },
                 "required": ["field_name"],
             },
