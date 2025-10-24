@@ -139,17 +139,6 @@ except Exception as e:
     print(f"Extraction failed: {e}")
 ```
 
-### Integration with BaseTask
-```python
-from pamola_core.utils.nlp.entity.transaction import TransactionPurposeExtractor
-from pamola_core.base_processor import BaseTask
-
-class TransactionTask(BaseTask):
-    def process(self, text):
-        extractor = TransactionPurposeExtractor()
-        return extractor._extract_with_ner(text, text.lower(), 'en')
-```
-
 ### Continue-on-Error Example
 ```python
 try:
