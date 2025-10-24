@@ -64,7 +64,7 @@ class RecordSuppressionConfig(OperationConfig):
                         "default": "_suppression_reason",
                     },
                     # Multi-field conditions
-                    "multi_conditions": {"type": ["array", "null"]},
+                    "multi_conditions": {"type": ["array", "null"], "items": {"type": "object"}},
                     "condition_logic": {"type": "string"},
                     # K-anonymity integration
                     "ka_risk_field": {"type": ["string", "null"]},
