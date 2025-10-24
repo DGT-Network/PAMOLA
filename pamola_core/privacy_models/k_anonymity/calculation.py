@@ -58,14 +58,12 @@ from pamola_core.privacy_models.k_anonymity.ka_reporting import (
 )
 from pamola_core.utils.io import write_json, write_csv
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
-from pamola_core.metrics__old_10072025.fidelity.statistical_fidelity import StatisticalFidelityMetric, calculate_fidelity_metrics
+from pamola_core.metrics.fidelity.statistical_fidelity import StatisticalFidelityMetric, calculate_fidelity_metrics
 # Import metrics modules
-from pamola_core.metrics__old_10072025.privacy.disclosure_risk import DisclosureRiskMetric, KAnonymityRiskMetric, \
-    calculate_disclosure_risk_metrics
-from pamola_core.metrics__old_10072025.utility.information_loss import InformationLossMetric, calculate_information_loss_metrics
+from pamola_core.metrics.privacy.disclosure_risk import DisclosureRiskMetric, KAnonymityRiskMetric, calculate_disclosure_risk_metrics
+from pamola_core.metrics.utility.information_loss import InformationLossMetric, calculate_information_loss_metrics
 from pamola_core.utils import progress
-from pamola_core.utils.group_processing import compute_group_sizes, adaptive_k_lookup, validate_anonymity_inputs, \
-    optimize_memory_usage
+from pamola_core.utils.group_processing import compute_group_sizes, adaptive_k_lookup, validate_anonymity_inputs, optimize_memory_usage
 
 # Visualization libraries
 
@@ -863,10 +861,10 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
 
             # Calculate k-anonymity metrics for both datasets
             ka_risk1 = KAnonymityRiskMetric(k_threshold=self.k)
-            ka_metrics1 = ka_risk1.calculate(dataset1, quasi_identifiers)
+            ka_metrics1 = ka_risk1.calculate_metric(dataset1, quasi_identifiers)
 
             ka_risk2 = KAnonymityRiskMetric(k_threshold=self.k)
-            ka_metrics2 = ka_risk2.calculate(dataset2, quasi_identifiers)
+            ka_metrics2 = ka_risk2.calculate_metric(dataset2, quasi_identifiers)
 
             # If original data is provided, calculate utility metrics
             utility_comparison = {}
@@ -874,10 +872,10 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             if isinstance(original_data, pd.DataFrame):  # Ensures correct type
                 logger.info("Calculating utility metrics for anonymized data")
                 info_loss1 = InformationLossMetric()
-                utility1 = info_loss1.calculate(original_data, dataset1)
+                utility1 = info_loss1.calculate_metric(original_data, dataset1)
 
                 info_loss2 = InformationLossMetric()
-                utility2 = info_loss2.calculate(original_data, dataset2)
+                utility2 = info_loss2.calculate_metric(original_data, dataset2)
 
                 utility_comparison = {
                     "dataset1": {

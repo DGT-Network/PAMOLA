@@ -24,13 +24,17 @@ NOTE: This module requires 'numpy', 'pandas', 'recordlinkage' and 'scikit-learn'
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
+from typing import Optional
 import numpy as np
 import pandas as pd
 import recordlinkage
-from sklearn.decomposition import PCA
+from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 from pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.utils import logging
 
+# Configure module logger
+logger = logging.get_logger(__name__)
 
 
 class LinkageAttack(PreprocessData):
@@ -39,7 +43,7 @@ class LinkageAttack(PreprocessData):
     This class extends PreprocessData and define methods linkage attack for attack simulation.
     """
 
-    def __init__(self, fs_threshold = None, n_components = 2):
+    def __init__(self, fs_threshold=None, n_components=2):
         """
         The constructor of the LinkageAttack class
 
@@ -52,8 +56,7 @@ class LinkageAttack(PreprocessData):
         self.fs_threshold = fs_threshold
         self.n_components = n_components
 
-
-    def record_linkage_attack(self, data1, data2, keys):
+    def record_linkage_attack(self, data1, data2, linkage_keys):
         """
         The record linkage attack function uses directly compare common columns of 2 datasets to find pairs of match records
 
@@ -61,33 +64,43 @@ class LinkageAttack(PreprocessData):
         -----------
         data1: First dataset
         data2: Second dataset
-        keys: List of properties to compare
+        linkage_keys: List of properties to compare
 
         Returns:
         -----------
         DataFrame contains pairs of records that matching between two datasets
         """
 
-        # Check that the datasets are valid
         if data1 is None or data2 is None:
             raise ValueError("Input datasets cannot be None.")
-    
-        data1_reset = data1.reset_index()
-        data2_reset = data2.reset_index()
 
-        # If keys = None -> find common columns between 2 datasets
-        if keys is None:
-            keys = list(set(data1_reset.columns) & set(data2_reset.columns))
+        # Reset index cleanly to avoid index column collision
+        df1 = data1.reset_index(drop=True)
+        df2 = data2.reset_index(drop=True)
 
-        if not keys:
+        # Determine linkage keys if not provided
+        if linkage_keys is None:
+            linkage_keys = list(set(df1.columns) & set(df2.columns))
+
+        if not linkage_keys:
+            logger.warning("No common linkage keys found between datasets.")
             return pd.DataFrame()
-    
-        matches = data1_reset.merge(data2_reset, on=keys, how='inner')
 
-        return matches
+        # Merge on linkage keys
+        linked_records = df1.merge(
+            df2, on=linkage_keys, how="inner", suffixes=("_data1", "_data2")
+        )
 
+        # Optional: warn about many-to-many matches
+        if linked_records.duplicated(subset=linkage_keys, keep=False).any():
+            logger.warning(
+                "Multiple matches detected for some linkage keys (1-n or n-m). "
+                "Review linkage quality."
+            )
 
-    def probabilistic_linkage_attack(self, data1, data2, keys = None):
+        return linked_records
+
+    def probabilistic_linkage_attack(self, data1, data2, keys=None):
         """
         The probabilistic linkage attack function uses the Fellegi-Sunter model to compare and link records from two datasets
 
@@ -101,95 +114,128 @@ class LinkageAttack(PreprocessData):
         -----------
         - DataFrame containing pairs of records matching the Fellegi-Sunter score between two datasets
         """
-
-        # Check that the datasets are valid
         if data1 is None or data2 is None:
             raise ValueError("Input datasets cannot be None.")
-        
-        # Ensure changes on data1 and data2 only occur on the copy. Converting all data to string and replace all null values to empty
-        data1 = data1.copy().astype(str).fillna("")
-        data2 = data2.copy().astype(str).fillna("")
 
-        # Initialize Indexer to create comparison pairs
+        # Determine keys if not provided
+        if keys is None:
+            keys = list(set(data1.columns) & set(data2.columns))
+        if not keys:
+            return pd.DataFrame()
+
+        # Keep only relevant columns
+        data1 = data1[keys].copy().astype(str).fillna("")
+        data2 = data2[keys].copy().astype(str).fillna("")
+
+        # Remove rows where all key values are empty
+        mask1 = data1.replace("", np.nan).notna().any(axis=1)
+        mask2 = data2.replace("", np.nan).notna().any(axis=1)
+        data1 = data1[mask1]
+        data2 = data2[mask2]
+
+        # Create candidate pairs via blocking
         indexer = recordlinkage.Index()
-
-        # Compare all possible pairs
-        # indexer.full()
-
-        # Compare only records with the same value on the keys
         for key in keys:
             indexer.block(key)
-
         candidate_links = indexer.index(data1, data2)
 
-        # Compare attributes using Fellegi-Sunter algorithm
+        # Fellegi–Sunter comparison
         compare = recordlinkage.Compare()
         for key in keys:
-            compare.string(key, key, method='jarowinkler', label=key)
-
+            compare.string(key, key, method="jarowinkler", label=key)
         features = compare.compute(candidate_links, data1, data2)
 
-        # Calculate the sum of the Fellegi-Sunter scores (Score) for each pair
-        features['Score'] = features.sum(axis=1)
+        # Compute normalized similarity score
+        features["similarity_score"] = features.sum(axis=1) / len(keys)
 
-        # If fs_threshold is None, determine fs_threshold based on len(keys) * 0.85
+        # Determine threshold if not provided
         if self.fs_threshold is None:
-            self.fs_threshold = len(keys) * 0.85
+            self.fs_threshold = 0.85
 
-        # Filter pairs with score greater than or equal to fs_threshold
-        matches = features[features['Score'] >= self.fs_threshold].reset_index()
+        # Filter matches
+        matches = features[
+            features["similarity_score"] >= self.fs_threshold
+        ].reset_index()
+
+        # Optional logging
+        logger.info(
+            f"Probabilistic linkage: {len(candidate_links)} candidate pairs, {len(matches)} matches found"
+        )
 
         return matches
 
-
-    def cluster_vector_linkage_attack(self, data1, data2):
+    def cluster_vector_linkage_attack(
+        self,
+        data1: pd.DataFrame,
+        data2: pd.DataFrame,
+        similarity_threshold: float = 0.8,
+    ) -> pd.DataFrame:
         """
-        Cluster-Vector Linkage Attack (CVPL) function using PCA & Cosine Similarity to compare and link records from two datasets
+        Cluster-Vector Linkage Attack (CVPLA) using TruncatedSVD & Cosine Similarity
+        to link records between two datasets based on their latent vector representations.
 
-        Parameters:
-        -----------
-        data1: First dataset
-        data2: Second dataset
+        Parameters
+        ----------
+        data1 : pd.DataFrame
+            First dataset (e.g., target dataset)
+        data2 : pd.DataFrame
+            Second dataset (e.g., external dataset)
+        similarity_threshold : float, optional (default=0.8)
+            Minimum cosine similarity score to consider a match.
 
-        Returns:
-        -----------
-        DataFrame containing pairs of records matching PCA score & Cosine Similarity between two datasets
+        Returns
+        -------
+        matches : pd.DataFrame
+            DataFrame with columns:
+            - ID_DF1: index in data1
+            - ID_DF2: index in data2
+            - Score: cosine similarity score
         """
-
-        # Check that the datasets are valid
+        # --- 1. Validate input ---
         if data1 is None or data2 is None:
             raise ValueError("Input datasets cannot be None.")
-        
-        data1_transform, data2_transform = self.preprocess_data(data1, data2)
+        if data1.empty or data2.empty:
+            return pd.DataFrame(columns=["ID_DF1", "ID_DF2", "Score"])
 
-        # Limit n_components to avoid PCA errors
-        self.n_components = min(self.n_components, data1_transform.shape[1], data2_transform.shape[1])
+        # --- 2. Preprocess data (TF-IDF + numeric) ---
+        data1_vec, data2_vec = self.preprocess_data(data1, data2)
 
-        # Normalize data by column (axis=0 -> column, 1e-8 -> avoid error when std = 0)
-        data1_transform = (data1_transform - data1_transform.mean(axis=0)) / (data1_transform.std(axis=0) + 1e-8)
-        data2_transform = (data2_transform - data2_transform.mean(axis=0)) / (data2_transform.std(axis=0) + 1e-8)
+        # --- 3. Normalize ---
+        def normalize(X):
+            return (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-8)
 
-        # Apply PCA to reduce data dimensionality
-        pca = PCA(n_components=self.n_components)
-        data1_pca = pca.fit_transform(data1_transform)
-        data2_pca = pca.transform(data2_transform)
+        data1_vec = normalize(data1_vec)
+        data2_vec = normalize(data2_vec)
 
-        # Calculate Cosine Similarity for two datasets data1 and data2
-        similarity_matrix = cosine_similarity(data1_pca, data2_pca)
+        # --- 4. Dimensionality reduction ---
+        n_components = min(self.n_components, data1_vec.shape[1], data2_vec.shape[1])
+        reducer = TruncatedSVD(n_components=n_components, random_state=42)
+        data1_reduced = reducer.fit_transform(data1_vec)
+        data2_reduced = reducer.transform(data2_vec)
 
-        # For each sample in data2, find the sample in data1 with the highest similarity
-        best_matches = np.argmax(similarity_matrix, axis=0)
+        # --- 5. Cosine similarity ---
+        similarity_matrix = cosine_similarity(data1_reduced, data2_reduced)
 
-        # Retrieve original IDs directly from data1 and data2 index
-        id_df1 = data1.index[best_matches].tolist()
-        id_df2 = data2.index.tolist()
+        # --- 6. Find best matches for each record in data2 ---
+        best_idx_in_data1 = np.argmax(similarity_matrix, axis=0)
+        best_scores = similarity_matrix[best_idx_in_data1, np.arange(len(data2))]
 
-        scores = similarity_matrix[best_matches, np.arange(len(data2))]
+        # --- 7. Build matches DataFrame ---
+        matches = pd.DataFrame(
+            {
+                "ID_DF1": data1.index[best_idx_in_data1],
+                "ID_DF2": data2.index,
+                "Score": best_scores,
+            }
+        )
 
-        matches = pd.DataFrame({
-            'ID_DF1': id_df1,
-            'ID_DF2': id_df2,
-            'Score': scores.round(6)
-        })
+        # --- 8. Filter by similarity threshold ---
+        matches = matches[matches["Score"] >= similarity_threshold]
+
+        # --- 9. Resolve duplicate ID_DF1 by keeping highest score ---
+        matches = matches.sort_values("Score", ascending=False)
+        matches = matches.drop_duplicates(subset=["ID_DF1"], keep="first").reset_index(
+            drop=True
+        )
 
         return matches

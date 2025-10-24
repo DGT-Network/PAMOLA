@@ -81,12 +81,13 @@ from pamola_core.anonymization.commons.visualization_utils import (
     sample_large_dataset,
 )
 from pamola_core.common.constants import Constants
+from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.utils.ops.op_base import BaseOperation
+from pamola_core.utils.ops.op_base import FieldOperation
 
 # Import framework utilities
 from pamola_core.utils.ops.op_cache import OperationCache
@@ -108,7 +109,7 @@ from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 
-class AnonymizationOperation(BaseOperation):
+class AnonymizationOperation(FieldOperation):
     """
     Base class for all anonymization operations with Dask support.
 
@@ -121,179 +122,74 @@ class AnonymizationOperation(BaseOperation):
     def __init__(
         self,
         field_name: str,
-        mode: str = "REPLACE",
-        output_field_name: Optional[str] = None,
-        column_prefix: str = "_",
-        null_strategy: str = "PRESERVE",
-        description: str = "",
-        # Conditional processing parameters
+        # Conditional parameters
         condition_field: Optional[str] = None,
-        condition_values: Optional[List] = None,
+        condition_values: Optional[List[Any]] = None,
         condition_operator: str = "in",
-        # Multi-field conditions
         multi_conditions: Optional[List[Dict[str, Any]]] = None,
         condition_logic: str = "AND",
-        # K-anonymity integration
+        # Risk-based anonymization
         ka_risk_field: Optional[str] = None,
         risk_threshold: float = 5.0,
         vulnerable_record_strategy: str = "suppress",
-        # Memory optimization
-        optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
-        # Specific parameters
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        dask_partition_size: Optional[str] = None,
-        use_vectorization: bool = False,
-        parallel_processes: Optional[int] = None,
-        use_cache: bool = True,
-        use_encryption: bool = False,
-        encryption_mode: Optional[str] = None,
-        encryption_key: Optional[Union[str, Path]] = None,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        output_format: str = "csv",
+        # Optional metadata
+        output_field_name: Optional[str] = None,
+        **kwargs,
     ):
         """
-        Initialize the anonymization operation with Dask support.
+        Initialize an anonymization operation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         field_name : str
-            Field to anonymize
-        mode : str, optional
-            "REPLACE" to modify the field in-place, or "ENRICH" to create a new field
+            Field to anonymize.
         output_field_name : str, optional
-            Name for the output field if mode is "ENRICH"
-        column_prefix : str, optional
-            Prefix for new column if mode is "ENRICH"
-        null_strategy : str, optional
-            How to handle NULL values: "PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"
-        description : str, optional
-            Operation description
+            Output field name if mode="ENRICH".
         condition_field : str, optional
-            Field to use for conditional processing
-        condition_values : List, optional
-            Values to match for conditional processing
+            Field to apply conditional anonymization.
+        condition_values : list, optional
+            Values to filter condition_field by.
         condition_operator : str, optional
-            Operator for condition matching: "in", "not_in", "gt", "lt", "eq", "range"
-        multi_conditions : List[Dict], optional
-            List of conditions for complex filtering
+            Operator for condition matching ("in", "eq", "gt", etc.).
+        multi_conditions : list of dict, optional
+            List of multiple filter conditions.
         condition_logic : str, optional
-            Logic to combine conditions: "AND" or "OR"
+            Logic to combine multiple conditions ("AND"/"OR").
         ka_risk_field : str, optional
-            Field containing k-anonymity risk scores
+            Field containing k-anonymity risk scores.
         risk_threshold : float, optional
-            Threshold for identifying vulnerable records (k < threshold)
+            Threshold under which records are considered vulnerable.
         vulnerable_record_strategy : str, optional
-            Strategy for handling vulnerable records
-        optimize_memory : bool, optional
-            Whether to optimize DataFrame memory usage
-        adaptive_chunk_size : bool, optional
-            Whether to adjust chunk size based on available memory
-        chunk_size : int, optional
-            Size of chunks for processing (default: 10000)
-        use_dask : bool, optional
-            Whether to use Dask for parallel processing (default: False)
-        npartitions : Optional[int], optional
-            Number of partitions to use with Dask (default: None)
-        dask_partition_size : Optional[str], optional
-            Size of Dask partitions (default: None, auto-determined)
-        use_vectorization : bool, optional
-            Whether to use vectorized operations (default: False)
-        parallel_processes : Optional[int], optional
-            Number of parallel processes to use (default: None)
-        use_cache : bool, optional
-            Whether to use operation caching (default: True)
-        use_encryption : bool, optional
-            Whether to encrypt output files (default: False)
-        encryption_key : str or Path, optional
-            The encryption key or path to a key file (default: None)
-        encryption_mode : Optional[str], optional
-            The encryption mode to use (default: None)
-        visualization_theme : Optional[str], optional
-            Theme for visualizations (default: None)
-        visualization_backend : Optional[str], optional
-            Backend for visualizations ("plotly" or "matplotlib", default: None)
-        visualization_strict : bool, optional
-            If True, raise exceptions for visualization config errors (default: False)
-        visualization_timeout : int, optional
-            Timeout for visualization generation in seconds (default: 120)
-        output_format : str, optional
-            Format for output files ("csv", "parquet", or "json", default: "csv")
+            Strategy for vulnerable records (e.g., "suppress", "mask").
+        **kwargs : dict
+            Additional parameters passed to :class:`FieldOperation`.
         """
-        # Use a default description if none provided
-        if not description:
-            description = f"Anonymization operation for field '{field_name}'"
-
-        # Initialize base class
-        super().__init__(
-            name=f"{field_name}_anonymization",
-            description=description,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
+        # Set default metadata if not provided
+        kwargs.setdefault("name", f"{field_name}_anonymization")
+        kwargs.setdefault(
+            "description", f"Anonymization operation applied to '{field_name}'"
         )
 
-        # Store basic parameters
-        self.field_name = field_name
-        self.mode = mode.upper()
-        self.output_field_name = output_field_name
-        self.column_prefix = column_prefix
-        self.null_strategy = null_strategy.upper()
-        self.chunk_size = chunk_size
-        self.use_cache = use_cache
-        self.use_dask = use_dask
-        self.npartitions = npartitions
-        self.dask_partition_size = dask_partition_size
-        self.use_vectorization = use_vectorization
-        self.parallel_processes = parallel_processes
-        self.use_encryption = use_encryption
-        self.encryption_key = encryption_key
-        self.encryption_mode = encryption_mode
-        self.visualization_theme = visualization_theme
-        self.visualization_backend = visualization_backend
-        self.visualization_strict = visualization_strict
-        self.visualization_timeout = visualization_timeout
-        self.output_format = output_format
-        self.version = getattr(
-            self, "version", "3.0.0"
-        )  # Updated version for visualization context support
+        # Initialize base FieldOperation (creates scope, sets output field name)
+        super().__init__(
+            field_name=field_name, output_field_name=output_field_name, **kwargs
+        )
 
-        # Conditional processing parameters
+        # Conditional anonymization config
         self.condition_field = condition_field
         self.condition_values = condition_values
         self.condition_operator = condition_operator
         self.multi_conditions = multi_conditions
         self.condition_logic = condition_logic
 
-        # K-anonymity parameters
+        # Risk-based anonymization config
         self.ka_risk_field = ka_risk_field
         self.risk_threshold = risk_threshold
         self.vulnerable_record_strategy = vulnerable_record_strategy
 
-        # Memory optimization parameters
-        self.optimize_memory = optimize_memory
-        self.adaptive_chunk_size = adaptive_chunk_size
-        self.original_chunk_size = chunk_size
-
-        # Performance tracking
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
-
-        # Set up common variables
-        self.force_recalculation = False  # Skip cache check
-        self.generate_visualization = True  # Create visualizations
-        self.save_output = True  # Save processed data to output directory
-        self.process_kwargs = {}
+        # Set up common variables & placeholder for filtering
+        self.process_kwargs: Dict[str, Any] = {}
         self.filter_mask = pd.Series(True, index=pd.Index([]))
-
-        # Initialize logger
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
     def execute(
         self,
@@ -317,7 +213,7 @@ class AnonymizationOperation(BaseOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters including profiling_results
+            Additional parameters for the operation
 
         Returns:
         --------
@@ -329,7 +225,7 @@ class AnonymizationOperation(BaseOperation):
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
             self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-            self.process_count = 0
+
             df = None
 
             # Initialize result object
@@ -351,25 +247,8 @@ class AnonymizationOperation(BaseOperation):
             # Save operation configuration
             self.save_config(task_dir)
 
-            # Decompose kwargs and introduce variables for clarity
-            self.generate_visualization = kwargs.get("generate_visualization", True)
-            self.save_output = kwargs.get("save_output", True)
-            self.force_recalculation = kwargs.get("force_recalculation", False)
+            # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
-
-            # Extract visualization parameters
-            self.visualization_theme = kwargs.get(
-                "visualization_theme", self.visualization_theme
-            )
-            self.visualization_backend = kwargs.get(
-                "visualization_backend", self.visualization_backend
-            )
-            self.visualization_strict = kwargs.get(
-                "visualization_strict", self.visualization_strict
-            )
-            self.visualization_timeout = kwargs.get(
-                "visualization_timeout", self.visualization_timeout
-            )
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -501,6 +380,11 @@ class AnonymizationOperation(BaseOperation):
                 )
 
             try:
+                # Normalize integer dtype if required
+                df[self.field_name] = DataHelper.normalize_int_dtype_vectorized(
+                    df[self.field_name], safe_mode=False
+                )
+
                 # Copy original data for processing
                 original_data = df[self.field_name].copy(deep=True)
 
@@ -521,19 +405,27 @@ class AnonymizationOperation(BaseOperation):
                 # Apply conditional filtering
                 self.filter_mask, filtered_df = self._apply_conditional_filtering(df)
 
+                # Process the filtered data only if not empty
+                if not filtered_df.empty:
+                    # Process the filtered data
+                    is_use_batch_dask = hasattr(self, "process_batch_dask")
+                    processed_df = self._process_data_with_config(
+                        df=filtered_df,
+                        is_use_batch_dask=is_use_batch_dask,
+                        progress_tracker=data_tracker,
+                    )
+                else:
+                    self.logger.warning(
+                        "Filtered DataFrame is empty. Skipping _process_data_with_config."
+                    )
+                    processed_df = df.copy(deep=True)
+                    processed_df[self.output_field_name] = original_data
+
                 # Handle vulnerable records if k-anonymity is enabled
                 if self.ka_risk_field and self.ka_risk_field in df.columns:
-                    filtered_df = self._handle_vulnerable_records(
-                        filtered_df, self.output_field_name
+                    processed_df = self._handle_vulnerable_records(
+                        processed_df, self.output_field_name
                     )
-
-                # Process the filtered data
-                is_use_batch_dask = hasattr(self, "process_batch_dask")
-                processed_df = self._process_data_with_config(
-                    df=filtered_df,
-                    is_use_batch_dask=is_use_batch_dask,
-                    progress_tracker=data_tracker,
-                )
 
                 # Get the anonymized data
                 anonymized_data = processed_df[self.output_field_name]
@@ -903,7 +795,7 @@ class AnonymizationOperation(BaseOperation):
                     "output_field": output_field,
                     "mode": self.mode,
                     "null_strategy": self.null_strategy,
-                    "operation_type": self.__class__.__name__,
+                    "operation_type": self.operation_name,
                 },
             )
 
@@ -1540,7 +1432,7 @@ class AnonymizationOperation(BaseOperation):
                 anonymized_data=anonymized_for_viz,
                 task_dir=viz_dir,
                 field_name=self.field_name,
-                operation_name=self.__class__.__name__,
+                operation_name=self.operation_name,
                 timestamp=timestamp,
                 theme=vis_theme,
                 backend=vis_backend,
@@ -1558,7 +1450,7 @@ class AnonymizationOperation(BaseOperation):
                 metric_data=metric_data,
                 task_dir=viz_dir,
                 field_name=self.field_name,
-                operation_name=self.__class__.__name__,
+                operation_name=self.operation_name,
                 timestamp=timestamp,
                 theme=vis_theme,
                 backend=vis_backend,
@@ -1615,8 +1507,7 @@ class AnonymizationOperation(BaseOperation):
             progress_tracker.update(0, {"step": "Saving output data"})
 
         # Generate standardized output filename with timestamp
-        operation_name = self.__class__.__name__
-        field_name_output = f"{self.field_name}_{operation_name}_output_{timestamp}"
+        field_name_output = f"{self.field_name}_{self.operation_name}_output_{timestamp}"
 
         # Use the DataWriter to save the DataFrame
         safe_kwargs = filter_used_kwargs(kwargs, writer.write_dataframe)
@@ -1842,7 +1733,7 @@ class AnonymizationOperation(BaseOperation):
             self.logger.debug(f"Checking cache for key: {cache_key}")
 
             cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             if not cached_result:
@@ -2078,7 +1969,7 @@ class AnonymizationOperation(BaseOperation):
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -2122,7 +2013,7 @@ class AnonymizationOperation(BaseOperation):
 
         # Use the operation_cache utility to generate a consistent cache key
         return self.operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
+            operation_name=self.operation_name,
             parameters=parameters,
             data_hash=data_hash,
         )

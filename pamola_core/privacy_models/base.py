@@ -41,9 +41,8 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 # Required libraries
 from abc import ABC, abstractmethod
 import pandas as pd
-from pamola_core.base_processor import BaseProcessor
 
-class BasePrivacyModelProcessor(BaseProcessor, ABC):
+class BasePrivacyModelProcessor(ABC):
     """
     Abstract base class for anonymization model processors in PAMOLA.CORE.
     This class enforces a standardized interface for anonymization evaluation

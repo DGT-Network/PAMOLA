@@ -10,6 +10,7 @@ import json
 import logging
 import os
 from typing import List, Set, Optional, Union, Tuple, Dict
+import zipfile
 
 from pamola_core.utils.nlp.base import normalize_language_code
 from pamola_core.utils.nlp.cache import get_cache, cache_function
@@ -31,12 +32,17 @@ if _NLTK_AVAILABLE:
 
 
         def _ensure_nltk_resources():
-            """Ensure NLTK resources are available."""
+            """Ensure NLTK stopwords resource is available and not corrupted."""
             try:
-                nltk.data.find('corpora/stopwords')
-            except LookupError:
-                logger.info("Downloading NLTK stopwords")
-                nltk.download('stopwords', quiet=True)
+                try:
+                    nltk.data.find('corpora/stopwords')
+                    logger.debug("NLTK stopwords corpus found and valid.")
+                except (LookupError, zipfile.BadZipFile):
+                    logger.info("Downloading or re-downloading NLTK 'stopwords'...")
+                    nltk.download('stopwords', quiet=True, force=True)
+                    logger.info("NLTK 'stopwords' downloaded successfully.")
+            except Exception as e:
+                logger.warning(f"Error ensuring NLTK stopwords: {e}")
 
 
         _ensure_nltk_resources()

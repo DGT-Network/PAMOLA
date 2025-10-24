@@ -21,6 +21,7 @@ Key features:
 """
 
 import logging
+import zipfile
 import re
 import string
 from abc import ABC, abstractmethod
@@ -82,15 +83,15 @@ if _NLTK_AVAILABLE:
             # Ensure NLTK resources (punkt, wordnet) are available
             try:
                 nltk.data.find('tokenizers/punkt')
-            except LookupError:
-                logger.info("Downloading NLTK 'punkt' resource.")
-                nltk.download('punkt', quiet=True)
+            except (LookupError, zipfile.BadZipFile):
+                logger.info("Re-downloading corrupted NLTK 'punkt' resource.")
+                nltk.download('punkt', quiet=True, force=True)
 
             try:
                 nltk.data.find('corpora/wordnet')
-            except LookupError:
-                logger.info("Downloading NLTK 'wordnet' resource.")
-                nltk.download('wordnet', quiet=True)
+            except (LookupError, zipfile.BadZipFile):
+                logger.info("Re-downloading corrupted NLTK 'wordnet' resource.")
+                nltk.download('wordnet', quiet=True, force=True)
 
             _LEMMATIZERS['en'] = WordNetLemmatizer()
             logger.debug("Initialized NLTK WordNetLemmatizer for English")
@@ -198,9 +199,11 @@ class NGramExtractor:
                         from nltk.corpus import stopwords
                         try:
                             nltk.data.find('corpora/stopwords')
-                        except LookupError:
-                            logger.info("Downloading NLTK 'stopwords' resource.")
-                            nltk.download('stopwords', quiet=True)
+                            logger.debug("NLTK stopwords corpus found and valid.")
+                        except (LookupError, zipfile.BadZipFile):
+                            logger.info("Downloading or re-downloading NLTK 'stopwords'...")
+                            nltk.download('stopwords', quiet=True, force=True)
+                            logger.info("NLTK 'stopwords' downloaded successfully.")
 
                         normalized_lang = normalize_language_code(self.language)
                         lang_map = {

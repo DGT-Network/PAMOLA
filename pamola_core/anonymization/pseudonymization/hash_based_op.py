@@ -122,7 +122,7 @@ from pamola_core.utils.ops.op_field_utils import (
     create_composite_key,
     generate_output_field_name,
 )
-from pamola_core.utils.ops.op_registry import register_operation
+from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
@@ -197,6 +197,7 @@ class HashBasedPseudonymizationConfig(OperationConfig):
     }
 
 
+@register(version="1.0.0")
 class HashBasedPseudonymizationOperation(AnonymizationOperation):
     """
     Hash-based pseudonymization operation for irreversible data transformation.
@@ -1098,10 +1099,6 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
         params["use_pepper"] = bool(self.use_pepper)
 
         return params
-
-
-# Register the operation
-register_operation(HashBasedPseudonymizationOperation)
 
 
 # Factory function

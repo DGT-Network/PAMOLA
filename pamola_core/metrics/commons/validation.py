@@ -34,6 +34,7 @@ Dependencies:
 from typing import List, Optional
 import pandas as pd
 from dataclasses import dataclass
+import numpy as np
 
 
 @dataclass
@@ -166,3 +167,27 @@ def validate_epsilon(epsilon: float) -> float:
     if epsilon < 0:
         raise ValueError(f"epsilon must be non-negative, got {epsilon}")
     return epsilon
+
+def validate_dataframe(df: pd.DataFrame) -> None:
+    """
+    Validate dataframe for:
+    - Missing (NaN) values
+    - Infinite (inf/-inf) values
+    - Blank (empty string) values
+    Raises ValueError if invalid data found.
+    """
+    # Missing
+    null_cols = df.columns[df.isna().any()].tolist()
+    if null_cols:
+        raise ValueError(f"Dataset contains missing (NaN) values at columns: {null_cols}.")
+
+    # Infinite
+    num_df = df.select_dtypes(include=[np.number])
+    inf_cols = num_df.columns[~np.isfinite(num_df).all()].tolist()
+    if inf_cols:
+        raise ValueError(f"Dataset contains inf/-inf values at columns: {inf_cols}.")
+
+    # Blank string
+    str_df = df.select_dtypes(include=["object", "string"])
+    if not str_df.empty and (str_df.apply(lambda s: s.astype(str).str.strip().eq("")).any().any()):
+        raise ValueError(f"Dataset contains blank (empty string) values.")

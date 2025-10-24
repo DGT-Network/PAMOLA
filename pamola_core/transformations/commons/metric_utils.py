@@ -1139,7 +1139,7 @@ def save_metrics_json(
     field_name: str,
     writer: Optional[DataWriter] = None,
     progress_tracker: Optional[HierarchicalProgressTracker] = None,
-    encrypt_output: bool = False,
+    use_encryption: bool = False,
 ) -> Path:
     """
     Save metrics to a JSON file using DataWriter if available, otherwise direct file write.
@@ -1158,8 +1158,8 @@ def save_metrics_json(
         DataWriter instance to use for saving
     progress_tracker : Optional[HierarchicalProgressTracker]
         Progress tracker for the operation
-    encrypt_output : bool, optional
-        Whether to encrypt output file (default: False)
+    use_encryption : bool, optional
+        Whether to use encryption when saving the file (default is False)
 
     Returns:
     --------
@@ -1193,7 +1193,7 @@ def save_metrics_json(
     if writer:
         try:
             encryption_key = None
-            if encrypt_output:
+            if use_encryption:
                 encryption_key = f"{field_name}_{timestamp}_key"
 
             # Use DataWriter to save metrics
@@ -1228,7 +1228,7 @@ def save_metrics_json(
             ensure_ascii=False,
             convert_numpy=True,
             encryption_key=(
-                None if not encrypt_output else f"{field_name}_{timestamp}_key"
+                None if not use_encryption else f"{field_name}_{timestamp}_key"
             ),
         )
 

@@ -28,15 +28,14 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 import logging
 from typing import Dict, List, Optional, Any
-
-from pamola_core.metrics.base import PrivacyMetric, round_metric_values
-from pamola_core.utils__old_15_04.group_processing import compute_group_sizes
+from pamola_core.metrics.commons.normalize import round_metric_values
+from pamola_core.utils.group_processing import compute_group_sizes
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class DisclosureRiskMetric(PrivacyMetric):
+class DisclosureRiskMetric:
     """
     Calculates disclosure risk metrics for a dataset based on quasi-identifiers.
 
@@ -58,16 +57,20 @@ class DisclosureRiskMetric(PrivacyMetric):
         risk_threshold : float, optional
             Threshold percentage above which records are considered at risk (default: 5.0%).
         """
-        super().__init__(
-            name="Disclosure Risk",
-            description="Measures the risk of re-identifying individuals in the dataset"
+        self.name = "Disclosure Risk"
+        self.description = (
+            "Measures the risk of re-identifying individuals in the dataset"
         )
         self.risk_threshold = risk_threshold
+        self.last_result = {}
 
-    def calculate(self, data: pd.DataFrame,
-                  quasi_identifiers: List[str],
-                  k_column: Optional[str] = None,
-                  **kwargs) -> Dict[str, Any]:
+    def calculate_metric(
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        k_column: Optional[str] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Calculate disclosure risk metrics for a dataset.
 
@@ -92,7 +95,9 @@ class DisclosureRiskMetric(PrivacyMetric):
             - "records_at_risk": Number of records with risk above threshold
             - "percent_at_risk": Percentage of records at risk
         """
-        logger.info(f"Calculating disclosure risk for {len(quasi_identifiers)} quasi-identifiers")
+        logger.info(
+            f"Calculating disclosure risk for {len(quasi_identifiers)} quasi-identifiers"
+        )
 
         try:
             # If k-column is provided, use it directly
@@ -100,15 +105,16 @@ class DisclosureRiskMetric(PrivacyMetric):
                 k_values = data[k_column]
             else:
                 # Calculate group sizes
-                group_sizes = compute_group_sizes(data, quasi_identifiers,
-                                                  kwargs.get('use_dask', False))
+                group_sizes = compute_group_sizes(
+                    data, quasi_identifiers, kwargs.get("use_dask", False)
+                )
 
                 # Merge with original data to get k-values for each record
                 k_values = data.merge(
-                    group_sizes.rename('k_value'),
+                    group_sizes.rename("k_value"),
                     left_on=quasi_identifiers,
-                    right_index=True
-                )['k_value']
+                    right_index=True,
+                )["k_value"]
 
             # Calculate prosecutor risk (maximum re-identification risk)
             # This is 1/k for the smallest group
@@ -124,7 +130,9 @@ class DisclosureRiskMetric(PrivacyMetric):
 
             # Calculate marketer risk (proportion of unique records)
             # This is the percentage of records that are unique (k=1)
-            marketer_risk = 100 * (k_values == 1).sum() / len(data) if len(data) > 0 else 0
+            marketer_risk = (
+                100 * (k_values == 1).sum() / len(data) if len(data) > 0 else 0
+            )
 
             # Calculate records at risk (using the risk threshold)
             risk_threshold_k = 100 / self.risk_threshold
@@ -139,7 +147,7 @@ class DisclosureRiskMetric(PrivacyMetric):
                 "records_at_risk": int(records_at_risk),
                 "percent_at_risk": percent_at_risk,
                 "risk_threshold": self.risk_threshold,
-                "min_k": min_k
+                "min_k": min_k,
             }
 
             # Round numeric values for readability
@@ -148,7 +156,9 @@ class DisclosureRiskMetric(PrivacyMetric):
             # Store the result
             self.last_result = result
 
-            logger.info(f"Disclosure risk analysis: Prosecutor risk = {prosecutor_risk:.2f}%")
+            logger.info(
+                f"Disclosure risk analysis: Prosecutor risk = {prosecutor_risk:.2f}%"
+            )
             return result
 
         except Exception as e:
@@ -181,7 +191,7 @@ class DisclosureRiskMetric(PrivacyMetric):
             return f"Disclosure Risk: {value:.2f}% - Very high risk, significant privacy concerns"
 
 
-class KAnonymityRiskMetric(PrivacyMetric):
+class KAnonymityRiskMetric:
     """
     Specialized disclosure risk metric based on k-anonymity properties.
 
@@ -199,15 +209,16 @@ class KAnonymityRiskMetric(PrivacyMetric):
         k_threshold : int, optional
             The minimum k value considered acceptable (default: 5).
         """
-        super().__init__(
-            name="k-Anonymity Risk",
-            description="Measures re-identification risk based on k-anonymity principles"
+        self.name = "k-Anonymity Risk"
+        self.description = (
+            "Measures re-identification risk based on k-anonymity principles"
         )
         self.k_threshold = k_threshold
+        self.last_result = {}
 
-    def calculate(self, data: pd.DataFrame,
-                  quasi_identifiers: List[str],
-                  **kwargs) -> Dict[str, Any]:
+    def calculate_metric(
+        self, data: pd.DataFrame, quasi_identifiers: List[str], **kwargs
+    ) -> Dict[str, Any]:
         """
         Calculate k-anonymity based risk metrics.
 
@@ -230,12 +241,15 @@ class KAnonymityRiskMetric(PrivacyMetric):
             - "records_in_small_groups": Number of records in groups with k below threshold
             - "k_distribution": Distribution of group sizes (optional)
         """
-        logger.info(f"Calculating k-anonymity risk for {len(quasi_identifiers)} quasi-identifiers")
+        logger.info(
+            f"Calculating k-anonymity risk for {len(quasi_identifiers)} quasi-identifiers"
+        )
 
         try:
             # Calculate group sizes
-            group_sizes = compute_group_sizes(data, quasi_identifiers,
-                                              kwargs.get('use_dask', False))
+            group_sizes = compute_group_sizes(
+                data, quasi_identifiers, kwargs.get("use_dask", False)
+            )
 
             # Calculate basic metrics
             min_k = group_sizes.min()
@@ -250,11 +264,15 @@ class KAnonymityRiskMetric(PrivacyMetric):
                 "k_threshold": self.k_threshold,
                 "groups_below_threshold": int(groups_below_threshold),
                 "records_in_small_groups": int(records_in_small_groups),
-                "percent_records_at_risk": round(100 * records_in_small_groups / len(data), 2) if len(data) > 0 else 0
+                "percent_records_at_risk": (
+                    round(100 * records_in_small_groups / len(data), 2)
+                    if len(data) > 0
+                    else 0
+                ),
             }
 
             # Add detailed k-distribution if requested
-            if kwargs.get('detailed', False):
+            if kwargs.get("detailed", False):
                 # Get distribution of group sizes
                 k_distribution = group_sizes.value_counts().sort_index().to_dict()
                 result["k_distribution"] = k_distribution
@@ -265,7 +283,9 @@ class KAnonymityRiskMetric(PrivacyMetric):
             # Store the result
             self.last_result = result
 
-            logger.info(f"k-Anonymity risk analysis: Minimum k = {min_k}, Compliant = {compliant}")
+            logger.info(
+                f"k-Anonymity risk analysis: Minimum k = {min_k}, Compliant = {compliant}"
+            )
             return result
 
         except Exception as e:
@@ -298,7 +318,7 @@ class KAnonymityRiskMetric(PrivacyMetric):
             return f"k-Anonymity: k={value} - Very strong anonymity, excellent privacy protection"
 
 
-class LDiversityRiskMetric(PrivacyMetric):
+class LDiversityRiskMetric:
     """
     Basic l-diversity risk metric implementation.
 
@@ -308,7 +328,12 @@ class LDiversityRiskMetric(PrivacyMetric):
     risk assessment.
     """
 
-    def __init__(self, l_threshold: int = 3, diversity_type: str = "distinct", c_value: float = 1.0):
+    def __init__(
+        self,
+        l_threshold: int = 3,
+        diversity_type: str = "distinct",
+        c_value: float = 1.0,
+    ):
         """
         Initialize the basic l-diversity risk metric.
 
@@ -321,18 +346,22 @@ class LDiversityRiskMetric(PrivacyMetric):
         c_value : float, optional
             Parameter for recursive (c,l)-diversity (default: 1.0).
         """
-        super().__init__(
-            name="l-Diversity Risk",
-            description="Measures attribute disclosure risk based on l-diversity principles"
+        self.name = "l-Diversity Risk"
+        self.description = (
+            "Measures attribute disclosure risk based on l-diversity principles"
         )
         self.l_threshold = l_threshold
         self.diversity_type = diversity_type
         self.c_value = c_value
+        self.last_result = {}
 
-    def calculate(self, data: pd.DataFrame,
-                  quasi_identifiers: List[str],
-                  sensitive_attributes: List[str],
-                  **kwargs) -> Dict[str, Any]:
+    def calculate_metric(
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str],
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Calculate l-diversity based risk metrics.
 
@@ -356,38 +385,29 @@ class LDiversityRiskMetric(PrivacyMetric):
             Dictionary with l-diversity risk metrics.
         """
         try:
-            # Import the specialized metric from ldiversity_risk module
-            # from pamola_core.metrics.privacy.ldiversity_risk import LDiversityRiskMetric as SpecializedLDiversityRiskMetric
-
-            # # Create an instance of the specialized metric
-            # specialized_metric = SpecializedLDiversityRiskMetric(
-            #     l_threshold=self.l_threshold,
-            #     diversity_type=self.diversity_type,
-            #     c_value=self.c_value
-            # )
-
-            # # Calculate and return the result
-            # result = specialized_metric.calculate(
-            #     data=data,
-            #     quasi_identifiers=quasi_identifiers,
-            #     sensitive_attributes=sensitive_attributes,
-            #     **kwargs
-            # )
-            result = {}
-            # Store the result
-            self.last_result = result
+            # Calculate and return the result
+            result = self._calculate_basic(
+                data, quasi_identifiers, sensitive_attributes, **kwargs
+            )
 
             return result
 
         except ImportError:
             # Fallback to basic implementation if specialized module is not available
-            logger.warning("Specialized ldiversity_risk module not available. Using basic implementation.")
-            return self._calculate_basic(data, quasi_identifiers, sensitive_attributes, **kwargs)
+            logger.warning(
+                "Specialized ldiversity_risk module not available. Using basic implementation."
+            )
+            return self._calculate_basic(
+                data, quasi_identifiers, sensitive_attributes, **kwargs
+            )
 
-    def _calculate_basic(self, data: pd.DataFrame,
-                         quasi_identifiers: List[str],
-                         sensitive_attributes: List[str],
-                         **kwargs) -> Dict[str, Any]:
+    def _calculate_basic(
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        sensitive_attributes: List[str],
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Basic implementation of l-diversity risk calculation.
 
@@ -410,7 +430,9 @@ class LDiversityRiskMetric(PrivacyMetric):
         dict
             Dictionary with basic l-diversity risk metrics.
         """
-        logger.info(f"Calculating basic l-diversity risk for {len(sensitive_attributes)} sensitive attributes")
+        logger.info(
+            f"Calculating basic l-diversity risk for {len(sensitive_attributes)} sensitive attributes"
+        )
 
         try:
             # Calculate group sizes based on quasi-identifiers
@@ -425,7 +447,9 @@ class LDiversityRiskMetric(PrivacyMetric):
             for attribute in sensitive_attributes:
                 # Skip if attribute not in data
                 if attribute not in data.columns:
-                    logger.warning(f"Sensitive attribute '{attribute}' not found in dataset")
+                    logger.warning(
+                        f"Sensitive attribute '{attribute}' not found in dataset"
+                    )
                     continue
 
                 # Calculate distinct values per group for this attribute
@@ -435,13 +459,15 @@ class LDiversityRiskMetric(PrivacyMetric):
 
                 # Count groups below threshold
                 below_threshold_count = (l_values < self.l_threshold).sum()
-                groups_below_threshold = max(groups_below_threshold, below_threshold_count)
+                groups_below_threshold = max(
+                    groups_below_threshold, below_threshold_count
+                )
 
                 # Store diversity information for this attribute
                 attribute_diversity[attribute] = {
                     "min_l": min_l,
                     "compliant": min_l >= self.l_threshold,
-                    "groups_below_threshold": int(below_threshold_count)
+                    "groups_below_threshold": int(below_threshold_count),
                 }
 
             # Overall compliance is the minimum l-value across all attributes
@@ -454,7 +480,7 @@ class LDiversityRiskMetric(PrivacyMetric):
                 "compliant": compliant,
                 "l_threshold": self.l_threshold,
                 "groups_below_threshold": int(groups_below_threshold),
-                "attribute_diversity": attribute_diversity
+                "attribute_diversity": attribute_diversity,
             }
 
             # Round numeric values for readability
@@ -463,7 +489,9 @@ class LDiversityRiskMetric(PrivacyMetric):
             # Store the result
             self.last_result = result
 
-            logger.info(f"Basic l-Diversity risk analysis: Minimum l = {min_l}, Compliant = {compliant}")
+            logger.info(
+                f"Basic l-Diversity risk analysis: Minimum l = {min_l}, Compliant = {compliant}"
+            )
             return result
 
         except Exception as e:
@@ -485,7 +513,9 @@ class LDiversityRiskMetric(PrivacyMetric):
             Human-readable interpretation of the l-diversity level.
         """
         if value < 2:
-            return f"l-Diversity: l={value} - No diversity, high attribute disclosure risk"
+            return (
+                f"l-Diversity: l={value} - No diversity, high attribute disclosure risk"
+            )
         elif value < self.l_threshold:
             return f"l-Diversity: l={value} - Insufficient diversity, below recommended threshold of {self.l_threshold}"
         elif value < 5:
@@ -497,10 +527,12 @@ class LDiversityRiskMetric(PrivacyMetric):
 
 
 # Convenience function for calculating all disclosure risk metrics
-def calculate_disclosure_risk_metrics(data: pd.DataFrame,
-                                      quasi_identifiers: List[str],
-                                      sensitive_attributes: Optional[List[str]] = None,
-                                      **kwargs) -> Dict[str, Dict[str, Any]]:
+def calculate_disclosure_risk_metrics(
+    data: pd.DataFrame,
+    quasi_identifiers: List[str],
+    sensitive_attributes: Optional[List[str]] = None,
+    **kwargs,
+) -> Dict[str, Dict[str, Any]]:
     """
     Calculate multiple disclosure risk metrics for a dataset.
 
@@ -533,58 +565,47 @@ def calculate_disclosure_risk_metrics(data: pd.DataFrame,
 
     # Calculate general disclosure risk
     disclosure_risk = DisclosureRiskMetric(
-        risk_threshold=kwargs.get('risk_threshold', 5.0)
+        risk_threshold=kwargs.get("risk_threshold", 5.0)
     )
-    results["disclosure_risk"] = disclosure_risk.calculate(
-        data, quasi_identifiers, kwargs.get('k_column')
+    results["disclosure_risk"] = disclosure_risk.calculate_metric(
+        data, quasi_identifiers, kwargs.get("k_column")
     )
 
     # Calculate k-anonymity risk
-    k_risk = KAnonymityRiskMetric(
-        k_threshold=kwargs.get('k_threshold', 5)
-    )
-    results["k_anonymity_risk"] = k_risk.calculate(
-        data, quasi_identifiers, detailed=kwargs.get('detailed', False)
+    k_risk = KAnonymityRiskMetric(k_threshold=kwargs.get("k_threshold", 5))
+    results["k_anonymity_risk"] = k_risk.calculate_metric(
+        data, quasi_identifiers, detailed=kwargs.get("detailed", False)
     )
 
     # Calculate l-diversity risk if sensitive attributes are provided
     if sensitive_attributes:
         # Try to use specialized metrics from ldiversity_risk module
         try:
-            # from pamola_core.metrics.privacy.ldiversity_risk import calculate_ldiversity_risk_metrics
+            l_risk = LDiversityRiskMetric(
+                l_threshold=l_threshold, diversity_type=diversity_type, c_value=c_value
+            )
 
-            # # Use the specialized function for l-diversity risk metrics
-            # ldiversity_results = calculate_ldiversity_risk_metrics(
-            #     data=data,
-            #     quasi_identifiers=quasi_identifiers,
-            #     sensitive_attributes=sensitive_attributes,
-            #     **kwargs
-            # )
-
-            ldiversity_results = {}
-            # Merge results
-            results.update(ldiversity_results)
+            results["l_diversity_risk"] = l_risk.calculate_metric(
+                data, quasi_identifiers, sensitive_attributes, **kwargs
+            )
 
         except ImportError:
             # Fallback to basic implementation
-            logger.warning("Specialized ldiversity_risk module not available. Using basic implementation.")
-
-            # Extract l-diversity specific parameters
-            diversity_type = kwargs.get('diversity_type', 'distinct')
-            l_threshold = kwargs.get('l_threshold', 3)
-            c_value = kwargs.get('c_value', 1.0)
-
-            l_risk = LDiversityRiskMetric(
-                l_threshold=l_threshold,
-                diversity_type=diversity_type,
-                c_value=c_value
+            logger.warning(
+                "Specialized ldiversity_risk module not available. Using basic implementation."
             )
 
-            results["l_diversity_risk"] = l_risk.calculate(
-                data,
-                quasi_identifiers,
-                sensitive_attributes,
-                **kwargs
+            # Extract l-diversity specific parameters
+            diversity_type = kwargs.get("diversity_type", "distinct")
+            l_threshold = kwargs.get("l_threshold", 3)
+            c_value = kwargs.get("c_value", 1.0)
+
+            l_risk = LDiversityRiskMetric(
+                l_threshold=l_threshold, diversity_type=diversity_type, c_value=c_value
+            )
+
+            results["l_diversity_risk"] = l_risk.calculate_metric(
+                data, quasi_identifiers, sensitive_attributes, **kwargs
             )
 
     return results

@@ -43,9 +43,9 @@ class MyOperationConfig(OperationConfig):
             # TODO: Add your operation-specific parameters here
             "column_name": {"type": "string"},
             "threshold": {"type": "number", "minimum": 0, "maximum": 1.0},
-            "output_suffix": {"type": "string"}
+            "output_suffix": {"type": "string"},
         },
-        "required": ["operation_name", "version", "column_name"]
+        "required": ["operation_name", "version", "column_name"],
     }
 
 
@@ -56,14 +56,16 @@ class MyOperation(BaseOperation):
     This class implements [DESCRIBE WHAT THE OPERATION DOES].
     """
 
-    def __init__(self,
-                 name: str = "my_operation",
-                 description: str = "My custom operation",
-                 column_name: str = None,
-                 threshold: float = 0.5,
-                 output_suffix: str = "_processed",
-                 use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None):
+    def __init__(
+        self,
+        name: str = "my_operation",
+        description: str = "My custom operation",
+        column_name: str = None,
+        threshold: float = 0.5,
+        output_suffix: str = "_processed",
+        use_encryption: bool = False,
+        encryption_key: Optional[Union[str, Path]] = None,
+    ):
         """
         Initialize the operation.
 
@@ -88,7 +90,7 @@ class MyOperation(BaseOperation):
             name=name,
             description=description,
             use_encryption=use_encryption,
-            encryption_key=encryption_key
+            encryption_key=encryption_key,
         )
 
         # Store operation-specific parameters
@@ -102,12 +104,14 @@ class MyOperation(BaseOperation):
         # Initialize logger
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
 
-    def execute(self,
-                data_source: DataSource,
-                task_dir: Path,
-                reporter: Any,
-                progress_tracker: Optional[ProgressTracker] = None,
-                **kwargs) -> OperationResult:
+    def execute(
+        self,
+        data_source: DataSource,
+        task_dir: Path,
+        reporter: Any,
+        progress_tracker: Optional[ProgressTracker] = None,
+        **kwargs,
+    ) -> OperationResult:
         """
         Execute the operation.
 
@@ -129,16 +133,18 @@ class MyOperation(BaseOperation):
         OperationResult
             Results of the operation
         """
-        self.logger.info(f"Starting {self.name} operation")
-
-        # 1. Create result and writer objects
-        result = OperationResult(status=OperationStatus.PENDING)
-        writer = DataWriter(task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker)
-
-        # 2. Save operation configuration
-        self.save_config(task_dir)
-
         try:
+            self.logger.info(f"Starting {self.name} operation")
+
+            # 1. Create result and writer objects
+            result = OperationResult(status=OperationStatus.PENDING)
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
+            # 2. Save operation configuration
+            self.save_config(task_dir)
+
             # 3. Set up progress tracking
             total_steps = 4  # Update this based on your operation's steps
             if progress_tracker:
@@ -153,8 +159,7 @@ class MyOperation(BaseOperation):
                 error_message = f"Failed to load input data: {error_info['message'] if error_info else 'Unknown error'}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message
+                    status=OperationStatus.ERROR, error_message=error_message
                 )
 
             if progress_tracker:
@@ -165,8 +170,7 @@ class MyOperation(BaseOperation):
                 error_message = f"Column '{self.column_name}' not found in input data"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message
+                    status=OperationStatus.ERROR, error_message=error_message
                 )
 
             # 6. Process data - TODO: Replace with your actual processing logic
@@ -178,7 +182,8 @@ class MyOperation(BaseOperation):
 
             # TODO: Replace this placeholder logic with your actual transformation
             df[output_column] = df[self.column_name].apply(
-                lambda x: x * self.threshold if isinstance(x, (int, float)) else x)
+                lambda x: x * self.threshold if isinstance(x, (int, float)) else x
+            )
             # --- END OF YOUR BUSINESS LOGIC ---
 
             if progress_tracker:
@@ -192,7 +197,7 @@ class MyOperation(BaseOperation):
                 "threshold_used": self.threshold,
                 # Add your operation-specific metrics here
                 "null_values_count": df[self.column_name].isna().sum(),
-                "processed_values_count": (~df[output_column].isna()).sum()
+                "processed_values_count": (~df[output_column].isna()).sum(),
             }
 
             # Add metrics to result
@@ -212,7 +217,7 @@ class MyOperation(BaseOperation):
                 name="processed_data",
                 format="csv",
                 index=False,
-                encryption_key=self.encryption_key if self.use_encryption else None
+                encryption_key=self.encryption_key if self.use_encryption else None,
             )
 
             # Register the output file as an artifact
@@ -220,7 +225,7 @@ class MyOperation(BaseOperation):
                 artifact_type="csv",
                 path=output_result.path,
                 description=f"Processed data with {self.column_name} transformation",
-                category=Constants.Artifact_Category_Output
+                category=Constants.Artifact_Category_Output,
             )
 
             if progress_tracker:

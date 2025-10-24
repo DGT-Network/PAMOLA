@@ -27,19 +27,15 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
 import logging
-from abc import ABC
 from typing import List
-
 import numpy as np
 import pandas as pd
-
-from pamola_core.metrics.base import UtilityMetric
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class LDiversityLossMetric(UtilityMetric, ABC):
+class LDiversityLossMetric:
     """
     Specialized metric for measuring information loss due to enforcing l-diversity.
 
@@ -57,16 +53,19 @@ class LDiversityLossMetric(UtilityMetric, ABC):
         diversity_type : str, optional
             Type of l-diversity for evaluation ("distinct", "entropy", "recursive").
         """
-        super().__init__(
-            name=f"{diversity_type.capitalize()} l-Diversity Loss",
-            description=f"Measures information loss due to enforcing {diversity_type} l-diversity"
+        self.name = f"{diversity_type.capitalize()} l-Diversity Loss"
+        self.description = (
+            f"Measures information loss due to enforcing {diversity_type} l-diversity"
         )
         self.diversity_type = diversity_type
 
-    def _calculate_modeling_value_loss(self, orig_data: pd.DataFrame,
-                                       anon_data: pd.DataFrame,
-                                       sensitive_attributes: List[str],
-                                       quasi_identifiers: List[str]) -> float:
+    def calculate_metric(
+        self,
+        orig_data: pd.DataFrame,
+        anon_data: pd.DataFrame,
+        sensitive_attributes: List[str],
+        quasi_identifiers: List[str],
+    ) -> float:
         """
         Calculate loss for predictive modeling tasks.
 
@@ -85,10 +84,13 @@ class LDiversityLossMetric(UtilityMetric, ABC):
 
         return np.mean(predictive_losses) if predictive_losses else 0
 
-    def _calculate_predictive_value_loss(self, orig_data: pd.DataFrame,
-                                         anon_data: pd.DataFrame,
-                                         sensitive_attr: str,
-                                         quasi_identifiers: List[str]) -> float:
+    def _calculate_predictive_value_loss(
+        self,
+        orig_data: pd.DataFrame,
+        anon_data: pd.DataFrame,
+        sensitive_attr: str,
+        quasi_identifiers: List[str],
+    ) -> float:
         """
         Estimates information loss for predictive modeling due to l-diversity.
 
@@ -113,8 +115,13 @@ class LDiversityLossMetric(UtilityMetric, ABC):
             Loss as a percentage (0-100).
         """
         try:
-            if sensitive_attr not in orig_data.columns or sensitive_attr not in anon_data.columns:
-                return 100  # Maximum loss if the attribute is missing in anonymized data
+            if (
+                sensitive_attr not in orig_data.columns
+                or sensitive_attr not in anon_data.columns
+            ):
+                return (
+                    100  # Maximum loss if the attribute is missing in anonymized data
+                )
 
             # Check if the sensitive attribute is categorical or numerical
             if pd.api.types.is_numeric_dtype(orig_data[sensitive_attr]):
@@ -130,8 +137,12 @@ class LDiversityLossMetric(UtilityMetric, ABC):
 
             else:
                 # Use distributional divergence for categorical attributes
-                orig_counts = orig_data.groupby(quasi_identifiers)[sensitive_attr].value_counts(normalize=True)
-                anon_counts = anon_data.groupby(quasi_identifiers)[sensitive_attr].value_counts(normalize=True)
+                orig_counts = orig_data.groupby(quasi_identifiers)[
+                    sensitive_attr
+                ].value_counts(normalize=True)
+                anon_counts = anon_data.groupby(quasi_identifiers)[
+                    sensitive_attr
+                ].value_counts(normalize=True)
 
                 # Align indices
                 all_indices = orig_counts.index.union(anon_counts.index)
@@ -139,7 +150,9 @@ class LDiversityLossMetric(UtilityMetric, ABC):
                 anon_counts = anon_counts.reindex(all_indices, fill_value=0)
 
                 # Compute KL divergence (with smoothing)
-                kl_div = (orig_counts * np.log((orig_counts + 1e-6) / (anon_counts + 1e-6))).sum()
+                kl_div = (
+                    orig_counts * np.log((orig_counts + 1e-6) / (anon_counts + 1e-6))
+                ).sum()
 
                 # Normalize loss
                 loss = min(100, 100 * kl_div)
@@ -147,6 +160,7 @@ class LDiversityLossMetric(UtilityMetric, ABC):
             return loss
 
         except Exception as e:
-            logger.warning(f"Error calculating predictive value loss for {sensitive_attr}: {e}")
+            logger.warning(
+                f"Error calculating predictive value loss for {sensitive_attr}: {e}"
+            )
             return 100  # Assume maximum loss in case of failure
-

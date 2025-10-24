@@ -1,19 +1,27 @@
 """
-Email data analyzer for the anonymization project.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module:        Email Field Profiler Operation
+Package:       pamola.pamola_core.profiling.analyzers
+Version:       2.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025
+License:       BSD 3-Clause
 
-This module provides analyzers and operations for email data fields,
-following the new operation architecture. It includes email validation,
-domain extraction, and pattern detection capabilities.
+Description:
+  This module provides analyzers and operations for profiling email fields in tabular datasets.
+  It includes email validation, domain extraction, pattern detection, and privacy risk assessment,
+  supporting both pandas and Dask DataFrames.
 
-It integrates with utility modules:
-- io.py: For reading/writing data and managing directories
-- visualization.py: For creating standardized plots
-- progress.py: For tracking operation progress
-- logging.py: For operation logging
-
-Operations:
-- EmailOperation: Main operation for email field analysis
-- analyze_email_fields: Function for analyzing multiple email fields
+Key Features:
+  - Email validation and domain extraction
+  - Pattern and uniqueness analysis for privacy risk assessment
+  - Domain frequency dictionary and top-N domain statistics
+  - Visualization generation for domain distributions
+  - Efficient chunked, parallel, and Dask-based processing for large datasets
+  - Robust error handling, progress tracking, and operation logging
+  - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
 
 from datetime import datetime
@@ -22,10 +30,8 @@ import logging
 from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional, Union
-
 import pandas as pd
 import dask.dataframe as dd
-
 from pamola_core.profiling.commons.email_utils_dask import (
     analyze_email_field,
     create_domain_dictionary,
@@ -34,12 +40,12 @@ from pamola_core.profiling.commons.email_utils_dask import (
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
-    get_timestamped_filename,
     load_data_operation,
     write_dataframe_to_csv,
     load_settings_operation,
 )
 from pamola_core.utils.io_helpers.dask_utils import get_computed_df
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -51,7 +57,6 @@ from pamola_core.utils.ops.op_result import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.utils.helpers import filter_used_kwargs
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -159,7 +164,34 @@ class EmailAnalyzer:
         return estimate_resources(df, field_name)
 
 
-@register(override=True)
+class EmailOperationConfig(OperationConfig):
+    """Configuration for EmailOperation with BaseOperationConfig merged."""
+
+    schema = {
+        "type": "object",
+        "allOf": [
+            BaseOperationConfig.schema,  # merge all common operation fields
+            {
+                "type": "object",
+                "properties": {
+                    # --- Email-specific parameters ---
+                    "field_name": {"type": "string"},
+                    "top_n": {"type": "integer", "minimum": 1, "default": 20},
+                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
+                    "profile_type": {
+                        "type": "string",
+                        "enum": ["email"],
+                        "default": "email",
+                    },
+                    "analyze_privacy_risk": {"type": "boolean", "default": True},
+                },
+                "required": ["field_name"],
+            },
+        ],
+    }
+
+
+@register(version="1.0.0")
 class EmailOperation(FieldOperation):
     """
     Operation for analyzing email fields.
@@ -175,87 +207,54 @@ class EmailOperation(FieldOperation):
         min_frequency: int = 1,
         profile_type: str = "email",
         analyze_privacy_risk: bool = True,
-        description: str = "",
-        use_encryption: bool = False,
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        use_cache: bool = True,
-        use_vectorization: bool = False,
-        npartitions: Optional[int] = 1,
-        parallel_processes: Optional[int] = None,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        encryption_key: Optional[Union[str, Path]] = None,
-        encryption_mode: Optional[str] = None,
+        **kwargs,
     ):
         """
         Initialize the email operation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         field_name : str
-            The name of the field to analyze
+            The name of the field to analyze.
         top_n : int
-            Number of top domains to include in the results
+            Number of top domains to include in the results.
         min_frequency : int
-            Minimum frequency for inclusion in the dictionary
+            Minimum frequency for inclusion in the dictionary.
         profile_type : str
-            Type of profiling for organizing artifacts (default: 'email')
+            Type of profiling for organizing artifacts.
         analyze_privacy_risk : bool
-            Whether to analyze privacy risk associated with email addresses
-        description : str
-            Description of the operation (optional)
-        use_encryption : bool
-            Whether to encrypt output files
-        encryption_key : Optional[Union[str, Path]]
-            Key or path to key file used for encryption
-        use_dask : bool
-            Whether to use Dask for large datasets
-        use_cache : bool
-            Whether to use operation caching
-        use_vectorization : bool
-            Whether to use vectorized (parallel) processing
-        chunk_size : int
-            Size of chunks for processing large datasets
-        parallel_processes : int, optional
-            Number of processes use with vectorized (parallel) (default: 1)
-        npartitions : int, optional
-            Number of partitions for Dask processing (default: None)
-        visualization_theme : str, optional
-            Theme for visualizations (default: None, uses PAMOLA default)
-        visualization_backend : str, optional
-            Backend for visualizations (default: None, uses PAMOLA default)
-        visualization_strict : bool, optional
-            Whether to enforce strict visualization rules (default: False)
-        visualization_timeout : int, optional
-            Timeout for visualization generation in seconds (default: 120)
+            Whether to analyze potential privacy risks from email patterns.
+        **kwargs
+            Additional keyword arguments passed to FieldOperation.
         """
-        super().__init__(
+        # Description fallback
+        kwargs.setdefault("description", f"Analysis of email field '{field_name}'")
+
+        # --- Build unified config ---
+        config = EmailOperationConfig(
             field_name=field_name,
-            description=description or f"Analysis of email field '{field_name}'",
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
+            top_n=top_n,
+            min_frequency=min_frequency,
+            profile_type=profile_type,
+            analyze_privacy_risk=analyze_privacy_risk,
+            **kwargs,
         )
 
-        self.top_n = top_n
-        self.min_frequency = min_frequency
-        self.profile_type = profile_type
-        self.analyze_privacy_risk = analyze_privacy_risk
-        self.use_dask = use_dask
-        self.use_cache = use_cache
-        self.use_vectorization = use_vectorization
-        self.chunk_size = chunk_size
-        self.npartitions = npartitions
-        self.parallel_processes = parallel_processes
-        self.use_encryption = use_encryption
-        self.encryption_key = encryption_key
-        self.visualization_theme = visualization_theme
-        self.visualization_backend = visualization_backend
-        self.visualization_strict = visualization_strict
-        self.visualization_timeout = visualization_timeout
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
+
+        # Initialize base FieldOperation
+        super().__init__(
+            field_name=field_name,
+            **kwargs,
+        )
+
+        # Save config attributes to self
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+
+        # Operation metadata
+        self.operation_name = self.__class__.__name__
 
     def execute(
         self,
@@ -276,122 +275,107 @@ class EmailOperation(FieldOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : HierarchicalProgressTracker, optional
+        progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation:
-            - generate_visualization: bool, whether to generate visualizations
-            - force_recalculation: bool - Skip cache check
-            - dataset_name : str - The name of the dataset to load.
-            - visualization_theme: str - Theme for visualizations
-            - visualization_backend: str - Backend for visualizations ("plotly" or "matplotlib")
-            - visualization_strict: bool - If True, raise exceptions for visualization config errors
-            - visualization_timeout: int - Timeout for visualization generation in seconds (default: 120)
+            Additional parameters for the operation
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-        if kwargs.get("logger"):
-            self.logger = kwargs["logger"]
-
-        # Extract parameters from kwargs
-        generate_visualization = kwargs.get("generate_visualization", True)
-        force_recalculation = kwargs.get("force_recalculation", False)
-        dataset_name = kwargs.get("dataset_name", "main")
-
-        # Extract visualization parameters
-        self.visualization_theme = kwargs.get(
-            "visualization_theme", self.visualization_theme
-        )
-        self.visualization_backend = kwargs.get(
-            "visualization_backend", self.visualization_backend
-        )
-        self.visualization_strict = kwargs.get(
-            "visualization_strict", self.visualization_strict
-        )
-        self.visualization_timeout = kwargs.get(
-            "visualization_timeout", self.visualization_timeout
-        )
-
-        # Set up directories
-        dirs = self._prepare_directories(task_dir)
-        output_dir = dirs["output"]
-        visualizations_dir = dirs["visualizations"]
-        dictionaries_dir = dirs["dictionaries"]
-
-        # Create the main result object with initial status
-        result = OperationResult(status=OperationStatus.SUCCESS)
-
-        # Generate single timestamp for all artifacts
-        operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        # Set up progress tracking
-        # Preparation, Data Loading, Cache Check, Analysis, Saving results, Visualizations, Dictionary, Finalization
-        total_steps = (
-            6
-            + (1 if self.use_cache and not force_recalculation else 0)
-            + (1 if generate_visualization else 0)
-        )
-
-        # Step 0: Preparation
-        if progress_tracker:
-            progress_tracker.total = total_steps
-            progress_tracker.update(
-                0, {"step": "Preparation", "field": self.field_name}
-            )
-
-        # Step 1: Data Loading
-        if progress_tracker:
-            progress_tracker.update(1, {"step": "Data Loading"})
-
         try:
-            # Load data
-            df, error_info = data_source.get_dataframe(
-                name=dataset_name,
-                use_dask=self.use_dask,
-                use_encryption=self.use_encryption,
-                encryption_mode=self.encryption_mode,
-                encryption_key=self.encryption_key,
+            if kwargs.get("logger"):
+                self.logger = kwargs["logger"]
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Set up directories
+            dirs = self._prepare_directories(task_dir)
+            output_dir = dirs["output"]
+            visualizations_dir = dirs["visualizations"]
+            dictionaries_dir = dirs["dictionaries"]
+
+            # Create the main result object with initial status
+            result = OperationResult(status=OperationStatus.SUCCESS)
+
+            # Save configuration
+            self.save_config(task_dir)
+
+            # Set up progress tracking
+            # Preparation, Data Loading, Cache Check, Analysis, Saving results, Visualizations, Dictionary, Finalization
+            total_steps = (
+                6
+                + (1 if self.use_cache and not self.force_recalculation else 0)
+                + (1 if self.generate_visualization else 0)
             )
 
-            if df is None:
-                error_message = "Failed to load input data"
+            # Step 0: Preparation
+            if progress_tracker:
+                progress_tracker.total = total_steps
+                progress_tracker.update(
+                    0, {"step": "Preparation", "field": self.field_name}
+                )
+
+            # Step 1: Data Loading
+            if progress_tracker:
+                progress_tracker.update(1, {"step": "Data Loading"})
+
+            try:
+                # Load data
+                df, error_info = data_source.get_dataframe(
+                    name=dataset_name,
+                    use_dask=self.use_dask,
+                    use_encryption=self.use_encryption,
+                    encryption_mode=self.encryption_mode,
+                    encryption_key=self.encryption_key,
+                )
+
+                if df is None:
+                    error_message = "Failed to load input data"
+                    self.logger.error(error_message)
+                    return OperationResult(
+                        status=OperationStatus.ERROR, error_message=error_message
+                    )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
                 )
-        except Exception as e:
-            error_message = f"Error loading data: {str(e)}"
-            self.logger.error(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
-            )
 
-        # Step 2: Check Cache (if enabled and not forced to recalculate)
-        if self.use_cache and not force_recalculation:
-            if progress_tracker:
-                progress_tracker.update(2, {"step": "Checking Cache"})
-
-            logger.info("Checking operation cache...")
-            cache_result = self._check_cache(df, task_dir, reporter, **kwargs)
-
-            if cache_result:
-                self.logger.info("Cache hit! Using cached results.")
-
-                # Update progress
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
                 if progress_tracker:
-                    progress_tracker.update(total_steps, {"step": "Complete (cached)"})
+                    progress_tracker.update(2, {"step": "Checking Cache"})
 
-                # Report cache hit to reporter
-                if reporter:
-                    reporter.add_operation(
-                        f"Clean invalid values (from cache)", details={"cached": True}
-                    )
-                return cache_result
+                logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, task_dir, reporter, **kwargs)
 
-        try:
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
+
             # Check if field exists
             if self.field_name not in df.columns:
                 return OperationResult(
@@ -471,7 +455,7 @@ class EmailOperation(FieldOperation):
 
             # Generate visualization if requested
             if (
-                generate_visualization
+                self.generate_visualization
                 and "top_domains" in analysis_results
                 and analysis_results["top_domains"]
             ):
@@ -1348,7 +1332,6 @@ def analyze_email_fields(
         - top_n: int, number of top domains to include in results (default: 20)
         - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
         - generate_visualization: bool, whether to generate visualization (default: True)
-        - include_timestamp: bool, whether to include timestamps in filenames (default: True)
         - profile_type: str, type of profiling for organizing artifacts (default: 'email')
 
     Returns:

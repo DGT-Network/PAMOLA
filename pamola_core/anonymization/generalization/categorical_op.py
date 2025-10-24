@@ -39,7 +39,6 @@ Dependencies:
    - Configuration from categorical_config
 """
 
-from dataclasses import asdict
 import hashlib
 import threading
 import time
@@ -47,7 +46,7 @@ import uuid
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import dask.dataframe as dd
@@ -57,10 +56,24 @@ from pamola_core.anonymization.base_anonymization_op import AnonymizationOperati
 
 # Configuration and strategies from commons
 from pamola_core.anonymization.commons.categorical_config import (
+    DEFAULT_FREQ_THRESHOLD,
+    DEFAULT_MAX_CATEGORIES_FOR_DIVERSITY,
+    DEFAULT_MAX_HIERARCHY_CHILDREN_DISPLAY,
+    DEFAULT_MAX_SUPPRESSION_RATE,
+    DEFAULT_MIN_COVERAGE,
+    DEFAULT_MIN_GROUP_SIZE,
+    DEFAULT_SAMPLE_SIZE,
+    DEFAULT_SIMILARITY_THRESHOLD,
+    DEFAULT_TOP_CATEGORIES_FOR_ANALYSIS,
+    MAX_CATEGORIES,
+    OPERATION_NAME,
     CategoricalGeneralizationConfig,
     GeneralizationStrategy,
+    GroupRareAs,
     OperationMode,
     NullStrategy,
+    TextNormalization,
+    get_strategy_params,
 )
 from pamola_core.anonymization.commons.categorical_strategies import (
     _apply_rare_value_template,
@@ -129,108 +142,168 @@ from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.helpers import filter_used_kwargs
 
-# Constants
-OPERATION_NAME = "categorical_generalization"
-VERSION = "4.0.0"
-
-# Default values
-DEFAULT_SAMPLE_SIZE = 10000
-DEFAULT_MAX_CATEGORIES_FOR_DIVERSITY = 1000
-DEFAULT_TOP_CATEGORIES_FOR_ANALYSIS = 20
-DEFAULT_MAX_HIERARCHY_CHILDREN_DISPLAY = 10
-
-# Privacy thresholds
-DEFAULT_MAX_SUPPRESSION_RATE = 0.2
-DEFAULT_MIN_COVERAGE = 0.95
-
-# Precision constants
-FLOAT_COMPARISON_EPSILON = 1e-10
-
 
 @register(version="1.0.0")
 class CategoricalGeneralizationOperation(AnonymizationOperation):
     """
-    Minimal facade for categorical generalization operations.
+    Categorical generalization operation for data anonymization.
 
-    This class acts as a thin orchestration layer, delegating actual
-    generalization logic to strategy implementations while handling
-    framework integration.
+    This class provides a facade for categorical generalization strategies,
+    delegating actual generalization logic to strategy implementations while
+    handling framework integration, configuration validation, and state management.
+
+    The operation supports multiple generalization strategies:
+    - Hierarchy-based generalization using external dictionaries
+    - Frequency-based category merging
+    - Low-frequency category grouping
     """
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        # Required fields
+        field_name: str,
+        strategy: str = GeneralizationStrategy.HIERARCHY.value,
+        # Dictionary parameters
+        external_dictionary_path: Optional[str] = None,
+        dictionary_format: str = "auto",
+        hierarchy_level: int = 1,
+        # Frequency-based parameters
+        merge_low_freq: bool = False,
+        min_group_size: int = DEFAULT_MIN_GROUP_SIZE,
+        freq_threshold: float = DEFAULT_FREQ_THRESHOLD,
+        max_categories: int = MAX_CATEGORIES,
+        # Unknown handling
+        allow_unknown: bool = True,
+        unknown_value: str = "OTHER",
+        group_rare_as: str = GroupRareAs.OTHER.value,
+        rare_value_template: str = "OTHER_{n}",
+        # Text processing
+        text_normalization: str = TextNormalization.BASIC.value,
+        case_sensitive: bool = False,
+        fuzzy_matching: bool = False,
+        similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
+        # Privacy thresholds
+        privacy_check_enabled: bool = True,
+        min_acceptable_k: int = 5,
+        max_acceptable_disclosure_risk: float = 0.2,
+        quasi_identifiers: Optional[List[str]] = None,
+        **kwargs,
+    ):
         """
         Initialize categorical generalization operation.
 
-        All parameters are passed through to CategoricalGeneralizationConfig
-        for validation and processing.
-
+        Parameters
+        ----------
+        field_name : str
+            Target field name for generalization
+        strategy : str, default="hierarchy"
+            Generalization strategy (hierarchy|merge_low_freq|frequency_based)
+        external_dictionary_path : str, optional
+            Path to external hierarchy dictionary file
+        dictionary_format : str, default="auto"
+            Dictionary file format (auto|json|csv)
+        hierarchy_level : int, default=1
+            Target hierarchy level (1 to MAX_HIERARCHY_LEVELS)
+        merge_low_freq : bool, default=False
+            Enable low-frequency category merging
+        min_group_size : int, default=DEFAULT_MIN_GROUP_SIZE
+            Minimum group size for privacy
+        freq_threshold : float, default=DEFAULT_FREQ_THRESHOLD
+            Frequency threshold for category preservation (0-1)
+        max_categories : int, default=MAX_CATEGORIES
+            Maximum number of categories to preserve
+        allow_unknown : bool, default=True
+            Allow unknown values in output
+        unknown_value : str, default="OTHER"
+            Placeholder for unknown values
+        group_rare_as : str, default="OTHER"
+            Rare category grouping strategy
+        rare_value_template : str, default="OTHER_{n}"
+            Template for numbered rare values (must contain {n})
+        text_normalization : str, default="basic"
+            Text normalization level
+        case_sensitive : bool, default=False
+            Case-sensitive category matching
+        fuzzy_matching : bool, default=False
+            Enable fuzzy string matching
+        similarity_threshold : float, default=0.85
+            Similarity threshold for fuzzy matching (0-1)
+        privacy_check_enabled : bool, default=True
+            Enable privacy validation checks
+        min_acceptable_k : int, default=5
+            Minimum k-anonymity threshold (≥2)
+        max_acceptable_disclosure_risk : float, default=0.2
+            Maximum disclosure risk threshold (0-1)
+        quasi_identifiers : List[str], optional
+            List of quasi-identifier field names
+        **kwargs
+            Additional keyword arguments passed to AnonymizationOperation.
         """
-        # Create and validate configuration
-        config_params = CategoricalGeneralizationConfig(**kwargs)
+        try:
+            # Description fallback
+            kwargs.setdefault(
+                "description",
+                f"Categorical generalization for '{field_name}' using {strategy} strategy",
+            )
 
-        # Initialize parent class
-        super().__init__(
-            **{
-                k: config_params[k]
-                for k in [
-                    "field_name",
-                    "mode",
-                    "output_field_name",
-                    "column_prefix",
-                    "null_strategy",
-                    "description",
-                    "condition_field",
-                    "condition_values",
-                    "condition_operator",
-                    "ka_risk_field",
-                    "risk_threshold",
-                    "vulnerable_record_strategy",
-                    "optimize_memory",
-                    "adaptive_chunk_size",
-                    "chunk_size",
-                    "use_dask",
-                    "npartitions",
-                    "dask_partition_size",
-                    "use_vectorization",
-                    "parallel_processes",
-                    "use_cache",
-                    "use_encryption",
-                    "encryption_mode",
-                    "encryption_key",
-                    "visualization_theme",
-                    "visualization_backend",
-                    "visualization_strict",
-                    "visualization_timeout",
-                    "output_format",
-                ]
-            }
-        )
+            # Build config object (if used for schema/validation)
+            config = CategoricalGeneralizationConfig(
+                field_name=field_name,
+                strategy=strategy,
+                external_dictionary_path=external_dictionary_path,
+                dictionary_format=dictionary_format,
+                hierarchy_level=hierarchy_level,
+                merge_low_freq=merge_low_freq,
+                min_group_size=min_group_size,
+                freq_threshold=freq_threshold,
+                max_categories=max_categories,
+                allow_unknown=allow_unknown,
+                unknown_value=unknown_value,
+                group_rare_as=group_rare_as,
+                rare_value_template=rare_value_template,
+                text_normalization=text_normalization,
+                case_sensitive=case_sensitive,
+                fuzzy_matching=fuzzy_matching,
+                similarity_threshold=similarity_threshold,
+                privacy_check_enabled=privacy_check_enabled,
+                min_acceptable_k=min_acceptable_k,
+                max_acceptable_disclosure_risk=max_acceptable_disclosure_risk,
+                quasi_identifiers=quasi_identifiers,
+                **kwargs,
+            )
 
-        # Save config attributes to self
-        for k, v in asdict(config_params).items():
-            setattr(self, k, v)
-            self.process_kwargs[k] = v
+            # Pass config into kwargs for parent constructor
+            kwargs["config"] = config
 
-        self.strategy_params: Dict[str, Any] = config_params.get_strategy_params()
-        # Initialize operation state
-        self.operation_id = self._generate_trace_id()
-        self.config = config_params
-        self.version = VERSION
-        self.operation_name = self.__class__.__name__
-        self.operation_cache = None
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
+            # Initialize base AnonymizationOperation
+            super().__init__(
+                field_name=field_name,
+                **kwargs,
+            )
 
-        self._hierarchy_cache: Dict[str, Any] = {}
-        self._category_mapping: Optional[Dict[str, str]] = {}
-        self._hierarchy_info: Optional[Dict[str, Any]] = {}
-        self.process_kwargs["strategy_params"] = self.strategy_params
-        self.process_kwargs["operation_id"] = self.operation_id
-        self.process_kwargs["_hierarchy_cache"] = self._hierarchy_cache
-        self.process_kwargs["_category_mapping"] = self._category_mapping
-        self.process_kwargs["_hierarchy_info"] = self._hierarchy_info
-        self._metrics = {}
+            # Save config attributes to self
+            for k, v in config.to_dict().items():
+                setattr(self, k, v)
+                self.process_kwargs[k] = v
+
+            # Extract strategy-specific parameters
+            self.strategy_params: Dict[str, Any] = get_strategy_params(config._params)
+
+            # Operation metadata
+            self.operation_id = self._generate_trace_id()
+            self.operation_name = self.__class__.__name__
+
+            self._hierarchy_cache: Dict[str, Any] = {}
+            self._category_mapping: Optional[Dict[str, str]] = {}
+            self._hierarchy_info: Optional[Dict[str, Any]] = {}
+            self._fuzzy_matches: int = 0
+            self._unknown_values: set[str] = set()
+
+            # Prepare processing parameters
+            self._prepare_process_kwargs()
+            self._metrics = {}
+        except Exception as e:
+            self.logger.error(f"Error in generalization: {str(e)}")
 
     def execute(
         self,
@@ -254,14 +327,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation including:
-            - force_recalculation: bool - Skip cache check
-            - generate_visualization: bool - Create visualizations
-            - save_output: bool - Save processed data to output directory
-            - visualization_theme: str - Override theme for visualizations
-            - visualization_backend: str - Override backend for visualizations
-            - visualization_strict: bool - Override strict mode for visualizations
-            - visualization_timeout: int - Override timeout for visualizations
+            Additional parameters for the operation
 
         Returns:
         --------
@@ -272,10 +338,11 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             # Start timing
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
-            self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-            self.process_count = 0
-            df = None
+            self.logger.info(
+                f"Starting {self.operation_name} operation at {self.start_time}"
+            )
 
+            df = None
             # Initialize result object
             result = OperationResult(status=OperationStatus.PENDING)
 
@@ -295,25 +362,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             # Save operation configuration
             self.save_config(task_dir)
 
-            # Decompose kwargs and introduce variables for clarity
-            self.generate_visualization = kwargs.get("generate_visualization", True)
-            self.save_output = kwargs.get("save_output", True)
-            self.force_recalculation = kwargs.get("force_recalculation", False)
+            # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
-
-            # Extract visualization parameters
-            self.visualization_theme = kwargs.get(
-                "visualization_theme", self.visualization_theme
-            )
-            self.visualization_backend = kwargs.get(
-                "visualization_backend", self.visualization_backend
-            )
-            self.visualization_strict = kwargs.get(
-                "visualization_strict", self.visualization_strict
-            )
-            self.visualization_timeout = kwargs.get(
-                "visualization_timeout", self.visualization_timeout
-            )
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -340,7 +390,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     main_progress.update(
                         current_steps,
                         {
-                            "step": f"Starting {self.name}",
+                            "step": f"Starting {self.operation_name}",
                             "field": self.field_name,
                         },
                     )
@@ -491,18 +541,25 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 # Apply conditional filtering
                 self.filter_mask, filtered_df = self._apply_conditional_filtering(df)
 
+                # Process the filtered data only if not empty
+                if not filtered_df.empty:
+                    processed_df = self._process_data_with_config(
+                        df=filtered_df,
+                        is_use_batch_dask=True,
+                        progress_tracker=data_tracker,
+                    )
+                else:
+                    self.logger.warning(
+                        "Filtered DataFrame is empty. Skipping _process_data_with_config."
+                    )
+                    processed_df = df.copy(deep=True)
+                    processed_df[self.output_field_name] = original_data
+
                 # Handle vulnerable records if k-anonymity is enabled
                 if self.ka_risk_field and self.ka_risk_field in df.columns:
-                    filtered_df = self._handle_vulnerable_records(
-                        filtered_df, self.output_field_name
+                    processed_df = self._handle_vulnerable_records(
+                        processed_df, self.output_field_name
                     )
-
-                # Process the filtered data
-                processed_df = self._process_data_with_config(
-                    df=filtered_df,
-                    is_use_batch_dask=True,
-                    progress_tracker=data_tracker,
-                )
 
                 # Get the anonymized data
                 anonymized_data = processed_df[self.output_field_name]
@@ -544,9 +601,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 )
 
                 # Generate metrics file name (in self.name existed field_name)
-                metrics_file_name = (
-                    f"{self.field_name}_{self.name}_metrics_{operation_timestamp}"
-                )
+                metrics_file_name = f"{self.field_name}_{self.operation_name}_metrics_{operation_timestamp}"
 
                 # Save metrics using writer
                 metrics_result = writer.write_metrics(
@@ -726,7 +781,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             # Set success status
             result.status = OperationStatus.SUCCESS
             self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
             )
 
             return result
@@ -804,6 +859,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                         all_category_mapping,
                         all_hierarchy_info,
                         all_hierarchy_cache,
+                        all_fuzzy_matches,
+                        all_unknown_values,
                     ) = process_dataframe_using_dask(
                         df=df,
                         process_function=self.process_batch_dask,
@@ -819,6 +876,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                         all_category_mapping,
                         all_hierarchy_info,
                         all_hierarchy_cache,
+                        all_fuzzy_matches,
+                        all_unknown_values,
                     ) = process_dataframe_using_dask(
                         df=df,
                         process_function=self.process_batch,
@@ -857,6 +916,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     all_category_mapping,
                     all_hierarchy_info,
                     all_hierarchy_cache,
+                    all_fuzzy_matches,
+                    all_unknown_values,
                 ) = process_dataframe_using_joblib(
                     df=df,
                     process_function=self.process_batch,
@@ -896,6 +957,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     all_category_mapping,
                     all_hierarchy_info,
                     all_hierarchy_cache,
+                    all_fuzzy_matches,
+                    all_unknown_values,
                 ) = process_dataframe_using_chunk(
                     df=df,
                     process_function=self.process_batch,
@@ -915,6 +978,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 all_category_mapping,
                 all_hierarchy_info,
                 all_hierarchy_cache,
+                all_fuzzy_matches,
+                all_unknown_values,
             ) = self.process_batch(df, **self.process_kwargs)
             flag_processed = True
 
@@ -922,6 +987,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         self._category_mapping = all_category_mapping
         self._hierarchy_info = all_hierarchy_info
         self._hierarchy_cache = all_hierarchy_cache
+        self._fuzzy_matches = all_fuzzy_matches
+        self._unknown_values = all_unknown_values
         if self.use_vectorization and "current" in self._hierarchy_cache:
             current = self._hierarchy_cache["current"]
             if not hasattr(current, "_lock") or current._lock is None:
@@ -965,6 +1032,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             category_mapping = context.get("category_mapping", {})
             hierarchy_info = context.get("hierarchy_info", {})
             hierarchy_cache = context.get("hierarchy_cache", {})
+            fuzzy_matches = context.get("fuzzy_matches", 0)
+            unknown_values = context.get("unknown_values", set())
             if use_vectorization and "current" in hierarchy_cache:
                 current = hierarchy_cache["current"]
                 if hasattr(current, "_lock"):
@@ -976,6 +1045,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 category_mapping,
                 hierarchy_info,
                 hierarchy_cache,
+                fuzzy_matches,
+                unknown_values,
             )
 
         except Exception as e:
@@ -1160,8 +1231,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             metrics["hierarchy_metrics"] = {
                 "hierarchy_level": self.strategy_params.get("hierarchy_level", 1),
                 "dictionary_coverage": coverage,
-                "fuzzy_matches": self._get_context_value("fuzzy_matches", 0),
-                "unknown_values": len(self._get_context_value("unknown_values", set())),
+                "fuzzy_matches": self._fuzzy_matches,
+                "unknown_values": len(self._unknown_values),
                 "generalization_height": gen_height,
             }
 
@@ -1550,6 +1621,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         self._hierarchy_cache.clear()
         self._category_mapping = None
         self._hierarchy_info = None
+        self._fuzzy_matches = 0
+        self._unknown_values = set()
         self._metrics = {}
 
         # Reset chunk size if it was adjusted
@@ -1562,6 +1635,29 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
     def _generate_trace_id(self) -> str:
         """Generate unique trace ID for operation."""
         return f"{OPERATION_NAME}_{uuid.uuid4().hex[:8]}"
+
+    def _prepare_process_kwargs(self) -> None:
+        """
+        Prepare or update keyword arguments for processing methods.
+
+        Consolidates configuration, parameters, and state into
+        process_kwargs for easy passing to processing functions.
+        """
+        if not hasattr(self, "process_kwargs"):
+            self.process_kwargs = {}
+
+        self.process_kwargs.update(
+            {
+                # Core identification
+                "operation_id": self.operation_id,
+                # Strategy parameters (pre-extracted)
+                "strategy_params": self.strategy_params,
+                # State references (mutable, allows tracking)
+                "_hierarchy_cache": self._hierarchy_cache,
+                "_category_mapping": self._category_mapping,
+                "_hierarchy_info": self._hierarchy_info,
+            }
+        )
 
     @staticmethod
     def _load_hierarchy(strategy_params: Dict[str, Any]) -> HierarchyDictionary:
@@ -1576,6 +1672,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         hierarchy.load_from_file(
             strategy_params["external_dictionary_path"],
             strategy_params.get("dictionary_format", "auto"),
+            strategy_params["case_sensitive"],
         )
 
         # Validate structure
@@ -1658,12 +1755,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         except Exception as e:
             self.logger.debug(f"Failed to calculate dictionary hash: {e}")
             return None
-
-    def _get_context_value(self, key: str, default: Any) -> Any:
-        """Safely get value from shared context."""
-        if hasattr(self, "_current_context"):
-            return self._current_context.get(key, default)
-        return default
 
     def _count_rare_categories(self, distribution: Dict[str, Any]) -> int:
         """Count rare categories based on threshold."""

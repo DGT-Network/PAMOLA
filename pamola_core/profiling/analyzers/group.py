@@ -1,23 +1,29 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
-Module: Group Analyzer Operation
-Description: Operation for analyzing variability within grouped data for anonymization
-Author: PAMOLA Core Team
-Created: 2025
-License: BSD 3-Clause
+Module:        Group Analyzer Operation
+Package:       pamola.pamola_core.profiling.analyzers
+Version:       2.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025
+License:       BSD 3-Clause
 
-This operation analyzes vertical subsets of resume data produced by the Scissors module,
-evaluating the variance and duplication within groups of records that share the same
-resume_id. It supports decision-making about which groups can be safely aggregated
-during anonymization.
+Description:
+  This module provides operations for analyzing variability within grouped data for anonymization.
+  It evaluates variance and duplication within groups of records sharing the same identifier,
+  supporting decision-making about which groups can be safely aggregated during anonymization.
 
-Key features:
-- Calculates variance and duplication metrics for fields within groups
-- Generates visualizations of variance distribution
-- Determines aggregation candidates based on configurable thresholds
-- Supports different algorithms for text comparison (MD5, MinHash)
-- Analyzes fields with different weights to produce weighted variance scores
+Key Features:
+  - Calculates variance and duplication metrics for fields within groups
+  - Generates visualizations of variance distribution and field variability
+  - Determines aggregation candidates based on configurable thresholds
+  - Supports different algorithms for text comparison (MD5, MinHash)
+  - Analyzes fields with different weights to produce weighted variance scores
+  - Efficient chunked, parallel, and Dask-based processing for large datasets
+  - Robust error handling, progress tracking, and operation logging
+  - Caching and efficient repeated analysis
+  - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
 
 import hashlib
@@ -25,70 +31,52 @@ import json
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Optional, Union, Tuple, Set
+from typing import Dict, List, Any, Optional, Tuple, Set
 from datetime import datetime
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-# Import only the essential base classes and utilities
-# Note: MinHash-related imports are moved to conditional imports inside methods
-from pamola_core.profiling.commons.group_utils import analyze_group, calculate_field_metrics
+from pamola_core.profiling.commons.group_utils import (
+    analyze_group,
+    calculate_field_metrics,
+)
 from pamola_core.utils.helpers import filter_used_kwargs
-from pamola_core.utils.ops.op_base import BaseOperation
-from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.ops.op_base import FieldOperation
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
-from pamola_core.utils.ops.op_registry import register_operation
-from pamola_core.utils.ops.op_result import OperationArtifact, OperationResult, OperationStatus
+from pamola_core.utils.ops.op_registry import register
+from pamola_core.utils.ops.op_result import (
+    OperationArtifact,
+    OperationResult,
+    OperationStatus,
+)
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import create_histogram, create_heatmap
-from pamola_core.utils.io import get_timestamped_filename, load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.common.constants import Constants
 
 # Configure module logger
 logger = logging.getLogger(__name__)
 
 
-class GroupAnalyzerConfig(OperationConfig):
-    """Configuration for GroupAnalyzerOperation."""
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "field_name": {"type": "string"},
-            "fields_config": {
-                "type": "object",
-                "additionalProperties": {"type": "number"}
-            },
-            "text_length_threshold": {"type": "integer", "minimum": 10},
-            "variance_threshold": {"type": "number", "minimum": 0, "maximum": 1.0},
-            "large_group_threshold": {"type": "integer", "minimum": 1},
-            "large_group_variance_threshold": {"type": "number", "minimum": 0, "maximum": 1.0},
-            "hash_algorithm": {"type": "string", "enum": ["md5", "minhash"]},
-            "minhash_similarity_threshold": {"type": "number", "minimum": 0, "maximum": 1.0},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]}           
-        }
-    }
-
-
 class GroupAnalyzer:
-    def analyze(self,
-                df: pd.DataFrame,
-                field_name: str,
-                fields_config: Dict[str, int],
-                fields_to_analyze: List[str],
-                text_length_threshold: int = 100,
-                variance_threshold: float = 0.2,
-                large_group_threshold: int = 100,
-                large_group_variance_threshold: float = 0.05,
-                hash_algorithm: str = "md5",
-                minhash_similarity_threshold: float = 0.7,
-                progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                task_logger: Optional[logging.Logger] = None,
-                **kwargs) -> Dict[str, Any]:
+    def analyze(
+        self,
+        df: pd.DataFrame,
+        field_name: str,
+        fields_config: Dict[str, int],
+        fields_to_analyze: List[str],
+        text_length_threshold: int = 100,
+        variance_threshold: float = 0.2,
+        large_group_threshold: int = 100,
+        large_group_variance_threshold: float = 0.05,
+        hash_algorithm: str = "md5",
+        minhash_similarity_threshold: float = 0.7,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        task_logger: Optional[logging.Logger] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Analyze grouped data to compute variance and duplication metrics for anonymization.
 
@@ -153,7 +141,7 @@ class GroupAnalyzer:
             "0.1_to_0.2": 0,
             "0.2_to_0.5": 0,
             "0.5_to_0.8": 0,
-            "above_0.8": 0
+            "above_0.8": 0,
         }
 
         # Track field variances for visualization
@@ -162,14 +150,21 @@ class GroupAnalyzer:
         # Calculate metrics for each group
         for i, group_key in enumerate(group_keys):
             if progress_tracker and i % 100 == 0:
-                progress_tracker.update(0, {"step": "Analyzing groups", "processed": i, "total": len(group_keys)})
+                progress_tracker.update(
+                    0,
+                    {
+                        "step": "Analyzing groups",
+                        "processed": i,
+                        "total": len(group_keys),
+                    },
+                )
 
             group_df = grouped.get_group(group_key)
             group_metrics[str(group_key)] = analyze_group(
                 group_df=group_df,
                 fields=fields_to_analyze,
                 fields_config=fields_config,
-                text_length_threshold= text_length_threshold,
+                text_length_threshold=text_length_threshold,
                 hash_algorithm=hash_algorithm,
                 use_minhash=(hash_algorithm == "minhash"),
                 minhash_similarity_threshold=minhash_similarity_threshold,
@@ -194,7 +189,9 @@ class GroupAnalyzer:
 
             # Update field variances
             for field in fields_to_analyze:
-                field_variances[field].append(group_metrics[str(group_key)]["field_variances"].get(field, 0))
+                field_variances[field].append(
+                    group_metrics[str(group_key)]["field_variances"].get(field, 0)
+                )
 
         # Calculate overall metrics
         field_metrics = calculate_field_metrics(group_metrics, fields_to_analyze)
@@ -230,13 +227,71 @@ class GroupAnalyzer:
                 "variance_threshold": variance_threshold,
                 "large_group_threshold": large_group_threshold,
                 "large_group_variance_threshold": large_group_variance_threshold,
-                "minhash_similarity_threshold": minhash_similarity_threshold
+                "minhash_similarity_threshold": minhash_similarity_threshold,
             },
-            "fields_analyzed": fields_to_analyze
+            "fields_analyzed": fields_to_analyze,
         }
         return metrics
 
-class GroupAnalyzerOperation(BaseOperation):
+
+class GroupAnalyzerOperationConfig(OperationConfig):
+    """Configuration schema for GroupAnalyzerOperation with BaseOperationConfig merged."""
+
+    schema = {
+        "type": "object",
+        "allOf": [
+            BaseOperationConfig.schema,  # merge base common fields
+            {
+                "type": "object",
+                "properties": {
+                    "field_name": {"type": "string"},
+                    "fields_config": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "additionalProperties": {"type": "integer", "minimum": 0},
+                    },
+                    # Thresholds and Variance
+                    "text_length_threshold": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "default": 100,
+                    },
+                    "variance_threshold": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "default": 0.2,
+                    },
+                    "large_group_threshold": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "default": 100,
+                    },
+                    "large_group_variance_threshold": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "default": 0.05,
+                    },
+                    # Hashing & Minhash
+                    "hash_algorithm": {
+                        "type": "string",
+                        "enum": ["md5", "minhash"],
+                        "default": "md5",
+                    },
+                    "minhash_similarity_threshold": {
+                        "type": "number",
+                        "minimum": 0.0,
+                        "maximum": 1.0,
+                        "default": 0.7,
+                    },
+                },
+                "required": ["field_name", "fields_config"],
+            },
+        ],
+    }
+
+
+@register(version="1.0.0")
+class GroupAnalyzerOperation(FieldOperation):
     """
     Operation for analyzing variability within groups of records.
 
@@ -245,130 +300,93 @@ class GroupAnalyzerOperation(BaseOperation):
     anonymization decision-making.
     """
 
-    def __init__(self,
-                 field_name: str,
-                 fields_config: Dict[str, int],
-                 text_length_threshold: int = 100,
-                 variance_threshold: float = 0.2,
-                 large_group_threshold: int = 100,
-                 large_group_variance_threshold: float = 0.05,
-                 hash_algorithm: str = "md5",
-                 minhash_similarity_threshold: float = 0.7,  # Added for MinHash comparison
-                 use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None,
-                 name: str = "group_analyzer",
-                 encryption_mode: Optional[str] = None,
-                 chunk_size: int = 10000,
-                 use_dask: bool = False,
-                 use_cache: bool = True,
-                 use_vectorization: bool = False,
-                 npartitions: Optional[int] = 1,
-                 parallel_processes: Optional[int] = None,
-                 visualization_theme: Optional[str] = None,
-                 visualization_backend: Optional[str] = "plotly",
-                 visualization_strict: bool = False,
-                 visualization_timeout: int = 120,
-                 description: str = ""):
+    def __init__(
+        self,
+        field_name: str,
+        fields_config: Dict[str, int],
+        text_length_threshold: int = 100,
+        variance_threshold: float = 0.2,
+        large_group_threshold: int = 100,
+        large_group_variance_threshold: float = 0.05,
+        hash_algorithm: str = "md5",
+        minhash_similarity_threshold: float = 0.7,
+        **kwargs,
+    ):
         """
         Initialize the group analyzer operation.
 
-        Parameters:
-        -----------
-        fields_config : Dict[str, int]
-            Dictionary mapping field names to their weights
-        text_length_threshold : int, optional
-            Threshold for long text fields (default: 100)
-        variance_threshold : float, optional
-            Threshold for aggregation decision (default: 0.2)
-        large_group_threshold : int, optional
-            Threshold for large group size (default: 100)
-        large_group_variance_threshold : float, optional
-            Variance threshold for large groups (default: 0.05)
-        hash_algorithm : str, optional
-            Algorithm for text comparison: "md5" or "minhash" (default: "md5")
-        minhash_similarity_threshold : float, optional
-            Threshold for considering MinHash signatures as similar (default: 0.7)
-        use_encryption : bool, optional
-            Whether to encrypt output files (default: False)
-        encryption_key : Optional[Union[str, Path]], optional
-            Encryption key for securing outputs (default: None)
+        Parameters
+        ----------
         field_name : str
-            Field name to group data by
-        name : str, optional
-            Operation name (default: "group_analyzer")
-        description : str, optional
-            Operation description (default: "")
+            The name of the field to group by.
+        fields_config : Dict[str, int]
+            Dictionary mapping field names to weights.
+        text_length_threshold : int
+            Threshold for long text fields (default: 100).
+        variance_threshold : float
+            Threshold for aggregation decision (default: 0.2).
+        large_group_threshold : int
+            Minimum size to consider a group as "large".
+        large_group_variance_threshold : float
+            Variance threshold for large groups (default: 0.05).
+        hash_algorithm : str
+            Hash algorithm for comparison ('md5' or 'minhash').
+        minhash_similarity_threshold : float
+            Threshold for MinHash similarity (default: 0.7).
+        **kwargs : dict
+            Additional parameters passed to FieldOperation.
         """
-        # Create configuration
-        config = GroupAnalyzerConfig(
+
+        # --- Default description fallback ---
+        kwargs.setdefault(
+            "description",
+            f"Group variance analysis for field '{field_name}'",
+        )
+
+        # --- Build unified config object ---
+        config = GroupAnalyzerOperationConfig(
             field_name=field_name,
             fields_config=fields_config,
             text_length_threshold=text_length_threshold,
             variance_threshold=variance_threshold,
             large_group_threshold=large_group_threshold,
             large_group_variance_threshold=large_group_variance_threshold,
-            hash_algorithm=hash_algorithm,
+            hash_algorithm=hash_algorithm.lower(),
             minhash_similarity_threshold=minhash_similarity_threshold,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode     
+            **kwargs,
         )
 
-        # Use a default description if none provided
-        if not description:
-            description = f"Group variance analysis for field '{field_name}'"
+        # Inject config into kwargs
+        kwargs["config"] = config
 
-        # Initialize base class
+        # Initialize base FieldOperation
         super().__init__(
-            name=name,
-            description=description,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode
+            field_name=field_name,
+            **kwargs,
         )
 
-        # Store parameters
-        self.field_name = field_name
-        self.fields_config = fields_config
-        self.text_length_threshold = text_length_threshold
-        self.variance_threshold = variance_threshold
-        self.large_group_threshold = large_group_threshold
-        self.large_group_variance_threshold = large_group_variance_threshold
-        self.hash_algorithm = hash_algorithm.lower()
-        self.minhash_similarity_threshold = minhash_similarity_threshold
-        self.use_minhash = self.hash_algorithm == "minhash"
+        # --- Save config attributes to self ---
+        for key, value in config.to_dict().items():
+            setattr(self, key, value)
 
-        self.use_dask = use_dask
-        self.use_cache = use_cache
-        self.use_vectorization = use_vectorization
-        self.chunk_size = chunk_size
-        self.npartitions = npartitions
-        self.parallel_processes = parallel_processes
-        self.encryption_key = encryption_key
-        self.visualization_theme = visualization_theme
-        self.visualization_backend = visualization_backend
-        self.visualization_strict = visualization_strict
-        self.visualization_timeout = visualization_timeout
-
+        # --- Analyzer binding ---
         self.analyzer = GroupAnalyzer()
-
-        # Cache for MinHash signatures to avoid recomputation - only initialized if needed
+        self.use_minhash = self.hash_algorithm == "minhash"
         self.minhash_cache = {}
 
-        # Semantic versioning for caching
-        self.version = "1.1.0"  # Bumped version due to improvements
+        # Operation metadata---
+        self.operation_name = self.__class__.__name__
 
-        # Initialize logger
-        self.logger = logging.getLogger(f"{__name__}")
-
-    def execute(self,
-                data_source: DataSource,
-                task_dir: Path,
-                reporter: Any,
-                progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                **kwargs) -> OperationResult:
+    def execute(
+        self,
+        data_source: DataSource,
+        task_dir: Path,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
+    ) -> OperationResult:
         """
-        Execute the group analyzer operation.
+        Execute the email analysis operation.
 
         Parameters:
         -----------
@@ -382,76 +400,78 @@ class GroupAnalyzerOperation(BaseOperation):
             Progress tracker for the operation
         **kwargs : dict
             Additional parameters for the operation
-            - include_timestamp: bool, whether to include timestamps in filenames, default = True
-            - force_recalculation: bool - Skip cache check
-            - parallel_processes: int - Number of parallel processes
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-        self.use_vectorization = kwargs.get('use_vectorization', self.use_vectorization)
-        self.npartitions = kwargs.get('npartitions', self.npartitions)
-        self.parallel_processes = kwargs.get('parallel_processes', self.parallel_processes)
-
-        # Extract visualization parameters
-        self.visualization_theme = kwargs.get("visualization_theme", self.visualization_theme)
-        self.visualization_backend = kwargs.get("visualization_backend", self.visualization_backend)
-        self.visualization_strict = kwargs.get("visualization_strict", self.visualization_strict)
-        self.visualization_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
-
-        force_recalculation = kwargs.get("force_recalculation", False)
-        include_timestamp = kwargs.get('include_timestamp', True)
-
-        # Use the subset name instead of "main" to get the correct dataframe
-        dataset_name = kwargs.get('dataset_name', 'main')
-
-        self.logger.info(f"Starting group analysis for field: {self.field_name}")
-
-        # Initialize result object
-        result = OperationResult(status=OperationStatus.PENDING)
-
-        # Create data writer
-        writer = DataWriter(task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker)
-
-        # Preparation, Cache Check, Data Loading, Grouping, Visualizations, Saving results
-        total_steps = 5 + (1 if self.use_cache and not force_recalculation else 0)
-        current_steps = 0
-
-        # Step 1: Preparation
-        if progress_tracker:
-            progress_tracker.total = total_steps
-            progress_tracker.update(current_steps, {"step": "Starting group analysis", "field": self.field_name})
-
-        # Step 2: Check Cache (if enabled and not forced to recalculate)
-        if self.use_cache and not force_recalculation:
-            if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-            self.logger.info("Checking operation cache...")
-            cache_result = self._check_cache(data_source, dataset_name)
-
-            if cache_result:
-                self.logger.info("Cache hit! Using cached results.")
-
-                # Update progress
-                if progress_tracker:
-                    progress_tracker.update(total_steps,{"step": "Complete (cached)"})
-
-                # Report cache hit to reporter
-                if reporter:
-                    reporter.add_operation(
-                        f"Clean invalid values (from cache)",
-                        details={"cached": True}
-                    )
-                return cache_result
-
         try:
+            if kwargs.get("logger"):
+                self.logger = kwargs["logger"]
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            self.logger.info(f"Starting group analysis for field: {self.field_name}")
+
+            # Initialize result object
+            result = OperationResult(status=OperationStatus.PENDING)
+
+            # Save configuration
+            self.save_config(task_dir)
+
+            # Create data writer
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
+            # Preparation, Cache Check, Data Loading, Grouping, Visualizations, Saving results
+            total_steps = 5 + (
+                1 if self.use_cache and not self.force_recalculation else 0
+            )
+            current_steps = 0
+
+            # Step 1: Preparation
+            if progress_tracker:
+                progress_tracker.total = total_steps
+                progress_tracker.update(
+                    current_steps,
+                    {"step": "Starting group analysis", "field": self.field_name},
+                )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(data_source, dataset_name)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
+
             dirs = self._prepare_directories(task_dir)
-            visualizations_dir = dirs['visualizations']
-            output_dir = dirs['output']
+            visualizations_dir = dirs["visualizations"]
+            output_dir = dirs["output"]
 
             # Step 3: Load data
             if progress_tracker:
@@ -459,36 +479,41 @@ class GroupAnalyzerOperation(BaseOperation):
                 progress_tracker.update(current_steps, {"step": "Loading data"})
 
             self.logger.info(f"Loading data for: {self.field_name}")
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            settings_operation = load_settings_operation(
+                data_source, dataset_name, **kwargs
+            )
             df = load_data_operation(data_source, dataset_name, **settings_operation)
 
             if df is None:
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source"
+                    error_message="No valid DataFrame found in data source",
                 )
-
-            # Save configuration
-            self.save_config(task_dir)
 
             # Check if field_name exists
             if self.field_name not in df.columns:
                 error_message = f"Field '{self.field_name}' not found in DataFrame"
                 self.logger.error(error_message)
-                return OperationResult(status=OperationStatus.ERROR, error_message=error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR, error_message=error_message
+                )
 
             # Validate fields to analyze exist in the DataFrame
             fields_to_analyze = list(self.fields_config.keys())
-            missing_fields = [field for field in fields_to_analyze if field not in df.columns]
+            missing_fields = [
+                field for field in fields_to_analyze if field not in df.columns
+            ]
 
             if missing_fields:
                 error_message = f"Fields not found in DataFrame: {missing_fields}"
                 self.logger.error(error_message)
-                return OperationResult(status=OperationStatus.ERROR, error_message=error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR, error_message=error_message
+                )
 
             # Step 4: Group data by the specified field
             if progress_tracker:
-                current_steps+=1
+                current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Grouping data"})
 
             safe_kwargs = filter_used_kwargs(kwargs, GroupAnalyzer.analyze)
@@ -505,20 +530,25 @@ class GroupAnalyzerOperation(BaseOperation):
                 variance_threshold=self.variance_threshold,
                 progress_tracker=progress_tracker,
                 task_logger=self.logger,
-                **safe_kwargs
+                **safe_kwargs,
             )
 
             # Step 5: Generate visualizations
             if progress_tracker:
-                current_steps+=1
-                progress_tracker.update(current_steps, {"step": "Generating visualizations"})
+                current_steps += 1
+                progress_tracker.update(
+                    current_steps, {"step": "Generating visualizations"}
+                )
 
             self.logger.info(f"Generating visualizations")
+            encryption_kwargs = {
+                "use_encryption": self.use_encryption,
+                "encryption_key": self.encryption_key if self.use_encryption else None,
+            }
             self._handle_visualizations(
-                threshold_metrics = metrics['threshold_metrics'],
-                field_metrics=metrics['field_metrics'],
+                threshold_metrics=metrics["threshold_metrics"],
+                field_metrics=metrics["field_metrics"],
                 vis_dir=visualizations_dir,
-                include_timestamp = include_timestamp,
                 result=result,
                 reporter=reporter,
                 vis_theme=self.visualization_theme,
@@ -526,11 +556,13 @@ class GroupAnalyzerOperation(BaseOperation):
                 vis_strict=self.visualization_strict,
                 vis_timeout=self.visualization_timeout,
                 progress_tracker=progress_tracker,
+                operation_timestamp=operation_timestamp,
+                **encryption_kwargs,
             )
 
             # Step 6: Save results
             if progress_tracker:
-                current_steps+=1
+                current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Saving results"})
 
             self.logger.info(f"Saving metrics")
@@ -540,7 +572,7 @@ class GroupAnalyzerOperation(BaseOperation):
                 metrics=metrics,
                 name=f"{self.__class__.__name__}_{self.field_name}_metrics",
                 timestamp_in_name=False,
-                encryption_key=self.encryption_key if self.use_encryption else None
+                encryption_key=self.encryption_key if self.use_encryption else None,
             )
 
             # Add metrics to operation result
@@ -553,13 +585,15 @@ class GroupAnalyzerOperation(BaseOperation):
                 artifact_type="json",
                 path=metrics_result.path,
                 description=f"{self.__class__.__name__} {self.field_name} group analysis metrics",
-                category=Constants.Artifact_Category_Metrics
+                category=Constants.Artifact_Category_Metrics,
             )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
 
-            self.logger.info(f"Group analysis for {self.field_name} completed successfully")
+            self.logger.info(
+                f"Group analysis for {self.field_name} completed successfully"
+            )
 
             # Group data by field_name
             grouped = df.groupby(self.field_name)
@@ -571,15 +605,15 @@ class GroupAnalyzerOperation(BaseOperation):
                     f"Group analysis for {self.field_name}",
                     details={
                         "total_groups": len(group_keys),
-                        "groups_to_aggregate": metrics['groups_to_aggregate'],
-                        "avg_variance": metrics['avg_variance']
-                    }
+                        "groups_to_aggregate": metrics["groups_to_aggregate"],
+                        "avg_variance": metrics["avg_variance"],
+                    },
                 )
 
                 reporter.add_artifact(
                     "json",
                     str(metrics_result.path),
-                    f"{self.__class__.__name__} {self.field_name} group analysis metrics"
+                    f"{self.__class__.__name__} {self.field_name} group analysis metrics",
                 )
 
             return result
@@ -624,7 +658,9 @@ class GroupAnalyzerOperation(BaseOperation):
 
         return float(variance), float(duplication_ratio)
 
-    def _get_unique_values_improved(self, field_series: pd.Series) -> Tuple[Set[Any], Dict[Any, int]]:
+    def _get_unique_values_improved(
+        self, field_series: pd.Series
+    ) -> Tuple[Set[Any], Dict[Any, int]]:
         """
         Get unique values from a field series, handling text and NULL values.
         Improved version with better categorical data handling.
@@ -653,24 +689,41 @@ class GroupAnalyzerOperation(BaseOperation):
                 if len(text) > self.text_length_threshold:
                     if self.use_minhash:
                         # Lazy import MinHash only if needed
-                        if not hasattr(self, '_minhash_imported'):
+                        if not hasattr(self, "_minhash_imported"):
                             # Initialize flag and function variable before try block
                             self._minhash_imported = False
-                            compute_minhash = None  # Define variable before try to satisfy linter
+                            compute_minhash = (
+                                None  # Define variable before try to satisfy linter
+                            )
                             compute_minhash_func = None
 
                             try:
                                 # Dynamically import minhash module when needed
-                                from pamola_core.utils.nlp.minhash import compute_minhash
-                                compute_minhash_func = compute_minhash  # Assign the imported function
-                                self._minhash_imported = True  # Set flag only on success
+                                from pamola_core.utils.nlp.minhash import (
+                                    compute_minhash,
+                                )
+
+                                compute_minhash_func = (
+                                    compute_minhash  # Assign the imported function
+                                )
+                                self._minhash_imported = (
+                                    True  # Set flag only on success
+                                )
                             except ImportError:
                                 # If import fails (e.g., no pymorphy2), we end up here
-                                compute_minhash = None  # Explicitly define in except block for linter
-                                self.logger.warning("MinHash library not available, falling back to MD5")
+                                compute_minhash = (
+                                    None  # Explicitly define in except block for linter
+                                )
+                                self.logger.warning(
+                                    "MinHash library not available, falling back to MD5"
+                                )
                                 self.use_minhash = False  # Make sure we switch to MD5
-                                self._minhash_imported = False  # Explicitly mark import as failed
-                                compute_minhash_func = lambda _: []  # Assign a dummy function with unused parameter
+                                self._minhash_imported = (
+                                    False  # Explicitly mark import as failed
+                                )
+                                compute_minhash_func = (
+                                    lambda _: []
+                                )  # Assign a dummy function with unused parameter
 
                             # Save reference to function (imported or dummy) in object attribute
                             self._compute_minhash = compute_minhash_func
@@ -682,14 +735,16 @@ class GroupAnalyzerOperation(BaseOperation):
 
                             # Use the first 8 elements of the signature as the key
                             signature = self.minhash_cache[text]
-                            signature_str = str(signature[:8])  # Convert to string for consistent keys
+                            signature_str = str(
+                                signature[:8]
+                            )  # Convert to string for consistent keys
                             key = signature_str
                         else:
                             # Fallback to MD5 if MinHash is not available
-                            key = hashlib.md5(text.encode('utf-8')).hexdigest()
+                            key = hashlib.md5(text.encode("utf-8")).hexdigest()
                     else:
                         # Use MD5 for exact matching of long texts
-                        key = hashlib.md5(text.encode('utf-8')).hexdigest()
+                        key = hashlib.md5(text.encode("utf-8")).hexdigest()
                 else:
                     # Use the text directly for short strings
                     key = text
@@ -702,8 +757,14 @@ class GroupAnalyzerOperation(BaseOperation):
             counts[key] = counts.get(key, 0) + 1
 
         # For MinHash, we could cluster similar signatures here if needed
-        if self.use_minhash and hasattr(self, '_minhash_imported') and self._minhash_imported:
-            minhash_keys = [k for k in counts.keys() if isinstance(k, str) and k.startswith('[')]
+        if (
+            self.use_minhash
+            and hasattr(self, "_minhash_imported")
+            and self._minhash_imported
+        ):
+            minhash_keys = [
+                k for k in counts.keys() if isinstance(k, str) and k.startswith("[")
+            ]
 
             if len(minhash_keys) > 1:
                 # Group similar signatures
@@ -727,7 +788,9 @@ class GroupAnalyzerOperation(BaseOperation):
 
         return unique_keys, counts
 
-    def _cluster_minhash_signatures_from_keys(self, signature_keys: List[str]) -> List[List[str]]:
+    def _cluster_minhash_signatures_from_keys(
+        self, signature_keys: List[str]
+    ) -> List[List[str]]:
         """
         Cluster similar MinHash signature keys.
 
@@ -749,7 +812,7 @@ class GroupAnalyzerOperation(BaseOperation):
         for key in signature_keys:
             try:
                 # Extract numbers from string representation like '[1, 2, 3, 4]'
-                nums = key.strip('[]').split(',')
+                nums = key.strip("[]").split(",")
                 sig = [int(n.strip()) for n in nums if n.strip()]
                 parsed_signatures.append((key, sig))
             except (ValueError, AttributeError):
@@ -770,7 +833,7 @@ class GroupAnalyzerOperation(BaseOperation):
             processed.add(key1)
 
             # Compare with all other signatures
-            for key2, sig2 in parsed_signatures[i + 1:]:
+            for key2, sig2 in parsed_signatures[i + 1 :]:
                 if key2 in processed:
                     continue
 
@@ -817,7 +880,9 @@ class GroupAnalyzerOperation(BaseOperation):
 
         return intersection / union if union > 0 else 0.0
 
-    def _generate_variance_distribution(self, variance_distribution: Dict[str, int], output_path: Path, **kwargs):
+    def _generate_variance_distribution(
+        self, variance_distribution: Dict[str, int], output_path: Path, **kwargs
+    ):
         """
         Generate a histogram of variance distribution.
 
@@ -832,7 +897,13 @@ class GroupAnalyzerOperation(BaseOperation):
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Create ordered categories for better visualization
-        categories = ["below_0.1", "0.1_to_0.2", "0.2_to_0.5", "0.5_to_0.8", "above_0.8"]
+        categories = [
+            "below_0.1",
+            "0.1_to_0.2",
+            "0.2_to_0.5",
+            "0.5_to_0.8",
+            "above_0.8",
+        ]
 
         # Create labels mapping
         labels_map = {
@@ -840,7 +911,7 @@ class GroupAnalyzerOperation(BaseOperation):
             "0.1_to_0.2": "0.1 - 0.2",
             "0.2_to_0.5": "0.2 - 0.5",
             "0.5_to_0.8": "0.5 - 0.8",
-            "above_0.8": "> 0.8"
+            "above_0.8": "> 0.8",
         }
 
         # Create data for visualization
@@ -859,12 +930,12 @@ class GroupAnalyzerOperation(BaseOperation):
                     y_label="Number of Groups",
                     bins=len(categories),
                     kde=False,
-                    **kwargs
+                    **kwargs,
                 )
             except (TypeError, ValueError) as e:
                 # Fallback to matplotlib for proper histogram
                 plt.figure(figsize=(10, 6))
-                plt.bar(list(data.keys()), list(data.values()), color='skyblue')
+                plt.bar(list(data.keys()), list(data.values()), color="skyblue")
                 plt.title(f"Variability Distribution ({self.field_name})")
                 plt.xlabel("Variability Range")
                 plt.ylabel("Number of Groups")
@@ -873,14 +944,18 @@ class GroupAnalyzerOperation(BaseOperation):
                 plt.savefig(output_path, dpi=300)
                 plt.close()
 
-            self.logger.info(f"Generated variance distribution visualization at {output_path}")
+            self.logger.info(
+                f"Generated variance distribution visualization at {output_path}"
+            )
         except Exception as e:
-            self.logger.error(f"Error generating variance distribution visualization: {str(e)}")
+            self.logger.error(
+                f"Error generating variance distribution visualization: {str(e)}"
+            )
 
             # Fallback to basic matplotlib in case of error
             try:
                 plt.figure(figsize=(10, 6))
-                plt.bar(list(data.keys()), list(data.values()), color='skyblue')
+                plt.bar(list(data.keys()), list(data.values()), color="skyblue")
                 plt.title(f"Variability Distribution ({self.field_name})")
                 plt.xlabel("Variability Range")
                 plt.ylabel("Number of Groups")
@@ -888,11 +963,17 @@ class GroupAnalyzerOperation(BaseOperation):
                 plt.tight_layout()
                 plt.savefig(output_path, dpi=300)
                 plt.close()
-                self.logger.info(f"Generated fallback variance distribution visualization at {output_path}")
+                self.logger.info(
+                    f"Generated fallback variance distribution visualization at {output_path}"
+                )
             except Exception as e2:
-                self.logger.error(f"Failed to generate fallback visualization: {str(e2)}")
+                self.logger.error(
+                    f"Failed to generate fallback visualization: {str(e2)}"
+                )
 
-    def _generate_field_heatmap(self, field_metrics: Dict[str, Dict[str, float]], output_path: Path, **kwargs):
+    def _generate_field_heatmap(
+        self, field_metrics: Dict[str, Dict[str, float]], output_path: Path, **kwargs
+    ):
         """
         Generate a heatmap of field variances.
 
@@ -919,10 +1000,13 @@ class GroupAnalyzerOperation(BaseOperation):
                     data[metric][field] = field_metrics[field][metric]
 
             # Convert to DataFrame for better compatibility
-            df_data = pd.DataFrame({
-                metric: [data[metric][field] for field in field_names]
-                for metric in metric_types
-            }, index=field_names)
+            df_data = pd.DataFrame(
+                {
+                    metric: [data[metric][field] for field in field_names]
+                    for metric in metric_types
+                },
+                index=field_names,
+            )
 
             try:
                 # Try with the pamola core visualization utility
@@ -935,12 +1019,12 @@ class GroupAnalyzerOperation(BaseOperation):
                     colorscale="Viridis",
                     annotate=True,
                     annotation_format=".3f",
-                    **kwargs
+                    **kwargs,
                 )
             except (TypeError, ValueError) as e:
                 # Fallback to matplotlib for the heatmap
                 plt.figure(figsize=(12, len(field_names) * 0.8))
-                im = plt.imshow(df_data.values, cmap='viridis')
+                im = plt.imshow(df_data.values, cmap="viridis")
 
                 # Add labels
                 plt.colorbar(im)
@@ -966,10 +1050,17 @@ class GroupAnalyzerOperation(BaseOperation):
             # Fallback to basic matplotlib in case of error
             try:
                 # Create a simple bar chart instead of a heatmap
-                field_avg_variances = {field: metrics["avg_variance"] for field, metrics in field_metrics.items()}
+                field_avg_variances = {
+                    field: metrics["avg_variance"]
+                    for field, metrics in field_metrics.items()
+                }
 
                 plt.figure(figsize=(10, 6))
-                plt.bar(field_avg_variances.keys(), field_avg_variances.values(), color='skyblue')
+                plt.bar(
+                    field_avg_variances.keys(),
+                    field_avg_variances.values(),
+                    color="skyblue",
+                )
                 plt.title(f"Field Average Variances ({self.field_name})")
                 plt.xlabel("Field")
                 plt.ylabel("Average Variance")
@@ -978,14 +1069,18 @@ class GroupAnalyzerOperation(BaseOperation):
                 plt.savefig(output_path, dpi=300)
                 plt.close()
 
-                self.logger.info(f"Generated fallback field variance visualization at {output_path}")
+                self.logger.info(
+                    f"Generated fallback field variance visualization at {output_path}"
+                )
             except Exception as e2:
-                self.logger.error(f"Failed to generate fallback visualization: {str(e2)}")
+                self.logger.error(
+                    f"Failed to generate fallback visualization: {str(e2)}"
+                )
 
     def _check_cache(
-            self,
-            data_source: DataSource,
-            data_source_name: str = "main",
+        self,
+        data_source: DataSource,
+        data_source_name: str = "main",
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -1023,8 +1118,7 @@ class GroupAnalyzerOperation(BaseOperation):
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
             cached_data = operation_cache.get_cache(
-                cache_key=cache_key,
-                operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.__class__.__name__
             )
 
             if cached_data:
@@ -1047,12 +1141,19 @@ class GroupAnalyzerOperation(BaseOperation):
                         artifact_path = artifact.get("path", "")
                         artifact_name = artifact.get("description", "")
                         artifact_category = artifact.get("category", "output")
-                        cached_result.add_artifact(artifact_type, artifact_path, artifact_name, artifact_category) 
+                        cached_result.add_artifact(
+                            artifact_type,
+                            artifact_path,
+                            artifact_name,
+                            artifact_category,
+                        )
 
                 # Add cache information to result
                 cached_result.add_metric("cached", True)
                 cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric("cache_timestamp", cached_data.get("timestamp", "unknown"))
+                cached_result.add_metric(
+                    "cache_timestamp", cached_data.get("timestamp", "unknown")
+                )
 
                 return cached_result
 
@@ -1063,11 +1164,11 @@ class GroupAnalyzerOperation(BaseOperation):
             return None
 
     def _save_to_cache(
-            self,
-            original_df: pd.DataFrame,
-            artifacts: List[OperationArtifact],
-            metrics: Dict[str, Any],
-            task_dir: Path
+        self,
+        original_df: pd.DataFrame,
+        artifacts: List[OperationArtifact],
+        metrics: Dict[str, Any],
+        task_dir: Path,
     ) -> bool:
         """
         Save operation results to cache.
@@ -1117,7 +1218,7 @@ class GroupAnalyzerOperation(BaseOperation):
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,
-                metadata={"task_dir": str(task_dir)}
+                metadata={"task_dir": str(task_dir)},
             )
 
             if success:
@@ -1130,10 +1231,7 @@ class GroupAnalyzerOperation(BaseOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(
-            self,
-            df: pd.DataFrame
-    ) -> str:
+    def _generate_cache_key(self, df: pd.DataFrame) -> str:
         """
         Generate a deterministic cache key based on operation parameters and data characteristics.
 
@@ -1159,12 +1257,10 @@ class GroupAnalyzerOperation(BaseOperation):
         return operation_cache.generate_cache_key(
             operation_name=self.__class__.__name__,
             parameters=parameters,
-            data_hash=data_hash
+            data_hash=data_hash,
         )
 
-    def _get_operation_parameters(
-            self
-    ) -> Dict[str, Any]:
+    def _get_operation_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1183,7 +1279,7 @@ class GroupAnalyzerOperation(BaseOperation):
             "large_group_variance_threshold": self.large_group_variance_threshold,
             "hash_algorithm": self.hash_algorithm,
             "minhash_similarity_threshold": self.minhash_similarity_threshold,
-            "encryption_key": self.encryption_key
+            "encryption_key": self.encryption_key,
         }
 
         # Add operation-specific parameters
@@ -1191,9 +1287,7 @@ class GroupAnalyzerOperation(BaseOperation):
 
         return parameters
 
-    def _get_cache_parameters(
-            self
-    ) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for cache key generation.
 
@@ -1204,10 +1298,7 @@ class GroupAnalyzerOperation(BaseOperation):
         """
         return {}
 
-    def _generate_data_hash(
-            self,
-            df: pd.DataFrame
-    ) -> str:
+    def _generate_data_hash(self, df: pd.DataFrame) -> str:
         """
         Generate a hash representing the key characteristics of the data.
 
@@ -1228,7 +1319,7 @@ class GroupAnalyzerOperation(BaseOperation):
             characteristics = df.describe(include="all")
 
             # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format='iso')
+            json_str = characteristics.to_json(date_format="iso")
         except Exception as e:
             self.logger.warning(f"Error generating data hash: {str(e)}")
 
@@ -1238,19 +1329,19 @@ class GroupAnalyzerOperation(BaseOperation):
         return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
-            self,
-            threshold_metrics: Dict[str, Any],
-            field_metrics: Dict[str, Any],
-            vis_dir: Path,
-            include_timestamp: bool,
-            result: OperationResult,
-            reporter: Any,
-            vis_theme: Optional[str] = None,
-            vis_backend: Optional[str] = None,
-            vis_strict: bool = False,
-            vis_timeout: int = 120,
-            progress_tracker: Optional[HierarchicalProgressTracker] = None,
-            **kwargs
+        self,
+        threshold_metrics: Dict[str, Any],
+        field_metrics: Dict[str, Any],
+        vis_dir: Path,
+        result: OperationResult,
+        reporter: Any,
+        vis_theme: Optional[str] = None,
+        vis_backend: Optional[str] = None,
+        vis_strict: bool = False,
+        vis_timeout: int = 120,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        operation_timestamp: Optional[str] = None,
+        **kwargs,
     ) -> Dict[str, Path]:
         """
         Generate and save visualizations.
@@ -1263,8 +1354,6 @@ class GroupAnalyzerOperation(BaseOperation):
             Dictionary containing per-field metrics (e.g., avg/max variance, duplication ratios).
         vis_dir : Path
             Directory to save visualizations
-        include_timestamp : bool
-            Whether to include timestamps in output filenames
         result : OperationResult
             Operation result to add artifacts to
         reporter : Any
@@ -1288,7 +1377,9 @@ class GroupAnalyzerOperation(BaseOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        self.logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+        self.logger.info(
+            f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
+        )
 
         try:
             import threading
@@ -1302,8 +1393,12 @@ class GroupAnalyzerOperation(BaseOperation):
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                self.logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
-                self.logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+                self.logger.info(
+                    f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
+                )
+                self.logger.info(
+                    f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
+                )
 
                 start_time = time.time()
 
@@ -1312,9 +1407,13 @@ class GroupAnalyzerOperation(BaseOperation):
                     self.logger.info(f"[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        self.logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                        self.logger.info(
+                            f"[DIAG] Context vars count: {len(list(current_context))}"
+                        )
                     except Exception as ctx_e:
-                        self.logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+                        self.logger.warning(
+                            f"[DIAG] Could not inspect context: {ctx_e}"
+                        )
 
                     # Generate visualizations with visualization context parameters
                     self.logger.info(f"[DIAG] Calling _generate_visualizations...")
@@ -1329,21 +1428,29 @@ class GroupAnalyzerOperation(BaseOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            self.logger.debug(f"Could not create child progress tracker: {e}")
+                            self.logger.debug(
+                                f"Could not create child progress tracker: {e}"
+                            )
 
                     # Generate visualizations
                     # Generate variance distribution histogram
-                    variance_dist_filename = get_timestamped_filename(f"{self.__class__.__name__}_{self.field_name}_variance_dist", "png",
-                                                         include_timestamp)
+                    variance_dist_filename = f"{self.__class__.__name__}_{self.field_name}_variance_dist_{operation_timestamp}.png"
                     variance_dist_path = vis_dir / variance_dist_filename
-                    self._generate_variance_distribution(threshold_metrics, variance_dist_path, **kwargs)
-                    visualization_paths.update({"variance_dist_path": variance_dist_path})
+                    self._generate_variance_distribution(
+                        threshold_metrics, variance_dist_path, **kwargs
+                    )
+                    visualization_paths.update(
+                        {"variance_dist_path": variance_dist_path}
+                    )
                     # Generate field variability heatmap
-                    field_heatmap_filename = get_timestamped_filename(f"{self.__class__.__name__}_{self.field_name}_field_heatmap", "png",
-                                                         include_timestamp)
+                    field_heatmap_filename = f"{self.__class__.__name__}_{self.field_name}_field_heatmap_{operation_timestamp}.png"
                     field_heatmap_path = vis_dir / field_heatmap_filename
-                    self._generate_field_heatmap(field_metrics, field_heatmap_path, **kwargs)
-                    visualization_paths.update({"field_heatmap_path": field_heatmap_path})
+                    self._generate_field_heatmap(
+                        field_metrics, field_heatmap_path, **kwargs
+                    )
+                    visualization_paths.update(
+                        {"field_heatmap_path": field_heatmap_path}
+                    )
                     # Close visualization progress tracker
                     if viz_progress:
                         try:
@@ -1358,7 +1465,9 @@ class GroupAnalyzerOperation(BaseOperation):
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    self.logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    self.logger.error(
+                        f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
+                    )
                     self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
@@ -1373,7 +1482,9 @@ class GroupAnalyzerOperation(BaseOperation):
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            self.logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            self.logger.info(
+                f"[DIAG] Starting visualization thread with timeout={vis_timeout}s"
+            )
             thread_start_time = time.time()
             viz_thread.start()
 
@@ -1384,21 +1495,35 @@ class GroupAnalyzerOperation(BaseOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    self.logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+                    self.logger.info(
+                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
+                    )
 
             if viz_thread.is_alive():
-                self.logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
-                self.logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                self.logger.error(
+                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
+                )
+                self.logger.error(
+                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
+                )
                 visualization_paths = {}
             elif visualization_error:
-                self.logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                self.logger.error(
+                    f"[DIAG] Visualization failed with error: {visualization_error}"
+                )
                 visualization_paths = {}
             else:
                 total_time = time.time() - thread_start_time
-                self.logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
-                self.logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+                self.logger.info(
+                    f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s"
+                )
+                self.logger.info(
+                    f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}"
+                )
         except Exception as e:
-            self.logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            self.logger.error(
+                f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
+            )
             self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
@@ -1409,7 +1534,7 @@ class GroupAnalyzerOperation(BaseOperation):
                 artifact_type="png",
                 path=path,
                 description=f"{viz_type} visualization",
-                category=Constants.Artifact_Category_Visualization
+                category=Constants.Artifact_Category_Visualization,
             )
 
             # Report to reporter
@@ -1417,10 +1542,7 @@ class GroupAnalyzerOperation(BaseOperation):
                 reporter.add_artifact(
                     artifact_type="png",
                     path=str(path),
-                    description=f"{viz_type} visualization"
+                    description=f"{viz_type} visualization",
                 )
 
         return visualization_paths
-
-# Register the operation so it's discoverable
-register_operation(GroupAnalyzerOperation)

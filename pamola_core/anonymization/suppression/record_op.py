@@ -35,6 +35,7 @@ Changelog:
         - Initial implementation based on REQ-REC-001 through REQ-REC-005
 """
 
+from datetime import datetime
 import hashlib
 import json
 import time
@@ -53,7 +54,6 @@ from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
     load_data_operation,
-    get_timestamped_filename,
     ensure_directory,
     write_dataframe_to_csv,
     write_json,
@@ -61,6 +61,7 @@ from pamola_core.utils.io import (
 from pamola_core.utils.io_helpers import crypto_utils, directory_utils
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.utils.ops.op_cache import OperationCache
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_field_utils import create_multi_field_mask
@@ -69,168 +70,126 @@ from pamola_core.utils.ops.op_result import (
     OperationStatus,
     OperationArtifact,
 )
-from pamola_core.utils.progress import ProgressTracker, HierarchicalProgressTracker
-from pamola_core.utils.ops.op_registry import register_operation
+from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.utils.ops.op_registry import register
 
 import dask.dataframe as dd
 from functools import partial
 
 
+class RecordSuppressionConfig(OperationConfig):
+    """Configuration for RecordSuppressionOperation with BaseOperationConfig merged."""
+
+    schema = {
+        "type": "object",
+        "allOf": [
+            BaseOperationConfig.schema,  # merge common fields
+            {
+                "type": "object",
+                "properties": {
+                    # Core parameters
+                    "field_name": {"type": "string"},
+                    "suppression_mode": {
+                        "type": "string",
+                        "enum": ["REMOVE"],
+                        "default": "REMOVE",
+                    },
+                    # Suppression control parameters
+                    "suppression_condition": {
+                        "type": "string",
+                        "enum": ["null", "value", "range", "risk", "custom"],
+                        "default": "null",
+                    },
+                    "suppression_values": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                    },
+                    "suppression_range": {
+                        "type": ["array", "null"],
+                        "items": {"type": "number"},
+                        "minItems": 2,
+                        "maxItems": 2,
+                    },
+                    # Output control
+                    "save_suppressed_records": {
+                        "type": "boolean",
+                        "default": False,
+                    },
+                    "suppression_reason_field": {
+                        "type": "string",
+                        "default": "_suppression_reason",
+                    },
+                    # Multi-field conditions
+                    "multi_conditions": {"type": ["array", "null"]},
+                    "condition_logic": {"type": "string"},
+                    # K-anonymity integration
+                    "ka_risk_field": {"type": ["string", "null"]},
+                    "risk_threshold": {"type": "number"},
+                },
+                "required": ["field_name", "suppression_condition"],
+            },
+        ],
+    }
+
+
+@register(version="1.0.0")
 class RecordSuppressionOperation(AnonymizationOperation):
     """
     Record Suppression Operation for removing entire rows from datasets.
 
-    This operation implements REQ-REC-001 through REQ-REC-005 from the
-    PAMOLA.CORE Suppression Operations Sub-Specification.
-
-    Attributes:
-        field_name (str): Primary field to check for suppression
-        suppression_condition (str): Type of suppression condition
-        suppression_values (List[Any]): Values to match for value condition
-        suppression_range (Tuple[Any, Any]): Range bounds for range condition
-        save_suppressed_records (bool): Whether to save removed records
-        suppression_reason_field (str): Field name for suppression reason
-        multi_conditions (List[Dict], optional): List of conditions for complex filtering
-        condition_logic (str): Logic for combining conditions (AND/OR)
-        _original_record_count (int): Number of records before suppression
-        _suppressed_records_count (int): Number of records suppressed
-        _suppression_reasons (Dict[str, int]): Breakdown by suppression reason
-        _batch_number (int): Current batch number for file writing
+    Implements REQ-REC-001 through REQ-REC-005 from the PAMOLA.CORE
+    Suppression Operations Sub-Specification.
     """
 
     def __init__(
         self,
         field_name: str,
-        mode: str = "REMOVE",
-        save_suppressed_records: bool = False,
+        suppression_mode: str = "REMOVE",
         suppression_condition: str = "null",
         suppression_values: Optional[List[Any]] = None,
         suppression_range: Optional[Tuple[Any, Any]] = None,
+        save_suppressed_records: bool = False,
         suppression_reason_field: str = "_suppression_reason",
-        condition_logic: str = "OR",
-        multi_conditions: Optional[List[Dict[str, Any]]] = None,
-        ka_risk_field: Optional[str] = None,
-        risk_threshold: float = 5.0,
-        optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
-        output_format: str = "csv",
-        save_output: bool = True,
-        generate_visualization: bool = True,
-        use_cache: bool = True,
-        force_recalculation: bool = False,
-        use_dask: bool = False,
-        npartitions: int = 1,
-        dask_partition_size: Optional[str] = None,
-        use_vectorization: bool = False,
-        parallel_processes: int = 1,
-        chunk_size: int = 10000,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_theme: Optional[str] = None,
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        use_encryption: bool = False,
-        encryption_key: Optional[Union[str, Path]] = None,
-        encryption_mode: Optional[str] = None,
         **kwargs,
     ):
         """
         Initialize the Record Suppression Operation.
 
-        This operation removes entire records (rows) from a dataset based on configurable suppression conditions,
-        such as null values, exact value matches, value ranges, risk scores, or user-defined rules.
+        Removes entire rows from a dataset based on configurable suppression
+        rules: nulls, exact matches, ranges, k-anonymity risk, or complex conditions.
 
         Parameters
         ----------
         field_name : str
             Primary column to evaluate for suppression.
-        mode : str, optional
-            Operation mode, must be "REMOVE". Defaults to "REMOVE".
-        save_suppressed_records : bool, optional
-            Whether to save the removed records into a separate artifact. Defaults to False.
+        suppression_mode : str, optional
+            Operation suppression_mode. Must be "REMOVE" for record suppression. Default = "REMOVE".
         suppression_condition : str, optional
-            Suppression condition type. One of: ["null", "value", "range", "risk", "custom"]. Defaults to "null".
-                - "null": Suppress rows where field is null.
-                - "value": Suppress rows where field matches values in `suppression_values`.
-                - "range": Suppress rows where field is within `suppression_range`.
-                - "risk": Suppress rows where `ka_risk_field` < `risk_threshold`.
-                - "custom": Use `multi_conditions` for complex rules.
+            Suppression condition type. One of:
+            ["null", "value", "range", "risk", "custom"]. Defaults to "null".
         suppression_values : List[Any], optional
-            Required if `suppression_condition` is "value". List of values to match for suppression.
+            Values to match if suppression_condition = "value".
         suppression_range : Tuple[Any, Any], optional
-            Required if `suppression_condition` is "range". A tuple (min, max) representing the value range.
+            Range bounds if suppression_condition = "range".
+        save_suppressed_records : bool, optional
+            Save removed records to a separate artifact. Defaults to False.
         suppression_reason_field : str, optional
-            Field name to annotate suppression reason in output, if enabled. Defaults to "_suppression_reason".
-        condition_logic : str, optional
-            Logic to combine multiple conditions: "AND" or "OR". Only applies when using `multi_conditions`. Defaults to "OR".
-        multi_conditions : List[Dict[str, Any]], optional
-            Required if `suppression_condition` is "custom". List of structured rules for advanced suppression logic.
-        ka_risk_field : str, optional
-            Required if `suppression_condition` is "risk". Field name containing k-anonymity risk scores.
-        risk_threshold : float, optional
-            Suppress records if k < threshold when using "risk" suppression. Defaults to 5.0.
-
-        output_format : str, optional
-            Output format: "csv", "parquet", "json", etc. Defaults to "csv".
-        save_output : bool, optional
-            Whether to persist the output dataset to disk. Defaults to True.
-        generate_visualization : bool, optional
-            Whether to generate visualizations summarizing the suppression results. Defaults to True.
-        use_cache : bool, optional
-            Enable internal caching of intermediate and final results. Defaults to True.
-        force_recalculation : bool, optional
-            Ignore cache and recompute even if cached results exist. Defaults to False.
-
-        use_dask : bool, optional
-            Use Dask for out-of-core or parallel processing of large datasets. Defaults to False.
-        npartitions : int, optional
-            Number of partitions to split the data into when using Dask. Defaults to 1.
-        dask_partition_size : str, optional
-            Dask-specific memory-based partition size, e.g., "100MB".
-        use_vectorization : bool, optional
-            Use joblib-based multiprocessing instead of Dask. Defaults to False.
-        parallel_processes : int, optional
-            Number of parallel processes to use with joblib. Only effective if `use_vectorization` is True.
-        chunk_size : int, optional
-            Number of records to process per chunk. Used for memory optimization. Defaults to 10000.
-
-        visualization_backend : str, optional
-            Backend for visualizations. One of: ["matplotlib", "plotly", "seaborn", ...].
-        visualization_theme : str, optional
-            Visual style/theme, e.g., "light" or "dark".
-        visualization_strict : bool, optional
-            Raise exceptions on visualization errors if True. Defaults to False.
-        visualization_timeout : int, optional
-            Timeout (in seconds) for visualization thread to complete. Defaults to 120.
-
-        use_encryption : bool, optional
-            Whether to enable encryption for saved output. Defaults to False.
-        encryption_key : str or Path, optional
-            Encryption key string or path to key file (if `use_encryption` is True).
-        encryption_mode : str, optional
-            Encryption mode (e.g., "AES"). Required if `use_encryption` is True.
-
-        **kwargs : dict
-            Additional keyword arguments passed to the base operation class.
-
-        Raises
-        ------
-        ValueError
-            - If `mode` is not "REMOVE".
-            - If `suppression_condition` is not one of the supported types.
-            - If required parameters are missing depending on `suppression_condition`:
-                * "value" requires `suppression_values`
-                * "range" requires `suppression_range`
-                * "risk" requires `ka_risk_field`
-                * "custom" requires `multi_conditions`
+            Field name for suppression reason in output. Defaults to "_suppression_reason".
+        **kwargs
+            Additional keyword arguments passed to AnonymizationOperation.
         """
+        # Description fallback
+        kwargs.setdefault(
+            "description",
+            f"Record suppresstion for '{field_name}' using {suppression_mode} suppression mode",
+        )
 
         # Validate mode
-        if mode != "REMOVE":
+        if suppression_mode != "REMOVE":
             raise ValueError(
-                f"RecordSuppressionOperation only supports mode='REMOVE', got '{mode}'"
+                f"RecordSuppressionOperation only supports mode='REMOVE', got '{suppression_mode}'"
             )
-
-        # Validate suppression condition
+        # Validate suppression_condition
         valid_conditions = ["null", "value", "range", "risk", "custom"]
         if suppression_condition not in valid_conditions:
             raise ValueError(
@@ -238,64 +197,48 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 f"Must be one of: {valid_conditions}"
             )
 
-        # Validate condition-specific parameters
+        # Condition-specific validation
         if suppression_condition == "value" and not suppression_values:
             raise ValueError("suppression_values required for 'value' condition")
         if suppression_condition == "range" and not suppression_range:
             raise ValueError("suppression_range required for 'range' condition")
-        if suppression_condition == "risk" and not ka_risk_field:
-            raise ValueError("ka_risk_field required for 'risk' condition")
-        if suppression_condition == "custom" and not multi_conditions:
-            raise ValueError("multi_conditions required for 'custom' condition")
 
-        # Initialize parent class
-        super().__init__(
+        # --- Build config object ---
+        config = RecordSuppressionConfig(
             field_name=field_name,
-            mode=mode,
-            multi_conditions=multi_conditions,
-            condition_logic=condition_logic,
-            ka_risk_field=ka_risk_field,
-            risk_threshold=risk_threshold,
-            optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            chunk_size=chunk_size,
-            output_format=output_format,
-            use_cache=use_cache,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            visualization_backend=visualization_backend,
-            visualization_theme=visualization_theme,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
+            suppression_mode=suppression_mode,
+            suppression_condition=suppression_condition,
+            suppression_values=suppression_values,
+            suppression_range=suppression_range,
+            save_suppressed_records=save_suppressed_records,
+            suppression_reason_field=suppression_reason_field,
             **kwargs,
         )
 
-        # Store operation-specific parameters
-        self.suppression_condition = suppression_condition
-        self.suppression_values = suppression_values or []
-        self.suppression_range = suppression_range
-        self.save_suppressed_records = save_suppressed_records
-        self.suppression_reason_field = suppression_reason_field
-        self.multi_conditions = multi_conditions or []
-        self.condition_logic = condition_logic.upper()
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
 
-        self.save_output = save_output
-        self.generate_visualization = generate_visualization
-        self.force_recalculation = force_recalculation
+        # --- Initialize base operation ---
+        super().__init__(
+            field_name=field_name,
+            **kwargs,
+        )
 
-        # Initialize internal state
+        # --- Save config attributes ---
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+
+        # --- Internal state ---
         self._original_record_count = 0
         self._suppressed_records_count = 0
         self._suppression_reasons: Dict[str, int] = {}
         self._batch_number = 0
         self._writer: Optional[DataWriter] = None
         self._task_dir: Optional[Path] = None
+
+        # --- Metadata ---
+        self.operation_name = self.__class__.__name__
+        self._original_df = None
 
     def execute(
         self,
@@ -306,49 +249,33 @@ class RecordSuppressionOperation(AnonymizationOperation):
         **kwargs,
     ) -> OperationResult:
         """
-        Execute the record suppression operation.
+        Execute the operation with timing and error handling.
 
-        This method performs the full pipeline for removing rows from the dataset
-        based on a combination of configured suppression conditions such as:
-        null checks, value matches, range thresholds, k-anonymity risks, or
-        multi-field conditions.
-
-        Steps include:
-        - Preparing output directories and environment.
-        - Loading and validating the input dataset.
-        - Checking and returning cached results if available and permitted.
-        - Processing data in batches or partitions to suppress records.
-        - Collecting and saving suppression metrics.
-        - Saving the final output dataset and visualizations.
-        - Caching results if enabled.
-
-        This method overrides the base `execute` method to customize logic specific
-        to record-level suppression, including tracking suppressed record counts
-        and optionally saving removed rows.
-
-        Parameters
-        ----------
+        Parameters:
+        -----------
         data_source : DataSource
-            Source of input data for the suppression operation.
+            Source of data for the operation
         task_dir : Path
-            Directory where output files, visualizations, and metrics will be saved.
-        reporter : Any, optional
-            Reporter object for logging and reporting operation progress and results.
-        progress_tracker : Optional[HierarchicalProgressTracker], optional
-            Tracker to update real-time progress feedback.
+            Directory where task artifacts should be saved
+        reporter : Any
+            Reporter object for tracking progress and artifacts
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Progress tracker for the operation
         **kwargs : dict
-            Additional parameters that may influence suppression behavior (e.g. logger, settings).
+            Additional parameters for the operation
 
-        Returns
-        -------
+        Returns:
+        --------
         OperationResult
-            Structured result object including status, metrics, artifacts, and optional errors.
+            Results of the operation
         """
         try:
             # Initialize operation
             self.start_time = time.time()
-            operation_name = self.__class__.__name__
             self.logger = kwargs.get("logger", self.logger)
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Initialize result object
             result = OperationResult(
@@ -362,7 +289,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             # Start operation - Preparation
             self.logger.info(
-                f"Operation: {operation_name}, Start operation - Preparation"
+                f"Operation: {self.operation_name}, Start operation - Preparation"
             )
 
             # Handle preparation
@@ -375,7 +302,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             # Load data and validate input parameters
             self.logger.info(
-                f"Operation: {operation_name}, Load data and validate input parameters"
+                f"Operation: {self.operation_name}, Load data and validate input parameters"
             )
 
             df, is_valid = self._load_data_and_validate_input_parameters(
@@ -389,7 +316,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             if self.use_cache and not self.force_recalculation:
                 try:
                     self.logger.info(
-                        f"Operation: {operation_name}, Load result from cache"
+                        f"Operation: {self.operation_name}, Load result from cache"
                     )
                     cached_result = self._get_cache(
                         df.copy(), progress_tracker=progress_tracker, reporter=reporter
@@ -409,7 +336,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             try:
                 # Process data
-                self.logger.info(f"Operation: {operation_name}, Process data")
+                self.logger.info(f"Operation: {self.operation_name}, Process data")
                 mask, output_data = self._process_data(
                     df, progress_tracker=progress_tracker, reporter=reporter
                 )
@@ -427,7 +354,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             try:
                 # Handle metric
-                self.logger.info(f"Operation: {operation_name}, Collect metric")
+                self.logger.info(f"Operation: {self.operation_name}, Collect metric")
                 self._handle_metrics(
                     input_data=df,
                     output_data=output_data,
@@ -436,6 +363,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     task_dir=task_dir,
                     progress_tracker=progress_tracker,
                     reporter=reporter,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -445,13 +373,14 @@ class RecordSuppressionOperation(AnonymizationOperation):
             # Save output if required
             if self.save_output:
                 try:
-                    self.logger.info(f"Operation: {operation_name}, Save output")
+                    self.logger.info(f"Operation: {self.operation_name}, Save output")
                     self._save_output(
                         output_data=output_data,
                         task_dir=task_dir,
                         result=result,
                         progress_tracker=progress_tracker,
                         reporter=reporter,
+                        operation_timestamp=operation_timestamp,
                     )
                 except Exception as e:
                     error_message = f"Error saving output: {str(e)}"
@@ -466,7 +395,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             if self.generate_visualization:
                 try:
                     self.logger.info(
-                        f"Operation: {operation_name}, Generate visualizations"
+                        f"Operation: {self.operation_name}, Generate visualizations"
                     )
                     self._handle_visualizations(
                         input_data=df,
@@ -475,6 +404,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                         result=result,
                         progress_tracker=progress_tracker,
                         reporter=reporter,
+                        operation_timestamp=operation_timestamp,
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
@@ -484,7 +414,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             # Save cache if required
             if self.use_cache:
                 try:
-                    self.logger.info(f"Operation: {operation_name}, Save cache")
+                    self.logger.info(f"Operation: {self.operation_name}, Save cache")
                     self._save_cache(
                         task_dir,
                         result,
@@ -507,10 +437,10 @@ class RecordSuppressionOperation(AnonymizationOperation):
             return result
 
         except Exception as e:
-            self.logger.error(f"Operation: {operation_name}, error occurred: {e}")
+            self.logger.error(f"Operation: {self.operation_name}, error occurred: {e}")
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": "Exception",
@@ -557,13 +487,12 @@ class RecordSuppressionOperation(AnonymizationOperation):
         Dict[str, Path]
             Dictionary of prepared directory paths.
         """
-        operation_name = self.__class__.__name__
         step = "Preparation"
 
         # Setup total progress steps
         if progress_tracker:
-            progress_tracker.total = self._compute_total_steps(**kwargs)
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.total = self._compute_total_steps()
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         # Prepare necessary directories
         dirs = self._prepare_directories(task_dir)
@@ -572,6 +501,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
         self.operation_cache = OperationCache(
             cache_dir=task_dir / "cache",
         )
+
+        # Save configuration to task directory
+        self.save_config(task_dir)
 
         self._task_dir = task_dir
 
@@ -583,7 +515,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         # Report preparation success
         if reporter:
             reporter.add_operation(
-                f"Operation {operation_name}",
+                f"Operation {self.operation_name}",
                 status="info",
                 details={
                     "step": "Preparation",
@@ -618,16 +550,29 @@ class RecordSuppressionOperation(AnonymizationOperation):
             The processed DataFrame, or a dictionary of DataFrames if applicable.
         """
         if self.use_dask and self.npartitions > 1:
+            self.logger.info("Parallel Enabled")
+            self.logger.info("Parallel Engine: Dask")
+            self.logger.info(f"Parallel Workers: {self.npartitions}")
             return self._process_with_dask(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
             )
 
         elif self.use_vectorization and self.parallel_processes > 1:
+            self.logger.info("Parallel Enabled")
+            self.logger.info("Parallel Engine: Joblib")
+            self.logger.info(f"Parallel Workers: {self.parallel_processes}")
+            self.logger.info(
+                f"Using vectorized processing with chunk size {self.chunk_size}"
+            )
             return self._process_with_joblib(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
             )
 
         else:
+            self.logger.info("Parallel Disabled")
+            self.logger.info(
+                f"Using Pandas processing with chunk size {self.chunk_size}"
+            )
             return self._process_with_pandas(
                 input_data, progress_tracker=progress_tracker, reporter=reporter
             )
@@ -647,16 +592,16 @@ class RecordSuppressionOperation(AnonymizationOperation):
             - mask: A global boolean mask indicating suppressed records.
             - output_data: The resulting DataFrame after suppression.
         """
-        operation_name = self.__class__.__name__
         step = "Process data with pandas"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         try:
             total_rows = len(input_data)
             chunk_size = max(1, min(self.chunk_size or total_rows, total_rows))
             processed_chunks = []
+            suppressed_chunks = []
             global_mask = pd.Series(False, index=input_data.index)
 
             self._original_record_count = total_rows
@@ -680,7 +625,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     )
 
                     if self.save_suppressed_records:
-                        self._save_suppressed_batch(batch[mask], self._batch_number)
+                        suppressed_chunks.append(batch[mask].copy())
 
                 # Mark suppressed positions in the global mask
                 global_mask.iloc[start:end] = mask.values
@@ -696,9 +641,18 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             output_data = pd.concat(processed_chunks, axis=0).reset_index(drop=True)
 
+            if self.save_suppressed_records and suppressed_chunks:
+                suppressed_df = pd.concat(suppressed_chunks, axis=0).reset_index(
+                    drop=True
+                )
+                if not suppressed_df.empty:
+                    self._save_suppressed_records(
+                        suppressed_df, record_num=self._suppressed_records_count
+                    )
+
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -713,10 +667,12 @@ class RecordSuppressionOperation(AnonymizationOperation):
             return global_mask, output_data
 
         except Exception as e:
-            self.logger.error(f"{operation_name} - {step} failed: {e}", exc_info=True)
+            self.logger.error(
+                f"{self.operation_name} - {step} failed: {e}", exc_info=True
+            )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -741,11 +697,10 @@ class RecordSuppressionOperation(AnonymizationOperation):
             - mask: Boolean Series indicating rows to be suppressed
             - output_data: DataFrame after removing suppressed rows
         """
-        operation_name = self.__class__.__name__
         step = "Process data with Dask"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         try:
             # Convert to Dask DataFrame
@@ -775,12 +730,20 @@ class RecordSuppressionOperation(AnonymizationOperation):
             self._original_record_count = len(input_data)
             self._suppressed_records_count = mask.sum()
             self._suppression_reasons[self.suppression_condition] = (
-                self._suppressed_records_count
+                self._suppression_reasons.get(self.suppression_condition, 0)
+                + self._suppressed_records_count
             )
+
+            if self.save_suppressed_records and self._suppressed_records_count > 0:
+                suppressed_df = input_data[mask].copy()
+                if not suppressed_df.empty:
+                    self._save_suppressed_records(
+                        suppressed_df, record_num=self._suppressed_records_count
+                    )
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -794,10 +757,12 @@ class RecordSuppressionOperation(AnonymizationOperation):
             return mask, output_data.reset_index(drop=True)
 
         except Exception as e:
-            self.logger.error(f"{operation_name} - {step} failed: {e}", exc_info=True)
+            self.logger.error(
+                f"{self.operation_name} - {step} failed: {e}", exc_info=True
+            )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -815,11 +780,10 @@ class RecordSuppressionOperation(AnonymizationOperation):
     ) -> Tuple[pd.Series, pd.DataFrame]:
         from joblib import Parallel, delayed
 
-        operation_name = self.__class__.__name__
         step = "Process data with Joblib"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         try:
             total_rows = len(input_data)
@@ -854,20 +818,26 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 pd.concat(all_masks, axis=0).astype(bool).reset_index(drop=True)
             )
 
-            if self.save_suppressed_records:
-                for batch_id, suppressed_df in enumerate(suppressed_chunks):
-                    if suppressed_df is not None and not suppressed_df.empty:
-                        self._save_suppressed_batch(suppressed_df, batch_id)
-
+            # Total suppressed records
             self._original_record_count = len(input_data)
             self._suppressed_records_count = final_mask.sum()
             self._suppression_reasons[self.suppression_condition] = (
                 self._suppressed_records_count
             )
 
+            # Save suppressed records once
+            if self.save_suppressed_records and suppressed_chunks:
+                suppressed_df = pd.concat(suppressed_chunks, axis=0).reset_index(
+                    drop=True
+                )
+                if not suppressed_df.empty:
+                    self._save_suppressed_records(
+                        suppressed_df, record_num=self._suppressed_records_count
+                    )
+
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -881,10 +851,12 @@ class RecordSuppressionOperation(AnonymizationOperation):
             return final_mask, result_df
 
         except Exception as e:
-            self.logger.error(f"{operation_name} - {step} failed: {e}", exc_info=True)
+            self.logger.error(
+                f"{self.operation_name} - {step} failed: {e}", exc_info=True
+            )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -946,43 +918,44 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         return mask
 
-    def _save_suppressed_batch(
-        self, suppressed_df: pd.DataFrame, batch_num: int
+    def _save_suppressed_records(
+        self, suppressed_df: pd.DataFrame, record_num: int
     ) -> None:
         """
         Save suppressed records to disk immediately to manage memory.
 
         Args:
             suppressed_df: DataFrame of suppressed records
-            batch_num: Batch number for file naming
+            record_num: Record number for file naming (count of suppressed records or identifier)
         """
-        if len(suppressed_df) == 0:
+        if suppressed_df.empty:
             return
 
         try:
-            # Add metadata columns
             suppressed_df = suppressed_df.copy()
+            self.suppression_reason_field = (
+                self.suppression_reason_field or "ReasonForRemoval"
+            )
             suppressed_df[self.suppression_reason_field] = (
                 self._get_suppression_reason()
             )
-            suppressed_df[f"{self.suppression_reason_field}_timestamp"] = (
-                pd.Timestamp.now()
-            )
-            suppressed_df[f"{self.suppression_reason_field}_batch"] = batch_num
 
-            # Write to file immediately
             if self._writer and self._task_dir:
-                filename = f"suppressed_records_batch_{batch_num:04d}"
-                write_result = self._writer.write_dataframe(
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = (
+                    f"{self.field_name}_suppressed_records_{record_num:04d}_{timestamp}"
+                )
+                suppressed_record_result = self._writer.write_dataframe(
                     df=suppressed_df,
                     name=filename,
-                    format="parquet",
-                    subdir="audit/suppressed_batches",
+                    format="csv",
+                    subdir="output/suppressed_records",
                     timestamp_in_name=False,
                     encryption_key=self.encryption_key if self.use_encryption else None,
                 )
                 self.logger.debug(
-                    f"Saved {len(suppressed_df)} suppressed records to batch file"
+                    f"Saved {len(suppressed_df)} suppressed records (record_num={record_num}) "
+                    f"to file {suppressed_record_result.path}"
                 )
             else:
                 self.logger.warning(
@@ -990,7 +963,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 )
 
         except Exception as e:
-            self.logger.error(f"Failed to save suppressed batch: {e}")
+            self.logger.error(f"Failed to save suppressed records: {e}", exc_info=True)
 
     def _get_suppression_reason(self) -> str:
         """
@@ -1161,7 +1134,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             raise
 
     def _save_metrics(
-        self, metrics: Dict[str, Any], task_dir: Path, result: OperationResult
+        self, metrics: Dict[str, Any], task_dir: Path, result: OperationResult, operation_timestamp: Optional[str] = None
     ) -> None:
         """
         Save the collected metrics as a JSON file and register it as an artifact.
@@ -1173,10 +1146,8 @@ class RecordSuppressionOperation(AnonymizationOperation):
             metrics_dir = task_dir / "metrics"
             ensure_directory(metrics_dir)
 
-            operation_name = self.__class__.__name__
-            filename = get_timestamped_filename(
-                f"{operation_name}__metrics", "json", True
-            )
+            operation_name = self.operation_name.lower()
+            filename = f"{operation_name}_metrics_{operation_timestamp}.json"
             metrics_path = metrics_dir / filename
 
             write_json(metrics, metrics_path, encryption_key=self.encryption_key)
@@ -1184,7 +1155,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             result.add_artifact(
                 artifact_type="json",
                 path=metrics_path,
-                description=f"Metrics for {operation_name}",
+                description=f"Metrics for {self.operation_name}",
                 category=Constants.Artifact_Category_Metrics,
             )
 
@@ -1205,6 +1176,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         task_dir: Path,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
+        operation_timestamp: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Handle the collection and saving of metrics for record suppression.
@@ -1217,19 +1189,20 @@ class RecordSuppressionOperation(AnonymizationOperation):
         -------
         Optional[Dict[str, Any]]
         """
-        operation_name = self.__class__.__name__
         step = "Collect metrics"
         try:
             if progress_tracker:
-                progress_tracker.update(1, {"step": step, "operation": operation_name})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             metrics = self._collect_metrics(input_data, output_data, mask)
             result.metrics = metrics
-            self._save_metrics(metrics, task_dir, result)
+            self._save_metrics(metrics, task_dir, result, operation_timestamp)
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1252,11 +1225,11 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         except Exception as e:
             self.logger.error(
-                f"Failed to handle metrics in {operation_name}: {e}", exc_info=True
+                f"Failed to handle metrics in {self.operation_name}: {e}", exc_info=True
             )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={"step": step, "message": str(e)},
                 )
@@ -1269,6 +1242,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         result: OperationResult,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
+        operation_timestamp: Optional[str] = None,
     ):
         """
         Save the processed output DataFrame to disk and register it as an artifact.
@@ -1289,14 +1263,14 @@ class RecordSuppressionOperation(AnonymizationOperation):
             Progress tracker instance to update progress.
         reporter : Optional[Any]
             Reporter object to log progress and status.
-        **kwargs : dict
-            Additional keyword arguments, including encryption settings.
+        operation_timestamp : Optional[str]
+            Timestamp string to include in filenames for uniqueness.
         """
-        operation_name = self.__class__.__name__
         step = "Save output"
+        operation_name = self.operation_name.lower()
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         output_dir = task_dir / "output"
         ensure_directory(output_dir)
@@ -1309,10 +1283,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             "encryption_mode": self.encryption_mode,
         }
         encryption_mode = get_encryption_mode(output_data, **kwargs_encryption)
-
-        filename = get_timestamped_filename(
-            f"{operation_name}_{self.field_name}", self.output_format, True
-        )
+        filename = f"{operation_name}_{self.field_name}_output_{operation_timestamp}.{self.output_format}"
         output_path = output_dir / filename
 
         try:
@@ -1347,7 +1318,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 self.logger.warning(warning_msg)
                 if reporter:
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="warning",
                         details={"step": step, "message": warning_msg},
                     )
@@ -1363,7 +1334,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1378,7 +1349,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -1393,6 +1364,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         output_data: pd.DataFrame,
         task_dir: Path,
         result: OperationResult,
+        operation_timestamp: Optional[str] = None,
     ) -> Optional[Path]:
         """
         Generate visualizations showing columns before/after suppression and data type distribution.
@@ -1401,6 +1373,8 @@ class RecordSuppressionOperation(AnonymizationOperation):
             input_data: Original DataFrame
             output_data: Processed DataFrame
             task_dir: Directory to save visualization
+            result: OperationResult to register visualization artifacts
+            operation_timestamp: Timestamp string for filenames
 
         Returns:
             Path to saved visualization or None
@@ -1408,7 +1382,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         vis_dir = task_dir / "visualizations"
         ensure_directory(vis_dir)
-        operation_name = self.__class__.__name__
+        operation_name = self.operation_name.lower()
 
         kwargs_visualization = {
             "use_encryption": self.use_encryption,
@@ -1432,9 +1406,8 @@ class RecordSuppressionOperation(AnonymizationOperation):
             viz_data = pd.DataFrame({"Status": categories, "Record Count": values})
 
             # Create bar chart
-            bar_path = vis_dir / get_timestamped_filename(
-                f"{operation_name}_record_suppression_summary", "png", True
-            )
+            bar_file_name = f"{operation_name}_record_suppression_summary_{operation_timestamp}.png"
+            bar_path = vis_dir / bar_file_name
             bar_result = create_bar_plot(
                 data=viz_data.set_index("Status")["Record Count"].to_dict(),
                 output_path=bar_path,
@@ -1463,9 +1436,8 @@ class RecordSuppressionOperation(AnonymizationOperation):
         # Create suppression breakdown visualization if multiple reasons
         if len(self._suppression_reasons) > 1:
             try:
-                breakdown_bar_path = vis_dir / get_timestamped_filename(
-                    f"{operation_name}_suppression_reasons_breakdown", "png", True
-                )
+                breakdown_bar_file_name = f"{operation_name}_suppression_reasons_breakdown_{operation_timestamp}.png"
+                breakdown_bar_path = vis_dir / breakdown_bar_file_name
                 breakdown_bar_result = create_bar_plot(
                     data=self._suppression_reasons,
                     output_path=breakdown_bar_path,
@@ -1506,6 +1478,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         result: OperationResult,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
+        operation_timestamp: Optional[str] = None,
     ) -> None:
         """
         Handle generation of visualizations in a separate thread, with logging and timeout.
@@ -1524,11 +1497,12 @@ class RecordSuppressionOperation(AnonymizationOperation):
             Optional progress tracker to report progress.
         reporter : Optional[Any]
             Optional reporter to log operation status.
+        operation_timestamp : Optional[str]
+            Timestamp string for filenames (not used here but kept for consistency).
         """
         import threading
         import contextvars
 
-        operation_name = self.__class__.__name__
         step = "Generate visualizations"
         self.logger.info(
             f"[VIZ] Preparing to generate visualizations in a separate thread"
@@ -1544,6 +1518,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     output_data=output_data,
                     task_dir=task_dir,
                     result=result,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
                 viz_error = e
@@ -1553,7 +1528,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         try:
             if progress_tracker:
-                progress_tracker.update(1, {"step": step, "operation": operation_name})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             ctx = contextvars.copy_context()
             thread = threading.Thread(
@@ -1572,7 +1549,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 )
                 if reporter:
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="warning",
                         details={
                             "step": "Generate visualizations",
@@ -1583,7 +1560,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
                 if reporter:
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="warning",
                         details={
                             "step": "Generate visualizations",
@@ -1597,7 +1574,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                         [a for a in result.artifacts if a.artifact_type == "png"]
                     )
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="info",
                         details={
                             "step": "Generate visualizations",
@@ -1612,7 +1589,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": "Generate visualizations",
@@ -1643,7 +1620,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
         **kwargs : dict
             Additional keyword arguments, used to compute the cache key.
         """
-        operation_name = self.__class__.__name__
 
         try:
             result_data = {
@@ -1665,7 +1641,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             }
 
             cache_key = self.operation_cache.generate_cache_key(
-                operation_name=operation_name,
+                operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(),
                 data_hash=self._generate_data_hash(self._original_df.copy()),
             )
@@ -1673,7 +1649,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=operation_name,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -1681,12 +1657,12 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             if progress_tracker:
                 progress_tracker.update(
-                    1, {"step": "Save cache", "operation": operation_name}
+                    1, {"step": "Save cache", "operation": self.operation_name}
                 )
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": "Save cache",
@@ -1722,21 +1698,22 @@ class RecordSuppressionOperation(AnonymizationOperation):
         Optional[OperationResult]
             The cached OperationResult if available, otherwise None.
         """
-        operation_name = self.__class__.__name__
         step_name = "Load result from cache"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step_name, "operation": operation_name})
+            progress_tracker.update(
+                1, {"step": step_name, "operation": self.operation_name}
+            )
 
         try:
             cache_key = self.operation_cache.generate_cache_key(
-                operation_name=operation_name,
+                operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(),
                 data_hash=self._generate_data_hash(df),
             )
 
             cached = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=operation_name
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             result_data = cached.get("result")
@@ -1776,7 +1753,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step_name,
@@ -1787,11 +1764,11 @@ class RecordSuppressionOperation(AnonymizationOperation):
             return result
 
         except Exception as e:
-            self.logger.info(f"{operation_name} - {step_name} failed: {e}")
+            self.logger.info(f"{self.operation_name} - {step_name} failed: {e}")
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step_name,
@@ -1818,7 +1795,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
 
         return {
-            "operation": self.__class__.__name__,
+            "operation": self.operation_name,
             "version": self.version,
             "field_name": self.field_name,
             "mode": self.mode,
@@ -1912,97 +1889,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
             fallback = f"{df.shape}_{list(df.dtypes)}"
             return hashlib.md5(fallback.encode()).hexdigest()
 
-    def _set_input_parameters(self, **kwargs):
-        """
-        Set common configurable operation parameters from keyword arguments.
-        """
-
-        self.field_name = kwargs.get("field_name", getattr(self, "field_name", None))
-        self.mode = kwargs.get("mode", getattr(self, "mode", "REMOVE"))
-        self.save_suppressed_records = kwargs.get(
-            "save_suppressed_records", getattr(self, "save_suppressed_records", True)
-        )
-        self.suppression_condition = kwargs.get(
-            "suppression_condition", getattr(self, "suppression_condition", "null")
-        )
-        self.suppression_values = kwargs.get(
-            "suppression_values", getattr(self, "suppression_values", None)
-        )
-        self.suppression_range = kwargs.get(
-            "suppression_range", getattr(self, "suppression_range", None)
-        )
-        self.suppression_reason_field = kwargs.get(
-            "suppression_reason_field", getattr(self, "suppression_reason_field", None)
-        )
-        self.condition_logic = kwargs.get(
-            "condition_logic", getattr(self, "condition_logic", None)
-        )
-        self.multi_conditions = kwargs.get(
-            "multi_conditions", getattr(self, "multi_conditions", None)
-        )
-        self.ka_risk_field = kwargs.get(
-            "ka_risk_field", getattr(self, "ka_risk_field", None)
-        )
-        self.risk_threshold = kwargs.get(
-            "risk_threshold", getattr(self, "risk_threshold", None)
-        )
-        self.optimize_memory = kwargs.get(
-            "optimize_memory", getattr(self, "optimize_memory", True)
-        )
-        self.adaptive_chunk_size = kwargs.get(
-            "adaptive_chunk_size", getattr(self, "adaptive_chunk_size", True)
-        )
-
-        self.generate_visualization = kwargs.get(
-            "generate_visualization", getattr(self, "generate_visualization", True)
-        )
-        self.save_output = kwargs.get("save_output", getattr(self, "save_output", True))
-        self.output_format = kwargs.get(
-            "output_format", getattr(self, "output_format", "csv")
-        )
-
-        self.use_cache = kwargs.get("use_cache", getattr(self, "use_cache", True))
-        self.force_recalculation = kwargs.get(
-            "force_recalculation", getattr(self, "force_recalculation", False)
-        )
-
-        self.use_dask = kwargs.get("use_dask", getattr(self, "use_dask", False))
-        self.npartitions = kwargs.get("npartitions", getattr(self, "npartitions", 1))
-        self.dask_partition_size = kwargs.get(
-            "dask_partition_size", getattr(self, "dask_partition_size", None)
-        )
-
-        self.use_vectorization = kwargs.get(
-            "use_vectorization", getattr(self, "use_vectorization", False)
-        )
-        self.parallel_processes = kwargs.get(
-            "parallel_processes", getattr(self, "parallel_processes", 1)
-        )
-
-        self.chunk_size = kwargs.get("chunk_size", getattr(self, "chunk_size", 10000))
-
-        self.visualization_backend = kwargs.get(
-            "visualization_backend", getattr(self, "visualization_backend", None)
-        )
-        self.visualization_theme = kwargs.get(
-            "visualization_theme", getattr(self, "visualization_theme", None)
-        )
-        self.visualization_strict = kwargs.get(
-            "visualization_strict", getattr(self, "visualization_strict", False)
-        )
-        self.visualization_timeout = kwargs.get(
-            "visualization_timeout", getattr(self, "visualization_timeout", 120)
-        )
-
-        self.use_encryption = kwargs.get(
-            "use_encryption", getattr(self, "use_encryption", False)
-        )
-        self.encryption_key = (
-            kwargs.get("encryption_key", getattr(self, "encryption_key", None))
-            if self.use_encryption
-            else None
-        )
-
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """
         Validate required input fields exist in the DataFrame based on suppression condition.
@@ -2059,14 +1945,11 @@ class RecordSuppressionOperation(AnonymizationOperation):
         Tuple[Optional[pd.DataFrame], bool]
             Loaded DataFrame (or None), and validation success flag.
         """
-        operation_name = self.__class__.__name__
         step_label = "Load data and validate input parameters"
-
-        self._set_input_parameters(**kwargs)
 
         if progress_tracker:
             progress_tracker.update(
-                1, {"step": step_label, "operation": operation_name}
+                1, {"step": step_label, "operation": self.operation_name}
             )
 
         dataset_name = kwargs.get("dataset_name", "main")
@@ -2080,7 +1963,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step_label,
@@ -2089,14 +1972,13 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 )
             return None, False
 
-        self._input_dataset = dataset_name
         self._original_df = df.copy(deep=True)
 
         is_valid = self._validate_input_parameters(df)
 
         if reporter:
             reporter.add_operation(
-                f"Operation {operation_name}",
+                f"Operation {self.operation_name}",
                 status="info" if is_valid else "warning",
                 details={
                     "step": step_label,
@@ -2111,34 +1993,25 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         return df, is_valid
 
-    def _compute_total_steps(self, **kwargs) -> int:
-        use_cache = kwargs.get("use_cache", self.use_cache)
-        force_recalculation = kwargs.get(
-            "force_recalculation", self.force_recalculation
-        )
-        save_output = kwargs.get("save_output", self.save_output)
-        generate_visualization = kwargs.get(
-            "generate_visualization", self.generate_visualization
-        )
-
+    def _compute_total_steps(self) -> int:
         steps = 0
 
         steps += 1  # Step 1: Preparation
         steps += 1  # Step 2: Load data and validate input
 
-        if use_cache and not force_recalculation:
+        if self.use_cache and not self.force_recalculation:
             steps += 1  # Step 3: Try to load from cache
 
         steps += 1  # Step 4: Process data
         steps += 1  # Step 5: Collect metrics
 
-        if save_output:
+        if self.save_output:
             steps += 1  # Step 6: Save output
 
-        if generate_visualization:
+        if self.generate_visualization:
             steps += 1  # Step 7: Generate visualizations
 
-        if use_cache:
+        if self.use_cache:
             steps += 1  # Step 8: Save cache
 
         return steps
@@ -2232,7 +2105,3 @@ def process_batch_for_suppression(
     suppressed = batch[mask] if save_suppressed_records else None
     result = batch[~mask].copy()
     return result, mask.astype(bool), suppressed
-
-
-# Register the operation with the framework
-register_operation(RecordSuppressionOperation)

@@ -46,23 +46,21 @@ Changelog:
 from datetime import datetime, timedelta
 from pathlib import Path
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.categorical_config import NullStrategy
 from pamola_core.anonymization.commons.validation.exceptions import FieldValueError
 from pamola_core.anonymization.commons.validation_utils import (
-    BaseValidator,
-    ValidationResult,
-    ValidationError,
     validate_datetime_field,
 )
 import dask.dataframe as dd
 from pamola_core.common.constants import Constants
+from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
@@ -109,95 +107,90 @@ class InsufficientPrivacyError(Exception):
 
 
 class DateTimeGeneralizationConfig(OperationConfig):
-    """Configuration for DateTimeGeneralizationOperation."""
+    """Configuration for DateTimeGeneralizationOperation with BaseOperationConfig merged."""
 
     schema = {
         "type": "object",
-        "properties": {
-            "field_name": {"type": "string"},
-            "strategy": {
-                "type": "string",
-                "enum": ["rounding", "binning", "component", "relative"],
-            },
-            # Rounding parameters
-            "rounding_unit": {
-                "type": "string",
-                "enum": ["year", "quarter", "month", "week", "day", "hour"],
-            },
-            # Binning parameters
-            "bin_type": {
-                "type": "string",
-                "enum": [
-                    "hour_range",
-                    "day_range",
-                    "business_period",
-                    "seasonal",
-                    "custom",
-                ],
-            },
-            "interval_size": {"type": "integer", "minimum": 1},
-            "interval_unit": {
-                "type": "string",
-                "enum": ["hours", "days", "weeks", "months"],
-            },
-            "reference_date": {"type": ["string", "null"]},
-            "custom_bins": {"type": ["array", "null"]},
-            # Component parameters
-            "keep_components": {
-                "type": ["array", "null"],
-                "items": {
-                    "type": "string",
-                    "enum": ["year", "month", "day", "hour", "minute", "weekday"],
+        "allOf": [
+            BaseOperationConfig.schema,  # merge all common fields
+            {
+                "type": "object",
+                "properties": {
+                    # Required fields
+                    "field_name": {"type": "string"},
+                    "strategy": {
+                        "type": "string",
+                        "enum": ["rounding", "binning", "component", "relative"],
+                    },
+                    # --- Rounding parameters ---
+                    "rounding_unit": {
+                        "type": "string",
+                        "enum": ["year", "quarter", "month", "week", "day", "hour"],
+                    },
+                    # --- Binning parameters ---
+                    "bin_type": {
+                        "type": "string",
+                        "enum": [
+                            "hour_range",
+                            "day_range",
+                            "business_period",
+                            "seasonal",
+                            "custom",
+                        ],
+                    },
+                    "interval_size": {"type": "integer", "minimum": 1},
+                    "interval_unit": {
+                        "type": "string",
+                        "enum": ["hours", "days", "weeks", "months"],
+                    },
+                    "reference_date": {"type": ["string", "null"]},
+                    "custom_bins": {
+                        "type": ["array", "null"],
+                        "items": {"type": ["string", "number"]},
+                    },
+                    # --- Component-based generalization ---
+                    "keep_components": {
+                        "type": ["array", "null"],
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "year",
+                                "month",
+                                "day",
+                                "hour",
+                                "minute",
+                                "weekday",
+                            ],
+                        },
+                    },
+                    "strftime_output_format": {"type": ["string", "null"]},
+                    # --- Timezone and format handling ---
+                    "timezone_handling": {
+                        "type": "string",
+                        "enum": ["preserve", "utc", "remove"],
+                        "default": "preserve",
+                    },
+                    "default_timezone": {"type": "string", "default": "UTC"},
+                    "input_formats": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                    },
+                    # --- Privacy & QI ---
+                    "min_privacy_threshold": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1,
+                    },
+                    "quasi_identifiers": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                    },
+                    # Output field name configuration
+                    "output_field_name": {"type": ["string", "null"]},
                 },
+                "required": ["field_name", "strategy"],
             },
-            "strftime_output_format": {"type": ["string", "null"]},
-            # Common parameters
-            "timezone_handling": {
-                "type": "string",
-                "enum": ["preserve", "utc", "remove"],
-                "default": "preserve",
-            },
-            "default_timezone": {"type": "string", "default": "UTC"},
-            "input_formats": {"type": ["array", "null"], "items": {"type": "string"}},
-            "min_privacy_threshold": {"type": "number", "minimum": 0, "maximum": 1},
-            "mode": {"type": "string", "enum": ["REPLACE", "ENRICH"]},
-            "output_field_name": {"type": ["string", "null"]},
-            "column_prefix": {"type": "string"},
-            "null_strategy": {
-                "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
-            },
-            "description": {"type": "string", "default": ""},
-            "optimize_memory": {"type": "boolean"},
-            "adaptive_chunk_size": {"type": "boolean"},
-            "chunk_size": {"type": "integer", "minimum": 1},
-            "use_dask": {"type": "boolean"},
-            "npartitions": {"type": ["integer", "null"], "minimum": 1},
-            "dask_partition_size": {"type": ["string", "null"], "default": "100MB"},
-            "use_vectorization": {"type": "boolean"},
-            "parallel_processes": {"type": ["integer", "null"], "minimum": 1},
-            "use_cache": {"type": "boolean"},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]},
-            "encryption_mode": {
-                "type": ["string", "null"],
-                "enum": ["age", "simple", "none"],
-                "default": "none",
-            },
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {
-                "type": ["string", "null"],
-                "enum": ["plotly", "matplotlib", None],
-            },
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
-            "output_format": {
-                "type": "string",
-                "enum": ["csv", "parquet", "json"],
-                "default": "csv",
-            },
-        },
-        "required": ["field_name", "strategy"],
+        ],
     }
 
 
@@ -224,81 +217,62 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         reference_date: Optional[Union[str, datetime]] = None,
         custom_bins: Optional[List[Union[str, datetime]]] = None,
         # Component parameters
-        keep_components: Optional[List[str]] = ["year", "month"],
-        # Common parameters
+        keep_components: Optional[List[str]] = None,
         strftime_output_format: Optional[str] = None,
         timezone_handling: str = "preserve",
         default_timezone: str = "UTC",
         input_formats: Optional[List[str]] = None,
         min_privacy_threshold: float = DateTimeConstants.MIN_PRIVACY_REDUCTION,
-        mode: str = "REPLACE",
-        output_field_name: Optional[str] = None,
-        column_prefix: str = "_",
-        null_strategy: str = "PRESERVE",
-        description: str = "",
-        # Memory optimization
-        optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
-        # Specific parameters
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        dask_partition_size: Optional[str] = None,
-        use_vectorization: bool = False,
-        parallel_processes: Optional[int] = None,
-        use_cache: bool = True,
-        use_encryption: bool = False,
-        encryption_mode: Optional[str] = "none",
-        encryption_key: Optional[Union[str, Path]] = None,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        output_format: str = "csv",
+        quasi_identifiers: Optional[List[str]] = None,
+        **kwargs,
     ):
         """
-        Initialize datetime generalization operation.
+        Initialize the DateTimeGeneralizationOperation.
 
-        Parameters:
-        -----------
-        field_name: str
-            Name of the field to generalize
-        strategy: str = "rounding",
-            Generalization strategy: "rounding", "binning", "component", "relative"
-        rounding_unit: str = "day",
-            Unit for rounding: "year", "quarter", "month", "week", "day", "hour"
-        bin_type: str = "day_range",
-            Type of binning: "hour_range", "day_range", "business_period", "seasonal", "custom"
-        interval_size: int = 7,
-            Size of interval for binning
-        interval_unit: str = "days",
-            Unit for intervals: "hours", "days", "weeks", "months"
-        reference_date: Optional[Union[str, datetime]] = None,
-            Reference date for relative calculations
-        custom_bins: Optional[List[Union[str, datetime]]] = None,
-            Custom bin boundaries for "custom" bin_type
-        keep_components: Optional[List[str]] = None,
-            Components to keep for component strategy
-        strftime_output_format: Optional[str] = None,
-            Output format for strftime
-        timezone_handling: str = "preserve",
-            How to handle timezones: "preserve", "utc", "remove"
-        default_timezone: str = "UTC",
-            Default timezone for naive datetimes when converting to UTC
-        input_formats: Optional[List[str]] = None,
-            List of input formats to try when parsing
-        min_privacy_threshold: float = DateTimeConstants.MIN_PRIVACY_REDUCTION,
-            Minimum reduction in unique values (0-1) for privacy validation
-        Other parameters follow base class convention
+        Parameters
+        ----------
+        field_name : str
+            Name of the datetime field to generalize.
+        strategy : str
+            Generalization strategy: "rounding", "binning", "component", or "relative"
+        rounding_unit : str
+            Unit for rounding (e.g., 'day', 'hour').
+        bin_type : str
+            Type of binning ('day_range', 'month_range', etc.).
+        interval_size : int
+            Size of each binning interval.
+        interval_unit : str
+            Unit for interval ('days', 'weeks', etc.).
+        reference_date : Optional[Union[str, datetime]]
+            Reference date for binning alignment.
+        custom_bins : Optional[List[Union[str, datetime]]]
+            User-defined bin boundaries.
+        keep_components : Optional[List[str]]
+            Components of datetime to keep (e.g., ['year', 'month']).
+        strftime_output_format : Optional[str]
+            Output format for datetime string conversion.
+        timezone_handling : str
+            How to handle timezones ('preserve', 'convert', etc.).
+        default_timezone : str
+            Default timezone if missing in input.
+        input_formats : Optional[List[str]]
+            Accepted input datetime formats.
+        min_privacy_threshold : float
+            Minimum privacy preservation threshold.
+        quasi_identifiers : Optional[List[str]]
+            List of quasi-identifier fields to consider.
+        **kwargs :
+            Additional keyword arguments passed to AnonymizationOperation.
         """
-        # Set default description if missing
-        description = (
-            description
-            or f"DateTime generalization for '{field_name}' using {strategy}"
+
+        # Default description if missing
+        kwargs.setdefault(
+            "description",
+            f"Datetime generalization for '{field_name}' using {strategy} strategy",
         )
 
-        # Group parameters into a config dict
-        config_params = dict(
+        # Build config for validation and schema
+        config = DateTimeGeneralizationConfig(
             field_name=field_name,
             strategy=strategy,
             rounding_unit=rounding_unit,
@@ -311,95 +285,40 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             strftime_output_format=strftime_output_format,
             timezone_handling=timezone_handling,
             default_timezone=default_timezone,
-            min_privacy_threshold=min_privacy_threshold,
             input_formats=input_formats,
-            mode=mode,
-            description=description,
-            output_field_name=output_field_name,
-            column_prefix=column_prefix,
-            null_strategy=null_strategy,
-            optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            chunk_size=chunk_size,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            use_cache=use_cache,
-            use_encryption=use_encryption,
-            encryption_mode=encryption_mode,
-            encryption_key=encryption_key,
-            visualization_theme=visualization_theme,
-            visualization_backend=visualization_backend,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            output_format=output_format,
+            min_privacy_threshold=min_privacy_threshold,
+            quasi_identifiers=quasi_identifiers,
+            **kwargs,
         )
 
-        # Create configuration
-        config = DateTimeGeneralizationConfig(**config_params)
+        # Pass config to parent class
+        kwargs["config"] = config
 
-        # Initialize parent class
+        # Initialize parent AnonymizationOperation
         super().__init__(
-            **{
-                k: config_params[k]
-                for k in [
-                    "field_name",
-                    "mode",
-                    "output_field_name",
-                    "column_prefix",
-                    "null_strategy",
-                    "description",
-                    "optimize_memory",
-                    "adaptive_chunk_size",
-                    "chunk_size",
-                    "use_dask",
-                    "npartitions",
-                    "dask_partition_size",
-                    "use_vectorization",
-                    "parallel_processes",
-                    "use_cache",
-                    "use_encryption",
-                    "encryption_mode",
-                    "encryption_key",
-                    "visualization_theme",
-                    "visualization_backend",
-                    "visualization_strict",
-                    "visualization_timeout",
-                    "output_format",
-                ]
-            }
+            field_name=field_name,
+            **kwargs,
         )
-
-        # Set default input formats if missing
-        config_params["input_formats"] = config_params.get("input_formats") or [
-            "%Y-%m-%d",
-            "%Y-%m-%d %H:%M:%S",
-            "%Y/%m/%d",
-            "%Y/%m/%d %H:%M:%S",
-            "%d/%m/%Y",
-            "%d-%m-%Y",
-            "%m/%d/%Y",
-            "%m-%d-%Y",
-        ]
-
-        # Parse reference date and custom bins
-        config_params["reference_date"] = self._parse_reference_date(reference_date)
-        config_params["custom_bins"] = self._parse_custom_bins(custom_bins)
 
         # Save config attributes to self
-        for k, v in config_params.items():
+        for k, v in config.to_dict().items():
             setattr(self, k, v)
             self.process_kwargs[k] = v
 
-        self.config = config
-        self.version = "3.0.2"
+        # Set default input formats if missing
+        self.input_formats = self.input_formats or Constants.COMMON_DATE_FORMATS
+        self.process_kwargs["input_formats"] = self.input_formats
+
+        # Parse custom bins
+        self.custom_bins = self._parse_custom_bins(custom_bins)
+        self.process_kwargs["custom_bins"] = self.custom_bins
+
+        # Parse reference date
+        self.reference_date = self._parse_reference_date(reference_date)
+        self.process_kwargs["reference_date"] = self.reference_date
+
+        # Operation metadata
         self.operation_name = self.__class__.__name__
-        self.operation_cache = None
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
 
     def execute(
         self,
@@ -423,14 +342,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation including:
-            - force_recalculation: bool - Skip cache check
-            - generate_visualization: bool - Create visualizations
-            - save_output: bool - Save processed data to output directory
-            - visualization_theme: str - Override theme for visualizations
-            - visualization_backend: str - Override backend for visualizations
-            - visualization_strict: bool - Override strict mode for visualizations
-            - visualization_timeout: int - Override timeout for visualizations
+            Additional parameters for the operation
 
         Returns:
         --------
@@ -444,7 +356,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             self.logger.info(
                 f"Starting {self.operation_name} operation at {self.start_time}"
             )
-            self.process_count = 0
+
             df = None
             result = OperationResult(status=OperationStatus.PENDING)
 
@@ -468,25 +380,8 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Decompose kwargs and introduce variables for clarity
-            self.generate_visualization = kwargs.get("generate_visualization", True)
-            self.save_output = kwargs.get("save_output", True)
-            self.force_recalculation = kwargs.get("force_recalculation", False)
+            # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
-
-            # Extract visualization parameters
-            self.visualization_theme = kwargs.get(
-                "visualization_theme", self.visualization_theme
-            )
-            self.visualization_backend = kwargs.get(
-                "visualization_backend", self.visualization_backend
-            )
-            self.visualization_strict = kwargs.get(
-                "visualization_strict", self.visualization_strict
-            )
-            self.visualization_timeout = kwargs.get(
-                "visualization_timeout", self.visualization_timeout
-            )
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -934,12 +829,13 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         output_field_name = kwargs.get("output_field_name", f"{field_name}_generalized")
         mode = kwargs.get("mode", "REPLACE")
         strategy = kwargs.get("strategy", "rounding")
+        input_formats = kwargs.get("input_formats", None)
 
         # Get field data and convert to datetime if needed
         field_data = batch[field_name]
 
         if not pd.api.types.is_datetime64_any_dtype(field_data):
-            field_data = cls._convert_to_datetime(field_data, **kwargs)
+            field_data = DataHelper.convert_to_datetime(field_data, input_formats)
 
         # Handle timezone
         field_values = cls._handle_timezone(field_data, **kwargs)
@@ -1035,25 +931,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             return cls._relative_single_value(value, **kwargs)
         else:
             return value
-
-    @staticmethod
-    def _convert_to_datetime(series: pd.Series, **kwargs) -> pd.Series:
-        """Convert series to datetime trying multiple formats."""
-        # Default common date formats to try
-        input_formats = kwargs.get("input_formats", Constants.COMMON_DATE_FORMATS)
-        threshold = kwargs.get("threshold", 0.95)
-
-        # Try each provided format
-        for fmt in input_formats:
-            try:
-                parsed = pd.to_datetime(series, format=fmt, errors="coerce")
-                if parsed.notna().mean() >= threshold:
-                    return parsed
-            except (ValueError, TypeError):
-                continue
-
-        # Fallback: let pandas try to infer
-        return pd.to_datetime(series, errors="coerce", dayfirst=True)
 
     @staticmethod
     def _handle_timezone(series: pd.Series, **kwargs) -> pd.Series:

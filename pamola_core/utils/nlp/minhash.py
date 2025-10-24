@@ -28,7 +28,7 @@ import csv
 import hashlib
 import logging
 import os
-import re
+import regex as re
 from typing import Dict, List, Optional, Set
 
 import pandas as pd

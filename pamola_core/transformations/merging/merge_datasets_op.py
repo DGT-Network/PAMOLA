@@ -48,7 +48,7 @@ from pamola_core.transformations.commons.merging_utils import (
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
@@ -57,96 +57,66 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.common.constants import Constants
 
+
 class MergeDatasetsOperationConfig(OperationConfig):
-    """Configuration for MergeDatasetsOperation."""
+    """Configuration for MergeDatasetsOperation with BaseOperationConfig merged."""
 
     schema = {
         "type": "object",
-        "properties": {
-            "left_dataset_name": {"type": "string"},
-            "right_dataset_name": {"type": ["string", "null"]},
-            "right_dataset_path": {"type": ["string", "null"]},
-            "left_key": {"type": "string"},
-            "right_key": {"type": ["string", "null"]},
-            "join_type": {
-                "type": "string",
-                "str": ["inner", "left", "right", "outer"],
+        "allOf": [
+            BaseOperationConfig.schema,  # merge common base fields
+            {
+                "type": "object",
+                "properties": {
+                    "left_dataset_name": {"type": "string"},
+                    "right_dataset_name": {"type": ["string", "null"]},
+                    "right_dataset_path": {"type": ["string", "null"]},
+                    "left_key": {"type": "string"},
+                    "right_key": {"type": ["string", "null"]},
+                    "join_type": {
+                        "type": "string",
+                        "enum": ["inner", "left", "right", "outer"],
+                    },
+                    "suffixes": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 2,
+                        "maxItems": 2,
+                    },
+                    "relationship_type": {
+                        "type": "string",
+                        "enum": ["auto", "one-to-one", "one-to-many"],
+                    },
+                },
+                "required": [
+                    "left_dataset_name",
+                    "left_key",
+                    "right_dataset_name",
+                    "right_key",
+                    "join_type",
+                    "relationship_type",
+                ],
             },
-            "suffixes": {
-                "type": "array",
-                "items": {"type": "string"},
-                "minItems": 2,
-                "maxItems": 2,
-            },
-            "relationship_type": {
-                "type": "string",
-                "str": ["auto", "one-to-one", "one-to-many"],
-            },
-            "chunk_size": {"type": "integer", "minimum": 1},
-            "use_cache": {"type": "boolean"},
-            "use_dask": {"type": "boolean"},
-            "npartitions": {"type": ["integer", "null"]},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]},
-            # Visualization-related properties
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {
-                "type": ["string", "null"],
-                "enum": ["plotly", "matplotlib", None],
-            },
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
-            # Output format properties
-            "output_format": {
-                "type": "string",
-                "enum": ["csv", "parquet", "json"],
-                "default": "csv",
-            },
-        },
-        "required": [
-            "left_dataset_name",
-            "left_key",
-            "right_dataset_name",
-            "right_key",
-            "join_type",
-            "relationship_type",
         ],
     }
 
 
 @register(version="1.0.0")
 class MergeDatasetsOperation(TransformationOperation):
-    """
-    Operation to merge two datasets based on key fields.
-
-    This operation supports various join types and allows configuration of
-    suffixes, batch size, output format, caching, and encryption.
-    """
+    """Operation to merge two datasets based on key fields."""
 
     def __init__(
         self,
         name: str = "merge_datasets_operation",
-        description: str = "Merge datasets by key field",
         left_dataset_name: str = "main",
-        right_dataset_name: str = None,
+        right_dataset_name: Optional[str] = None,
         right_dataset_path: Optional[Path] = None,
-        left_key: str = None,
+        left_key: Optional[str] = None,
         right_key: Optional[str] = None,
         join_type: str = "left",
         relationship_type: str = "auto",
         suffixes: Tuple[str, str] = ("_x", "_y"),
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        use_cache: bool = True,
-        use_encryption: bool = False,
-        encryption_key: Optional[Union[str, Path]] = None,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        output_format: str = "csv",
-        encryption_mode: Optional[str] = None,
+        **kwargs,
     ):
         """
         Initialize the merge datasets operation.
@@ -172,113 +142,49 @@ class MergeDatasetsOperation(TransformationOperation):
         relationship_type : str, optional
             Type of relationship between datasets ('auto', 'one-to-one', 'one-to-many').
             When 'auto', the function will detect the relationship type based on key uniqueness.
-        chunk_size : int, optional
-            Chunk size for processing large datasets (default: 10000)
-        use_dask : bool, optional
-            Whether to use Dask for distributed processing (default: False)
-        npartitions : int, optional
-            Number of partitions for Dask processing (default: None)
-        use_cache : bool, optional
-            Whether to use operation caching (default: True)
-        use_encryption : bool, optional
-            Whether to encrypt output files (default: False)
-        encryption_key : str or Path, optional
-            The encryption key or path to a key file (default: None)
-        visualization_theme : str, optional
-            Theme for visualizations (default: None, uses PAMOLA default)
-        visualization_backend : str, optional
-            Backend for visualizations (default: None, uses PAMOLA default)
-        visualization_strict : bool, optional
-            Whether to enforce strict visualization rules (default: False)
-        visualization_timeout : int, optional
-            Timeout for visualization generation in seconds (default: 120)
-        output_format : str
-            Output format: "csv" or "parquet" or "json".
+        **kwargs : dict
+            Additional keyword arguments for TransformationOperation.
         """
-
-        # Use default description if not provided
-        if not description:
-            self.description = (
-                f"Merging '{left_dataset_name}' with '{right_dataset_name}' using keys."
-            )
-
-        # Normalize suffixes if None
-        suffixes = list(suffixes) if suffixes else ["_x", "_y"]
-        # Normalize right_dataset_path if None
+        # Normalize and defaults
+        right_key = right_key or left_key
         right_dataset_path = str(right_dataset_path) if right_dataset_path else None
-        # Normalize right_key if None
-        right_key = right_key if right_key else left_key
+        suffixes = list(suffixes or ("_x", "_y"))
 
-        # Build config parameters, excluding None values for optional fields
-        config_params = {
-            "name": name,
-            "left_dataset_name": left_dataset_name,
-            "right_dataset_name": right_dataset_name,
-            "right_dataset_path": right_dataset_path,
-            "left_key": left_key,
-            "right_key": right_key,
-            "join_type": join_type,
-            "suffixes": suffixes,
-            "relationship_type": relationship_type,
-            "chunk_size": chunk_size,
-            "use_dask": use_dask,
-            "npartitions": npartitions,
-            "use_cache": use_cache,
-            "use_encryption": use_encryption,
-            "encryption_key": encryption_key,
-            "visualization_theme": visualization_theme,
-            "visualization_backend": visualization_backend,
-            "visualization_strict": visualization_strict,
-            "visualization_timeout": visualization_timeout,
-            "output_format": output_format,
-        }
-
-        # Create configuration and validate parameters
-        config = MergeDatasetsOperationConfig(**config_params)
-
-        # Call base class constructor
-        super().__init__(
-            name=config.get("name"),
-            chunk_size=config.get("chunk_size"),
-            use_dask=config.get("use_dask"),
-            npartitions=config.get("npartitions"),
-            use_cache=config.get("use_cache"),
-            use_encryption=config.get("use_encryption"),
-            encryption_key=config.get("encryption_key"),
-            visualization_backend=config.get("visualization_backend"),
-            visualization_theme=config.get("visualization_theme"),
-            visualization_strict=config.get("visualization_strict"),
-            visualization_timeout=config.get("visualization_timeout"),
-            output_format=config.get("output_format"),
-            description=description,
-            encryption_mode=encryption_mode
+        # Ensure default metadata
+        kwargs.setdefault("name", name)
+        kwargs.setdefault(
+            "description",
+            f"Merge '{left_dataset_name}' and '{right_dataset_name}' using '{left_key}'",
         )
 
-        # Assign instance properties from config
-        for key, value in config_params.items():
+        # --- Build config object ---
+        config = MergeDatasetsOperationConfig(
+            left_dataset_name=left_dataset_name,
+            right_dataset_name=right_dataset_name,
+            right_dataset_path=right_dataset_path,
+            left_key=left_key,
+            right_key=right_key,
+            join_type=join_type,
+            relationship_type=relationship_type,
+            suffixes=suffixes,
+            **kwargs,
+        )
+
+        # Inject config into kwargs
+        kwargs["config"] = config
+
+        # --- Initialize TransformationOperation ---
+        super().__init__(
+            **kwargs,
+        )
+
+        # --- Apply config attributes to self ---
+        for key, value in config.to_dict().items():
             setattr(self, key, value)
 
-        # Optionally store the config
-        self.config = config
-
-        # Set up performance tracking variables
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
-
-        # Set up common variables
-        self.force_recalculation = False  # Skip cache check
-        self.generate_visualization = True  # Create visualizations
-        self.encrypt_output = False  # Override encryption setting
-        self.save_output = True  # Save processed data to output directory
-
-        # Updated version for fixes
-        self.version = "1.4.1"
+        # Operation metadata
         self.operation_name = self.__class__.__name__
-
-        # Temporary storage for cleanup
         self.right_df = None
-        self.operation_cache = None
 
     def execute(
         self,
@@ -299,18 +205,11 @@ class MergeDatasetsOperation(TransformationOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : Optional[ProgressTracker]
+        progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation including:
-            - force_recalculation: bool - Skip cache check
-            - generate_visualization: bool - Create visualizations
-            - encrypt_output: bool - Override encryption setting
-            - save_output: bool - Save processed data to output directory
-            - visualization_theme: str - Override theme for visualizations
-            - visualization_backend: str - Override backend for visualizations
-            - visualization_strict: bool - Override strict mode for visualizations
-            - visualization_timeout: int - Override timeout for visualizations
+            Additional parameters for the operation
+
         Returns:
         --------
         OperationResult
@@ -319,11 +218,13 @@ class MergeDatasetsOperation(TransformationOperation):
         try:
             # Initialize timing and result
             self.start_time = time.time()
+
+            # Config logger task for operation
             self.logger = kwargs.get("logger", self.logger)
             self.logger.info(
                 f"Starting {self.operation_name} operation at {self.start_time}"
             )
-            self.process_count = 0
+
             left_df = None
             result = OperationResult(status=OperationStatus.PENDING)
 
@@ -342,20 +243,6 @@ class MergeDatasetsOperation(TransformationOperation):
 
             # Save configuration to task directory
             self.save_config(task_dir)
-
-            # Decompose kwargs and introduce variables for clarity
-            self.encrypt_output = (
-                kwargs.get("encrypt_output", False) or self.use_encryption
-            )
-            self.generate_visualization = kwargs.get("generate_visualization", True)
-            self.save_output = kwargs.get("save_output", True)
-            self.force_recalculation = kwargs.get("force_recalculation", False)
-
-            # Extract visualization parameters
-            self.visualization_theme = kwargs.get("visualization_theme", self.visualization_theme)
-            self.visualization_backend = kwargs.get("visualization_backend", self.visualization_backend)
-            self.visualization_strict = kwargs.get("visualization_strict", self.visualization_strict)
-            self.visualization_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -487,7 +374,9 @@ class MergeDatasetsOperation(TransformationOperation):
                             unit="steps",
                         )
                     except Exception as e:
-                        self.logger.debug(f"Could not create child progress tracker: {e}")
+                        self.logger.debug(
+                            f"Could not create child progress tracker: {e}"
+                        )
 
                 # Process the data with the selected keys
                 self.process_count = len(left_df)
@@ -501,7 +390,7 @@ class MergeDatasetsOperation(TransformationOperation):
                     chunk_size=self.chunk_size,
                     use_dask=self.use_dask,
                     progress_tracker=data_tracker,
-                    task_logger=self.logger
+                    task_logger=self.logger,
                 )
 
                 # Close child progress tracker
@@ -524,7 +413,9 @@ class MergeDatasetsOperation(TransformationOperation):
                 error_message = f"Processing error: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message, exception=e
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Step 5: Metrics Calculation
@@ -560,7 +451,7 @@ class MergeDatasetsOperation(TransformationOperation):
                     name=metrics_file_name,
                     timestamp_in_name=False,
                     encryption_key=(
-                        self.encryption_key if self.encrypt_output else None
+                        self.encryption_key if self.use_encryption else None
                     ),
                 )
 
@@ -592,7 +483,10 @@ class MergeDatasetsOperation(TransformationOperation):
             if main_progress:
                 current_steps += 1
                 self._update_progress_tracker(
-                    TOTAL_MAIN_STEPS, current_steps, "Generating Visualizations", main_progress
+                    TOTAL_MAIN_STEPS,
+                    current_steps,
+                    "Generating Visualizations",
+                    main_progress,
                 )
             # Generate visualizations if required
             # Initialize visualization paths dictionary
@@ -600,7 +494,7 @@ class MergeDatasetsOperation(TransformationOperation):
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
-                        "use_encryption": self.encrypt_output,
+                        "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
                     visualization_paths = self._handle_visualizations(
@@ -640,7 +534,7 @@ class MergeDatasetsOperation(TransformationOperation):
                     output_result_path = self._save_output_data(
                         result_df=processed_df,
                         task_dir=task_dir,
-                        is_encryption_required=self.encrypt_output,
+                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -652,7 +546,9 @@ class MergeDatasetsOperation(TransformationOperation):
                     error_message = f"Error saving output data: {str(e)}"
                     self.logger.error(error_message)
                     return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message, exception=e
+                        status=OperationStatus.ERROR,
+                        error_message=error_message,
+                        exception=e,
                     )
 
             # Cache the result if caching is enabled
@@ -673,7 +569,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
             # Cleanup memory
             self._cleanup_memory(processed_df, left_df, self.right_df)
-            
+
             # Report completion
             if reporter:
                 # Create the details dictionary with checks for all values
@@ -692,7 +588,9 @@ class MergeDatasetsOperation(TransformationOperation):
                     details=details,
                 )
 
-            self.logger.info(f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds")
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
@@ -949,7 +847,6 @@ class MergeDatasetsOperation(TransformationOperation):
             "output_format": self.output_format,
             "force_recalculation": self.force_recalculation,
             "generate_visualization": self.generate_visualization,
-            "encrypt_output": self.encrypt_output,
             "save_output": self.save_output,
         }
 
@@ -1098,7 +995,7 @@ class MergeDatasetsOperation(TransformationOperation):
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-{self.field_name}",
+                name=f"VizThread-{self.name}",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1154,14 +1051,14 @@ class MergeDatasetsOperation(TransformationOperation):
             result.add_artifact(
                 artifact_type="png",
                 path=path,
-                description=f"{self.field_name} {viz_type} visualization",
+                description=f"{self.name} {viz_type} visualization",
                 category=Constants.Artifact_Category_Visualization,
             )
 
             # Report to reporter
             if reporter:
                 reporter.add_operation(
-                    f"{self.field_name} {viz_type} visualization",
+                    f"{self.name} {viz_type} visualization",
                     details={"artifact_type": "png", "path": str(path)},
                 )
 
@@ -1232,9 +1129,7 @@ class MergeDatasetsOperation(TransformationOperation):
             )
             return visualization_paths
 
-        self.logger.info(
-            f"[VIZ] Starting visualization generation for {self.left_key}"
-        )
+        self.logger.info(f"[VIZ] Starting visualization generation for {self.left_key}")
         self.logger.debug(
             f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
         )
@@ -1391,11 +1286,9 @@ class MergeDatasetsOperation(TransformationOperation):
             progress_tracker.update(0, {"step": "Saving output data"})
 
         custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
-        
+
         # Generate standardized output filename with timestamp
-        field_name_output = (
-            f"{self.left_key}_{self.operation_name}_output_{timestamp}"
-        )
+        field_name_output = f"{self.left_key}_{self.operation_name}_output_{timestamp}"
 
         output_result = writer.write_dataframe(
             df=result_df,
@@ -1875,7 +1768,9 @@ class MergeDatasetsOperation(TransformationOperation):
                     f"Successfully saved {self.name} operation results to cache"
                 )
             else:
-                self.logger.warning(f"Failed to save {self.name} operation results to cache")
+                self.logger.warning(
+                    f"Failed to save {self.name} operation results to cache"
+                )
 
             return success
 

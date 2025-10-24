@@ -5,8 +5,10 @@ This module provides helper functions for text processing, analysis,
 and frequency calculation with support for large datasets and caching.
 """
 
+import json
+import logging
 import re
-from typing import Dict, List, Any, Optional, Set, Union
+from typing import Dict, List, Any, Optional, Set, Tuple, Union
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -14,6 +16,7 @@ from pathlib import Path
 from pamola_core.utils.logging import get_logger
 from pamola_core.utils.io import ensure_directory, write_json, read_json
 
+from pamola_core.utils.nlp.language import detect_languages
 from pamola_core.utils.nlp.tokenization import (
     calculate_word_frequencies as nlp_calculate_word_frequencies,
 )
@@ -909,3 +912,177 @@ def make_stat(count: int, total: int) -> Dict[str, Any]:
         "count": int(count),
         "percentage": round((count / total) * 100, 2) if total > 0 else 0.0,
     }
+
+
+def extract_text_and_ids(
+    df: pd.DataFrame, field_name: str, id_field: Optional[str]
+) -> Tuple[List[str], List[str]]:
+    """
+    Extract text values and record IDs from DataFrame.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        DataFrame containing the data
+    field_name : str
+        Name of the field containing text
+    id_field : str, optional
+        Name of the field containing record IDs
+
+    Returns:
+    --------
+    Tuple[List[str], List[str]]
+        Tuple of (text_values, record_ids)
+    """
+    # Get text values
+    text_values = df[field_name].astype("object").fillna("").astype(str).tolist()
+
+    # Get record IDs (use specified ID field or fall back to index)
+    if id_field and id_field in df.columns:
+        record_ids = df[id_field].astype(str).tolist()
+    else:
+        record_ids = df.index.astype(str).tolist()
+
+    return text_values, record_ids
+
+
+def analyze_language(text_values: List[str]) -> Dict[str, Any]:
+    """
+    Analyze language distribution in text values.
+
+    Parameters:
+    -----------
+    text_values : List[str]
+        List of text values
+
+    Returns:
+    --------
+    Dict[str, Any]
+        Language analysis results
+    """
+    # Use language detection from nlp module
+    language_distribution = detect_languages(text_values)
+
+    # Determine predominant language
+    predominant_language = (
+        max(language_distribution.items(), key=lambda x: x[1])[0]
+        if language_distribution
+        else "unknown"
+    )
+
+    return {
+        "language_distribution": language_distribution,
+        "predominant_language": predominant_language,
+    }
+
+
+def find_dictionary_file(
+    dictionary_path: Optional[Union[str, Path]],
+    entity_type: str,
+    dictionaries_dir: Path,
+    task_logger: Optional[logging.Logger] = None,
+) -> Optional[Path]:
+    """
+    Find the appropriate dictionary file for the entity type.
+
+    Search order:
+    1. Explicitly provided dictionary path
+    2. Task dictionaries directory
+    3. Global data repository from config
+
+    Parameters:
+    -----------
+    dictionary_path : str or Path, optional
+        User-provided dictionary path
+    entity_type : str
+        Type of entities to extract (e.g., 'person', 'organization')
+    dictionaries_dir : Path
+        Directory containing dictionary files
+
+    Returns:
+    --------
+    Path or None
+        Path to the dictionary file if found, None otherwise
+    """
+    # Initialize task logger
+    if task_logger:
+        logger = task_logger
+
+    # 1. Check explicitly provided dictionary path
+    if dictionary_path:
+        path = Path(dictionary_path)
+        if path.exists():
+            logger.info(f"Using provided dictionary: {path}")
+            return path
+        else:
+            logger.warning(f"Provided dictionary path does not exist: {path}")
+
+    # 2. Check task-specific dictionary
+    task_dict_path = dictionaries_dir / f"{entity_type}.json"
+    if task_dict_path.exists():
+        logger.info(f"Using task-specific dictionary: {task_dict_path}")
+        return task_dict_path
+
+    # 3. Check global repository dictionary
+    repo_dict_path = _find_repository_dictionary(entity_type, logger)
+    if repo_dict_path:
+        return repo_dict_path
+
+    logger.warning(
+        f"No dictionary found for entity type '{entity_type}'. Using built-in fallback."
+    )
+    return None
+
+def _find_repository_dictionary(entity_type: str, logger: logging.Logger) -> Optional[Path]:
+    """
+    Search for a dictionary file in the global data repository.
+    
+    Parameters:
+    -----------
+    entity_type : str
+        Type of entities to extract
+        
+    Returns:
+    --------
+    Path or None
+        Path to dictionary file if found, None otherwise
+    """
+    # List of possible config file locations
+    config_paths = [
+        Path("configs/prj_config.json"),  # Relative to working directory
+        Path("../configs/prj_config.json"),  # One directory up
+        Path.home() / ".pamola/prj_config.json",  # User's home directory
+    ]
+    
+    try:
+        # Find the first existing config file
+        config_file = next((path for path in config_paths if path.exists()), None)
+        
+        if not config_file:
+            logger.debug("No configuration file found")
+            return None
+            
+        # Load the configuration
+        with open(config_file, "r") as f:
+            config = json.load(f)
+            
+        data_repo = config.get("data_repository")
+        if not data_repo:
+            logger.debug("No data_repository defined in config")
+            return None
+            
+        # Build the path to the dictionary file
+        repo_dict_path = (
+            Path(data_repo) / "external_dictionaries" / "ner" / f"{entity_type}.json"
+        )
+        
+        if repo_dict_path.exists():
+            logger.info(f"Using repository dictionary: {repo_dict_path}")
+            return repo_dict_path
+        else:
+            logger.debug(f"Repository dictionary not found: {repo_dict_path}")
+            
+    except Exception as e:
+        logger.warning(f"Error finding repository dictionary: {str(e)}")
+    
+    return None

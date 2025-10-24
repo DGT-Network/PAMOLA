@@ -334,7 +334,7 @@ def _validate_critical_enums():
     with existing code or data.
     """
     # Validate ResponseType has core required values
-    required_response_types = {"valid", "service", "error", "empty", "invalid"}
+    required_response_types = {"valid", "service", "error", "empty", "invalid", "pii_detected"}
     if not validate_enum_values(ResponseType, required_response_types):
         import warnings
         warnings.warn(

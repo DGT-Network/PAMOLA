@@ -1,9 +1,27 @@
 """
-Date analyzer module for the project.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module:        Date Field Profiler Operation
+Package:       pamola.pamola_core.profiling.analyzers
+Version:       2.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025
+License:       BSD 3-Clause
 
-This module provides analyzers and operations for date fields, following the
-new operation architecture. It includes validation, distribution analysis,
-anomaly detection, and visualization capabilities.
+Description:
+  This module provides analyzers and operations for profiling date fields in tabular datasets.
+  It includes validation, distribution analysis, anomaly detection, and visualization capabilities,
+  supporting both pandas and Dask DataFrames.
+
+Key Features:
+  - Validation and anomaly detection for date fields (range, nulls, outliers)
+  - Distribution analysis (year, month, day of week, age if birth date)
+  - Visualization generation for date distributions and anomalies
+  - Efficient chunked, parallel, and Dask-based processing for large datasets
+  - Robust error handling and progress tracking
+  - Caching and efficient repeated analysis
+  - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
 
 import json
@@ -12,10 +30,7 @@ from datetime import datetime
 from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional, Union
-
 import pandas as pd
-
-import dask
 import dask.dataframe as dd
 
 from pamola_core.profiling.commons.date_utils import (
@@ -29,6 +44,7 @@ from pamola_core.utils.io import (
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_base import FieldOperation
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
@@ -136,7 +152,36 @@ class DateAnalyzer:
         return estimate_resources(df, field_name)
 
 
-@register(override=True)
+class DateOperationConfig(OperationConfig):
+    """Configuration for DateOperation with BaseOperationConfig merged."""
+
+    schema = {
+        "type": "object",
+        "allOf": [
+            BaseOperationConfig.schema,  # merge base common fields
+            {
+                "type": "object",
+                "properties": {
+                    # --- field & profiling options ---
+                    "field_name": {"type": "string"},
+                    "min_year": {"type": "integer", "minimum": 0, "default": 1940},
+                    "max_year": {"type": "integer", "minimum": 0, "default": 2005},
+                    "id_column": {"type": ["string", "null"], "default": None},
+                    "uid_column": {"type": ["string", "null"], "default": None},
+                    "profile_type": {
+                        "type": "string",
+                        "enum": ["date"],
+                        "default": "date",
+                    },
+                    "is_birth_date": {"type": ["boolean", "null"], "default": None},
+                },
+                "required": ["field_name"],
+            },
+        ],
+    }
+
+
+@register(version="1.0.0")
 class DateOperation(FieldOperation):
     """
     Operation for analyzing date fields.
@@ -152,25 +197,12 @@ class DateOperation(FieldOperation):
         max_year: int = 2005,
         id_column: Optional[str] = None,
         uid_column: Optional[str] = None,
-        description: str = "",
         profile_type: str = "date",
         is_birth_date: Optional[bool] = None,
-        use_encryption: bool = False,
-        encryption_key: Optional[Union[str, Path]] = None,
-        use_dask: bool = False,
-        use_cache: bool = True,
-        use_vectorization: bool = False,
-        chunk_size: int = 10000,
-        npartitions: Optional[int] = 2,
-        parallel_processes: Optional[int] = 2,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        encryption_mode: Optional[str] = None,
+        **kwargs,
     ):
         """
-        Initialize the date operation.
+        Initialize a DateOperation instance.
 
         Parameters:
         -----------
@@ -184,72 +216,57 @@ class DateOperation(FieldOperation):
             The column to use for group analysis
         uid_column : str, optional
             The column to use for UID analysis
-        description : str
-            Description of the operation (optional)
-        include_timestamp : bool
-            Whether to include timestamps in filenames
         profile_type : str
             Type of profiling for organizing artifacts
         is_birth_date : bool, optional
             Whether the field is a birth date field
-        use_dask : bool
-            Whether to use Dask for processing (default: False)
-        use_cache : bool
-            Whether to use operation caching (default: True)
-        use_vectorization : bool, optional
-            Whether to use vectorized (parallel) processing (default: False)
-        chunk_size : int
-            Batch size for processing large datasets (default: 10000)
-        parallel_processes : int, optional
-            Number of processes use with vectorized (parallel) (default: 1)
-        npartitions : int, optional
-            Number of partitions for Dask processing (default: None)
-        visualization_theme : str, optional
-            Theme for visualizations (default: None, uses PAMOLA default)
-        visualization_backend : str, optional
-            Backend for visualizations (default: None, uses PAMOLA default)
-        visualization_strict : bool, optional
-            Whether to enforce strict visualization rules (default: False)
-        visualization_timeout : int, optional
-            Timeout for visualization generation in seconds (default: 120)
+        **kwargs
+            Additional keyword arguments passed to FieldOperation.
         """
-        super().__init__(
+        # Description fallback
+        kwargs.setdefault("description", f"Analysis of date field '{field_name}'")
+
+        # --- Build unified config ---
+        config = DateOperationConfig(
             field_name=field_name,
-            description=description or f"Analysis of date field '{field_name}'",
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
+            min_year=min_year,
+            max_year=max_year,
+            id_column=id_column,
+            uid_column=uid_column,
+            profile_type=profile_type,
+            is_birth_date=is_birth_date,
+            **kwargs,
         )
 
-        self.min_year = min_year
-        self.max_year = max_year
-        self.id_column = id_column
-        self.uid_column = uid_column
-        self.profile_type = profile_type
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
 
-        self.use_dask = use_dask
-        self.use_cache = use_cache
-        self.use_vectorization = use_vectorization
-        self.chunk_size = chunk_size
-        self.npartitions = npartitions
-        self.parallel_processes = parallel_processes
-        self.visualization_theme = visualization_theme
-        self.visualization_backend = visualization_backend
-        self.visualization_strict = visualization_strict
-        self.visualization_timeout = visualization_timeout
+        # Initialize base FieldOperation
+        super().__init__(
+            field_name=field_name,
+            **kwargs,
+        )
 
-        # Set is_birth_date based on the provided value or field name
+        # Save config attributes to self
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+
+        # --- Analyzer binding ---
+        self.analyzer = DateAnalyzer()
+
+        # --- Auto-detect birthdate field ---
         if is_birth_date is None:
-            self.is_birth_date = self.field_name.lower() in [
+            self.is_birth_date = self.field_name.lower() in {
                 "birth_day",
                 "birthdate",
                 "birth_date",
                 "dob",
-            ]
+            }
         else:
             self.is_birth_date = is_birth_date
 
-        self.analyzer = DateAnalyzer()
+        # Operation metadata
+        self.operation_name = self.__class__.__name__
 
     def execute(
         self,
@@ -270,126 +287,107 @@ class DateOperation(FieldOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : HierarchicalProgressTracker, optional
+        progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation:
-            - generate_visualization: bool, whether to generate visualizations
-            - force_recalculation: bool - Skip cache check
-            - visualization_theme: str - Theme for visualizations
-            - visualization_backend: str - Backend for visualizations ("plotly" or "matplotlib")
-            - visualization_strict: bool - If True, raise exceptions for visualization config errors
-            - visualization_timeout: int - Timeout for visualization generation in seconds (default: 120)
+            Additional parameters for the operation
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-        if kwargs.get("logger"):
-            self.logger = kwargs["logger"]
-
-        # Extract parameters from kwargs, defaulting to instance variables
-        generate_visualization = kwargs.get("generate_visualization", True)
-
-        force_recalculation = kwargs.get("force_recalculation", False)
-        dataset_name = kwargs.get("dataset_name", "main")
-
-        # Extract visualization parameters
-        self.visualization_theme = kwargs.get(
-            "visualization_theme", self.visualization_theme
-        )
-        self.visualization_backend = kwargs.get(
-            "visualization_backend", self.visualization_backend
-        )
-        self.visualization_strict = kwargs.get(
-            "visualization_strict", self.visualization_strict
-        )
-        self.visualization_timeout = kwargs.get(
-            "visualization_timeout", self.visualization_timeout
-        )
-
-        # Set up directories
-        dirs = self._prepare_directories(task_dir)
-        visualizations_dir = dirs["visualizations"]
-        dictionaries_dir = dirs["dictionaries"]
-        output_dir = dirs["output"]
-
-        # Create the main result object with initial status
-        result = OperationResult(status=OperationStatus.SUCCESS)
-
-        # Generate single timestamp for all artifacts
-        operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        # Set up progress tracking
-        # Preparation, Data Loading, Cache Check, Analysis, Saving results, Visualizations, Finalization
-        total_steps = (
-            6
-            + (1 if self.use_cache and not force_recalculation else 0)
-            + (1 if generate_visualization else 0)
-        )
-
-        # Update progress if tracker provided
-        # Step 0: Preparation
-        if progress_tracker:
-            progress_tracker.update(
-                0, {"step": "Preparation", "field": self.field_name}
-            )
-
-        # Step 1: Data Loading
-        if progress_tracker:
-            progress_tracker.update(1, {"step": "Data Loading"})
-
-            # Get and validate data
         try:
-            # Load data
-            df, error_info = data_source.get_dataframe(
-                name=dataset_name,
-                use_dask=self.use_dask,
-                use_encryption=self.use_encryption,
-                encryption_mode=self.encryption_mode,
-                encryption_key=self.encryption_key,
+            if kwargs.get("logger"):
+                self.logger = kwargs["logger"]
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Set up directories
+            dirs = self._prepare_directories(task_dir)
+            visualizations_dir = dirs["visualizations"]
+            dictionaries_dir = dirs["dictionaries"]
+            output_dir = dirs["output"]
+
+            # Create the main result object with initial status
+            result = OperationResult(status=OperationStatus.SUCCESS)
+
+            # Save configuration
+            self.save_config(task_dir)
+
+            # Set up progress tracking
+            # Preparation, Data Loading, Cache Check, Analysis, Saving results, Visualizations, Finalization
+            total_steps = (
+                6
+                + (1 if self.use_cache and not self.force_recalculation else 0)
+                + (1 if self.generate_visualization else 0)
             )
 
-            if df is None:
-                error_message = "Failed to load input data"
+            # Update progress if tracker provided
+            # Step 0: Preparation
+            if progress_tracker:
+                progress_tracker.update(
+                    0, {"step": "Preparation", "field": self.field_name}
+                )
+
+            # Step 1: Data Loading
+            if progress_tracker:
+                progress_tracker.update(1, {"step": "Data Loading"})
+
+                # Get and validate data
+            try:
+                # Load data
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = load_data_operation(
+                    data_source, dataset_name, **settings_operation
+                )
+
+                if df is None:
+                    error_message = "Failed to load input data"
+                    self.logger.error(error_message)
+                    return OperationResult(
+                        status=OperationStatus.ERROR, error_message=error_message
+                    )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
                 return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
                 )
-        except Exception as e:
-            error_message = f"Error loading data: {str(e)}"
-            self.logger.error(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
-            )
 
-        # Step 2: Check Cache (if enabled and not forced to recalculate)
-        if self.use_cache and not force_recalculation:
-            if progress_tracker:
-                progress_tracker.update(2, {"step": "Checking Cache"})
-
-            logger.info("Checking operation cache...")
-            cache_result = self._check_cache(df, task_dir, reporter, **kwargs)
-
-            if cache_result:
-                self.logger.info("Cache hit! Using cached results.")
-
-                # Update progress
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
                 if progress_tracker:
-                    progress_tracker.update(
-                        total_steps - 4, {"step": "Complete (cached)"}
-                    )
+                    progress_tracker.update(2, {"step": "Checking Cache"})
 
-                # Report cache hit to reporter
-                if reporter:
-                    reporter.add_operation(
-                        f"Date field analysis for '{self.field_name}' (from cache)",
-                        details={"cached": True},
-                    )
-                return cache_result
+                logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, task_dir, reporter, **kwargs)
 
-        try:
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps - 4, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Date field analysis for '{self.field_name}' (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
+
             # Check if field exists
             if self.field_name not in df.columns:
                 return OperationResult(
@@ -476,7 +474,7 @@ class DateOperation(FieldOperation):
                 progress_tracker.update(4, {"step": "Saved analysis results"})
 
             # Generate visualizations if requested
-            if generate_visualization:
+            if self.generate_visualization:
                 # Update progress
                 # Step 5: Visualizations
                 if progress_tracker:
@@ -630,8 +628,6 @@ class DateOperation(FieldOperation):
             Results of the analysis
         vis_dir : Path
             Directory to save visualizations
-        include_timestamp : bool
-            Whether to include timestamps in filenames
         is_birth_date : bool
             Whether the field is a birth date field
         result : OperationResult
@@ -812,8 +808,6 @@ class DateOperation(FieldOperation):
             Results of the analysis
         dict_dir : Path
             Directory to save dictionaries
-        include_timestamp : bool
-            Whether to include timestamps in filenames
         result : OperationResult
             Operation result to add artifacts to
         reporter : Any
@@ -923,7 +917,7 @@ class DateOperation(FieldOperation):
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
             cached_data = operation_cache_dir.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             if cached_data:
@@ -1024,7 +1018,7 @@ class DateOperation(FieldOperation):
             success = operation_cache_dir.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -1062,7 +1056,7 @@ class DateOperation(FieldOperation):
 
         # Use the operation_cache utility to generate a consistent cache key
         return operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
+            operation_name=self.operation_name,
             parameters=parameters,
             data_hash=data_hash,
         )
@@ -1158,8 +1152,6 @@ class DateOperation(FieldOperation):
             Results of the analysis
         vis_dir : Path
             Directory to save visualizations
-        include_timestamp : bool
-            Whether to include timestamps in output filenames
         result : OperationResult
             Operation result to add artifacts to
         reporter : Any

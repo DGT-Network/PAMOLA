@@ -6,6 +6,7 @@ properties of generated fake data, including distribution comparison,
 format validation, and performance assessment.
 """
 
+from datetime import datetime
 import logging
 from typing import Dict, Any, Optional, Union
 from pathlib import Path
@@ -15,7 +16,7 @@ import numpy as np
 from pamola_core.utils.visualization import (
     create_bar_plot,
     create_combined_chart,
-    create_pie_chart
+    create_pie_chart,
 )
 
 # Configure logger
@@ -25,11 +26,13 @@ logger = logging.getLogger(__name__)
 class MetricsCollector:
     """Base class for metrics collectors."""
 
-    def collect_metrics(self,
-                        orig_data: Optional[pd.Series] = None,
-                        gen_data: Optional[pd.Series] = None,
-                        field_name: str = None,
-                        operation_params: Dict[str, Any] = None) -> Dict[str, Any]:
+    def collect_metrics(
+        self,
+        orig_data: Optional[pd.Series] = None,
+        gen_data: Optional[pd.Series] = None,
+        field_name: str = None,
+        operation_params: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
         """
         Collects comprehensive metrics about original and generated data.
 
@@ -109,7 +112,7 @@ class MetricsCollector:
                     "min": int(lengths.min()),
                     "max": int(lengths.max()),
                     "mean": float(lengths.mean()),
-                    "median": float(lengths.median())
+                    "median": float(lengths.median()),
                 }
             except Exception as e:
                 logger.warning(f"Could not calculate length statistics: {str(e)}")
@@ -119,14 +122,15 @@ class MetricsCollector:
             "total_records": total_records,
             "unique_values": unique_values,
             "value_distribution": top_values,
-            "length_stats": length_stats
+            "length_stats": length_stats,
         }
 
     @staticmethod
     def collect_transformation_metrics(
-            orig_data: pd.Series,
-            gen_data: pd.Series,
-            operation_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        orig_data: pd.Series,
+        gen_data: pd.Series,
+        operation_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         Collect comprehensive metrics about data transformation.
 
@@ -165,8 +169,8 @@ class MetricsCollector:
             if np.any(comparison_mask):
                 # Compare values where both are non-null
                 value_changes = (
-                        orig_data.values[comparison_mask] !=
-                        gen_data.values[comparison_mask]
+                    orig_data.values[comparison_mask]
+                    != gen_data.values[comparison_mask]
                 )
                 value_replacements = np.sum(value_changes)
 
@@ -181,12 +185,16 @@ class MetricsCollector:
             # Mapping collisions
             mapping_collisions = 0
             try:
-                if (replacement_strategy == "mapping" and
-                        "mapping_store" in operation_params):
+                if (
+                    replacement_strategy == "mapping"
+                    and "mapping_store" in operation_params
+                ):
                     mapping_store = operation_params.get("mapping_store")
                     if hasattr(mapping_store, "get_collision_count"):
                         field_name = operation_params.get("field_name", "unknown")
-                        mapping_collisions = mapping_store.get_collision_count(field_name)
+                        mapping_collisions = mapping_store.get_collision_count(
+                            field_name
+                        )
             except Exception:
                 mapping_collisions = 0
 
@@ -212,7 +220,7 @@ class MetricsCollector:
                 "total_replacements": int(total_replacements),
                 "replacement_strategy": replacement_strategy,
                 "mapping_collisions": int(mapping_collisions),
-                "reversibility_rate": float(reversibility_rate)
+                "reversibility_rate": float(reversibility_rate),
             }
 
         except Exception:
@@ -222,12 +230,12 @@ class MetricsCollector:
                 "total_replacements": 0,
                 "replacement_strategy": "unknown",
                 "mapping_collisions": 0,
-                "reversibility_rate": 0.0
+                "reversibility_rate": 0.0,
             }
 
-    def compare_distributions(self,
-                              orig_data: pd.Series,
-                              gen_data: pd.Series) -> Dict[str, float]:
+    def compare_distributions(
+        self, orig_data: pd.Series, gen_data: pd.Series
+    ) -> Dict[str, float]:
         """
         Compares distributions in original and synthetic data.
 
@@ -288,15 +296,17 @@ class MetricsCollector:
 
         return {
             "distribution_similarity_score": 1.0 - min(1.0, float(kl_div)),
-            "uniqueness_preservation": float(uniqueness_preservation)
+            "uniqueness_preservation": float(uniqueness_preservation),
         }
 
-    def visualize_metrics(self,
-                          metrics: Dict[str, Any],
-                          field_name: str,
-                          output_dir: Union[str, Path],
-                          op_type: str,
-                          **kwargs) -> Dict[str, Path]:
+    def visualize_metrics(
+        self,
+        metrics: Dict[str, Any],
+        field_name: str,
+        output_dir: Union[str, Path],
+        op_type: str,
+        **kwargs,
+    ) -> Dict[str, Path]:
         """
         Creates visualizations for metrics data.
 
@@ -318,10 +328,15 @@ class MetricsCollector:
         """
         output_dir = Path(output_dir)
         visualizations = {}
+        timestamp = kwargs.get("timestamp", datetime.now().strftime("%Y%m%d_%H%M%S"))
 
         # Visualize value distributions if available
-        if ("original_data" in metrics and "value_distribution" in metrics["original_data"] and
-                "generated_data" in metrics and "value_distribution" in metrics["generated_data"]):
+        if (
+            "original_data" in metrics
+            and "value_distribution" in metrics["original_data"]
+            and "generated_data" in metrics
+            and "value_distribution" in metrics["generated_data"]
+        ):
 
             orig_dist = metrics["original_data"]["value_distribution"]
             gen_dist = metrics["generated_data"]["value_distribution"]
@@ -333,16 +348,19 @@ class MetricsCollector:
                 top_n = min(10, len(common_keys))
 
                 # Sort by original data frequency
-                common_keys = sorted(common_keys,
-                                     key=lambda k: orig_dist.get(k, 0),
-                                     reverse=True)[:top_n]
+                common_keys = sorted(
+                    common_keys, key=lambda k: orig_dist.get(k, 0), reverse=True
+                )[:top_n]
 
                 # Create data for combined chart
                 orig_values = [orig_dist.get(k, 0) for k in common_keys]
                 gen_values = [gen_dist.get(k, 0) for k in common_keys]
 
                 # Create combined chart for value distribution
-                dist_path = output_dir / f"{op_type}_{field_name}_value_distribution.png"
+                dist_path = (
+                    output_dir
+                    / f"{op_type}_{field_name}_value_distribution_{timestamp}.png"
+                )
                 try:
                     vis_path = create_combined_chart(
                         primary_data=dict(zip(common_keys, orig_values)),
@@ -356,18 +374,26 @@ class MetricsCollector:
                         secondary_y_label="Generated Frequency",
                         primary_color="royalblue",
                         secondary_color="crimson",
-                        **kwargs
+                        **kwargs,
                     )
                     if not vis_path.startswith("Error"):
                         visualizations["value_distribution"] = Path(vis_path)
-                    else:    
-                        logger.warning(f"Error creating replacement rate visualization: {str(e)}")                                        
+                    else:
+                        logger.warning(
+                            f"Error creating replacement rate visualization: {str(e)}"
+                        )
                 except Exception as e:
-                    logger.warning(f"Error creating value distribution visualization: {str(e)}")
+                    logger.warning(
+                        f"Error creating value distribution visualization: {str(e)}"
+                    )
 
         # Visualize length distribution for string data
-        if ("original_data" in metrics and "length_stats" in metrics["original_data"] and
-                "generated_data" in metrics and "length_stats" in metrics["generated_data"]):
+        if (
+            "original_data" in metrics
+            and "length_stats" in metrics["original_data"]
+            and "generated_data" in metrics
+            and "length_stats" in metrics["generated_data"]
+        ):
 
             orig_stats = metrics["original_data"]["length_stats"]
             gen_stats = metrics["generated_data"]["length_stats"]
@@ -380,26 +406,32 @@ class MetricsCollector:
                 gen_stats_values = [gen_stats.get(k, 0) for k in stats_keys]
 
                 # Create combined chart for length stats
-                length_path = output_dir / f"{op_type}_{field_name}_length_stats.png"
+                length_path = (
+                    output_dir / f"{op_type}_{field_name}_length_stats_{timestamp}.png"
+                )
                 try:
                     vis_path = create_bar_plot(
                         data={
                             "Original": dict(zip(stats_keys, orig_stats_values)),
-                            "Generated": dict(zip(stats_keys, gen_stats_values))
+                            "Generated": dict(zip(stats_keys, gen_stats_values)),
                         },
                         output_path=length_path,
                         title=f"Length Statistics for {field_name}",
                         x_label="Statistic",
                         y_label="Value",
-                        **kwargs
+                        **kwargs,
                     )
                     if not vis_path.startswith("Error"):
                         visualizations["length_stats"] = Path(vis_path)
-                    else:    
-                        logger.warning(f"Error creating replacement rate visualization: {str(e)}")
-                    
+                    else:
+                        logger.warning(
+                            f"Error creating replacement rate visualization: {str(e)}"
+                        )
+
                 except Exception as e:
-                    logger.warning(f"Error creating length stats visualization: {str(e)}")
+                    logger.warning(
+                        f"Error creating length stats visualization: {str(e)}"
+                    )
 
         # Visualize transformation metrics
         if "transformation_metrics" in metrics:
@@ -411,26 +443,29 @@ class MetricsCollector:
                 replaced = trans_metrics["total_replacements"]
                 preserved = total - replaced
 
-                pie_data = {
-                    "Replaced Values": replaced,
-                    "Preserved Values": preserved
-                }
+                pie_data = {"Replaced Values": replaced, "Preserved Values": preserved}
 
-                replace_path = output_dir / f"{op_type}_{field_name}_replacements.png"
+                replace_path = (
+                    output_dir / f"{op_type}_{field_name}_replacements_{timestamp}.png"
+                )
                 try:
                     vis_path = create_pie_chart(
                         data=pie_data,
                         output_path=replace_path,
                         title=f"Value Replacement Rate for {field_name}",
                         show_percentages=True,
-                        **kwargs
+                        **kwargs,
                     )
                     if not vis_path.startswith("Error"):
                         visualizations["replacement_rate"] = Path(vis_path)
-                    else:    
-                        logger.warning(f"Error creating replacement rate visualization: {str(e)}")                    
+                    else:
+                        logger.warning(
+                            f"Error creating replacement rate visualization: {str(e)}"
+                        )
                 except Exception as e:
-                    logger.warning(f"Error creating replacement rate visualization: {str(e)}")
+                    logger.warning(
+                        f"Error creating replacement rate visualization: {str(e)}"
+                    )
 
         # Return all visualization paths
         return visualizations
@@ -448,8 +483,13 @@ def create_metrics_collector() -> MetricsCollector:
     return MetricsCollector()
 
 
-def generate_metrics_report(metrics: Dict[str, Any], output_path: Union[str, Path] = None, op_type: str = None,
-                            field_name: str = None) -> str:
+def generate_metrics_report(
+    metrics: Dict[str, Any],
+    output_path: Union[str, Path] = None,
+    op_type: str = None,
+    field_name: str = None,
+    operation_timestamp: str = None,
+) -> str:
     """
     Generates a markdown report from metrics data.
 
@@ -463,6 +503,8 @@ def generate_metrics_report(metrics: Dict[str, Any], output_path: Union[str, Pat
         Type of operation
     field_name : str, optional
         Name of the field being processed
+    operation_timestamp : str, optional
+        Timestamp of the operation
 
     Returns:
     --------
@@ -490,8 +532,10 @@ def generate_metrics_report(metrics: Dict[str, Any], output_path: Union[str, Pat
         # Add length stats if available
         if "length_stats" in orig and orig["length_stats"]:
             length = orig["length_stats"]
-            report.append(f"- Length: min={length.get('min', 'N/A')}, max={length.get('max', 'N/A')}, " +
-                          f"mean={length.get('mean', 'N/A'):.2f}, median={length.get('median', 'N/A'):.2f}")
+            report.append(
+                f"- Length: min={length.get('min', 'N/A')}, max={length.get('max', 'N/A')}, "
+                + f"mean={length.get('mean', 'N/A'):.2f}, median={length.get('median', 'N/A'):.2f}"
+            )
         report.append("")
 
     # Add generated data summary
@@ -505,8 +549,10 @@ def generate_metrics_report(metrics: Dict[str, Any], output_path: Union[str, Pat
         # Add length stats if available
         if "length_stats" in gen and gen["length_stats"]:
             length = gen["length_stats"]
-            report.append(f"- Length: min={length.get('min', 'N/A')}, max={length.get('max', 'N/A')}, " +
-                          f"mean={length.get('mean', 'N/A'):.2f}, median={length.get('median', 'N/A'):.2f}")
+            report.append(
+                f"- Length: min={length.get('min', 'N/A')}, max={length.get('max', 'N/A')}, "
+                + f"mean={length.get('mean', 'N/A'):.2f}, median={length.get('median', 'N/A'):.2f}"
+            )
         report.append("")
 
     # Add transformation metrics
@@ -514,11 +560,17 @@ def generate_metrics_report(metrics: Dict[str, Any], output_path: Union[str, Pat
         trans = metrics["transformation_metrics"]
         report.append("### Transformation")
         report.append("")
-        report.append(f"- Replacement strategy: {trans.get('replacement_strategy', 'N/A')}")
+        report.append(
+            f"- Replacement strategy: {trans.get('replacement_strategy', 'N/A')}"
+        )
         report.append(f"- Total replacements: {trans.get('total_replacements', 'N/A')}")
-        report.append(f"- Null values replaced: {trans.get('null_values_replaced', 'N/A')}")
+        report.append(
+            f"- Null values replaced: {trans.get('null_values_replaced', 'N/A')}"
+        )
         report.append(f"- Mapping collisions: {trans.get('mapping_collisions', 'N/A')}")
-        report.append(f"- Reversibility rate: {trans.get('reversibility_rate', 'N/A'):.2%}")
+        report.append(
+            f"- Reversibility rate: {trans.get('reversibility_rate', 'N/A'):.2%}"
+        )
         report.append("")
 
     # Add performance metrics
@@ -527,9 +579,15 @@ def generate_metrics_report(metrics: Dict[str, Any], output_path: Union[str, Pat
         report.append("### Performance")
         report.append("")
         if perf:
-            report.append(f"- Generation time: {perf.get('generation_time', 'N/A'):.2f} seconds")
-            report.append(f"- Records per second: {perf.get('records_per_second', 'N/A')}")
-            report.append(f"- Memory usage: {perf.get('memory_usage_mb', 'N/A'):.2f} MB")
+            report.append(
+                f"- Generation time: {perf.get('generation_time', 'N/A'):.2f} seconds"
+            )
+            report.append(
+                f"- Records per second: {perf.get('records_per_second', 'N/A')}"
+            )
+            report.append(
+                f"- Memory usage: {perf.get('memory_usage_mb', 'N/A'):.2f} MB"
+            )
         else:
             report.append("No performance metrics available.")
         report.append("")
@@ -540,8 +598,12 @@ def generate_metrics_report(metrics: Dict[str, Any], output_path: Union[str, Pat
         report.append("### Dictionary")
         report.append("")
         if dict_metrics:
-            report.append(f"- Total entries: {dict_metrics.get('total_dictionary_entries', 'N/A')}")
-            report.append(f"- Language variants: {', '.join(dict_metrics.get('language_variants', []))}")
+            report.append(
+                f"- Total entries: {dict_metrics.get('total_dictionary_entries', 'N/A')}"
+            )
+            report.append(
+                f"- Language variants: {', '.join(dict_metrics.get('language_variants', []))}"
+            )
             report.append(f"- Last update: {dict_metrics.get('last_update', 'N/A')}")
         else:
             report.append("No dictionary metrics available.")
@@ -556,7 +618,10 @@ def generate_metrics_report(metrics: Dict[str, Any], output_path: Union[str, Pat
 
         # If op_type and field_name are provided, use them in the filename
         if op_type and field_name and output_path.is_dir():
-            output_path = output_path / f"{op_type}_{field_name}_metrics_report.md"
+            output_path = (
+                output_path
+                / f"{op_type}_{field_name}_metrics_report_{operation_timestamp}.md"
+            )
 
         # Ensure directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)

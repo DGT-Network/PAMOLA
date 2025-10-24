@@ -23,12 +23,10 @@ interfaces for input/output, progress tracking, and result reporting.
 
 import logging
 import time
-import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Tuple, Iterable, Union, Optional, Any
+from typing import Dict, Union, Optional, Any
 import json
-
 import numpy as np
 import pandas as pd
 from pandas.api.types import (
@@ -39,7 +37,7 @@ from pandas.api.types import (
     is_datetime64_any_dtype,
 )
 
-from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
 from pamola_core.utils.ops.op_registry import register
@@ -53,38 +51,26 @@ from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 # Configure module logger
 logger = logging.getLogger(__name__)
 
-class CleanInvalidValuesConfig(OperationConfig):
-    """Configuration for Clean Invalid Values Operation."""
+
+class CleanInvalidValuesOperationConfig(OperationConfig):
+    """Configuration for CleanInvalidValuesOperation with BaseOperationConfig merged."""
 
     schema = {
         "type": "object",
-        "properties": {
-            "field_constraints": {"type": ["object", "null"]},
-            "whitelist_path": {"type": ["object", "null"]},
-            "blacklist_path": {"type": ["object", "null"]},
-            "null_replacement": {"type": ["string", "object", "null"]},
-            "output_format": {"type": "string", "enum": ["csv", "json", "parquet"]},
-            "name": {"type": ["string", "null"]},
-            "description": {"type": ["string", "null"]},
-            "field_name": {"type": ["string", "null"]},
-            "mode": {"type": "string", "enum": ["REPLACE", "ENRICH"]},
-            "output_field_name": {"type": ["string", "null"]},
-            "column_prefix": {"type": "string"},
-            # Visualization-related properties
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {"type": ["string", "null"], "enum": ["plotly", "matplotlib", None]},
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
-            "chunk_size": {"type": "integer"},
-            "use_dask": {"type": "boolean"},
-            "npartitions": {"type": "integer"},
-            "use_vectorization": {"type": "boolean"},
-            "parallel_processes": {"type": "integer"},
-            "use_cache": {"type": "boolean"},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]}
-        }
+        "allOf": [
+            BaseOperationConfig.schema,  # merge common base fields
+            {
+                "type": "object",
+                "properties": {
+                    "field_constraints": {"type": ["object", "null"]},
+                    "whitelist_path": {"type": ["object", "null"]},
+                    "blacklist_path": {"type": ["object", "null"]},
+                    "null_replacement": {"type": ["string", "object", "null"]},
+                },
+            },
+        ],
     }
+
 
 @register(version="1.0.0")
 class CleanInvalidValuesOperation(TransformationOperation):
@@ -93,37 +79,21 @@ class CleanInvalidValuesOperation(TransformationOperation):
     """
 
     def __init__(
-            self,
-            field_constraints: Optional[Dict[str, Dict[str, Any]]] = None,
-            whitelist_path: Optional[Dict[str, Path]] = None,
-            blacklist_path: Optional[Dict[str, Path]] = None,
-            null_replacement: Optional[Union[str, Dict[str, Any]]] = None,
-            output_format: str = "csv",
-            name: str = "clean_invalid_values_operation",
-            description: str = "Clean values violating constraints",
-            field_name: str = "",
-            mode: str = "REPLACE",
-            output_field_name: Optional[str] = None,
-            column_prefix: str = "_",
-            visualization_theme: Optional[str] = None,
-            visualization_backend: Optional[str] = "plotly",
-            visualization_strict: bool = False,
-            visualization_timeout: int = 120,
-            chunk_size: int = 10000,
-            use_dask: bool = False,
-            npartitions: int = 2,
-            use_vectorization: bool = False,
-            parallel_processes: int = 2,
-            use_cache: bool = True,
-            use_encryption: bool = False,
-            encryption_key: Optional[Union[str, Path]] = None,
-            encryption_mode: Optional[str] = None,
+        self,
+        name: str = "clean_invalid_values_operation",
+        field_constraints: Optional[Dict[str, Dict[str, Any]]] = None,
+        whitelist_path: Optional[Dict[str, Path]] = None,
+        blacklist_path: Optional[Dict[str, Path]] = None,
+        null_replacement: Optional[Union[str, Dict[str, Any]]] = None,
+        **kwargs,
     ):
         """
-        Initialize operation.
+        Initialize the CleanInvalidValuesOperation.
 
         Parameters:
         -----------
+        name : str
+            Name of the operation (default: "clean_invalid_values_operation")
         field_constraints : dict, optional
             Fields constraints
         whitelist_path : dict, optional
@@ -132,120 +102,47 @@ class CleanInvalidValuesOperation(TransformationOperation):
             Blacklist
         null_replacement : str or dict, optional
             null replacement
-        output_format : str
-            Output format: "csv" or "json" or "parquet" (default: "csv")
-        name : str
-            Name of the operation (default: "clean_invalid_values_operation")
-        description : str
-            Operation description (default: "Clean values violating constraints")
-        field_name : str
-            Field name to transform (default: "")
-        mode : str
-            "REPLACE" to modify the field in-place, or "ENRICH" to create a new field (default: "REPLACE")
-        output_field_name : str, optional
-            Name for the output field if mode is "ENRICH" (default: None)
-        column_prefix : str, optional
-            Prefix for new column if mode is "ENRICH" (default: "_")
-        visualization_theme : str, optional
-            Theme to use for visualizations (default: None - uses system default)
-        visualization_backend : str, optional
-            Backend to use for visualizations: "plotly" or "matplotlib" (default: None - uses system default)
-        visualization_strict : bool, optional
-            If True, raise exceptions for visualization config errors (default: False)
-        visualization_timeout : int, optional
-            Timeout in seconds for visualization generation (default: 120)
-        chunk_size : int, optional
-            Number of rows to process in each chunk (default: 10000).
-        use_dask : bool, optional
-            Whether to use Dask for processing (default: False).
-        npartitions : int, optional
-            Number of partitions use with Dask (default: 1).
-        use_vectorization : bool, optional
-            Whether to use vectorized (parallel) processing (default: False).
-        parallel_processes : int, optional
-            Number of processes use with vectorized (parallel) (default: 1).
-        use_cache : bool
-            Whether to use operation caching (default: True)
-        use_encryption : bool
-            Whether to encrypt output files (default: False)
-        encryption_key : str or Path, optional
-            The encryption key or path to a key file (default: None)
+        **kwargs: dict
+            Additional keyword arguments passed to TransformationOperation.
         """
-        # Create configuration and validate parameters
-        config = CleanInvalidValuesConfig(
+        # Ensure default metadata
+        kwargs.setdefault("name", name)
+        kwargs.setdefault(
+            "description",
+            f"Clean invalid values based on defined constraints.",
+        )
+
+        # --- Build config object ---
+        config = CleanInvalidValuesOperationConfig(
             field_constraints=field_constraints,
             whitelist_path=whitelist_path,
             blacklist_path=blacklist_path,
             null_replacement=null_replacement,
-            output_format=output_format,
-            name=name,
-            description=description,
-            field_name=field_name,
-            mode=mode,
-            output_field_name=output_field_name,
-            column_prefix=column_prefix,
-            visualization_theme=visualization_theme,
-            visualization_backend=visualization_backend,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            chunk_size=chunk_size,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            use_cache=use_cache,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key
+            **kwargs,
         )
 
-        # Initialize base class
+        # Inject config into kwargs
+        kwargs["config"] = config
+
+        # --- Initialize TransformationOperation ---
         super().__init__(
-            output_format=output_format,
-            name=name,
-            description=description,
-            field_name=field_name,
-            mode=mode,
-            output_field_name=output_field_name,
-            column_prefix=column_prefix,
-            chunk_size=chunk_size,
-            use_cache=use_cache,
-            use_dask=use_dask,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode
+            **kwargs,
         )
 
-        self.visualization_theme = config.get("visualization_theme")
-        self.visualization_backend = config.get("visualization_backend")
-        self.visualization_strict = config.get("visualization_strict")
-        self.visualization_timeout = config.get("visualization_timeout")
-        self.chunk_size = config.get("chunk_size")
-        self.use_dask = config.get("use_dask")
-        self.npartitions = config.get("npartitions")
-        self.use_vectorization = config.get("use_vectorization")
-        self.parallel_processes = config.get("parallel_processes")
+        # --- Apply config attributes to self ---
+        for key, value in config.to_dict().items():
+            setattr(self, key, value)
 
-        # Store parameters from validated config
-        self.field_constraints = config.get("field_constraints")
-        self.whitelist_path = config.get("whitelist_path")
-        self.blacklist_path = config.get("blacklist_path")
-        self.null_replacement = config.get("null_replacement")
-        self.version = "1.0.0"  # Semantic versioning
-
-        self.execution_time = 0
-        self.include_timestamp = True
-        self.is_encryption_required = False
-
-        # Temp storage for cleanup
-        self._temp_data = None
+        # Operation metadata
+        self.operation_name = self.__class__.__name__
 
     def execute(
-            self,
-            data_source: DataSource,
-            task_dir: Path,
-            reporter: Any,
-            progress_tracker: Optional[HierarchicalProgressTracker] = None,
-            **kwargs
+        self,
+        data_source: DataSource,
+        task_dir: Path,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
     ) -> OperationResult:
         """
         Execute the operation with timing and error handling.
@@ -259,21 +156,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
         reporter : Any
             Reporter object for tracking progress and artifacts
         progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker for the operation (default: None)
+            Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation including:
-            - dataset_name: str - Name of dataset - main
-            - force_recalculation: bool - Force operation even if cached results exist - False
-            - use_dask: bool - Use Dask for large dataset processing - False
-            - parallel_processes: int - Number of parallel processes to use - 1
-            - generate_visualization: bool - Create visualizations - True
-            - include_timestamp: bool - Include timestamp in filenames - True
-            - save_output: bool - Save processed data to output directory - True
-            - encrypt_output: bool - Override encryption setting for outputs - False
-            - visualization_theme: str - Override theme for visualizations - None
-            - visualization_backend: str - Override backend for visualizations - None
-            - visualization_strict: bool - Override strict mode for visualizations - False
-            - visualization_timeout: int - Override timeout for visualizations - 120
+            Additional parameters for the operation
 
         Returns:
         --------
@@ -281,15 +166,21 @@ class CleanInvalidValuesOperation(TransformationOperation):
             Results of the operation
         """
         try:
-            # Config logger task for operatiions
-            self.logger = kwargs.get('logger', self.logger)
             # Initialize timing and result
             self.start_time = time.time()
-            self.process_count = 0
+
+            # Config logger task for operation
+            self.logger = kwargs.get("logger", self.logger)
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
             result = OperationResult(status=OperationStatus.PENDING)
 
             # Create DataWriter for consistent file operations
-            writer = DataWriter(task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker)
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
 
             # Prepare directories for artifacts
             directories = self._prepare_directories(task_dir)
@@ -297,42 +188,25 @@ class CleanInvalidValuesOperation(TransformationOperation):
             # Save configuration to task directory
             self.save_config(task_dir)
 
-            # Decompose kwargs and introduce variables for clarity
+            # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
-            force_recalculation = kwargs.get("force_recalculation", False)
-            use_dask = kwargs.get("use_dask", self.use_dask)
-            parallel_processes = kwargs.get("parallel_processes", 1)
-            generate_visualization = kwargs.get("generate_visualization", True)
-            include_timestamp = kwargs.get("include_timestamp", True)
-            save_output = kwargs.get("save_output", True)
-            is_encryption_required = (kwargs.get("encrypt_output", False) or self.use_encryption)
-            encryption_key = kwargs.get('encryption_key', None)
-
-            # Extract visualization parameters
-            vis_theme = kwargs.get("visualization_theme", self.visualization_theme)
-            vis_backend = kwargs.get("visualization_backend", self.visualization_backend)
-            vis_strict = kwargs.get("visualization_strict", self.visualization_strict)
-            vis_timeout = kwargs.get("visualization_timeout", self.visualization_timeout)
 
             self.logger.info(
-                f"Visualization settings: theme={vis_theme}, backend={vis_backend}, strict={vis_strict}, timeout={vis_timeout}s"
+                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
             )
-
-            self.use_dask = use_dask
-            self.parallel_processes = parallel_processes
-            self.include_timestamp = include_timestamp
-            self.is_encryption_required = is_encryption_required
 
             # Set up progress tracking
             # Preparation, Checking Cache, Data Loading, Validation, Processing, Metrics, Finalization
-            total_steps = 5 + (1 if self.use_cache and not force_recalculation else 0)
+            total_steps = 5 + (
+                1 if self.use_cache and not self.force_recalculation else 0
+            )
             current_steps = 0
             if progress_tracker:
                 progress_tracker.total = total_steps
                 progress_tracker.update(current_steps, {"step": "Preparation"})
 
             # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not force_recalculation:
+            if self.use_cache and not self.force_recalculation:
                 if progress_tracker:
                     current_steps += 1
                     progress_tracker.update(current_steps, {"step": "Checking Cache"})
@@ -345,13 +219,15 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
                     # Update progress
                     if progress_tracker:
-                        progress_tracker.update(total_steps,{"step": "Complete (cached)"})
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
 
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
                             f"Clean invalid values (from cache)",
-                            details={"cached": True}
+                            details={"cached": True},
                         )
                     return cache_result
 
@@ -363,16 +239,26 @@ class CleanInvalidValuesOperation(TransformationOperation):
             # Get and validate data
             try:
                 # Load data
-                settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
-                df = load_data_operation(data_source, dataset_name, **settings_operation)
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = load_data_operation(
+                    data_source, dataset_name, **settings_operation
+                )
                 if df is None:
-                    error_message = 'Failed to load input data'
+                    error_message = "Failed to load input data"
                     self.logger.error(error_message)
-                    return OperationResult(status=OperationStatus.ERROR, error_message=error_message)
+                    return OperationResult(
+                        status=OperationStatus.ERROR, error_message=error_message
+                    )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
-                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Step 3: Validation
             if progress_tracker:
@@ -388,8 +274,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             "whitelist_path": self.whitelist_path,
                             "blacklist_path": self.blacklist_path,
                             "null_replacement": self.null_replacement,
-                            "operation_type": self.__class__.__name__
-                        }
+                            "operation_type": self.operation_name,
+                        },
                     )
 
                 # Get a copy of the original data for metrics calculation
@@ -399,7 +285,11 @@ class CleanInvalidValuesOperation(TransformationOperation):
             except Exception as e:
                 error_message = f"Validation error: {str(e)}"
                 self.logger.error(error_message)
-                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Step 4: Processing
             if progress_tracker:
@@ -411,7 +301,11 @@ class CleanInvalidValuesOperation(TransformationOperation):
             except Exception as e:
                 error_message = f"Processing error: {str(e)}"
                 self.logger.error(error_message)
-                return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Step 5: Metrics
             if progress_tracker:
@@ -434,12 +328,13 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     writer=writer,
                     result=result,
                     reporter=reporter,
-                    progress_tracker=progress_tracker
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
-                    error_message = f"Error calculating metrics: {str(e)}"
-                    self.logger.warning(error_message)
-                    # Continue execution - metrics failure is not critical
+                error_message = f"Error calculating metrics: {str(e)}"
+                self.logger.warning(error_message)
+                # Continue execution - metrics failure is not critical
 
             # Step 6: Finalization (Visualizations and Output Data)
             if progress_tracker:
@@ -448,11 +343,11 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             visualizations = {}
             # Generate visualizations if required
-            if generate_visualization and vis_backend is not None:
+            if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
-                        "use_encryption": kwargs.get('use_encryption', False),
-                        "encryption_key": encryption_key
+                        "use_encryption": self.use_encryption,
+                        "encryption_key": self.encryption_key,
                     }
                     visualizations = self._handle_visualizations(
                         original_df=original_df,
@@ -461,12 +356,13 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         task_dir=task_dir,
                         result=result,
                         reporter=reporter,
-                        vis_theme=vis_theme,
-                        vis_backend=vis_backend,
-                        vis_strict=vis_strict,
-                        vis_timeout=vis_timeout,
+                        vis_theme=self.visualization_theme,
+                        vis_backend=self.visualization_backend,
+                        vis_strict=self.visualization_strict,
+                        vis_timeout=self.visualization_timeout,
                         progress_tracker=progress_tracker,
-                        **kwargs_encryption
+                        operation_timestamp=operation_timestamp,
+                        **kwargs_encryption,
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
@@ -475,7 +371,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             output_result = DataWriter
             # Save output data if required
-            if save_output:
+            if self.save_output:
                 try:
                     output_result = self._save_output_data(
                         processed_df=processed_df,
@@ -484,12 +380,17 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         result=result,
                         reporter=reporter,
                         progress_tracker=progress_tracker,
-                        **kwargs
+                        operation_timestamp=operation_timestamp,
+                        **kwargs,
                     )
                 except Exception as e:
                     error_message = f"Error saving output data: {str(e)}"
                     self.logger.error(error_message)
-                    return OperationResult(status=OperationStatus.ERROR,error_message=error_message, exception=e)
+                    return OperationResult(
+                        status=OperationStatus.ERROR,
+                        error_message=error_message,
+                        exception=e,
+                    )
 
             # Cache the result if caching is enabled
             if self.use_cache:
@@ -501,7 +402,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         metrics_result=metrics_result,
                         output_result=output_result,
                         visualizations=visualizations,
-                        task_dir=task_dir
+                        task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -513,8 +414,11 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 details = {
                     "execution_time_seconds": self.execution_time,
                     "records_processed": self.process_count,
-                    "records_per_second": self.process_count / self.execution_time
-                    if self.execution_time > 0 else 0
+                    "records_per_second": (
+                        self.process_count / self.execution_time
+                        if self.execution_time > 0
+                        else 0
+                    ),
                 }
 
                 # Only add generalization_ratio if metrics exists and has this key
@@ -525,8 +429,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
                 # Add the operation to the reporter
                 reporter.add_operation(
-                    f"Clean invalid values completed",
-                    details=details
+                    f"Clean invalid values completed", details=details
                 )
 
             # Cleanup memory
@@ -540,12 +443,11 @@ class CleanInvalidValuesOperation(TransformationOperation):
             # Handle unexpected errors
             error_message = f"Error in clean invalid values operation: {str(e)}"
             self.logger.exception(error_message)
-            return OperationResult(status=OperationStatus.ERROR, error_message=error_message, exception=e)
+            return OperationResult(
+                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            )
 
-    def process_batch(
-            self,
-            batch: pd.DataFrame
-    ) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data.
 
@@ -564,6 +466,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         if self.field_constraints is None:
             self.field_constraints = {}
         for field_name, field_config in self.field_constraints.items():
+            data_type = field_config.get("data_type")
             constraint_type = field_config.get("constraint_type")
 
             if field_name and field_name in batch_columns:
@@ -574,7 +477,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     if output_field_name not in batch.columns:
                         batch[output_field_name] = batch[field_name]
 
-                if is_numeric_dtype(batch[output_field_name]):
+                if is_numeric_dtype(batch[output_field_name]) or data_type == "numeric":
                     try:
                         min_value = float(field_config.get("min_value"))
                     except (ValueError, TypeError):
@@ -598,7 +501,11 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         )
 
                     # Clean with valid_range
-                    if constraint_type == "valid_range" and min_value is not None and max_value is not None:
+                    if (
+                        constraint_type == "valid_range"
+                        and min_value is not None
+                        and max_value is not None
+                    ):
                         batch[output_field_name] = batch[output_field_name].where(
                             (batch[output_field_name] >= min_value)
                             & (batch[output_field_name] <= max_value)
@@ -608,7 +515,10 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     if constraint_type == "custom_function":
                         raise NotImplementedError("Not implement")
 
-                if isinstance(batch[output_field_name].dtype, CategoricalDtype):
+                if (
+                    isinstance(batch[output_field_name].dtype, CategoricalDtype)
+                    or data_type == "categorical"
+                ):
                     # Clean with allowed_values
                     if constraint_type == "allowed_values":
                         allowed_values = field_config.get("allowed_values")
@@ -650,16 +560,23 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         pattern = field_config.get("pattern")
 
                         batch[output_field_name] = batch[output_field_name].where(
-                            batch[output_field_name].astype(str).str.contains(pat=pattern,na=False,regex=True)
+                            batch[output_field_name]
+                            .astype(str)
+                            .str.contains(pat=pattern, na=False, regex=True)
                         )
 
-                if is_datetime64_any_dtype(batch[output_field_name]):
+                if (
+                    is_datetime64_any_dtype(batch[output_field_name])
+                    or data_type == "date"
+                ):
                     min_date = field_config.get("min_date")
                     max_date = field_config.get("max_date")
 
                     # Clean with min_date
                     if constraint_type == "min_date":
-                        batch[output_field_name] = pd.to_datetime(batch[output_field_name], errors='coerce')
+                        batch[output_field_name] = pd.to_datetime(
+                            batch[output_field_name], errors="coerce"
+                        )
 
                         batch[output_field_name] = batch[output_field_name].where(
                             batch[output_field_name] >= pd.to_datetime(min_date)
@@ -667,7 +584,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
                     # Clean with max_date
                     if constraint_type == "max_date":
-                        batch[output_field_name] = pd.to_datetime(batch[output_field_name], errors='coerce')
+                        batch[output_field_name] = pd.to_datetime(
+                            batch[output_field_name], errors="coerce"
+                        )
 
                         batch[output_field_name] = batch[output_field_name].where(
                             batch[output_field_name] <= pd.to_datetime(max_date)
@@ -675,7 +594,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
                     # Clean with date_range
                     if constraint_type == "date_range":
-                        batch[output_field_name] = pd.to_datetime(batch[output_field_name], errors='coerce')
+                        batch[output_field_name] = pd.to_datetime(
+                            batch[output_field_name], errors="coerce"
+                        )
 
                         batch[output_field_name] = batch[output_field_name].where(
                             (batch[output_field_name] >= pd.to_datetime(min_date))
@@ -689,10 +610,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         batch[output_field_name] = pd.to_datetime(
                             batch[output_field_name],
                             format=valid_format,
-                            errors='coerce'
+                            errors="coerce",
                         )
 
-                if is_string_dtype(batch[output_field_name]) or is_object_dtype(batch[output_field_name]):
+                if (
+                    is_string_dtype(batch[output_field_name])
+                    or is_object_dtype(batch[output_field_name])
+                    or data_type == "text"
+                ):
                     # Clean with min_length
                     if constraint_type == "min_length":
                         min_length = field_config.get("min_length")
@@ -714,7 +639,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         valid_pattern = field_config.get("valid_pattern")
 
                         batch[output_field_name] = batch[output_field_name].where(
-                            batch[output_field_name].astype(str).str.contains(pat=valid_pattern,na=False,regex=True)
+                            batch[output_field_name]
+                            .astype(str)
+                            .str.contains(pat=valid_pattern, na=False, regex=True)
                         )
 
                     # Clean with valid_format
@@ -725,10 +652,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             batch[output_field_name] = pd.to_datetime(
                                 batch[output_field_name],
                                 format=valid_format,
-                                errors='coerce'
+                                errors="coerce",
                             )
                         except Exception:
-                            batch[output_field_name][:] = pd.NA  # fallback if format fails entirely
+                            batch[output_field_name][
+                                :
+                            ] = pd.NA  # fallback if format fails entirely
 
         if self.whitelist_path is None:
             self.whitelist_path = {}
@@ -799,15 +728,17 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     choice_values = batch[output_column].dropna().values
                     num_missing = batch[output_column].isna().sum()
 
-                    batch.loc[batch[output_column].isna(), output_column] = np.random.choice(
-                        choice_values, size=num_missing
+                    batch.loc[batch[output_column].isna(), output_column] = (
+                        np.random.choice(choice_values, size=num_missing)
                     )
                 elif isinstance(strategy, (str, int, float, pd.Timestamp)):
                     try:
                         # Attempt to cast strategy to column dtype
                         column_dtype = batch[output_column].dtype
                         casted_strategy = column_dtype.type(strategy)
-                        batch[output_column] = batch[output_column].fillna(casted_strategy)
+                        batch[output_column] = batch[output_column].fillna(
+                            casted_strategy
+                        )
                     except Exception:
                         pass  # Do nothing on failure
 
@@ -815,11 +746,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
         return processed_batch
 
-    def process_value(
-            self,
-            value,
-            **params
-    ):
+    def process_value(self, value, **params):
         """
         Process a single value.
 
@@ -837,10 +764,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         raise NotImplementedError("Not implement")
 
-    def _prepare_directories(
-            self,
-            task_dir: Path
-    ) -> Dict[str, Path]:
+    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
         """
         Prepare directories for artifacts.
 
@@ -870,10 +794,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         return directories
 
     def _check_cache(
-            self,
-            data_source: DataSource,
-            reporter: Any,
-            **kwargs
+        self, data_source: DataSource, reporter: Any, **kwargs
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -903,11 +824,13 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             # Get DataFrame from data source
             # Load data
-            dataset_name = kwargs.get('dataset_name', "main")
-            settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+            dataset_name = kwargs.get("dataset_name", "main")
+            settings_operation = load_settings_operation(
+                data_source, dataset_name, **kwargs
+            )
             df = load_data_operation(data_source, dataset_name, **settings_operation)
             if df is None:
-                error_message = 'Failed to load input data'
+                error_message = "Failed to load input data"
                 self.logger.warning(f"Cannot check cache: {error_message}")
                 return None
 
@@ -917,8 +840,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
             cached_data = operation_cache.get_cache(
-                cache_key=cache_key,
-                operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             if cached_data:
@@ -946,7 +868,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             artifact_type="json",
                             path=metrics_path,
                             description=f"Generalization metrics (cached)",
-                            category=Constants.Artifact_Category_Metrics
+                            category=Constants.Artifact_Category_Metrics,
                         )
                         artifacts_restored += 1
 
@@ -955,8 +877,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
                                 f"Generalization metrics (cached)",
                                 details={
                                     "artifact_type": "json",
-                                    "path": str(metrics_path)
-                                }
+                                    "path": str(metrics_path),
+                                },
                             )
 
                 # Add output artifact if file exists
@@ -968,7 +890,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             artifact_type=self.output_format,
                             path=output_path,
                             description=f"Generalized data (cached)",
-                            category=Constants.Artifact_Category_Output
+                            category=Constants.Artifact_Category_Output,
                         )
                         artifacts_restored += 1
 
@@ -978,11 +900,13 @@ class CleanInvalidValuesOperation(TransformationOperation):
                                 f"Generalized data (cached)",
                                 details={
                                     "artifact_type": self.output_format,
-                                    "path": str(output_path)
-                                }
+                                    "path": str(output_path),
+                                },
                             )
                     else:
-                        self.logger.warning(f"Cached output file not found: {output_path}")
+                        self.logger.warning(
+                            f"Cached output file not found: {output_path}"
+                        )
 
                 # Add visualization artifacts
                 visualizations = cached_data.get("visualizations", {})
@@ -993,23 +917,22 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             artifact_type="png",
                             path=path,
                             description=f"{viz_type} visualization (cached)",
-                            category=Constants.Artifact_Category_Visualization
+                            category=Constants.Artifact_Category_Visualization,
                         )
                         artifacts_restored += 1
 
                         if reporter:
                             reporter.add_operation(
                                 f"{viz_type} visualization (cached)",
-                                details={
-                                    "artifact_type": "png",
-                                    "path": str(path)
-                                }
+                                details={"artifact_type": "png", "path": str(path)},
                             )
 
                 # Add cache information to result
                 cached_result.add_metric("cached", True)
                 cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric("cache_timestamp", cached_data.get("timestamp", "unknown"))
+                cached_result.add_metric(
+                    "cache_timestamp", cached_data.get("timestamp", "unknown")
+                )
                 cached_result.add_metric("artifacts_restored", artifacts_restored)
 
                 return cached_result
@@ -1020,10 +943,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
-    def _generate_cache_key(
-            self,
-            df: pd.DataFrame
-    ) -> str:
+    def _generate_cache_key(self, df: pd.DataFrame) -> str:
         """
         Generate a deterministic cache key based on operation parameters and data characteristics.
 
@@ -1047,14 +967,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
         # Use the operation_cache utility to generate a consistent cache key
         return operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
+            operation_name=self.operation_name,
             parameters=parameters,
-            data_hash=data_hash
+            data_hash=data_hash,
         )
 
-    def _get_operation_parameters(
-            self
-    ) -> Dict[str, Any]:
+    def _get_operation_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1069,7 +987,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             "whitelist_path": self.whitelist_path,
             "blacklist_path": self.blacklist_path,
             "null_replacement": self.null_replacement,
-            "version": self.version
+            "version": self.version,
         }
 
         # Add operation-specific parameters
@@ -1077,9 +995,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
         return parameters
 
-    def _get_cache_parameters(
-            self
-    ) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for cache key generation.
 
@@ -1090,10 +1006,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         return {}
 
-    def _generate_data_hash(
-            self,
-            df: pd.DataFrame
-    ) -> str:
+    def _generate_data_hash(self, df: pd.DataFrame) -> str:
         """
         Generate a hash representing the key characteristics of the data.
 
@@ -1114,19 +1027,17 @@ class CleanInvalidValuesOperation(TransformationOperation):
             characteristics = df.describe(include="all")
 
             # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format='iso')
+            json_str = characteristics.to_json(date_format="iso")
         except Exception as e:
             self.logger.warning(f"Error generating data hash: {str(e)}")
 
-            # Fallback to a simple hash of the data length and type         
+            # Fallback to a simple hash of the data length and type
             json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
 
         return hashlib.md5(json_str.encode()).hexdigest()
 
     def _process_dataframe(
-            self,
-            df: pd.DataFrame,
-            progress_tracker: Optional[HierarchicalProgressTracker]
+        self, df: pd.DataFrame, progress_tracker: Optional[HierarchicalProgressTracker]
     ) -> pd.DataFrame:
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
@@ -1144,28 +1055,26 @@ class CleanInvalidValuesOperation(TransformationOperation):
             The processed dataframe
         """
         from pamola_core.transformations.commons.processing_utils import (
-            process_dataframe_with_config
+            process_dataframe_with_config,
         )
 
         processed_df = process_dataframe_with_config(
             df=df,
             process_function=self.process_batch,
-            chunk_size = self.chunk_size,
-            use_dask = self.use_dask,
-            npartitions = self.npartitions,
-            meta = None,
-            use_vectorization = self.use_vectorization,
-            parallel_processes = self.parallel_processes,
-            progress_tracker = progress_tracker,
-            task_logger = self.logger
+            chunk_size=self.chunk_size,
+            use_dask=self.use_dask,
+            npartitions=self.npartitions,
+            meta=None,
+            use_vectorization=self.use_vectorization,
+            parallel_processes=self.parallel_processes,
+            progress_tracker=progress_tracker,
+            task_logger=self.logger,
         )
 
         return processed_df
 
     def _calculate_all_metrics(
-            self,
-            original_df: pd.DataFrame,
-            processed_df: pd.DataFrame
+        self, original_df: pd.DataFrame, processed_df: pd.DataFrame
     ) -> Dict[str, Any]:
         """
         Calculate all metrics for operation.
@@ -1190,17 +1099,18 @@ class CleanInvalidValuesOperation(TransformationOperation):
             {
                 "execution_time_seconds": self.execution_time,
                 "records_processed": self.process_count,
-                "records_per_second": self.process_count / self.execution_time
-                if self.execution_time > 0 else 0
+                "records_per_second": (
+                    self.process_count / self.execution_time
+                    if self.execution_time > 0
+                    else 0
+                ),
             }
         )
 
         return metrics
 
     def _collect_metrics(
-            self,
-            original_df: pd.DataFrame,
-            processed_df: pd.DataFrame
+        self, original_df: pd.DataFrame, processed_df: pd.DataFrame
     ) -> Dict[str, Any]:
         """
         Collect metrics for the operation.
@@ -1225,38 +1135,47 @@ class CleanInvalidValuesOperation(TransformationOperation):
             col for col in processed_df.columns if col not in original_df.columns
         ]
         fields_modified = [
-            col for col in original_df.columns
+            col
+            for col in original_df.columns
             if col in processed_df.columns
-               and not original_df[col].equals(processed_df[col])
+            and not original_df[col].equals(processed_df[col])
         ]
 
         invalid_values = {}
         constraint_type_violations = {}
-        for processed_field in (fields_modified + fields_added):
+        for processed_field in fields_modified + fields_added:
             if processed_field.startswith(self.column_prefix):
-                original_field = processed_field[len(self.column_prefix):]
+                original_field = processed_field[len(self.column_prefix) :]
             else:
                 original_field = processed_field
 
             changes = (
-                ~np.where(
-                    original_df[original_field].isna() & processed_df[processed_field].isna(),
-                    True,
-                    original_df[original_field] == processed_df[processed_field]
+                np.logical_not(
+                    np.where(
+                        original_df[original_field].isna()
+                        | processed_df[processed_field].isna(),
+                        original_df[original_field].isna()
+                        & processed_df[processed_field].isna(),
+                        original_df[original_field] == processed_df[processed_field],
+                    )
                 )
             ).sum()
 
-            constraint_type = self.field_constraints.get(original_field, {}).get("constraint_type", "")
+            constraint_type = self.field_constraints.get(original_field, {}).get(
+                "constraint_type", ""
+            )
 
-            invalid_values.update({
-                original_field: {
-                    "count": int(changes),
-                    "percent": int(changes) / len(original_df),
-                    "constraint_type": constraint_type,
-                    "whitelist": original_field in self.whitelist_path,
-                    "blacklist": original_field in self.blacklist_path,
+            invalid_values.update(
+                {
+                    original_field: {
+                        "count": int(changes),
+                        "percent": int(changes) / len(original_df),
+                        "constraint_type": constraint_type,
+                        "whitelist": original_field in self.whitelist_path,
+                        "blacklist": original_field in self.blacklist_path,
+                    }
                 }
-            })
+            )
 
             if constraint_type:
                 if constraint_type not in constraint_type_violations:
@@ -1264,24 +1183,29 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
                 constraint_type_violations[constraint_type] += int(changes)
 
-        constraint_type_violations = dict(sorted(constraint_type_violations.items(), key=lambda x: x[1], reverse=True))
+        constraint_type_violations = dict(
+            sorted(constraint_type_violations.items(), key=lambda x: x[1], reverse=True)
+        )
 
-        metrics.update({
-            "invalid_values": invalid_values,
-            "constraint_type_violations": constraint_type_violations,
-            "top_violations": list(constraint_type_violations.keys())[:3]
-        })
+        metrics.update(
+            {
+                "invalid_values": invalid_values,
+                "constraint_type_violations": constraint_type_violations,
+                "top_violations": list(constraint_type_violations.keys())[:3],
+            }
+        )
 
         return metrics
 
     def _save_metrics(
-            self,
-            metrics: Dict[str, Any],
-            task_dir: Path,
-            writer: DataWriter,
-            result: OperationResult,
-            reporter: Any,
-            progress_tracker: Optional[HierarchicalProgressTracker]
+        self,
+        metrics: Dict[str, Any],
+        task_dir: Path,
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        operation_timestamp: str,
     ) -> WriterResult:
         """
         Save metrics.
@@ -1300,32 +1224,27 @@ class CleanInvalidValuesOperation(TransformationOperation):
             The reporter to log artifacts to
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
+        operation_timestamp : str
+            Timestamp string for filenames
 
         Returns:
         --------
         WriterResult
             Result object with path and metadata
         """
-        from pamola_core.transformations.commons.visualization_utils import (
-            generate_visualization_filename
-        )
-
         if progress_tracker:
             progress_tracker.update(0, {"step": "Saving metrics"})
 
         # Use the DataWriter to save
-        metrics_filename = generate_visualization_filename(
-            operation_name=f"{self.__class__.__name__}",
-            visualization_type="metrics",
-            extension="json",
-            include_timestamp=self.include_timestamp
+        metrics_filename = (
+            f"{self.operation_name.lower()}_metrics_{operation_timestamp}"
         )
 
         metrics_result = writer.write_metrics(
             metrics=metrics,
-            name=metrics_filename.replace(".json", ""),  # writer appends .json
+            name=metrics_filename,
             timestamp_in_name=False,  # Already included in the filename
-            encryption_key=self.encryption_key if self.is_encryption_required else None
+            encryption_key=self.encryption_key if self.use_encryption else None,
         )
 
         # Add metrics to result
@@ -1338,7 +1257,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             artifact_type="json",
             path=metrics_result.path,
             description=f"Clean invalid values",
-            category=Constants.Artifact_Category_Metrics
+            category=Constants.Artifact_Category_Metrics,
         )
 
         # Report artifact
@@ -1346,25 +1265,26 @@ class CleanInvalidValuesOperation(TransformationOperation):
             reporter.add_artifact(
                 artifact_type="json",
                 path=str(metrics_result.path),
-                description=f"Clean invalid values metrics"
+                description=f"Clean invalid values metrics",
             )
 
         return metrics_result
 
     def _handle_visualizations(
-            self,
-            original_df: pd.DataFrame,
-            processed_df: pd.DataFrame,
-            metrics: Dict[str, Any],
-            task_dir: Path,
-            result: OperationResult,
-            reporter: Any,
-            vis_theme: Optional[str],
-            vis_backend: Optional[str],
-            vis_strict: bool,
-            vis_timeout: int,
-            progress_tracker: Optional[HierarchicalProgressTracker],
-            **kwargs
+        self,
+        original_df: pd.DataFrame,
+        processed_df: pd.DataFrame,
+        metrics: Dict[str, Any],
+        task_dir: Path,
+        result: OperationResult,
+        reporter: Any,
+        vis_theme: Optional[str],
+        vis_backend: Optional[str],
+        vis_strict: bool,
+        vis_timeout: int,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        operation_timestamp: str,
+        **kwargs,
     ) -> Dict[str, Path]:
         """
         Generate and save visualizations.
@@ -1393,6 +1313,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
             Timeout for visualization generation (default: 120 seconds)
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
+        operation_timestamp : str
+            Timestamp string for filenames
 
         Returns:
         --------
@@ -1402,7 +1324,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        self.logger.info(f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s")
+        self.logger.info(
+            f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
+        )
 
         try:
             import threading
@@ -1416,8 +1340,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                self.logger.info(f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}")
-                self.logger.info(f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+                self.logger.info(
+                    f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
+                )
+                self.logger.info(
+                    f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
+                )
 
                 start_time = time.time()
 
@@ -1426,9 +1354,13 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     self.logger.info(f"[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        self.logger.info(f"[DIAG] Context vars count: {len(list(current_context))}")
+                        self.logger.info(
+                            f"[DIAG] Context vars count: {len(list(current_context))}"
+                        )
                     except Exception as ctx_e:
-                        self.logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
+                        self.logger.warning(
+                            f"[DIAG] Could not inspect context: {ctx_e}"
+                        )
 
                     # Generate visualizations with visualization context parameters
                     self.logger.info(f"[DIAG] Calling _generate_visualizations...")
@@ -1443,7 +1375,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            self.logger.debug(f"Could not create child progress tracker: {e}")
+                            self.logger.debug(
+                                f"Could not create child progress tracker: {e}"
+                            )
 
                     # Generate visualizations
                     visualization_paths = self._generate_visualizations(
@@ -1455,7 +1389,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         vis_backend=vis_backend,
                         vis_strict=vis_strict,
                         progress_tracker=viz_progress,
-                        **kwargs
+                        operation_timestamp=operation_timestamp,
+                        **kwargs,
                     )
 
                     # Close visualization progress tracker
@@ -1472,7 +1407,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    self.logger.error(f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}")
+                    self.logger.error(
+                        f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
+                    )
                     self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
@@ -1487,7 +1424,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            self.logger.info(f"[DIAG] Starting visualization thread with timeout={vis_timeout}s")
+            self.logger.info(
+                f"[DIAG] Starting visualization thread with timeout={vis_timeout}s"
+            )
             thread_start_time = time.time()
             viz_thread.start()
 
@@ -1498,21 +1437,35 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    self.logger.info(f"[DIAG] Visualization thread still running after {elapsed:.1f}s...")
+                    self.logger.info(
+                        f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
+                    )
 
             if viz_thread.is_alive():
-                self.logger.error(f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout")
-                self.logger.error(f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}")
+                self.logger.error(
+                    f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
+                )
+                self.logger.error(
+                    f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
+                )
                 visualization_paths = {}
             elif visualization_error:
-                self.logger.error(f"[DIAG] Visualization failed with error: {visualization_error}")
+                self.logger.error(
+                    f"[DIAG] Visualization failed with error: {visualization_error}"
+                )
                 visualization_paths = {}
             else:
                 total_time = time.time() - thread_start_time
-                self.logger.info(f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s")
-                self.logger.info(f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}")
+                self.logger.info(
+                    f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s"
+                )
+                self.logger.info(
+                    f"[DIAG] Generated visualizations: {list(visualization_paths.keys())}"
+                )
         except Exception as e:
-            self.logger.error(f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}")
+            self.logger.error(
+                f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
+            )
             self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = {}
 
@@ -1523,7 +1476,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 artifact_type="png",
                 path=path,
                 description=f"{viz_type} visualization",
-                category=Constants.Artifact_Category_Visualization
+                category=Constants.Artifact_Category_Visualization,
             )
 
             # Report to reporter
@@ -1531,22 +1484,23 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 reporter.add_artifact(
                     artifact_type="png",
                     path=str(path),
-                    description=f"{viz_type} visualization"
+                    description=f"{viz_type} visualization",
                 )
 
         return visualization_paths
 
     def _generate_visualizations(
-            self,
-            original_df: pd.DataFrame,
-            processed_df: pd.DataFrame,
-            metrics: Dict[str, Any],
-            task_dir: Path,
-            vis_theme: Optional[str],
-            vis_backend: Optional[str],
-            vis_strict: bool,
-            progress_tracker: Optional[HierarchicalProgressTracker],
-            **kwargs
+        self,
+        original_df: pd.DataFrame,
+        processed_df: pd.DataFrame,
+        metrics: Dict[str, Any],
+        task_dir: Path,
+        vis_theme: Optional[str],
+        vis_backend: Optional[str],
+        vis_strict: bool,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        operation_timestamp: str,
+        **kwargs,
     ) -> Dict[str, Path]:
         """
         Generate visualizations for the operation.
@@ -1569,20 +1523,27 @@ class CleanInvalidValuesOperation(TransformationOperation):
             If True, raise exceptions for configuration errors
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
+        operation_timestamp : str
+            Timestamp string for filenames
 
         Returns:
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
         """
-        from pamola_core.utils.visualization import create_bar_plot, create_heatmap, create_histogram
+        from pamola_core.utils.visualization import (
+            create_bar_plot,
+            create_heatmap,
+            create_histogram,
+        )
 
         visualization_paths = {}
         viz_dir = task_dir / "visualizations"
         viz_dir.mkdir(parents=True, exist_ok=True)
 
         # Create timestamp for filenames
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if operation_timestamp is None:
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # Check if visualization should be skipped
         if vis_backend is None:
@@ -1590,32 +1551,34 @@ class CleanInvalidValuesOperation(TransformationOperation):
             return visualization_paths
 
         self.logger.info(f"[VIZ] Starting visualization generation")
-        self.logger.debug(f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}")
+        self.logger.debug(
+            f"[VIZ] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
+        )
 
         try:
             # Step 1: Prepare data
             if progress_tracker:
                 progress_tracker.update(
-                    n=1,
-                    postfix={
-                        "step": "Preparing visualization data"
-                    }
+                    n=1, postfix={"step": "Preparing visualization data"}
                 )
 
-            self.logger.debug(f"[VIZ] Data prepared for visualization: {len(original_df)} samples")
+            self.logger.debug(
+                f"[VIZ] Data prepared for visualization: {len(original_df)} samples"
+            )
 
             # Step 2: Create visualization
             if progress_tracker:
-                progress_tracker.update(
-                    n=2,
-                    postfix={
-                        "step": "Creating visualization"
-                    }
-                )
+                progress_tracker.update(n=2, postfix={"step": "Creating visualization"})
 
             # Number of invalid values per field
-            viz_data = {field: statics["count"] for field, statics in metrics["invalid_values"].items()}
-            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_invalid_values_count_{timestamp}.png"
+            viz_data = {
+                field: statics["count"]
+                for field, statics in metrics["invalid_values"].items()
+            }
+            viz_path = (
+                viz_dir
+                / f"{self.operation_name.lower()}_invalid_values_count_{operation_timestamp}.png"
+            )
             viz_result = create_bar_plot(
                 data=viz_data,
                 output_path=viz_path,
@@ -1626,7 +1589,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 backend=vis_backend,
                 theme=vis_theme,
                 strict=vis_strict,
-                **kwargs
+                **kwargs,
             )
 
             if viz_result.startswith("Error"):
@@ -1639,13 +1602,18 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 {
                     "field": field,
                     "constraint_type": statics["constraint_type"],
-                    "count": statics["count"]
+                    "count": statics["count"],
                 }
                 for field, statics in metrics["invalid_values"].items()
             ]
             viz_data = pd.DataFrame(viz_data)
-            viz_data = viz_data.pivot(index="field", columns="constraint_type", values="count").fillna(0)
-            viz_path = viz_dir / f"{self.__class__.__name__.lower()}_invalid_values_distribution_{timestamp}.png"
+            viz_data = viz_data.pivot(
+                index="field", columns="constraint_type", values="count"
+            ).fillna(0)
+            viz_path = (
+                viz_dir
+                / f"{self.operation_name.lower()}_invalid_values_distribution_{operation_timestamp}.png"
+            )
             viz_result = create_heatmap(
                 data=viz_data,
                 output_path=viz_path,
@@ -1655,7 +1623,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 backend=vis_backend,
                 theme=vis_theme,
                 strict=vis_strict,
-                **kwargs
+                **kwargs,
             )
 
             if viz_result.startswith("Error"):
@@ -1668,21 +1636,25 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 col for col in processed_df.columns if col not in original_df.columns
             ]
             fields_modified = [
-                col for col in original_df.columns
+                col
+                for col in original_df.columns
                 if col in processed_df.columns
-                   and not original_df[col].equals(processed_df[col])
+                and not original_df[col].equals(processed_df[col])
             ]
 
-            for processed_field in (fields_modified + fields_added):
+            for processed_field in fields_modified + fields_added:
                 if processed_field.startswith(self.column_prefix):
-                    original_field = processed_field[len(self.column_prefix):]
+                    original_field = processed_field[len(self.column_prefix) :]
                 else:
                     original_field = processed_field
 
                 if original_field in original_df.columns:
                     if is_numeric_dtype(original_df[original_field]):
                         viz_data = original_df[original_field].dropna()
-                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_histograms_original_{original_field}_{timestamp}.png"
+                        viz_path = (
+                            viz_dir
+                            / f"{self.operation_name.lower()}_histograms_original_{original_field}_{operation_timestamp}.png"
+                        )
                         viz_result = create_histogram(
                             data=viz_data,
                             output_path=viz_path,
@@ -1691,16 +1663,25 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             backend=vis_backend,
                             theme=vis_theme,
                             strict=vis_strict,
-                            **kwargs
+                            **kwargs,
                         )
                         if viz_result.startswith("Error"):
-                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                            self.logger.error(
+                                f"Failed to create visualization: {viz_result}"
+                            )
                         else:
-                            visualization_paths[f"histograms_original_{original_field}"] = viz_path
+                            visualization_paths[
+                                f"histograms_original_{original_field}"
+                            ] = viz_path
 
                     if isinstance(original_df[original_field].dtype, CategoricalDtype):
-                        viz_data = original_df[original_field].value_counts(normalize=True)
-                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_bars_original_{original_field}_{timestamp}.png"
+                        viz_data = original_df[original_field].value_counts(
+                            normalize=True
+                        )
+                        viz_path = (
+                            viz_dir
+                            / f"{self.operation_name.lower()}_bars_original_{original_field}_{operation_timestamp}.png"
+                        )
                         viz_result = create_bar_plot(
                             data=viz_data,
                             output_path=viz_path,
@@ -1711,17 +1692,24 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             backend=vis_backend,
                             theme=vis_theme,
                             strict=vis_strict,
-                            **kwargs
+                            **kwargs,
                         )
                         if viz_result.startswith("Error"):
-                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                            self.logger.error(
+                                f"Failed to create visualization: {viz_result}"
+                            )
                         else:
-                            visualization_paths[f"bars_original_{original_field}"] = viz_path
+                            visualization_paths[f"bars_original_{original_field}"] = (
+                                viz_path
+                            )
 
                 if processed_field in processed_df.columns:
                     if is_numeric_dtype(processed_df[processed_field]):
                         viz_data = processed_df[processed_field].dropna()
-                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_histograms_processed_{processed_field}_{timestamp}.png"
+                        viz_path = (
+                            viz_dir
+                            / f"{self.operation_name.lower()}_histograms_processed_{processed_field}_{operation_timestamp}.png"
+                        )
                         viz_result = create_histogram(
                             data=viz_data,
                             output_path=viz_path,
@@ -1730,16 +1718,27 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             backend=vis_backend,
                             theme=vis_theme,
                             strict=vis_strict,
-                            **kwargs
+                            **kwargs,
                         )
                         if viz_result.startswith("Error"):
-                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                            self.logger.error(
+                                f"Failed to create visualization: {viz_result}"
+                            )
                         else:
-                            visualization_paths[f"histograms_processed_{processed_field}"] = viz_path
+                            visualization_paths[
+                                f"histograms_processed_{processed_field}"
+                            ] = viz_path
 
-                    if isinstance(processed_df[processed_field].dtype, CategoricalDtype):
-                        viz_data = processed_df[processed_field].value_counts(normalize=True)
-                        viz_path = viz_dir / f"{self.__class__.__name__.lower()}_bars_processed_{processed_field}_{timestamp}.png"
+                    if isinstance(
+                        processed_df[processed_field].dtype, CategoricalDtype
+                    ):
+                        viz_data = processed_df[processed_field].value_counts(
+                            normalize=True
+                        )
+                        viz_path = (
+                            viz_dir
+                            / f"{self.operation_name.lower()}_bars_processed_{processed_field}_{operation_timestamp}.png"
+                        )
                         viz_result = create_bar_plot(
                             data=viz_data,
                             output_path=viz_path,
@@ -1750,32 +1749,41 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             backend=vis_backend,
                             theme=vis_theme,
                             strict=vis_strict,
-                            **kwargs
+                            **kwargs,
                         )
                         if viz_result.startswith("Error"):
-                            self.logger.error(f"Failed to create visualization: {viz_result}")
+                            self.logger.error(
+                                f"Failed to create visualization: {viz_result}"
+                            )
                         else:
-                            visualization_paths[f"bars_processed_{processed_field}"] = viz_path
+                            visualization_paths[f"bars_processed_{processed_field}"] = (
+                                viz_path
+                            )
 
-            self.logger.info(f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations")
+            self.logger.info(
+                f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations"
+            )
 
             return visualization_paths
 
         except Exception as e:
-            self.logger.error(f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}")
+            self.logger.error(
+                f"[VIZ] Error in visualization generation: {type(e).__name__}: {e}"
+            )
             self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
 
     def _save_output_data(
-            self,
-            processed_df: pd.DataFrame,
-            task_dir: Path,
-            writer: DataWriter,
-            result: OperationResult,
-            reporter: Any,
-            progress_tracker: Optional[HierarchicalProgressTracker],
-            **kwargs
+        self,
+        processed_df: pd.DataFrame,
+        task_dir: Path,
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        operation_timestamp: str,
+        **kwargs,
     ) -> WriterResult:
         """
         Save the processed output data.
@@ -1794,36 +1802,29 @@ class CleanInvalidValuesOperation(TransformationOperation):
             The reporter to log artifacts to
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
+        operation_timestamp : str
+            Timestamp string for filenames
 
         Returns:
         --------
         WriterResult
             Result object with path and metadata
         """
-        from pamola_core.transformations.commons.visualization_utils import (
-            generate_visualization_filename
-        )
-
         if progress_tracker:
             progress_tracker.update(0, {"step": "Saving output data"})
 
         # Use the DataWriter to save
-        output_filename = generate_visualization_filename(
-            operation_name=f"{self.__class__.__name__}",
-            visualization_type="generalized",
-            extension="csv",
-            include_timestamp=self.include_timestamp
-        )
+        output_filename = f"{self.operation_name.lower()}_output_{operation_timestamp}"
 
         encryption_mode = get_encryption_mode(processed_df, **kwargs)
         output_result = writer.write_dataframe(
             df=processed_df,
-            name=output_filename.replace(".csv", ""),  # writer appends .csv
+            name=output_filename,
             format="csv",
             subdir="output",
             timestamp_in_name=False,  # Already included in the filename
-            encryption_key=self.encryption_key if self.is_encryption_required else None,
-            encryption_mode=encryption_mode
+            encryption_key=self.encryption_key if self.use_encryption else None,
+            encryption_mode=encryption_mode,
         )
 
         # Register output artifact with the result
@@ -1831,7 +1832,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             artifact_type="csv",
             path=output_result.path,
             description=f"Clean invalid values",
-            category=Constants.Artifact_Category_Output
+            category=Constants.Artifact_Category_Output,
         )
 
         # Report to reporter
@@ -1839,20 +1840,20 @@ class CleanInvalidValuesOperation(TransformationOperation):
             reporter.add_artifact(
                 artifact_type="csv",
                 path=str(output_result.path),
-                description=f"Clean invalid values"
+                description=f"Clean invalid values",
             )
 
         return output_result
 
     def _save_to_cache(
-            self,
-            original_df: pd.DataFrame,
-            processed_df: pd.DataFrame,
-            metrics: Dict[str, Any],
-            metrics_result: WriterResult,
-            output_result: WriterResult,
-            visualizations: Dict[str, Any],
-            task_dir: Path
+        self,
+        original_df: pd.DataFrame,
+        processed_df: pd.DataFrame,
+        metrics: Dict[str, Any],
+        metrics_result: WriterResult,
+        output_result: WriterResult,
+        visualizations: Dict[str, Any],
+        task_dir: Path,
     ) -> bool:
         """
         Save operation results to cache.
@@ -1901,8 +1902,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 "visualizations": visualizations,
                 "data_info": {
                     "original_df_length": len(original_df),
-                    "processed_df_length": len(processed_df)
-                }
+                    "processed_df_length": len(processed_df),
+                },
             }
 
             # Save to cache
@@ -1910,8 +1911,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
             success = operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
-                metadata={"task_dir": str(task_dir)}
+                operation_type=self.operation_name,
+                metadata={"task_dir": str(task_dir)},
             )
 
             if success:
@@ -1925,9 +1926,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             return False
 
     def _cleanup_memory(
-            self,
-            original_df: Optional[pd.DataFrame],
-            processed_df: Optional[pd.DataFrame]
+        self, original_df: Optional[pd.DataFrame], processed_df: Optional[pd.DataFrame]
     ) -> None:
         """
         Clean up memory after operation completes.
@@ -1949,11 +1948,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
         if processed_df is not None:
             del processed_df
 
-        # Clear instance attribute references
-        if hasattr(self, "_temp_data") and self._temp_data is not None:
-            del self._temp_data
-            self._temp_data = None
-
         # Additional cleanup for any temporary attributes
         for attr_name in list(vars(self).keys()):
             if attr_name.startswith("_temp_"):
@@ -1961,12 +1955,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
         # Force garbage collection
         import gc
+
         gc.collect()
 
+
 # Helper function to create the operation easily
-def create_clean_invalid_values_operation(
-        **kwargs
-) -> CleanInvalidValuesOperation:
+def create_clean_invalid_values_operation(**kwargs) -> CleanInvalidValuesOperation:
     """
     Create clean invalid values operation with default settings.
 

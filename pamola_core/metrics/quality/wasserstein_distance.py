@@ -25,25 +25,43 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 from scipy.stats import wasserstein_distance
 from typing import List, Dict
-from pamola_core.metrics.base import QualityMetric
 
 # Configure logging
 import logging
+
 logger = logging.getLogger(__name__)
 
-class WassersteinDistance(QualityMetric):
-    def __init__(self, name: str = "Wasserstein Distance", description: str = "Evaluate distribution similarity"):
-        super().__init__(name, description)
 
-    def calculate(self, real_data: pd.DataFrame, synthetic_data: pd.DataFrame, target_columns: List[str] = None) -> Dict[str, float]:
+class WassersteinDistance:
+    def __init__(
+        self,
+        name: str = "Wasserstein Distance",
+        description: str = "Evaluate distribution similarity",
+    ):
+        """Initialize the Wasserstein Distance metric."""
+        self.name = name
+        self.description = description
+
+    def calculate_metric(
+        self,
+        real_data: pd.DataFrame,
+        synthetic_data: pd.DataFrame,
+        target_columns: List[str] = None,
+    ) -> Dict[str, float]:
         logger.info("Calculating Wasserstein Distance metrics")
         results = {}
-        columns_to_evaluate = target_columns if target_columns else real_data.select_dtypes(include=["number"]).columns.tolist()
+        columns_to_evaluate = (
+            target_columns
+            if target_columns
+            else real_data.select_dtypes(include=["number"]).columns.tolist()
+        )
 
         try:
             for col in columns_to_evaluate:
                 if col in real_data.columns and col in synthetic_data.columns:
-                    results[col] = wasserstein_distance(real_data[col], synthetic_data[col])
+                    results[col] = wasserstein_distance(
+                        real_data[col], synthetic_data[col]
+                    )
 
             logger.info("Wasserstein Distance calculation completed successfully")
             return results

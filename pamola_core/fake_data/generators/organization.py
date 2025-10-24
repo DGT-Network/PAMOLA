@@ -421,6 +421,7 @@ class OrganizationGenerator(BaseGenerator):
         # Use default region if not provided
         if not region:
             region = self.region
+        region = region.lower()
 
         # Fall back to 'general' if no organizations of the requested type/region
         if (org_type not in self._org_names or

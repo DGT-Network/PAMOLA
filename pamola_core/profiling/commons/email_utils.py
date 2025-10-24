@@ -241,10 +241,9 @@ def analyze_email_field(df: pd.DataFrame,
     return stats
 
 
-def create_domain_dictionary(df: pd.DataFrame,
-                             field_name: str,
-                             min_count: int = 1,
-                             **kwargs) -> Dict[str, Any]:
+def create_domain_dictionary(
+    df: pd.DataFrame, field_name: str, min_count: int = 1
+) -> Dict[str, Any]:
     """
     Create a frequency dictionary for email domains.
 

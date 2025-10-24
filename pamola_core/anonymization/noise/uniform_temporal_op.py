@@ -74,11 +74,11 @@ from pamola_core.anonymization.commons.validation import (
     InvalidParameterError,
     DateTimeFieldValidator,
 )
-from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.common.helpers.data_helper import DataHelper
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 # Import framework utilities
-from pamola_core.utils.ops.op_field_utils import generate_output_field_name
-from pamola_core.utils.ops.op_registry import register_operation
+from pamola_core.utils.ops.op_registry import register
 
 # Constants
 VALID_DIRECTIONS = ["both", "forward", "backward"]
@@ -88,114 +88,86 @@ WEEKEND_DAYS = [5, 6]  # Saturday, Sunday
 
 
 class UniformTemporalNoiseConfig(OperationConfig):
-    """Configuration for UniformTemporalNoiseOperation."""
+    """Configuration for UniformTemporalNoiseOperation with BaseOperationConfig merged."""
 
     schema = {
         "type": "object",
-        "properties": {
-            "field_name": {"type": "string"},
-            # Temporal noise parameters
-            "noise_range_days": {"type": ["number", "null"]},
-            "noise_range_hours": {"type": ["number", "null"]},
-            "noise_range_minutes": {"type": ["number", "null"]},
-            "noise_range_seconds": {"type": ["number", "null"]},
-            # Direction control
-            "direction": {"type": "string"},
-            # Boundary constraints
-            "min_datetime": {"type": ["string", "null"]},
-            "max_datetime": {"type": ["string", "null"]},
-            # Special date handling
-            "preserve_special_dates": {"type": "boolean"},
-            "special_dates": {"type": ["array", "null"]},
-            "preserve_weekends": {"type": "boolean"},
-            "preserve_time_of_day": {"type": "boolean"},
-            # Granularity
-            "output_granularity": {"type": ["string", "null"]},
-            # Reproducibility
-            "random_seed": {"type": ["integer", "null"]},
-            "use_secure_random": {"type": "boolean"},
-            # Conditional processing parameters
-            "condition_field": {"type": ["string", "null"]},
-            "condition_values": {"type": ["array", "null"]},
-            "condition_operator": {"type": "string"},
-            # Multi-field conditions
-            "multi_conditions": {"type": ["array", "null"]},
-            "condition_logic": {"type": "string"},
-            # K-anonymity integration
-            "ka_risk_field": {"type": ["string", "null"]},
-            "risk_threshold": {"type": "number"},
-            "vulnerable_record_strategy": {"type": "string"},
-            # Memory optimization
-            "optimize_memory": {"type": "boolean"},
-            "adaptive_chunk_size": {"type": "boolean"},
-            # Standard parameters
-            "description": {"type": "string"},
-            "mode": {"type": "string", "enum": ["REPLACE", "ENRICH"]},
-            "column_prefix": {"type": "string"},
-            "output_field_name": {"type": ["string", "null"]},
-            "null_strategy": {
-                "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
-            },
-            "chunk_size": {"type": "integer"},
-            "use_dask": {"type": "boolean"},
-            "npartitions": {"type": ["integer", "null"]},
-            "dask_partition_size": {"type": ["string", "null"]},
-            "use_vectorization": {"type": "boolean"},
-            "parallel_processes": {"type": ["integer", "null"]},
-            "use_cache": {"type": "boolean"},
-            "output_format": {
-                "type": "string",
-                "enum": ["csv", "parquet", "arrow"],
-                "default": "csv",
-            },
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {"type": ["string", "null"]},
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer"},
-            "use_encryption": {"type": "boolean"},
-            "encryption_mode": {"type": ["string", "null"]},
-            "encryption_key": {"type": ["string", "null"]},
-            "noise_range": {
-                "type": ["object", "null"],
+        "allOf": [
+            BaseOperationConfig.schema,  # merge common fields from base config
+            {
+                "type": "object",
                 "properties": {
+                    "field_name": {"type": "string"},
+                    # Temporal noise parameters
                     "noise_range_days": {"type": ["number", "null"]},
                     "noise_range_hours": {"type": ["number", "null"]},
                     "noise_range_minutes": {"type": ["number", "null"]},
                     "noise_range_seconds": {"type": ["number", "null"]},
+                    "noise_range": {
+                        "type": ["object", "null"],
+                        "properties": {
+                            "noise_range_days": {"type": ["number", "null"]},
+                            "noise_range_hours": {"type": ["number", "null"]},
+                            "noise_range_minutes": {"type": ["number", "null"]},
+                            "noise_range_seconds": {"type": ["number", "null"]},
+                        },
+                    },
+                    # Direction control
+                    "direction": {
+                        "type": "string",
+                        "enum": ["both", "forward", "backward"],
+                        "default": "both",
+                    },
+                    # Boundary constraints
+                    "min_datetime": {"type": ["string", "null"]},
+                    "max_datetime": {"type": ["string", "null"]},
+                    # Special date handling
+                    "preserve_special_dates": {"type": "boolean", "default": False},
+                    "special_dates": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                    },
+                    "preserve_weekends": {"type": "boolean", "default": False},
+                    "preserve_time_of_day": {"type": "boolean", "default": False},
+                    # Granularity
+                    "output_granularity": {
+                        "type": ["string", "null"],
+                        "enum": ["day", "hour", "minute", "second", None],
+                    },
+                    # Reproducibility
+                    "random_seed": {"type": ["integer", "null"]},
+                    "use_secure_random": {"type": "boolean", "default": True},
+                    # Multi-field conditions
+                    "multi_conditions": {"type": ["array", "null"]},
+                    "condition_logic": {"type": "string"},
+                    # Conditional processing parameters
+                    "condition_field": {"type": ["string", "null"]},
+                    "condition_values": {"type": ["array", "null"]},
+                    "condition_operator": {"type": "string"},
+                    # K-anonymity integration
+                    "ka_risk_field": {"type": ["string", "null"]},
+                    "risk_threshold": {"type": "number"},
+                    "vulnerable_record_strategy": {"type": "string"},
+                    # Output field name configuration
+                    "output_field_name": {"type": ["string", "null"]},
                 },
+                "required": ["field_name"],
             },
-        },
-        "required": ["field_name"],
+        ],
     }
 
 
+@register(version="1.0.0")
 class UniformTemporalNoiseOperation(AnonymizationOperation):
     """
     Operation for adding uniform random time shifts to datetime fields.
 
-    This operation implements REQ-TEMPORAL-001 through REQ-TEMPORAL-007 from the
+    Implements REQ-TEMPORAL-001 through REQ-TEMPORAL-007 from the
     PAMOLA.CORE Noise Operations Sub-Specification.
 
-    The operation adds uniformly distributed random time shifts to datetime values,
-    supporting various time units, preservation constraints, and output controls
-    for maintaining temporal patterns while providing privacy protection.
-
-    Attributes:
-        noise_range_days: Range in days for time shifts
-        noise_range_hours: Range in hours for time shifts
-        noise_range_minutes: Range in minutes for time shifts
-        noise_range_seconds: Range in seconds for time shifts
-        direction: Direction of shifts ('both', 'forward', 'backward')
-        min_datetime: Minimum allowed datetime after shift
-        max_datetime: Maximum allowed datetime after shift
-        preserve_special_dates: Whether to preserve special dates unchanged
-        special_dates: List of dates to preserve
-        preserve_weekends: Whether to maintain weekend/weekday status
-        preserve_time_of_day: Whether to keep time unchanged (shift date only)
-        output_granularity: Rounding granularity for output
-        random_seed: Seed for reproducibility (ignored if use_secure_random=True)
-        use_secure_random: Use cryptographically secure random
+    This operation adds uniformly distributed random time shifts to datetime
+    values, supporting flexible units, directionality, preservation of special
+    dates, and temporal granularity control.
     """
 
     def __init__(
@@ -222,94 +194,54 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         # Reproducibility
         random_seed: Optional[int] = None,
         use_secure_random: bool = True,
-        # Conditional processing parameters
-        condition_field: Optional[str] = None,
-        condition_values: Optional[List] = None,
-        condition_operator: str = "in",
-        # Multi-field conditions
-        multi_conditions: Optional[List[Dict[str, Any]]] = None,
-        condition_logic: str = "AND",
-        # K-anonymity integration
-        ka_risk_field: Optional[str] = None,
-        risk_threshold: float = 5.0,
-        vulnerable_record_strategy: str = "suppress",
-        # Memory optimization
-        optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
-        # Standard parameters
-        description: str = "",
-        mode: str = "REPLACE",
-        column_prefix: str = "_",
-        output_field_name: Optional[str] = None,
-        null_strategy: str = "PRESERVE",
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        dask_partition_size: Optional[str] = None,
-        use_vectorization: bool = False,
-        parallel_processes: Optional[int] = None,
-        use_cache: bool = False,
-        output_format: str = "csv",
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        use_encryption: bool = False,
-        encryption_mode: Optional[str] = None,
-        encryption_key: Optional[Union[str, Path]] = None,
+        **kwargs,
     ):
         """
-        Initialize the uniform temporal noise operation.
+        Initialize the UniformTemporalNoiseOperation.
 
-        Args:
-            field_name: Field to add temporal noise to
-            noise_range_days: Time shift range in days
-            noise_range_hours: Time shift range in hours
-            noise_range_minutes: Time shift range in minutes
-            noise_range_seconds: Time shift range in seconds
-            noise_range: Dictionary containing noise range components
-            direction: Direction of shifts ('both', 'forward', 'backward')
-            min_datetime: Minimum allowed datetime after shift
-            max_datetime: Maximum allowed datetime after shift
-            preserve_special_dates: Don't shift special dates
-            special_dates: List of dates to preserve unchanged
-            preserve_weekends: Maintain weekend/weekday status
-            preserve_time_of_day: Keep time unchanged (shift date only)
-            output_granularity: Round output ('day', 'hour', 'minute', 'second')
-            random_seed: Seed for reproducibility (ignored if use_secure_random=True)
-            use_secure_random: Use cryptographically secure random
-            condition_field: Field name for conditional processing
-            condition_values: Values to match for conditional processing
-            condition_operator: Operator for condition matching ('in', 'not_in', 'eq', 'ne', 'gt', 'lt', 'ge', 'le')
-            multi_conditions: List of multiple field conditions for complex filtering
-            condition_logic: Logic operator for conditions ('AND', 'OR')
-            ka_risk_field: Field containing k-anonymity risk scores
-            risk_threshold: Threshold for identifying vulnerable records
-            vulnerable_record_strategy: Strategy for handling vulnerable records ('suppress', 'preserve', 'enhance')
-            optimize_memory: Enable memory optimization techniques
-            adaptive_chunk_size: Automatically adjust chunk size based on available memory
-            description: Human-readable description of the operation
-            mode: Processing mode ('REPLACE' to modify original field, 'ENRICH' to add new field)
-            column_prefix: Prefix for new column names in ENRICH mode
-            output_field_name: Custom name for output field (overrides automatic naming)
-            null_strategy: How to handle null values ('PRESERVE', 'EXCLUDE', 'ERROR', 'ANONYMIZE')
-            chunk_size: Number of rows to process in each chunk
-            use_dask: Enable Dask for distributed processing
-            npartitions: Number of partitions for Dask processing
-            dask_partition_size: Target size for Dask partitions (e.g., '100MB')
-            use_vectorization: Enable vectorized operations where possible
-            parallel_processes: Number of parallel processes for multi-processing
-            use_cache: Enable caching of operation results
-            output_format: Format for output files ('csv', 'parquet', 'arrow')
-            visualization_theme: Theme for generated visualizations
-            visualization_backend: Backend for visualization ('matplotlib', 'plotly')
-            visualization_strict: Strict mode for visualization generation
-            visualization_timeout: Timeout in seconds for visualization generation
-            use_encryption: Enable encryption for sensitive outputs
-            encryption_mode: Encryption algorithm to use
-            encryption_key: Path to encryption key file or key string
-            **: Additional parameters for base class
+        Parameters
+        ----------
+        field_name : str
+            Field to which temporal noise will be applied.
+        noise_range_days : float, optional
+            Range of time shift in days.
+        noise_range_hours : float, optional
+            Range of time shift in hours.
+        noise_range_minutes : float, optional
+            Range of time shift in minutes.
+        noise_range_seconds : float, optional
+            Range of time shift in seconds.
+        noise_range : dict, optional
+            Dictionary specifying one or more of the above noise ranges.
+        direction : str, default="both"
+            Direction of shift ('both', 'forward', or 'backward').
+        min_datetime : str or pd.Timestamp, optional
+            Minimum datetime allowed after applying noise.
+        max_datetime : str or pd.Timestamp, optional
+            Maximum datetime allowed after applying noise.
+        preserve_special_dates : bool, default=False
+            Whether to preserve certain special dates unchanged.
+        special_dates : list of str or pd.Timestamp, optional
+            Specific dates to be preserved (no shift applied).
+        preserve_weekends : bool, default=False
+            Maintain weekend/weekday status after noise.
+        preserve_time_of_day : bool, default=False
+            Preserve time-of-day component; only shift the date.
+        output_granularity : str, optional
+            Granularity to round the output to ('day', 'hour', 'minute', 'second').
+        random_seed : int, optional
+            Random seed for reproducibility (ignored if use_secure_random=True).
+        use_secure_random : bool, default=True
+            Whether to use cryptographically secure randomness.
+        **kwargs : dict
+            Additional keyword arguments passed to the base AnonymizationOperation.
         """
+        # Ensure description fallback
+        kwargs.setdefault(
+            "description",
+            f"Uniform temporal noise for field '{field_name}'",
+        )
+
         if noise_range is not None:
             noise_range_days = noise_range.get("noise_range_days", noise_range_days)
             noise_range_hours = noise_range.get("noise_range_hours", noise_range_hours)
@@ -320,108 +252,44 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
                 "noise_range_seconds", noise_range_seconds
             )
 
+        # Build config
         config = UniformTemporalNoiseConfig(
             field_name=field_name,
-            # Temporal noise parameters
             noise_range_days=noise_range_days,
             noise_range_hours=noise_range_hours,
             noise_range_minutes=noise_range_minutes,
             noise_range_seconds=noise_range_seconds,
-            # Direction control
             direction=direction,
-            # Boundary constraints
             min_datetime=min_datetime,
             max_datetime=max_datetime,
-            # Special date handling
             preserve_special_dates=preserve_special_dates,
             special_dates=special_dates,
             preserve_weekends=preserve_weekends,
             preserve_time_of_day=preserve_time_of_day,
-            # Granularity
             output_granularity=output_granularity,
-            # Reproducibility
             random_seed=random_seed,
             use_secure_random=use_secure_random,
-            # Conditional processing parameters
-            condition_field=condition_field,
-            condition_values=condition_values,
-            condition_operator=condition_operator,
-            # Multi-field conditions
-            multi_conditions=multi_conditions,
-            condition_logic=condition_logic,
-            # K-anonymity integration
-            ka_risk_field=ka_risk_field,
-            risk_threshold=risk_threshold,
-            vulnerable_record_strategy=vulnerable_record_strategy,
-            # Memory optimization
-            optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            # Standard parameters
-            description=description,
-            mode=mode,
-            column_prefix=column_prefix,
-            output_field_name=output_field_name,
-            null_strategy=null_strategy,
-            chunk_size=chunk_size,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            use_cache=use_cache,
-            output_format=output_format,
-            visualization_theme=visualization_theme,
-            visualization_backend=visualization_backend,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            use_encryption=use_encryption,
-            encryption_mode=encryption_mode,
-            encryption_key=encryption_key,
+            **kwargs,
         )
 
-        # Initialize base class
-        super().__init__(
-            field_name=field_name,
-            # Conditional processing parameters
-            condition_field=condition_field,
-            condition_values=condition_values,
-            condition_operator=condition_operator,
-            # Multi-field conditions
-            multi_conditions=multi_conditions,
-            condition_logic=condition_logic,
-            # K-anonymity integration
-            ka_risk_field=ka_risk_field,
-            risk_threshold=risk_threshold,
-            vulnerable_record_strategy=vulnerable_record_strategy,
-            # Memory optimization
-            optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            # Standard parameters
-            description=f"Uniform temporal noise for field '{field_name}'",
-            mode=mode,
-            column_prefix=column_prefix,
-            output_field_name=output_field_name,
-            null_strategy=null_strategy,
-            chunk_size=chunk_size,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            use_cache=use_cache,
-            output_format=output_format,
-            visualization_theme=visualization_theme,
-            visualization_backend=visualization_backend,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            use_encryption=use_encryption,
-            encryption_mode=encryption_mode,
-            encryption_key=encryption_key,
-        )
+        # Pass config into kwargs for parent
+        kwargs["config"] = config
 
-        self.config = config
+        # Initialize parent class
+        super().__init__(field_name=field_name, **kwargs)
 
-        # Validate and store temporal parameters
+        # Save config attributes to self
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+            self.process_kwargs[k] = v
+
+        self.direction = direction.lower()
+
+        # Convert datetime boundaries
+        self.min_datetime = pd.Timestamp(min_datetime) if min_datetime else None
+        self.max_datetime = pd.Timestamp(max_datetime) if max_datetime else None
+
+        # Validate and compute ranges
         self._validate_temporal_parameters(
             noise_range_days,
             noise_range_hours,
@@ -429,46 +297,30 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
             noise_range_seconds,
             direction,
             output_granularity,
+            min_datetime,
+            max_datetime,
         )
 
-        self.noise_range_days = noise_range_days
-        self.noise_range_hours = noise_range_hours
-        self.noise_range_minutes = noise_range_minutes
-        self.noise_range_seconds = noise_range_seconds
-        self.direction = direction.lower()
-
-        # Convert and store datetime boundaries
-        self.min_datetime = pd.Timestamp(min_datetime) if min_datetime else None
-        self.max_datetime = pd.Timestamp(max_datetime) if max_datetime else None
-
-        # Validate datetime boundaries
-        if self.min_datetime and self.max_datetime:
-            if self.min_datetime >= self.max_datetime:
-                raise InvalidParameterError(
-                    param_name="min_datetime",
-                    param_value=min_datetime,
-                    reason=f"must be less than max_datetime ({max_datetime})",
-                )
-
-        # Store preservation settings
-        self.preserve_special_dates = preserve_special_dates
         self.special_dates = pd.to_datetime(special_dates) if special_dates else None
-        self.preserve_weekends = preserve_weekends
-        self.preserve_time_of_day = preserve_time_of_day
-
-        # Store other settings
-        self.output_granularity = output_granularity
-        self.random_seed = random_seed
-        self.use_secure_random = use_secure_random
-
-        # Initialize generator (will be created per execution)
         self._generator: Optional[SecureRandomGenerator] = None
 
         # Calculate total shift range in seconds for efficiency
         self._total_shift_seconds = self._calculate_total_shift_seconds()
 
-        # Version
-        self.version = "1.0.0"
+        # Store computed attributes
+        self.process_kwargs.update(
+            {
+                "min_datetime": self.min_datetime,
+                "max_datetime": self.max_datetime,
+                "special_dates": self.special_dates,
+                "direction": self.direction,
+                "_generator": self._generator,
+                "_total_shift_seconds": self._total_shift_seconds,
+            }
+        )
+
+        # Operation metadata
+        self.operation_name = self.__class__.__name__
 
     def _validate_temporal_parameters(
         self,
@@ -478,6 +330,8 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         seconds: Optional[float],
         direction: str,
         granularity: Optional[str],
+        min_datetime: Optional[Union[str, pd.Timestamp]] = None,
+        max_datetime: Optional[Union[str, pd.Timestamp]] = None,
     ) -> None:
         """
         Validate temporal noise parameters.
@@ -529,6 +383,15 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
                 reason=f"must be one of {VALID_GRANULARITIES}",
             )
 
+        # Validate datetime boundaries
+        if min_datetime and max_datetime:
+            if min_datetime >= max_datetime:
+                raise InvalidParameterError(
+                    param_name="min_datetime",
+                    param_value=min_datetime,
+                    reason=f"must be less than max_datetime ({max_datetime})",
+                )
+
     def _calculate_total_shift_seconds(self) -> float:
         """
         Calculate total shift range in seconds.
@@ -547,47 +410,48 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
             total += self.noise_range_seconds
         return total
 
-    def _initialize_generator(self) -> None:
-        """Initialize the random number generator for this execution."""
-        self._generator = SecureRandomGenerator(
-            use_secure=self.use_secure_random, seed=self.random_seed
-        )
-        self.logger.debug(
-            f"Initialized {'secure' if self.use_secure_random else 'standard'} "
-            f"random generator for temporal noise"
-        )
-
-    def _generate_time_shifts(self, size: int) -> pd.TimedeltaIndex:
+    @staticmethod
+    def _generate_time_shifts(size: int, **kwargs) -> pd.TimedeltaIndex:
         """
         Generate random time shifts.
 
         Args:
             size: Number of shifts to generate
+            **kwargs: Additional parameters for shift generation
 
         Returns:
             TimedeltaIndex with random shifts
         """
-        if self._generator is None:
-            self._initialize_generator()
+        # Get parameters from kwargs
+        direction = kwargs.get("direction", "both")
+        use_secure_random = kwargs.get("use_secure_random", True)
+        random_seed = kwargs.get("random_seed", None)
+        _generator = kwargs.get("_generator", None)
+        _total_shift_seconds = kwargs.get("_total_shift_seconds", 0.0)
 
-        # Generate shifts based on direction
-        if self.direction == "both":
-            # Shifts in both directions
-            shift_seconds = self._generator.uniform(
-                -self._total_shift_seconds, self._total_shift_seconds, size
+        if _generator is None:
+            _generator = SecureRandomGenerator(
+                use_secure=use_secure_random, seed=random_seed
             )
-        elif self.direction == "forward":
+        # Generate shifts based on direction
+        if direction == "both":
+            # Shifts in both directions
+            shift_seconds = _generator.uniform(
+                -_total_shift_seconds, _total_shift_seconds, size
+            )
+        elif direction == "forward":
             # Only positive shifts (future)
-            shift_seconds = self._generator.uniform(0, self._total_shift_seconds, size)
+            shift_seconds = _generator.uniform(0, _total_shift_seconds, size)
         else:  # backward
             # Only negative shifts (past)
-            shift_seconds = self._generator.uniform(-self._total_shift_seconds, 0, size)
+            shift_seconds = _generator.uniform(-_total_shift_seconds, 0, size)
 
         # Convert to TimedeltaIndex
         return pd.to_timedelta(shift_seconds, unit="s")
 
+    @classmethod
     def _apply_temporal_noise(
-        self, timestamps: pd.Series, shifts: pd.TimedeltaIndex
+        cls, timestamps: pd.Series, shifts: pd.TimedeltaIndex, **kwargs
     ) -> pd.Series:
         """
         Apply noise with temporal constraints.
@@ -595,33 +459,45 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         Args:
             timestamps: Original timestamps
             shifts: Time shifts to apply
+            **kwargs: Additional parameters for noise application
 
         Returns:
             Series with shifted timestamps
         """
+        # Get parameters from kwargs
+        min_datetime = kwargs.get("min_datetime", None)
+        max_datetime = kwargs.get("max_datetime", None)
+        preserve_special_dates = kwargs.get("preserve_special_dates", False)
+        special_dates = kwargs.get("special_dates", None)
+        preserve_weekends = kwargs.get("preserve_weekends", False)
+        preserve_time_of_day = kwargs.get("preserve_time_of_day", False)
+        output_granularity = kwargs.get("output_granularity", None)
+
         # Apply shifts
         noisy_timestamps = timestamps + shifts
 
         # Apply boundary constraints
-        if self.min_datetime:
-            noisy_timestamps = noisy_timestamps.clip(lower=self.min_datetime)
-        if self.max_datetime:
-            noisy_timestamps = noisy_timestamps.clip(upper=self.max_datetime)
+        if min_datetime:
+            noisy_timestamps = noisy_timestamps.clip(lower=min_datetime)
+        if max_datetime:
+            noisy_timestamps = noisy_timestamps.clip(upper=max_datetime)
 
         # Preserve special dates
-        if self.preserve_special_dates and self.special_dates is not None:
-            for special_date in self.special_dates:
+        if preserve_special_dates and special_dates is not None:
+            for special_date in special_dates:
                 # Check if any original dates match special dates
                 mask = timestamps.dt.date == special_date.date()
                 if mask.any():
                     noisy_timestamps.loc[mask] = timestamps.loc[mask]
 
         # Preserve weekends
-        if self.preserve_weekends:
-            noisy_timestamps = self._adjust_for_weekends(timestamps, noisy_timestamps)
+        if preserve_weekends:
+            noisy_timestamps = cls._adjust_for_weekends(
+                timestamps, noisy_timestamps, min_datetime, max_datetime
+            )
 
         # Preserve time of day
-        if self.preserve_time_of_day:
+        if preserve_time_of_day:
             # Keep original time, only shift date
             noisy_timestamps = pd.to_datetime(
                 noisy_timestamps.dt.date.astype(str)
@@ -630,18 +506,28 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
             )
 
         # Apply granularity
-        if self.output_granularity:
-            noisy_timestamps = self._apply_granularity(noisy_timestamps)
+        if output_granularity:
+            noisy_timestamps = cls._apply_granularity(
+                noisy_timestamps, output_granularity
+            )
 
         return noisy_timestamps
 
-    def _adjust_for_weekends(self, original: pd.Series, noisy: pd.Series) -> pd.Series:
+    @staticmethod
+    def _adjust_for_weekends(
+        original: pd.Series,
+        noisy: pd.Series,
+        min_datetime: Optional[Union[str, pd.Timestamp]] = None,
+        max_datetime: Optional[Union[str, pd.Timestamp]] = None,
+    ) -> pd.Series:
         """
         Adjust shifts to preserve weekend/weekday status.
 
         Args:
             original: Original timestamps
             noisy: Shifted timestamps
+            min_datetime: Minimum allowed datetime
+            max_datetime: Maximum allowed datetime
 
         Returns:
             Adjusted timestamps preserving weekend status
@@ -673,9 +559,9 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
 
                 if test_is_weekend == orig_is_weekend:
                     # Check if within bounds
-                    if self.min_datetime and test_date < self.min_datetime:
+                    if min_datetime and test_date < min_datetime:
                         continue
-                    if self.max_datetime and test_date > self.max_datetime:
+                    if max_datetime and test_date > max_datetime:
                         continue
 
                     adjusted.loc[idx] = test_date
@@ -683,88 +569,92 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
 
         return adjusted
 
-    def _apply_granularity(self, timestamps: pd.Series) -> pd.Series:
+    @staticmethod
+    def _apply_granularity(timestamps: pd.Series, output_granularity: str) -> pd.Series:
         """
         Round timestamps to specified granularity.
 
         Args:
             timestamps: Timestamps to round
+            output_granularity: Granularity to apply ('day', 'hour', 'minute', 'second')
 
         Returns:
             Rounded timestamps
         """
-        if self.output_granularity == "day":
+        if output_granularity == "day":
             return timestamps.dt.floor("D")
-        elif self.output_granularity == "hour":
+        elif output_granularity == "hour":
             # FutureWarning: 'H' is deprecated and will be removed in a future version, please use 'h' instead
             return timestamps.dt.floor("h")
-        elif self.output_granularity == "minute":
+        elif output_granularity == "minute":
             return timestamps.dt.floor("T")
-        elif self.output_granularity == "second":
+        elif output_granularity == "second":
             return timestamps.dt.floor("S")
         else:
             return timestamps
 
-    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
+    @classmethod
+    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
         Process a batch of data by adding temporal noise.
 
-        Args:
-            batch: DataFrame batch to process
+        Parameters:
+        -----------
+            batch : pd.DataFrame
+                DataFrame batch to process
+            **kwargs : Any
+                Additional keyword arguments for processing
 
         Returns:
-            Processed DataFrame with temporal noise added
+        --------
+        pd.DataFrame
+            Processed DataFrame with generalized datetimes
         """
-        result = batch.copy()
+        # Extract parameters from kwargs
+        field_name = kwargs.get("field_name")
+        output_field_name = kwargs.get("output_field_name", f"{field_name}_generalized")
+        mode = kwargs.get("mode", "REPLACE")
+        null_strategy = kwargs.get("null_strategy", "PRESERVE")
+
+        result = batch.copy(deep=True)
 
         # Validate datetime field
-        validator = DateTimeFieldValidator(allow_null=(self.null_strategy != "ERROR"))
-        if not pd.api.types.is_datetime64_any_dtype(batch[self.field_name]):
+        validator = DateTimeFieldValidator(allow_null=(null_strategy != "ERROR"))
+        if not pd.api.types.is_datetime64_any_dtype(batch[field_name]):
             # Try to convert to datetime
             try:
-                datetime_series = pd.to_datetime(batch[self.field_name])
-                result[self.field_name] = datetime_series
+                datetime_series = DataHelper.convert_to_datetime(batch[field_name])
+                result[field_name] = datetime_series
             except Exception as e:
                 raise ValueError(
-                    f"Field '{self.field_name}' cannot be converted to datetime: {e}"
+                    f"Field '{field_name}' cannot be converted to datetime: {e}"
                 )
         else:
-            datetime_series = batch[self.field_name]
+            datetime_series = batch[field_name]
 
         # Validate the datetime series
-        validation_result = validator.validate(
-            datetime_series, field_name=self.field_name
-        )
+        validation_result = validator.validate(datetime_series, field_name=field_name)
         if not validation_result.is_valid:
             raise ValueError(f"Datetime validation failed: {validation_result.errors}")
-
-        # Use framework utility for output field naming
-        output_col = generate_output_field_name(
-            self.field_name,
-            self.mode,
-            self.output_field_name,
-            operation_suffix="shifted",
-            column_prefix=self.column_prefix,
-        )
 
         # Handle nulls
         non_null_mask = datetime_series.notna()
         non_null_values = datetime_series[non_null_mask]
         if len(non_null_values) > 0:
             # Generate and apply shifts
-            shifts = self._generate_time_shifts(len(non_null_values))
-            noisy_values = self._apply_temporal_noise(non_null_values, shifts)
+            shifts = cls._generate_time_shifts(len(non_null_values), **kwargs)
+            noisy_values = cls._apply_temporal_noise(non_null_values, shifts, **kwargs)
 
             # Update result
-            if self.mode == "REPLACE":
-                result.loc[non_null_mask, self.field_name] = noisy_values
+            if mode == "REPLACE":
+                result.loc[non_null_mask, field_name] = noisy_values
             else:  # ENRICH
-                result[output_col] = datetime_series.copy()
-                result.loc[non_null_mask, output_col] = noisy_values
+                result[output_field_name] = datetime_series.copy()
+                result.loc[non_null_mask, output_field_name] = noisy_values
         else:
             # No non-null values to process
-            if self.mode == "ENRICH":
-                result[output_col] = datetime_series.copy()
+            if mode == "ENRICH":
+                result[output_field_name] = datetime_series.copy()
 
         return result
 
@@ -783,9 +673,9 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         """
         # Ensure datetime types
         if not pd.api.types.is_datetime64_any_dtype(original_data):
-            original_data = pd.to_datetime(original_data)
+            original_data = DataHelper.convert_to_datetime(original_data)
         if not pd.api.types.is_datetime64_any_dtype(anonymized_data):
-            anonymized_data = pd.to_datetime(anonymized_data)
+            anonymized_data = DataHelper.convert_to_datetime(anonymized_data)
 
         # Basic configuration metrics
         metrics = {
@@ -937,7 +827,3 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
             f"direction='{self.direction}', "
             f"secure={self.use_secure_random})"
         )
-
-
-# Register the operation with the framework
-register_operation(UniformTemporalNoiseOperation)

@@ -34,16 +34,18 @@ from typing import Any, Dict, Optional, Type, TypeVar, Generic, Union
 logger = logging.getLogger(__name__)
 
 # Type variable for configuration classes
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class OpsError(Exception):
     """Base class for all operation-related errors."""
+
     pass
 
 
 class ConfigError(OpsError):
     """Error related to configuration operations."""
+
     pass
 
 
@@ -58,10 +60,7 @@ class OperationConfig(Generic[T]):
     """
 
     # JSON Schema for configuration validation
-    schema: Dict[str, Any] = {
-        "type": "object",
-        "properties": {}
-    }
+    schema: Dict[str, Any] = {"type": "object", "properties": {}}
 
     def __init__(self, **kwargs):
         """
@@ -95,6 +94,7 @@ class OperationConfig(Generic[T]):
         """
         # Use the helper function from json_utils for validation
         from pamola_core.utils.io_helpers.json_utils import validate_json_schema
+
         validate_json_schema(params, self.schema, ConfigError)
 
     def save(self, path: Union[str, Path]) -> None:
@@ -111,8 +111,8 @@ class OperationConfig(Generic[T]):
         REQ-OPS-004: Supports saving configuration to JSON.
         """
         path = Path(path) if isinstance(path, str) else path
-        with open(path, 'w') as f:
-            json.dump(self._params, f, indent=2) # type: ignore
+        with open(path, "w") as f:
+            json.dump(self._params, f, indent=2)  # type: ignore
 
     @classmethod
     def load(cls: Type[T], path: Union[str, Path]) -> T:
@@ -139,7 +139,7 @@ class OperationConfig(Generic[T]):
         REQ-OPS-004: Supports loading configuration from JSON.
         """
         path = Path(path) if isinstance(path, str) else path
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             params = json.load(f)
         return cls(**params)
 
@@ -229,7 +229,9 @@ class OperationConfigRegistry:
             Configuration class to register
         """
         cls._registry[operation_type] = config_class
-        logger.debug(f"Registered configuration class for operation type: {operation_type}")
+        logger.debug(
+            f"Registered configuration class for operation type: {operation_type}"
+        )
 
     @classmethod
     def get_config_class(cls, operation_type: str) -> Optional[Type[OperationConfig]]:
@@ -267,7 +269,208 @@ class OperationConfigRegistry:
         """
         config_class = cls.get_config_class(operation_type)
         if config_class is None:
-            logger.warning(f"No configuration class registered for operation type: {operation_type}")
+            logger.warning(
+                f"No configuration class registered for operation type: {operation_type}"
+            )
             return None
 
         return config_class(**kwargs)
+
+
+class BaseOperationConfig(OperationConfig):
+    """
+    Configuration schema for BaseOperation.
+
+    Defines all shared operation parameters such as performance, output, and encryption.
+    This base schema ensures consistency across all operation configurations.
+    """
+
+    schema = {
+        "type": "object",
+        "title": "Base Operation Configuration",
+        "description": "Defines global parameters that control how operations are executed, optimized, and output.",
+        "properties": {
+            # --- Metadata ---
+            "name": {
+                "type": "string",
+                "title": "Operation Name",
+                "description": "Human-readable name of the operation.",
+                "default": ""
+            },
+            "description": {
+                "type": "string",
+                "title": "Description",
+                "description": "Optional detailed description of this operation.",
+                "default": ""
+            },
+            "scope": {
+                "type": ["object", "null"],
+                "title": "Execution Scope",
+                "description": "Optional scope or context within which the operation will execute."
+            },
+            "config": {
+                "type": ["object", "null"],
+                "title": "Custom Configuration",
+                "description": "Additional configuration parameters, typically used internally."
+            },
+
+            # --- Performance & Processing ---
+            "optimize_memory": {
+                "type": "boolean",
+                "title": "Optimize Memory Usage",
+                "description": "If true, operations will use memory-efficient data structures.",
+                "default": True
+            },
+            "adaptive_chunk_size": {
+                "type": "boolean",
+                "title": "Adaptive Chunk Size",
+                "description": "Automatically adjust chunk size based on data volume and system resources.",
+                "default": True
+            },
+            "mode": {
+                "type": "string",
+                "enum": ["REPLACE", "ENRICH"],
+                "title": "Processing Mode",
+                "description": "Defines how results will be applied to the dataset: REPLACE overwrites, ENRICH adds new data.",
+                "default": "REPLACE"
+            },
+            "column_prefix": {
+                "type": "string",
+                "title": "Column Prefix",
+                "description": "Prefix to apply to newly generated columns.",
+                "default": "_"
+            },
+            "null_strategy": {
+                "type": "string",
+                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
+                "title": "Null Handling Strategy",
+                "description": "Determines how null or missing values are handled during processing.",
+                "default": "PRESERVE"
+            },
+            "engine": {
+                "type": "string",
+                "enum": ["auto", "pandas", "dask"],
+                "title": "Execution Engine",
+                "description": "Execution backend used to process data. 'auto' selects the best engine automatically.",
+                "default": "auto"
+            },
+            "use_dask": {
+                "type": "boolean",
+                "title": "Enable Dask Processing",
+                "description": "If true, operations are distributed across multiple Dask workers.",
+                "default": False
+            },
+            "npartitions": {
+                "type": ["integer", "null"],
+                "title": "Number of Dask Partitions",
+                "description": "Number of partitions to split the dataset into for parallel processing.",
+                "minimum": 1
+            },
+            "dask_partition_size": {
+                "type": ["string", "null"],
+                "title": "Dask Partition Size",
+                "description": "Approximate size of each Dask partition (e.g. '100MB').",
+                "default": "100MB"
+            },
+            "use_vectorization": {
+                "type": "boolean",
+                "title": "Enable Vectorization",
+                "description": "Use NumPy vectorized operations for faster computation where applicable.",
+                "default": False
+            },
+            "parallel_processes": {
+                "type": ["integer", "null"],
+                "title": "Parallel Processes",
+                "description": "Number of CPU processes to use for parallel execution.",
+                "minimum": 1
+            },
+            "chunk_size": {
+                "type": "integer",
+                "title": "Chunk Size",
+                "description": "Number of rows to process per batch when streaming or chunked processing is enabled.",
+                "minimum": 1,
+                "default": 10000
+            },
+
+            # --- Output ---
+            "use_cache": {
+                "type": "boolean",
+                "title": "Use Result Cache",
+                "description": "Cache the operation output to speed up repeated runs with the same inputs.",
+                "default": False
+            },
+            "output_format": {
+                "type": "string",
+                "enum": ["csv", "parquet", "json"],
+                "title": "Output Format",
+                "description": "Format used when saving processed output data.",
+                "default": "csv"
+            },
+            "visualization_theme": {
+                "type": ["string", "null"],
+                "title": "Visualization Theme",
+                "description": "Optional color or layout theme for visualizations."
+            },
+            "visualization_backend": {
+                "type": ["string", "null"],
+                "enum": ["plotly", "matplotlib", None],
+                "title": "Visualization Backend",
+                "description": "Rendering backend for generated plots and charts.",
+                "default": "plotly"
+            },
+            "visualization_strict": {
+                "type": "boolean",
+                "title": "Strict Visualization Mode",
+                "description": "If true, visualization errors will stop execution instead of being ignored.",
+                "default": False
+            },
+            "visualization_timeout": {
+                "type": "integer",
+                "title": "Visualization Timeout (seconds)",
+                "description": "Maximum time allowed for generating visualization before timing out.",
+                "minimum": 1,
+                "default": 120
+            },
+
+            # --- Security & Encryption ---
+            "use_encryption": {
+                "type": "boolean",
+                "title": "Enable Encryption",
+                "description": "Encrypt sensitive data outputs using the selected encryption mode.",
+                "default": False
+            },
+            "encryption_mode": {
+                "type": ["string", "null"],
+                "enum": ["age", "simple", "none", None],
+                "title": "Encryption Mode",
+                "description": "Algorithm used for encrypting outputs. 'none' disables encryption.",
+                "default": "none"
+            },
+            "encryption_key": {
+                "type": ["string", "null"],
+                "title": "Encryption Key",
+                "description": "Key or passphrase used for encryption when enabled."
+            },
+
+            # --- Runtime & Execution Control ---
+            "force_recalculation": {
+                "type": "boolean",
+                "title": "Force Recalculation",
+                "description": "Re-run operation even if cached results exist.",
+                "default": False
+            },
+            "generate_visualization": {
+                "type": "boolean",
+                "title": "Generate Visualization",
+                "description": "If true, automatically generate visualization outputs after processing.",
+                "default": True
+            },
+            "save_output": {
+                "type": "boolean",
+                "title": "Save Output",
+                "description": "If true, persist processed data to disk or database.",
+                "default": True
+            },
+        },
+    }
+

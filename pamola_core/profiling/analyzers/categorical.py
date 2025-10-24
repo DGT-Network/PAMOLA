@@ -1,45 +1,62 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
-Module: Categorical Field Analyzer
-Description: Operation for analyzing categorical fields and generating distribution statistics
-Author: PAMOLA Core Team
-Created: 2024
-License: BSD 3-Clause
+Module:        Categorical Field Analyzer
+Package:       pamola.pamola_core.profiling.analyzers
+Version:       2.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2024
+License:       BSD 3-Clause
 
-This module provides analyzers and operations for categorical fields, following the
-new operation architecture. It includes distribution analysis, dictionary creation,
-anomaly detection, and visualization capabilities.
+Description:
+  This module provides analyzers and operations for categorical fields in tabular datasets.
+  It includes distribution analysis, dictionary creation, anomaly detection, and visualization capabilities,
+  supporting both pandas and Dask DataFrames.
 
-It integrates with the new utility modules:
-- io.py: For reading/writing data and managing directories
-- visualization.py: For creating standardized plots
-- progress.py: For tracking operation progress
-- logging.py: For operation logging
+Key Features:
+  - Frequency distribution and cardinality metrics for categorical fields
+  - Value dictionary and anomaly detection (potential typos, rare values, etc.)
+  - Visualization generation for value distributions
+  - Efficient chunked, parallel, and Dask-based processing for large datasets
+  - Robust error handling, progress tracking, and operation logging
+  - Caching and efficient repeated analysis
+  - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
+
 import hashlib
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union, Tuple
 import pandas as pd
+from pamola_core.anonymization.masking.full_masking_op import OperationConfig
 from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
-    estimate_resources
+    estimate_resources,
 )
-from pamola_core.utils.io import write_json, ensure_directory, get_timestamped_filename, load_data_operation, write_dataframe_to_csv, load_settings_operation
+from pamola_core.utils.io import (
+    write_json,
+    ensure_directory,
+    load_data_operation,
+    write_dataframe_to_csv,
+    load_settings_operation,
+)
 from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.ops.op_config import BaseOperationConfig
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_registry import register_operation
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus, OperationArtifact
-from pamola_core.utils.visualization import (
-    plot_value_distribution
+from pamola_core.utils.ops.op_registry import register
+from pamola_core.utils.ops.op_result import (
+    OperationResult,
+    OperationStatus,
+    OperationArtifact,
 )
+from pamola_core.utils.visualization import plot_value_distribution
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+
 
 class CategoricalAnalyzer:
     """
@@ -50,11 +67,13 @@ class CategoricalAnalyzer:
     """
 
     @staticmethod
-    def analyze(df: pd.DataFrame,
-                field_name: str,
-                top_n: int = 15,
-                min_frequency: int = 1,
-                **kwargs) -> Dict[str, Any]:
+    def analyze(
+        df: pd.DataFrame,
+        field_name: str,
+        top_n: int = 15,
+        min_frequency: int = 1,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Analyze a categorical field in the given DataFrame.
 
@@ -81,7 +100,7 @@ class CategoricalAnalyzer:
             field_name=field_name,
             top_n=top_n,
             min_frequency=min_frequency,
-            **kwargs
+            **kwargs,
         )
 
     @staticmethod
@@ -104,34 +123,33 @@ class CategoricalAnalyzer:
         return estimate_resources(df, field_name)
 
 
-# Use register_operation as a decorator by making a function
-def register(override=False, dependencies=None, version=None):
-    """
-    Decorator to register an operation class.
+class CategoricalOperationConfig(OperationConfig):
+    """Configuration for CategoricalOperation with BaseOperationConfig merged."""
 
-    Parameters:
-    -----------
-    override : bool
-        Whether to override an existing registration
-    dependencies : List[Dict[str, str]], optional
-        List of dependencies for the operation
-    version : str, optional
-        Version of the operation
+    schema = {
+        "type": "object",
+        "allOf": [
+            BaseOperationConfig.schema,  # merge BaseOperation common fields
+            {
+                "type": "object",
+                "properties": {
+                    "field_name": {"type": "string"},
+                    "top_n": {"type": "integer", "minimum": 1, "default": 15},
+                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
+                    "profile_type": {
+                        "type": "string",
+                        "enum": ["categorical", "string", "text"],
+                        "default": "categorical",
+                    },
+                    "analyze_anomalies": {"type": "boolean", "default": True},
+                },
+                "required": ["field_name"],
+            },
+        ],
+    }
 
-    Returns:
-    --------
-    callable
-        Decorator function
-    """
 
-    def decorator(cls):
-        register_operation(cls, override=override, dependencies=dependencies, version=version)
-        return cls
-
-    return decorator
-
-
-@register(override=True)
+@register(version="1.0.0")
 class CategoricalOperation(FieldOperation):
     """
     Operation for analyzing categorical fields.
@@ -140,78 +158,76 @@ class CategoricalOperation(FieldOperation):
     executing analysis, saving results, and generating artifacts.
     """
 
-    def __init__(self,
-                 field_name: str,
-                 top_n: int = 15,
-                 min_frequency: int = 1,
-                 profile_type: str = "categorical",
-                 analyze_anomalies: bool = True,
-                 description: str = "",
-                 include_timestamp: bool = True,
-                 save_output: bool = True,
-                 generate_visualization: bool = True,
-                 use_cache: bool = True,
-                 force_recalculation: bool = False,
-                 visualization_backend: Optional[str] = "plotly",
-                 visualization_theme: Optional[str] = None,
-                 visualization_strict: bool = False,
-                 visualization_timeout: int = 120,
-                 use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None,
-                 encryption_mode: Optional[str] = None):
+    def __init__(
+        self,
+        field_name: str,
+        top_n: int = 15,
+        min_frequency: int = 1,
+        profile_type: str = "categorical",
+        analyze_anomalies: bool = True,
+        **kwargs,
+    ):
         """
         Initialize the categorical operation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         field_name : str
             The name of the field to analyze
         top_n : int
             Number of top values to include in the results
         min_frequency : int
             Minimum frequency for inclusion in the dictionary
-        include_timestamp : bool
-            Whether to include timestamps in filenames
         generate_visualization : bool
             Whether to generate visualizations
         profile_type : str
             Type of profiling for organizing artifacts
         analyze_anomalies : bool
             Whether to analyze anomalies
-        description : str
-            Description of the operation (optional)
+        **kwargs
+            Additional keyword arguments passed to FieldOperation.
         """
+        # Description fallback
+        kwargs.setdefault(
+            "description",
+            f"Analysis of categorical field '{field_name}'",
+        )
+
+        # Build config object (if used for schema/validation)
+        config = CategoricalOperationConfig(
+            field_name=field_name,
+            top_n=top_n,
+            min_frequency=min_frequency,
+            profile_type=profile_type,
+            analyze_anomalies=analyze_anomalies,
+            **kwargs,
+        )
+
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
+
+        # Initialize base FieldOperation
         super().__init__(
             field_name=field_name,
-            description=description or f"Analysis of categorical field '{field_name}'",
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode
-            )
-        
-        self.top_n = top_n
-        self.min_frequency = min_frequency
-        self.profile_type = profile_type
-        self.analyze_anomalies = analyze_anomalies
+            **kwargs,
+        )
 
-        self.include_timestamp = include_timestamp
-        self.save_output = save_output
-        self.generate_visualization = generate_visualization
+        # Save config attributes to self
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
 
-        self.use_cache = use_cache
-        self.force_recalculation = force_recalculation
+        # Operation metadata
+        self.operation_name = self.__class__.__name__
+        self._original_df = None
 
-        self.visualization_backend = visualization_backend
-        self.visualization_theme = visualization_theme
-        self.visualization_strict = visualization_strict
-        self.visualization_timeout = visualization_timeout
-
-    def execute(self,
-                data_source: DataSource,
-                task_dir: Path,
-                reporter: Any,
-                progress_tracker: Optional[HierarchicalProgressTracker] = None,
-                **kwargs) -> OperationResult:
+    def execute(
+        self,
+        data_source: DataSource,
+        task_dir: Path,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
+    ) -> OperationResult:
         """
         Execute the categorical analysis operation.
 
@@ -223,166 +239,228 @@ class CategoricalOperation(FieldOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : ProgressTracker, optional
+        progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Optional overrides for instance attributes and execution parameters:
-            - profile_type: str, type of profiling for organizing artifacts
-            - analyze_anomalies: bool, whether to analyze anomalies
-            - dataset_name (str): Name of the dataset to load from the data source.
-            - include_timestamp (bool): Whether to append a timestamp to output filenames (default: True)
-            - output_format (str): Format for saving output files (e.g., "csv", "json") (default: csv)
-            - save_output (bool): Whether to save partitioned outputs to disk (default: True)
-            - generate_visualization (bool): Whether to generate visualizations for the output data (default: True)
-            - use_cache (bool): Enable caching of intermediate results (default: True)
-            - force_recalculation (bool): If True, bypass cached results and force full reprocessing (default: False)
-            - visualization_backend (str): Backend for visualizations (default: None)
-            - visualization_theme (str): Theme for visualizations (default: None)
-            - visualization_strict (bool): Whether to enforce strict visualization rules (default: False)
-            - visualization_timeout (int): Timeout for visualization generation in seconds (default: 120)
-            - use_encryption (bool): If True, encrypt output files (default: False)
-            - encryption_key (str or Path): Encryption key or path for encrypting outputs (default: None)
+            Additional parameters for the operation
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-
-        caller_operation = self.__class__.__name__
-        self.logger = kwargs.get('logger', self.logger)
-
         try:
+            # Set logger if provided in kwargs
+            self.logger = kwargs.get("logger", self.logger)
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Save configuration
+            self.save_config(task_dir)
+
             # Start operation
-            self.logger.info(f"Operation: {caller_operation}, Start operation")
+            self.logger.info(f"Operation: {self.operation_name}, Start operation")
             if progress_tracker:
-                progress_tracker.total = self._compute_total_steps(**kwargs)
-                progress_tracker.update(1, {"step": "Start operation - Preparation", "operation": caller_operation})
+                progress_tracker.total = self._compute_total_steps()
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Start operation - Preparation",
+                        "operation": self.operation_name,
+                    },
+                )
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
-            visualizations_dir = dirs['visualizations']
-            dictionaries_dir = dirs['dictionaries']
-            output_dir = dirs['output']
+            visualizations_dir = dirs["visualizations"]
+            dictionaries_dir = dirs["dictionaries"]
+            output_dir = dirs["output"]
 
             if reporter:
-                reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                       details={"step": "Preparation",
-                                                "message": "Preparation successfully",
-                                                "directories": {k: str(v) for k, v in dirs.items()}
-                                                })
+                reporter.add_operation(
+                    f"Operation {self.operation_name}",
+                    status="info",
+                    details={
+                        "step": "Preparation",
+                        "message": "Preparation successfully",
+                        "directories": {k: str(v) for k, v in dirs.items()},
+                    },
+                )
 
             # Load data and validate input parameters
-            self.logger.info(f"Operation: {caller_operation}, Load data and validate input parameters")
+            self.logger.info(
+                f"Operation: {self.operation_name}, Load data and validate input parameters"
+            )
             if progress_tracker:
-                progress_tracker.update(1, {"step": "Load data and validate input parameters",
-                                            "operation": caller_operation})
+                progress_tracker.update(
+                    1,
+                    {
+                        "step": "Load data and validate input parameters",
+                        "operation": self.operation_name,
+                    },
+                )
 
-            df, is_valid = self._load_data_and_validate_input_parameters(data_source, **kwargs)
+            df, is_valid = self._load_data_and_validate_input_parameters(
+                data_source, **kwargs
+            )
 
             if is_valid:
                 if reporter:
-                    reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                           details={"step": "Load data and validate input parameters",
-                                                    "message": "Load data and validate input parameters successfully",
-                                                    "shape": df.shape
-                                                    })
+                    reporter.add_operation(
+                        f"Operation {self.operation_name}",
+                        status="info",
+                        details={
+                            "step": "Load data and validate input parameters",
+                            "message": "Load data and validate input parameters successfully",
+                            "shape": df.shape,
+                        },
+                    )
             else:
                 if reporter:
-                    reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                           details={"step": "Load data and validate input parameters",
-                                                    "message": "Load data and validate input parameters failed"
-                                                    })
-                    return OperationResult(status=OperationStatus.ERROR,
-                                           error_message="Load data and validate input parameters failed")
+                    reporter.add_operation(
+                        f"Operation {self.operation_name}",
+                        status="info",
+                        details={
+                            "step": "Load data and validate input parameters",
+                            "message": "Load data and validate input parameters failed",
+                        },
+                    )
+                    return OperationResult(
+                        status=OperationStatus.ERROR,
+                        error_message="Load data and validate input parameters failed",
+                    )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
-                self.logger.info(f"Operation: {caller_operation}, Load result from cache")
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load result from cache"
+                )
                 if progress_tracker:
-                    progress_tracker.update(1, {"step": "Load result from cache", "operation": caller_operation})
+                    progress_tracker.update(
+                        1,
+                        {
+                            "step": "Load result from cache",
+                            "operation": self.operation_name,
+                        },
+                    )
 
-                cached_result = self._get_cache(df.copy(), **kwargs)  # _get_cache now returns OperationResult or None
-                if cached_result is not None and isinstance(cached_result, OperationResult):
+                cached_result = self._get_cache(
+                    df.copy(), **kwargs
+                )  # _get_cache now returns OperationResult or None
+                if cached_result is not None and isinstance(
+                    cached_result, OperationResult
+                ):
                     if reporter:
-                        reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                               details={"step": "Load result from cache",
-                                                        "message": "Load result from cache successfully"
-                                                        })
+                        reporter.add_operation(
+                            f"Operation {self.operation_name}",
+                            status="info",
+                            details={
+                                "step": "Load result from cache",
+                                "message": "Load result from cache successfully",
+                            },
+                        )
                     return cached_result
                 else:
                     self.logger.info(
-                        f"Operation: {caller_operation}, Load result from cache failed — proceeding with execution.")
+                        f"Operation: {self.operation_name}, Load result from cache failed — proceeding with execution."
+                    )
                     if reporter:
-                        reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                               details={"step": "Load result from cache",
-                                                        "message": "Load result from cache failed - proceeding with execution"
-                                                        })
+                        reporter.add_operation(
+                            f"Operation {self.operation_name}",
+                            status="info",
+                            details={
+                                "step": "Load result from cache",
+                                "message": "Load result from cache failed - proceeding with execution",
+                            },
+                        )
 
             # Analyzing categorical
-            self.logger.info(f"Operation: {caller_operation}, Analyzing categorical")
+            self.logger.info(f"Operation: {self.operation_name}, Analyzing categorical")
             if progress_tracker:
-                progress_tracker.update(1, {"step": "Analyzing categorical", "operation": caller_operation})
+                progress_tracker.update(
+                    1,
+                    {"step": "Analyzing categorical", "operation": self.operation_name},
+                )
 
             analysis_results = CategoricalAnalyzer.analyze(
                 df=df,
                 field_name=self.field_name,
                 top_n=self.top_n,
                 min_frequency=self.min_frequency,
-                detect_anomalies=self.analyze_anomalies
+                detect_anomalies=self.analyze_anomalies,
             )
 
             # Check analysis results
-            if 'error' in analysis_results:
+            if "error" in analysis_results:
                 if reporter:
-                    reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                           details={"step": "Analyzing categorical",
-                                                    "message": "Analyzing categorical failed",
-                                                    "field_name": self.field_name,
-                                                    "top_n": self.top_n,
-                                                    "min_frequency": self.min_frequency,
-                                                    "operation_type": "categorical_analysis"
-                                           })
+                    reporter.add_operation(
+                        f"Operation {self.operation_name}",
+                        status="info",
+                        details={
+                            "step": "Analyzing categorical",
+                            "message": "Analyzing categorical failed",
+                            "field_name": self.field_name,
+                            "top_n": self.top_n,
+                            "min_frequency": self.min_frequency,
+                            "operation_type": "categorical_analysis",
+                        },
+                    )
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message=analysis_results['error']
+                    error_message=analysis_results["error"],
                 )
             else:
                 if reporter:
-                    reporter.add_operation(f"Operation: {caller_operation}", status="info",
-                                           details={"step": "Analyzing categorical",
-                                                    "message": "Analyzing categorical successfully",
-                                                    "field_name": self.field_name,
-                                                    "top_n": self.top_n,
-                                                    "min_frequency": self.min_frequency,
-                                                    "operation_type": "categorical_analysis"
-                                           })
+                    reporter.add_operation(
+                        f"Operation: {self.operation_name}",
+                        status="info",
+                        details={
+                            "step": "Analyzing categorical",
+                            "message": "Analyzing categorical successfully",
+                            "field_name": self.field_name,
+                            "top_n": self.top_n,
+                            "min_frequency": self.min_frequency,
+                            "operation_type": "categorical_analysis",
+                        },
+                    )
 
             # Collect metric
-            self.logger.info(f"Operation: {caller_operation}, Collect metric")
+            self.logger.info(f"Operation: {self.operation_name}, Collect metric")
             if progress_tracker:
-                progress_tracker.update(1, {"step": "Collect metric", "operation": caller_operation})
+                progress_tracker.update(
+                    1, {"step": "Collect metric", "operation": self.operation_name}
+                )
 
             result = OperationResult(status=OperationStatus.SUCCESS)
 
             self._collect_metrics(analysis_results, result)
 
             if reporter:
-                reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                       details={"step": "Collect metric",
-                                                "message": "Collect metric successfully",
-                                                "unique_values": analysis_results.get('unique_values', 0),
-                                                "null_percent": analysis_results.get('null_percent', 0),
-                                                "entropy": round(analysis_results.get('entropy', 0), 2),
-                                                "anomalies_found": len(analysis_results.get('anomalies',
-                                                                                            {})) if 'anomalies' in analysis_results else 0
-                                                })
+                reporter.add_operation(
+                    f"Operation {self.operation_name}",
+                    status="info",
+                    details={
+                        "step": "Collect metric",
+                        "message": "Collect metric successfully",
+                        "unique_values": analysis_results.get("unique_values", 0),
+                        "null_percent": analysis_results.get("null_percent", 0),
+                        "entropy": round(analysis_results.get("entropy", 0), 2),
+                        "anomalies_found": (
+                            len(analysis_results.get("anomalies", {}))
+                            if "anomalies" in analysis_results
+                            else 0
+                        ),
+                    },
+                )
 
             # Save output if required
             if self.save_output:
-                self.logger.info(f"Operation: {caller_operation}, Save output")
+                self.logger.info(f"Operation: {self.operation_name}, Save output")
                 if progress_tracker:
-                    progress_tracker.update(1, {"step": "Save output", "operation": caller_operation})
+                    progress_tracker.update(
+                        1, {"step": "Save output", "operation": self.operation_name}
+                    )
 
                 self._save_output(
                     analysis_results=analysis_results,
@@ -390,81 +468,119 @@ class CategoricalOperation(FieldOperation):
                     dictionaries_dir=dictionaries_dir,
                     result=result,
                     reporter=reporter,
-                    **kwargs
+                    operation_timestamp=operation_timestamp,
+                    **kwargs,
                 )
 
                 if reporter:
-                    reporter.add_operation(f"Operation: {caller_operation}",
-                                           status="info",
-                                           details={"step": "Save output",
-                                                    "message": "Save output successfully"
-                                           })
+                    reporter.add_operation(
+                        f"Operation: {self.operation_name}",
+                        status="info",
+                        details={
+                            "step": "Save output",
+                            "message": "Save output successfully",
+                        },
+                    )
 
             # Generate visualization if required
             if self.generate_visualization:
-                self.logger.info(f"Operation: {caller_operation}, Generate visualizations")
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Generate visualizations"
+                )
                 if progress_tracker:
-                    progress_tracker.update(1, {"step": "Generate visualizations", "operation": caller_operation})
+                    progress_tracker.update(
+                        1,
+                        {
+                            "step": "Generate visualizations",
+                            "operation": self.operation_name,
+                        },
+                    )
 
                 viz_result = self._handle_visualizations(
                     analysis_results=analysis_results,
                     visualizations_dir=visualizations_dir,
-                    result=result
+                    result=result,
+                    operation_timestamp=operation_timestamp,
                 )
 
                 if not viz_result.startswith("Error"):
                     if reporter:
-                        reporter.add_operation(f"Operation: {caller_operation}",
-                                               status="info",
-                                               details={"step": "Generate visualizations",
-                                                        "message": "Generate visualizations successfully"
-                                                       })
+                        reporter.add_operation(
+                            f"Operation: {self.operation_name}",
+                            status="info",
+                            details={
+                                "step": "Generate visualizations",
+                                "message": "Generate visualizations successfully",
+                            },
+                        )
                 else:
-                    self.logger.warning(f"Operation: {self.name}, Generate visualizations failed {viz_result}")
+                    self.logger.warning(
+                        f"Operation: {self.operation_name}, Generate visualizations failed {viz_result}"
+                    )
                     if reporter:
-                        reporter.add_operation(f"Operation: {caller_operation}",
-                                               status="info",
-                                               details={"step": "Generate visualizations",
-                                                        "message": "Generate visualizations failed",
-                                                        "error": viz_result
-                                               })
+                        reporter.add_operation(
+                            f"Operation: {self.operation_name}",
+                            status="info",
+                            details={
+                                "step": "Generate visualizations",
+                                "message": "Generate visualizations failed",
+                                "error": viz_result,
+                            },
+                        )
 
             # Save cache if required
             if self.use_cache:
-                self.logger.info(f"Operation: {caller_operation}, Save cache")
+                self.logger.info(f"Operation: {self.operation_name}, Save cache")
                 if progress_tracker:
-                    progress_tracker.update(1, {"step": "Save cache", "operation": caller_operation})
+                    progress_tracker.update(
+                        1, {"step": "Save cache", "operation": self.operation_name}
+                    )
 
                 self._save_cache(task_dir, result, **kwargs)
 
                 if reporter:
-                    reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                           details={"step": "Save cache",
-                                                    "message": "Save cache successfully"
-                                                    })
+                    reporter.add_operation(
+                        f"Operation {self.operation_name}",
+                        status="info",
+                        details={
+                            "step": "Save cache",
+                            "message": "Save cache successfully",
+                        },
+                    )
 
             # Operation completed successfully
-            self.logger.info(f"Operation: {caller_operation}, Completed successfully.")
+            self.logger.info(
+                f"Operation: {self.operation_name}, Completed successfully."
+            )
             if reporter:
-                reporter.add_operation(f"Operation {caller_operation}", status="info",
-                                       details={"step": "Return result",
-                                                "message": "Operation completed successfully"
-                                                })
+                reporter.add_operation(
+                    f"Operation {self.operation_name}",
+                    status="info",
+                    details={
+                        "step": "Return result",
+                        "message": "Operation completed successfully",
+                    },
+                )
 
             return result
 
         except Exception as e:
-            self.logger.error(f"Operation: {caller_operation}, error occurred: {e}")
+            self.logger.error(f"Operation: {self.operation_name}, error occurred: {e}")
 
             if reporter:
-                reporter.add_operation(f"Operation {caller_operation}", status="error",
-                                       details={
-                                           "step": "Exception",
-                                           "message": "Operation failed due to an exception",
-                                           "error": str(e)
-                                       })
+                reporter.add_operation(
+                    f"Operation {self.operation_name}",
+                    status="error",
+                    details={
+                        "step": "Exception",
+                        "message": "Operation failed due to an exception",
+                        "error": str(e),
+                    },
+                )
 
-            return OperationResult(status=OperationStatus.ERROR, error_message=str(e), exception=e)
+            return OperationResult(
+                status=OperationStatus.ERROR, error_message=str(e), exception=e
+            )
 
     def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
         """
@@ -481,18 +597,18 @@ class CategoricalOperation(FieldOperation):
             Dictionary of directory paths
         """
         # Create required directories
-        output_dir = task_dir / 'output'
-        visualizations_dir = task_dir / 'visualizations'
-        dictionaries_dir = task_dir / 'dictionaries'
+        output_dir = task_dir / "output"
+        visualizations_dir = task_dir / "visualizations"
+        dictionaries_dir = task_dir / "dictionaries"
 
         ensure_directory(output_dir)
         ensure_directory(visualizations_dir)
         ensure_directory(dictionaries_dir)
 
         return {
-            'output': output_dir,
-            'visualizations': visualizations_dir,
-            'dictionaries': dictionaries_dir
+            "output": output_dir,
+            "visualizations": visualizations_dir,
+            "dictionaries": dictionaries_dir,
         }
 
     def _collect_metrics(self, analysis_results: dict, result: OperationResult) -> None:
@@ -511,72 +627,96 @@ class CategoricalOperation(FieldOperation):
         result.add_metric("null_percent", analysis_results.get("null_percent", 0))
         result.add_metric("unique_values", analysis_results.get("unique_values", 0))
         result.add_metric("entropy", analysis_results.get("entropy", 0))
-        result.add_metric("cardinality_ratio", analysis_results.get("cardinality_ratio", 0))
+        result.add_metric(
+            "cardinality_ratio", analysis_results.get("cardinality_ratio", 0)
+        )
 
         if "distribution_type" in analysis_results:
-            result.add_metric("distribution_type", analysis_results["distribution_type"])
+            result.add_metric(
+                "distribution_type", analysis_results["distribution_type"]
+            )
 
         if "anomalies" in analysis_results:
             result.add_metric("anomalies_count", len(analysis_results["anomalies"]))
 
     def _save_output(
-            self,
-            analysis_results: dict,
-            output_dir: Path,
-            dictionaries_dir: Path,
-            result: OperationResult,
-            reporter: Any,
-            **kwargs
+        self,
+        analysis_results: dict,
+        output_dir: Path,
+        dictionaries_dir: Path,
+        result: OperationResult,
+        reporter: Any,
+        operation_timestamp: str,
+        **kwargs,
     ):
         """
         Save analysis results to JSON, dictionary to CSV, and anomalies (if any).
         """
 
         # Save analysis results to JSON
-        stats_filename = get_timestamped_filename(f"{self.field_name}_stats", "json", self.include_timestamp)
+        stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
         stats_path = output_dir / stats_filename
 
         encryption_mode_for_json = get_encryption_mode(analysis_results, **kwargs)
-        write_json(analysis_results, stats_path, encryption_key=self.encryption_key, encryption_mode=encryption_mode_for_json)
-        result.add_artifact("json", stats_path, f"{self.field_name} statistical analysis",
-                            category=Constants.Artifact_Category_Output)
+        write_json(
+            analysis_results,
+            stats_path,
+            encryption_key=self.encryption_key,
+            encryption_mode=encryption_mode_for_json,
+        )
+        result.add_artifact(
+            "json",
+            stats_path,
+            f"{self.field_name} statistical analysis",
+            category=Constants.Artifact_Category_Output,
+        )
 
         # Save dictionary to CSV
-        if 'value_dictionary' in analysis_results and 'dictionary_data' in analysis_results['value_dictionary']:
-            dict_filename = get_timestamped_filename(f"{self.field_name}_dictionary", "csv", self.include_timestamp)
+        if (
+            "value_dictionary" in analysis_results
+            and "dictionary_data" in analysis_results["value_dictionary"]
+        ):
+            dict_filename = f"{self.field_name}_dictionary_{operation_timestamp}.csv"
             dict_path = dictionaries_dir / dict_filename
 
-            dict_records = analysis_results['value_dictionary']['dictionary_data']
+            dict_records = analysis_results["value_dictionary"]["dictionary_data"]
             if isinstance(dict_records, list) and len(dict_records) > 0:
                 dict_df = pd.DataFrame(dict_records)
                 write_dataframe_to_csv(
                     df=dict_df,
                     file_path=dict_path,
                     index=False,
-                    encoding='utf-8',
-                    encryption_key=self.encryption_key
+                    encoding="utf-8",
+                    encryption_key=self.encryption_key,
                 )
-                result.add_artifact("csv", dict_path, f"{self.field_name} value dictionary",
-                                    category=Constants.Artifact_Category_Dictionary)
+                result.add_artifact(
+                    "csv",
+                    dict_path,
+                    f"{self.field_name} value dictionary",
+                    category=Constants.Artifact_Category_Dictionary,
+                )
             else:
-                self.logger.info(f"Operation: {self.name}, Empty dictionary data for {self.field_name}")
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Empty dictionary data for {self.field_name}"
+                )
 
         # Save anomalies to CSV if detected
-        if 'anomalies' in analysis_results and analysis_results['anomalies']:
+        if "anomalies" in analysis_results and analysis_results["anomalies"]:
             self._save_anomalies_to_csv(
                 analysis_results,
                 dictionaries_dir,
-                self.include_timestamp,
                 result,
                 reporter,
-                encryption_key=self.encryption_key
+                operation_timestamp,
+                encryption_key=self.encryption_key,
             )
 
     def _generate_visualizations(
-            self,
-            analysis_results: dict,
-            visualizations_dir: Path,
-            result: OperationResult
+        self,
+        analysis_results: dict,
+        visualizations_dir: Path,
+        result: OperationResult,
+        operation_timestamp: str,
     ) -> str:
         """
         Generate and save a visualization from top categorical values.
@@ -589,6 +729,8 @@ class CategoricalOperation(FieldOperation):
             Directory to save the visualization image.
         result : OperationResult
             Object to store generated artifacts.
+        operation_timestamp : str
+            Timestamp for the operation to use in filenames.
         **kwargs : dict
             Visualization configuration options (theme, backend, strict, etc.).
 
@@ -597,8 +739,8 @@ class CategoricalOperation(FieldOperation):
         str
             The result string from the visualization function (can indicate success or error).
         """
-        if 'top_values' not in analysis_results:
-            warning_msg = f"Operation: {self.name}, No 'top_values' found in analysis results for visualization."
+        if "top_values" not in analysis_results:
+            warning_msg = f"Operation: {self.operation_name}, No 'top_values' found in analysis results for visualization."
             self.logger.warning(warning_msg)
             return f"Error: {warning_msg}"
 
@@ -607,32 +749,37 @@ class CategoricalOperation(FieldOperation):
             "encryption_key": self.encryption_key,
             "backend": self.visualization_backend,
             "theme": self.visualization_theme,
-            "strict": self.visualization_strict
+            "strict": self.visualization_strict,
         }
 
-        viz_filename = get_timestamped_filename(f"{self.field_name}_distribution", "png", self.include_timestamp)
+        viz_filename = f"{self.field_name}_distribution_{operation_timestamp}.png"
         viz_path = visualizations_dir / viz_filename
 
         title = f"Distribution of {self.field_name}"
         viz_result = plot_value_distribution(
-            data=analysis_results['top_values'],
+            data=analysis_results["top_values"],
             output_path=str(viz_path),
             title=title,
             max_items=self.top_n,
-            **kwargs_visualization
+            **kwargs_visualization,
         )
 
         if not viz_result.startswith("Error"):
-            result.add_artifact("png", viz_result, f"{self.field_name} distribution visualization",
-                                category=Constants.Artifact_Category_Visualization)
+            result.add_artifact(
+                "png",
+                viz_result,
+                f"{self.field_name} distribution visualization",
+                category=Constants.Artifact_Category_Visualization,
+            )
 
         return viz_result
 
     def _handle_visualizations(
-            self,
-            analysis_results: dict,
-            visualizations_dir: Path,
-            result: OperationResult
+        self,
+        analysis_results: dict,
+        visualizations_dir: Path,
+        result: OperationResult,
+        operation_timestamp: str,
     ) -> str:
         """
         Run _generate_visualizations in a separate thread with timeout.
@@ -654,10 +801,14 @@ class CategoricalOperation(FieldOperation):
                 viz_result_holder["result"] = self._generate_visualizations(
                     analysis_results=analysis_results,
                     visualizations_dir=visualizations_dir,
-                    result=result
+                    result=result,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
-                self.logger.error(f"[VIZ] Exception during visualization: {type(e).__name__}: {e}", exc_info=True)
+                self.logger.error(
+                    f"[VIZ] Exception during visualization: {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
                 viz_result_holder["result"] = f"Error: {str(e)}"
 
         try:
@@ -665,28 +816,34 @@ class CategoricalOperation(FieldOperation):
             thread = threading.Thread(
                 target=ctx.run,
                 args=(run,),
-                name=f"VizThread-{self.name}",
-                daemon=True
+                name=f"VizThread-{self.operation_name}",
+                daemon=True,
             )
             thread.start()
             thread.join(timeout=self.visualization_timeout)
 
             if thread.is_alive():
-                self.logger.warning(f"[VIZ] Visualization timed out after {self.visualization_timeout} seconds")
+                self.logger.warning(
+                    f"[VIZ] Visualization timed out after {self.visualization_timeout} seconds"
+                )
                 return "Error: Visualization thread timeout"
             return viz_result_holder["result"]
 
         except Exception as e:
-            self.logger.error(f"[VIZ] Error setting up visualization thread: {e}", exc_info=True)
+            self.logger.error(
+                f"[VIZ] Error setting up visualization thread: {e}", exc_info=True
+            )
             return f"Error: {str(e)}"
 
-    def _save_anomalies_to_csv(self,
-                               analysis_results: Dict[str, Any],
-                               dict_dir: Path,
-                               include_timestamp: bool,
-                               result: OperationResult,
-                               reporter: Any,
-                               encryption_key: Optional[str] = None):
+    def _save_anomalies_to_csv(
+        self,
+        analysis_results: Dict[str, Any],
+        dict_dir: Path,
+        result: OperationResult,
+        reporter: Any,
+        operation_timestamp: str,
+        encryption_key: Optional[str] = None,
+    ):
         """
         Save anomalies to CSV file.
 
@@ -696,73 +853,99 @@ class CategoricalOperation(FieldOperation):
             Results of the analysis
         dict_dir : Path
             Directory to save dictionaries
-        include_timestamp : bool
-            Whether to include timestamps in filenames
         result : OperationResult
             Operation result to add artifacts to
         reporter : Any
             Reporter to add artifacts to
+        operation_timestamp : str
+            Timestamp for operation
+        encryption_key : Optional[str]
+            Encryption key for saving the CSV file
         """
         try:
             # Extract anomalies
-            anomalies = analysis_results.get('anomalies', {})
+            anomalies = analysis_results.get("anomalies", {})
             if not anomalies:
                 return
 
             # Collect potential typos
             anomaly_records = []
 
-            if 'potential_typos' in anomalies:
-                for rare_value, typo_info in anomalies['potential_typos'].items():
-                    anomaly_records.append({
-                        'value': rare_value,
-                        'frequency': typo_info['count'],
-                        'anomaly_type': 'potential_typo',
-                        'similar_to': typo_info['similar_to'],
-                        'similar_count': typo_info['similar_count']
-                    })
+            if "potential_typos" in anomalies:
+                for rare_value, typo_info in anomalies["potential_typos"].items():
+                    anomaly_records.append(
+                        {
+                            "value": rare_value,
+                            "frequency": typo_info["count"],
+                            "anomaly_type": "potential_typo",
+                            "similar_to": typo_info["similar_to"],
+                            "similar_count": typo_info["similar_count"],
+                        }
+                    )
 
             # Collect single character values
-            if 'single_char_values' in anomalies:
-                for value, count in anomalies['single_char_values'].items():
-                    anomaly_records.append({
-                        'value': value,
-                        'frequency': count,
-                        'anomaly_type': 'single_char_value',
-                        'similar_to': '',
-                        'similar_count': 0
-                    })
+            if "single_char_values" in anomalies:
+                for value, count in anomalies["single_char_values"].items():
+                    anomaly_records.append(
+                        {
+                            "value": value,
+                            "frequency": count,
+                            "anomaly_type": "single_char_value",
+                            "similar_to": "",
+                            "similar_count": 0,
+                        }
+                    )
 
             # Collect numeric-like strings
-            if 'numeric_like_strings' in anomalies:
-                for value, count in anomalies['numeric_like_strings'].items():
-                    anomaly_records.append({
-                        'value': value,
-                        'frequency': count,
-                        'anomaly_type': 'numeric_like_string',
-                        'similar_to': '',
-                        'similar_count': 0
-                    })
+            if "numeric_like_strings" in anomalies:
+                for value, count in anomalies["numeric_like_strings"].items():
+                    anomaly_records.append(
+                        {
+                            "value": value,
+                            "frequency": count,
+                            "anomaly_type": "numeric_like_string",
+                            "similar_to": "",
+                            "similar_count": 0,
+                        }
+                    )
 
             # Create anomalies CSV filename
             if anomaly_records:
-                anomalies_filename = get_timestamped_filename(f"{self.field_name}_anomalies", "csv", include_timestamp)
+                anomalies_filename = (
+                    f"{self.field_name}_anomalies_{operation_timestamp}.csv"
+                )
                 anomalies_path = dict_dir / anomalies_filename
 
                 # Create DataFrame and save to CSV
                 anomalies_df = pd.DataFrame(anomaly_records)
-                write_dataframe_to_csv(df=anomalies_df, file_path=anomalies_path, index=False, encoding='utf-8', encryption_key=encryption_key)
+                write_dataframe_to_csv(
+                    df=anomalies_df,
+                    file_path=anomalies_path,
+                    index=False,
+                    encoding="utf-8",
+                    encryption_key=encryption_key,
+                )
 
                 # Add artifact to result and reporter
-                result.add_artifact("csv", anomalies_path, f"{self.field_name} anomalies", category=Constants.Artifact_Category_Dictionary)
+                result.add_artifact(
+                    "csv",
+                    anomalies_path,
+                    f"{self.field_name} anomalies",
+                    category=Constants.Artifact_Category_Dictionary,
+                )
                 if reporter:
-                    reporter.add_artifact("csv", str(anomalies_path), f"{self.field_name} anomalies")
+                    reporter.add_artifact(
+                        "csv", str(anomalies_path), f"{self.field_name} anomalies"
+                    )
 
         except Exception as e:
             self.logger.warning(f"Error saving anomalies for {self.field_name}: {e}")
             if reporter:
-                reporter.add_operation(f"Saving anomalies for {self.field_name}", status="warning",
-                                       details={"warning": str(e)})
+                reporter.add_operation(
+                    f"Saving anomalies for {self.field_name}",
+                    status="warning",
+                    details={"warning": str(e)},
+                )
 
     def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
         """
@@ -777,12 +960,16 @@ class CategoricalOperation(FieldOperation):
         """
         try:
             result_data = {
-                "status": result.status.name if isinstance(result.status, OperationStatus) else str(result.status),
+                "status": (
+                    result.status.name
+                    if isinstance(result.status, OperationStatus)
+                    else str(result.status)
+                ),
                 "metrics": result.metrics,
                 "error_message": result.error_message,
                 "execution_time": result.execution_time,
                 "error_trace": result.error_trace,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts]
+                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
             }
 
             cache_data = {
@@ -791,16 +978,16 @@ class CategoricalOperation(FieldOperation):
             }
 
             cache_key = operation_cache.generate_cache_key(
-                operation_name=self.__class__.__name__,
+                operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(self._original_df.copy())
+                data_hash=self._generate_data_hash(self._original_df.copy()),
             )
 
             operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
-                metadata={"task_dir": str(task_dir)}
+                operation_type=self.operation_name,
+                metadata={"task_dir": str(task_dir)},
             )
 
             self.logger.info(f"Saved result to cache with key: {cache_key}")
@@ -823,14 +1010,13 @@ class CategoricalOperation(FieldOperation):
         """
         try:
             cache_key = operation_cache.generate_cache_key(
-                operation_name=self.__class__.__name__,
+                operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(df)
+                data_hash=self._generate_data_hash(df),
             )
 
             cached = operation_cache.get_cache(
-                cache_key=cache_key,
-                operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             result_data = cached.get("result")
@@ -839,21 +1025,27 @@ class CategoricalOperation(FieldOperation):
 
             # Parse enum safely
             status_str = result_data.get("status", OperationStatus.ERROR.name)
-            status = OperationStatus[status_str] if isinstance(status_str,
-                                                               str) and status_str in OperationStatus.__members__ else OperationStatus.ERROR
+            status = (
+                OperationStatus[status_str]
+                if isinstance(status_str, str)
+                and status_str in OperationStatus.__members__
+                else OperationStatus.ERROR
+            )
 
             # Rebuild artifacts
             artifacts = []
             for art_dict in result_data.get("artifacts", []):
                 if isinstance(art_dict, dict):
                     try:
-                        artifacts.append(OperationArtifact(
-                            artifact_type=art_dict.get("type"),
-                            path=art_dict.get("path"),
-                            description=art_dict.get("description", ""),
-                            category=art_dict.get("category", "output"),
-                            tags=art_dict.get("tags", []),
-                        ))
+                        artifacts.append(
+                            OperationArtifact(
+                                artifact_type=art_dict.get("type"),
+                                path=art_dict.get("path"),
+                                description=art_dict.get("description", ""),
+                                category=art_dict.get("category", "output"),
+                                tags=art_dict.get("tags", []),
+                            )
+                        )
                     except Exception as e:
                         self.logger.warning(f"Failed to deserialize artifact: {e}")
 
@@ -884,22 +1076,21 @@ class CategoricalOperation(FieldOperation):
         """
 
         return {
-            "operation": self.__class__.__name__,
+            "operation": self.operation_name,
             "version": self.version,
-            "field_name": kwargs.get("field_name"),
-            "top_n": kwargs.get("top_n", self.top_n),
-            "min_frequency": kwargs.get("min_frequency", self.min_frequency),
-            "include_timestamp": kwargs.get("include_timestamp", self.include_timestamp),
-            "generate_visualization": kwargs.get("generate_visualization", self.generate_visualization),
-            "profile_type": kwargs.get("profile_type", self.profile_type),
-            "analyze_anomalies": kwargs.get("analyze_anomalies", self.analyze_anomalies),
-            "use_cache": kwargs.get("use_cache", self.use_cache),
-            "force_recalculation": kwargs.get("force_recalculation", self.force_recalculation),
-            "visualization_backend": kwargs.get("visualization_backend", self.visualization_backend),
-            "visualization_theme": kwargs.get("visualization_theme", self.visualization_theme),
-            "visualization_strict": kwargs.get("visualization_strict", self.visualization_strict),
-            "use_encryption": kwargs.get("use_encryption"),
-            "encryption_key": str(kwargs.get("encryption_key")) if kwargs.get("encryption_key") else None
+            "field_name": self.field_name,
+            "top_n": self.top_n,
+            "min_frequency": self.min_frequency,
+            "generate_visualization": self.generate_visualization,
+            "profile_type": self.profile_type,
+            "analyze_anomalies": self.analyze_anomalies,
+            "use_cache": self.use_cache,
+            "force_recalculation": self.force_recalculation,
+            "visualization_backend": self.visualization_backend,
+            "visualization_theme": self.visualization_theme,
+            "visualization_strict": self.visualization_strict,
+            "use_encryption": self.use_encryption,
+            "encryption_key": self.encryption_key,
         }
 
     def _generate_data_hash(self, data: pd.DataFrame) -> str:
@@ -923,7 +1114,7 @@ class CategoricalOperation(FieldOperation):
             characteristics = {
                 "columns": list(data.columns),
                 "shape": data.shape,
-                "summary": {}
+                "summary": {},
             }
 
             for col in data.columns:
@@ -931,22 +1122,28 @@ class CategoricalOperation(FieldOperation):
                 col_info = {
                     "dtype": str(col_data.dtype),
                     "null_count": int(col_data.isna().sum()),
-                    "unique_count": int(col_data.nunique())
+                    "unique_count": int(col_data.nunique()),
                 }
 
                 if pd.api.types.is_numeric_dtype(col_data):
                     non_null = col_data.dropna()
                     if not non_null.empty:
-                        col_info.update({
-                            "min": float(non_null.min()),
-                            "max": float(non_null.max()),
-                            "mean": float(non_null.mean()),
-                            "median": float(non_null.median()),
-                            "std": float(non_null.std())
-                        })
-                elif pd.api.types.is_object_dtype(col_data) or isinstance(col_data.dtype, pd.CategoricalDtype):
+                        col_info.update(
+                            {
+                                "min": float(non_null.min()),
+                                "max": float(non_null.max()),
+                                "mean": float(non_null.mean()),
+                                "median": float(non_null.median()),
+                                "std": float(non_null.std()),
+                            }
+                        )
+                elif pd.api.types.is_object_dtype(col_data) or isinstance(
+                    col_data.dtype, pd.CategoricalDtype
+                ):
                     top_values = col_data.value_counts(dropna=True).head(5)
-                    col_info["top_values"] = {str(k): int(v) for k, v in top_values.items()}
+                    col_info["top_values"] = {
+                        str(k): int(v) for k, v in top_values.items()
+                    }
 
                 characteristics["summary"][col] = col_info
 
@@ -957,36 +1154,6 @@ class CategoricalOperation(FieldOperation):
             self.logger.warning(f"Error generating data hash: {str(e)}")
             fallback = f"{data.shape}_{list(data.dtypes)}"
             return hashlib.md5(fallback.encode()).hexdigest()
-
-    def _set_input_parameters(self, **kwargs):
-        """
-        Set common configurable operation parameters from keyword arguments.
-        """
-
-        self.field_name = kwargs.get("field_name", getattr(self, "field_name", None))
-        self.top_n = kwargs.get("top_n", getattr(self, "top_n", None))
-        self.min_frequency = kwargs.get("min_frequency", getattr(self, "min_frequency", True))
-        self.profile_type = kwargs.get("profile_type", getattr(self, "profile_type", "categorical"))
-        self.analyze_anomalies = kwargs.get("analyze_anomalies", getattr(self, "analyze_anomalies", True))
-        self.generate_visualization = kwargs.get("generate_visualization", getattr(self, "generate_visualization", True))
-
-        self.save_output = kwargs.get("save_output", getattr(self, "save_output", True))
-        self.output_format = kwargs.get("output_format", getattr(self, "output_format", "csv"))
-        self.include_timestamp = kwargs.get("include_timestamp", getattr(self, "include_timestamp", True))
-
-        self.use_cache = kwargs.get("use_cache", getattr(self, "use_cache", True))
-        self.force_recalculation = kwargs.get("force_recalculation", getattr(self, "force_recalculation", False))
-
-        self.visualization_backend = kwargs.get("visualization_backend", getattr(self, "visualization_backend", None))
-        self.visualization_theme = kwargs.get("visualization_theme", getattr(self, "visualization_theme", None))
-        self.visualization_strict = kwargs.get("visualization_strict", getattr(self, "visualization_strict", False))
-        self.visualization_timeout = kwargs.get("visualization_timeout", getattr(self, "visualization_timeout", None))
-
-        self.use_encryption = kwargs.get("use_encryption", getattr(self, "use_encryption", False))
-        self.encryption_key = kwargs.get("encryption_key",
-                                         getattr(self, "encryption_key", None)) if self.use_encryption else None
-
-        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") if self.include_timestamp else ""
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """
@@ -1010,57 +1177,54 @@ class CategoricalOperation(FieldOperation):
         # All validations passed
         return True
 
-    def _load_data_and_validate_input_parameters(self, data_source: DataSource, **kwargs) -> Tuple[Optional[pd.DataFrame], bool]:
-        self._set_input_parameters(**kwargs)
-
-        dataset_name = kwargs.get('dataset_name', "main")
-        settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
+    def _load_data_and_validate_input_parameters(
+        self, data_source: DataSource, **kwargs
+    ) -> Tuple[Optional[pd.DataFrame], bool]:
+        dataset_name = kwargs.get("dataset_name", "main")
+        settings_operation = load_settings_operation(
+            data_source, dataset_name, **kwargs
+        )
         df = load_data_operation(data_source, dataset_name, **settings_operation)
 
         if df is None or df.empty:
             self.logger.error("Error data frame is None or empty")
             return None, False
 
-        self._input_dataset = dataset_name
         self._original_df = df.copy(deep=True)
 
         return df, self._validate_input_parameters(df)
 
-    def _compute_total_steps(self, **kwargs) -> int:
-        use_cache = kwargs.get("use_cache", self.use_cache)
-        force_recalculation = kwargs.get("force_recalculation", self.force_recalculation)
-        save_output = kwargs.get("save_output", self.save_output)
-        generate_visualization = kwargs.get("generate_visualization", self.generate_visualization)
-
+    def _compute_total_steps(self) -> int:
         steps = 0
 
         steps += 1  # Step 1: Preparation
         steps += 1  # Step 2: Load data and validate input
 
-        if use_cache and not force_recalculation:
+        if self.use_cache and not self.force_recalculation:
             steps += 1  # Step 3: Try to load from cache
 
         steps += 1  # Step 4: Process data
         steps += 1  # Step 5: Collect metrics
 
-        if save_output:
+        if self.save_output:
             steps += 1  # Step 6: Save output
 
-        if generate_visualization:
+        if self.generate_visualization:
             steps += 1  # Step 7: Generate visualizations
 
-        if use_cache:
+        if self.use_cache:
             steps += 1  # Step 8: Save cache
 
         return steps
 
 
 def analyze_categorical_fields(
-        data_source: DataSource,
-        task_dir: Path,
-        reporter: Any,
-        cat_fields: List[str] = None,
-        **kwargs) -> Dict[str, OperationResult]:
+    data_source: DataSource,
+    task_dir: Path,
+    reporter: Any,
+    cat_fields: List[str] = None,
+    **kwargs,
+) -> Dict[str, OperationResult]:
     """
     Analyze multiple categorical fields in a dataset.
 
@@ -1079,7 +1243,6 @@ def analyze_categorical_fields(
         - top_n: int, number of top values to include in results (default: 15)
         - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
         - generate_visualization: bool, whether to generate visualization (default: True)
-        - include_timestamp: bool, whether to include timestamps in filenames (default: True)
         - profile_type: str, type of profiling for organizing artifacts (default: 'categorical')
 
     Returns:
@@ -1102,47 +1265,62 @@ def analyze_categorical_fields(
         if error_info is not None and isinstance(error_info, dict):
             error_message += f": {error_info.get('message', '')}"
         if reporter:
-            reporter.add_operation("Categorical fields analysis", status="error",
-                                   details={"error": error_message})
+            reporter.add_operation(
+                "Categorical fields analysis",
+                status="error",
+                details={"error": error_message},
+            )
         return {}
 
     # Extract operation parameters from kwargs
-    top_n = kwargs.get('top_n', 15)
-    min_frequency = kwargs.get('min_frequency', 1)
+    top_n = kwargs.get("top_n", 15)
+    min_frequency = kwargs.get("min_frequency", 1)
 
     # If no categorical fields specified, try to detect them
     if cat_fields is None:
         cat_fields = []
         # Simple heuristic: select fields with string type or moderate number of unique values
-        if hasattr(df, 'columns'):
+        if hasattr(df, "columns"):
             for col in df.columns:
                 try:
                     # Check if column is object type (usually string)
-                    if df[col].dtype == 'object':
+                    if df[col].dtype == "object":
                         cat_fields.append(col)
                     # Or check number of unique values relative to dataset size
-                    elif pd.api.types.is_numeric_dtype(df[col]) and df[col].nunique() <= min(100, int(len(df) * 0.1)):
+                    elif pd.api.types.is_numeric_dtype(df[col]) and df[
+                        col
+                    ].nunique() <= min(100, int(len(df) * 0.1)):
                         cat_fields.append(col)
                 except Exception as e:
                     print(f"Error checking column {col}: {str(e)}")
         else:
             print("DataFrame does not have columns attribute")
             if reporter:
-                reporter.add_operation("Categorical fields detection", status="error",
-                                       details={"error": "DataFrame doesn't have expected structure"})
+                reporter.add_operation(
+                    "Categorical fields detection",
+                    status="error",
+                    details={"error": "DataFrame doesn't have expected structure"},
+                )
 
     # Report on fields to be analyzed
     if reporter:
-        reporter.add_operation("Categorical fields analysis", details={
-            "fields_count": len(cat_fields),
-            "fields": cat_fields,
-            "top_n": top_n,
-            "min_frequency": min_frequency,
-            "parameters": {k: v for k, v in kwargs.items() if isinstance(v, (str, int, float, bool))}
-        })
+        reporter.add_operation(
+            "Categorical fields analysis",
+            details={
+                "fields_count": len(cat_fields),
+                "fields": cat_fields,
+                "top_n": top_n,
+                "min_frequency": min_frequency,
+                "parameters": {
+                    k: v
+                    for k, v in kwargs.items()
+                    if isinstance(v, (str, int, float, bool))
+                },
+            },
+        )
 
     # Track progress if enabled
-    track_progress = kwargs.get('track_progress', True)
+    track_progress = kwargs.get("track_progress", True)
     overall_tracker = None
 
     if track_progress and cat_fields:
@@ -1150,7 +1328,7 @@ def analyze_categorical_fields(
             total=len(cat_fields),
             description=f"Analyzing {len(cat_fields)} categorical fields",
             unit="fields",
-            track_memory=True
+            track_memory=True,
         )
 
     # Initialize results dictionary
@@ -1159,19 +1337,19 @@ def analyze_categorical_fields(
     # Process each field
     for i, field in enumerate(cat_fields):
         # Check if field exists in DataFrame
-        if hasattr(df, 'columns') and field in df.columns:
+        if hasattr(df, "columns") and field in df.columns:
             try:
                 # Update overall progress tracker
                 if overall_tracker:
-                    overall_tracker.update(0, {"field": field, "progress": f"{i + 1}/{len(cat_fields)}"})
+                    overall_tracker.update(
+                        0, {"field": field, "progress": f"{i + 1}/{len(cat_fields)}"}
+                    )
 
                 print(f"Analyzing categorical field: {field}")
 
                 # Create and execute operation
                 operation = CategoricalOperation(
-                    field,
-                    top_n=top_n,
-                    min_frequency=min_frequency
+                    field, top_n=top_n, min_frequency=min_frequency
                 )
                 result = operation.execute(data_source, task_dir, reporter, **kwargs)
 
@@ -1181,16 +1359,27 @@ def analyze_categorical_fields(
                 # Update overall tracker after successful analysis
                 if overall_tracker:
                     if result.status == OperationStatus.SUCCESS:
-                        overall_tracker.update(1, {"field": field, "status": "completed"})
+                        overall_tracker.update(
+                            1, {"field": field, "status": "completed"}
+                        )
                     else:
-                        overall_tracker.update(1, {"field": field, "status": "error",
-                                                   "error": result.error_message})
+                        overall_tracker.update(
+                            1,
+                            {
+                                "field": field,
+                                "status": "error",
+                                "error": result.error_message,
+                            },
+                        )
 
             except Exception as e:
                 print(f"Error analyzing categorical field {field}: {e}")
                 if reporter:
-                    reporter.add_operation(f"Analyzing {field} field", status="error",
-                                           details={"error": str(e)})
+                    reporter.add_operation(
+                        f"Analyzing {field} field",
+                        status="error",
+                        details={"error": str(e)},
+                    )
 
                 # Update overall tracker in case of error
                 if overall_tracker:
@@ -1201,18 +1390,19 @@ def analyze_categorical_fields(
         overall_tracker.close()
 
     # Report summary
-    success_count = sum(1 for r in results.values() if r.status == OperationStatus.SUCCESS)
+    success_count = sum(
+        1 for r in results.values() if r.status == OperationStatus.SUCCESS
+    )
     error_count = sum(1 for r in results.values() if r.status == OperationStatus.ERROR)
 
     if reporter:
-        reporter.add_operation("Categorical fields analysis completed", details={
-            "fields_analyzed": len(results),
-            "successful": success_count,
-            "failed": error_count
-        })
+        reporter.add_operation(
+            "Categorical fields analysis completed",
+            details={
+                "fields_analyzed": len(results),
+                "successful": success_count,
+                "failed": error_count,
+            },
+        )
 
     return results
-
-
-# Register the operation so it's discoverable
-register_operation(CategoricalOperation)

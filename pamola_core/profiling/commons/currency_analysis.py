@@ -9,6 +9,7 @@ import logging
 from typing import Dict, List, Any, Optional, Tuple
 
 import pandas as pd
+from pamola_core.profiling.commons.currency_utils import analyze_currency_stats
 from pamola_core.utils.logging import configure_logging
 from pamola_core.profiling.commons.numeric_utils import (
     calculate_extended_stats,
@@ -17,10 +18,8 @@ from pamola_core.profiling.commons.numeric_utils import (
     detect_outliers,
     test_normality,
     create_empty_stats,
-    #analyze_currency_stats
 )
 from pamola_core.profiling.commons.data_types import DataType
-from pamola_core.profiling.commons.base import AnalysisResult
 
 # Configure logger using the custom logging utility
 logger = configure_logging(level=logging.INFO)

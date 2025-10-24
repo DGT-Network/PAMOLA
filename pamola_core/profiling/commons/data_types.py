@@ -75,7 +75,7 @@ class OperationStatus(Enum):
 class PrivacyLevel(Enum):
     """Enumeration of privacy levels for fields."""
     PUBLIC = "public"  # No privacy concerns
-    RESTRICTED = "restricted"  # Limited disclosure
+    HIGHLY_CONFIDENTAL = "Highly Confidential"  # Limited disclosure
     SENSITIVE = "sensitive"  # Strong protection required
     IDENTIFIER = "identifier"  # PII or direct identifier
 

@@ -184,7 +184,7 @@ def _lazy_import(module_name, items):
             from . import metrics
             _module_cache[module_name] = metrics
         elif module_name == 'processing':
-            from . import processing_utils as processing
+            from . import processing
             _module_cache[module_name] = processing
         elif module_name == 'base':
             from .. import base

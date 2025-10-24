@@ -43,10 +43,9 @@ import numpy as np
 import pandas as pd
 from dask import dataframe as dd
 
-from pamola_core.config import L_DIVERSITY_DEFAULTS
+from pamola_core.config.config_variables import L_DIVERSITY_DEFAULTS
 # PAMOLA pamola core imports
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
-from pamola_core.privacy_models.l_diversity.apply_model import apply_model_impl
 from pamola_core.utils import progress
 from pamola_core.utils.group_processing import (
     validate_anonymity_inputs
@@ -281,6 +280,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         Redirects to the actual model application implementation.
         """
+        from pamola_core.privacy_models.l_diversity.apply_model import apply_model_impl
         return apply_model_impl(data, quasi_identifiers, suppression, **kwargs)
 
     def _process_group_diversity_vectorized(
