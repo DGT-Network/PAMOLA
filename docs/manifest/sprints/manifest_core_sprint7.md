@@ -147,7 +147,6 @@ pamola_core/
 - pamola/pamola_core/transformations/__init__.py
 - pamola/pamola_core/transformations/base_transformation_op.py
 - pamola/pamola_core/transformations/cleaning/clean_invalid_values.py
-- pamola/pamola_core/transformations/cleaning__old_02_05/__init__.py
 - pamola/pamola_core/transformations/commons/__init__.py
 - pamola/pamola_core/transformations/commons/aggregation_utils.py
 - pamola/pamola_core/transformations/commons/merging_utils.py
@@ -269,7 +268,6 @@ coverage report --include="tests/transformations/**/*.py"
 - pamola/tests/profiling/analyzers/test_text.py
 - pamola/tests/profiling/commons/test_anonymity_utils.py
 - pamola/tests/profiling/commons/test_attribute_utils.py
-- pamola/tests/profiling/commons/test_base.py
 - pamola/tests/profiling/commons/test_categorical_utils.py
 - pamola/tests/profiling/commons/test_correlation_utils.py
 - pamola/tests/profiling/commons/test_currency_analysis.py
