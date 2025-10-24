@@ -62,11 +62,11 @@ class UniformNumericNoiseConfig(OperationConfig):
                     "random_seed": {"type": ["integer", "null"]},
                     "use_secure_random": {"type": "boolean", "default": True},
                     # Multi-field conditions
-                    "multi_conditions": {"type": ["array", "null"]},
+                    "multi_conditions": {"type": ["array", "null"], "items": {"type": "object"}},
                     "condition_logic": {"type": "string"},
                     # Conditional processing parameters
                     "condition_field": {"type": ["string", "null"]},
-                    "condition_values": {"type": ["array", "null"]},
+                    "condition_values": {"type": ["array", "null"], "items": {"type": "string"}},
                     "condition_operator": {"type": "string"},
                     # K-anonymity integration
                     "ka_risk_field": {"type": ["string", "null"]},

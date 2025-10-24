@@ -74,7 +74,7 @@ class PartialMaskingConfig(OperationConfig):
                     },
                     # Conditional processing parameters
                     "condition_field": {"type": ["string", "null"]},
-                    "condition_values": {"type": ["array", "null"]},
+                    "condition_values": {"type": ["array", "null"], "items": {"type": "string"}},
                     "condition_operator": {"type": "string"},
                     # K-anonymity integration
                     "ka_risk_field": {"type": ["string", "null"]},
