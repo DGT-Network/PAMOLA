@@ -29,8 +29,51 @@ class AddOrModifyFieldsOperationConfig(OperationConfig):
             {
                 "type": "object",
                 "properties": {
-                    "field_operations": {"type": ["object", "null"]},
-                    "lookup_tables": {"type": ["object", "null"]},
+                    "field_operations": {
+                        "type": "object",
+                        "patternProperties": {
+                            "^.+$": {
+                                "type": "object",
+                                "properties": {
+                                    "operation_type": {
+                                        "title": "Operation Type",
+                                        "type": "string",
+                                        "enum": [
+                                            "add_constant",
+                                            "add_from_lookup",
+                                            "add_conditional",
+                                            "modify_constant",
+                                            "modify_from_lookup",
+                                            "modify_conditional",
+                                            "modify_expression"
+                                        ]
+                                    },
+                                    "constant_value": {},
+                                    "base_on_column": { "type": "string", "title": "Base On Column" },
+                                    "lookup_table_name": { "type": "string", "title": "Lookup Table Name" },
+                                    "condition": { "type": "string", "title": "Condition" },
+                                    "value_if_true": { "type": "string", "title": "Value If True" },
+                                    "value_if_false": { "type": "string", "title": "Value If False" },
+                                    "expression": { "type": "string", "title": "Expression" },
+                                    "expression_character": { "type": "string", "title": "Expression Character" }
+                                },
+                                "required": ["operation_type"],
+                                "additionalProperties": True
+                            }
+                        },
+                        "additionalProperties": False
+                    },
+                    "lookup_tables": {
+                        "type": "object",
+                        "patternProperties": {
+                            "^.*$": {
+                                "type": ["string", "object"],
+                                "additionalProperties": True,
+                                "title": "Lookup Table Path"
+                            }
+                        },
+                        "additionalProperties": False
+                    },
                 },
             },
         ],
