@@ -33,6 +33,8 @@ class PrivacyMetricConfig(OperationConfig):
                 "properties": {
                     "privacy_metrics": {
                         "type": "array",
+                        "title": "Privacy Metrics",
+                        "description": "List of privacy metrics to be used in the operation. Supported: DCR (Distance to Closest Record), NNDR (Nearest Neighbor Distance Ratio), UNIQUENESS, K-ANONYMITY, L-DIVERSITY.",
                         "items": {
                             "type": "string",
                             "enum": [
@@ -45,16 +47,27 @@ class PrivacyMetricConfig(OperationConfig):
                         },
                         "default": [PrivacyMetricsType.DCR.value],
                     },
-                    "metric_params": {"type": ["object", "null"]},
+                    "metric_params": {
+                        "type": ["object", "null"],
+                        "title": "Metric Parameters",
+                        "description": "Optional dictionary of parameters for each privacy metric (e.g., thresholds, custom settings)."
+                    },
                     "columns": {
                         "type": "array",
+                        "title": "Columns",
+                        "description": "List of column names to evaluate privacy metrics on.",
                         "items": {"type": "string"},
                     },
-                    "column_mapping": {"type": ["object", "null"]},
+                    "column_mapping": {
+                        "type": ["object", "null"],
+                        "title": "Column Mapping",
+                        "description": "Optional mapping from original to anonymized column names for metric comparison."
+                    },
                     "sample_size": {
                         "type": ["integer", "null"],
                         "minimum": 1,
-                        "description": "Size of dataset sample used for metric calculation.",
+                        "title": "Sample Size",
+                        "description": "Number of records to sample for metric calculation. If null, use all data."
                     },
                 },
                 "required": ["privacy_metrics"],

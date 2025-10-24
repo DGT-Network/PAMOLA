@@ -33,6 +33,8 @@ class FidelityConfig(OperationConfig):
 
     schema = {
         "type": "object",
+        "title": "Fidelity Operation Configuration",
+        "description": "Configuration schema for fidelity metric operations.",
         "allOf": [
             BaseOperationConfig.schema,  # merge all common fields
             {
@@ -40,6 +42,8 @@ class FidelityConfig(OperationConfig):
                 "properties": {
                     "fidelity_metrics": {
                         "type": "array",
+                        "title": "Fidelity Metrics",
+                        "description": "List of fidelity metrics to be used in the operation.",
                         "items": {
                             "type": "string",
                             "enum": [
@@ -52,18 +56,35 @@ class FidelityConfig(OperationConfig):
                             FidelityMetricsType.KL.value,
                         ],
                     },
-                    "metric_params": {"type": ["object", "null"]},
+                    "metric_params": {
+                        "type": ["object", "null"],
+                        "title": "Metric Parameters",
+                        "description": "Optional dictionary of parameters for each fidelity metric (e.g., thresholds, custom settings)."
+                    },
                     "columns": {
                         "type": "array",
+                        "title": "Columns",
+                        "description": "List of column names to evaluate fidelity metrics on.",
                         "items": {"type": "string"},
                     },
-                    "column_mapping": {"type": ["object", "null"]},
-                    "normalize": {"type": "boolean", "default": True},
+                    "column_mapping": {
+                        "type": ["object", "null"],
+                        "title": "Column Mapping",
+                        "description": "Optional mapping from original to anonymized column names for metric comparison."
+                    },
+                    "normalize": {
+                        "type": "boolean",
+                        "default": True,
+                        "title": "Normalize",
+                        "description": "If true, normalize data before computing fidelity metrics."
+                    },
                     "confidence_level": {
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1,
                         "default": 0.95,
+                        "title": "Confidence Level",
+                        "description": "Confidence level for statistical tests (e.g., 0.95 for 95% confidence)."
                     },
                     "sample_size": {
                         "type": ["integer", "null"],

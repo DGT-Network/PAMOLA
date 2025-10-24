@@ -41,15 +41,28 @@ class UtilityMetricConfig(OperationConfig):
                     "metric_params": {"type": ["object", "null"]},
                     "columns": {
                         "type": "array",
+                        "title": "Columns",
+                        "description": "List of column names to evaluate utility metrics on.",
                         "items": {"type": "string"},
                     },
-                    "column_mapping": {"type": ["object", "null"]},
-                    "normalize": {"type": "boolean", "default": True},
+                    "column_mapping": {
+                        "type": ["object", "null"],
+                        "title": "Column Mapping",
+                        "description": "Optional mapping from original to anonymized column names for metric comparison."
+                    },
+                    "normalize": {
+                        "type": "boolean",
+                        "default": True,
+                        "title": "Normalize",
+                        "description": "If true, normalize data before computing utility metrics."
+                    },
                     "confidence_level": {
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1,
                         "default": 0.95,
+                        "title": "Confidence Level",
+                        "description": "Confidence level for statistical tests (e.g., 0.95 for 95% confidence)."
                     },
                     "sample_size": {
                         "type": ["integer", "null"],
