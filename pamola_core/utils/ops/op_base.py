@@ -250,6 +250,7 @@ class BaseOperation(ABC):
         # Pre-processing & performance
         self.optimize_memory = optimize_memory
         self.adaptive_chunk_size = adaptive_chunk_size
+        self.original_chunk_size = chunk_size
 
         # Processing control
         self.mode = mode.upper()
