@@ -26,6 +26,8 @@ from typing import List
 
 
 class Constants:
+    NONE_MODE = 'none'
+    
     OPERATION_NAMES = ["generalization", "noise_addition"]
 
     COMMON_DATE_FORMATS = [

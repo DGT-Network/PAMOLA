@@ -1,8 +1,0 @@
-.vector-container {
-    display: flex;
-    width: 80%;
-    align-items: center;
-}
-.vector-container select { 
-    margin-left: 5%;
-}

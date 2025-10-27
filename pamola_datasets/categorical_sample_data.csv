@@ -1,0 +1,11 @@
+id,category,region,risk_score,gender
+1,Fruit > Apple > Fuji,North,3.2,Male
+2,Fruit > Apple > Gala,North,4.8,Female
+3,Fruit > Banana > Cavendish,South,6.1,Male
+4,Fruit > Apple > Fuji,North,2.5,Male
+5,Fruit > Banana > Plantain,South,7.2,Female
+6,Fruit > Apple > Gala,East,1.9,Female
+7,Fruit > Pear > Asian,West,8.0,Female
+8,Fruit > Apple > Granny Smith,North,5.5,Male
+9,Fruit > Banana > Red,South,5.8,Female
+10,Fruit > Durian > Monthong,South,9.3,Male

@@ -26,7 +26,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Union, Optional
 
-from pamola_core.common.type_aliases import DataFrameType
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register_operation
@@ -292,6 +291,7 @@ class BaseOperation(ABC):
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
         self.execution_time: Optional[float] = None
+        self.original_chunk_size = chunk_size
 
         # Register this operation in the registry
         register_operation(operation_class=self.__class__)
@@ -820,25 +820,6 @@ class FieldOperation(BaseOperation, ABC):
             Name of the related field
         """
         self.scope.add_field(field_name)
-
-    def validate_field_existence(self, df: DataFrameType) -> bool:
-        """
-        Validate that the main field exists in the DataFrame.
-
-        Parameters:
-        -----------
-        df : DataFrameType
-            DataFrame to check
-
-        Returns:
-        --------
-        bool
-            True if field exists, False otherwise
-        """
-        if self.field_name not in df.columns:
-            self.logger.error(f"Field {self.field_name} not found in DataFrame")
-            return False
-        return True
 
 
 class DataFrameOperation(BaseOperation, ABC):
