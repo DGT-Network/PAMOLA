@@ -25,13 +25,10 @@ The `OrganizationOperation` class follows the PAMOLA.CORE operations framework i
 pamola_core.utils.ops.op_base.BaseOperation
       ↑
       │
-pamola_core.fake_data.commons.operations.BaseOperation
+pamola_core.utils.ops.op_base.FieldOperation
       ↑
       │
-pamola_core.fake_data.commons.operations.FieldOperation
-      ↑
-      │
-pamola_core.fake_data.commons.operations.GeneratorOperation
+pamola_core.fake_data.base_generator_op.GeneratorOperation
       ↑
       │
 pamola_core.fake_data.operations.organization_op.OrganizationOperation
