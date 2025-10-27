@@ -282,9 +282,8 @@ pamola_core/fake_data/
 
 ```
 pamola_core.utils.ops.op_base.BaseOperation
-    └── pamola_core.fake_data.commons.operations.BaseOperation
-        └── pamola_core.fake_data.commons.operations.FieldOperation
-            └── pamola_core.fake_data.commons.operations.GeneratorOperation
+        └── pamola_core.utils.ops.op_base.FieldOperation
+            └── pamola_core.fake_data.base_generator_op.GeneratorOperation
                 ├── pamola_core.fake_data.operations.name_operations.NameOperation
                 ├── pamola_core.fake_data.operations.email_operations.EmailOperation
                 ├── pamola_core.fake_data.operations.phone_operations.PhoneOperation
@@ -292,7 +291,7 @@ pamola_core.utils.ops.op_base.BaseOperation
                 └── pamola_core.fake_data.operations.organization_operations.OrganizationOperation
 ```
 
-**Важно:** Базовые классы операций (`BaseOperation`, `FieldOperation`, `GeneratorOperation`) определены в модуле `pamola_core.fake_data.commons.operations`, а не в `pamola_core.fake_data.operations` как указано ранее.
+**Важно:** Базовые классы операций (`BaseOperation`, `FieldOperation`, `GeneratorOperation`) определены в модуле `pamola_core.fake_data.base_generator_op`, а не в `pamola_core.fake_data.operations` как указано ранее.
 
 ### 3.2. BaseOperation (pamola_core/fake_data/commons/operations.py)
 

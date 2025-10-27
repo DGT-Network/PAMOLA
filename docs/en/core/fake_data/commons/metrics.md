@@ -161,9 +161,9 @@ Operation that uses a generator to create fake data for specific fields. Support
 ```python
 # Creating a field operation for a name field
 from pamola_core.fake_data.commons.base import NullStrategy
-from pamola_core.fake_data.commons.operations import FieldOperation
+from pamola_core.fake_data.base_generator_op import GeneratorOperation
 
-class NameFieldOperation(FieldOperation):
+class FakeNameOperation(GeneratorOperation):
     def __init__(self, field_name="name"):
         super().__init__(
             field_name=field_name,
@@ -177,7 +177,7 @@ class NameFieldOperation(FieldOperation):
         return batch
 
 # Using the operation
-operation = NameFieldOperation("full_name")
+operation = FakeNameOperation("full_name")
 result = operation.execute(df, Path("./task"), reporter)
 ```
 
@@ -185,7 +185,7 @@ result = operation.execute(df, Path("./task"), reporter)
 
 ```python
 # Creating and using a generator operation
-from pamola_core.fake_data.commons.operations import GeneratorOperation
+from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.name_generator import NameGenerator
 
 # Create a generator
@@ -209,7 +209,7 @@ result = operation.execute(df, Path("./task"), reporter)
 ```python
 # Registering an operation with the registry
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.fake_data.commons.operations import GeneratorOperation
+from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.email_generator import EmailGenerator
 
 @register()

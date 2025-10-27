@@ -29,8 +29,9 @@ pamola_core.utils.ops.op_registry
     └── register (Decorator for operation registration)
 
 pamola_core.utils.ops.op_base.BaseOperation
-    └── pamola_core.fake_data.commons.operations.GeneratorOperation
-        └── PhoneOperation
+└── pamola_core.utils.ops.op_base.FieldOperation
+    └── pamola_core.fake_data.base_generator_op.GeneratorOperation
+        └── pamola_core.fake_data.operations.phone_op.NameOPhoneOperationperation
 
 pamola_core.fake_data.generators
     └── PhoneGenerator (Generator for phone numbers)
