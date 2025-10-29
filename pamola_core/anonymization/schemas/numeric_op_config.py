@@ -119,12 +119,6 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Condition Field",
                         "description": "Field name used as condition for applying the generalization."
                     },
-                    "condition_values": {
-                        "type": ["array", "null"],
-                        "title": "Condition Values",
-                        "description": "Values of the condition field that trigger the generalization.",
-                        "items": {"type": "string"}
-                    },
                     "condition_operator": {
                         "type": "string",
                         "title": "Condition Operator",
@@ -138,7 +132,12 @@ class NumericGeneralizationConfig(OperationConfig):
                             {"const": "range", "description": "Range"}
                         ]
                     },
-
+                    "condition_values": {
+                        "type": ["array", "null"],
+                        "title": "Condition Values",
+                        "description": "Values of the condition field that trigger the generalization.",
+                        "items": {"type": "string"}
+                    },
                     # === K-Anonymity integration ===
                     "ka_risk_field": {
                         "type": ["string", "null"],
@@ -171,38 +170,15 @@ class NumericGeneralizationConfig(OperationConfig):
                         "oneOf": [
                             {
                                 "properties": {
-                                    "condition_field": { "type": "null" }
+                                    "condition_field": {"type": "null"}
                                 }
                             },
-                            {
+                            {   
                                 "properties": {
-                                    "condition_field": {
-                                        "type": "string",
-                                        "minLength": 1
-                                    },
-                                    "condition_values": {
-                                        "type": ["array", "null"],
-                                        "title": "Condition Values",
-                                        "items": {"type": "string"},
-                                        "description": "Displayed when condition_field has a value."
-                                    }
-                                }
-                            }
-                        ]
-                    },
-                    "condition_values": {
-                        "oneOf": [
-                            {
-                                "properties": {
-                                    "condition_values": {"type": "null"}
-                                }
-                            },
-                            {
-                                "properties": {
-                                    "condition_values": {
-                                        "type": "array",
-                                        "minItems": 1
-                                    },
+                                        "condition_field": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
                                     "condition_operator": {
                                         "type": "string",
                                         "title": "Condition Operator",
@@ -215,6 +191,30 @@ class NumericGeneralizationConfig(OperationConfig):
                                             {"const": "eq", "description": "Equal to"},
                                             {"const": "range", "description": "Range"}
                                         ]
+                                    }
+                                }
+                                
+                            }
+                        ]
+                    },
+                    "condition_operator": {
+                        "oneOf": [
+                            {
+                                "properties": {
+                                    "condition_values": { "type": "null" }
+                                }
+                            },
+                            {
+                                "properties": {
+                                    "condition_operator": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "condition_values": {
+                                        "type": ["array", "null"],
+                                        "title": "Condition Values",
+                                        "items": {"type": "string"},
+                                        "description": "Displayed when condition_operator has a value."
                                     }
                                 }
                             }
