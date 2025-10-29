@@ -1,17 +1,5 @@
 import copy
-from pathlib import Path
-import sys
-from typing import Any, Dict, List, Type
-
-from pamola_core.utils.io import write_json
-from pamola_core.utils.ops.op_config import OperationConfig
-from pamola_core.utils.schema_helpers.schema_generator_all import ALL_OP_CONFIGS
-from pamola_core.utils.schema_helpers.schema_utils import (
-    flatten_schema,
-    get_filtered_schema,
-    remove_none_from_enum,
-    remove_none_from_enum,
-)
+from typing import Any, Dict, List
 import copy
 
 
@@ -55,10 +43,14 @@ def convert_property(
     # Enum to Select
     if "enum" in field and "x-component" not in field:
         field["x-component"] = "Select"
-        field["x-component-props"] = {"getPopupContainer": "{{(node) => node?.parentElement || document.body}}"}
+        field["x-component-props"] = {
+            "getPopupContainer": "{{(node) => node?.parentElement || document.body}}"
+        }
 
     # oneOf with const to Select
-    if "oneOf" in field and all(isinstance(opt, dict) and "const" in opt for opt in field["oneOf"]):
+    if "oneOf" in field and all(
+        isinstance(opt, dict) and "const" in opt for opt in field["oneOf"]
+    ):
         field["x-component"] = "Select"
         field["enum"] = [
             {"value": opt["const"], "label": opt.get("description", str(opt["const"]))}
@@ -88,7 +80,9 @@ def convert_property(
         or field.get("type") == "number"
         or (
             isinstance(field.get("type"), list)
-            and ("integer" in field.get("type", []) or "number" in field.get("type", []))
+            and (
+                "integer" in field.get("type", []) or "number" in field.get("type", [])
+            )
         )
     ):
         field["type"] = "number"
@@ -110,11 +104,17 @@ def convert_property(
     # Nested object
     if field.get("type") == "object" and "properties" in field:
         nested_required = field.get("required", [])
-        field["properties"] = {k: convert_property(k, v, nested_required) for k, v in field["properties"].items()}
+        field["properties"] = {
+            k: convert_property(k, v, nested_required)
+            for k, v in field["properties"].items()
+        }
 
     # Handle arrays
     field_type = field.get("type")
-    if ((field_type == "array") or (isinstance(field_type, list) and "array" in field_type)) and "items" in field:
+    if (
+        (field_type == "array")
+        or (isinstance(field_type, list) and "array" in field_type)
+    ) and "items" in field:
         items_schema = field["items"]
         if is_min_max_array(items_schema):
             field["type"] = "array"
@@ -151,7 +151,7 @@ def convert_property(
                         "type": "void",
                         "x-component": "ArrayItems.Remove",
                         "x-component-props": {"style": {"marginLeft": "8px"}},
-                    }
+                    },
                 },
             }
             field["properties"] = {
@@ -174,20 +174,20 @@ def convert_property(
                     "value": {
                         "type": "string",
                         "x-decorator": "FormItem",
-                        "x-component": "Input"
+                        "x-component": "Input",
                     },
                     "remove": {
                         "type": "void",
                         "x-component": "ArrayItems.Remove",
-                        "x-component-props": {"style": {"marginLeft": "8px"}}
-                    }
-                }
+                        "x-component-props": {"style": {"marginLeft": "8px"}},
+                    },
+                },
             }
             field["properties"] = {
                 "add": {
                     "type": "void",
                     "title": "Add Item",
-                    "x-component": "ArrayItems.Addition"
+                    "x-component": "ArrayItems.Addition",
                 }
             }
         else:
@@ -200,7 +200,10 @@ def convert_property(
                 "when": "{{ $self.value }}",
                 "fulfill": {
                     "schema": {
-                        "oneOf": [convert_json_schema_to_formily(option) for option in field["oneOf"]]
+                        "oneOf": [
+                            convert_json_schema_to_formily(option)
+                            for option in field["oneOf"]
+                        ]
                     }
                 },
             }
@@ -331,59 +334,72 @@ def convert_json_schema_to_formily(schema: Dict[str, Any]) -> Dict[str, Any]:
 
     # Handle dependencies
     if "dependencies" in schema:
-      deps = schema["dependencies"]
-      for dep_field, dep_schema in deps.items():
-          # Nếu là oneOf, gắn x-reactions cho tất cả các trường trong nhánh properties
-          if "oneOf" in dep_schema:
-              for branch in dep_schema["oneOf"]:
-                  props = branch.get("properties", {})
-                  prop_names = list(props.keys())
-                  for idx, prop_name in enumerate(prop_names):
-                      if "properties" in formily_schema and prop_name in formily_schema["properties"]:
-                          prop_schema = props[prop_name]
-                          if isinstance(prop_schema, dict) and prop_name != dep_field:
-                              # Nếu là prop thứ 2, kiểm tra kiểu dữ liệu của prop đầu tiên
-                              if idx == 1:
-                                  prev_prop_name = prop_names[0]
-                                  prev_prop_schema = props[prev_prop_name]
-                                  prev_type = prev_prop_schema.get("type")
-                                  if prev_type == "string" or (isinstance(prev_type, list) and "string" in prev_type):
-                                      visible_expr = "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
-                                  elif prev_type == "array" or (isinstance(prev_type, list) and "array" in prev_type):
-                                      visible_expr = "{{Array.isArray($deps[0]) && $deps[0].length > 0}}"
-                                  else:
-                                      visible_expr = "{{!!$deps[0]}}"
-                              else:
-                                  prop_type = prop_schema.get("type")
-                                  if prop_type == "string" or (isinstance(prop_type, list) and "string" in prop_type):
-                                      visible_expr = "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
-                                  elif prop_type == "array" or (isinstance(prop_type, list) and "array" in prop_type):
-                                      visible_expr = "{{Array.isArray($deps[0]) && $deps[0].length > 0}}"
-                                  else:
-                                      visible_expr = "{{!!$deps[0]}}"
-                              formily_schema["properties"][prop_name]["x-reactions"] = [
-                                  {
-                                      "dependencies": [dep_field],
-                                      "fulfill": {
-                                          "state": {
-                                              "visible": visible_expr
-                                          }
-                                      }
-                                  }
-                              ]
-          else:
-              # Default: giữ nguyên logic cũ cho các dependencies khác
-              formily_schema.setdefault("x-reactions", [])
-              formily_schema["x-reactions"].append(
-                  {
-                      "when": f"{{{{ $values.{dep_field} }}}}",
-                      "fulfill": {
-                          "state": {"visible": True},
-                          "schema": convert_json_schema_to_formily(dep_schema),
-                      },
-                  }
-              )
-      formily_schema.pop("dependencies", None)
+        deps = schema["dependencies"]
+        for dep_field, dep_schema in deps.items():
+            # Nếu là oneOf, gắn x-reactions cho tất cả các trường trong nhánh properties
+            if "oneOf" in dep_schema:
+                for branch in dep_schema["oneOf"]:
+                    props = branch.get("properties", {})
+                    prop_names = list(props.keys())
+                    for idx, prop_name in enumerate(prop_names):
+                        if (
+                            "properties" in formily_schema
+                            and prop_name in formily_schema["properties"]
+                        ):
+                            prop_schema = props[prop_name]
+                            if isinstance(prop_schema, dict) and prop_name != dep_field:
+                                # Nếu là prop thứ 2, kiểm tra kiểu dữ liệu của prop đầu tiên
+                                if idx == 1:
+                                    prev_prop_name = prop_names[0]
+                                    prev_prop_schema = props[prev_prop_name]
+                                    prev_type = prev_prop_schema.get("type")
+                                    if prev_type == "string" or (
+                                        isinstance(prev_type, list)
+                                        and "string" in prev_type
+                                    ):
+                                        visible_expr = "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
+                                    elif prev_type == "array" or (
+                                        isinstance(prev_type, list)
+                                        and "array" in prev_type
+                                    ):
+                                        visible_expr = "{{Array.isArray($deps[0]) && $deps[0].length > 0}}"
+                                    else:
+                                        visible_expr = "{{!!$deps[0]}}"
+                                else:
+                                    prop_type = prop_schema.get("type")
+                                    if prop_type == "string" or (
+                                        isinstance(prop_type, list)
+                                        and "string" in prop_type
+                                    ):
+                                        visible_expr = "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
+                                    elif prop_type == "array" or (
+                                        isinstance(prop_type, list)
+                                        and "array" in prop_type
+                                    ):
+                                        visible_expr = "{{Array.isArray($deps[0]) && $deps[0].length > 0}}"
+                                    else:
+                                        visible_expr = "{{!!$deps[0]}}"
+                                formily_schema["properties"][prop_name][
+                                    "x-reactions"
+                                ] = [
+                                    {
+                                        "dependencies": [dep_field],
+                                        "fulfill": {"state": {"visible": visible_expr}},
+                                    }
+                                ]
+            else:
+                # Default: giữ nguyên logic cũ cho các dependencies khác
+                formily_schema.setdefault("x-reactions", [])
+                formily_schema["x-reactions"].append(
+                    {
+                        "when": f"{{{{ $values.{dep_field} }}}}",
+                        "fulfill": {
+                            "state": {"visible": True},
+                            "schema": convert_json_schema_to_formily(dep_schema),
+                        },
+                    }
+                )
+        formily_schema.pop("dependencies", None)
 
     result = {
         "form": {"labelCol": 6, "wrapperCol": 12},
@@ -393,46 +409,3 @@ def convert_json_schema_to_formily(schema: Dict[str, Any]) -> Dict[str, Any]:
         },
     }
     return result
-
-
-def generate_formily_schema_json(
-    config_class: Type[OperationConfig], task_dir: Path, excluded_fields: List[str] = []
-) -> Path:
-    """
-    Write the schema (after excluding specified fields) of the given config_class to a JSON file.
-    Args:
-        config_class (class): Configuration class with a 'schema' attribute (dict).
-        excluded_fields (list, optional): List of field names to exclude from the schema. Defaults to [].
-    Returns:
-        Path: Path to the written JSON file.
-    Example:
-        generate_schema_json(NumericGeneralizationConfig)
-    """
-
-    # Get filtered schema with excluded fields removed
-    filtered_schema = get_filtered_schema(config_class.schema, excluded_fields)
-    # Flatten allOf recursively at all levels
-    filtered_schema = flatten_schema(filtered_schema)
-    # Remove None values from enum lists (for frontend compatibility)
-    remove_none_from_enum(filtered_schema)
-
-    write_json(filtered_schema, task_dir / f"{config_class.__name__}_raw.json")
-
-    formily_schema = convert_json_schema_to_formily(filtered_schema)
-
-    # Use the class name as the output filename
-    filename = f"{config_class.__name__}.json"
-
-    output_path = task_dir / filename
-
-    # Write the filtered schema to a JSON file
-    path_file = write_json(formily_schema, output_path)
-
-    # Return the path to the written JSON file
-    return path_file
-
-
-def generate_all_op_formily_schemas(task_dir: Path) -> None:
-    task_dir.mkdir(parents=True, exist_ok=True)
-    for config_cls, exclude_fields in ALL_OP_CONFIGS:
-        generate_formily_schema_json(config_cls, task_dir, exclude_fields)

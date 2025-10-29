@@ -36,9 +36,9 @@ from pathlib import Path
 from typing import List, Optional, Type
 import copy
 import json
-
 from pamola_core.utils.io import write_json
 from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.schema_helpers.formily_builder import convert_json_schema_to_formily
 
 
 def flatten_schema(schema: dict, unused_fields=None) -> dict:
@@ -84,7 +84,9 @@ def flatten_schema(schema: dict, unused_fields=None) -> dict:
                 if "title" not in prop:
                     prop["title"] = k.replace("_", " ").title()
                 result["properties"][k] = prop
-            result["required"].extend([r for r in reqs if not unused_fields or r not in unused_fields])
+            result["required"].extend(
+                [r for r in reqs if not unused_fields or r not in unused_fields]
+            )
             # Merge dependencies nếu có
             if "dependencies" in sub_schema:
                 for dep_key, dep_val in sub_schema["dependencies"].items():
@@ -104,6 +106,7 @@ def flatten_schema(schema: dict, unused_fields=None) -> dict:
     if dependencies_merged:
         result["dependencies"] = dependencies_merged
     return result
+
 
 def get_filtered_schema(schema: dict, exclude_fields: Optional[list] = None) -> dict:
     """
@@ -176,6 +179,7 @@ def remove_none_from_enum(schema):
         for item in schema:
             remove_none_from_enum(item)
 
+
 def get_schema_json(
     config_class: Type[OperationConfig], excluded_fields: List[str] = []
 ) -> str:
@@ -200,7 +204,7 @@ def get_schema_json(
 
 
 def generate_schema_json(
-    config_class: Type[OperationConfig], task_dir: Path, excluded_fields: List[str] = []
+    config_class: Type[OperationConfig], task_dir: Path, excluded_fields: List[str] = [], generate_formily_schema: bool = False
 ) -> Path:
     """
     Write the schema (after excluding specified fields) of the given config_class to a JSON file.
@@ -215,14 +219,21 @@ def generate_schema_json(
 
     # Get filtered schema with excluded fields removed
     filtered_schema = get_filtered_schema(config_class.schema, excluded_fields)
+
     # Flatten allOf recursively at all levels
     filtered_schema = flatten_schema(filtered_schema)
+
     # Remove None values from enum lists (for frontend compatibility)
     remove_none_from_enum(filtered_schema)
+
+    if generate_formily_schema:
+        # Convert the filtered JSON schema to Formily schema
+        filtered_schema = convert_json_schema_to_formily(filtered_schema)
 
     # Use the class name as the output filename
     filename = f"{config_class.__name__}.json"
 
+    # Define the output path
     output_path = task_dir / filename
 
     # Write the filtered schema to a JSON file
