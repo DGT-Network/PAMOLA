@@ -19,14 +19,7 @@ def merge_allOf(allOf_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
         merged["properties"] = merged_properties
     return merged
 
-
-def convert_property(
-    name: str, prop: Dict[str, Any], required_fields: List[str] = []
-) -> Dict[str, Any]:
-    field = copy.deepcopy(prop)
-    field["name"] = name
-
-    def is_min_max_array(items_schema):
+def _is_min_max_array(items_schema):
         return (
             isinstance(items_schema, dict)
             and items_schema.get("type") == "array"
@@ -35,6 +28,12 @@ def convert_property(
             and isinstance(items_schema.get("items"), dict)
             and items_schema["items"].get("type") == "number"
         )
+
+def convert_property(
+    name: str, prop: Dict[str, Any], required_fields: List[str] = []
+) -> Dict[str, Any]:
+    field = copy.deepcopy(prop)
+    field["name"] = name
 
     # Required
     if name in required_fields:
@@ -56,6 +55,11 @@ def convert_property(
             {"value": opt["const"], "label": opt.get("description", str(opt["const"]))}
             for opt in field["oneOf"]
         ]
+
+        field["x-component-props"] = {
+            "getPopupContainer": "{{(node) => node?.parentElement || document.body}}"
+        }
+        
         field.pop("oneOf", None)
 
     # String to Input
@@ -116,7 +120,7 @@ def convert_property(
         or (isinstance(field_type, list) and "array" in field_type)
     ) and "items" in field:
         items_schema = field["items"]
-        if is_min_max_array(items_schema):
+        if _is_min_max_array(items_schema):
             field["type"] = "array"
             field["x-decorator"] = "FormItem"
             field["x-component"] = "ArrayItems"
