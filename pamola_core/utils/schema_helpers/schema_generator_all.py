@@ -101,7 +101,7 @@ from pamola_core.profiling.schemas.phone_config_exclude import PHONE_EXCLUDE_FIE
 from pamola_core.profiling.schemas.text_config import TextSemanticCategorizerOperationConfig
 from pamola_core.profiling.schemas.text_config_exclude import TEXT_EXCLUDE_FIELDS
 
-from pamola_core.utils.schema_utils import generate_schema_json
+from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
 ALL_OP_CONFIGS = [
     (FakeEmailOperationConfig, EMAIL_FAKE_EXCLUDE_FIELDS),
