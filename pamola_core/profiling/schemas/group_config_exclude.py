@@ -18,4 +18,21 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-GROUP_EXCLUDE_FIELDS = ["config", "scope", "engine"]
+GROUP_EXCLUDE_FIELDS = [
+  "config",
+  "scope",
+  "optimize_memory",
+  "adaptive_chunk_size",
+  "mode",
+  "column_prefix",
+  "null_strategy",
+  "engine",
+  "output_format",
+  "save_output",
+  "use_dask",
+  "npartitions",
+  "dask_partition_size",
+  "use_vectorization",
+  "parallel_processes",
+  "chunk_size"
+]

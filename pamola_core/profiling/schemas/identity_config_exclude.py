@@ -18,4 +18,21 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-IDENTITY_EXCLUDE_FIELDS = ["config", "scope", "engine"]
+IDENTITY_EXCLUDE_FIELDS = [
+  "config",
+  "scope",
+  "optimize_memory",
+  "mode",
+  "column_prefix",
+  "null_strategy",
+  "engine",
+  "use_dask",
+  "npartitions",
+  "adaptive_chunk_size",
+  "dask_partition_size",
+  "use_vectorization",
+  "parallel_processes",
+  "chunk_size",
+  "output_format",
+  "save_output",
+]

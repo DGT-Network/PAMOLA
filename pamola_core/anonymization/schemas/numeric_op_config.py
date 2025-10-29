@@ -49,8 +49,12 @@ class NumericGeneralizationConfig(OperationConfig):
                     },
                     "strategy": {
                         "type": "string",
-                        "enum": ["binning", "rounding", "range"],
-                        "title": "Generalization Strategy",
+                        "title": "Strategy",
+                        "oneOf": [
+                            {"const": "binning", "description": "Binning"},
+                            {"const": "rounding", "description": "Rounding"},
+                            {"const": "range", "description": "Range"}
+                        ],
                         "description": (
                             "Defines how numerical values are generalized:\n"
                             "- 'binning': group numbers into discrete bins\n"
@@ -67,15 +71,12 @@ class NumericGeneralizationConfig(OperationConfig):
                         "description": "Number of bins to divide numeric values into (for 'binning' strategy)."
                     },
                     "binning_method": {
-                        "type": "string",
-                        "enum": ["equal_width", "equal_frequency", "quantile"],
                         "title": "Binning Method",
-                        "description": (
-                            "Specifies how to calculate bin boundaries:\n"
-                            "- 'equal_width': bins have equal value width\n"
-                            "- 'equal_frequency': bins contain equal number of samples\n"
-                            "- 'quantile': based on statistical quantiles"
-                        )
+                        "oneOf": [
+                            {"const": "equal_width", "description": "Equal width"},
+                            {"const": "equal_frequency", "description": "Equal frequency"},
+                            {"const": "quantile", "description": "Quantile-based"}
+                        ]
                     },
 
                     # === Rounding ===
@@ -122,14 +123,20 @@ class NumericGeneralizationConfig(OperationConfig):
                         "type": ["array", "null"],
                         "title": "Condition Values",
                         "description": "Values of the condition field that trigger the generalization.",
-                        "items": {
-                            "type": "string"
-                        }
+                        "items": {"type": "string"}
                     },
                     "condition_operator": {
                         "type": "string",
                         "title": "Condition Operator",
-                        "description": "Comparison operator used in the condition (e.g., '=', '>', '<', 'in')."
+                        "description": "Comparison operator used in the condition (e.g., 'in', 'not_in', 'gt', 'lt', 'eq', 'range').",
+                        "oneOf": [
+                            {"const": "in", "description": "In"},
+                            {"const": "not_in", "description": "Not in"},
+                            {"const": "gt", "description": "Greater than"},
+                            {"const": "lt", "description": "Less than"},
+                            {"const": "eq", "description": "Equal to"},
+                            {"const": "range", "description": "Range"}
+                        ]
                     },
 
                     # === K-Anonymity integration ===
@@ -157,11 +164,68 @@ class NumericGeneralizationConfig(OperationConfig):
                     },
                 },
                 "required": ["field_name", "strategy"],
+
+                # Add UI dependency logic for condition_field
+                "dependencies": {
+                    "condition_field": {
+                        "oneOf": [
+                            {
+                                "properties": {
+                                    "condition_field": { "type": "null" }
+                                }
+                            },
+                            {
+                                "properties": {
+                                    "condition_field": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "condition_values": {
+                                        "type": ["array", "null"],
+                                        "title": "Condition Values",
+                                        "items": {"type": "string"},
+                                        "description": "Displayed when condition_field has a value."
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    "condition_values": {
+                        "oneOf": [
+                            {
+                                "properties": {
+                                    "condition_values": {"type": "null"}
+                                }
+                            },
+                            {
+                                "properties": {
+                                    "condition_values": {
+                                        "type": "array",
+                                        "minItems": 1
+                                    },
+                                    "condition_operator": {
+                                        "type": "string",
+                                        "title": "Condition Operator",
+                                        "description": "Comparison operator used in the condition (e.g., 'in', 'not_in', 'gt', 'lt', 'eq', 'range').",
+                                        "oneOf": [
+                                            {"const": "in", "description": "In"},
+                                            {"const": "not_in", "description": "Not in"},
+                                            {"const": "gt", "description": "Greater than"},
+                                            {"const": "lt", "description": "Less than"},
+                                            {"const": "eq", "description": "Equal to"},
+                                            {"const": "range", "description": "Range"}
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                },
             },
             # === Conditional logic for strategy-specific requirements ===
             {
                 "if": {"properties": {"strategy": {"const": "binning"}}},
-                "then": {"required": ["bin_count"]}
+                "then": {"required": ["bin_count", "binning_method"]}
             },
             {
                 "if": {"properties": {"strategy": {"const": "rounding"}}},
@@ -170,8 +234,6 @@ class NumericGeneralizationConfig(OperationConfig):
             {
                 "if": {"properties": {"strategy": {"const": "range"}}},
                 "then": {"required": ["range_limits"]}
-            },
+            }
         ],
     }
-
-

@@ -1,4 +1,3 @@
-
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
@@ -18,5 +17,38 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-CORRELATION_EXCLUDE_FIELDS = ["config", "scope", "engine"]
-CORRELATION_MATRIX_EXCLUDE_FIELDS = ["config", "scope", "engine"]
+CORRELATION_EXCLUDE_FIELDS = [
+    "config",
+    "scope",
+    "optimize_memory",
+    "model",
+    "column_prefix",
+    "null_strategy",
+    "engine",
+    "dask_partition_size",
+    "output_format",
+    "use_dask",
+    "npartitions",
+    "use_vectorization",
+    "parallel_processes",
+    "chunk_size",
+    "adaptive_chunk_size",
+]
+CORRELATION_MATRIX_EXCLUDE_FIELDS = [
+    "config",
+    "scope",
+    "optimize_memory",
+    "adaptive_chunk_size",
+    "mode",
+    "column_prefix",
+    "null_strategy",
+    "engine",
+    "dask_partition_size",
+    "output_format",
+    "save_output",
+    "use_dask",
+    "npartitions",
+    "use_vectorization",
+    "parallel_processes",
+    "chunk_size",
+]

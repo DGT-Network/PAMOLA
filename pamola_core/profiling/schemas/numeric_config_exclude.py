@@ -18,4 +18,14 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-NUMERIC_EXCLUDE_FIELDS = ["config", "scope", "engine"]
+NUMERIC_EXCLUDE_FIELDS = [
+  "config",
+  "scope",
+  "engine"
+  "optimize_memory"
+  "adaptive_chunk_size",
+  "mode",
+  "column_prefix",
+  "null_strategy",
+  "dask_partition_size",
+  ]

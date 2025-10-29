@@ -34,5 +34,5 @@ ATTRIBUTE_EXCLUDE_FIELDS = [
     "parallel_processes",
     "chunk_size",
     "output_format",
-    "save_output"
+    "save_output",
 ]

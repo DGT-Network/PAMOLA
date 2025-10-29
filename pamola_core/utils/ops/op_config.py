@@ -329,7 +329,11 @@ class BaseOperationConfig(OperationConfig):
             },
             "mode": {
                 "type": "string",
-                "enum": ["REPLACE", "ENRICH"],
+                # "enum": ["REPLACE", "ENRICH"],
+                "oneOf": [
+                    {"const": "REPLACE", "description": "Replace"},
+                    {"const": "ENRICH", "description": "Enrich"}
+                ],
                 "title": "Processing Mode",
                 "description": "Defines how results will be applied to the dataset: REPLACE overwrites, ENRICH adds new data.",
                 "default": "REPLACE"
@@ -342,7 +346,13 @@ class BaseOperationConfig(OperationConfig):
             },
             "null_strategy": {
                 "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
+                "oneOf": [
+                    {"const": "PRESERVE", "description": "Preserve"},
+                    {"const": "EXCLUDE", "description": "Exclude"},
+                    {"const": "ANONYMIZE", "description": "Anonymize"},
+                    {"const": "ERROR", "description": "Error"}
+                ],
+                # "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
                 "title": "Null Handling Strategy",
                 "description": "Determines how null or missing values are handled during processing.",
                 "default": "PRESERVE"
@@ -414,6 +424,10 @@ class BaseOperationConfig(OperationConfig):
             "visualization_backend": {
                 "type": ["string", "null"],
                 "enum": ["plotly", "matplotlib", None],
+                "oneOf": [
+                    {"const": "plotly", "description": "Plotly"},
+                    {"const": "matplotlib", "description": "Matplotlib"}
+                ],
                 "title": "Visualization Backend",
                 "description": "Rendering backend for generated plots and charts.",
                 "default": "plotly"
@@ -441,7 +455,12 @@ class BaseOperationConfig(OperationConfig):
             },
             "encryption_mode": {
                 "type": ["string", "null"],
-                "enum": ["age", "simple", "none", None],
+                # "enum": ["age", "simple", "none", None],
+                "oneOf": [
+                    {"const": "age", "description": "Age"},
+                    {"const": "simple", "description": "Simple"},
+                    {"const": "none", "description": "None"}
+                ],
                 "title": "Encryption Mode",
                 "description": "Algorithm used for encrypting outputs. 'none' disables encryption.",
                 "default": "none"

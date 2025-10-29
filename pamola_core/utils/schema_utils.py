@@ -64,6 +64,7 @@ def flatten_schema(schema: dict, unused_fields=None) -> dict:
         "properties": {},
         "required": [],
     }
+    dependencies_merged = {}
     if "title" in schema:
         result["title"] = schema["title"]
     if "description" in schema:
@@ -84,6 +85,10 @@ def flatten_schema(schema: dict, unused_fields=None) -> dict:
                     prop["title"] = k.replace("_", " ").title()
                 result["properties"][k] = prop
             result["required"].extend([r for r in reqs if not unused_fields or r not in unused_fields])
+            # Merge dependencies nếu có
+            if "dependencies" in sub_schema:
+                for dep_key, dep_val in sub_schema["dependencies"].items():
+                    dependencies_merged[dep_key] = dep_val
         else:
             # Keep validation schemas (if/then/else...)
             merged_validations.append(sub_schema)
@@ -92,6 +97,12 @@ def flatten_schema(schema: dict, unused_fields=None) -> dict:
     # If there are validation schemas, keep them in allOf
     if merged_validations:
         result["allOf"] = merged_validations
+    # Merge dependencies vào kết quả nếu có
+    if "dependencies" in schema:
+        for dep_key, dep_val in schema["dependencies"].items():
+            dependencies_merged[dep_key] = dep_val
+    if dependencies_merged:
+        result["dependencies"] = dependencies_merged
     return result
 
 def get_filtered_schema(schema: dict, exclude_fields: Optional[list] = None) -> dict:

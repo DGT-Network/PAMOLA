@@ -1,4 +1,3 @@
-
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
@@ -18,4 +17,16 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-CURRENCY_EXCLUDE_FIELDS = ["config", "scope", "engine"]
+CURRENCY_EXCLUDE_FIELDS = [
+    "config",
+    "scope",
+    "optimize_memory",
+    "mode",
+    "column_prefix",
+    "null_strategy",
+    "engine",
+    "output_format",
+    "save_output",
+    "adaptive_chunk_size",
+    "dask_partition_size",
+]

@@ -18,4 +18,14 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-PHONE_EXCLUDE_FIELDS = ["config", "scope", "engine"]
+PHONE_EXCLUDE_FIELDS = [
+  "config",
+  "scope",
+  "optimize_memory",
+  "adaptive_chunk_size",
+  "mode",
+  "column_prefix",
+  "null_strategy",
+  "engine",
+  "dask_partition_size"
+]

@@ -30,6 +30,4 @@ ANONYMITY_EXCLUDE_FIELDS = [
     "dask_partition_size",
     "output_format",
     "save_output",
-    "name",
-    "description",
 ]

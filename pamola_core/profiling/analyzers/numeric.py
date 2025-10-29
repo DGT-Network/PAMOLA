@@ -52,7 +52,6 @@ from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
 )
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
