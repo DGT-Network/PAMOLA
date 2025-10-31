@@ -144,12 +144,6 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Quasi-identifiers",
                         "description": "List of quasi-identifier fields to consider for privacy checks."
                     },
-                    # Output field name configuration
-                    "output_field_name": {
-                        "type": ["string", "null"],
-                        "title": "Output Field Name",
-                        "description": "Custom output field name (for ENRICH mode)."
-                    },
                 },
                 "required": ["field_name", "strategy"],
             },

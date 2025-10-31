@@ -194,12 +194,6 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Vulnerable Record Strategy",
                         "description": "Strategy for handling records identified as vulnerable (e.g., 'suppress', 'flag')."
                     },
-                    # Output field name configuration
-                    "output_field_name": {
-                        "type": ["string", "null"],
-                        "title": "Output Field Name",
-                        "description": "Name of the output field for the anonymized datetime values."
-                    },
                 },
                 "required": ["field_name"],
             },

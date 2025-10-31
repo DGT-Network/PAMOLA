@@ -153,12 +153,6 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Vulnerable Record Strategy",
                         "description": "Strategy for handling vulnerable records."
                     },
-                    # Output field name configuration
-                    "output_field_name": {
-                        "type": ["string", "null"],
-                        "title": "Output Field Name",
-                        "description": "Custom output field name (for ENRICH mode)."
-                    },
                 },
                 "required": ["field_name", "noise_range"],
             },

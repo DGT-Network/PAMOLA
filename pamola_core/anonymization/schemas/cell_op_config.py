@@ -108,12 +108,6 @@ class CellSuppressionConfig(OperationConfig):
                         "title": "Condition Operator",
                         "description": "Operator for condition evaluation (e.g., EQUALS, IN)."
                     },
-                    # Output field name
-                    "output_field_name": {
-                        "type": ["string", "null"],
-                        "title": "Output Field Name",
-                        "description": "Custom output field name (for ENRICH mode)."
-                    },
                 },
                 "required": ["field_name", "suppression_strategy"],
             },

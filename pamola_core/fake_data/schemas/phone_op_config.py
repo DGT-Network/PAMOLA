@@ -73,11 +73,6 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Save Mapping",
                         "description": "Whether to save the mapping store to disk after operation."
                     },
-                    "output_field_name": {
-                        "type": ["string", "null"],
-                        "title": "Output Field Name",
-                        "description": "Name of the output field for the generated phone number."
-                    },
                     # --- FakePhoneOperation-specific fields ---
                     "field_name": {
                         "type": "string",

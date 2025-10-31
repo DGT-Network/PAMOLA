@@ -70,11 +70,6 @@ class FakeNameOperationConfig(OperationConfig):
                         "title": "Save Mapping",
                         "description": "Whether to save the mapping between original and synthetic names to disk."
                     },
-                    "output_field_name": {
-                        "type": ["string", "null"],
-                        "title": "Output Field Name",
-                        "description": "Name of the output column for generated names (if enriching, not replacing)."
-                    },
                     # --- FakeNameOperation-specific fields ---
                     "field_name": {
                         "type": "string",

@@ -70,11 +70,6 @@ class FakeEmailOperationConfig(OperationConfig):
                         "title": "Save Mapping",
                         "description": "Whether to save the mapping between original and synthetic emails."
                     },
-                    "output_field_name": {
-                        "type": ["string", "null"],
-                        "title": "Output Field Name",
-                        "description": "Name of the output field for synthetic emails."
-                    },
                     # --- FakeEmailOperation-specific fields ---
                     "field_name": {
                         "type": "string",

@@ -344,6 +344,12 @@ class BaseOperationConfig(OperationConfig):
                 "description": "Prefix to apply to newly generated columns.",
                 "default": "_"
             },
+            "output_field_name": {
+                "type": ["string", "null"],
+                "title": "Output Field Name",
+                "description": "Optional custom name for the generated or modified output field.",
+                "default": ""
+            },
             "null_strategy": {
                 "type": "string",
                 "oneOf": [

@@ -154,13 +154,6 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Vulnerable Record Strategy",
                         "description": "Action to apply to records exceeding the risk threshold."
                     },
-
-                    # === Output ===
-                    "output_field_name": {
-                        "type": ["string", "null"],
-                        "title": "Output Field Name",
-                        "description": "Optional custom name for the generated or modified output field."
-                    },
                 },
                 "required": ["field_name", "strategy"],
 

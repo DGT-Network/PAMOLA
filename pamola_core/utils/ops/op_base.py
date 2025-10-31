@@ -146,6 +146,7 @@ class BaseOperation(ABC):
         # Processing control
         mode: str = "REPLACE",
         column_prefix: str = "_",
+        output_field_name: Optional[str] = None,
         null_strategy: str = "PRESERVE",
         engine: str = "auto",
         use_dask: bool = False,
@@ -196,6 +197,9 @@ class BaseOperation(ABC):
             Processing mode for the operation (default="REPLACE").
         column_prefix : str, optional
             Prefix for newly generated columns (default="_").
+        output_field_name : str, optional
+            Configuration schema instance (default is None).
+
         null_strategy : {"PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"}, optional
             Strategy for handling null values (default="PRESERVE").
         engine : {"pandas", "dask", "auto"}, optional
@@ -255,6 +259,7 @@ class BaseOperation(ABC):
         # Processing control
         self.mode = mode.upper()
         self.column_prefix = column_prefix
+        self.output_field_name = output_field_name
         self.null_strategy = null_strategy.upper()
         self.engine = engine.lower()
         self.use_dask = use_dask
@@ -766,7 +771,6 @@ class FieldOperation(BaseOperation, ABC):
     def __init__(
         self,
         field_name: str,
-        output_field_name: Optional[str] = None,
         **kwargs
     ):
         """
@@ -799,7 +803,7 @@ class FieldOperation(BaseOperation, ABC):
 
         # Field-specific attributes
         self.field_name = field_name
-        self.output_field_name = output_field_name or (
+        self.output_field_name = self.output_field_name or (
             field_name
             if self.mode == "REPLACE"
             else f"{self.column_prefix}{field_name}"
