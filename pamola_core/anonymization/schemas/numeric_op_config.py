@@ -18,7 +18,7 @@ Configuration schema for defining and validating numeric generalization paramete
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of numeric generalization config file
 """
-from pamola_core.common.enum.operator_field_group import OperatorFieldGroup
+from pamola_core.common.enum.section_name_enum import SectionName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
@@ -47,8 +47,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "type": "string",
                         "title": "Field Name",
                         "x-component": "Select",
-                        "description": "Name of the numeric field to generalize.",
-                        "x-group": OperatorFieldGroup.SELECT_FIELD
+                        "description": "Name of the numeric field to generalize."
                     },
                     "strategy": {
                         "type": "string",
@@ -66,7 +65,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             "- 'rounding': reduce precision to a fixed number of digits\n"
                             "- 'range': replace values by defined numeric ranges"
                         ),
-                        "x-group": OperatorFieldGroup.SELECT_METHOD
+                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY
                     },
 
                     # === Binning ===
@@ -77,7 +76,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Bin Count",
                         "x-component": "NumberPicker",
                         "description": "Number of bins to divide numeric values into (for 'binning' strategy).",
-                        "x-group": OperatorFieldGroup.BASIC_CONFIG
+                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY
                     },
                     "binning_method": {
                         "title": "Binning Method",
@@ -89,7 +88,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             {"const": "equal_frequency", "description": "Equal frequency"},
                             {"const": "quantile", "description": "Quantile-based"}
                         ],
-                        "x-group": OperatorFieldGroup.BASIC_CONFIG,
+                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
                     },
 
                     # === Rounding ===
@@ -98,7 +97,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Precision",
                         "x-component": "NumberPicker",
                         "description": "Number of decimal places to retain when rounding numeric values.",
-                        "x-group": OperatorFieldGroup.BASIC_CONFIG
+                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY
                     },
 
                     # === Range-based generalization ===
@@ -116,7 +115,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             "maxItems": 2
                         },
                         "x-component": "ArrayItems",
-                        "x-group": OperatorFieldGroup.BASIC_CONFIG
+                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY
                     },
 
                     # === Contextual anonymization ===
@@ -128,8 +127,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             "for risk-based anonymization."
                         ),
                         "items": {"type": "string"},
-                        "x-component": "Select",
-                        "x-group": OperatorFieldGroup.ADVANCE_PRIVACY_RISK
+                        "x-component": "Select"
                     },
 
                     # === Conditional generalization ===
@@ -138,7 +136,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": OperatorFieldGroup.ADVANCE_CONDITIONAL
+                        "x-group": SectionName.CONDITION_LOGIC
                     },
                     "condition_operator": {
                         "type": "string",
@@ -154,7 +152,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             {"const": "range", "description": "Range"}
                         ],
                         "default": "in",
-                        "x-group": OperatorFieldGroup.ADVANCE_CONDITIONAL
+                        "x-group": SectionName.CONDITION_LOGIC
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -162,23 +160,21 @@ class NumericGeneralizationConfig(OperationConfig):
                         "x-component": "Input", #ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": OperatorFieldGroup.ADVANCE_CONDITIONAL
+                        "x-group": SectionName.CONDITION_LOGIC
                     },
                     # === K-Anonymity integration ===
                     "ka_risk_field": {
                         "type": ["string", "null"],
                         "title": "K-Anonymity Risk Field",
                         "x-component": "Select",
-                        "description": "Field name containing precomputed risk scores for k-anonymity.",
-                        "x-group": OperatorFieldGroup.ADVANCE_PRIVACY_RISK
+                        "description": "Field name containing precomputed risk scores for k-anonymity."
                     },
                     "risk_threshold": {
                         "type": "number",
                         "title": "Risk Threshold",
                         "x-component": "NumberPicker",
                         "description": "Maximum acceptable risk value for anonymization.",
-                        "default": 5.0,
-                        "x-group": OperatorFieldGroup.ADVANCE_PRIVACY_RISK
+                        "default": 5.0
                     },
                     "vulnerable_record_strategy": {
                         "type": "string",
@@ -192,8 +188,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             {"const": "mode", "description": "Mode"},
                             {"const": "custom", "description": "Custom"}
                         ],
-                        "default": "suppress",
-                        "x-group": OperatorFieldGroup.ADVANCE_PRIVACY_RISK
+                        "default": "suppress"
                     },
                 },
                 "required": ["field_name", "strategy"],

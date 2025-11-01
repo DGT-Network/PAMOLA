@@ -2,9 +2,9 @@ import copy
 from typing import Any, Dict, List
 import copy
 
-from pamola_core.common.enum.operator_field_group import (
-    OPERATOR_FIELD_GROUP_TITLE,
-    OperatorFieldGroup,
+from pamola_core.common.enum.section_name_enum import (
+    SECTION_NAME_TITLE,
+    SectionName,
 )
 
 
@@ -223,7 +223,7 @@ def add_x_reactions_for_strategy_required(formily_schema, schema):
                                         else f'{{{{ $deps[0] === \'{value["const"]}\' }}}}'
                                     )
                             const_val = value["const"]
-                            default_value = formily_schema["properties"][key].get(
+                            default_value = formily_schema["properties"][required_field].get(
                                 "default", "null"
                             )
                             default_value_str = (
@@ -343,8 +343,8 @@ def convert_json_schema_to_formily(schema: Dict[str, Any]) -> Dict[str, Any]:
                 add_x_reactions_for_strategy_required(formily_schema, sub_schema)
 
     all_groups_with_titles = [
-        {"name": group.value, "title": OPERATOR_FIELD_GROUP_TITLE[group]}
-        for group in OperatorFieldGroup
+        {"name": group.value, "title": SECTION_NAME_TITLE[group]}
+        for group in SectionName
     ]
     result = {
         "properties": formily_schema.get("properties", {}),
