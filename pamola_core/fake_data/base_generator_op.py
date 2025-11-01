@@ -63,7 +63,11 @@ from pamola_core.fake_data.commons.metrics import (
     create_metrics_collector,
     generate_metrics_report,
 )
-from pamola_core.fake_data.commons.processing_utils import process_dataframe_using_chunk, process_dataframe_using_dask, process_dataframe_using_joblib
+from pamola_core.fake_data.commons.processing_utils import (
+    process_dataframe_using_chunk,
+    process_dataframe_using_dask,
+    process_dataframe_using_joblib,
+)
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
@@ -103,7 +107,6 @@ class GeneratorOperation(FieldOperation):
         mapping_store_path: Optional[str] = None,
         mapping_store: Optional[MappingStore] = None,
         save_mapping: bool = False,
-        output_field_name: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -127,8 +130,6 @@ class GeneratorOperation(FieldOperation):
             Pre-loaded mapping store instance (used if provided).
         save_mapping : bool, optional
             Whether to persist mapping results after processing.
-        output_field_name : str, optional
-            Output field name if enrichment is used.
         **kwargs : dict
             Additional arguments forwarded to FieldOperation/BaseOperation.
         """
@@ -140,11 +141,7 @@ class GeneratorOperation(FieldOperation):
         )
 
         # Initialize parent FieldOperation
-        super().__init__(
-            field_name=field_name,
-            output_field_name=output_field_name,
-            **kwargs,
-        )
+        super().__init__(field_name=field_name, **kwargs)
 
         # === Core Generator Configuration ===
         self.generator: BaseGenerator = generator
@@ -788,7 +785,6 @@ class GeneratorOperation(FieldOperation):
                     task_logger=self.logger,
                     **kwargs,
                 )
-                    
 
                 if flag_processed:
                     self.logger.info("Completed using Dask")
@@ -1448,7 +1444,6 @@ class GeneratorOperation(FieldOperation):
         # Force garbage collection
         force_garbage_collection()
 
-    
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data. Must be implemented by subclasses.

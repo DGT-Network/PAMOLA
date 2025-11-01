@@ -36,7 +36,6 @@ from pandas.api.types import (
     is_numeric_dtype,
     is_datetime64_any_dtype,
 )
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
 from pamola_core.utils.ops.op_registry import register
@@ -46,24 +45,7 @@ from pamola_core.common.constants import Constants
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-
-
-class ImputeMissingValuesConfig(OperationConfig):
-    """Configuration for ImputeMissingValuesOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    "field_strategies": {"type": ["object", "null"]},
-                    "invalid_values": {"type": ["object", "null"]},
-                },
-            },
-        ],
-    }
+from pamola_core.transformations.schemas.impute_missing_values_op_config import ImputeMissingValuesConfig
 
 
 @register(version="1.0.0")

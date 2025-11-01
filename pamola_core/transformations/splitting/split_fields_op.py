@@ -33,6 +33,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Union, Tuple
 import pandas as pd
+from pamola_core.transformations.schemas.split_fields_op_config import SplitFieldsOperationConfig
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import (
     load_data_operation,
@@ -42,7 +43,6 @@ from pamola_core.utils.io import (
     write_dataframe_to_csv,
 )
 from pamola_core.utils.ops.op_cache import operation_cache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import (
     OperationResult,
@@ -65,31 +65,6 @@ from pamola_core.utils.ops.op_registry import register
 class OutputFormat(Enum):
     CSV = "csv"
     JSON = "json"
-
-
-class SplitFieldsOperationConfig(OperationConfig):
-    """Configuration for SplitFieldsOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    "id_field": {"type": ["string", "null"]},
-                    "field_groups": {
-                        "type": ["object", "null"],
-                        "additionalProperties": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                    },
-                    "include_id_field": {"type": "boolean", "default": True},
-                },
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

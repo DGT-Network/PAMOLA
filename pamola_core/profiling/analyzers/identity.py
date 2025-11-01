@@ -41,6 +41,7 @@ from pamola_core.profiling.commons.identity_utils import (
     generate_field_distribution_vis,
     generate_identifier_statistics_vis,
 )
+from pamola_core.profiling.schemas.identity_config import IdentityAnalysisOperationConfig
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
@@ -174,40 +175,6 @@ class IdentityAnalyzer:
             Basic statistics about the identifier
         """
         return compute_identifier_stats(df, id_field, entity_field)
-
-
-class IdentityAnalysisOperationConfig(OperationConfig):
-    """Configuration for IdentityAnalysisOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common fields from BaseOperationConfig
-            {
-                "type": "object",
-                "properties": {
-                    # --- Operation-specific fields ---
-                    "uid_field": {"type": "string"},
-                    "reference_fields": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 1,
-                    },
-                    "id_field": {"type": ["string", "null"], "default": None},
-                    "top_n": {"type": "integer", "minimum": 1, "default": 15},
-                    "check_cross_matches": {"type": "boolean", "default": True},
-                    "min_similarity": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1,
-                        "default": 0.8,
-                    },
-                    "fuzzy_matching": {"type": "boolean", "default": False},
-                },
-                "required": ["uid_field", "reference_fields"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

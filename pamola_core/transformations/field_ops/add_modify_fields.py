@@ -29,7 +29,6 @@ from typing import Any, Dict, List, Tuple, Callable, Iterable, Iterator, Union, 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
 from pamola_core.utils.ops.op_registry import register
@@ -39,27 +38,10 @@ from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.transformations.schemas.add_modify_fields_config import AddOrModifyFieldsOperationConfig
 
 # Configure module logger
 logger = logging.getLogger(__name__)
-
-
-class AddOrModifyFieldsOperationConfig(OperationConfig):
-    """Configuration for AddOrModifyFieldsOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    "field_operations": {"type": ["object", "null"]},
-                    "lookup_tables": {"type": ["object", "null"]},
-                },
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

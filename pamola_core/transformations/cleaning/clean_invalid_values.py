@@ -37,7 +37,6 @@ from pandas.api.types import (
     is_datetime64_any_dtype,
 )
 
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
 from pamola_core.utils.ops.op_registry import register
@@ -46,30 +45,11 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
+from pamola_core.transformations.schemas.clean_invalid_values_config import CleanInvalidValuesOperationConfig
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure module logger
 logger = logging.getLogger(__name__)
-
-
-class CleanInvalidValuesOperationConfig(OperationConfig):
-    """Configuration for CleanInvalidValuesOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    "field_constraints": {"type": ["object", "null"]},
-                    "whitelist_path": {"type": ["object", "null"]},
-                    "blacklist_path": {"type": ["object", "null"]},
-                    "null_replacement": {"type": ["string", "object", "null"]},
-                },
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

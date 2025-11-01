@@ -46,12 +46,12 @@ from pamola_core.profiling.commons.numeric_utils import (
     process_with_dask,
     process_with_joblib,
 )
+from pamola_core.profiling.schemas.numeric_config import NumericOperationConfig
 from pamola_core.utils.io import (
     write_json,
     load_data_operation,
     load_settings_operation,
 )
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -438,34 +438,6 @@ class NumericAnalyzer:
                 "estimated_time_seconds": 1,
                 "error": f"Field {field_name} not found in DataFrame",
             }
-
-
-class NumericOperationConfig(OperationConfig):
-    """Configuration for NumericOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- Numeric-specific fields ---
-                    "field_name": {"type": "string"},
-                    "bins": {"type": "integer", "minimum": 1, "default": 10},
-                    "detect_outliers": {"type": "boolean", "default": True},
-                    "test_normality": {"type": "boolean", "default": True},
-                    "near_zero_threshold": {
-                        "type": "number",
-                        "minimum": 0,
-                        "default": 1e-10,
-                    },
-                    "profile_type": {"type": "string", "default": "numeric"},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

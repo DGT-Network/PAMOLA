@@ -35,6 +35,7 @@ from pamola_core.profiling.commons.attribute_utils import (
     analyze_dataset_attributes,
     load_attribute_dictionary,
 )
+from pamola_core.profiling.schemas.attribute_config import DataAttributeProfilerOperationConfig
 from pamola_core.utils.io import (
     ensure_directory,
     write_json,
@@ -43,7 +44,6 @@ from pamola_core.utils.io import (
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_base import BaseOperation
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
@@ -62,32 +62,6 @@ from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-
-class DataAttributeProfilerOperationConfig(OperationConfig):
-    """Configuration for DataAttributeProfilerOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common BaseOperation fields
-            {
-                "type": "object",
-                "properties": {
-                    "dictionary_path": {"type": ["string", "null"], "default": None},
-                    "language": {"type": "string", "default": "en"},
-                    "sample_size": {"type": "integer", "minimum": 1, "default": 10},
-                    "max_columns": {
-                        "type": ["integer", "null"],
-                        "minimum": 1,
-                        "default": None,
-                    },
-                    "id_column": {"type": ["string", "null"], "default": None},
-                },
-                "required": [],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

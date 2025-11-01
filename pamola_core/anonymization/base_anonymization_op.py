@@ -132,8 +132,6 @@ class AnonymizationOperation(FieldOperation):
         ka_risk_field: Optional[str] = None,
         risk_threshold: float = 5.0,
         vulnerable_record_strategy: str = "suppress",
-        # Optional metadata
-        output_field_name: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -143,8 +141,6 @@ class AnonymizationOperation(FieldOperation):
         ----------
         field_name : str
             Field to anonymize.
-        output_field_name : str, optional
-            Output field name if mode="ENRICH".
         condition_field : str, optional
             Field to apply conditional anonymization.
         condition_values : list, optional
@@ -171,9 +167,7 @@ class AnonymizationOperation(FieldOperation):
         )
 
         # Initialize base FieldOperation (creates scope, sets output field name)
-        super().__init__(
-            field_name=field_name, output_field_name=output_field_name, **kwargs
-        )
+        super().__init__(field_name=field_name, **kwargs)
 
         # Conditional anonymization config
         self.condition_field = condition_field
@@ -1507,7 +1501,9 @@ class AnonymizationOperation(FieldOperation):
             progress_tracker.update(0, {"step": "Saving output data"})
 
         # Generate standardized output filename with timestamp
-        field_name_output = f"{self.field_name}_{self.operation_name}_output_{timestamp}"
+        field_name_output = (
+            f"{self.field_name}_{self.operation_name}_output_{timestamp}"
+        )
 
         # Use the DataWriter to save the DataFrame
         safe_kwargs = filter_used_kwargs(kwargs, writer.write_dataframe)

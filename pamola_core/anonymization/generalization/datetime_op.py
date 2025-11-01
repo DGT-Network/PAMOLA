@@ -56,11 +56,11 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_datetime_field,
 )
 import dask.dataframe as dd
+from pamola_core.anonymization.schemas.datetime_op_config import DateTimeGeneralizationConfig
 from pamola_core.common.constants import Constants
 from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
@@ -104,94 +104,6 @@ class InsufficientPrivacyError(Exception):
     """Exception raised when generalization doesn't provide enough privacy."""
 
     pass
-
-
-class DateTimeGeneralizationConfig(OperationConfig):
-    """Configuration for DateTimeGeneralizationOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common fields
-            {
-                "type": "object",
-                "properties": {
-                    # Required fields
-                    "field_name": {"type": "string"},
-                    "strategy": {
-                        "type": "string",
-                        "enum": ["rounding", "binning", "component", "relative"],
-                    },
-                    # --- Rounding parameters ---
-                    "rounding_unit": {
-                        "type": "string",
-                        "enum": ["year", "quarter", "month", "week", "day", "hour"],
-                    },
-                    # --- Binning parameters ---
-                    "bin_type": {
-                        "type": "string",
-                        "enum": [
-                            "hour_range",
-                            "day_range",
-                            "business_period",
-                            "seasonal",
-                            "custom",
-                        ],
-                    },
-                    "interval_size": {"type": "integer", "minimum": 1},
-                    "interval_unit": {
-                        "type": "string",
-                        "enum": ["hours", "days", "weeks", "months"],
-                    },
-                    "reference_date": {"type": ["string", "null"]},
-                    "custom_bins": {
-                        "type": ["array", "null"],
-                        "items": {"type": ["string", "number"]},
-                    },
-                    # --- Component-based generalization ---
-                    "keep_components": {
-                        "type": ["array", "null"],
-                        "items": {
-                            "type": "string",
-                            "enum": [
-                                "year",
-                                "month",
-                                "day",
-                                "hour",
-                                "minute",
-                                "weekday",
-                            ],
-                        },
-                    },
-                    "strftime_output_format": {"type": ["string", "null"]},
-                    # --- Timezone and format handling ---
-                    "timezone_handling": {
-                        "type": "string",
-                        "enum": ["preserve", "utc", "remove"],
-                        "default": "preserve",
-                    },
-                    "default_timezone": {"type": "string", "default": "UTC"},
-                    "input_formats": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                    },
-                    # --- Privacy & QI ---
-                    "min_privacy_threshold": {
-                        "type": "number",
-                        "minimum": 0,
-                        "maximum": 1,
-                    },
-                    "quasi_identifiers": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                    },
-                    # Output field name configuration
-                    "output_field_name": {"type": ["string", "null"]},
-                },
-                "required": ["field_name", "strategy"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

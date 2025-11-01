@@ -47,8 +47,8 @@ from pamola_core.transformations.commons.merging_utils import (
     generate_record_overlap_vis,
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
+from pamola_core.transformations.schemas.merge_datasets_op_config import MergeDatasetsOperationConfig
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
@@ -56,49 +56,6 @@ from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.common.constants import Constants
-
-
-class MergeDatasetsOperationConfig(OperationConfig):
-    """Configuration for MergeDatasetsOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    "left_dataset_name": {"type": "string"},
-                    "right_dataset_name": {"type": ["string", "null"]},
-                    "right_dataset_path": {"type": ["string", "null"]},
-                    "left_key": {"type": "string"},
-                    "right_key": {"type": ["string", "null"]},
-                    "join_type": {
-                        "type": "string",
-                        "enum": ["inner", "left", "right", "outer"],
-                    },
-                    "suffixes": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 2,
-                        "maxItems": 2,
-                    },
-                    "relationship_type": {
-                        "type": "string",
-                        "enum": ["auto", "one-to-one", "one-to-many"],
-                    },
-                },
-                "required": [
-                    "left_dataset_name",
-                    "left_key",
-                    "right_dataset_name",
-                    "right_key",
-                    "join_type",
-                    "relationship_type",
-                ],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

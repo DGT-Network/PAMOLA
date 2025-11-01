@@ -46,6 +46,7 @@ from pamola_core.anonymization.commons.validation import (
     FieldNotFoundError,
 )
 from pamola_core.anonymization.commons.visualization_utils import create_bar_plot
+from pamola_core.anonymization.schemas.attribute_op_config import AttributeSuppressionConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
@@ -57,7 +58,6 @@ from pamola_core.utils.io import (
 from pamola_core.utils.io_helpers import crypto_utils, directory_utils
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_field_utils import (
     create_field_mask,
@@ -75,40 +75,6 @@ import dask.dataframe as dd
 
 # Type alias for suppressed schema structure
 SuppressedSchema = Dict[str, Dict[str, Any]]
-
-
-class AttributeSuppressionConfig(OperationConfig):
-    """Configuration schema for AttributeSuppressionOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common parameters
-            {
-                "type": "object",
-                "properties": {
-                    "field_name": {"type": "string"},
-                    "additional_fields": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                    },
-                    "suppression_mode": {"type": "string", "enum": ["REMOVE"]},
-                    "save_suppressed_schema": {"type": "boolean"},
-                    # Multi-field conditions
-                    "multi_conditions": {"type": ["array", "null"]},
-                    "condition_logic": {"type": "string"},
-                    # Conditional processing parameters
-                    "condition_field": {"type": ["string", "null"]},
-                    "condition_values": {"type": ["array", "null"]},
-                    "condition_operator": {"type": "string"},
-                    # K-anonymity integration
-                    "ka_risk_field": {"type": ["string", "null"]},
-                    "risk_threshold": {"type": "number"},
-                },
-                "required": ["field_name", "suppression_mode"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

@@ -62,7 +62,6 @@ class TransformationOperation(BaseOperation):
         self,
         name: str = "transformation_operation",
         field_name: Optional[str] = None,
-        output_field_name: Optional[str] = None,
         **kwargs,
     ):
         """Initialize the transformation operation.
@@ -73,8 +72,6 @@ class TransformationOperation(BaseOperation):
             Name of the operation (default: "transformation_operation")
         field_name : str, optional
             Field name to transform (default: None, meaning all applicable fields)
-        output_field_name : str, optional
-            Name for the output field if mode is "ENRICH" (default: None)
         **kwargs : dict
             Additional parameters passed to :class:`BaseOperation`.
         """
@@ -98,7 +95,6 @@ class TransformationOperation(BaseOperation):
         # --- Core transformation attributes ---
         self.field_name = field_name
         self.field_label = field_label
-        self.output_field_name = output_field_name
 
     def execute(
         self,

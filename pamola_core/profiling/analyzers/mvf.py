@@ -51,6 +51,7 @@ from pamola_core.profiling.commons.mvf_utils import (
     estimate_resources,
     process_mvf_partition,
 )
+from pamola_core.profiling.schemas.mvf_config import MVFAnalysisOperationConfig
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
@@ -406,29 +407,6 @@ class MVFAnalyzer:
             Estimated resource requirements
         """
         return estimate_resources(df, field_name)
-
-
-class MVFAnalysisOperationConfig(OperationConfig):
-    """Configuration for MVFOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge shared base fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- Operation-specific fields ---
-                    "field_name": {"type": "string"},
-                    "top_n": {"type": "integer", "minimum": 1, "default": 20},
-                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-                    "format_type": {"type": ["string", "null"], "default": None},
-                    "parse_kwargs": {"type": "object", "default": {}},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

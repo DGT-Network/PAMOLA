@@ -53,16 +53,16 @@ import json
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Optional, Union
-from enum import Enum
+from typing import Dict, List, Any, Optional
 from itertools import combinations
 
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.common.constants import Constants
+from pamola_core.profiling.commons.analysis_mode_enum import AnalysisMode
+from pamola_core.profiling.schemas.anonymity_config import KAnonymityProfilerOperationConfig
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -90,66 +90,6 @@ from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-
-class AnalysisMode(Enum):
-    """K-anonymity analysis modes."""
-
-    ANALYZE = "ANALYZE"  # Generate metrics and reports
-    ENRICH = "ENRICH"  # Add k-values to DataFrame
-    BOTH = "BOTH"  # Both analyze and enrich
-
-
-class KAnonymityProfilerOperationConfig(OperationConfig):
-    """Configuration for KAnonymityProfilerOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common BaseOperation fields
-            {
-                "type": "object",
-                "properties": {
-                    "quasi_identifiers": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                        "default": None,
-                    },
-                    "analysis_mode": {
-                        "type": "string",
-                        "enum": [
-                            AnalysisMode.ANALYZE.value,
-                            AnalysisMode.ENRICH.value,
-                            AnalysisMode.BOTH.value,
-                        ],
-                        "default": AnalysisMode.ANALYZE.value,
-                    },
-                    "threshold_k": {"type": "integer", "minimum": 1, "default": 5},
-                    "export_metrics": {"type": "boolean", "default": True},
-                    "max_combinations": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "default": 50,
-                    },
-                    "output_field_suffix": {"type": "string", "default": "k_anon"},
-                    "quasi_identifier_sets": {
-                        "type": ["array", "null"],
-                        "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                        "default": None,
-                    },
-                    "id_fields": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                        "default": None,
-                    },
-                },
-                "required": ["quasi_identifiers"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

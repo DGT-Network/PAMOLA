@@ -31,6 +31,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import pandas as pd
+from pamola_core.profiling.schemas.phone_config import PhoneOperationConfig
 from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.profiling.commons.phone_utils import (
     analyze_phone_field,
@@ -307,32 +308,6 @@ class PhoneAnalyzer:
             Estimated resource requirements
         """
         return estimate_resources(df, field_name)
-
-
-class PhoneOperationConfig(OperationConfig):
-    """Configuration for PhoneOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- Phone-specific fields ---
-                    "field_name": {"type": "string"},
-                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-                    "patterns_csv": {"type": ["string", "null"], "default": None},
-                    "country_codes": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                        "default": None,
-                    },
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

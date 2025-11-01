@@ -85,6 +85,7 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_histogram,
     create_comparison_visualization,
 )
+from pamola_core.anonymization.schemas.cell_op_config import CellSuppressionConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
@@ -96,7 +97,6 @@ from pamola_core.utils.io import (
 from pamola_core.utils.io_helpers import crypto_utils, directory_utils
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_field_utils import create_field_mask
 from pamola_core.utils.ops.op_result import (
@@ -112,55 +112,6 @@ import dask.dataframe as dd
 # Constants for memory management
 MAX_GROUP_STATISTICS_SIZE = 10000
 
-
-class CellSuppressionConfig(OperationConfig):
-    """Configuration schema for CellSuppressionOperation with with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common base fields
-            {
-                "type": "object",
-                "properties": {
-                    # Suppression-specific fields
-                    "field_name": {"type": "string"},
-                    "suppression_strategy": {
-                        "type": "string",
-                        "enum": [
-                            "null",
-                            "mean",
-                            "median",
-                            "mode",
-                            "constant",
-                            "group_mean",
-                            "group_mode",
-                        ],
-                    },
-                    "suppression_value": {},
-                    "group_by_field": {"type": ["string", "null"]},
-                    "min_group_size": {"type": "integer", "minimum": 1},
-                    "suppress_if": {
-                        "type": ["string", "null"],
-                        "enum": ["outlier", "rare", "null"],
-                    },
-                    "outlier_method": {
-                        "type": "string",
-                        "enum": ["iqr", "zscore"],
-                    },
-                    "outlier_threshold": {"type": "number", "minimum": 0},
-                    "rare_threshold": {"type": "integer", "minimum": 1},
-                    # Conditional processing
-                    "condition_field": {"type": ["string", "null"]},
-                    "condition_values": {"type": ["array", "null"]},
-                    "condition_operator": {"type": "string"},
-                    # Output field name
-                    "output_field_name": {"type": ["string", "null"]},
-                },
-                "required": ["field_name", "suppression_strategy"],
-            },
-        ],
-    }
 
 @register(version="1.0.0")
 class CellSuppressionOperation(AnonymizationOperation):

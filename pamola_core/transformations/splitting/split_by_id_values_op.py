@@ -33,7 +33,6 @@ from datetime import datetime
 import hashlib
 import json
 import time
-from enum import Enum
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Union, Tuple
 import numpy as np
@@ -43,6 +42,7 @@ import matplotlib
 # Set the backend to 'Agg' to avoid GUI issues
 matplotlib.use("Agg")
 from pamola_core.transformations.base_transformation_op import TransformationOperation
+from pamola_core.transformations.commons.enum import PartitionMethod
 from pamola_core.utils.io import (
     load_data_operation,
     ensure_directory,
@@ -69,46 +69,7 @@ from pamola_core.utils.io_helpers import crypto_utils, directory_utils
 import dask.dataframe as dd
 from joblib import Parallel, delayed
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
-
-
-class PartitionMethod(Enum):
-    EQUAL_SIZE = "equal_size"
-    RANDOM = "random"
-    MODULO = "modulo"
-
-
-class OutputFormat(Enum):
-    CSV = "csv"
-    JSON = "json"
-
-
-class SplitByIDValuesOperationConfig(OperationConfig):
-    """Configuration for SplitByIDValuesOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common base fields
-            {
-                "type": "object",
-                "properties": {
-                    "id_field": {"type": "string"},
-                    "value_groups": {"type": ["object", "null"]},
-                    "number_of_partitions": {"type": "integer", "minimum": 0},
-                    "partition_method": {
-                        "type": "string",
-                        "enum": [
-                            PartitionMethod.EQUAL_SIZE.value,
-                            PartitionMethod.RANDOM.value,
-                            PartitionMethod.MODULO.value,
-                        ],
-                    },
-                    "invalid_values": {"type": ["object", "null"]},
-                },
-            },
-        ],
-    }
+from pamola_core.transformations.schemas.split_by_id_values_op_config import SplitByIDValuesOperationConfig
 
 
 @register(version="1.0.0")

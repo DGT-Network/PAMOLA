@@ -43,7 +43,7 @@ from pamola_core.metrics.commons.safe_instantiate import safe_instantiate
 from pamola_core.metrics.privacy.distance import DistanceToClosestRecord
 from pamola_core.metrics.privacy.identity import Uniqueness
 from pamola_core.metrics.privacy.neighbor import NearestNeighborDistanceRatio
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+from pamola_core.metrics.schemas.privacy_ops_config import PrivacyMetricConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -55,48 +55,6 @@ PRIVACY_METRIC_FACTORY = {
     PrivacyMetricsType.NNDR.value: NearestNeighborDistanceRatio,
     PrivacyMetricsType.UNIQUENESS.value: Uniqueness,
 }
-
-
-class PrivacyMetricConfig(OperationConfig):
-    """Configuration for PrivacyMetricOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common fields
-            {
-                "type": "object",
-                "properties": {
-                    "privacy_metrics": {
-                        "type": "array",
-                        "items": {
-                            "type": "string",
-                            "enum": [
-                                PrivacyMetricsType.DCR.value,
-                                PrivacyMetricsType.NNDR.value,
-                                PrivacyMetricsType.UNIQUENESS.value,
-                                PrivacyMetricsType.K_ANONYMITY.value,
-                                PrivacyMetricsType.L_DIVERSITY.value,
-                            ],
-                        },
-                        "default": [PrivacyMetricsType.DCR.value],
-                    },
-                    "metric_params": {"type": ["object", "null"]},
-                    "columns": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "column_mapping": {"type": ["object", "null"]},
-                    "sample_size": {
-                        "type": ["integer", "null"],
-                        "minimum": 1,
-                        "description": "Size of dataset sample used for metric calculation.",
-                    },
-                },
-                "required": ["privacy_metrics"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

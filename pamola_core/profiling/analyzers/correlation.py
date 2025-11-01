@@ -29,13 +29,14 @@ from datetime import datetime
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Tuple, Optional, Union
+from typing import Dict, List, Any, Tuple, Optional
 import pandas as pd
 from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation,
     analyze_correlation_matrix,
     estimate_resources,
 )
+from pamola_core.profiling.schemas.correlation_config import CorrelationMatrixOperationConfig, CorrelationOperationConfig
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
@@ -60,7 +61,6 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
 class CorrelationAnalyzer:
@@ -162,43 +162,6 @@ class CorrelationAnalyzer:
             Estimated resource requirements
         """
         return estimate_resources(df, field1, field2)
-
-
-class CorrelationOperationConfig(OperationConfig):
-    """Configuration for CorrelationOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common BaseOperation fields
-            {
-                "type": "object",
-                "properties": {
-                    "field1": {"type": "string"},
-                    "field2": {"type": "string"},
-                    "method": {
-                        "type": ["string", "null"],
-                        "enum": [
-                            "pearson",
-                            "spearman",
-                            "cramers_v",
-                            "correlation_ratio",
-                            "point_biserial",
-                            None,
-                        ],
-                        "default": None,
-                    },
-                    "null_handling": {
-                        "type": ["string", "null"],
-                        "enum": ["drop", "fill_zero", "fill_mean", None],
-                        "default": "drop",
-                    },
-                    "mvf_parser": {"type": ["string", "null"], "default": None},
-                },
-                "required": ["field1", "field2"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")
@@ -1357,11 +1320,6 @@ class CorrelationOperation(FieldOperation):
             "description": self.description,
             "null_handling": self.null_handling,
             "mvf_parser": self.mvf_parser,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "chunk_size": self.chunk_size,
             "visualization_theme": self.visualization_theme,
             "visualization_backend": self.visualization_backend,
             "visualization_strict": self.visualization_strict,
@@ -1437,54 +1395,6 @@ class CorrelationOperation(FieldOperation):
             steps += 1  # Step 8: Save cache
 
         return steps
-
-
-class CorrelationMatrixOperationConfig(OperationConfig):
-    """Configuration for CorrelationMatrixOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,
-            {
-                "type": "object",
-                "properties": {
-                    "fields": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 2,
-                        "default": [],
-                    },
-                    "methods": {
-                        "type": ["object", "null"],
-                        "additionalProperties": {
-                            "type": "string",
-                            "enum": [
-                                "pearson",
-                                "spearman",
-                                "cramers_v",
-                                "correlation_ratio",
-                                "point_biserial",
-                            ],
-                        },
-                        "default": None,
-                    },
-                    "min_threshold": {
-                        "type": "number",
-                        "minimum": 0.0,
-                        "maximum": 1.0,
-                        "default": 0.3,
-                    },
-                    "null_handling": {
-                        "type": "string",
-                        "enum": ["drop", "fill_zero", "fill_mean"],
-                        "default": "drop",
-                    },
-                },
-                "required": ["fields"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

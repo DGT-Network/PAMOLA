@@ -31,6 +31,7 @@ from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional
 import pandas as pd
+from pamola_core.profiling.analyzers.email_dask import EmailOperationConfig
 from pamola_core.profiling.commons.email_utils import (
     analyze_email_field,
     create_domain_dictionary,
@@ -161,33 +162,6 @@ class EmailAnalyzer:
             Estimated resource requirements
         """
         return estimate_resources(df, field_name)
-
-
-class EmailOperationConfig(OperationConfig):
-    """Configuration for EmailOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common operation fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- Email-specific parameters ---
-                    "field_name": {"type": "string"},
-                    "top_n": {"type": "integer", "minimum": 1, "default": 20},
-                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-                    "profile_type": {
-                        "type": "string",
-                        "enum": ["email"],
-                        "default": "email",
-                    },
-                    "analyze_privacy_risk": {"type": "boolean", "default": True},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

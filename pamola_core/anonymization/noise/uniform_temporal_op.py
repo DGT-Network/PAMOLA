@@ -74,8 +74,8 @@ from pamola_core.anonymization.commons.validation import (
     InvalidParameterError,
     DateTimeFieldValidator,
 )
+from pamola_core.anonymization.schemas.uniform_temporal_op_config import UniformTemporalNoiseConfig
 from pamola_core.common.helpers.data_helper import DataHelper
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 # Import framework utilities
 from pamola_core.utils.ops.op_registry import register
@@ -85,76 +85,6 @@ VALID_DIRECTIONS = ["both", "forward", "backward"]
 VALID_GRANULARITIES = ["day", "hour", "minute", "second", None]
 BUSINESS_DAYS = [0, 1, 2, 3, 4]  # Monday to Friday
 WEEKEND_DAYS = [5, 6]  # Saturday, Sunday
-
-
-class UniformTemporalNoiseConfig(OperationConfig):
-    """Configuration for UniformTemporalNoiseOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge common fields from base config
-            {
-                "type": "object",
-                "properties": {
-                    "field_name": {"type": "string"},
-                    # Temporal noise parameters
-                    "noise_range_days": {"type": ["number", "null"]},
-                    "noise_range_hours": {"type": ["number", "null"]},
-                    "noise_range_minutes": {"type": ["number", "null"]},
-                    "noise_range_seconds": {"type": ["number", "null"]},
-                    "noise_range": {
-                        "type": ["object", "null"],
-                        "properties": {
-                            "noise_range_days": {"type": ["number", "null"]},
-                            "noise_range_hours": {"type": ["number", "null"]},
-                            "noise_range_minutes": {"type": ["number", "null"]},
-                            "noise_range_seconds": {"type": ["number", "null"]},
-                        },
-                    },
-                    # Direction control
-                    "direction": {
-                        "type": "string",
-                        "enum": ["both", "forward", "backward"],
-                        "default": "both",
-                    },
-                    # Boundary constraints
-                    "min_datetime": {"type": ["string", "null"]},
-                    "max_datetime": {"type": ["string", "null"]},
-                    # Special date handling
-                    "preserve_special_dates": {"type": "boolean", "default": False},
-                    "special_dates": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                    },
-                    "preserve_weekends": {"type": "boolean", "default": False},
-                    "preserve_time_of_day": {"type": "boolean", "default": False},
-                    # Granularity
-                    "output_granularity": {
-                        "type": ["string", "null"],
-                        "enum": ["day", "hour", "minute", "second", None],
-                    },
-                    # Reproducibility
-                    "random_seed": {"type": ["integer", "null"]},
-                    "use_secure_random": {"type": "boolean", "default": True},
-                    # Multi-field conditions
-                    "multi_conditions": {"type": ["array", "null"]},
-                    "condition_logic": {"type": "string"},
-                    # Conditional processing parameters
-                    "condition_field": {"type": ["string", "null"]},
-                    "condition_values": {"type": ["array", "null"]},
-                    "condition_operator": {"type": "string"},
-                    # K-anonymity integration
-                    "ka_risk_field": {"type": ["string", "null"]},
-                    "risk_threshold": {"type": "number"},
-                    "vulnerable_record_strategy": {"type": "string"},
-                    # Output field name configuration
-                    "output_field_name": {"type": ["string", "null"]},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")
