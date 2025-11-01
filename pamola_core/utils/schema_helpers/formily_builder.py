@@ -1,9 +1,6 @@
 import copy
-from email.policy import default
 from typing import Any, Dict, List
 import copy
-
-from numpy import place
 
 from pamola_core.common.enum.operator_field_group import (
     OPERATOR_FIELD_GROUP_TITLE,
@@ -199,7 +196,7 @@ def convert_property(
 
 
 def add_x_reactions_for_strategy_required(formily_schema, schema):
-    # Xử lý trực tiếp trên schema gốc
+    # Directly handle on the original schema
     if "if" in schema and "then" in schema and "required" in schema["then"]:
         condition = schema["if"]
         then = schema.get("then", {})
@@ -306,7 +303,7 @@ def add_x_reactions_for_strategy_required(formily_schema, schema):
                                 "x-reactions"
                             ] = reactions
 
-        # Xóa if/then/else sau khi xử lý
+        # Remove if/then/else after processing
         formily_schema.pop("if", None)
         formily_schema.pop("then", None)
         if "else" in formily_schema:
