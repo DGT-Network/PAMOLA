@@ -30,6 +30,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Type, TypeVar, Generic, Union
 
+from pamola_core.common.enum.operator_field_group import OperatorFieldGroup
+
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -306,7 +308,7 @@ class BaseOperationConfig(OperationConfig):
             "scope": {
                 "type": ["object", "null"],
                 "title": "Execution Scope",
-                "description": "Optional scope or context within which the operation will execute."
+                "description": "Optional scope or context within which the operation will execute.",
             },
             "config": {
                 "type": ["object", "null"],
@@ -317,38 +319,47 @@ class BaseOperationConfig(OperationConfig):
             # --- Performance & Processing ---
             "optimize_memory": {
                 "type": "boolean",
+                "x-component": "Checkbox",
                 "title": "Optimize Memory Usage",
                 "description": "If true, operations will use memory-efficient data structures.",
-                "default": True
+                "default": True,
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "adaptive_chunk_size": {
                 "type": "boolean",
                 "title": "Adaptive Chunk Size",
+                "x-component": "Checkbox",
                 "description": "Automatically adjust chunk size based on data volume and system resources.",
-                "default": True
+                "default": True,
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "mode": {
                 "type": "string",
-                # "enum": ["REPLACE", "ENRICH"],
+                "x-component": "Select",
                 "oneOf": [
                     {"const": "REPLACE", "description": "Replace"},
                     {"const": "ENRICH", "description": "Enrich"}
                 ],
                 "title": "Processing Mode",
                 "description": "Defines how results will be applied to the dataset: REPLACE overwrites, ENRICH adds new data.",
-                "default": "REPLACE"
+                "default": "REPLACE",
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
             },
             "column_prefix": {
                 "type": "string",
                 "title": "Column Prefix",
+                "x-component": "Input",
                 "description": "Prefix to apply to newly generated columns.",
-                "default": "_"
+                "default": "_",
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
             },
             "output_field_name": {
                 "type": ["string", "null"],
                 "title": "Output Field Name",
+                "x-component": "Input",
                 "description": "Optional custom name for the generated or modified output field.",
-                "default": ""
+                "default": "",
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
             },
             "null_strategy": {
                 "type": "string",
@@ -358,74 +369,110 @@ class BaseOperationConfig(OperationConfig):
                     {"const": "ANONYMIZE", "description": "Anonymize"},
                     {"const": "ERROR", "description": "Error"}
                 ],
-                # "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
+                "x-component": "Select",
                 "title": "Null Handling Strategy",
                 "description": "Determines how null or missing values are handled during processing.",
-                "default": "PRESERVE"
+                "default": "PRESERVE",
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
             },
             "engine": {
                 "type": "string",
-                "enum": ["auto", "pandas", "dask"],
+                "oneOf": [
+                    {"const": "auto", "description": "Auto"},
+                    {"const": "pandas", "description": "Pandas"},
+                    {"const": "dask", "description": "Dask"},
+                ],
+                "x-component": "Select",
                 "title": "Execution Engine",
                 "description": "Execution backend used to process data. 'auto' selects the best engine automatically.",
-                "default": "auto"
+                "default": "auto",
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "use_dask": {
                 "type": "boolean",
                 "title": "Enable Dask Processing",
+                "x-component": "Checkbox",
                 "description": "If true, operations are distributed across multiple Dask workers.",
-                "default": False
+                "default": False,
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "npartitions": {
                 "type": ["integer", "null"],
                 "title": "Number of Dask Partitions",
+                "x-component": "NumberPicker",
                 "description": "Number of partitions to split the dataset into for parallel processing.",
-                "minimum": 1
+                "minimum": 1,
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "dask_partition_size": {
                 "type": ["string", "null"],
                 "title": "Dask Partition Size",
+                "x-component": "Input",
                 "description": "Approximate size of each Dask partition (e.g. '100MB').",
-                "default": "100MB"
+                "default": "100MB",
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "use_vectorization": {
                 "type": "boolean",
+                "x-component": "Checkbox",
                 "title": "Enable Vectorization",
                 "description": "Use NumPy vectorized operations for faster computation where applicable.",
-                "default": False
+                "default": False,
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "parallel_processes": {
                 "type": ["integer", "null"],
                 "title": "Parallel Processes",
+                "x-component": "NumberPicker",
                 "description": "Number of CPU processes to use for parallel execution.",
-                "minimum": 1
+                "minimum": 1,
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "chunk_size": {
                 "type": "integer",
                 "title": "Chunk Size",
+                "x-component": "NumberPicker",
                 "description": "Number of rows to process per batch when streaming or chunked processing is enabled.",
                 "minimum": 1,
-                "default": 10000
+                "default": 10000,
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
 
             # --- Output ---
             "use_cache": {
                 "type": "boolean",
                 "title": "Use Result Cache",
+                "x-component": "Checkbox",
                 "description": "Cache the operation output to speed up repeated runs with the same inputs.",
-                "default": False
+                "default": False,
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "output_format": {
                 "type": "string",
-                "enum": ["csv", "parquet", "json"],
+                "oneOf": [
+                    {"const": "csv", "description": "csv"},
+                    {"const": "parquet", "description": "parquet"},
+                    {"const": "json", "description": "json"},
+                ],
+                "x-component": "Select",
                 "title": "Output Format",
                 "description": "Format used when saving processed output data.",
-                "default": "csv"
+                "default": "csv",
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
+            },
+            "output_field_name": {
+                "type": ["string", "null"],
+                "title": "Output Field Name",
+                "x-component": "Input",
+                "description": "Optional custom name for the generated or modified output field.",
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
             },
             "visualization_theme": {
                 "type": ["string", "null"],
                 "title": "Visualization Theme",
-                "description": "Optional color or layout theme for visualizations."
+                "x-component": "Input",
+                "description": "Optional color or layout theme for visualizations.",
+                "x-group": OperatorFieldGroup.ADVANCE_VISUALIZATION
             },
             "visualization_backend": {
                 "type": ["string", "null"],
@@ -434,67 +481,84 @@ class BaseOperationConfig(OperationConfig):
                     {"const": "plotly", "description": "Plotly"},
                     {"const": "matplotlib", "description": "Matplotlib"}
                 ],
+                "x-component": "Select",
                 "title": "Visualization Backend",
                 "description": "Rendering backend for generated plots and charts.",
-                "default": "plotly"
+                "default": "plotly",
+                "x-group": OperatorFieldGroup.ADVANCE_VISUALIZATION
             },
             "visualization_strict": {
                 "type": "boolean",
                 "title": "Strict Visualization Mode",
+                "x-component": "Checkbox",
                 "description": "If true, visualization errors will stop execution instead of being ignored.",
-                "default": False
+                "default": False,
+                "x-group": OperatorFieldGroup.ADVANCE_VISUALIZATION
             },
             "visualization_timeout": {
                 "type": "integer",
                 "title": "Visualization Timeout (seconds)",
+                "x-component": "NumberPicker",
                 "description": "Maximum time allowed for generating visualization before timing out.",
                 "minimum": 1,
-                "default": 120
+                "default": 120,
+                "x-group": OperatorFieldGroup.ADVANCE_VISUALIZATION
             },
 
             # --- Security & Encryption ---
             "use_encryption": {
                 "type": "boolean",
                 "title": "Enable Encryption",
+                "x-component": "Checkbox",
                 "description": "Encrypt sensitive data outputs using the selected encryption mode.",
-                "default": False
+                "default": False,
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
             },
             "encryption_mode": {
                 "type": ["string", "null"],
-                # "enum": ["age", "simple", "none", None],
                 "oneOf": [
                     {"const": "age", "description": "Age"},
                     {"const": "simple", "description": "Simple"},
                     {"const": "none", "description": "None"}
                 ],
+                "x-component": "Select",
                 "title": "Encryption Mode",
                 "description": "Algorithm used for encrypting outputs. 'none' disables encryption.",
-                "default": "none"
+                "default": "none",
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
             },
             "encryption_key": {
                 "type": ["string", "null"],
                 "title": "Encryption Key",
-                "description": "Key or passphrase used for encryption when enabled."
+                "x-component": "Input",
+                "description": "Key or passphrase used for encryption when enabled.",
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
             },
 
             # --- Runtime & Execution Control ---
             "force_recalculation": {
                 "type": "boolean",
                 "title": "Force Recalculation",
+                "x-component": "Checkbox",
                 "description": "Re-run operation even if cached results exist.",
-                "default": False
+                "default": False,
+                "x-group": OperatorFieldGroup.ADVANCE_PERFORMANCE
             },
             "generate_visualization": {
                 "type": "boolean",
                 "title": "Generate Visualization",
+                "x-component": "Checkbox",
                 "description": "If true, automatically generate visualization outputs after processing.",
-                "default": True
+                "default": True,
+                "x-group": OperatorFieldGroup.ADVANCE_VISUALIZATION
             },
             "save_output": {
                 "type": "boolean",
                 "title": "Save Output",
+                "x-component": "Checkbox",
                 "description": "If true, persist processed data to disk or database.",
-                "default": True
+                "default": True,
+                "x-group": OperatorFieldGroup.ADVANCE_OUTPUT_CONTROL
             },
         },
     }

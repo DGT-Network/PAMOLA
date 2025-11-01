@@ -129,7 +129,6 @@ from pamola_core.common.constants import Constants
 from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register

@@ -16,4 +16,11 @@ These fields are typically configuration or engine-related and should not be pro
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
-PARTIAL_MASKING_EXCLUDE_FIELDS = ["config", "scope", "engine"]
+
+PARTIAL_MASKING_EXCLUDE_FIELDS = [
+    "config",
+    "scope",
+    "engine",
+    "encryption_mode",
+    "encryption_key",
+]

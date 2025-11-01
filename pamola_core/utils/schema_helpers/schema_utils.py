@@ -120,7 +120,8 @@ def get_filtered_schema(schema: dict, exclude_fields: Optional[list] = None) -> 
     exclude_fields = exclude_fields or []
     schema = copy.deepcopy(schema)
     # Recursively remove excluded fields from the schema (including nested objects/arrays)
-    remove_fields_recursive(schema, exclude_fields)
+    if exclude_fields:
+        remove_fields_recursive(schema, exclude_fields)
     return schema
 
 

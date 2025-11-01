@@ -1,6 +1,14 @@
 import copy
+from email.policy import default
 from typing import Any, Dict, List
 import copy
+
+from numpy import place
+
+from pamola_core.common.enum.operator_field_group import (
+    OPERATOR_FIELD_GROUP_TITLE,
+    OperatorFieldGroup,
+)
 
 
 def merge_allOf(allOf_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -19,91 +27,86 @@ def merge_allOf(allOf_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
         merged["properties"] = merged_properties
     return merged
 
+
 def _is_min_max_array(items_schema):
-        return (
-            isinstance(items_schema, dict)
-            and items_schema.get("type") == "array"
-            and items_schema.get("minItems") is not None
-            and items_schema.get("maxItems") is not None
-            and isinstance(items_schema.get("items"), dict)
-            and items_schema["items"].get("type") == "number"
-        )
+    return (
+        isinstance(items_schema, dict)
+        and items_schema.get("type") == "array"
+        and items_schema.get("minItems") is not None
+        and items_schema.get("maxItems") is not None
+        and isinstance(items_schema.get("items"), dict)
+        and items_schema["items"].get("type") == "number"
+    )
+
 
 def convert_property(
     name: str, prop: Dict[str, Any], required_fields: List[str] = []
 ) -> Dict[str, Any]:
     field = copy.deepcopy(prop)
     field["name"] = name
+    field["x-decorator"] = "FormItem"
+    if "description" in prop:
+        field.pop("description", None)  # Remove description if present
+
+    if "type" in prop:
+        t = prop["type"]
+        if t == "integer" or (isinstance(t, list) and "integer" in t):
+            field["type"] = "number"
+        else:
+            field["type"] = t
+
+    if "default" in field:
+        field["default"] = field["default"]
 
     # Required
     if name in required_fields:
-        field["requires"] = True
+        field["required"] = True
 
-    # Enum to Select
-    if "enum" in field and "x-component" not in field:
-        field["x-component"] = "Select"
-        field["x-component-props"] = {
-            "getPopupContainer": "{{(node) => node?.parentElement || document.body}}"
-        }
+    if "x-component" not in field:
+        return field
 
-    # oneOf with const to Select
-    if "oneOf" in field and all(
-        isinstance(opt, dict) and "const" in opt for opt in field["oneOf"]
-    ):
-        field["x-component"] = "Select"
-        field["enum"] = [
-            {"value": opt["const"], "label": opt.get("description", str(opt["const"]))}
-            for opt in field["oneOf"]
-        ]
+    if field["x-component"] == "Select":
+        if (
+            field["type"] == "string"
+            or (isinstance(t, list) and "string" in t)
+            or field["type"] == "array"
+            or (isinstance(t, list) and "array" in t)
+        ):
+            field["x-component-props"] = {
+                "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",
+                "showSearch": True,
+                "allowClear": True,
+                "optionFilterProp": "label",
+            }
+            if field["type"] == "string" or (isinstance(t, list) and "string" in t):
+                field["x-component-props"]["placeholder"] = field["title"]
+            if field["type"] == "array" or (isinstance(t, list) and "array" in t):
+                field["x-component-props"]["mode"] = "multiple"
+                field["x-component-props"]["placeholder"] = "Select options"
+        else:
+            field["x-component-props"] = {
+                "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",
+                "showSearch": True,
+            }
 
-        field["x-component-props"] = {
-            "getPopupContainer": "{{(node) => node?.parentElement || document.body}}"
-        }
-        
-        field.pop("oneOf", None)
+        if "oneOf" in field and all(
+            isinstance(opt, dict) and "const" in opt for opt in field["oneOf"]
+        ):
+            field["enum"] = [
+                {
+                    "value": opt["const"],
+                    "label": opt.get("description", str(opt["const"])),
+                }
+                for opt in field["oneOf"]
+            ]
+            field.pop("oneOf", None)
 
-    # String to Input
-    if (
-        field.get("type") == "string"
-        or (isinstance(field.get("type"), list) and "string" in field.get("type", []))
-    ) and "x-component" not in field:
-        field["x-component"] = "Input"
+    if field["x-component"] == "Switch":
+        field["x-content"] = f"Enable {field['title']}"
 
-    # Boolean to Switch
-    if (
-        field.get("type") == "boolean"
-        or (isinstance(field.get("type"), list) and "boolean" in field.get("type", []))
-    ) and "x-component" not in field:
-        field["x-component"] = "Switch"
-        if "title" in field:
-            field["x-content"] = f"Enable {field['title']}"
-
-    # Integer/Number to NumberPicker
-    if (
-        field.get("type") == "integer"
-        or field.get("type") == "number"
-        or (
-            isinstance(field.get("type"), list)
-            and (
-                "integer" in field.get("type", []) or "number" in field.get("type", [])
-            )
-        )
-    ):
-        field["type"] = "number"
-        field["x-component"] = "NumberPicker"
-        field["x-decorator"] = "FormItem"
+    if field["x-component"] == "NumberPicker":
         min_val = field.get("minimum", 1)
         field["x-component-props"] = {"min": min_val, "step": 1}
-        if "default" in prop:
-            field["default"] = prop["default"]
-
-    # Add x-decorator
-    if "x-component" in field and "x-decorator" not in field:
-        field["x-decorator"] = "FormItem"
-
-    # Default value mapping
-    if "default" in field:
-        field["default"] = field["default"]
 
     # Nested object
     if field.get("type") == "object" and "properties" in field:
@@ -113,61 +116,58 @@ def convert_property(
             for k, v in field["properties"].items()
         }
 
-    # Handle arrays
-    field_type = field.get("type")
-    if (
-        (field_type == "array")
-        or (isinstance(field_type, list) and "array" in field_type)
-    ) and "items" in field:
-        items_schema = field["items"]
-        if _is_min_max_array(items_schema):
-            field["type"] = "array"
-            field["x-decorator"] = "FormItem"
-            field["x-component"] = "ArrayItems"
-            field["items"] = {
-                "type": "object",
-                "x-component": "ArrayItems.Item",
-                "properties": {
-                    "min": {
-                        "type": "number",
-                        "title": "Min value",
-                        "x-decorator": "FormItem",
-                        "x-component": "NumberPicker",
-                        "x-component-props": {"placeholder": "Min value"},
-                    },
-                    "max": {
-                        "type": "number",
-                        "title": "Max value",
-                        "x-decorator": "FormItem",
-                        "x-component": "NumberPicker",
-                        "x-component-props": {"placeholder": "Max value"},
-                        "x-reactions": [
-                            {
-                                "dependencies": [".min"],
-                                "when": "{{$deps[0] !== undefined && $self.value !== undefined}}",
-                                "fulfill": {
-                                    "run": "if ($self.value <= $deps[0]) { $self.setFeedback({ type: 'error', code: 'range', messages: ['Max must be greater than Min'] }) } else { $self.setFeedback({ type: 'error', code: 'range', messages: [] }) }"
-                                },
-                            }
-                        ],
-                    },
-                    "remove": {
-                        "type": "void",
-                        "x-component": "ArrayItems.Remove",
-                        "x-component-props": {"style": {"marginLeft": "8px"}},
-                    },
-                },
-            }
-            field["properties"] = {
-                "add": {
-                    "type": "void",
-                    "title": "Add",
-                    "x-component": "ArrayItems.Addition",
-                    "x-component-props": {"style": {"marginTop": "8px"}},
-                }
-            }
-        elif isinstance(items_schema, dict) and items_schema.get("type") == "string":
-            # Trường hợp array các string: chuyển thành object có trường value và remove
+    if field["x-component"] == "ArrayItems":
+        if "items" in field:
+            items_schema = field["items"]
+            if field["type"] == "array" or (isinstance(t, list) and "array" in t):
+                if _is_min_max_array(items_schema):
+                    field["type"] = "array"
+                    field["x-decorator"] = "FormItem"
+                    field["x-component"] = "ArrayItems"
+                    field["items"] = {
+                        "type": "object",
+                        "x-component": "ArrayItems.Item",
+                        "properties": {
+                            "min": {
+                                "type": "number",
+                                "title": "Min value",
+                                "x-decorator": "FormItem",
+                                "x-component": "NumberPicker",
+                                "x-component-props": {"placeholder": "Min value"},
+                            },
+                            "max": {
+                                "type": "number",
+                                "title": "Max value",
+                                "x-decorator": "FormItem",
+                                "x-component": "NumberPicker",
+                                "x-component-props": {"placeholder": "Max value"},
+                                "x-decorator-props": {"style": {"marginLeft": "8px"}},
+                                "x-reactions": [
+                                    {
+                                        "dependencies": [".min"],
+                                        "when": "{{$deps[0] !== undefined && $self.value !== undefined}}",
+                                        "fulfill": {
+                                            "run": "if ($self.value <= $deps[0]) { $self.setFeedback({ type: 'error', code: 'range', messages: ['Max must be greater than Min'] }) } else { $self.setFeedback({ type: 'error', code: 'range', messages: [] }) }"
+                                        },
+                                    }
+                                ],
+                            },
+                            "remove": {
+                                "type": "void",
+                                "x-component": "ArrayItems.Remove",
+                                "x-component-props": {"style": {"marginLeft": "8px"}},
+                            },
+                        },
+                    }
+                    field["properties"] = {
+                        "add": {
+                            "type": "void",
+                            "title": "Add",
+                            "x-component": "ArrayItems.Addition",
+                            "x-component-props": {"style": {"marginTop": "8px"}},
+                        }
+                    }
+        elif field["type"] == "string":
             field["type"] = "array"
             field["x-decorator"] = "FormItem"
             field["x-component"] = "ArrayItems"
@@ -190,31 +190,127 @@ def convert_property(
             field["properties"] = {
                 "add": {
                     "type": "void",
-                    "title": "Add Item",
+                    "title": "Add",
                     "x-component": "ArrayItems.Addition",
                 }
             }
-        else:
-            field["items"] = convert_json_schema_to_formily(field["items"])
-
-    # Handle oneOf inside property
-    if "oneOf" in field:
-        field["x-reactions"] = [
-            {
-                "when": "{{ $self.value }}",
-                "fulfill": {
-                    "schema": {
-                        "oneOf": [
-                            convert_json_schema_to_formily(option)
-                            for option in field["oneOf"]
-                        ]
-                    }
-                },
-            }
-        ]
-        field.pop("oneOf", None)
 
     return field
+
+
+def add_x_reactions_for_strategy_required(formily_schema, schema):
+    # Xử lý trực tiếp trên schema gốc
+    if "if" in schema and "then" in schema and "required" in schema["then"]:
+        condition = schema["if"]
+        then = schema.get("then", {})
+        if "anyOf" in condition:
+            if "properties" in then:
+                any_of_list = condition["anyOf"]
+                for any_of_condition in any_of_list:
+                    if "required" in any_of_condition and isinstance(
+                        any_of_condition["required"], list
+                    ):
+                        required_fields = any_of_condition["required"]
+                        for required_field in required_fields:
+                            reactions = formily_schema["properties"][
+                                required_field
+                            ].get("x-reactions", [])
+                            # for required_field in schema["then"]["required"]:
+                            dependencies = list(schema["then"]["required"])
+                            if "properties" in then:
+                                visible = ""
+                                for key, value in then["properties"].items():
+                                    visible = (
+                                        f'{visible} && {{{{ $deps[0] === \'{value["const"]}\' }}}}'
+                                        if visible
+                                        else f'{{{{ $deps[0] === \'{value["const"]}\' }}}}'
+                                    )
+                            const_val = value["const"]
+                            default_value = formily_schema["properties"][key].get(
+                                "default", "null"
+                            )
+                            default_value_str = (
+                                default_value if isinstance(default_value, (int, float)) else f"'{default_value}'"
+                            )
+                            reactions.append(
+                                {
+                                    "dependencies": dependencies,
+                                    "fulfill": {
+                                        "state": {
+                                            # "visible": f"{{{{ {required_field} && {required_field} !== '' && {required_field} !== null }}}}"
+                                            "visible": visible,
+                                            # "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
+                                            # "required": f"{{{{ $deps[0] !== undefined }}}}",
+                                        },
+                                        "run": f"{{{{ $self.setValue({default_value_str}) }}}}",
+                                    },
+                                }
+                            )
+                            formily_schema["properties"][required_field][
+                                "x-reactions"
+                            ] = reactions
+
+        elif "properties" in condition:
+            for key, value in condition["properties"].items():
+                if "properties" in then and key not in then["properties"]:
+                    for required_field in schema["then"]["required"]:
+                        if (
+                            "properties" in formily_schema
+                            and required_field in formily_schema["properties"]
+                        ):
+                            reactions = formily_schema["properties"][key].get(
+                                "x-reactions", []
+                            )
+                            default_value = formily_schema["properties"][key].get(
+                                "default", "null"
+                            )
+                            default_value_str = (
+                                default_value if isinstance(default_value, (int, float)) else f"'{default_value}'"
+                            )
+                            reactions.append(
+                                {
+                                    "dependencies": [required_field],
+                                    "fulfill": {
+                                        "state": {
+                                            # "visible": f"{{{{ {required_field} && {required_field} !== '' && {required_field} !== null }}}}"
+                                            "visible": "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
+                                            # "required": f"{{{{ $deps[0] !== undefined }}}}",
+                                        },
+                                        "run": f"{{{{ $self.setValue({default_value_str}) }}}}",
+                                    },
+                                }
+                            )
+                            formily_schema["properties"][key]["x-reactions"] = reactions
+                else:
+                    const_val = value["const"]
+                    for required_field in schema["then"]["required"]:
+                        if (
+                            "properties" in formily_schema
+                            and required_field in formily_schema["properties"]
+                        ):
+                            reactions = formily_schema["properties"][
+                                required_field
+                            ].get("x-reactions", [])
+                            reactions.append(
+                                {
+                                    "dependencies": [key],
+                                    "fulfill": {
+                                        "state": {
+                                            "visible": f"{{{{ $deps[0] === '{const_val}' }}}}",
+                                            "required": f"{{{{ $deps[0] === '{const_val}' }}}}",
+                                        }
+                                    },
+                                }
+                            )
+                            formily_schema["properties"][required_field][
+                                "x-reactions"
+                            ] = reactions
+
+        # Xóa if/then/else sau khi xử lý
+        formily_schema.pop("if", None)
+        formily_schema.pop("then", None)
+        if "else" in formily_schema:
+            formily_schema.pop("else", None)
 
 
 def convert_json_schema_to_formily(schema: Dict[str, Any]) -> Dict[str, Any]:
@@ -234,182 +330,28 @@ def convert_json_schema_to_formily(schema: Dict[str, Any]) -> Dict[str, Any]:
         formily_schema = {**formily_schema, **merged}
         formily_schema.pop("allOf", None)
 
-    # Handle oneOf
-    if "oneOf" in schema:
-        formily_schema["x-reactions"] = [
-            {
-                "when": "{{ $self.value }}",
-                "fulfill": {
-                    "schema": {
-                        "oneOf": [
-                            convert_json_schema_to_formily(option)
-                            for option in schema["oneOf"]
-                        ]
-                    }
-                },
-            }
-        ]
-        formily_schema.pop("oneOf", None)
-
-    # Handle if/then/else for required fields (multi-condition)
-    # Tìm các điều kiện kiểu: {"if": ..., "then": {"required": [...]}} trong schema hoặc trong allOf/anyOf
-    def add_x_reactions_for_strategy_required(formily_schema, schema):
-        # Xử lý trực tiếp trên schema gốc
-        if "if" in schema and "then" in schema and "required" in schema["then"]:
-            condition = schema["if"].get("properties", {})
-            for key, value in condition.items():
-                if "const" in value:
-                    const_val = value["const"]
-                    for required_field in schema["then"]["required"]:
-                        if (
-                            "properties" in formily_schema
-                            and required_field in formily_schema["properties"]
-                        ):
-                            reactions = formily_schema["properties"][
-                                required_field
-                            ].get("x-reactions", [])
-                            reactions.append(
-                                {
-                                    "when": f"{{{{ $values.{key} }}}}",
-                                    "fulfill": {
-                                        "state": {
-                                            "visible": f"{{{{$values.{key} === '{const_val}'}}}}",
-                                            "required": f"{{{{$values.{key} === '{const_val}'}}}}",
-                                        }
-                                    },
-                                }
-                            )
-                            formily_schema["properties"][required_field][
-                                "x-reactions"
-                            ] = reactions
-            # Xóa if/then/else sau khi xử lý
-            formily_schema.pop("if", None)
-            formily_schema.pop("then", None)
-            if "else" in formily_schema:
-                formily_schema.pop("else", None)
-        # Xử lý trong allOf/anyOf nếu có
-        for key in ["allOf", "anyOf"]:
-            if key in schema:
-                for sub_schema in schema[key]:
-                    add_x_reactions_for_strategy_required(formily_schema, sub_schema)
-
-    add_x_reactions_for_strategy_required(formily_schema, schema)
-
     # Handle properties recursively, truyền required vào
     required_fields = formily_schema.get("required", [])
     if "properties" in schema:
-        formily_schema["properties"] = {
-            k: convert_property(k, v, required_fields)
-            for k, v in schema["properties"].items()
-        }
+        new_properties = {}
+        for k, v in schema["properties"].items():
+            converted = convert_property(k, v, required_fields)
+            if "x-component" in converted:
+                new_properties[k] = converted
+        formily_schema["properties"] = new_properties
 
-    # Xử lý các điều kiện trong allOf của schema gốc
-    if "allOf" in schema and "properties" in formily_schema:
-        for cond in schema["allOf"]:
-            if (
-                isinstance(cond, dict)
-                and "if" in cond
-                and "then" in cond
-                and "required" in cond["then"]
-            ):
-                condition = cond["if"].get("properties", {})
-                for key, value in condition.items():
-                    if "const" in value:
-                        const_val = value["const"]
-                        for required_field in cond["then"]["required"]:
-                            if required_field in formily_schema["properties"]:
-                                reactions = formily_schema["properties"][
-                                    required_field
-                                ].get("x-reactions", [])
-                                reactions.append(
-                                    {
-                                        "dependencies": [key],
-                                        "fulfill": {
-                                            "state": {
-                                                "visible": f"{{{{ $deps[0] === '{const_val}' }}}}",
-                                                "required": f"{{{{ $deps[0] === '{const_val}' }}}}",
-                                            }
-                                        },
-                                    }
-                                )
-                                formily_schema["properties"][required_field][
-                                    "x-reactions"
-                                ] = reactions
+    for key in ["allOf", "anyOf"]:
+        if key in schema:
+            for sub_schema in schema[key]:
+                add_x_reactions_for_strategy_required(formily_schema, sub_schema)
 
-    # Handle dependencies
-    if "dependencies" in schema:
-        deps = schema["dependencies"]
-        for dep_field, dep_schema in deps.items():
-            # Nếu là oneOf, gắn x-reactions cho tất cả các trường trong nhánh properties
-            if "oneOf" in dep_schema:
-                for branch in dep_schema["oneOf"]:
-                    props = branch.get("properties", {})
-                    prop_names = list(props.keys())
-                    for idx, prop_name in enumerate(prop_names):
-                        if (
-                            "properties" in formily_schema
-                            and prop_name in formily_schema["properties"]
-                        ):
-                            prop_schema = props[prop_name]
-                            if isinstance(prop_schema, dict) and prop_name != dep_field:
-                                # Nếu là prop thứ 2, kiểm tra kiểu dữ liệu của prop đầu tiên
-                                if idx == 1:
-                                    prev_prop_name = prop_names[0]
-                                    prev_prop_schema = props[prev_prop_name]
-                                    prev_type = prev_prop_schema.get("type")
-                                    if prev_type == "string" or (
-                                        isinstance(prev_type, list)
-                                        and "string" in prev_type
-                                    ):
-                                        visible_expr = "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
-                                    elif prev_type == "array" or (
-                                        isinstance(prev_type, list)
-                                        and "array" in prev_type
-                                    ):
-                                        visible_expr = "{{Array.isArray($deps[0]) && $deps[0].length > 0}}"
-                                    else:
-                                        visible_expr = "{{!!$deps[0]}}"
-                                else:
-                                    prop_type = prop_schema.get("type")
-                                    if prop_type == "string" or (
-                                        isinstance(prop_type, list)
-                                        and "string" in prop_type
-                                    ):
-                                        visible_expr = "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
-                                    elif prop_type == "array" or (
-                                        isinstance(prop_type, list)
-                                        and "array" in prop_type
-                                    ):
-                                        visible_expr = "{{Array.isArray($deps[0]) && $deps[0].length > 0}}"
-                                    else:
-                                        visible_expr = "{{!!$deps[0]}}"
-                                formily_schema["properties"][prop_name][
-                                    "x-reactions"
-                                ] = [
-                                    {
-                                        "dependencies": [dep_field],
-                                        "fulfill": {"state": {"visible": visible_expr}},
-                                    }
-                                ]
-            else:
-                # Default: giữ nguyên logic cũ cho các dependencies khác
-                formily_schema.setdefault("x-reactions", [])
-                formily_schema["x-reactions"].append(
-                    {
-                        "when": f"{{{{ $values.{dep_field} }}}}",
-                        "fulfill": {
-                            "state": {"visible": True},
-                            "schema": convert_json_schema_to_formily(dep_schema),
-                        },
-                    }
-                )
-        formily_schema.pop("dependencies", None)
-
+    all_groups_with_titles = [
+        {"name": group.value, "title": OPERATOR_FIELD_GROUP_TITLE[group]}
+        for group in OperatorFieldGroup
+    ]
     result = {
-        "form": {"labelCol": 6, "wrapperCol": 12},
-        "schema": {
-            "type": "object",
-            "properties": formily_schema.get("properties", {}),
-        },
+        "properties": formily_schema.get("properties", {}),
+        "group": all_groups_with_titles,
     }
+    formily_schema.get("properties", {})
     return result
