@@ -223,7 +223,7 @@ def add_x_reactions_for_strategy_required(formily_schema, schema):
                                         else f'{{{{ $deps[0] === \'{value["const"]}\' }}}}'
                                     )
                             const_val = value["const"]
-                            default_value = formily_schema["properties"][key].get(
+                            default_value = formily_schema["properties"][required_field].get(
                                 "default", "null"
                             )
                             default_value_str = (
