@@ -349,7 +349,8 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "Input",
                 "description": "Prefix to apply to newly generated columns.",
                 "default": "_",
-                "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT
+                "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT,
+                "x-depend-on": { "mode": "ENRICH" }
             },
             "output_field_name": {
                 "type": ["string", "null"],
@@ -357,7 +358,8 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "Input",
                 "description": "Optional custom name for the generated or modified output field.",
                 "default": "",
-                "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT
+                "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT,
+                "x-depend-on": { "mode": "ENRICH" }
             },
             "null_strategy": {
                 "type": "string",
