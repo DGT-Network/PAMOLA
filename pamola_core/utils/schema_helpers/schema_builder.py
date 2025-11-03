@@ -105,10 +105,10 @@ from pamola_core.anonymization.schemas.full_masking_op_config import FullMasking
 from pamola_core.anonymization.schemas.full_masking_op_config_exclude import (
     FULL_MASKING_EXCLUDE_FIELDS,
 )
-from pamola_core.anonymization.schemas.numeric_op_config import (
+from pamola_core.anonymization.schemas.numeric_op_schema import (
     NumericGeneralizationConfig,
 )
-from pamola_core.anonymization.schemas.numeric_op_config_exclude import (
+from pamola_core.anonymization.schemas.numeric_op_schema_exclude import (
     NUMERIC_GENERALIZATION_EXCLUDE_FIELDS,
 )
 from pamola_core.anonymization.schemas.partial_masking_op_config import (
