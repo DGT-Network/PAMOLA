@@ -1,3 +1,21 @@
+"""
+PAMOLA.CORE - Formily Schema Builder
+------------------------------------
+Module:        formily_builder.py
+Package:       pamola_core.utils.schema_helpers
+Version:       1.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025-11-03
+License:       BSD 3-Clause
+
+Description:
+    Utility functions to convert and merge JSON schemas into Formily-compatible schemas for UI form generation.
+    Used for building dynamic forms in PAMOLA's web interfaces.
+
+Usage:
+    Import and use convert_json_schema_to_formily, and related helpers.
+"""
 import copy
 from typing import Any, Dict, List
 import copy
@@ -8,7 +26,7 @@ from pamola_core.common.enum.section_name_enum import (
 )
 
 
-def merge_allOf(allOf_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _merge_allOf(allOf_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
     merged = {}
     merged_properties = {}
     for sub_schema in allOf_schemas:
@@ -37,7 +55,10 @@ def _is_min_max_array(items_schema):
 
 
 def convert_property(
-    name: str, prop: Dict[str, Any], required_fields: List[str] = []
+    name: str,
+    prop: Dict[str, Any],
+    required_fields: List[str] = [],
+    formily_schema: Dict[str, Any] = {},
 ) -> Dict[str, Any]:
     field = copy.deepcopy(prop)
     field["name"] = name
@@ -98,22 +119,22 @@ def convert_property(
             ]
             field.pop("oneOf", None)
 
-    if field["x-component"] == "Switch":
+    elif field["x-component"] == "Switch":
         field["x-content"] = f"Enable {field['title']}"
 
-    if field["x-component"] == "NumberPicker":
-        min_val = field.get("minimum", 1)
-        field["x-component-props"] = {"min": min_val, "step": 1}
+    elif field["x-component"] == "NumberPicker":
+        if "minimum" in field:
+            field["x-validate"] = field.get("x-validate", [])
+            field["x-validate"].append(
+                {"type": "minimum", "message": f"{field['title']} must be at least {field['minimum']}", "minimum": field["minimum"]}
+            )
+        if "maximum" in field:
+            field["x-validate"] = field.get("x-validate", [])
+            field["x-validate"].append(
+                {"type": "maximum", "message": f"{field['title']} must be at most {field['maximum']}", "maximum": field["maximum"]}
+            )
 
-    # Nested object
-    if field.get("type") == "object" and "properties" in field:
-        nested_required = field.get("required", [])
-        field["properties"] = {
-            k: convert_property(k, v, nested_required)
-            for k, v in field["properties"].items()
-        }
-
-    if field["x-component"] == "ArrayItems":
+    elif field["x-component"] == "ArrayItems":
         if "items" in field:
             items_schema = field["items"]
             if field["type"] == "array" or (isinstance(t, list) and "array" in t):
@@ -192,123 +213,99 @@ def convert_property(
                 }
             }
 
+    if "x-depend-on" in field or "x-required-on" in field:
+        field = _add_x_reactions(field, formily_schema)
+
+    # Nested object
+    if field.get("type") == "object" and "properties" in field:
+        nested_required = field.get("required", [])
+        field["properties"] = {
+            k: convert_property(k, v, nested_required)
+            for k, v in field["properties"].items()
+        }
     return field
 
+def _add_x_reactions(
+    field: Dict[str, Any], formily_schema: Dict[str, Any]
+) -> Dict[str, Any]:
 
-def add_x_reactions_for_strategy_required(formily_schema, schema):
-    # Directly handle on the original schema
-    if "if" in schema and "then" in schema and "required" in schema["then"]:
-        condition = schema["if"]
-        then = schema.get("then", {})
-        if "anyOf" in condition:
-            if "properties" in then:
-                any_of_list = condition["anyOf"]
-                for any_of_condition in any_of_list:
-                    if "required" in any_of_condition and isinstance(
-                        any_of_condition["required"], list
-                    ):
-                        required_fields = any_of_condition["required"]
-                        for required_field in required_fields:
-                            reactions = formily_schema["properties"][
-                                required_field
-                            ].get("x-reactions", [])
-                            # for required_field in schema["then"]["required"]:
-                            dependencies = list(schema["then"]["required"])
-                            if "properties" in then:
-                                visible = ""
-                                for key, value in then["properties"].items():
-                                    visible = (
-                                        f'{visible} && {{{{ $deps[0] === \'{value["const"]}\' }}}}'
-                                        if visible
-                                        else f'{{{{ $deps[0] === \'{value["const"]}\' }}}}'
-                                    )
-                            const_val = value["const"]
-                            default_value = formily_schema["properties"][required_field].get(
-                                "default", "null"
-                            )
-                            default_value_str = (
-                                default_value if isinstance(default_value, (int, float)) else f"'{default_value}'"
-                            )
-                            reactions.append(
-                                {
-                                    "dependencies": dependencies,
-                                    "fulfill": {
-                                        "state": {
-                                            # "visible": f"{{{{ {required_field} && {required_field} !== '' && {required_field} !== null }}}}"
-                                            "visible": visible,
-                                            # "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
-                                            # "required": f"{{{{ $deps[0] !== undefined }}}}",
-                                        },
-                                        "run": f"{{{{ $self.setValue({default_value_str}) }}}}",
-                                    },
-                                }
-                            )
-                            formily_schema["properties"][required_field][
-                                "x-reactions"
-                            ] = reactions
+    default_value = field.get("default", None)
+    if default_value is None:
+        if field.get("type") == "number":
+            if field.get("minimum") is not None:
+                default_value_str = field.get("minimum")
+            default_value_str = 0
+        else:
+            default_value_str = "null"
+    elif isinstance(default_value, (int, float)):
+        default_value_str = default_value
+    else:
+        default_value_str = f"'{default_value}'"
+    
+    state = {}
 
-        elif "properties" in condition:
-            for key, value in condition["properties"].items():
-                if "properties" in then and key not in then["properties"]:
-                    for required_field in schema["then"]["required"]:
-                        if (
-                            "properties" in formily_schema
-                            and required_field in formily_schema["properties"]
-                        ):
-                            reactions = formily_schema["properties"][key].get(
-                                "x-reactions", []
-                            )
-                            default_value = formily_schema["properties"][key].get(
-                                "default", "null"
-                            )
-                            default_value_str = (
-                                default_value if isinstance(default_value, (int, float)) else f"'{default_value}'"
-                            )
-                            reactions.append(
-                                {
-                                    "dependencies": [required_field],
-                                    "fulfill": {
-                                        "state": {
-                                            # "visible": f"{{{{ {required_field} && {required_field} !== '' && {required_field} !== null }}}}"
-                                            "visible": "{{!!$deps[0] && $deps[0] !== '' && $deps[0] !== null}}"
-                                            # "required": f"{{{{ $deps[0] !== undefined }}}}",
-                                        },
-                                        "run": f"{{{{ $self.setValue({default_value_str}) }}}}",
-                                    },
-                                }
-                            )
-                            formily_schema["properties"][key]["x-reactions"] = reactions
-                else:
-                    const_val = value["const"]
-                    for required_field in schema["then"]["required"]:
-                        if (
-                            "properties" in formily_schema
-                            and required_field in formily_schema["properties"]
-                        ):
-                            reactions = formily_schema["properties"][
-                                required_field
-                            ].get("x-reactions", [])
-                            reactions.append(
-                                {
-                                    "dependencies": [key],
-                                    "fulfill": {
-                                        "state": {
-                                            "visible": f"{{{{ $deps[0] === '{const_val}' }}}}",
-                                            "required": f"{{{{ $deps[0] === '{const_val}' }}}}",
-                                        }
-                                    },
-                                }
-                            )
-                            formily_schema["properties"][required_field][
-                                "x-reactions"
-                            ] = reactions
+    if "x-depend-on" in field:
+        visible_state = ""
+        depend_on_items = field["x-depend-on"].items()
+        visible_items = []
+        for depend_field, depend_value in depend_on_items:
+            if depend_field not in formily_schema["properties"]:
+                continue
+            if "not_null" in depend_value:
+                visible_items.append(f" !!$form.values.{depend_field} ")
+            elif isinstance(depend_value, list):
+                visible_items.extend(
+                    [
+                        f" $form.values.{depend_field} === '{val}' "
+                        for val in depend_value
+                    ]
+                )
+            else:
+                visible_items.append(f" $form.values.{depend_field} === '{depend_value}' ")
 
-        # Remove if/then/else after processing
-        formily_schema.pop("if", None)
-        formily_schema.pop("then", None)
-        if "else" in formily_schema:
-            formily_schema.pop("else", None)
+        visible_state = '&&'.join(visible_items)
+        state["visible"] = f'{{{{ {visible_state} }}}}'
 
+    if "x-required-on" in field:
+        required_on_items = field["x-required-on"].items()
+        required_items = []
+        for required_field, required_value in required_on_items:
+            if required_field not in formily_schema["properties"]:
+                continue
+            if "not_null" in required_value:
+                required_items.append(f' !!$form.values.{required_field} ')
+            elif isinstance(required_value, list):
+                
+                required_items.append(
+                        " || ".join(
+                        [
+                            f" $form.values.{required_field} === '{val}' "
+                            for val in required_value
+                        ]
+                    )
+                )
+            else:
+                required_items.append(f" $form.values.{required_field} === '{required_value}' ")
+
+
+        required_state = '&&'.join(required_items)
+        state["required"] = f'{{{{ {required_state} }}}}'
+
+    reactions = field.get("x-reactions", [])
+    reactions.append(
+        {
+            "dependencies": [depend_field],
+            "fulfill": {
+                "state": state,
+                "run": f"{{{{ $self.setValue({default_value_str}) }}}}",
+            },
+        }
+    )
+    field["x-reactions"] = reactions
+    field.pop("x-depend-on", None)
+    field.pop("x-required-on", None)
+
+    return field
 
 def convert_json_schema_to_formily(schema: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -323,24 +320,19 @@ def convert_json_schema_to_formily(schema: Dict[str, Any]) -> Dict[str, Any]:
 
     # Handle allOf
     if "allOf" in schema:
-        merged = merge_allOf(schema["allOf"])
+        merged = _merge_allOf(schema["allOf"])
         formily_schema = {**formily_schema, **merged}
         formily_schema.pop("allOf", None)
 
-    # Handle properties recursively, truyền required vào
+    # Handle properties recursively, pass required fields in
     required_fields = formily_schema.get("required", [])
     if "properties" in schema:
         new_properties = {}
         for k, v in schema["properties"].items():
-            converted = convert_property(k, v, required_fields)
-            if "x-component" in converted:
+            if "x-component" in v:
+                converted = convert_property(k, v, required_fields, formily_schema)
                 new_properties[k] = converted
         formily_schema["properties"] = new_properties
-
-    for key in ["allOf", "anyOf"]:
-        if key in schema:
-            for sub_schema in schema[key]:
-                add_x_reactions_for_strategy_required(formily_schema, sub_schema)
 
     all_groups_with_titles = [
         {"name": group.value, "title": SECTION_NAME_TITLE[group]}
