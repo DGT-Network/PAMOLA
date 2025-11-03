@@ -205,7 +205,11 @@ def get_schema_json(
 
 
 def generate_schema_json(
-    config_class: Type[OperationConfig], task_dir: Path, excluded_fields: List[str] = [], generate_formily_schema: bool = False
+    config_class: Type[OperationConfig],
+    task_dir: Path,
+    excluded_fields: List[str] = [],
+    generate_formily_schema: bool = False,
+    tooltip_file: Path = None,
 ) -> Path:
     """
     Write the schema (after excluding specified fields) of the given config_class to a JSON file.
@@ -228,8 +232,14 @@ def generate_schema_json(
     remove_none_from_enum(filtered_schema)
 
     if generate_formily_schema:
+        tooltips = None
+        if tooltip_file:
+            TOOLTIP_DIR = Path(__file__).parent.parent.parent / "tooltips"
+            from pamola_core.utils.schema_helpers.tooltip_loader import get_tooltip
+            tooltip_path = TOOLTIP_DIR / tooltip_file
+            tooltips = get_tooltip(tooltip_path)
         # Convert the filtered JSON schema to Formily schema
-        filtered_schema = convert_json_schema_to_formily(filtered_schema)
+        filtered_schema = convert_json_schema_to_formily(filtered_schema, tooltips=tooltips)
 
     # Use the class name as the output filename
     filename = f"{config_class.__name__}.json"

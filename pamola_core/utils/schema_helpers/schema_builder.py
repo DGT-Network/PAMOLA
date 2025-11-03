@@ -39,6 +39,7 @@ from pamola_core.fake_data.schemas.phone_op_config_exclude import (
     PHONE_FAKE_EXCLUDE_FIELDS,
 )
 
+from pamola_core.tooltips.constants import NUMERIC_OP_TOOLTIP_FILE
 from pamola_core.transformations.schemas.add_modify_fields_config import (
     AddOrModifyFieldsOperationConfig,
 )
@@ -224,7 +225,7 @@ ALL_OP_CONFIGS = [
     (CategoricalGeneralizationConfig, CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS),
     (DateTimeGeneralizationConfig, DATETIME_GENERALIZATION_EXCLUDE_FIELDS),
     (FullMaskingConfig, FULL_MASKING_EXCLUDE_FIELDS),
-    (NumericGeneralizationConfig, NUMERIC_GENERALIZATION_EXCLUDE_FIELDS),
+    (NumericGeneralizationConfig, NUMERIC_GENERALIZATION_EXCLUDE_FIELDS, NUMERIC_OP_TOOLTIP_FILE),
     (PartialMaskingConfig, PARTIAL_MASKING_EXCLUDE_FIELDS),
     (AttributeSuppressionConfig, ATTRIBUTE_EXCLUDE_FIELDS),
     (CellSuppressionConfig, CELL_EXCLUDE_FIELDS),
@@ -252,13 +253,20 @@ ALL_OP_CONFIGS = [
 
 
 def generate_all_op_schemas(
-    task_dir: Path, generate_formily_schema: bool = False
+    task_dir: Path, generate_formily_schema: bool = True
 ) -> None:
     task_dir.mkdir(parents=True, exist_ok=True)
-    for config_cls, exclude_fields in ALL_OP_CONFIGS:
-        generate_schema_json(
-            config_cls, task_dir, exclude_fields, generate_formily_schema
-        )
+    for item in ALL_OP_CONFIGS:
+        if len(item) == 3:
+            config_cls, exclude_fields, tooltip_file = item
+            generate_schema_json(
+                config_cls, task_dir, exclude_fields, generate_formily_schema, tooltip_file
+            )
+        else:
+            config_cls, exclude_fields = item
+            generate_schema_json(
+                config_cls, task_dir, exclude_fields, generate_formily_schema
+            )
 
 
 if __name__ == "__main__":
