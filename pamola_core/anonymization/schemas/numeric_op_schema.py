@@ -69,15 +69,6 @@ class NumericGeneralizationConfig(OperationConfig):
                     },
 
                     # === Binning ===
-                    "bin_count": {
-                        "type": "integer",
-                        "minimum": 2,
-                        "default": 10,
-                        "title": "Bin Count",
-                        "x-component": "NumberPicker",
-                        "description": "Number of bins to divide numeric values into (for 'binning' strategy).",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY
-                    },
                     "binning_method": {
                         "title": "Binning Method",
                         "type": "string",
@@ -89,6 +80,19 @@ class NumericGeneralizationConfig(OperationConfig):
                             {"const": "quantile", "description": "Quantile-based"}
                         ],
                         "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-depend-on": { "strategy": "binning" },
+                        "x-required-on": { "strategy": "binning" }
+                    },
+                    "bin_count": {
+                        "type": "integer",
+                        "minimum": 2,
+                        "default": 10,
+                        "title": "Bin Count",
+                        "x-component": "NumberPicker",
+                        "description": "Number of bins to divide numeric values into (for 'binning' strategy).",
+                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-depend-on": { "strategy": "binning" },
+                        "x-required-on": { "strategy": "binning"}
                     },
 
                     # === Rounding ===
@@ -97,7 +101,9 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Precision",
                         "x-component": "NumberPicker",
                         "description": "Number of decimal places to retain when rounding numeric values.",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY
+                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-depend-on": { "strategy": "rounding" },
+                        "x-required-on": { "strategy": "rounding" }
                     },
 
                     # === Range-based generalization ===
@@ -115,7 +121,9 @@ class NumericGeneralizationConfig(OperationConfig):
                             "maxItems": 2
                         },
                         "x-component": "ArrayItems",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY
+                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-depend-on": { "strategy": "range" },
+                        "x-required-on": { "strategy": "range" }
                     },
 
                     # === Contextual anonymization ===
@@ -152,7 +160,8 @@ class NumericGeneralizationConfig(OperationConfig):
                             {"const": "range", "description": "Range"}
                         ],
                         "default": "in",
-                        "x-group": SectionName.CONDITION_LOGIC
+                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-depend-on": { "condition_field": "not_null" }
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -160,7 +169,8 @@ class NumericGeneralizationConfig(OperationConfig):
                         "x-component": "Input", #ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": SectionName.CONDITION_LOGIC
+                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
                     },
                     # === K-Anonymity integration ===
                     "ka_risk_field": {
@@ -174,7 +184,8 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Risk Threshold",
                         "x-component": "NumberPicker",
                         "description": "Maximum acceptable risk value for anonymization.",
-                        "default": 5.0
+                        "default": 5.0,
+                        "x-depend-on": { "ka_risk_field": "not_null" }
                     },
                     "vulnerable_record_strategy": {
                         "type": "string",

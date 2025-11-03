@@ -38,7 +38,7 @@ import copy
 import json
 from pamola_core.utils.io import write_json
 from pamola_core.utils.ops.op_config import OperationConfig
-from pamola_core.utils.schema_helpers.formily_builder import convert_json_schema_to_formily
+from pamola_core.utils.schema_helpers.form_builder import convert_json_schema_to_formily
 
 
 def flatten_schema(schema: dict, unused_fields=None) -> dict:
