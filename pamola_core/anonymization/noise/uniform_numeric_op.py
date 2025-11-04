@@ -77,7 +77,7 @@ from pamola_core.anonymization.commons.validation import (
 
 # Import framework utilities
 from pamola_core.anonymization.commons.validation_utils import validate_numeric_field
-from pamola_core.anonymization.schemas.uniform_numeric_op_config import UniformNumericNoiseConfig
+from pamola_core.anonymization.schemas.uniform_numeric_op_schema import UniformNumericNoiseConfig
 from pamola_core.utils.ops.op_registry import register
 
 # Constants

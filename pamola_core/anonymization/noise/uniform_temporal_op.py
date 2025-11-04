@@ -74,7 +74,7 @@ from pamola_core.anonymization.commons.validation import (
     InvalidParameterError,
     DateTimeFieldValidator,
 )
-from pamola_core.anonymization.schemas.uniform_temporal_op_config import UniformTemporalNoiseConfig
+from pamola_core.anonymization.schemas.uniform_temporal_op_schema import UniformTemporalNoiseConfig
 from pamola_core.common.helpers.data_helper import DataHelper
 
 # Import framework utilities

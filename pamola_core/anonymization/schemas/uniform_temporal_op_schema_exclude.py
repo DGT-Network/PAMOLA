@@ -17,4 +17,13 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-RECORD_EXCLUDE_FIELDS = ["config", "scope", "engine"]
+RECORD_EXCLUDE_FIELDS = ["config", 
+                         "scope", 
+                         "engine", 
+                         "field_name",
+                         "noise_range",
+                         "random_seed",
+                         "use_secure_random",
+                         "ka_risk_field", 
+                         "risk_threshold", 
+                         "vulnerable_record_strategy"]

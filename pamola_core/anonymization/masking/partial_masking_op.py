@@ -46,7 +46,7 @@ from pamola_core.anonymization.commons.validation.exceptions import (
     FieldTypeError,
     InvalidDataFormatError,
 )
-from pamola_core.anonymization.schemas.partial_masking_op_config import PartialMaskingConfig
+from pamola_core.anonymization.schemas.partial_masking_op_schema import PartialMaskingConfig
 from pamola_core.common.constants import Constants
 from pamola_core.anonymization.commons.metric_utils import (
     collect_operation_metrics,
