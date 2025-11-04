@@ -4,6 +4,7 @@ Form group definitions for UI configuration.
 This module provides metadata for organizing operation configuration
 fields into logical groups in the UI.
 """
+
 from enum import Enum
 from typing import List, Dict
 
@@ -19,10 +20,19 @@ class GroupName(str, Enum):
     TEXT_VALUE_HANDLING = "text_value_handling"
     RISK_BASED_PROCESSING_AND_PRIVACY = "risk_based_processing_and_privacy"
     FORMATTING_AND_TIMEZONE = "formatting_and_timezone"
-    CORE_SUPPRESSION_STRATEGY = "core_suppression_strategy"
-    SIMPLE_CONDITIONAL_RULE = "simple_conditional_rule"
+    CORE_NOISE_STRATEGY = "core_noise_strategy"
+    PRESERVATION_RULES = "preservation_rules"
+    OUTPUT_FORMATTING_CONSTRAINTS = "output_formatting_constraints"
+    CORE_MASKING_RULES = "core_masking_rules"
+    MASK_APPEARANCE = "mask_appearance"
+    MASKING_RULES = "masking_rules"
+    FORMATTING_AND_STRUCTURE = "formatting_and_structure"
+    CORE_MASKING_STRATEGY = "core_masking_strategy"
+    CORE_SUPPRESSION_RULE = "core_suppression_rule"
     ADVANCED_CONDITIONAL_RULES = "advanced_conditional_rules"
     RISK_BASED_FILTERING = "risk_based_filtering"
+    CORE_SUPPRESSION_STRATEGY = "core_suppression_strategy"
+    SIMPLE_CONDITIONAL_RULE = "simple_conditional_rule"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -34,10 +44,19 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.TEXT_VALUE_HANDLING: "Text & Value Handling",
     GroupName.RISK_BASED_PROCESSING_AND_PRIVACY: "Risk-Based Processing & Privacy",
     GroupName.FORMATTING_AND_TIMEZONE: "Formatting & Timezone",
-    GroupName.CORE_SUPPRESSION_STRATEGY: "Core Suppression Strategy",
-    GroupName.SIMPLE_CONDITIONAL_RULE: "Simple Conditional Rule",
+    GroupName.CORE_NOISE_STRATEGY: "Core Noise Strategy",
+    GroupName.PRESERVATION_RULES: "Preservation Rules",
+    GroupName.OUTPUT_FORMATTING_CONSTRAINTS: "Output Formatting Constraints",
+    GroupName.CORE_MASKING_RULES: "Core Masking Rules",
+    GroupName.MASK_APPEARANCE: "Mask Appearance",
+    GroupName.MASKING_RULES: "Masking Rules",
+    GroupName.FORMATTING_AND_STRUCTURE: "Formatting & Structure",
+    GroupName.CORE_MASKING_STRATEGY: "Core Masking Strategy",
+    GroupName.CORE_SUPPRESSION_RULE: "Core Suppression Rule",
     GroupName.ADVANCED_CONDITIONAL_RULES: "Advanced Conditional Rules",
     GroupName.RISK_BASED_FILTERING: "Risk-Based Filtering",
+    GroupName.CORE_SUPPRESSION_STRATEGY: "Core Suppression Strategy",
+    GroupName.SIMPLE_CONDITIONAL_RULE: "Simple Conditional Rule",
 }
 
 
@@ -59,6 +78,40 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "DateTimeGeneralizationConfig": [
         GroupName.CORE_GENERALIZATION_STRATEGY,
         GroupName.FORMATTING_AND_TIMEZONE,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "FullMaskingConfig": [
+        GroupName.CORE_MASKING_RULES,
+        GroupName.FORMATTING_AND_STRUCTURE,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "PartialMaskingConfig": [
+        GroupName.CORE_MASKING_STRATEGY,
+        GroupName.MASK_APPEARANCE,
+        GroupName.MASKING_RULES,
+        GroupName.FORMATTING_AND_STRUCTURE,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "UniformNumericNoiseConfig": [
+        GroupName.CORE_NOISE_STRATEGY,
+        GroupName.MASK_APPEARANCE,
+        GroupName.MASKING_RULES,
+        GroupName.FORMATTING_AND_STRUCTURE,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "UniformTemporalNoiseConfig": [
+        GroupName.CORE_NOISE_STRATEGY,
+        GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "RecordSuppressionConfig": [
+        GroupName.CORE_SUPPRESSION_RULE,
+        GroupName.ADVANCED_CONDITIONAL_RULES,
+        GroupName.RISK_BASED_FILTERING,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     "CellSuppressionConfig": [
@@ -105,7 +158,7 @@ def get_groups_with_titles(operation_config_type: str) -> List[Dict[str, str]]:
 
     Returns:
         List of dicts with 'name' and 'title' keys
-        
+
     Example:
         >>> get_groups_with_titles("NumericGeneralizationConfig")
         [

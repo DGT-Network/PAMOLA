@@ -262,7 +262,7 @@ ALL_OP_CONFIGS = [
         PARTIAL_MASKING_EXCLUDE_FIELDS,
         PartialMaskingOpTooltip.as_dict(),
     ),
-     (AttributeSuppressionConfig, ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS, AttributeSuppressionOpTooltip.as_dict()),
+    (AttributeSuppressionConfig, ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS, AttributeSuppressionOpTooltip.as_dict()),
     (CellSuppressionConfig, CELL_EXCLUDE_FIELDS, CellSuppressionOpTooltip.as_dict()),
     (
         RecordSuppressionConfig,
