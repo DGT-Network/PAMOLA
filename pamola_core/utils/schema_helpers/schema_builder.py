@@ -20,6 +20,7 @@ Usage:
 
 import sys
 from pathlib import Path
+from pamola_core.anonymization.schemas.numeric_op_tooltip import NumericOpTooltip
 from pamola_core.fake_data.schemas.email_op_config import FakeEmailOperationConfig
 from pamola_core.fake_data.schemas.email_op_config_exclude import (
     EMAIL_FAKE_EXCLUDE_FIELDS,
@@ -39,7 +40,6 @@ from pamola_core.fake_data.schemas.phone_op_config_exclude import (
     PHONE_FAKE_EXCLUDE_FIELDS,
 )
 
-from pamola_core.tooltips.constants import NUMERIC_OP_TOOLTIP_FILE
 from pamola_core.transformations.schemas.add_modify_fields_config import (
     AddOrModifyFieldsOperationConfig,
 )
@@ -225,7 +225,7 @@ ALL_OP_CONFIGS = [
     (CategoricalGeneralizationConfig, CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS),
     (DateTimeGeneralizationConfig, DATETIME_GENERALIZATION_EXCLUDE_FIELDS),
     (FullMaskingConfig, FULL_MASKING_EXCLUDE_FIELDS),
-    (NumericGeneralizationConfig, NUMERIC_GENERALIZATION_EXCLUDE_FIELDS, NUMERIC_OP_TOOLTIP_FILE),
+    (NumericGeneralizationConfig, NUMERIC_GENERALIZATION_EXCLUDE_FIELDS, NumericOpTooltip.as_dict()),
     (PartialMaskingConfig, PARTIAL_MASKING_EXCLUDE_FIELDS),
     (AttributeSuppressionConfig, ATTRIBUTE_EXCLUDE_FIELDS),
     (CellSuppressionConfig, CELL_EXCLUDE_FIELDS),
@@ -258,9 +258,9 @@ def generate_all_op_schemas(
     task_dir.mkdir(parents=True, exist_ok=True)
     for item in ALL_OP_CONFIGS:
         if len(item) == 3:
-            config_cls, exclude_fields, tooltip_file = item
+            config_cls, exclude_fields, tooltip = item
             generate_schema_json(
-                config_cls, task_dir, exclude_fields, generate_formily_schema, tooltip_file
+                config_cls, task_dir, exclude_fields, generate_formily_schema, tooltip
             )
         else:
             config_cls, exclude_fields = item

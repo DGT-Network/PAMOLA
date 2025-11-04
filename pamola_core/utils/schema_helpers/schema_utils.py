@@ -33,7 +33,7 @@ Changelog:
 """
 
 from pathlib import Path
-from typing import List, Optional, Type
+from typing import Dict, List, Optional, Type
 import copy
 import json
 from pamola_core.utils.io import write_json
@@ -209,7 +209,7 @@ def generate_schema_json(
     task_dir: Path,
     excluded_fields: List[str] = [],
     generate_formily_schema: bool = False,
-    tooltip_file: Path = None,
+    tooltip: Optional[Dict[str, str]] = None,
 ) -> Path:
     """
     Write the schema (after excluding specified fields) of the given config_class to a JSON file.
@@ -232,14 +232,8 @@ def generate_schema_json(
     remove_none_from_enum(filtered_schema)
 
     if generate_formily_schema:
-        tooltips = None
-        if tooltip_file:
-            TOOLTIP_DIR = Path(__file__).parent.parent.parent / "tooltips"
-            from pamola_core.utils.schema_helpers.tooltip_loader import get_tooltip
-            tooltip_path = TOOLTIP_DIR / tooltip_file
-            tooltips = get_tooltip(tooltip_path)
         # Convert the filtered JSON schema to Formily schema
-        filtered_schema = convert_json_schema_to_formily(filtered_schema, tooltips=tooltips)
+        filtered_schema = convert_json_schema_to_formily(filtered_schema, tooltip)
 
     # Use the class name as the output filename
     filename = f"{config_class.__name__}.json"

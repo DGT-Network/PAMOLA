@@ -16,8 +16,9 @@ Description:
 Usage:
     Import and use convert_json_schema_to_formily, and related helpers.
 """
+
 import copy
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import copy
 
 from pamola_core.common.enum.section_name_enum import (
@@ -42,14 +43,20 @@ def _merge_allOf(allOf_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
         merged["properties"] = merged_properties
     return merged
 
-def _handle_array_items_component(field: Dict[str, Any], t: Any, formily_schema: Dict[str, Any]) -> Dict[str, Any]:
+
+def _handle_array_items_component(
+    field: Dict[str, Any],
+    t: Any,
+    formily_schema: Dict[str, Any],
+    tooltip: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
     """
     Handle ArrayItems component configuration.
-    
+
     Args:
         field: The field configuration
         t: The field type
-    
+
     Returns:
         Dict[str, Any]: Updated field configuration for ArrayItems
     """
@@ -60,14 +67,21 @@ def _handle_array_items_component(field: Dict[str, Any], t: Any, formily_schema:
             field["items"] = {
                 "type": "object",
                 "x-component": "ArrayItems.Item",
-                "properties": {}
+                "properties": {},
             }
             if "properties" in items_schema:
                 nested_required = field.get("required", [])
                 formily_schema_item = formily_schema.get("properties", {})
-                for k, v in  items_schema["properties"].items():
+                for k, v in items_schema["properties"].items():
                     if "x-component" in v:
-                        converted = convert_property(k, v, nested_required, formily_schema_item[field["name"]].get("items", {}))
+                        converted = convert_property(
+                            k,
+                            v,
+                            nested_required,
+                            formily_schema_item[field["name"]].get("items", {}),
+                            True,
+                            tooltip,
+                        )
                         field["items"]["properties"][k] = converted
 
             elif "itemsTitle" in items_schema:
@@ -76,13 +90,15 @@ def _handle_array_items_component(field: Dict[str, Any], t: Any, formily_schema:
                     item_key = title.lower().replace(" ", "_")
                     field["items"]["properties"][item_key] = {
                         "type": "number",
-                        "title": f'{title}',
+                        "title": f"{title}",
                         "x-decorator": "FormItem",
                         "x-component": items_schema["x-component"],
-                        "x-component-props": {"placeholder": f'{title} Value'},
+                        "x-component-props": {"placeholder": f"{title} value"},
                     }
                     if item_key == "max":
-                        field["items"]["properties"][item_key]["x-decorator-props"] = {"style": {"marginLeft": "8px"}}
+                        field["items"]["properties"][item_key]["x-decorator-props"] = {
+                            "style": {"marginLeft": "8px"}
+                        }
 
                         field["items"]["properties"][item_key]["x-reactions"] = [
                             {
@@ -139,15 +155,17 @@ def _handle_array_items_component(field: Dict[str, Any], t: Any, formily_schema:
             "x-component-props": {"style": {"marginTop": "8px"}},
         }
     }
-    
+
     return field
+
 
 def convert_property(
     name: str,
     prop: Dict[str, Any],
     required_fields: List[str] = [],
     formily_schema: Dict[str, Any] = {},
-    tooltips: dict = {},
+    is_nested: bool = False,
+    tooltip: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     field = copy.deepcopy(prop)
     field["name"] = name
@@ -155,8 +173,8 @@ def convert_property(
     if "description" in prop:
         field.pop("description", None)  # Remove description if present
 
-    if tooltips != None and name in tooltips:
-        field["tooltip"] = tooltips[name]
+    if tooltip is not None and name in tooltip:
+        field["tooltip"] = tooltip[name]
 
     if "type" in prop:
         t = prop["type"]
@@ -218,28 +236,39 @@ def convert_property(
         if "minimum" in field:
             field["x-validate"] = field.get("x-validate", [])
             field["x-validate"].append(
-                {"type": "minimum", "message": f"{field['title']} must be at least {field['minimum']}", "minimum": field["minimum"]}
+                {
+                    "type": "minimum",
+                    "message": f"{field['title']} must be at least {field['minimum']}",
+                    "minimum": field["minimum"],
+                }
             )
         if "maximum" in field:
             field["x-validate"] = field.get("x-validate", [])
             field["x-validate"].append(
-                {"type": "maximum", "message": f"{field['title']} must be at most {field['maximum']}", "maximum": field["maximum"]}
+                {
+                    "type": "maximum",
+                    "message": f"{field['title']} must be at most {field['maximum']}",
+                    "maximum": field["maximum"],
+                }
             )
 
     elif field["x-component"] == "ArrayItems":
-        field = _handle_array_items_component(field, t, formily_schema)
+        field = _handle_array_items_component(field, t, formily_schema, tooltip)
 
     if "x-depend-on" in field or "x-required-on" in field:
-        field = _add_x_reactions(field, formily_schema)
+        field = _add_x_reactions(field, formily_schema, is_nested)
 
-    # Nested object
+    # Nested object - mark as nested when calling recursively
     if field.get("type") == "object" and "properties" in field:
         nested_required = field.get("required", [])
         field["properties"] = {
-            k: convert_property(k, v, nested_required, field["properties"] )
+            k: convert_property(
+                k, v, nested_required, field["properties"], True, tooltip
+            )  # is_nested=True
             for k, v in field["properties"].items()
         }
     return field
+
 
 def _get_default_value_str(field: Dict[str, Any]) -> str:
     """Get the default value string for a field based on its type and current value."""
@@ -252,76 +281,90 @@ def _get_default_value_str(field: Dict[str, Any]) -> str:
         return str(default_value)
     return f"'{default_value}'"
 
-def _build_condition_expression(field_name: str, condition_value: Any) -> str:
-    """Build a condition expression for field dependencies."""
+
+def _build_condition_expression(condition_value: Any, field_index: int) -> str:
+    """Build a condition expression for field dependencies using $deps array."""
     if condition_value == "not_null":
-        return f" !!$form.values.{field_name} "
+        return f" !!$deps[{field_index}] "
     if isinstance(condition_value, list):
         return " || ".join(
-            f" $form.values.{field_name} === '{val}' "
-            for val in condition_value
+            f" $deps[{field_index}] === '{val}' " for val in condition_value
         )
-    return f" $form.values.{field_name} === '{condition_value}' "
+    return f" $deps[{field_index}] === '{condition_value}' "
+
 
 def _process_field_conditions(
     conditions: Dict[str, Any],
     formily_schema: Dict[str, Any],
-    join_operator: str = "&&"
+    depend_fields: List[str],
+    join_operator: str = "&&",
 ) -> str:
     """Process field conditions and join them with the specified operator."""
-    valid_conditions = [
-        _build_condition_expression(field, value)
-        for field, value in conditions.items()
-        if field in formily_schema["properties"]
-    ]
+    valid_conditions = []
+    for field, value in conditions.items():
+        if field in formily_schema["properties"] and field in depend_fields:
+            field_index = depend_fields.index(field)
+            condition_expr = _build_condition_expression(value, field_index)
+            valid_conditions.append(condition_expr)
     return join_operator.join(valid_conditions)
 
+
 def _add_x_reactions(
-    field: Dict[str, Any],
-    formily_schema: Dict[str, Any]
+    field: Dict[str, Any], formily_schema: Dict[str, Any], is_nested: bool = False
 ) -> Dict[str, Any]:
     """
     Add reactive behavior to form fields based on dependencies and requirements.
-    
+
     Args:
         field: The field configuration to add reactions to
         formily_schema: The complete form schema for context
-    
+        is_nested: Whether this field is inside a nested object
+
     Returns:
         Dict[str, Any]: Updated field configuration with reactions
     """
     default_value_str = _get_default_value_str(field)
     state = {}
 
+    # Add reactions to field
+    depend_fields = list(
+        set(
+            list(field.get("x-depend-on", {}).keys())
+            + list(field.get("x-required-on", {}).keys())
+        )
+    )
+
     # Handle visibility conditions
     if "x-depend-on" in field:
         visible_state = _process_field_conditions(
-            field["x-depend-on"], 
-            formily_schema
+            field["x-depend-on"], formily_schema, depend_fields
         )
         if visible_state:
-            state["visible"] = f'{{{{ {visible_state} }}}}'
+            state["visible"] = f"{{{{ {visible_state} }}}}"
 
     # Handle requirement conditions
     if "x-required-on" in field:
         required_state = _process_field_conditions(
-            field["x-required-on"],
-            formily_schema
+            field["x-required-on"], formily_schema, depend_fields
         )
         if required_state:
-            state["required"] = f'{{{{ {required_state} }}}}'
+            state["required"] = f"{{{{ {required_state} }}}}"
 
-    # Add reactions to field
-    depend_fields = list(field.get("x-depend-on", {}).keys()) + list(field.get("x-required-on", {}).keys())
+    # Add a dot prefix if this is a nested field
+    if is_nested:
+        depend_fields = [f".{field_name}" for field_name in depend_fields]
+
     if depend_fields:
         reactions = field.get("x-reactions", [])
-        reactions.append({
-            "dependencies": depend_fields,
-            "fulfill": {
-                "state": state,
-                "run": f"{{{{ $self.setValue({default_value_str}) }}}}"
+        reactions.append(
+            {
+                "dependencies": depend_fields,
+                "fulfill": {
+                    "state": state,
+                    "run": f"{{{{ $self.setValue({default_value_str}) }}}}",
+                },
             }
-        })
+        )
         field["x-reactions"] = reactions
 
     # Clean up temporary properties
@@ -330,7 +373,10 @@ def _add_x_reactions(
 
     return field
 
-def convert_json_schema_to_formily(schema: Dict[str, Any], tooltips: dict = None) -> Dict[str, Any]:
+
+def convert_json_schema_to_formily(
+    schema: Dict[str, Any], tooltip: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
     """
     Convert a JSON Schema (draft-07) into a Formily-compatible schema.
     - Supports oneOf, allOf, if/then/else, dependencies.
@@ -353,7 +399,9 @@ def convert_json_schema_to_formily(schema: Dict[str, Any], tooltips: dict = None
         new_properties = {}
         for k, v in schema["properties"].items():
             if "x-component" in v:
-                converted = convert_property(k, v, required_fields, formily_schema, tooltips)
+                converted = convert_property(
+                    k, v, required_fields, formily_schema, False, tooltip
+                )
                 new_properties[k] = converted
         formily_schema["properties"] = new_properties
 
