@@ -20,11 +20,22 @@ Usage:
 
 import sys
 from pathlib import Path
-from pamola_core.anonymization.schemas.full_masking_op_tooltip import FullMaskingOpTooltip
+from pamola_core.anonymization.schemas.full_masking_op_tooltip import (
+    FullMaskingOpTooltip,
+)
 from pamola_core.anonymization.schemas.numeric_op_tooltip import NumericOpTooltip
-from pamola_core.anonymization.schemas.partial_masking_op_tooltip import PartialMaskingOpTooltip
-from pamola_core.anonymization.schemas.uniform_numeric_op_tooltip import UniformNumericNoiseOpTooltip
-from pamola_core.anonymization.schemas.uniform_temporal_op_tooltip import UniformTemporalNoiseOpTooltip
+from pamola_core.anonymization.schemas.partial_masking_op_tooltip import (
+    PartialMaskingOpTooltip,
+)
+from pamola_core.anonymization.schemas.record_op_tooltip import (
+    RecordSuppressionOpTooltip,
+)
+from pamola_core.anonymization.schemas.uniform_numeric_op_tooltip import (
+    UniformNumericNoiseOpTooltip,
+)
+from pamola_core.anonymization.schemas.uniform_temporal_op_tooltip import (
+    UniformTemporalNoiseOpTooltip,
+)
 from pamola_core.fake_data.schemas.email_op_config import FakeEmailOperationConfig
 from pamola_core.fake_data.schemas.email_op_config_exclude import (
     EMAIL_FAKE_EXCLUDE_FIELDS,
@@ -244,12 +255,28 @@ ALL_OP_CONFIGS = [
         NUMERIC_GENERALIZATION_EXCLUDE_FIELDS,
         NumericOpTooltip.as_dict(),
     ),
-    (PartialMaskingConfig, PARTIAL_MASKING_EXCLUDE_FIELDS, PartialMaskingOpTooltip.as_dict()),
+    (
+        PartialMaskingConfig,
+        PARTIAL_MASKING_EXCLUDE_FIELDS,
+        PartialMaskingOpTooltip.as_dict(),
+    ),
     (AttributeSuppressionConfig, ATTRIBUTE_EXCLUDE_FIELDS, None),
     (CellSuppressionConfig, CELL_EXCLUDE_FIELDS, None),
-    (RecordSuppressionConfig, RECORD_EXCLUDE_FIELDS, None),
-    (UniformNumericNoiseConfig, UNIFORM_NUMERIC_EXCLUDE_FIELDS, UniformNumericNoiseOpTooltip.as_dict()),
-    (UniformTemporalNoiseConfig, UNIFORM_TEMPORAL_EXCLUDE_FIELDS, UniformTemporalNoiseOpTooltip.as_dict()),
+    (
+        RecordSuppressionConfig,
+        RECORD_EXCLUDE_FIELDS,
+        RecordSuppressionOpTooltip.as_dict(),
+    ),
+    (
+        UniformNumericNoiseConfig,
+        UNIFORM_NUMERIC_EXCLUDE_FIELDS,
+        UniformNumericNoiseOpTooltip.as_dict(),
+    ),
+    (
+        UniformTemporalNoiseConfig,
+        UNIFORM_TEMPORAL_EXCLUDE_FIELDS,
+        UniformTemporalNoiseOpTooltip.as_dict(),
+    ),
     (FidelityConfig, FIDELITY_EXCLUDE_FIELDS, None),
     (PrivacyMetricConfig, PRIVACY_EXCLUDE_FIELDS, None),
     (UtilityMetricConfig, UTILITY_EXCLUDE_FIELDS, None),

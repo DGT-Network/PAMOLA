@@ -21,6 +21,7 @@ Changelog:
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.common.enum.form_groups import GroupName
 
+
 class UniformNumericNoiseConfig(OperationConfig):
     """Configuration for UniformNumericNoiseOperation with BaseOperationConfig merged."""
 
@@ -37,14 +38,17 @@ class UniformNumericNoiseConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the numeric field to apply noise to."
+                        "description": "Name of the numeric field to apply noise to.",
                     },
                     "noise_type": {
                         "type": "string",
                         "enum": ["additive", "multiplicative"],
                         "oneOf": [
                             {"const": "additive", "description": "Additive noise"},
-                            {"const": "multiplicative", "description": "Multiplicative noise"},
+                            {
+                                "const": "multiplicative",
+                                "description": "Multiplicative noise",
+                            },
                         ],
                         "default": "additive",
                         "title": "Noise Type",
@@ -122,13 +126,13 @@ class UniformNumericNoiseConfig(OperationConfig):
                     "random_seed": {
                         "type": ["integer", "null"],
                         "title": "Random Seed",
-                        "description": "Seed for reproducible random noise (ignored if use_secure_random is True)."
+                        "description": "Seed for reproducible random noise (ignored if use_secure_random is True).",
                     },
                     "use_secure_random": {
                         "type": "boolean",
                         "default": True,
                         "title": "Use Secure Random",
-                        "description": "If True, use a cryptographically secure random generator."
+                        "description": "If True, use a cryptographically secure random generator.",
                     },
                     # Conditional processing parameters
                     "condition_field": {
@@ -136,7 +140,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": GroupName.CONDITION_LOGIC
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                     },
                     "condition_operator": {
                         "type": "string",
@@ -149,23 +153,26 @@ class UniformNumericNoiseConfig(OperationConfig):
                             {"const": "gt", "description": "Greater than"},
                             {"const": "lt", "description": "Less than"},
                             {"const": "eq", "description": "Equal to"},
-                            {"const": "range", "description": "Range"}
+                            {"const": "range", "description": "Range"},
                         ],
                         "default": "in",
-                        "x-group": GroupName.CONDITION_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null" }
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {"condition_field": "not_null"},
                     },
                     "condition_values": {
                         "type": ["array", "null"],
                         "title": "Condition Values",
-                        "x-component": "Input", #ArrayItems
+                        "x-component": "Input",  # ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": GroupName.CONDITION_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {
+                            "condition_field": "not_null",
+                            "condition_operator": "not_null",
+                        },
                     },
                     # Multi-field conditions
-"multi_conditions": {
+                    "multi_conditions": {
                         "type": ["array", "null"],
                         "x-component": "ArrayItems",
                         "items": {
@@ -175,8 +182,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                                     "type": "string",
                                     "title": "Condition Field",
                                     "x-component": "Select",
-                                    "description": "Field name for the condition."
- 
+                                    "description": "Field name for the condition.",
                                 },
                                 "operator": {
                                     "type": "string",
@@ -189,25 +195,34 @@ class UniformNumericNoiseConfig(OperationConfig):
                                         {"const": "lt", "description": "Less than"},
                                         {"const": "eq", "description": "Equal to"},
                                         {"const": "ne", "description": "Not equal"},
-                                        {"const": "ge", "description": "Greater than or equal"},
-                                        {"const": "le", "description": "Less than or equal"},
+                                        {
+                                            "const": "ge",
+                                            "description": "Greater than or equal",
+                                        },
+                                        {
+                                            "const": "le",
+                                            "description": "Less than or equal",
+                                        },
                                         {"const": "range", "description": "Range"},
-                                        {"const": "all", "description": "All"}
+                                        {"const": "all", "description": "All"},
                                     ],
-                                    "x-depend-on": { "field": "not_null" },
-                                    "description": "Operator for the condition (e.g., '=', '>', '<', 'in')."
+                                    "x-depend-on": {"field": "not_null"},
+                                    "description": "Operator for the condition (e.g., '=', '>', '<', 'in').",
                                 },
                                 "values": {
                                     "type": "array",
                                     "title": "Condition Value",
                                     "x-component": "Input",
                                     "description": "Value(s) for the condition.",
-                                    "x-depend-on": { "field": "not_null", "operator": "not_null"}
+                                    "x-depend-on": {
+                                        "field": "not_null",
+                                        "operator": "not_null",
+                                    },
                                 },
                             },
                         },
                         "title": "Multi-Conditions",
-                        "description": "List of multi-field conditions for custom noise application logic."
+                        "description": "List of multi-field conditions for custom noise application logic.",
                     },
                     "condition_logic": {
                         "type": "string",
@@ -216,26 +231,26 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "default": "AND",
                         "oneOf": [
                             {"const": "AND", "description": "AND"},
-                            {"const": "OR", "description": "OR"}
+                            {"const": "OR", "description": "OR"},
                         ],
                         "x-component": "Select",
-                        "x-group": GroupName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                     },
                     # K-anonymity integration
                     "ka_risk_field": {
                         "type": ["string", "null"],
                         "title": "K-anonymity Risk Field",
-                        "description": "Field containing k-anonymity risk scores for suppression based on risk."
+                        "description": "Field containing k-anonymity risk scores for suppression based on risk.",
                     },
                     "risk_threshold": {
                         "type": "number",
                         "title": "Risk Threshold",
-                        "description": "Threshold for k-anonymity risk triggering noise application."
+                        "description": "Threshold for k-anonymity risk triggering noise application.",
                     },
                     "vulnerable_record_strategy": {
                         "type": "string",
                         "title": "Vulnerable Record Strategy",
-                        "description": "Strategy for handling vulnerable records."
+                        "description": "Strategy for handling vulnerable records.",
                     },
                 },
                 "required": ["field_name", "noise_range", "noise_type"],

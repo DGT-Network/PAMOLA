@@ -25,6 +25,7 @@ from pamola_core.anonymization.commons.masking_presets import MaskingType
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.common.enum.form_groups import GroupName
 
+
 class PartialMaskingConfig(OperationConfig):
     """Configuration schema for PartialMaskingOperation with BaseOperationConfig merged."""
 
@@ -41,7 +42,7 @@ class PartialMaskingConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the field to apply partial masking."
+                        "description": "Name of the field to apply partial masking.",
                     },
                     "mask_char": {
                         "type": "string",
@@ -50,8 +51,8 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Character used to mask sensitive content.",
                         "x-component": "Input",
                         "x-group": GroupName.MASK_APPEARANCE,
-                        "x-depend-on": { "random_mask": False },
-                        "x-required-on": { "random_mask": False }
+                        "x-depend-on": {"random_mask": False},
+                        "x-required-on": {"random_mask": False},
                     },
                     "mask_strategy": {
                         "type": "string",
@@ -65,10 +66,22 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Masking Strategy",
                         "description": "Strategy for masking: fixed, pattern, random, or words.",
                         "oneOf": [
-                            {"const": MaskStrategyEnum.FIXED.value, "description": MaskStrategyEnum.FIXED.value},
-                            {"const": MaskStrategyEnum.PATTERN.value, "description": MaskStrategyEnum.PATTERN.value},
-                            {"const": MaskStrategyEnum.RANDOM.value, "description": MaskStrategyEnum.RANDOM.value},
-                            {"const": MaskStrategyEnum.WORDS.value, "description": MaskStrategyEnum.WORDS.value}
+                            {
+                                "const": MaskStrategyEnum.FIXED.value,
+                                "description": MaskStrategyEnum.FIXED.value,
+                            },
+                            {
+                                "const": MaskStrategyEnum.PATTERN.value,
+                                "description": MaskStrategyEnum.PATTERN.value,
+                            },
+                            {
+                                "const": MaskStrategyEnum.RANDOM.value,
+                                "description": MaskStrategyEnum.RANDOM.value,
+                            },
+                            {
+                                "const": MaskStrategyEnum.WORDS.value,
+                                "description": MaskStrategyEnum.WORDS.value,
+                            },
                         ],
                         "x-component": "Select",
                         "x-group": GroupName.CORE_MASKING_STRATEGY,
@@ -81,7 +94,7 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Percentage of characters to mask randomly (for random strategy).",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.MASKING_RULES,
-                        "x-depend-on": { "mask_strategy": MaskStrategyEnum.RANDOM.value }
+                        "x-depend-on": {"mask_strategy": MaskStrategyEnum.RANDOM.value},
                     },
                     "unmasked_prefix": {
                         "type": "integer",
@@ -91,7 +104,12 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Number of characters at the start to remain visible.",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.MASKING_RULES,
-                        "x-depend-on": { "mask_strategy": [MaskStrategyEnum.FIXED.value, MaskStrategyEnum.WORDS.value] }
+                        "x-depend-on": {
+                            "mask_strategy": [
+                                MaskStrategyEnum.FIXED.value,
+                                MaskStrategyEnum.WORDS.value,
+                            ]
+                        },
                     },
                     "unmasked_suffix": {
                         "type": "integer",
@@ -101,7 +119,12 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Number of characters at the end to remain visible.",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.MASKING_RULES,
-                        "x-depend-on": { "mask_strategy": [MaskStrategyEnum.FIXED.value, MaskStrategyEnum.WORDS.value] }
+                        "x-depend-on": {
+                            "mask_strategy": [
+                                MaskStrategyEnum.FIXED.value,
+                                MaskStrategyEnum.WORDS.value,
+                            ]
+                        },
                     },
                     "unmasked_positions": {
                         "type": ["array", "null"],
@@ -112,10 +135,10 @@ class PartialMaskingConfig(OperationConfig):
                         "oneOf": [
                             {"const": 0, "description": "0"},
                             {"const": 2, "description": "2"},
-                            {"const": 4, "description": "4"}
+                            {"const": 4, "description": "4"},
                         ],
                         "x-group": GroupName.MASKING_RULES,
-                        "x-depend-on": { "mask_strategy": MaskStrategyEnum.FIXED.value }
+                        "x-depend-on": {"mask_strategy": MaskStrategyEnum.FIXED.value},
                     },
                     "pattern_type": {
                         "type": ["string", "null"],
@@ -123,8 +146,12 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Predefined pattern type (e.g., email, phone) for pattern-based masking.",
                         "x-component": "Select",
                         "x-group": GroupName.CORE_MASKING_STRATEGY,
-                        "x-depend-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value },
-                        "x-required-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value }
+                        "x-depend-on": {
+                            "mask_strategy": MaskStrategyEnum.PATTERN.value
+                        },
+                        "x-required-on": {
+                            "mask_strategy": MaskStrategyEnum.PATTERN.value
+                        },
                     },
                     "mask_pattern": {
                         "type": ["string", "null"],
@@ -132,8 +159,12 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Custom regex pattern for masking (pattern strategy).",
                         "x-component": "Input",
                         "x-group": GroupName.MASKING_RULES,
-                        "x-depend-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value },
-                        "x-required-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value }
+                        "x-depend-on": {
+                            "mask_strategy": MaskStrategyEnum.PATTERN.value
+                        },
+                        "x-required-on": {
+                            "mask_strategy": MaskStrategyEnum.PATTERN.value
+                        },
                     },
                     "preserve_pattern": {
                         "type": ["string", "null"],
@@ -141,8 +172,12 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Regex pattern to preserve (mask all except matches).",
                         "x-component": "Input",
                         "x-group": GroupName.MASKING_RULES,
-                        "x-depend-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value },
-                        "x-required-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value }
+                        "x-depend-on": {
+                            "mask_strategy": MaskStrategyEnum.PATTERN.value
+                        },
+                        "x-required-on": {
+                            "mask_strategy": MaskStrategyEnum.PATTERN.value
+                        },
                     },
                     "preserve_separators": {
                         "type": "boolean",
@@ -159,7 +194,7 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Whether to avoid masking across word boundaries.",
                         "x-component": "Checkbox",
                         "x-group": GroupName.FORMATTING_AND_STRUCTURE,
-                        "x-depend-on": { "mask_strategy": MaskStrategyEnum.WORDS.value }
+                        "x-depend-on": {"mask_strategy": MaskStrategyEnum.WORDS.value},
                     },
                     "case_sensitive": {
                         "type": "boolean",
@@ -183,8 +218,8 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Pool of characters to randomly sample from if random_mask is True.",
                         "x-component": "Input",
                         "x-group": GroupName.MASK_APPEARANCE,
-                        "x-depend-on": { "random_mask": True },
-                        "x-required-on": { "random_mask": True }
+                        "x-depend-on": {"random_mask": True},
+                        "x-required-on": {"random_mask": True},
                     },
                     "preset_type": {
                         "type": ["string", "null"],
@@ -193,12 +228,27 @@ class PartialMaskingConfig(OperationConfig):
                         "oneOf": [
                             {"const": MaskingType.EMAIL.value, "description": "Email"},
                             {"const": MaskingType.PHONE.value, "description": "Phone"},
-                            {"const": MaskingType.CREDIT_CARD.value, "description": "Credit Card"},
+                            {
+                                "const": MaskingType.CREDIT_CARD.value,
+                                "description": "Credit Card",
+                            },
                             {"const": MaskingType.SSN.value, "description": "SSN"},
-                            {"const": MaskingType.IP_ADDRESS.value, "description": "IP Address"},
-                            {"const": MaskingType.HEALTHCARE.value, "description": "Healthcare"},
-                            {"const": MaskingType.FINANCIAL.value, "description": "Financial"},
-                            {"const": MaskingType.DATE_ISO.value, "description": "Date (ISO)"}
+                            {
+                                "const": MaskingType.IP_ADDRESS.value,
+                                "description": "IP Address",
+                            },
+                            {
+                                "const": MaskingType.HEALTHCARE.value,
+                                "description": "Healthcare",
+                            },
+                            {
+                                "const": MaskingType.FINANCIAL.value,
+                                "description": "Financial",
+                            },
+                            {
+                                "const": MaskingType.DATE_ISO.value,
+                                "description": "Date (ISO)",
+                            },
                         ],
                         "x-component": "Select",
                         "x-group": GroupName.CORE_MASKING_STRATEGY,
@@ -213,66 +263,114 @@ class PartialMaskingConfig(OperationConfig):
                             "depend_on": "preset_type",
                             "options_map": {
                                 MaskingType.EMAIL.value: [
-                                {"label": "FULL_DOMAIN", "value": "FULL_DOMAIN"},
-                                {"label": "DOMAIN_ONLY", "value": "DOMAIN_ONLY"},
-                                {"label": "PARTIAL_DOMAIN", "value": "PARTIAL_DOMAIN"},
-                                {"label": "PRIVACY_FOCUSED", "value": "PRIVACY_FOCUSED"},
-                                {"label": "GDPR_COMPLIANT", "value": "GDPR_COMPLIANT"},
-                                {"label": "UTILITY_BALANCED", "value": "UTILITY_BALANCED"},
-                                {"label": "MINIMAL_EXPOSURE", "value": "MINIMAL_EXPOSURE"}
+                                    {"label": "FULL_DOMAIN", "value": "FULL_DOMAIN"},
+                                    {"label": "DOMAIN_ONLY", "value": "DOMAIN_ONLY"},
+                                    {
+                                        "label": "PARTIAL_DOMAIN",
+                                        "value": "PARTIAL_DOMAIN",
+                                    },
+                                    {
+                                        "label": "PRIVACY_FOCUSED",
+                                        "value": "PRIVACY_FOCUSED",
+                                    },
+                                    {
+                                        "label": "GDPR_COMPLIANT",
+                                        "value": "GDPR_COMPLIANT",
+                                    },
+                                    {
+                                        "label": "UTILITY_BALANCED",
+                                        "value": "UTILITY_BALANCED",
+                                    },
+                                    {
+                                        "label": "MINIMAL_EXPOSURE",
+                                        "value": "MINIMAL_EXPOSURE",
+                                    },
                                 ],
                                 MaskingType.PHONE.value: [
-                                {"label": "US_STANDARD", "value": "US_STANDARD"},
-                                {"label": "US_FORMATTED", "value": "US_FORMATTED"},
-                                {"label": "INTERNATIONAL", "value": "INTERNATIONAL"},
-                                {"label": "LAST_FOUR_ONLY", "value": "LAST_FOUR_ONLY"},
-                                {"label": "AREA_CODE_ONLY", "value": "AREA_CODE_ONLY"},
-                                {"label": "FULL_MASK", "value": "FULL_MASK"}
+                                    {"label": "US_STANDARD", "value": "US_STANDARD"},
+                                    {"label": "US_FORMATTED", "value": "US_FORMATTED"},
+                                    {
+                                        "label": "INTERNATIONAL",
+                                        "value": "INTERNATIONAL",
+                                    },
+                                    {
+                                        "label": "LAST_FOUR_ONLY",
+                                        "value": "LAST_FOUR_ONLY",
+                                    },
+                                    {
+                                        "label": "AREA_CODE_ONLY",
+                                        "value": "AREA_CODE_ONLY",
+                                    },
+                                    {"label": "FULL_MASK", "value": "FULL_MASK"},
                                 ],
                                 MaskingType.CREDIT_CARD.value: [
-                                {"label": "PCI_COMPLIANT", "value": "PCI_COMPLIANT"},
-                                {"label": "STRICT", "value": "STRICT"},
-                                {"label": "FULL_MASK", "value": "FULL_MASK"},
-                                {"label": "NUMERIC_ONLY", "value": "NUMERIC_ONLY"},
-                                {"label": "FIRST_LAST_FOUR", "value": "FIRST_LAST_FOUR"}
+                                    {
+                                        "label": "PCI_COMPLIANT",
+                                        "value": "PCI_COMPLIANT",
+                                    },
+                                    {"label": "STRICT", "value": "STRICT"},
+                                    {"label": "FULL_MASK", "value": "FULL_MASK"},
+                                    {"label": "NUMERIC_ONLY", "value": "NUMERIC_ONLY"},
+                                    {
+                                        "label": "FIRST_LAST_FOUR",
+                                        "value": "FIRST_LAST_FOUR",
+                                    },
                                 ],
                                 MaskingType.SSN.value: [
-                                {"label": "LAST_FOUR", "value": "LAST_FOUR"},
-                                {"label": "FIRST_THREE", "value": "FIRST_THREE"},
-                                {"label": "FULL_MASK", "value": "FULL_MASK"},
-                                {"label": "NUMERIC_MASK", "value": "NUMERIC_MASK"},
-                                {"label": "AREA_NUMBER_ONLY", "value": "AREA_NUMBER_ONLY"}
+                                    {"label": "LAST_FOUR", "value": "LAST_FOUR"},
+                                    {"label": "FIRST_THREE", "value": "FIRST_THREE"},
+                                    {"label": "FULL_MASK", "value": "FULL_MASK"},
+                                    {"label": "NUMERIC_MASK", "value": "NUMERIC_MASK"},
+                                    {
+                                        "label": "AREA_NUMBER_ONLY",
+                                        "value": "AREA_NUMBER_ONLY",
+                                    },
                                 ],
                                 MaskingType.IP_ADDRESS.value: [
-                                {"label": "SUBNET_MASK", "value": "SUBNET_MASK"},
-                                {"label": "NETWORK_ONLY", "value": "NETWORK_ONLY"},
-                                {"label": "FULL_MASK", "value": "FULL_MASK"},
-                                {"label": "ZERO_MASK", "value": "ZERO_MASK"},
-                                {"label": "PRIVATE_NETWORK", "value": "PRIVATE_NETWORK"}
+                                    {"label": "SUBNET_MASK", "value": "SUBNET_MASK"},
+                                    {"label": "NETWORK_ONLY", "value": "NETWORK_ONLY"},
+                                    {"label": "FULL_MASK", "value": "FULL_MASK"},
+                                    {"label": "ZERO_MASK", "value": "ZERO_MASK"},
+                                    {
+                                        "label": "PRIVATE_NETWORK",
+                                        "value": "PRIVATE_NETWORK",
+                                    },
                                 ],
                                 MaskingType.HEALTHCARE.value: [
-                                {"label": "MEDICAL_RECORD", "value": "MEDICAL_RECORD"},
-                                {"label": "PATIENT_ID", "value": "PATIENT_ID"},
-                                {"label": "NPI_NUMBER", "value": "NPI_NUMBER"},
-                                {"label": "DEA_NUMBER", "value": "DEA_NUMBER"}
+                                    {
+                                        "label": "MEDICAL_RECORD",
+                                        "value": "MEDICAL_RECORD",
+                                    },
+                                    {"label": "PATIENT_ID", "value": "PATIENT_ID"},
+                                    {"label": "NPI_NUMBER", "value": "NPI_NUMBER"},
+                                    {"label": "DEA_NUMBER", "value": "DEA_NUMBER"},
                                 ],
                                 MaskingType.FINANCIAL.value: [
-                                {"label": "ACCOUNT_NUMBER", "value": "ACCOUNT_NUMBER"},
-                                {"label": "ROUTING_NUMBER", "value": "ROUTING_NUMBER"},
-                                {"label": "BANK_STANDARD", "value": "BANK_STANDARD"},
-                                {"label": "SWIFT_CODE", "value": "SWIFT_CODE"},
-                                {"label": "IBAN", "value": "IBAN"},
-                                {"label": "CREDIT_LIMIT", "value": "CREDIT_LIMIT"},
-                                {"label": "LOAN_NUMBER", "value": "LOAN_NUMBER"}
+                                    {
+                                        "label": "ACCOUNT_NUMBER",
+                                        "value": "ACCOUNT_NUMBER",
+                                    },
+                                    {
+                                        "label": "ROUTING_NUMBER",
+                                        "value": "ROUTING_NUMBER",
+                                    },
+                                    {
+                                        "label": "BANK_STANDARD",
+                                        "value": "BANK_STANDARD",
+                                    },
+                                    {"label": "SWIFT_CODE", "value": "SWIFT_CODE"},
+                                    {"label": "IBAN", "value": "IBAN"},
+                                    {"label": "CREDIT_LIMIT", "value": "CREDIT_LIMIT"},
+                                    {"label": "LOAN_NUMBER", "value": "LOAN_NUMBER"},
                                 ],
                                 MaskingType.DATE_ISO.value: [
-                                {"label": "MASK_DAY", "value": "MASK_DAY"},
-                                {"label": "MASK_MONTH", "value": "MASK_MONTH"},
-                                {"label": "MASK_YEAR", "value": "MASK_YEAR"},
-                                {"label": "MASK_FULL", "value": "MASK_FULL"}
-                                ]
-                            }
-                        }
+                                    {"label": "MASK_DAY", "value": "MASK_DAY"},
+                                    {"label": "MASK_MONTH", "value": "MASK_MONTH"},
+                                    {"label": "MASK_YEAR", "value": "MASK_YEAR"},
+                                    {"label": "MASK_FULL", "value": "MASK_FULL"},
+                                ],
+                            },
+                        },
                     },
                     "consistency_fields": {
                         "type": ["array", "null"],
@@ -288,7 +386,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": GroupName.CONDITION_LOGIC
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                     },
                     "condition_operator": {
                         "type": "string",
@@ -301,36 +399,39 @@ class PartialMaskingConfig(OperationConfig):
                             {"const": "gt", "description": "Greater than"},
                             {"const": "lt", "description": "Less than"},
                             {"const": "eq", "description": "Equal to"},
-                            {"const": "range", "description": "Range"}
+                            {"const": "range", "description": "Range"},
                         ],
                         "default": "in",
-                        "x-group": GroupName.CONDITION_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null" }
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {"condition_field": "not_null"},
                     },
                     "condition_values": {
                         "type": ["array", "null"],
                         "title": "Condition Values",
-                        "x-component": "Input", #ArrayItems
+                        "x-component": "Input",  # ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": GroupName.CONDITION_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {
+                            "condition_field": "not_null",
+                            "condition_operator": "not_null",
+                        },
                     },
                     # K-anonymity integration
                     "ka_risk_field": {
                         "type": ["string", "null"],
                         "title": "K-anonymity Risk Field",
-                        "description": "Field used for k-anonymity risk assessment."
+                        "description": "Field used for k-anonymity risk assessment.",
                     },
                     "risk_threshold": {
                         "type": "number",
                         "title": "Risk Threshold",
-                        "description": "Threshold for k-anonymity risk triggering masking."
+                        "description": "Threshold for k-anonymity risk triggering masking.",
                     },
                     "vulnerable_record_strategy": {
                         "type": "string",
                         "title": "Vulnerable Record Strategy",
-                        "description": "Strategy for handling vulnerable records."
+                        "description": "Strategy for handling vulnerable records.",
                     },
                 },
                 "required": ["field_name"],

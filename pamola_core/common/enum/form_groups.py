@@ -4,6 +4,7 @@ Form group definitions for UI configuration.
 This module provides metadata for organizing operation configuration
 fields into logical groups in the UI.
 """
+
 from enum import Enum
 from typing import List, Dict
 
@@ -27,6 +28,9 @@ class GroupName(str, Enum):
     MASKING_RULES = "masking_rules"
     FORMATTING_AND_STRUCTURE = "formatting_and_structure"
     CORE_MASKING_STRATEGY = "core_masking_strategy"
+    CORE_SUPPRESSION_RULE = "core_suppression_rule"
+    ADVANCED_CONDITIONAL_RULES = "advanced_conditional_rules"
+    RISK_BASED_FILTERING = "risk_based_filtering"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -46,7 +50,9 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.MASKING_RULES: "Masking Rules",
     GroupName.FORMATTING_AND_STRUCTURE: "Formatting & Structure",
     GroupName.CORE_MASKING_STRATEGY: "Core Masking Strategy",
-
+    GroupName.CORE_SUPPRESSION_RULE: "Core Suppression Rule",
+    GroupName.ADVANCED_CONDITIONAL_RULES: "Advanced Conditional Rules",
+    GroupName.RISK_BASED_FILTERING: "Risk-Based Filtering",
 }
 
 
@@ -97,7 +103,13 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
         GroupName.CONDITIONAL_LOGIC,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
-    ]
+    ],
+    "RecordSuppressionConfig": [
+        GroupName.CORE_SUPPRESSION_RULE,
+        GroupName.ADVANCED_CONDITIONAL_RULES,
+        GroupName.RISK_BASED_FILTERING,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
 }
 
 
@@ -131,7 +143,7 @@ def get_groups_with_titles(operation_config_type: str) -> List[Dict[str, str]]:
 
     Returns:
         List of dicts with 'name' and 'title' keys
-        
+
     Example:
         >>> get_groups_with_titles("NumericGeneralizationConfig")
         [

@@ -18,8 +18,10 @@ Configuration schema for defining and validating full masking parameters in PAMO
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of full masking config file
 """
+
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.common.enum.form_groups import GroupName
+
 
 class FullMaskingConfig(OperationConfig):
     """Configuration for FullMaskingOperation with BaseOperationConfig merged."""
@@ -36,7 +38,7 @@ class FullMaskingConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the field to apply full masking."
+                        "description": "Name of the field to apply full masking.",
                     },
                     "random_mask": {
                         "type": "boolean",
@@ -44,7 +46,7 @@ class FullMaskingConfig(OperationConfig):
                         "title": "Random Mask",
                         "description": "Whether to use random characters from a pool instead of a fixed mask_char.",
                         "x-component": "Checkbox",
-                        "x-group": GroupName.CORE_MASKING_RULES
+                        "x-group": GroupName.CORE_MASKING_RULES,
                     },
                     "mask_char": {
                         "type": "string",
@@ -53,8 +55,8 @@ class FullMaskingConfig(OperationConfig):
                         "description": "Character used for masking the field values.",
                         "x-component": "Input",
                         "x-group": GroupName.CORE_MASKING_RULES,
-                        "x-depend-on": { "random_mask": False },
-                        "x-required-on": { "random_mask": False }
+                        "x-depend-on": {"random_mask": False},
+                        "x-required-on": {"random_mask": False},
                     },
                     "preserve_length": {
                         "type": "boolean",
@@ -71,8 +73,8 @@ class FullMaskingConfig(OperationConfig):
                         "description": "Fixed output length for all masked values. If None, uses input length.",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.CORE_MASKING_RULES,
-                        "x-depend-on": { "preserve_length": False },
-                        "x-required-on": { "preserve_length": False }
+                        "x-depend-on": {"preserve_length": False},
+                        "x-required-on": {"preserve_length": False},
                     },
                     "mask_char_pool": {
                         "type": ["string", "null"],
@@ -80,8 +82,8 @@ class FullMaskingConfig(OperationConfig):
                         "description": "Pool of characters to randomly sample from if random_mask is True.",
                         "x-component": "Input",
                         "x-group": GroupName.CORE_MASKING_RULES,
-                        "x-depend-on": { "preserve_length": True },
-                        "x-required-on": { "preserve_length": True }
+                        "x-depend-on": {"preserve_length": True},
+                        "x-required-on": {"preserve_length": True},
                     },
                     "preserve_format": {
                         "type": "boolean",
@@ -102,11 +104,23 @@ class FullMaskingConfig(OperationConfig):
                                     "description": "Select Type",
                                     "type": "string",
                                     "x-component": "Select",
-                                    "enum": ["phone", "ssn", "credit_card", "email", "date"],
+                                    "enum": [
+                                        "phone",
+                                        "ssn",
+                                        "credit_card",
+                                        "email",
+                                        "date",
+                                    ],
                                     "oneOf": [
-                                        {"const": "phone", "description": "Phone Number"},
+                                        {
+                                            "const": "phone",
+                                            "description": "Phone Number",
+                                        },
                                         {"const": "ssn", "description": "SSN"},
-                                        {"const": "credit_card", "description": "Credit Card"},
+                                        {
+                                            "const": "credit_card",
+                                            "description": "Credit Card",
+                                        },
                                         {"const": "email", "description": "Email"},
                                         {"const": "date", "description": "Date"},
                                     ],
@@ -115,15 +129,15 @@ class FullMaskingConfig(OperationConfig):
                                     "title": "Pattern",
                                     "description": "Value (e.g., r'(\d{3})-(\d{3})-(\d{4})')",
                                     "type": "string",
-                                    "x-component": "Input"
-                                }
+                                    "x-component": "Input",
+                                },
                             },
-                            "type": "object"
+                            "type": "object",
                         },
                         "x-component": "ArrayItems",
                         "x-group": GroupName.FORMATTING_AND_STRUCTURE,
-                        "x-depend-on": { "preserve_format": True },
-                        "x-required-on": { "preserve_format": True }
+                        "x-depend-on": {"preserve_format": True},
+                        "x-required-on": {"preserve_format": True},
                     },
                     "numeric_output": {
                         "type": "string",
@@ -134,7 +148,7 @@ class FullMaskingConfig(OperationConfig):
                         "oneOf": [
                             {"const": "string", "description": "string"},
                             {"const": "numeric", "description": "numeric"},
-                            {"const": "preserve", "description": "preserve"}
+                            {"const": "preserve", "description": "preserve"},
                         ],
                         "x-component": "Select",
                         "x-group": GroupName.FORMATTING_AND_STRUCTURE,
@@ -152,7 +166,7 @@ class FullMaskingConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": GroupName.CONDITION_LOGIC
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                     },
                     "condition_operator": {
                         "type": "string",
@@ -165,36 +179,39 @@ class FullMaskingConfig(OperationConfig):
                             {"const": "gt", "description": "Greater than"},
                             {"const": "lt", "description": "Less than"},
                             {"const": "eq", "description": "Equal to"},
-                            {"const": "range", "description": "Range"}
+                            {"const": "range", "description": "Range"},
                         ],
                         "default": "in",
-                        "x-group": GroupName.CONDITION_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null" }
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {"condition_field": "not_null"},
                     },
                     "condition_values": {
                         "type": ["array", "null"],
                         "title": "Condition Values",
-                        "x-component": "Input", #ArrayItems
+                        "x-component": "Input",  # ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": GroupName.CONDITION_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {
+                            "condition_field": "not_null",
+                            "condition_operator": "not_null",
+                        },
                     },
                     # K-anonymity integration
                     "ka_risk_field": {
                         "type": ["string", "null"],
                         "title": "K-anonymity Risk Field",
-                        "description": "Field used for k-anonymity risk assessment."
+                        "description": "Field used for k-anonymity risk assessment.",
                     },
                     "risk_threshold": {
                         "type": "number",
                         "title": "Risk Threshold",
-                        "description": "Threshold for k-anonymity risk triggering masking."
+                        "description": "Threshold for k-anonymity risk triggering masking.",
                     },
                     "vulnerable_record_strategy": {
                         "type": "string",
                         "title": "Vulnerable Record Strategy",
-                        "description": "Strategy for handling vulnerable records."
+                        "description": "Strategy for handling vulnerable records.",
                     },
                 },
                 "required": ["field_name", "mask_char"],
