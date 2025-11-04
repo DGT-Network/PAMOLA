@@ -20,6 +20,9 @@ class GroupName(str, Enum):
     RISK_BASED_PROCESSING_AND_PRIVACY = "risk_based_processing_and_privacy"
     FORMATTING_AND_TIMEZONE = "formatting_and_timezone"
     CORE_SUPPRESSION_STRATEGY = "core_suppression_strategy"
+    SIMPLE_CONDITIONAL_RULE = "simple_conditional_rule"
+    ADVANCED_CONDITIONAL_RULES = "advanced_conditional_rules"
+    RISK_BASED_FILTERING = "risk_based_filtering"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -32,6 +35,9 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.RISK_BASED_PROCESSING_AND_PRIVACY: "Risk-Based Processing & Privacy",
     GroupName.FORMATTING_AND_TIMEZONE: "Formatting & Timezone",
     GroupName.CORE_SUPPRESSION_STRATEGY: "Core Suppression Strategy",
+    GroupName.SIMPLE_CONDITIONAL_RULE: "Simple Conditional Rule",
+    GroupName.ADVANCED_CONDITIONAL_RULES: "Advanced Conditional Rules",
+    GroupName.RISK_BASED_FILTERING: "Risk-Based Filtering",
 }
 
 
@@ -58,6 +64,12 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "CellSuppressionConfig": [
         GroupName.CORE_SUPPRESSION_STRATEGY,
         GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "AttributeSuppressionConfig": [
+        GroupName.SIMPLE_CONDITIONAL_RULE,
+        GroupName.ADVANCED_CONDITIONAL_RULES,
+        GroupName.RISK_BASED_FILTERING,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }

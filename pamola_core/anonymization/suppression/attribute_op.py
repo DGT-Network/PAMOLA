@@ -46,7 +46,7 @@ from pamola_core.anonymization.commons.validation import (
     FieldNotFoundError,
 )
 from pamola_core.anonymization.commons.visualization_utils import create_bar_plot
-from pamola_core.anonymization.schemas.attribute_op_config import AttributeSuppressionConfig
+from pamola_core.anonymization.schemas.attribute_op_schema import AttributeSuppressionConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
