@@ -50,7 +50,7 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_numeric_field,
 )
 from pamola_core.anonymization.commons.visualization_utils import create_bar_plot
-from pamola_core.anonymization.schemas.record_op_config import RecordSuppressionConfig
+from pamola_core.anonymization.schemas.record_op_schema import RecordSuppressionConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
@@ -1751,7 +1751,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             "suppression_reason_field": self.suppression_reason_field,
             "condition_logic": self.condition_logic,
             "multi_conditions": self.multi_conditions,
-            "ka_risk_field": self.multi_conditions,
+            "ka_risk_field": self.ka_risk_field,
             "risk_threshold": self.risk_threshold,
             "optimize_memory": self.optimize_memory,
             "adaptive_chunk_size": self.adaptive_chunk_size,

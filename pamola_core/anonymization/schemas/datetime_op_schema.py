@@ -18,7 +18,7 @@ Configuration schema for defining and validating datetime generalization paramet
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of datetime generalization config file
 """
-from pamola_core.common.enum.section_name_enum import SectionName
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
@@ -60,7 +60,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                             "- 'component': Keeps only specific parts of the date/time.\n"
                             "- 'relative': Converts timestamps into relative descriptions."
                             ),
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY
                     },
                     # --- Rounding parameters ---
                     "rounding_unit": {
@@ -69,7 +69,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Rounding Unit",
                         "description": "Unit for rounding datetime values (e.g., year, month, day, hour).",
                         "x-component": "Select",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "rounding" },
                         "x-required-on": { "strategy": "rounding" },
                         "oneOf": [
@@ -94,7 +94,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Binning Type",
                         "description": "Type of binning to apply (e.g., day_range, hour_range, business_period, seasonal, custom).",
                         "x-component": "Select",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "binning" },
                         "x-required-on": { "strategy": "binning" },
                         "oneOf": [
@@ -111,7 +111,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Interval Size",
                         "description": "Size of each binning interval.",
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "bin_type": ["hour_range", "day_range"] },
                         "x-required-on": { "bin_type": ["hour_range", "day_range"] },
                     },
@@ -121,7 +121,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Interval Unit",
                         "description": "Unit for binning interval (e.g., days, weeks, months).",
                         "x-component": "Select",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "bin_type": ["hour_range", "day_range"] },
                         "x-required-on": { "bin_type": ["hour_range", "day_range"] },
                         "oneOf": [
@@ -136,7 +136,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Reference Date",
                         "description": "Reference date for binning alignment. Accepts string or null.",
                         "x-component": "DatePicker",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "relative" },
                         "x-component-props": {
                             "showTime": True,
@@ -150,7 +150,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Custom Bins",
                         "description": "User-defined bin boundaries for custom binning.",
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "bin_type": "custom" },
                     },
                     # --- Component-based generalization ---
@@ -170,7 +170,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Components to Keep",
                         "description": "List of datetime components to keep (e.g., year, month, day, hour, minute, weekday).",
                         "x-component": "Select",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "component" },
                         "oneOf": [
                             {"const": "year", "description": "Years"},
@@ -186,7 +186,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Custom Output Format",
                         "description": "Custom output format for datetime string conversion.",
                         "x-component": "Input",
-                        "x-group": SectionName.FORMATTING_AND_TIMEZONE,
+                        "x-group": GroupName.FORMATTING_AND_TIMEZONE,
                     },
                     # --- Timezone and format handling ---
                     "timezone_handling": {
@@ -201,7 +201,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                             "remove: Strips all timezone information."
                         ),
                         "x-component": "Select",
-                        "x-group": SectionName.FORMATTING_AND_TIMEZONE,
+                        "x-group": GroupName.FORMATTING_AND_TIMEZONE,
                         "oneOf": [
                             {"const": "preserve", "description": "Preserve"},
                             {"const": "utc", "description": "UTC"},
@@ -214,7 +214,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Default Timezone",
                         "description": "Default timezone to use if missing in input.",
                         "x-component": "Input",
-                        "x-group": SectionName.FORMATTING_AND_TIMEZONE,
+                        "x-group": GroupName.FORMATTING_AND_TIMEZONE,
                         "x-depend-on": { "timezone_handling": "utc" },
                     },
                     "input_formats": {
@@ -228,7 +228,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                             "x-component": "Input",
                         },
                         "x-component": "ArrayItems",
-                        "x-group": SectionName.FORMATTING_AND_TIMEZONE,
+                        "x-group": GroupName.FORMATTING_AND_TIMEZONE,
                     },
                     # --- Privacy & QI ---
                     "min_privacy_threshold": {
@@ -238,7 +238,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Minimum Privacy Threshold",
                         "description": "Minimum privacy preservation threshold (ratio of unique value reduction).",
                         "x-component": "FloatPicker",
-                        "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT,
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "quasi_identifiers": {
                         "type": ["array", "null"],
