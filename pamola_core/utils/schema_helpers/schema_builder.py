@@ -94,16 +94,16 @@ from pamola_core.transformations.schemas.split_fields_op_config_exclude import (
 )
 
 
-from pamola_core.anonymization.schemas.categorical_op_config import (
+from pamola_core.anonymization.schemas.categorical_op_schema import (
     CategoricalGeneralizationConfig,
 )
-from pamola_core.anonymization.schemas.categorical_op_config_exclude import (
+from pamola_core.anonymization.schemas.categorical_op_schema_exclude import (
     CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS,
 )
-from pamola_core.anonymization.schemas.datetime_op_config import (
+from pamola_core.anonymization.schemas.datetime_op_schema import (
     DateTimeGeneralizationConfig,
 )
-from pamola_core.anonymization.schemas.datetime_op_config_exclude import (
+from pamola_core.anonymization.schemas.datetime_op_schema_exclude import (
     DATETIME_GENERALIZATION_EXCLUDE_FIELDS,
 )
 from pamola_core.anonymization.schemas.full_masking_op_schema import FullMaskingConfig
@@ -210,6 +210,8 @@ from pamola_core.profiling.schemas.text_config import (
     TextSemanticCategorizerOperationConfig,
 )
 from pamola_core.profiling.schemas.text_config_exclude import TEXT_EXCLUDE_FIELDS
+from pamola_core.anonymization.schemas.datetime_op_tooltip import DateTimeOpTooltip
+from pamola_core.anonymization.schemas.categorical_op_tooltip import CategoricalOpTooltip
 
 from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
@@ -226,8 +228,8 @@ ALL_OP_CONFIGS = [
     (RemoveFieldsOperationConfig, REMOVE_FIELDS_EXCLUDE_FIELDS, None),
     (SplitByIDValuesOperationConfig, SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS, None),
     (SplitFieldsOperationConfig, SPLIT_FIELDS_EXCLUDE_FIELDS, None),
-    (CategoricalGeneralizationConfig, CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS, None),
-    (DateTimeGeneralizationConfig, DATETIME_GENERALIZATION_EXCLUDE_FIELDS, None),
+    (CategoricalGeneralizationConfig, CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS, CategoricalOpTooltip.as_dict()),
+    (DateTimeGeneralizationConfig, DATETIME_GENERALIZATION_EXCLUDE_FIELDS, DateTimeOpTooltip.as_dict()),
     (FullMaskingConfig, FULL_MASKING_EXCLUDE_FIELDS, None, FullMaskingOpTooltip.as_dict()),
     (NumericGeneralizationConfig, NUMERIC_GENERALIZATION_EXCLUDE_FIELDS, NumericOpTooltip.as_dict()),
     (PartialMaskingConfig, PARTIAL_MASKING_EXCLUDE_FIELDS, None, PartialMaskingOpTooltip.as_dict()),

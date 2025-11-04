@@ -131,7 +131,7 @@ from pamola_core.anonymization.commons.visualization_utils import (
 )
 
 # Framework utilities
-from pamola_core.anonymization.schemas.categorical_op_config import CategoricalGeneralizationConfig
+from pamola_core.anonymization.schemas.categorical_op_schema import CategoricalGeneralizationConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
