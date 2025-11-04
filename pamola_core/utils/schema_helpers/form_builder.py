@@ -251,6 +251,14 @@ def convert_property(
                     "maximum": field["maximum"],
                 }
             )
+    
+    elif field["x-component"] == "FloatPicker":
+        field["x-component"] = "NumberPicker"
+        field["x-component-props"] = {
+            "step": 0.1,
+            "precision": 1,
+            "min": 0
+        }
 
     elif field["x-component"] == "ArrayItems":
         field = _handle_array_items_component(field, t, formily_schema, tooltip)
@@ -277,6 +285,8 @@ def _get_default_value_str(field: Dict[str, Any]) -> str:
         if field.get("type") == "number":
             return str(field.get("minimum", 0))
         return "null"
+    if isinstance(default_value, bool):
+        return str(default_value).lower()
     if isinstance(default_value, (int, float)):
         return str(default_value)
     return f"'{default_value}'"
