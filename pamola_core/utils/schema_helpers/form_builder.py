@@ -16,10 +16,9 @@ Description:
 Usage:
     Import and use convert_json_schema_to_formily, and related helpers.
 """
-
+import json
 import copy
 from typing import Any, Dict, List, Optional
-import copy
 
 from pamola_core.common.enum.form_groups import (
     get_groups_with_titles,
@@ -269,8 +268,68 @@ def convert_property(
         field["x-component"] = "NumberPicker"
         field["x-component-props"] = {"step": 0.1, "precision": 1, "min": 0}
 
+        if "minimum" in field:
+            field["x-validate"] = field.get("x-validate", [])
+            field["x-validate"].append(
+                {
+                    "type": "minimum",
+                    "message": f"{field['title']} must be at least {field['minimum']}",
+                    "minimum": field["minimum"],
+                }
+            )
+        if "maximum" in field:
+            field["x-validate"] = field.get("x-validate", [])
+            field["x-validate"].append(
+                {
+                    "type": "maximum",
+                    "message": f"{field['title']} must be at most {field['maximum']}",
+                    "maximum": field["maximum"],
+                }
+            )
+
     elif field["x-component"] == "ArrayItems":
         field = _handle_array_items_component(field, t, formily_schema, tooltip)
+
+    elif field["x-component"] == "DatePicker":
+        field["x-decorator"] = "FormItem"
+
+    elif field.get("x-component") == "Depend-Select":
+        depend_map = field.get("x-depend-map", {})
+        depend_on = depend_map.get("depend_on")
+        options_map = depend_map.get("options_map", {})
+
+        # Chuyển sang Select
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "Select"
+        field["x-component-props"] = {
+            "placeholder": f"Select {field.get('title', '').lower() or 'option'}"
+        }
+
+        field["x-reactions"] = [
+            {
+                "dependencies": [f".{depend_on}"],
+                "fulfill": {
+                    "schema": {
+                        "enum": "{{ (function() { \
+                            const map = " + str(options_map).replace("'", '"') + "; \
+                            return map[$deps[0]] || []; \
+                        })() }}"
+                    },
+                }
+            },
+            {
+                "dependencies": [f".{depend_on}"],
+                "fulfill": {
+                    "state": {
+                        "visible": "{{ !!$deps[0] }}"
+                    },
+                    "run": "{{ $self.setValue(undefined); }}"
+                }
+            }
+        ]
+
+        field.pop("x-depend-map", None)
+            
 
     if "x-depend-on" in field or "x-required-on" in field:
         field = _add_x_reactions(field, formily_schema, is_nested)
@@ -303,6 +362,9 @@ def _get_default_value_str(field: Dict[str, Any]) -> str:
 
 def _build_condition_expression(condition_value: Any, field_index: int) -> str:
     """Build a condition expression for field dependencies using $deps array."""
+    if isinstance(condition_value, bool):
+        js_value = 'true' if condition_value else 'false'
+        return f" $deps[{field_index}] === {js_value} "
     if condition_value == "not_null":
         return f" !!$deps[{field_index}] "
     if isinstance(condition_value, list):

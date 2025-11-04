@@ -16,4 +16,10 @@ These fields are typically configuration or engine-related and should not be pro
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
-FULL_MASKING_EXCLUDE_FIELDS = ["config", "scope", "engine"]
+FULL_MASKING_EXCLUDE_FIELDS = ["config", 
+                               "scope", 
+                               "engine", 
+                               "field_name",
+                               "ka_risk_field", 
+                               "risk_threshold", 
+                               "vulnerable_record_strategy"]
