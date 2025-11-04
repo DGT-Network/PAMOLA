@@ -19,7 +19,7 @@ Changelog:
 """
 
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
-from pamola_core.common.enum.section_name_enum import SectionName
+from pamola_core.common.enum.form_groups import GroupName
 
 class UniformTemporalNoiseConfig(OperationConfig):
     """Configuration for UniformTemporalNoiseOperation with BaseOperationConfig merged."""
@@ -45,7 +45,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "description": "Maximum absolute value of random time shift in days. Must be positive if specified.",
                         "minimum": 0,
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     "noise_range_hours": {
                         "type": ["number", "null"],
@@ -53,7 +53,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "description": "Maximum absolute value of random time shift in hours. Must be positive if specified.",
                         "minimum": 0,
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     "noise_range_minutes": {
                         "type": ["number", "null"],
@@ -61,7 +61,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "description": "Maximum absolute value of random time shift in minutes. Must be positive if specified.",
                         "minimum": 0,
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     "noise_range_seconds": {
                         "type": ["number", "null"],
@@ -69,7 +69,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "description": "Maximum absolute value of random time shift in seconds. Must be positive if specified.",
                         "minimum": 0,
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     "noise_range": {
                         "type": ["object", "null"],
@@ -111,7 +111,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                             {"const": "backward", "description": "Backward"}
                         ],
                         "x-component": "Select",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     # Boundary constraints
                     "min_datetime": {
@@ -119,14 +119,14 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Minimum Datetime",
                         "description": "Minimum allowed datetime after noise is applied. Values below this will be clipped.",
                         "x-component": "DatePicker",
-                        "x-group": SectionName.OUTPUT_FORMATTING_CONSTRAINTS,
+                        "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     "max_datetime": {
                         "type": ["string", "null"],
                         "title": "Maximum Datetime",
                         "description": "Maximum allowed datetime after noise is applied. Values above this will be clipped.",
                         "x-component": "DatePicker",
-                        "x-group": SectionName.OUTPUT_FORMATTING_CONSTRAINTS,
+                        "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     # Special date handling
                     "preserve_special_dates": {
@@ -135,7 +135,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Preserve Special Dates",
                         "description": "If true, specified special dates will not be shifted.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.PRESERVATION_RULES,
+                        "x-group": GroupName.PRESERVATION_RULES,
                     },
                     "special_dates": {
                         "type": ["array", "null"],
@@ -143,7 +143,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Special Dates",
                         "description": "List of dates (as strings) to preserve unchanged during noise application.",
                         "x-component": "DatePicker",
-                        "x-group": SectionName.PRESERVATION_RULES,
+                        "x-group": GroupName.PRESERVATION_RULES,
                         "x-depend-on": { "preserve_special_dates": True },
                         "x-required-on": { "preserve_special_dates": True },
                     },
@@ -153,7 +153,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Preserve Weekends",
                         "description": "If true, ensures that weekend/weekday status is preserved after noise is applied.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.PRESERVATION_RULES,
+                        "x-group": GroupName.PRESERVATION_RULES,
                     },
                     "preserve_time_of_day": {
                         "type": "boolean",
@@ -161,7 +161,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Preserve Time of Day",
                         "description": "If true, only the date part is shifted; the original time-of-day is preserved.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.PRESERVATION_RULES,
+                        "x-group": GroupName.PRESERVATION_RULES,
                     },
                     # Granularity
                     "output_granularity": {
@@ -177,7 +177,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                             {"const": "second", "description": "Second"}
                         ],
                         "x-component": "Select",
-                        "x-group": SectionName.OUTPUT_FORMATTING_CONSTRAINTS,
+                        "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     # Reproducibility
                     "random_seed": {
@@ -246,7 +246,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                             {"const": "OR", "description": "OR"}
                         ],
                         "x-component": "Select",
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                     },
                     # Conditional processing parameters
                     "condition_field": {
@@ -254,7 +254,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": SectionName.CONDITION_LOGIC
+                        "x-group": GroupName.CONDITION_LOGIC
                     },
                     "condition_operator": {
                         "type": "string",
@@ -270,7 +270,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                             {"const": "range", "description": "Range"}
                         ],
                         "default": "in",
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                         "x-depend-on": { "condition_field": "not_null" }
                     },
                     "condition_values": {
@@ -279,7 +279,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "x-component": "Input", #ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                         "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
                     },
                     # K-anonymity integration

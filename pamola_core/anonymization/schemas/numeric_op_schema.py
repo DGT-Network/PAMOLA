@@ -18,7 +18,7 @@ Configuration schema for defining and validating numeric generalization paramete
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of numeric generalization config file
 """
-from pamola_core.common.enum.section_name_enum import SectionName
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
@@ -65,7 +65,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             "- 'rounding': reduce precision to a fixed number of digits\n"
                             "- 'range': replace values by defined numeric ranges"
                         ),
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY
                     },
 
                     # === Binning ===
@@ -79,7 +79,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             {"const": "equal_frequency", "description": "Equal frequency"},
                             {"const": "quantile", "description": "Quantile-based"}
                         ],
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "binning" },
                         "x-required-on": { "strategy": "binning" }
                     },
@@ -90,7 +90,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Bin Count",
                         "x-component": "NumberPicker",
                         "description": "Number of bins to divide numeric values into (for 'binning' strategy).",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "binning" },
                         "x-required-on": { "strategy": "binning"}
                     },
@@ -101,7 +101,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Precision",
                         "x-component": "NumberPicker",
                         "description": "Number of decimal places to retain when rounding numeric values.",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "rounding" },
                         "x-required-on": { "strategy": "rounding" }
                     },
@@ -123,7 +123,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             "maxItems": 2
                         },
                         "x-component": "ArrayItems",
-                        "x-group": SectionName.CORE_GENERALIZATION_STRATEGY,
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "range" },
                         "x-required-on": { "strategy": "range" }
                     },
@@ -146,7 +146,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": SectionName.CONDITION_LOGIC
+                        "x-group": GroupName.CONDITIONAL_LOGIC
                     },
                     "condition_operator": {
                         "type": "string",
@@ -162,7 +162,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             {"const": "range", "description": "Range"}
                         ],
                         "default": "in",
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": { "condition_field": "not_null" }
                     },
                     "condition_values": {
@@ -171,7 +171,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "x-component": "Input", #ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
                     },
                     # === K-Anonymity integration ===

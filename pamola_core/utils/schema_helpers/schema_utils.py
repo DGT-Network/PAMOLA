@@ -221,7 +221,6 @@ def generate_schema_json(
     Example:
         generate_schema_json(NumericGeneralizationConfig)
     """
-
     # Get filtered schema with excluded fields removed
     filtered_schema = get_filtered_schema(config_class.schema, excluded_fields)
 
@@ -233,7 +232,9 @@ def generate_schema_json(
 
     if generate_formily_schema:
         # Convert the filtered JSON schema to Formily schema
-        filtered_schema = convert_json_schema_to_formily(filtered_schema, tooltip)
+        filtered_schema = convert_json_schema_to_formily(
+            filtered_schema, config_class.__name__, tooltip
+        )
 
     # Use the class name as the output filename
     filename = f"{config_class.__name__}.json"

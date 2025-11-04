@@ -30,7 +30,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Type, TypeVar, Generic, Union
 
-from pamola_core.common.enum.section_name_enum import SectionName
+from pamola_core.common.enum.form_groups import GroupName
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -297,51 +297,50 @@ class BaseOperationConfig(OperationConfig):
                 "type": "string",
                 "title": "Operation Name",
                 "description": "Human-readable name of the operation.",
-                "default": ""
+                "default": "",
             },
             "description": {
                 "type": "string",
                 "title": "Description",
                 "description": "Optional detailed description of this operation.",
-                "default": ""
+                "default": "",
             },
             "scope": {
                 "type": ["object", "null"],
                 "title": "Execution Scope",
-                "description": "Optional scope or context within which the operation will execute."
+                "description": "Optional scope or context within which the operation will execute.",
             },
             "config": {
                 "type": ["object", "null"],
                 "title": "Custom Configuration",
-                "description": "Additional configuration parameters, typically used internally."
+                "description": "Additional configuration parameters, typically used internally.",
             },
-
             # --- Performance & Processing ---
             "optimize_memory": {
                 "type": "boolean",
                 "x-component": "Checkbox",
                 "title": "Optimize Memory Usage",
                 "description": "If true, operations will use memory-efficient data structures.",
-                "default": True
+                "default": True,
             },
             "adaptive_chunk_size": {
                 "type": "boolean",
                 "title": "Adaptive Chunk Size",
                 "x-component": "Checkbox",
                 "description": "Automatically adjust chunk size based on data volume and system resources.",
-                "default": True
+                "default": True,
             },
             "mode": {
                 "type": "string",
                 "x-component": "Select",
                 "oneOf": [
                     {"const": "REPLACE", "description": "Replace"},
-                    {"const": "ENRICH", "description": "Enrich"}
+                    {"const": "ENRICH", "description": "Enrich"},
                 ],
                 "title": "Processing Mode",
                 "description": "Defines how results will be applied to the dataset: REPLACE overwrites, ENRICH adds new data.",
                 "default": "REPLACE",
-                "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT
+                "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
             },
             "column_prefix": {
                 "type": "string",
@@ -349,8 +348,8 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "Input",
                 "description": "Prefix to apply to newly generated columns.",
                 "default": "_",
-                "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT,
-                "x-depend-on": { "mode": "ENRICH" }
+                "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                "x-depend-on": {"mode": "ENRICH"},
             },
             "output_field_name": {
                 "type": ["string", "null"],
@@ -358,8 +357,8 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "Input",
                 "description": "Optional custom name for the generated or modified output field.",
                 "default": "",
-                "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT,
-                "x-depend-on": { "mode": "ENRICH" }
+                "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                "x-depend-on": {"mode": "ENRICH"},
             },
             "null_strategy": {
                 "type": "string",
@@ -367,13 +366,13 @@ class BaseOperationConfig(OperationConfig):
                     {"const": "PRESERVE", "description": "Preserve"},
                     {"const": "EXCLUDE", "description": "Exclude"},
                     {"const": "ANONYMIZE", "description": "Anonymize"},
-                    {"const": "ERROR", "description": "Error"}
+                    {"const": "ERROR", "description": "Error"},
                 ],
                 "x-component": "Select",
                 "title": "Handle Null Values",
                 "description": "Determines how null or missing values are handled during processing.",
                 "default": "PRESERVE",
-                "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT
+                "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
             },
             "engine": {
                 "type": "string",
@@ -385,42 +384,42 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "Select",
                 "title": "Execution Engine",
                 "description": "Execution backend used to process data. 'auto' selects the best engine automatically.",
-                "default": "auto"
+                "default": "auto",
             },
             "use_dask": {
                 "type": "boolean",
                 "title": "Enable Dask Processing",
                 "x-component": "Checkbox",
                 "description": "If true, operations are distributed across multiple Dask workers.",
-                "default": False
+                "default": False,
             },
             "npartitions": {
                 "type": ["integer", "null"],
                 "title": "Number of Dask Partitions",
                 "x-component": "NumberPicker",
                 "description": "Number of partitions to split the dataset into for parallel processing.",
-                "minimum": 1
+                "minimum": 1,
             },
             "dask_partition_size": {
                 "type": ["string", "null"],
                 "title": "Dask Partition Size",
                 "x-component": "Input",
                 "description": "Approximate size of each Dask partition (e.g. '100MB').",
-                "default": "100MB"
+                "default": "100MB",
             },
             "use_vectorization": {
                 "type": "boolean",
                 "x-component": "Checkbox",
                 "title": "Enable Vectorization",
                 "description": "Use NumPy vectorized operations for faster computation where applicable.",
-                "default": False
+                "default": False,
             },
             "parallel_processes": {
                 "type": ["integer", "null"],
                 "title": "Parallel Processes",
                 "x-component": "NumberPicker",
                 "description": "Number of CPU processes to use for parallel execution.",
-                "minimum": 1
+                "minimum": 1,
             },
             "chunk_size": {
                 "type": "integer",
@@ -428,16 +427,15 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "NumberPicker",
                 "description": "Number of rows to process per batch when streaming or chunked processing is enabled.",
                 "minimum": 1,
-                "default": 10000
+                "default": 10000,
             },
-
             # --- Output ---
             "use_cache": {
                 "type": "boolean",
                 "title": "Use Result Cache",
                 "x-component": "Checkbox",
                 "description": "Cache the operation output to speed up repeated runs with the same inputs.",
-                "default": False
+                "default": False,
             },
             "output_format": {
                 "type": "string",
@@ -449,32 +447,32 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "Select",
                 "title": "Output Format",
                 "description": "Format used when saving processed output data.",
-                "default": "csv"
+                "default": "csv",
             },
             "visualization_theme": {
                 "type": ["string", "null"],
                 "title": "Visualization Theme",
                 "x-component": "Input",
-                "description": "Optional color or layout theme for visualizations."
+                "description": "Optional color or layout theme for visualizations.",
             },
             "visualization_backend": {
                 "type": ["string", "null"],
                 "enum": ["plotly", "matplotlib", None],
                 "oneOf": [
                     {"const": "plotly", "description": "Plotly"},
-                    {"const": "matplotlib", "description": "Matplotlib"}
+                    {"const": "matplotlib", "description": "Matplotlib"},
                 ],
                 "x-component": "Select",
                 "title": "Visualization Backend",
                 "description": "Rendering backend for generated plots and charts.",
-                "default": "plotly"
+                "default": "plotly",
             },
             "visualization_strict": {
                 "type": "boolean",
                 "title": "Strict Visualization Mode",
                 "x-component": "Checkbox",
                 "description": "If true, visualization errors will stop execution instead of being ignored.",
-                "default": False
+                "default": False,
             },
             "visualization_timeout": {
                 "type": "integer",
@@ -482,36 +480,34 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "NumberPicker",
                 "description": "Maximum time allowed for generating visualization before timing out.",
                 "minimum": 1,
-                "default": 120
+                "default": 120,
             },
-
             # --- Security & Encryption ---
             "use_encryption": {
                 "type": "boolean",
                 "title": "Enable Encryption",
                 "x-component": "Checkbox",
                 "description": "Encrypt sensitive data outputs using the selected encryption mode.",
-                "default": False
+                "default": False,
             },
             "encryption_mode": {
                 "type": ["string", "null"],
                 "oneOf": [
                     {"const": "age", "description": "Age"},
                     {"const": "simple", "description": "Simple"},
-                    {"const": "none", "description": "None"}
+                    {"const": "none", "description": "None"},
                 ],
                 "x-component": "Select",
                 "title": "Encryption Mode",
                 "description": "Algorithm used for encrypting outputs. 'none' disables encryption.",
-                "default": "none"
+                "default": "none",
             },
             "encryption_key": {
                 "type": ["string", "null"],
                 "title": "Encryption Key",
                 "x-component": "Input",
-                "description": "Key or passphrase used for encryption when enabled."
+                "description": "Key or passphrase used for encryption when enabled.",
             },
-
             # --- Runtime & Execution Control ---
             "force_recalculation": {
                 "type": "boolean",
@@ -519,22 +515,21 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "Checkbox",
                 "description": "Re-run operation even if cached results exist.",
                 "default": False,
-                "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT
+                "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
             },
             "generate_visualization": {
                 "type": "boolean",
                 "title": "Generate Visualization",
                 "x-component": "Checkbox",
                 "description": "If true, automatically generate visualization outputs after processing.",
-                "default": True
+                "default": True,
             },
             "save_output": {
                 "type": "boolean",
                 "title": "Save Output",
                 "x-component": "Checkbox",
                 "description": "If true, persist processed data to disk or database.",
-                "default": True
+                "default": True,
             },
         },
     }
-

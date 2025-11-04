@@ -19,7 +19,7 @@ Changelog:
 """
 
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
-from pamola_core.common.enum.section_name_enum import SectionName
+from pamola_core.common.enum.form_groups import GroupName
 
 class UniformNumericNoiseConfig(OperationConfig):
     """Configuration for UniformNumericNoiseOperation with BaseOperationConfig merged."""
@@ -50,7 +50,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Noise Type",
                         "description": "Type of noise: 'additive' (add noise) or 'multiplicative' (scale by noise).",
                         "x-component": "Select",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     "noise_range": {
                         "oneOf": [
@@ -66,7 +66,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Noise Range",
                         "description": "Range of uniform noise to add. Use a single number for symmetric range (±value), or a two-element array [min, max] for asymmetric range.",
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     # ==== Bounds and Constraints ====
                     "output_min": {
@@ -74,14 +74,14 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Output Minimum",
                         "description": "Minimum allowed value after noise is applied.",
                         "x-component": "FloatPicker",
-                        "x-group": SectionName.OUTPUT_FORMATTING_CONSTRAINTS,
+                        "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     "output_max": {
                         "type": ["number", "null"],
                         "title": "Output Maximum",
                         "description": "Maximum allowed value after noise is applied.",
                         "x-component": "FloatPicker",
-                        "x-group": SectionName.OUTPUT_FORMATTING_CONSTRAINTS,
+                        "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     "preserve_zero": {
                         "type": "boolean",
@@ -89,7 +89,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Preserve Zero",
                         "description": "If True, zero values will not be changed by noise.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.OUTPUT_FORMATTING_CONSTRAINTS,
+                        "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     # ==== Integer Handling ====
                     "round_to_integer": {
@@ -98,7 +98,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Round to Integer",
                         "description": "If True, round the result to the nearest integer.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.OUTPUT_FORMATTING_CONSTRAINTS,
+                        "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     # ==== Statistical Parameters ====
                     "scale_by_std": {
@@ -107,7 +107,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Scale by Std",
                         "description": "If True, scale noise by the standard deviation of the field.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     "scale_factor": {
                         "type": "number",
@@ -116,7 +116,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Scale Factor",
                         "description": "Multiplier for the noise magnitude.",
                         "x-component": "FloatPicker",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     # ==== Randomization ====
                     "random_seed": {
@@ -136,7 +136,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": SectionName.CONDITION_LOGIC
+                        "x-group": GroupName.CONDITION_LOGIC
                     },
                     "condition_operator": {
                         "type": "string",
@@ -152,7 +152,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                             {"const": "range", "description": "Range"}
                         ],
                         "default": "in",
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                         "x-depend-on": { "condition_field": "not_null" }
                     },
                     "condition_values": {
@@ -161,7 +161,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "x-component": "Input", #ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                         "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
                     },
                     # Multi-field conditions
@@ -219,7 +219,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                             {"const": "OR", "description": "OR"}
                         ],
                         "x-component": "Select",
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                     },
                     # K-anonymity integration
                     "ka_risk_field": {

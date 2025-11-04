@@ -23,7 +23,7 @@ Changelog:
 from pamola_core.common.enum.mask_strategy_enum import MaskStrategyEnum
 from pamola_core.anonymization.commons.masking_presets import MaskingType
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
-from pamola_core.common.enum.section_name_enum import SectionName
+from pamola_core.common.enum.form_groups import GroupName
 
 class PartialMaskingConfig(OperationConfig):
     """Configuration schema for PartialMaskingOperation with BaseOperationConfig merged."""
@@ -49,7 +49,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Mask Character",
                         "description": "Character used to mask sensitive content.",
                         "x-component": "Input",
-                        "x-group": SectionName.MASK_APPEARANCE,
+                        "x-group": GroupName.MASK_APPEARANCE,
                         "x-depend-on": { "random_mask": False },
                         "x-required-on": { "random_mask": False }
                     },
@@ -71,7 +71,7 @@ class PartialMaskingConfig(OperationConfig):
                             {"const": MaskStrategyEnum.WORDS.value, "description": MaskStrategyEnum.WORDS.value}
                         ],
                         "x-component": "Select",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_MASKING_STRATEGY,
                     },
                     "mask_percentage": {
                         "type": ["number", "null"],
@@ -80,7 +80,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Mask Percentage",
                         "description": "Percentage of characters to mask randomly (for random strategy).",
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.MASKING_RULES,
+                        "x-group": GroupName.MASKING_RULES,
                         "x-depend-on": { "mask_strategy": MaskStrategyEnum.RANDOM.value }
                     },
                     "unmasked_prefix": {
@@ -90,7 +90,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Unmasked Prefix",
                         "description": "Number of characters at the start to remain visible.",
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.MASKING_RULES,
+                        "x-group": GroupName.MASKING_RULES,
                         "x-depend-on": { "mask_strategy": [MaskStrategyEnum.FIXED.value, MaskStrategyEnum.WORDS.value] }
                     },
                     "unmasked_suffix": {
@@ -100,7 +100,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Unmasked Suffix",
                         "description": "Number of characters at the end to remain visible.",
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.MASKING_RULES,
+                        "x-group": GroupName.MASKING_RULES,
                         "x-depend-on": { "mask_strategy": [MaskStrategyEnum.FIXED.value, MaskStrategyEnum.WORDS.value] }
                     },
                     "unmasked_positions": {
@@ -114,7 +114,7 @@ class PartialMaskingConfig(OperationConfig):
                             {"const": 2, "description": "2"},
                             {"const": 4, "description": "4"}
                         ],
-                        "x-group": SectionName.MASKING_RULES,
+                        "x-group": GroupName.MASKING_RULES,
                         "x-depend-on": { "mask_strategy": MaskStrategyEnum.FIXED.value }
                     },
                     "pattern_type": {
@@ -122,7 +122,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Pattern Type",
                         "description": "Predefined pattern type (e.g., email, phone) for pattern-based masking.",
                         "x-component": "Select",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_MASKING_STRATEGY,
                         "x-depend-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value },
                         "x-required-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value }
                     },
@@ -131,7 +131,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Mask Pattern",
                         "description": "Custom regex pattern for masking (pattern strategy).",
                         "x-component": "Input",
-                        "x-group": SectionName.MASKING_RULES,
+                        "x-group": GroupName.MASKING_RULES,
                         "x-depend-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value },
                         "x-required-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value }
                     },
@@ -140,7 +140,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Preserve Pattern",
                         "description": "Regex pattern to preserve (mask all except matches).",
                         "x-component": "Input",
-                        "x-group": SectionName.MASKING_RULES,
+                        "x-group": GroupName.MASKING_RULES,
                         "x-depend-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value },
                         "x-required-on": { "mask_strategy": MaskStrategyEnum.PATTERN.value }
                     },
@@ -150,7 +150,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Preserve Separators",
                         "description": "Whether to keep separators (e.g., '-', '_', '.') unchanged.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.FORMATTING_AND_STRUCTURE,
+                        "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                     },
                     "preserve_word_boundaries": {
                         "type": "boolean",
@@ -158,7 +158,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Preserve Word Boundaries",
                         "description": "Whether to avoid masking across word boundaries.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.FORMATTING_AND_STRUCTURE,
+                        "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                         "x-depend-on": { "mask_strategy": MaskStrategyEnum.WORDS.value }
                     },
                     "case_sensitive": {
@@ -167,7 +167,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Case-Sensitive Matching",
                         "description": "Whether pattern matching is case-sensitive.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.FORMATTING_AND_STRUCTURE,
+                        "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                     },
                     "random_mask": {
                         "type": "boolean",
@@ -175,14 +175,14 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Random Mask",
                         "description": "Use random characters from a pool instead of a fixed mask_char.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.MASK_APPEARANCE,
+                        "x-group": GroupName.MASK_APPEARANCE,
                     },
                     "mask_char_pool": {
                         "type": ["string", "null"],
                         "title": "Mask Character Pool",
                         "description": "Pool of characters to randomly sample from if random_mask is True.",
                         "x-component": "Input",
-                        "x-group": SectionName.MASK_APPEARANCE,
+                        "x-group": GroupName.MASK_APPEARANCE,
                         "x-depend-on": { "random_mask": True },
                         "x-required-on": { "random_mask": True }
                     },
@@ -201,14 +201,14 @@ class PartialMaskingConfig(OperationConfig):
                             {"const": MaskingType.DATE_ISO.value, "description": "Date (ISO)"}
                         ],
                         "x-component": "Select",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_MASKING_STRATEGY,
                     },
                     "preset_name": {
                         "type": ["string", "null"],
                         "title": "Preset Name",
                         "description": "Name of the specific preset configuration to apply.",
                         "x-component": "Depend-Select",
-                        "x-group": SectionName.CORE_NOISE_STRATEGY,
+                        "x-group": GroupName.CORE_MASKING_STRATEGY,
                         "x-depend-map": {
                             "depend_on": "preset_type",
                             "options_map": {
@@ -280,7 +280,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Consistency Fields",
                         "description": "Other fields to mask consistently with the main field.",
                         "x-component": "Select",
-                        "x-group": SectionName.OPERATION_BEHAVIOR_OUTPUT,
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     # Conditional processing parameters
                     "condition_field": {
@@ -288,7 +288,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": SectionName.CONDITION_LOGIC
+                        "x-group": GroupName.CONDITION_LOGIC
                     },
                     "condition_operator": {
                         "type": "string",
@@ -304,7 +304,7 @@ class PartialMaskingConfig(OperationConfig):
                             {"const": "range", "description": "Range"}
                         ],
                         "default": "in",
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                         "x-depend-on": { "condition_field": "not_null" }
                     },
                     "condition_values": {
@@ -313,7 +313,7 @@ class PartialMaskingConfig(OperationConfig):
                         "x-component": "Input", #ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                         "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
                     },
                     # K-anonymity integration

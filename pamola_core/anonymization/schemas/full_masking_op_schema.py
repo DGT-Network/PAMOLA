@@ -19,7 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of full masking config file
 """
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
-from pamola_core.common.enum.section_name_enum import SectionName
+from pamola_core.common.enum.form_groups import GroupName
 
 class FullMaskingConfig(OperationConfig):
     """Configuration for FullMaskingOperation with BaseOperationConfig merged."""
@@ -44,7 +44,7 @@ class FullMaskingConfig(OperationConfig):
                         "title": "Random Mask",
                         "description": "Whether to use random characters from a pool instead of a fixed mask_char.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.CORE_MASKING_RULES
+                        "x-group": GroupName.CORE_MASKING_RULES
                     },
                     "mask_char": {
                         "type": "string",
@@ -52,7 +52,7 @@ class FullMaskingConfig(OperationConfig):
                         "title": "Mask Character",
                         "description": "Character used for masking the field values.",
                         "x-component": "Input",
-                        "x-group": SectionName.CORE_MASKING_RULES,
+                        "x-group": GroupName.CORE_MASKING_RULES,
                         "x-depend-on": { "random_mask": False },
                         "x-required-on": { "random_mask": False }
                     },
@@ -62,7 +62,7 @@ class FullMaskingConfig(OperationConfig):
                         "title": "Preserve Length",
                         "description": "Whether to preserve the original string length of masked values.",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.CORE_MASKING_RULES,
+                        "x-group": GroupName.CORE_MASKING_RULES,
                     },
                     "fixed_length": {
                         "type": ["integer", "null"],
@@ -70,7 +70,7 @@ class FullMaskingConfig(OperationConfig):
                         "title": "Fixed Length",
                         "description": "Fixed output length for all masked values. If None, uses input length.",
                         "x-component": "NumberPicker",
-                        "x-group": SectionName.CORE_MASKING_RULES,
+                        "x-group": GroupName.CORE_MASKING_RULES,
                         "x-depend-on": { "preserve_length": False },
                         "x-required-on": { "preserve_length": False }
                     },
@@ -79,7 +79,7 @@ class FullMaskingConfig(OperationConfig):
                         "title": "Mask Character Pool",
                         "description": "Pool of characters to randomly sample from if random_mask is True.",
                         "x-component": "Input",
-                        "x-group": SectionName.CORE_MASKING_RULES,
+                        "x-group": GroupName.CORE_MASKING_RULES,
                         "x-depend-on": { "preserve_length": True },
                         "x-required-on": { "preserve_length": True }
                     },
@@ -89,7 +89,7 @@ class FullMaskingConfig(OperationConfig):
                         "title": "Preserve Format",
                         "description": "Whether to preserve data format or structure (e.g., keep dashes or parentheses).",
                         "x-component": "Checkbox",
-                        "x-group": SectionName.FORMATTING_AND_STRUCTURE,
+                        "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                     },
                     "format_patterns": {
                         "type": ["array", "null"],
@@ -121,7 +121,7 @@ class FullMaskingConfig(OperationConfig):
                             "type": "object"
                         },
                         "x-component": "ArrayItems",
-                        "x-group": SectionName.FORMATTING_AND_STRUCTURE,
+                        "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                         "x-depend-on": { "preserve_format": True },
                         "x-required-on": { "preserve_format": True }
                     },
@@ -137,14 +137,14 @@ class FullMaskingConfig(OperationConfig):
                             {"const": "preserve", "description": "preserve"}
                         ],
                         "x-component": "Select",
-                        "x-group": SectionName.FORMATTING_AND_STRUCTURE,
+                        "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                     },
                     "date_format": {
                         "type": ["string", "null"],
                         "title": "Date Format",
                         "description": "Date format string to use when masking datetime fields.",
                         "x-component": "Input",
-                        "x-group": SectionName.FORMATTING_AND_STRUCTURE,
+                        "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                     },
                     # Conditional processing parameters
                     "condition_field": {
@@ -152,7 +152,7 @@ class FullMaskingConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": SectionName.CONDITION_LOGIC
+                        "x-group": GroupName.CONDITION_LOGIC
                     },
                     "condition_operator": {
                         "type": "string",
@@ -168,7 +168,7 @@ class FullMaskingConfig(OperationConfig):
                             {"const": "range", "description": "Range"}
                         ],
                         "default": "in",
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                         "x-depend-on": { "condition_field": "not_null" }
                     },
                     "condition_values": {
@@ -177,7 +177,7 @@ class FullMaskingConfig(OperationConfig):
                         "x-component": "Input", #ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
-                        "x-group": SectionName.CONDITION_LOGIC,
+                        "x-group": GroupName.CONDITION_LOGIC,
                         "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
                     },
                     # K-anonymity integration
