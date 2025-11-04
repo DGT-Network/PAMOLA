@@ -210,45 +210,45 @@ from pamola_core.profiling.schemas.text_config_exclude import TEXT_EXCLUDE_FIELD
 from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
 ALL_OP_CONFIGS = [
-    (FakeEmailOperationConfig, EMAIL_FAKE_EXCLUDE_FIELDS),
-    (FakeNameOperationConfig, NAME_FAKE_EXCLUDE_FIELDS),
-    (FakeOrganizationOperationConfig, ORGANIZATION_FAKE_EXCLUDE_FIELDS),
-    (FakePhoneOperationConfig, PHONE_FAKE_EXCLUDE_FIELDS),
-    (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS),
-    (AggregateRecordsOperationConfig, AGGREGATE_RECORDS_EXCLUDE_FIELDS),
-    (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS),
-    (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS),
-    (MergeDatasetsOperationConfig, MERGE_DATASETS_EXCLUDE_FIELDS),
-    (RemoveFieldsOperationConfig, REMOVE_FIELDS_EXCLUDE_FIELDS),
-    (SplitByIDValuesOperationConfig, SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS),
-    (SplitFieldsOperationConfig, SPLIT_FIELDS_EXCLUDE_FIELDS),
-    (CategoricalGeneralizationConfig, CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS),
-    (DateTimeGeneralizationConfig, DATETIME_GENERALIZATION_EXCLUDE_FIELDS),
-    (FullMaskingConfig, FULL_MASKING_EXCLUDE_FIELDS),
+    (FakeEmailOperationConfig, EMAIL_FAKE_EXCLUDE_FIELDS, None),
+    (FakeNameOperationConfig, NAME_FAKE_EXCLUDE_FIELDS, None),
+    (FakeOrganizationOperationConfig, ORGANIZATION_FAKE_EXCLUDE_FIELDS, None),
+    (FakePhoneOperationConfig, PHONE_FAKE_EXCLUDE_FIELDS, None),
+    (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS, None),
+    (AggregateRecordsOperationConfig, AGGREGATE_RECORDS_EXCLUDE_FIELDS, None),
+    (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),
+    (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS, None),
+    (MergeDatasetsOperationConfig, MERGE_DATASETS_EXCLUDE_FIELDS, None),
+    (RemoveFieldsOperationConfig, REMOVE_FIELDS_EXCLUDE_FIELDS, None),
+    (SplitByIDValuesOperationConfig, SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS, None),
+    (SplitFieldsOperationConfig, SPLIT_FIELDS_EXCLUDE_FIELDS, None),
+    (CategoricalGeneralizationConfig, CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS, None),
+    (DateTimeGeneralizationConfig, DATETIME_GENERALIZATION_EXCLUDE_FIELDS, None),
+    (FullMaskingConfig, FULL_MASKING_EXCLUDE_FIELDS, None),
     (NumericGeneralizationConfig, NUMERIC_GENERALIZATION_EXCLUDE_FIELDS, NumericOpTooltip.as_dict()),
-    (PartialMaskingConfig, PARTIAL_MASKING_EXCLUDE_FIELDS),
-    (AttributeSuppressionConfig, ATTRIBUTE_EXCLUDE_FIELDS),
-    (CellSuppressionConfig, CELL_EXCLUDE_FIELDS),
-    (RecordSuppressionConfig, RECORD_EXCLUDE_FIELDS),
-    (UniformNumericNoiseConfig, UNIFORM_NUMERIC_EXCLUDE_FIELDS),
-    (UniformTemporalNoiseConfig, UNIFORM_TEMPORAL_EXCLUDE_FIELDS),
-    (FidelityConfig, FIDELITY_EXCLUDE_FIELDS),
-    (PrivacyMetricConfig, PRIVACY_EXCLUDE_FIELDS),
-    (UtilityMetricConfig, UTILITY_EXCLUDE_FIELDS),
-    (KAnonymityProfilerOperationConfig, ANONYMITY_EXCLUDE_FIELDS),
-    (DataAttributeProfilerOperationConfig, ATTRIBUTE_EXCLUDE_FIELDS),
-    (CategoricalOperationConfig, CATEGORICAL_EXCLUDE_FIELDS),
-    (CorrelationOperationConfig, CORRELATION_EXCLUDE_FIELDS),
-    (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS),
-    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS),
-    (DateOperationConfig, DATE_EXCLUDE_FIELDS),
-    (EmailOperationConfig, EMAIL_EXCLUDE_FIELDS),
-    (GroupAnalyzerOperationConfig, GROUP_EXCLUDE_FIELDS),
-    (IdentityAnalysisOperationConfig, IDENTITY_EXCLUDE_FIELDS),
-    (MVFAnalysisOperationConfig, MVF_EXCLUDE_FIELDS),
-    (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS),
-    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS),
-    (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS),
+    (PartialMaskingConfig, PARTIAL_MASKING_EXCLUDE_FIELDS, None),
+    (AttributeSuppressionConfig, ATTRIBUTE_EXCLUDE_FIELDS, None),
+    (CellSuppressionConfig, CELL_EXCLUDE_FIELDS, None),
+    (RecordSuppressionConfig, RECORD_EXCLUDE_FIELDS, None),
+    (UniformNumericNoiseConfig, UNIFORM_NUMERIC_EXCLUDE_FIELDS, None),
+    (UniformTemporalNoiseConfig, UNIFORM_TEMPORAL_EXCLUDE_FIELDS, None),
+    (FidelityConfig, FIDELITY_EXCLUDE_FIELDS, None),
+    (PrivacyMetricConfig, PRIVACY_EXCLUDE_FIELDS, None),
+    (UtilityMetricConfig, UTILITY_EXCLUDE_FIELDS, None),
+    (KAnonymityProfilerOperationConfig, ANONYMITY_EXCLUDE_FIELDS, None),
+    (DataAttributeProfilerOperationConfig, ATTRIBUTE_EXCLUDE_FIELDS, None),
+    (CategoricalOperationConfig, CATEGORICAL_EXCLUDE_FIELDS, None),
+    (CorrelationOperationConfig, CORRELATION_EXCLUDE_FIELDS, None),
+    (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS, None),
+    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, None),
+    (DateOperationConfig, DATE_EXCLUDE_FIELDS, None),
+    (EmailOperationConfig, EMAIL_EXCLUDE_FIELDS, None),
+    (GroupAnalyzerOperationConfig, GROUP_EXCLUDE_FIELDS, None),
+    (IdentityAnalysisOperationConfig, IDENTITY_EXCLUDE_FIELDS, None),
+    (MVFAnalysisOperationConfig, MVF_EXCLUDE_FIELDS, None),
+    (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS, None),
+    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, None),
+    (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS, None),
 ]
 
 
@@ -257,16 +257,10 @@ def generate_all_op_schemas(
 ) -> None:
     task_dir.mkdir(parents=True, exist_ok=True)
     for item in ALL_OP_CONFIGS:
-        if len(item) == 3:
-            config_cls, exclude_fields, tooltip = item
-            generate_schema_json(
-                config_cls, task_dir, exclude_fields, generate_formily_schema, tooltip
-            )
-        else:
-            config_cls, exclude_fields = item
-            generate_schema_json(
-                config_cls, task_dir, exclude_fields, generate_formily_schema
-            )
+        config_cls, exclude_fields, tooltip = item
+        generate_schema_json(
+            config_cls, task_dir, exclude_fields, generate_formily_schema, tooltip
+        )
 
 
 if __name__ == "__main__":
