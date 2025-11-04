@@ -19,6 +19,14 @@ class GroupName(str, Enum):
     TEXT_VALUE_HANDLING = "text_value_handling"
     RISK_BASED_PROCESSING_AND_PRIVACY = "risk_based_processing_and_privacy"
     FORMATTING_AND_TIMEZONE = "formatting_and_timezone"
+    CORE_NOISE_STRATEGY = "core_noise_strategy"
+    PRESERVATION_RULES = "preservation_rules"
+    OUTPUT_FORMATTING_CONSTRAINTS = "output_formatting_constraints"
+    CORE_MASKING_RULES = "core_masking_rules"
+    MASK_APPEARANCE = "mask_appearance"
+    MASKING_RULES = "masking_rules"
+    FORMATTING_AND_STRUCTURE = "formatting_and_structure"
+    CORE_MASKING_STRATEGY = "core_masking_strategy"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -30,6 +38,15 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.TEXT_VALUE_HANDLING: "Text & Value Handling",
     GroupName.RISK_BASED_PROCESSING_AND_PRIVACY: "Risk-Based Processing & Privacy",
     GroupName.FORMATTING_AND_TIMEZONE: "Formatting & Timezone",
+    GroupName.CORE_NOISE_STRATEGY: "Core Noise Strategy",
+    GroupName.PRESERVATION_RULES: "Preservation Rules",
+    GroupName.OUTPUT_FORMATTING_CONSTRAINTS: "Output Formatting Constraints",
+    GroupName.CORE_MASKING_RULES: "Core Masking Rules",
+    GroupName.MASK_APPEARANCE: "Mask Appearance",
+    GroupName.MASKING_RULES: "Masking Rules",
+    GroupName.FORMATTING_AND_STRUCTURE: "Formatting & Structure",
+    GroupName.CORE_MASKING_STRATEGY: "Core Masking Strategy",
+
 }
 
 
@@ -53,6 +70,34 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.FORMATTING_AND_TIMEZONE,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
+    "FullMaskingConfig": [
+        GroupName.CORE_MASKING_RULES,
+        GroupName.FORMATTING_AND_STRUCTURE,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "PartialMaskingConfig": [
+        GroupName.CORE_MASKING_STRATEGY,
+        GroupName.MASK_APPEARANCE,
+        GroupName.MASKING_RULES,
+        GroupName.FORMATTING_AND_STRUCTURE,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "UniformNumericNoiseConfig": [
+        GroupName.CORE_NOISE_STRATEGY,
+        GroupName.MASK_APPEARANCE,
+        GroupName.MASKING_RULES,
+        GroupName.FORMATTING_AND_STRUCTURE,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "UniformTemporalNoiseConfig": [
+        GroupName.CORE_NOISE_STRATEGY,
+        GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ]
 }
 
 

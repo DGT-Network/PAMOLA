@@ -17,10 +17,10 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-PARTIAL_MASKING_EXCLUDE_FIELDS = [
-    "config",
-    "scope",
-    "engine",
-    "encryption_mode",
-    "encryption_key",
-]
+PARTIAL_MASKING_EXCLUDE_FIELDS = ["config", 
+                                  "scope", 
+                                  "engine", 
+                                  "field_name",
+                                  "ka_risk_field", 
+                                  "risk_threshold", 
+                                  "vulnerable_record_strategy"]
