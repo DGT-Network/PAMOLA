@@ -19,6 +19,7 @@ class GroupName(str, Enum):
     TEXT_VALUE_HANDLING = "text_value_handling"
     RISK_BASED_PROCESSING_AND_PRIVACY = "risk_based_processing_and_privacy"
     FORMATTING_AND_TIMEZONE = "formatting_and_timezone"
+    CORE_SUPPRESSION_STRATEGY = "core_suppression_strategy"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -30,6 +31,7 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.TEXT_VALUE_HANDLING: "Text & Value Handling",
     GroupName.RISK_BASED_PROCESSING_AND_PRIVACY: "Risk-Based Processing & Privacy",
     GroupName.FORMATTING_AND_TIMEZONE: "Formatting & Timezone",
+    GroupName.CORE_SUPPRESSION_STRATEGY: "Core Suppression Strategy",
 }
 
 
@@ -51,6 +53,11 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "DateTimeGeneralizationConfig": [
         GroupName.CORE_GENERALIZATION_STRATEGY,
         GroupName.FORMATTING_AND_TIMEZONE,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CellSuppressionConfig": [
+        GroupName.CORE_SUPPRESSION_STRATEGY,
+        GroupName.CONDITIONAL_LOGIC,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }
