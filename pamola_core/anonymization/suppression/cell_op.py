@@ -85,7 +85,7 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_histogram,
     create_comparison_visualization,
 )
-from pamola_core.anonymization.schemas.cell_op_config import CellSuppressionConfig
+from pamola_core.anonymization.schemas.cell_op_schema import CellSuppressionConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,

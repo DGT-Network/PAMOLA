@@ -131,14 +131,14 @@ from pamola_core.anonymization.schemas.partial_masking_op_schema import (
 from pamola_core.anonymization.schemas.partial_masking_op_schema_exclude import (
     PARTIAL_MASKING_EXCLUDE_FIELDS,
 )
-from pamola_core.anonymization.schemas.attribute_op_config import (
+from pamola_core.anonymization.schemas.attribute_op_schema import (
     AttributeSuppressionConfig,
 )
-from pamola_core.anonymization.schemas.attribute_op_config_exclude import (
-    ATTRIBUTE_EXCLUDE_FIELDS,
+from pamola_core.anonymization.schemas.attribute_op_schema_exclude import (
+    ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS,
 )
-from pamola_core.anonymization.schemas.cell_op_config import CellSuppressionConfig
-from pamola_core.anonymization.schemas.cell_op_config_exclude import CELL_EXCLUDE_FIELDS
+from pamola_core.anonymization.schemas.cell_op_schema import CellSuppressionConfig
+from pamola_core.anonymization.schemas.cell_op_schema_exclude import CELL_EXCLUDE_FIELDS
 from pamola_core.anonymization.schemas.record_op_schema import RecordSuppressionConfig
 from pamola_core.anonymization.schemas.record_op_config_exclude import (
     RECORD_EXCLUDE_FIELDS,
@@ -223,6 +223,8 @@ from pamola_core.anonymization.schemas.datetime_op_tooltip import DateTimeOpTool
 from pamola_core.anonymization.schemas.categorical_op_tooltip import (
     CategoricalOpTooltip,
 )
+from pamola_core.anonymization.schemas.cell_op_tooltip import CellSuppressionOpTooltip
+from pamola_core.anonymization.schemas.attribute_op_tooltip import AttributeSuppressionOpTooltip
 
 from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
@@ -260,8 +262,8 @@ ALL_OP_CONFIGS = [
         PARTIAL_MASKING_EXCLUDE_FIELDS,
         PartialMaskingOpTooltip.as_dict(),
     ),
-    (AttributeSuppressionConfig, ATTRIBUTE_EXCLUDE_FIELDS, None),
-    (CellSuppressionConfig, CELL_EXCLUDE_FIELDS, None),
+    (AttributeSuppressionConfig, ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS, AttributeSuppressionOpTooltip.as_dict()),
+    (CellSuppressionConfig, CELL_EXCLUDE_FIELDS, CellSuppressionOpTooltip.as_dict()),
     (
         RecordSuppressionConfig,
         RECORD_EXCLUDE_FIELDS,
