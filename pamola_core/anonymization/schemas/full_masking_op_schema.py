@@ -78,7 +78,7 @@ class FullMaskingConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Mask Character Pool",
                         "description": "Pool of characters to randomly sample from if random_mask is True.",
-                        "x-component": "NumberPicker",
+                        "x-component": "Input",
                         "x-group": SectionName.CORE_MASKING_RULES,
                         "x-depend-on": { "preserve_length": True },
                         "x-required-on": { "preserve_length": True }
@@ -92,14 +92,33 @@ class FullMaskingConfig(OperationConfig):
                         "x-group": SectionName.FORMATTING_AND_STRUCTURE,
                     },
                     "format_patterns": {
-                        "type": ["object", "null"],
+                        "type": ["array", "null"],
                         "title": "Format Patterns",
                         "description": "Custom regex patterns for identifying and preserving data formats.",
                         "items": {
-                            "type": "array",
-                            "items": {"type": "number"},
-                            "minItems": 2,
-                            "maxItems": 2
+                            "properties": {
+                                "select_type": {
+                                    "title": "Select Type",
+                                    "description": "Select Type",
+                                    "type": "string",
+                                    "x-component": "Select",
+                                    "enum": ["phone", "ssn", "credit_card", "email", "date"],
+                                    "oneOf": [
+                                        {"const": "phone", "description": "Phone Number"},
+                                        {"const": "ssn", "description": "SSN"},
+                                        {"const": "credit_card", "description": "Credit Card"},
+                                        {"const": "email", "description": "Email"},
+                                        {"const": "date", "description": "Date"},
+                                    ],
+                                },
+                                "pattern": {
+                                    "title": "Pattern",
+                                    "description": "Value (e.g., r'(\d{3})-(\d{3})-(\d{4})')",
+                                    "type": "string",
+                                    "x-component": "Input"
+                                }
+                            },
+                            "type": "object"
                         },
                         "x-component": "ArrayItems",
                         "x-group": SectionName.FORMATTING_AND_STRUCTURE,

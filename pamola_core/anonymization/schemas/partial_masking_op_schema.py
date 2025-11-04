@@ -181,7 +181,7 @@ class PartialMaskingConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Mask Character Pool",
                         "description": "Pool of characters to randomly sample from if random_mask is True.",
-                        "x-component": "NumberPicker",
+                        "x-component": "Input",
                         "x-group": SectionName.MASK_APPEARANCE,
                         "x-depend-on": { "random_mask": True },
                         "x-required-on": { "random_mask": True }
@@ -207,9 +207,72 @@ class PartialMaskingConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Preset Name",
                         "description": "Name of the specific preset configuration to apply.",
-                        "x-component": "Select",
+                        "x-component": "Depend-Select",
                         "x-group": SectionName.CORE_NOISE_STRATEGY,
-                        "x-depend-on": { "preset_type": "not_null" }
+                        "x-depend-map": {
+                            "depend_on": "preset_type",
+                            "options_map": {
+                                MaskingType.EMAIL.value: [
+                                {"label": "FULL_DOMAIN", "value": "FULL_DOMAIN"},
+                                {"label": "DOMAIN_ONLY", "value": "DOMAIN_ONLY"},
+                                {"label": "PARTIAL_DOMAIN", "value": "PARTIAL_DOMAIN"},
+                                {"label": "PRIVACY_FOCUSED", "value": "PRIVACY_FOCUSED"},
+                                {"label": "GDPR_COMPLIANT", "value": "GDPR_COMPLIANT"},
+                                {"label": "UTILITY_BALANCED", "value": "UTILITY_BALANCED"},
+                                {"label": "MINIMAL_EXPOSURE", "value": "MINIMAL_EXPOSURE"}
+                                ],
+                                MaskingType.PHONE.value: [
+                                {"label": "US_STANDARD", "value": "US_STANDARD"},
+                                {"label": "US_FORMATTED", "value": "US_FORMATTED"},
+                                {"label": "INTERNATIONAL", "value": "INTERNATIONAL"},
+                                {"label": "LAST_FOUR_ONLY", "value": "LAST_FOUR_ONLY"},
+                                {"label": "AREA_CODE_ONLY", "value": "AREA_CODE_ONLY"},
+                                {"label": "FULL_MASK", "value": "FULL_MASK"}
+                                ],
+                                MaskingType.CREDIT_CARD.value: [
+                                {"label": "PCI_COMPLIANT", "value": "PCI_COMPLIANT"},
+                                {"label": "STRICT", "value": "STRICT"},
+                                {"label": "FULL_MASK", "value": "FULL_MASK"},
+                                {"label": "NUMERIC_ONLY", "value": "NUMERIC_ONLY"},
+                                {"label": "FIRST_LAST_FOUR", "value": "FIRST_LAST_FOUR"}
+                                ],
+                                MaskingType.SSN.value: [
+                                {"label": "LAST_FOUR", "value": "LAST_FOUR"},
+                                {"label": "FIRST_THREE", "value": "FIRST_THREE"},
+                                {"label": "FULL_MASK", "value": "FULL_MASK"},
+                                {"label": "NUMERIC_MASK", "value": "NUMERIC_MASK"},
+                                {"label": "AREA_NUMBER_ONLY", "value": "AREA_NUMBER_ONLY"}
+                                ],
+                                MaskingType.IP_ADDRESS.value: [
+                                {"label": "SUBNET_MASK", "value": "SUBNET_MASK"},
+                                {"label": "NETWORK_ONLY", "value": "NETWORK_ONLY"},
+                                {"label": "FULL_MASK", "value": "FULL_MASK"},
+                                {"label": "ZERO_MASK", "value": "ZERO_MASK"},
+                                {"label": "PRIVATE_NETWORK", "value": "PRIVATE_NETWORK"}
+                                ],
+                                MaskingType.HEALTHCARE.value: [
+                                {"label": "MEDICAL_RECORD", "value": "MEDICAL_RECORD"},
+                                {"label": "PATIENT_ID", "value": "PATIENT_ID"},
+                                {"label": "NPI_NUMBER", "value": "NPI_NUMBER"},
+                                {"label": "DEA_NUMBER", "value": "DEA_NUMBER"}
+                                ],
+                                MaskingType.FINANCIAL.value: [
+                                {"label": "ACCOUNT_NUMBER", "value": "ACCOUNT_NUMBER"},
+                                {"label": "ROUTING_NUMBER", "value": "ROUTING_NUMBER"},
+                                {"label": "BANK_STANDARD", "value": "BANK_STANDARD"},
+                                {"label": "SWIFT_CODE", "value": "SWIFT_CODE"},
+                                {"label": "IBAN", "value": "IBAN"},
+                                {"label": "CREDIT_LIMIT", "value": "CREDIT_LIMIT"},
+                                {"label": "LOAN_NUMBER", "value": "LOAN_NUMBER"}
+                                ],
+                                MaskingType.DATE_ISO.value: [
+                                {"label": "MASK_DAY", "value": "MASK_DAY"},
+                                {"label": "MASK_MONTH", "value": "MASK_MONTH"},
+                                {"label": "MASK_YEAR", "value": "MASK_YEAR"},
+                                {"label": "MASK_FULL", "value": "MASK_FULL"}
+                                ]
+                            }
+                        }
                     },
                     "consistency_fields": {
                         "type": ["array", "null"],

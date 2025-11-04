@@ -73,14 +73,14 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "type": ["number", "null"],
                         "title": "Output Minimum",
                         "description": "Minimum allowed value after noise is applied.",
-                        "x-component": "NumberPicker",
+                        "x-component": "FloatPicker",
                         "x-group": SectionName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     "output_max": {
                         "type": ["number", "null"],
                         "title": "Output Maximum",
                         "description": "Maximum allowed value after noise is applied.",
-                        "x-component": "NumberPicker",
+                        "x-component": "FloatPicker",
                         "x-group": SectionName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     "preserve_zero": {
@@ -115,7 +115,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "default": 1.0,
                         "title": "Scale Factor",
                         "description": "Multiplier for the noise magnitude.",
-                        "x-component": "NumberPicker",
+                        "x-component": "FloatPicker",
                         "x-group": SectionName.CORE_NOISE_STRATEGY,
                     },
                     # ==== Randomization ====
