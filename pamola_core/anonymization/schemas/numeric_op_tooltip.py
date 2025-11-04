@@ -1,3 +1,24 @@
+"""
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module:        Numeric Operation Tooltips
+Package:       pamola_core.anonymization.schemas
+Version:       1.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025-01-15
+License:       BSD 3-Clause
+
+Description:
+Provides detailed tooltips for numeric generalization configuration fields in PAMOLA.CORE.
+- Explains binning, rounding, range, and conditional logic options for numeric anonymization
+- Designed for integration with Formily and schema-driven UI builders
+- Improves user understanding and correct configuration of anonymization operations
+
+Changelog:
+1.0.0 - 2025-01-15 - Initial creation of numeric operation tooltip file
+"""
+
 class NumericOpTooltip:
     strategy = (
         "What it does: Selects the core logic for making your numbers less specific.\n"
