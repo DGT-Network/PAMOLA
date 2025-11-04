@@ -21,26 +21,39 @@ import copy
 from typing import Any, Dict, List, Optional
 import copy
 
-from pamola_core.common.enum.section_name_enum import (
-    SECTION_NAME_TITLE,
-    SectionName,
+from pamola_core.common.enum.form_groups import (
+    get_groups_with_titles,
 )
 
 
 def _merge_allOf(allOf_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Merge multiple allOf schemas into a single schema.
+
+    Args:
+        allOf_schemas: List of schemas to merge
+
+    Returns:
+        Merged schema with combined properties
+    """
     merged = {}
     merged_properties = {}
+
     for sub_schema in allOf_schemas:
+        # Convert sub-schema without operation_config_type to avoid adding groups
         sub_converted = convert_json_schema_to_formily(sub_schema)
-        # Merge top-level keys except properties
+
+        # Merge top-level keys except properties and group
         for k, v in sub_converted.items():
             if k == "properties":
                 if isinstance(v, dict):
                     merged_properties.update(v)
-            else:
+            elif k != "group":
                 merged[k] = v
+
     if merged_properties:
         merged["properties"] = merged_properties
+
     return merged
 
 
@@ -251,14 +264,10 @@ def convert_property(
                     "maximum": field["maximum"],
                 }
             )
-    
+
     elif field["x-component"] == "FloatPicker":
         field["x-component"] = "NumberPicker"
-        field["x-component-props"] = {
-            "step": 0.1,
-            "precision": 1,
-            "min": 0
-        }
+        field["x-component-props"] = {"step": 0.1, "precision": 1, "min": 0}
 
     elif field["x-component"] == "ArrayItems":
         field = _handle_array_items_component(field, t, formily_schema, tooltip)
@@ -385,15 +394,39 @@ def _add_x_reactions(
 
 
 def convert_json_schema_to_formily(
-    schema: Dict[str, Any], tooltip: Optional[Dict[str, str]] = None
+    schema: Dict[str, Any],
+    operation_config_type: Optional[str] = None,
+    tooltip: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Convert a JSON Schema (draft-07) into a Formily-compatible schema.
+
     - Supports oneOf, allOf, if/then/else, dependencies.
     - Automatically adds x-decorator: FormItem when x-component is present.
     - Converts enum to Select component if appropriate.
-    - Adds requires: true to required properties.
+    - Adds required: true to required properties.
     - Converts if/then required fields to x-reactions for required/visible.
+    - Includes form groups configuration for UI rendering (if operation_config_type provided).
+
+    Args:
+        schema: JSON Schema (draft-07) object
+        operation_config_type: Optional operation config type (e.g., 'NumericGeneralizationConfig').
+                              If None, groups will not be included in output.
+        tooltip: Optional tooltip text mapping for fields
+
+    Returns:
+        Formily-compatible schema with properties and optionally group configuration
+
+    Example:
+        >>> # With operation type (includes groups)
+        >>> result = convert_json_schema_to_formily(schema, "NumericGeneralizationConfig")
+        >>> result.keys()
+        dict_keys(['properties', 'group'])
+
+        >>> # Without operation type (no groups)
+        >>> result = convert_json_schema_to_formily(schema)
+        >>> result.keys()
+        dict_keys(['properties'])
     """
     formily_schema = copy.deepcopy(schema)
 
@@ -403,7 +436,7 @@ def convert_json_schema_to_formily(
         formily_schema = {**formily_schema, **merged}
         formily_schema.pop("allOf", None)
 
-    # Handle properties recursively, pass required fields in
+    # Handle properties recursively
     required_fields = formily_schema.get("required", [])
     if "properties" in schema:
         new_properties = {}
@@ -415,13 +448,13 @@ def convert_json_schema_to_formily(
                 new_properties[k] = converted
         formily_schema["properties"] = new_properties
 
-    all_groups_with_titles = [
-        {"name": group.value, "title": SECTION_NAME_TITLE[group]}
-        for group in SectionName
-    ]
+    # Build result
     result = {
         "properties": formily_schema.get("properties", {}),
-        "group": all_groups_with_titles,
     }
-    formily_schema.get("properties", {})
+
+    # Only include groups if operation_config_type is provided
+    if operation_config_type:
+        result["group"] = get_groups_with_titles(operation_config_type)
+
     return result
