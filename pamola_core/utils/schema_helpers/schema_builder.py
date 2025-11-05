@@ -193,8 +193,8 @@ from pamola_core.profiling.schemas.correlation_config_exclude import (
     CORRELATION_EXCLUDE_FIELDS,
     CORRELATION_MATRIX_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.currency_config import CurrencyOperationConfig
-from pamola_core.profiling.schemas.currency_config_exclude import (
+from pamola_core.profiling.schemas.currency_schema import CurrencyOperationConfig
+from pamola_core.profiling.schemas.currency_schema_exclude import (
     CURRENCY_EXCLUDE_FIELDS,
 )
 from pamola_core.profiling.schemas.date_schema import DateOperationConfig
@@ -226,6 +226,7 @@ from pamola_core.anonymization.schemas.categorical_op_tooltip import (
 from pamola_core.anonymization.schemas.cell_op_tooltip import CellSuppressionOpTooltip
 from pamola_core.anonymization.schemas.attribute_op_tooltip import AttributeSuppressionOpTooltip
 from pamola_core.profiling.schemas.date_tooltip import DateOpTooltip
+from pamola_core.profiling.schemas.currency_tooltip import CurrencyOpTooltip
 
 from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
@@ -288,7 +289,7 @@ ALL_OP_CONFIGS = [
     (CategoricalOperationConfig, CATEGORICAL_EXCLUDE_FIELDS, None),
     (CorrelationOperationConfig, CORRELATION_EXCLUDE_FIELDS, None),
     (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS, None),
-    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, None),
+    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, CurrencyOpTooltip.as_dict()),
     (DateOperationConfig, DATE_EXCLUDE_FIELDS, DateOpTooltip.as_dict()),
     (EmailOperationConfig, EMAIL_EXCLUDE_FIELDS, None),
     (GroupAnalyzerOperationConfig, GROUP_EXCLUDE_FIELDS, None),

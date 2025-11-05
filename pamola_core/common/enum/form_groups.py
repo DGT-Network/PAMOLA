@@ -35,6 +35,8 @@ class GroupName(str, Enum):
     SIMPLE_CONDITIONAL_RULE = "simple_conditional_rule"
     VALIDATION_RANGE = "validation_range"
     DATA_QUALITY_ANALYSIS = "data_quality_analysis"
+    CURRENCY_PARSING_SETTINGS = "currency_parsing_settings"
+    DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -61,6 +63,8 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.SIMPLE_CONDITIONAL_RULE: "Simple Conditional Rule",
     GroupName.VALIDATION_RANGE: "Validation Range",
     GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
+    GroupName.CURRENCY_PARSING_SETTINGS: "Currency Parsing Settings",
+    GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
 }
 
 
@@ -132,6 +136,11 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "DateOperationConfig": [
         GroupName.VALIDATION_RANGE,
         GroupName.DATA_QUALITY_ANALYSIS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CurrencyOperationConfig": [
+        GroupName.CURRENCY_PARSING_SETTINGS,
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }

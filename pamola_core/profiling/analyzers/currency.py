@@ -51,7 +51,7 @@ from pamola_core.profiling.commons.numeric_utils import (
     calculate_percentiles,
     calculate_histogram,
 )
-from pamola_core.profiling.schemas.currency_config import CurrencyOperationConfig
+from pamola_core.profiling.schemas.currency_schema import CurrencyOperationConfig
 from pamola_core.utils.io import (
     write_dataframe_to_csv,
     write_json,
