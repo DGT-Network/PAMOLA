@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of date config file
 """
 
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 class DateOperationConfig(OperationConfig):
@@ -39,30 +40,40 @@ class DateOperationConfig(OperationConfig):
                         "description": "Name of the date field (column) to analyze. Must exist in the input DataFrame."
                     },
                     "min_year": {
-                        "type": "integer",
-                        "title": "Minimum Year",
+                        "type": "number",
+                        "title": "Min year",
                         "description": "Minimum valid year for anomaly detection in the date field. Dates before this year are considered anomalies.",
-                        "minimum": 0,
-                        "default": 1940
+                        "minimum": 1,
+                        "maximum": 9999,
+                        "default": 1940,
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.VALIDATION_RANGE,
                     },
                     "max_year": {
-                        "type": "integer",
-                        "title": "Maximum Year",
+                        "type": "number",
+                        "title": "Max year",
                         "description": "Maximum valid year for anomaly detection in the date field. Dates after this year are considered anomalies.",
-                        "minimum": 0,
-                        "default": 2005
+                        "minimum": 1,
+                        "maximum": 9999,
+                        "default": 2005,
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.VALIDATION_RANGE,
                     },
                     "id_column": {
                         "type": ["string", "null"],
-                        "title": "Group ID Column",
+                        "title": "ID column",
                         "description": "Optional column name to use for group-based analysis (e.g., grouping by user or entity).",
-                        "default": None
+                        "default": None,
+                        "x-component": "Select",
+                        "x-group": GroupName.DATA_QUALITY_ANALYSIS,
                     },
                     "uid_column": {
                         "type": ["string", "null"],
-                        "title": "UID Column",
+                        "title": "UID column",
                         "description": "Optional column name to use for unique identifier (UID) analysis.",
-                        "default": None
+                        "default": None,
+                        "x-component": "Select",
+                        "x-group": GroupName.DATA_QUALITY_ANALYSIS,
                     },
                     "profile_type": {
                         "type": "string",
@@ -73,9 +84,11 @@ class DateOperationConfig(OperationConfig):
                     },
                     "is_birth_date": {
                         "type": ["boolean", "null"],
-                        "title": "Is Birth Date Field",
+                        "title": "Is birth date",
                         "description": "Whether the field is a birth date field. If None, auto-detected based on field name.",
-                        "default": None
+                        "default": False,
+                        "x-component": "Checkbox",
+                        "x-group": GroupName.DATA_QUALITY_ANALYSIS,
                     },
                 },
                 "required": ["field_name"],

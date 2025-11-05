@@ -37,7 +37,7 @@ from pamola_core.profiling.commons.date_utils import (
     analyze_date_field,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.date_config import DateOperationConfig
+from pamola_core.profiling.schemas.date_schema import DateOperationConfig
 from pamola_core.utils.io import (
     write_json,
     load_data_operation,

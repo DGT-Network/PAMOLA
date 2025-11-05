@@ -33,6 +33,8 @@ class GroupName(str, Enum):
     RISK_BASED_FILTERING = "risk_based_filtering"
     CORE_SUPPRESSION_STRATEGY = "core_suppression_strategy"
     SIMPLE_CONDITIONAL_RULE = "simple_conditional_rule"
+    VALIDATION_RANGE = "validation_range"
+    DATA_QUALITY_ANALYSIS = "data_quality_analysis"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -57,6 +59,8 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.RISK_BASED_FILTERING: "Risk-Based Filtering",
     GroupName.CORE_SUPPRESSION_STRATEGY: "Core Suppression Strategy",
     GroupName.SIMPLE_CONDITIONAL_RULE: "Simple Conditional Rule",
+    GroupName.VALIDATION_RANGE: "Validation Range",
+    GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
 }
 
 
@@ -123,6 +127,11 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.SIMPLE_CONDITIONAL_RULE,
         GroupName.ADVANCED_CONDITIONAL_RULES,
         GroupName.RISK_BASED_FILTERING,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "DateOperationConfig": [
+        GroupName.VALIDATION_RANGE,
+        GroupName.DATA_QUALITY_ANALYSIS,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }
