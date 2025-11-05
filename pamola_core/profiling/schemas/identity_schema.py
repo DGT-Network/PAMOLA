@@ -19,6 +19,7 @@ Changelog:
 """
 
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+from pamola_core.common.enum.form_groups import GroupName
 
 
 class IdentityAnalysisOperationConfig(OperationConfig):
@@ -34,36 +35,47 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                 "type": "object",
                 "properties": {
                     # --- Operation-specific fields ---
-                    "uid_field": {
-                        "type": "string",
-                        "title": "UID Field",
-                        "description": "Primary identifier field to analyze (e.g., 'UID'). Must exist in the input DataFrame."
-                    },
                     "reference_fields": {
                         "type": "array",
                         "title": "Reference Fields",
                         "description": "List of fields used to identify an entity (e.g., ['first_name', 'last_name']). Must contain at least one field.",
                         "items": {"type": "string"},
-                        "minItems": 1
+                        "minItems": 1,
+                        "x-component": "Select",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                    },
+                    "uid_field": {
+                        "type": "string",
+                        "title": "UID Field",
+                        "description": "Primary identifier field to analyze (e.g., 'UID'). Must exist in the input DataFrame.",
+                        "x-component": "Select",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "id_field": {
                         "type": ["string", "null"],
                         "title": "Entity ID Field",
                         "description": "Optional entity-level identifier field for grouping or additional analysis.",
-                        "default": None
+                        "default": None,
+                        "x-component": "Select",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "top_n": {
                         "type": "integer",
                         "title": "Top N Entries",
                         "description": "Number of top entries to include in the results (e.g., for reporting most frequent identifiers). Must be at least 1.",
                         "minimum": 1,
-                        "default": 15
+                        "maximum": 100,
+                        "default": 15,
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "check_cross_matches": {
                         "type": "boolean",
                         "title": "Check Cross-Matches",
                         "description": "Whether to check for cross-matching between identifiers and reference fields.",
-                        "default": True
+                        "default": True,
+                        "x-component": "Checkbox",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "min_similarity": {
                         "type": "number",
@@ -71,13 +83,17 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "description": "Minimum similarity threshold (between 0 and 1) for fuzzy matching when checking cross-matches.",
                         "minimum": 0,
                         "maximum": 1,
-                        "default": 0.8
+                        "default": 0.8,
+                        "x-component": "FloatPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "fuzzy_matching": {
                         "type": "boolean",
                         "title": "Fuzzy Matching",
                         "description": "Whether to use fuzzy matching for cross-matching identifiers and reference fields.",
-                        "default": False
+                        "default": False,
+                        "x-component": "Checkbox",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                 },
                 "required": ["uid_field", "reference_fields"],

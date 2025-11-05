@@ -46,7 +46,7 @@ from pamola_core.profiling.commons.numeric_utils import (
     process_with_dask,
     process_with_joblib,
 )
-from pamola_core.profiling.schemas.numeric_config import NumericOperationConfig
+from pamola_core.profiling.schemas.numeric_schema import NumericOperationConfig
 from pamola_core.utils.io import (
     write_json,
     load_data_operation,

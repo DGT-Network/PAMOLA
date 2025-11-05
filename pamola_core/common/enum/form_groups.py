@@ -33,6 +33,10 @@ class GroupName(str, Enum):
     RISK_BASED_FILTERING = "risk_based_filtering"
     CORE_SUPPRESSION_STRATEGY = "core_suppression_strategy"
     SIMPLE_CONDITIONAL_RULE = "simple_conditional_rule"
+    SUPPRESSION_RULES = "suppression_rules"
+    DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
+    IDENTIFIER_CONFIGURATION = "identifier_configuration"
+    ANALYSIS_PARAMETERS = "analysis_parameters"
     VALIDATION_RANGE = "validation_range"
     DATA_QUALITY_ANALYSIS = "data_quality_analysis"
     CURRENCY_PARSING_SETTINGS = "currency_parsing_settings"
@@ -60,7 +64,11 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.ADVANCED_CONDITIONAL_RULES: "Advanced Conditional Rules",
     GroupName.RISK_BASED_FILTERING: "Risk-Based Filtering",
     GroupName.CORE_SUPPRESSION_STRATEGY: "Core Suppression Strategy",
+    GroupName.SUPPRESSION_RULES: "Suppression Rules",
     GroupName.SIMPLE_CONDITIONAL_RULE: "Simple Conditional Rule",
+    GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
+    GroupName.IDENTIFIER_CONFIGURATION: "Identifier Configuration",
+    GroupName.ANALYSIS_PARAMETERS: "Analysis Parameters",
     GroupName.VALIDATION_RANGE: "Validation Range",
     GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
     GroupName.CURRENCY_PARSING_SETTINGS: "Currency Parsing Settings",
@@ -124,6 +132,7 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     ],
     "CellSuppressionConfig": [
         GroupName.CORE_SUPPRESSION_STRATEGY,
+        GroupName.SUPPRESSION_RULES,
         GroupName.CONDITIONAL_LOGIC,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
@@ -131,6 +140,21 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.SIMPLE_CONDITIONAL_RULE,
         GroupName.ADVANCED_CONDITIONAL_RULES,
         GroupName.RISK_BASED_FILTERING,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "EmailOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "IdentityAnalysisOperationConfig": [
+        GroupName.IDENTIFIER_CONFIGURATION,
+        GroupName.ANALYSIS_PARAMETERS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "MVFAnalysisOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "NumericOperationConfig": [
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     "DateOperationConfig": [

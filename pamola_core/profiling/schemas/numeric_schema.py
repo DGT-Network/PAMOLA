@@ -19,6 +19,7 @@ Changelog:
 """
 
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+from pamola_core.common.enum.form_groups import GroupName
 
 class NumericOperationConfig(OperationConfig):
     """Configuration for NumericOperation with BaseOperationConfig merged."""
@@ -41,28 +42,38 @@ class NumericOperationConfig(OperationConfig):
                     "bins": {
                         "type": "integer",
                         "minimum": 1,
+                        "maximum": 100,
                         "default": 10,
                         "title": "Histogram Bins",
-                        "description": "Number of bins to use for histogram analysis of the numeric field. Controls the granularity of the distribution visualization."
+                        "description": "Number of bins to use for histogram analysis of the numeric field. Controls the granularity of the distribution visualization.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                     "detect_outliers": {
                         "type": "boolean",
                         "default": True,
                         "title": "Detect Outliers",
-                        "description": "Whether to perform outlier detection on the numeric field. If true, the analysis will identify and report outlier values."
+                        "description": "Whether to perform outlier detection on the numeric field. If true, the analysis will identify and report outlier values.",
+                        "x-component": "Checkbox",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                     "test_normality": {
                         "type": "boolean",
                         "default": True,
                         "title": "Test Normality",
-                        "description": "Whether to perform normality testing on the numeric field. If true, the analysis will include statistical tests to assess if the data is normally distributed."
+                        "description": "Whether to perform normality testing on the numeric field. If true, the analysis will include statistical tests to assess if the data is normally distributed.",
+                        "x-component": "Checkbox",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                     "near_zero_threshold": {
                         "type": "number",
-                        "minimum": 0,
+                        "minimum": 1e-10,
+                        "maximum": 1.0,
                         "default": 1e-10,
                         "title": "Near Zero Threshold",
-                        "description": "Threshold below which values are considered 'near zero'. Used to identify and report values that are effectively zero for the purposes of analysis."
+                        "description": "Threshold below which values are considered 'near zero'. Used to identify and report values that are effectively zero for the purposes of analysis.",
+                        "x-component": "FloatPicker",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                     "profile_type": {
                         "type": "string",

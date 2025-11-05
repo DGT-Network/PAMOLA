@@ -55,6 +55,10 @@ from pamola_core.fake_data.schemas.phone_op_config_exclude import (
     PHONE_FAKE_EXCLUDE_FIELDS,
 )
 
+from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
+from pamola_core.profiling.schemas.identity_tooltip import IdentityAnalysisOperationTooltip
+from pamola_core.profiling.schemas.mvf_tooltip import MVFAnalysisOperationTooltip
+from pamola_core.profiling.schemas.numeric_tooltip import NumericOperationTooltip
 from pamola_core.transformations.schemas.add_modify_fields_config import (
     AddOrModifyFieldsOperationConfig,
 )
@@ -199,20 +203,24 @@ from pamola_core.profiling.schemas.currency_schema_exclude import (
 )
 from pamola_core.profiling.schemas.date_schema import DateOperationConfig
 from pamola_core.profiling.schemas.date_schema_exclude import DATE_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.email_config import EmailOperationConfig
-from pamola_core.profiling.schemas.email_config_exclude import EMAIL_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.email_schema import EmailOperationConfig
+from pamola_core.profiling.schemas.email_schema_exclude import EMAIL_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.date_schema import DateOperationConfig
+from pamola_core.profiling.schemas.date_schema_exclude import DATE_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.email_schema import EmailOperationConfig
+from pamola_core.profiling.schemas.email_schema_exclude import EMAIL_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.group_config import GroupAnalyzerOperationConfig
 from pamola_core.profiling.schemas.group_config_exclude import GROUP_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.identity_config import (
+from pamola_core.profiling.schemas.identity_schema import (
     IdentityAnalysisOperationConfig,
 )
-from pamola_core.profiling.schemas.identity_config_exclude import (
+from pamola_core.profiling.schemas.identity_schema_exclude import (
     IDENTITY_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.mvf_config import MVFAnalysisOperationConfig
-from pamola_core.profiling.schemas.mvf_config_exclude import MVF_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.numeric_config import NumericOperationConfig
-from pamola_core.profiling.schemas.numeric_config_exclude import NUMERIC_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.mvf_schema import MVFAnalysisOperationConfig
+from pamola_core.profiling.schemas.mvf_schema_exclude import MVF_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.numeric_schema import NumericOperationConfig
+from pamola_core.profiling.schemas.numeric_schema_exclude import NUMERIC_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.phone_config import PhoneOperationConfig
 from pamola_core.profiling.schemas.phone_config_exclude import PHONE_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.text_config import (
@@ -254,7 +262,10 @@ ALL_OP_CONFIGS = [
         DATETIME_GENERALIZATION_EXCLUDE_FIELDS,
         DateTimeOpTooltip.as_dict(),
     ),
-    (FullMaskingConfig, FULL_MASKING_EXCLUDE_FIELDS, FullMaskingOpTooltip.as_dict()),
+    (
+        FullMaskingConfig, 
+        FULL_MASKING_EXCLUDE_FIELDS, 
+        FullMaskingOpTooltip.as_dict()),
     (
         NumericGeneralizationConfig,
         NUMERIC_GENERALIZATION_EXCLUDE_FIELDS,
@@ -265,8 +276,14 @@ ALL_OP_CONFIGS = [
         PARTIAL_MASKING_EXCLUDE_FIELDS,
         PartialMaskingOpTooltip.as_dict(),
     ),
-    (AttributeSuppressionConfig, ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS, AttributeSuppressionOpTooltip.as_dict()),
-    (CellSuppressionConfig, CELL_EXCLUDE_FIELDS, CellSuppressionOpTooltip.as_dict()),
+    (
+        AttributeSuppressionConfig, 
+        ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS, 
+        AttributeSuppressionOpTooltip.as_dict()),
+    (
+        CellSuppressionConfig, 
+        CELL_EXCLUDE_FIELDS, 
+        CellSuppressionOpTooltip.as_dict()),
     (
         RecordSuppressionConfig,
         RECORD_EXCLUDE_FIELDS,
@@ -293,10 +310,25 @@ ALL_OP_CONFIGS = [
     (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, CurrencyOpTooltip.as_dict()),
     (DateOperationConfig, DATE_EXCLUDE_FIELDS, DateOpTooltip.as_dict()),
     (EmailOperationConfig, EMAIL_EXCLUDE_FIELDS, None),
+    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, None),
+    (DateOperationConfig, DATE_EXCLUDE_FIELDS, None),
+    (
+        EmailOperationConfig, 
+        EMAIL_EXCLUDE_FIELDS, 
+        EmailOperationTooltip.as_dict()),
     (GroupAnalyzerOperationConfig, GROUP_EXCLUDE_FIELDS, None),
-    (IdentityAnalysisOperationConfig, IDENTITY_EXCLUDE_FIELDS, None),
-    (MVFAnalysisOperationConfig, MVF_EXCLUDE_FIELDS, None),
-    (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS, None),
+    (
+        IdentityAnalysisOperationConfig, 
+        IDENTITY_EXCLUDE_FIELDS, 
+        IdentityAnalysisOperationTooltip.as_dict()),
+    (
+        MVFAnalysisOperationConfig, 
+        MVF_EXCLUDE_FIELDS, 
+        MVFAnalysisOperationTooltip.as_dict()),
+    (
+        NumericOperationConfig, 
+        NUMERIC_EXCLUDE_FIELDS, 
+        NumericOperationTooltip.as_dict()),
     (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, None),
     (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS, None),
 ]
