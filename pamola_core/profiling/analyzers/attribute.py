@@ -419,32 +419,37 @@ class DataAttributeProfilerOperation(BaseOperation):
                     current_steps, {"step": "Saving analysis results"}
                 )
 
-            # Generate visualizations
-            kwargs_encryption = {
-                "use_encryption": self.use_encryption,
-                "encryption_key": self.encryption_key,
-            }
-
-            # Step 5: Creating Visualizations
-            if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(
-                    current_steps, {"step": "Creating Visualizations"}
+            # Generate visualization if required
+            if self.generate_visualization:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Generate visualizations"
                 )
+                # Generate visualizations
+                kwargs_encryption = {
+                    "use_encryption": self.use_encryption,
+                    "encryption_key": self.encryption_key,
+                }
 
-            self._handle_visualizations(
-                analysis_results=analysis_results,
-                vis_dir=visualizations_dir,
-                result=result,
-                reporter=reporter,
-                vis_theme=self.visualization_theme,
-                vis_backend=self.visualization_backend,
-                vis_strict=self.visualization_strict,
-                vis_timeout=self.visualization_timeout,
-                progress_tracker=progress_tracker,
-                operation_timestamp=operation_timestamp,
-                **kwargs_encryption,
-            )
+                # Step 5: Creating Visualizations
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(
+                        current_steps, {"step": "Creating Visualizations"}
+                    )
+
+                self._handle_visualizations(
+                    analysis_results=analysis_results,
+                    vis_dir=visualizations_dir,
+                    result=result,
+                    reporter=reporter,
+                    vis_theme=self.visualization_theme,
+                    vis_backend=self.visualization_backend,
+                    vis_strict=self.visualization_strict,
+                    vis_timeout=self.visualization_timeout,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    **kwargs_encryption,
+                )
 
             # Process quasi-identifiers
             quasi_identifiers = analysis_results["column_groups"]["QUASI_IDENTIFIER"]
