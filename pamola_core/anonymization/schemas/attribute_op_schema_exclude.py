@@ -40,7 +40,6 @@ ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS = [
     "use_encryption",
     "encryption_mode",
     "encryption_key",
-    "generate_visualization",
     "save_output",
     "field_name",
     "quasi_identifiers",

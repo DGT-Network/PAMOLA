@@ -523,6 +523,7 @@ class BaseOperationConfig(OperationConfig):
                 "x-component": "Checkbox",
                 "description": "If true, automatically generate visualization outputs after processing.",
                 "default": True,
+                "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
             },
             "save_output": {
                 "type": "boolean",
