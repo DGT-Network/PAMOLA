@@ -205,10 +205,6 @@ from pamola_core.profiling.schemas.date_schema import DateOperationConfig
 from pamola_core.profiling.schemas.date_schema_exclude import DATE_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.email_schema import EmailOperationConfig
 from pamola_core.profiling.schemas.email_schema_exclude import EMAIL_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.date_schema import DateOperationConfig
-from pamola_core.profiling.schemas.date_schema_exclude import DATE_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.email_schema import EmailOperationConfig
-from pamola_core.profiling.schemas.email_schema_exclude import EMAIL_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.group_config import GroupAnalyzerOperationConfig
 from pamola_core.profiling.schemas.group_config_exclude import GROUP_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.identity_schema import (
@@ -309,9 +305,6 @@ ALL_OP_CONFIGS = [
     (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS, None),
     (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, CurrencyOpTooltip.as_dict()),
     (DateOperationConfig, DATE_EXCLUDE_FIELDS, DateOpTooltip.as_dict()),
-    (EmailOperationConfig, EMAIL_EXCLUDE_FIELDS, None),
-    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, None),
-    (DateOperationConfig, DATE_EXCLUDE_FIELDS, None),
     (
         EmailOperationConfig, 
         EMAIL_EXCLUDE_FIELDS, 
