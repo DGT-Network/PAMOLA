@@ -20,6 +20,8 @@ Usage:
 
 import sys
 from pathlib import Path
+
+from regex import E
 from pamola_core.anonymization.schemas.full_masking_op_tooltip import (
     FullMaskingOpTooltip,
 )
@@ -36,25 +38,29 @@ from pamola_core.anonymization.schemas.uniform_numeric_op_tooltip import (
 from pamola_core.anonymization.schemas.uniform_temporal_op_tooltip import (
     UniformTemporalNoiseOpTooltip,
 )
-from pamola_core.fake_data.schemas.email_op_config import FakeEmailOperationConfig
-from pamola_core.fake_data.schemas.email_op_config_exclude import (
+from pamola_core.fake_data.schemas.email_op_schema import FakeEmailOperationConfig
+from pamola_core.fake_data.schemas.email_op_schema_exclude import (
     EMAIL_FAKE_EXCLUDE_FIELDS,
 )
-from pamola_core.fake_data.schemas.name_op_config import FakeNameOperationConfig
-from pamola_core.fake_data.schemas.name_op_config_exclude import (
+from pamola_core.fake_data.schemas.email_op_tooltip import FakeEmailOperationTooltip
+from pamola_core.fake_data.schemas.name_op_schema import FakeNameOperationConfig
+from pamola_core.fake_data.schemas.name_op_schema_exclude import (
     NAME_FAKE_EXCLUDE_FIELDS,
 )
-from pamola_core.fake_data.schemas.organization_op_config import (
+from pamola_core.fake_data.schemas.name_op_tooltip import FakeNameOperationTooltip
+from pamola_core.fake_data.schemas.organization_op_schema import (
     FakeOrganizationOperationConfig,
 )
-from pamola_core.fake_data.schemas.organization_op_config_exclude import (
+from pamola_core.fake_data.schemas.organization_op_schema_exclude import (
     ORGANIZATION_FAKE_EXCLUDE_FIELDS,
 )
-from pamola_core.fake_data.schemas.phone_op_config import FakePhoneOperationConfig
-from pamola_core.fake_data.schemas.phone_op_config_exclude import (
+from pamola_core.fake_data.schemas.organization_op_tooltip import FakeOrganizationOperationTooltip
+from pamola_core.fake_data.schemas.phone_op_schema import FakePhoneOperationConfig
+from pamola_core.fake_data.schemas.phone_op_schema_exclude import (
     PHONE_FAKE_EXCLUDE_FIELDS,
 )
 
+from pamola_core.fake_data.schemas.phone_op_tooltip import FakePhoneOperationTooltip
 from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
 from pamola_core.profiling.schemas.identity_tooltip import IdentityAnalysisOperationTooltip
 from pamola_core.profiling.schemas.mvf_tooltip import MVFAnalysisOperationTooltip
@@ -236,10 +242,10 @@ from pamola_core.profiling.schemas.correlation_tooltip import CorrelationOpToolt
 from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
 ALL_OP_CONFIGS = [
-    (FakeEmailOperationConfig, EMAIL_FAKE_EXCLUDE_FIELDS, None),
-    (FakeNameOperationConfig, NAME_FAKE_EXCLUDE_FIELDS, None),
-    (FakeOrganizationOperationConfig, ORGANIZATION_FAKE_EXCLUDE_FIELDS, None),
-    (FakePhoneOperationConfig, PHONE_FAKE_EXCLUDE_FIELDS, None),
+    (FakeEmailOperationConfig, EMAIL_FAKE_EXCLUDE_FIELDS, FakeEmailOperationTooltip.as_dict()),
+    (FakeNameOperationConfig, NAME_FAKE_EXCLUDE_FIELDS, FakeNameOperationTooltip.as_dict()),
+    (FakeOrganizationOperationConfig, ORGANIZATION_FAKE_EXCLUDE_FIELDS, FakeOrganizationOperationTooltip.as_dict()),
+    (FakePhoneOperationConfig, PHONE_FAKE_EXCLUDE_FIELDS, FakePhoneOperationTooltip.as_dict()),
     (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS, None),
     (AggregateRecordsOperationConfig, AGGREGATE_RECORDS_EXCLUDE_FIELDS, None),
     (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),

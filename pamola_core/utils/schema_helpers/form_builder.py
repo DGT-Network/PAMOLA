@@ -127,10 +127,9 @@ def _handle_array_items_component(
                     item_key = f"value_{i+1}"
                     field["items"]["properties"][item_key] = {
                         "type": "number",
-                        "title": f"Value {i+1}",
                         "x-decorator": "FormItem",
                         "x-component": items_schema["x-component"],
-                        "x-component-props": {"placeholder": f"Value {i+1}"},
+                        "x-component-props": {"placeholder": "Value"},
                     }
 
             field["items"]["properties"]["remove"] = {
@@ -334,6 +333,16 @@ def convert_property(
     if "x-depend-on" in field or "x-required-on" in field:
         field = _add_x_reactions(field, formily_schema, is_nested)
 
+    if "x-custom-function" in field and "x-required-on" not in field and "x-depend-on" not in field:
+        run = f"{field['x-custom-function'][0]}($self)"
+        field["x-reactions"] = field.get("x-reactions", [
+            {
+                "fulfill": {
+                    "run": f"{{{{ {run} }}}}",
+                },
+            }
+        ])
+
     # Nested object - mark as nested when calling recursively
     if field.get("type") == "object" and "properties" in field:
         nested_required = field.get("required", [])
@@ -367,6 +376,8 @@ def _build_condition_expression(condition_value: Any, field_index: int) -> str:
         return f" $deps[{field_index}] === {js_value} "
     if condition_value == "not_null":
         return f" !!$deps[{field_index}] "
+    if condition_value == "null" or condition_value is None:
+        return f" !$deps[{field_index}] "
     if isinstance(condition_value, list):
         return " || ".join(
             f" $deps[{field_index}] === '{val}' " for val in condition_value
@@ -437,12 +448,17 @@ def _add_x_reactions(
 
     if depend_fields:
         reactions = field.get("x-reactions", [])
+        if "x-custom-function" in field:
+            deps_expr = ", ".join([f"$deps[{i}]" for i in range(len(depend_fields))])
+            run = f"{field['x-custom-function'][0]}({deps_expr}, $self)"
+        else:
+            run = f"$self.setValue({default_value_str})"
         reactions.append(
             {
                 "dependencies": depend_fields,
                 "fulfill": {
                     "state": state,
-                    "run": f"{{{{ $self.setValue({default_value_str}) }}}}",
+                    "run": f"{{{{ {run} }}}}",
                 },
             }
         )

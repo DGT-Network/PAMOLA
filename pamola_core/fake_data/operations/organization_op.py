@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.organization import OrganizationGenerator
-from pamola_core.fake_data.schemas.organization_op_config import FakeOrganizationOperationConfig
+from pamola_core.fake_data.schemas.organization_op_schema import FakeOrganizationOperationConfig
 from pamola_core.utils import io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
