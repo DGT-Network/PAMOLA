@@ -19,6 +19,7 @@ Changelog:
 """
 
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+from pamola_core.common.enum.form_groups import GroupName
 
 class MVFAnalysisOperationConfig(OperationConfig):
     """Configuration for MVFOperation with BaseOperationConfig merged."""
@@ -41,22 +42,35 @@ class MVFAnalysisOperationConfig(OperationConfig):
                     "top_n": {
                         "type": "integer",
                         "minimum": 1,
+                        "maximum": 100,
                         "default": 20,
                         "title": "Top N Values",
-                        "description": "Number of most frequent values to include in the analysis results. Helps focus on the most common items in the multi-valued field."
+                        "description": "Number of most frequent values to include in the analysis results. Helps focus on the most common items in the multi-valued field.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "min_frequency": {
                         "type": "integer",
                         "minimum": 1,
+                        "maximum": 1000,
                         "default": 1,
                         "title": "Minimum Frequency",
-                        "description": "Minimum number of occurrences for a value to be included in the results. Values appearing fewer times will be excluded from the output."
+                        "description": "Minimum number of occurrences for a value to be included in the results. Values appearing fewer times will be excluded from the output.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "format_type": {
                         "type": ["string", "null"],
-                        "default": None,
+                        "default": "json",
                         "title": "Format Type",
-                        "description": "Format of the multi-valued field. Can specify how to parse the field (e.g., 'list', 'csv', 'json', or a custom delimiter). If null, auto-detection or default parsing is used."
+                        "description": "Format of the multi-valued field. Can specify how to parse the field (e.g., 'list', 'csv', 'json', or a custom delimiter). If null, auto-detection or default parsing is used.",
+                        "oneOf": [
+                            {"const": "json", "description": "JSON"},
+                            {"const": "csv", "description": "CSV"},
+                            {"const": "array_string", "description": "Array String"},
+                        ],
+                        "x-component": "Select",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "parse_kwargs": {
                         "type": "object",

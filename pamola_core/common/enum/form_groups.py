@@ -33,6 +33,9 @@ class GroupName(str, Enum):
     RISK_BASED_FILTERING = "risk_based_filtering"
     CORE_SUPPRESSION_STRATEGY = "core_suppression_strategy"
     SIMPLE_CONDITIONAL_RULE = "simple_conditional_rule"
+    DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
+    IDENTIFIER_CONFIGURATION = "identifier_configuration"
+    ANALYSIS_PARAMETERS = "analysis_parameters"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -57,6 +60,9 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.RISK_BASED_FILTERING: "Risk-Based Filtering",
     GroupName.CORE_SUPPRESSION_STRATEGY: "Core Suppression Strategy",
     GroupName.SIMPLE_CONDITIONAL_RULE: "Simple Conditional Rule",
+    GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
+    GroupName.IDENTIFIER_CONFIGURATION: "Identifier Configuration",
+    GroupName.ANALYSIS_PARAMETERS: "Analysis Parameters",
 }
 
 
@@ -123,6 +129,21 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.SIMPLE_CONDITIONAL_RULE,
         GroupName.ADVANCED_CONDITIONAL_RULES,
         GroupName.RISK_BASED_FILTERING,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "EmailOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "IdentityAnalysisOperationConfig": [
+        GroupName.IDENTIFIER_CONFIGURATION,
+        GroupName.ANALYSIS_PARAMETERS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "MVFAnalysisOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "NumericOperationConfig": [
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }

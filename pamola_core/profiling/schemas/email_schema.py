@@ -19,6 +19,7 @@ Changelog:
 """
 
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+from pamola_core.common.enum.form_groups import GroupName
 
 class EmailOperationConfig(OperationConfig):
     """Configuration for EmailOperation with BaseOperationConfig merged."""
@@ -43,14 +44,20 @@ class EmailOperationConfig(OperationConfig):
                         "title": "Top N Domains",
                         "description": "Number of top email domains to include in the results and visualizations. Must be at least 1.",
                         "minimum": 1,
-                        "default": 20
+                        "maximum": 100,
+                        "default": 20,
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "min_frequency": {
                         "type": "integer",
                         "title": "Minimum Domain Frequency",
                         "description": "Minimum frequency for a domain to be included in the domain dictionary. Must be at least 1.",
                         "minimum": 1,
-                        "default": 1
+                        "maximum": 1000,
+                        "default": 1,
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "profile_type": {
                         "type": "string",
@@ -63,7 +70,9 @@ class EmailOperationConfig(OperationConfig):
                         "type": "boolean",
                         "title": "Analyze Privacy Risk",
                         "description": "Whether to analyze potential privacy risks from email patterns and uniqueness.",
-                        "default": True
+                        "default": True,
+                        "x-component": "Checkbox",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                 },
                 "required": ["field_name"],

@@ -51,7 +51,7 @@ from pamola_core.profiling.commons.mvf_utils import (
     estimate_resources,
     process_mvf_partition,
 )
-from pamola_core.profiling.schemas.mvf_config import MVFAnalysisOperationConfig
+from pamola_core.profiling.schemas.mvf_schema import MVFAnalysisOperationConfig
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
