@@ -39,7 +39,6 @@ FULL_MASKING_EXCLUDE_FIELDS = [
 "use_encryption",
 "encryption_mode",
 "encryption_key",
-"generate_visualization",
 "save_output",
 "config", 
 "field_name",
