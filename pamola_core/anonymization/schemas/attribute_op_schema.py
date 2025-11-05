@@ -21,6 +21,7 @@ Changelog:
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
+
 class AttributeSuppressionConfig(OperationConfig):
     """Configuration schema for AttributeSuppressionOperation with BaseOperationConfig merged."""
 
@@ -33,7 +34,11 @@ class AttributeSuppressionConfig(OperationConfig):
             {
                 "type": "object",
                 "properties": {
-                    "field_name": {"type": "string", "title": "Field Name", "description": "Primary field to apply suppression."},
+                    "field_name": {
+                        "type": "string",
+                        "title": "Field Name",
+                        "description": "Primary field to apply suppression.",
+                    },
                     "additional_fields": {
                         "type": ["array", "null"],
                         "items": {"type": "string"},
@@ -44,7 +49,7 @@ class AttributeSuppressionConfig(OperationConfig):
                         "type": "string",
                         "enum": ["REMOVE"],
                         "title": "Suppression Mode",
-                        "description": "Suppression strategy to apply (e.g., REMOVE)."
+                        "description": "Suppression strategy to apply (e.g., REMOVE).",
                     },
                     "save_suppressed_schema": {
                         "type": "boolean",
@@ -66,8 +71,7 @@ class AttributeSuppressionConfig(OperationConfig):
                                     "type": "string",
                                     "title": "Condition Field",
                                     "x-component": "Select",
-                                    "description": "Field name for the condition."
- 
+                                    "description": "Field name for the condition.",
                                 },
                                 "operator": {
                                     "type": "string",
@@ -80,25 +84,34 @@ class AttributeSuppressionConfig(OperationConfig):
                                         {"const": "lt", "description": "Less than"},
                                         {"const": "eq", "description": "Equal to"},
                                         {"const": "ne", "description": "Not equal"},
-                                        {"const": "ge", "description": "Greater than or equal"},
-                                        {"const": "le", "description": "Less than or equal"},
+                                        {
+                                            "const": "ge",
+                                            "description": "Greater than or equal",
+                                        },
+                                        {
+                                            "const": "le",
+                                            "description": "Less than or equal",
+                                        },
                                         {"const": "range", "description": "Range"},
-                                        {"const": "all", "description": "All"}
+                                        {"const": "all", "description": "All"},
                                     ],
-                                    "x-depend-on": { "field": "not_null" },
-                                    "description": "Operator for the condition (e.g., '=', '>', '<', 'in')."
+                                    "x-depend-on": {"field": "not_null"},
+                                    "description": "Operator for the condition (e.g., '=', '>', '<', 'in').",
                                 },
                                 "values": {
                                     "type": "array",
                                     "title": "Condition Value",
                                     "x-component": "Input",
                                     "description": "Value(s) for the condition.",
-                                    "x-depend-on": { "field": "not_null", "operator": "not_null"}
+                                    "x-depend-on": {
+                                        "field": "not_null",
+                                        "operator": "not_null",
+                                    },
                                 },
                             },
                         },
                         "title": "Multi-field Conditions",
-                        "description": "List of multi-field conditions for custom noise application logic."
+                        "description": "List of multi-field conditions for custom noise application logic.",
                     },
                     "condition_logic": {
                         "type": "string",
@@ -110,7 +123,7 @@ class AttributeSuppressionConfig(OperationConfig):
                             {"const": "AND", "description": "AND"},
                             {"const": "OR", "description": "OR"},
                         ],
-                        "x-depend-on": {"multi_conditions": "not_null"}
+                        "x-depend-on": {"multi_conditions": "not_null"},
                     },
                     # Conditional processing parameters
                     "condition_field": {
@@ -158,7 +171,7 @@ class AttributeSuppressionConfig(OperationConfig):
                         "description": "Threshold for k-anonymity risk triggering suppression.",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.RISK_BASED_FILTERING,
-                        "x-depend-on": {"ka_risk_field": "not_null"}
+                        "x-depend-on": {"ka_risk_field": "not_null"},
                     },
                 },
                 "required": ["field_name", "suppression_mode"],
@@ -166,54 +179,49 @@ class AttributeSuppressionConfig(OperationConfig):
             # === Conditional logic for strategy-specific requirements ===
             {
                 "if": {
-                    "properties": { "condition_operator": { "type": "string" } },
-                    "required": ["condition_operator"]
+                    "properties": {"condition_operator": {"type": "string"}},
+                    "required": ["condition_operator"],
                 },
                 "then": {
                     "properties": {
-                        "condition_field": { "type": "string", "minLength": 1 }
+                        "condition_field": {"type": "string", "minLength": 1}
                     },
-                    "required": ["condition_field"]
-                }
+                    "required": ["condition_field"],
+                },
             },
             {
                 "if": {
-                    "properties": { "risk_threshold": { "type": "number" } },
-                    "required": ["risk_threshold"]
+                    "properties": {"risk_threshold": {"type": "number"}},
+                    "required": ["risk_threshold"],
                 },
                 "then": {
-                    "properties": {
-                        "ka_risk_field": { "type": "string", "minLength": 1 }
-                    },
-                    "required": ["ka_risk_field"]
-                }
+                    "properties": {"ka_risk_field": {"type": "string", "minLength": 1}},
+                    "required": ["ka_risk_field"],
+                },
             },
             {
                 "if": {
-                    "properties": { "condition_values": { "type": "array" } },
-                    "required": ["condition_values"]
+                    "properties": {"condition_values": {"type": "array"}},
+                    "required": ["condition_values"],
                 },
                 "then": {
                     "properties": {
-                        "condition_operator": { "type": "string", "minLength": 1 }
+                        "condition_operator": {"type": "string", "minLength": 1}
                     },
-                    "required": ["condition_operator"]
-                }
+                    "required": ["condition_operator"],
+                },
             },
             {
                 "if": {
-                    "properties": { "condition_logic": { "type": "string" } },
-                    "required": ["condition_logic"]
+                    "properties": {"condition_logic": {"type": "string"}},
+                    "required": ["condition_logic"],
                 },
                 "then": {
                     "properties": {
-                        "multi_conditions": { 
-                            "type": "array",
-                            "minItems": 1
-                        }
+                        "multi_conditions": {"type": "array", "minItems": 1}
                     },
-                    "required": ["multi_conditions"]
-                }
-            }
+                    "required": ["multi_conditions"],
+                },
+            },
         ],
     }

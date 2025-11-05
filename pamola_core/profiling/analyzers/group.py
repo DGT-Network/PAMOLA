@@ -479,32 +479,35 @@ class GroupAnalyzerOperation(FieldOperation):
                 **safe_kwargs,
             )
 
-            # Step 5: Generate visualizations
-            if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(
-                    current_steps, {"step": "Generating visualizations"}
+            # Step 5: Generate visualization if required
+            if self.generate_visualization:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Generate visualizations"
                 )
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(
+                        current_steps, {"step": "Generating visualizations"}
+                    )
 
-            self.logger.info(f"Generating visualizations")
-            encryption_kwargs = {
-                "use_encryption": self.use_encryption,
-                "encryption_key": self.encryption_key if self.use_encryption else None,
-            }
-            self._handle_visualizations(
-                threshold_metrics=metrics["threshold_metrics"],
-                field_metrics=metrics["field_metrics"],
-                vis_dir=visualizations_dir,
-                result=result,
-                reporter=reporter,
-                vis_theme=self.visualization_theme,
-                vis_backend=self.visualization_backend,
-                vis_strict=self.visualization_strict,
-                vis_timeout=self.visualization_timeout,
-                progress_tracker=progress_tracker,
-                operation_timestamp=operation_timestamp,
-                **encryption_kwargs,
-            )
+                encryption_kwargs = {
+                    "use_encryption": self.use_encryption,
+                    "encryption_key": self.encryption_key if self.use_encryption else None,
+                }
+                self._handle_visualizations(
+                    threshold_metrics=metrics["threshold_metrics"],
+                    field_metrics=metrics["field_metrics"],
+                    vis_dir=visualizations_dir,
+                    result=result,
+                    reporter=reporter,
+                    vis_theme=self.visualization_theme,
+                    vis_backend=self.visualization_backend,
+                    vis_strict=self.visualization_strict,
+                    vis_timeout=self.visualization_timeout,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    **encryption_kwargs,
+                )
 
             # Step 6: Save results
             if progress_tracker:
