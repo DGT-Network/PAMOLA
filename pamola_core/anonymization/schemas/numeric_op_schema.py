@@ -146,7 +146,8 @@ class NumericGeneralizationConfig(OperationConfig):
                         "title": "Condition Field",
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
-                        "x-group": GroupName.CONDITIONAL_LOGIC
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-custom-function": ["update_condition_field"]
                     },
                     "condition_operator": {
                         "type": "string",
@@ -163,7 +164,8 @@ class NumericGeneralizationConfig(OperationConfig):
                         ],
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null" }
+                        "x-depend-on": { "condition_field": "not_null" },
+                        "x-custom-function": ["update_condition_operator"]
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -172,7 +174,8 @@ class NumericGeneralizationConfig(OperationConfig):
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"}
+                        "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"},
+                        "x-custom-function": ["update_condition_values"]
                     },
                     # === K-Anonymity integration ===
                     "ka_risk_field": {
@@ -219,56 +222,5 @@ class NumericGeneralizationConfig(OperationConfig):
                 "if": {"properties": {"strategy": {"const": "range"}}},
                 "then": {"required": ["range_limits"]}
             },
-            {
-                "if": {
-                    "properties": { "condition_operator": { "type": "string" } },
-                    "required": ["condition_operator"]
-                },
-                "then": {
-                    "properties": {
-                        "condition_field": { "type": "string", "minLength": 1 }
-                    },
-                    "required": ["condition_field"]
-                }
-            },
-            {
-                "if": {
-                    "properties": { "risk_threshold": { "type": "string" } },
-                    "required": ["risk_threshold"]
-                },
-                "then": {
-                    "properties": {
-                        "ka_risk_field": { "type": "string", "minLength": 1 }
-                    },
-                    "required": ["ka_risk_field"]
-                }
-            },
-            {
-                "if": {
-                    "properties": { "condition_values": { "type": "string" } },
-                    "required": ["condition_values"]
-                },
-                "then": {
-                    "properties": {
-                        "condition_operator": { "type": "string", "minLength": 1 }
-                    },
-                    "required": ["condition_operator"]
-                }
-            },
-            {
-                "if": {
-                    "anyOf": [
-                        { "required": ["output_field_name"] },
-                        { "required": ["column_prefix"] }
-                    ]
-                },
-                "then": {
-                    "properties": {
-                        "mode": { "const": "ENRICH" }
-                    },
-                    "required": ["mode"]
-                }
-            }
-
         ]
     }
