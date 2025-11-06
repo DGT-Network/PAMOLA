@@ -34,7 +34,6 @@ class GroupName(str, Enum):
     CORE_SUPPRESSION_STRATEGY = "core_suppression_strategy"
     SIMPLE_CONDITIONAL_RULE = "simple_conditional_rule"
     SUPPRESSION_RULES = "suppression_rules"
-    DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
     IDENTIFIER_CONFIGURATION = "identifier_configuration"
     ANALYSIS_PARAMETERS = "analysis_parameters"
     NAME_GENERATION_STYLE = "name_generation_style"
@@ -76,7 +75,6 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.CORE_SUPPRESSION_STRATEGY: "Core Suppression Strategy",
     GroupName.SUPPRESSION_RULES: "Suppression Rules",
     GroupName.SIMPLE_CONDITIONAL_RULE: "Simple Conditional Rule",
-    GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
     GroupName.IDENTIFIER_CONFIGURATION: "Identifier Configuration",
     GroupName.ANALYSIS_PARAMETERS: "Analysis Parameters",
     GroupName.NAME_GENERATION_STYLE: "Name Generation Style",
