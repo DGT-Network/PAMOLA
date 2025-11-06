@@ -164,9 +164,12 @@ class PartialMaskingOpTooltip:
         "• ERROR: Stop the operation if any empty values are found."
     )
 
-    force_recalculation = (
-        "Ignore saved results. Check this box to force the operation to run again "
-        "instead of using a cached result from a previous run with the same settings."
+    force_recalculation = "What it does: Disables the caching mechanism for this run, forcing the operation to re-process all data from scratch."
+
+    generate_visualization = (
+        "What it does: Enables the creation of charts that help you visually understand the impact of the anonymization.\n"
+        "• Charts will show changes to either data values (for Generalization, Masking, etc.) or the dataset's structure (for Remove Rows/Columns), depending on the operation.\n"
+        "• Note: Enabled by default. Uncheck for faster execution if visuals are not needed."
     )
 
     @classmethod
@@ -197,4 +200,5 @@ class PartialMaskingOpTooltip:
             "column_prefix": cls.column_prefix,
             "null_strategy": cls.null_strategy,
             "force_recalculation": cls.force_recalculation,
+            "generate_visualization": cls.generate_visualization,
         }
