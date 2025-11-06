@@ -75,7 +75,7 @@ class EmailOperationConfig(OperationConfig):
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                 },
-                "required": ["field_name"],
+                "required": ["field_name", "top_n", "min_frequency"],
             },
         ],
     }

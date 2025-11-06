@@ -82,7 +82,7 @@ class NumericOperationConfig(OperationConfig):
                         "description": "Type of profiling operation. For numeric analysis, this should be set to 'numeric'."
                     },
                 },
-                "required": ["field_name"],
+                "required": ["field_name", "bins", "near_zero_threshold"],
             },
         ],
     }
