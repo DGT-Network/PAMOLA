@@ -167,17 +167,16 @@ class FakeEmailOperationConfig(OperationConfig):
                         "x-group": GroupName.DATA_SOURCES_FOR_GENERATION,
                         "description": "List of domains or path to domain dictionary for email generation."
                     },
-
                     # --- GeneratorOperation-specific fields ---
                     "generator": {
                         "type": ["object", "null"],
                         "title": "Generator",
-                        "description": "Generator instance or configuration for email generation."
+                        "description": "Generator instance or configuration for email generation.",
                     },
                     "generator_params": {
                         "type": ["object", "null"],
                         "title": "Generator Parameters",
-                        "description": "Parameters passed to the email generator."
+                        "description": "Parameters passed to the email generator.",
                     },
                     "consistency_mechanism": {
                         "type": "string",
@@ -227,7 +226,7 @@ class FakeEmailOperationConfig(OperationConfig):
                     "mapping_store": {
                         "type": ["object", "null"],
                         "title": "Mapping Store",
-                        "description": "Object for storing mapping between original and synthetic values."
+                        "description": "Object for storing mapping between original and synthetic values.",
                     },
                     "save_mapping": {
                         "type": "boolean",

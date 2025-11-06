@@ -80,14 +80,13 @@ class FakePhoneOperationConfig(OperationConfig):
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
                         "description": "Dictionary mapping country codes to lists of operator codes for phone number generation."
                     },
-                    "formats": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
+                    "format": {
+                        "type": ["string", "null"],
                         "default": None,
                         "x-component": "Select",
                         "title": "Output Format",
                         "x-group": GroupName.FORMATTING_RULES,
-                        "description": "List of phone number formats to use for generation."
+                        "description": "Phone number format template to use for generation."
                     },
                     "preserve_country_code": {
                         "type": "boolean",
@@ -107,16 +106,6 @@ class FakePhoneOperationConfig(OperationConfig):
                     },
 
                     # --- GeneratorOperation / BaseOperation common fields ---
-                    "generator": {
-                        "type": ["object", "null"],
-                        "title": "Generator",
-                        "description": "Custom generator instance or parameters for phone number generation."
-                    },
-                    "generator_params": {
-                        "type": ["object", "null"],
-                        "title": "Generator Parameters",
-                        "description": "Parameters to configure the phone number generator."
-                    },
                     "consistency_mechanism": {
                         "type": "string",
                         "enum": ["mapping", "prgn"],
@@ -161,11 +150,6 @@ class FakePhoneOperationConfig(OperationConfig):
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "x-depend-on": { "consistency_mechanism": "mapping" },
                         "description": "File path to persistently store mapping for consistent pseudonymization."
-                    },
-                    "mapping_store": {
-                        "type": ["object", "null"],
-                        "title": "Mapping Store",
-                        "description": "In-memory mapping store for value consistency."
                     },
                     "save_mapping": {
                         "type": "boolean",

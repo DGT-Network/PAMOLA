@@ -65,6 +65,7 @@ from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
 from pamola_core.profiling.schemas.identity_tooltip import IdentityAnalysisOperationTooltip
 from pamola_core.profiling.schemas.mvf_tooltip import MVFAnalysisOperationTooltip
 from pamola_core.profiling.schemas.numeric_tooltip import NumericOperationTooltip
+from pamola_core.profiling.schemas.phone_tooltip import PhoneOperationTooltip
 from pamola_core.transformations.schemas.add_modify_fields_config import (
     AddOrModifyFieldsOperationConfig,
 )
@@ -223,8 +224,8 @@ from pamola_core.profiling.schemas.mvf_schema import MVFAnalysisOperationConfig
 from pamola_core.profiling.schemas.mvf_schema_exclude import MVF_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.numeric_schema import NumericOperationConfig
 from pamola_core.profiling.schemas.numeric_schema_exclude import NUMERIC_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.phone_config import PhoneOperationConfig
-from pamola_core.profiling.schemas.phone_config_exclude import PHONE_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.phone_schema import PhoneOperationConfig
+from pamola_core.profiling.schemas.phone_schema_exclude import PHONE_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.text_config import (
     TextSemanticCategorizerOperationConfig,
 )
@@ -328,7 +329,13 @@ ALL_OP_CONFIGS = [
         NumericOperationConfig, 
         NUMERIC_EXCLUDE_FIELDS, 
         NumericOperationTooltip.as_dict()),
-    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, None),
+    (   PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, None),
+    (   MVFAnalysisOperationConfig,
+        MVF_EXCLUDE_FIELDS,
+        MVFAnalysisOperationTooltip.as_dict(),
+    ),
+    (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS, NumericOperationTooltip.as_dict()),
+    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, PhoneOperationTooltip.as_dict()),
     (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS, None),
 ]
 

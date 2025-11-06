@@ -1,4 +1,3 @@
-
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
@@ -19,13 +18,32 @@ Changelog:
 """
 
 PHONE_EXCLUDE_FIELDS = [
-  "config",
-  "scope",
-  "optimize_memory",
-  "adaptive_chunk_size",
-  "mode",
-  "column_prefix",
-  "null_strategy",
-  "engine",
-  "dask_partition_size"
+    "name",
+    "description",
+    "scope",
+    "config",
+    "optimize_memory",
+    "adaptive_chunk_size",
+    "mode",
+    "output_field_name",
+    "column_prefix",
+    "null_strategy",
+    "engine",
+    "use_dask",
+    "npartitions",
+    "dask_partition_size",
+    "use_vectorization",
+    "parallel_processes",
+    "chunk_size",
+    "use_cache",
+    "output_format",
+    "visualization_theme",
+    "visualization_backend",
+    "visualization_strict",
+    "visualization_timeout",
+    "use_encryption",
+    "encryption_mode",
+    "encryption_key",
+    "force_recalculation",
+    "save_output",
 ]
