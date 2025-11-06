@@ -48,7 +48,6 @@ class FakePhoneOperation(GeneratorOperation):
         key: Optional[str] = None,
         context_salt: Optional[str] = None,
         country_code_field: Optional[str] = None,
-        formats: Optional[List[str]] = None,
         **kwargs,
     ):
         """
@@ -110,7 +109,6 @@ class FakePhoneOperation(GeneratorOperation):
             key=key,
             context_salt=context_salt,
             country_code_field=country_code_field,
-            formats=formats,
             **kwargs,
         )
 
