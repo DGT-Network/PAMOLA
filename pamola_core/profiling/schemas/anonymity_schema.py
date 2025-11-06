@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of anonymity config file
 """
 
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.profiling.analyzers.anonymity import AnalysisMode
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -38,8 +39,10 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "type": ["array", "null"],
                         "items": {"type": "string"},
                         "default": None,
-                        "title": "Quasi-Identifiers",
+                        "title": "Individual quasi-identifier fields",
                         "description": "List of fields used as quasi-identifiers for k-anonymity analysis. These are the columns whose combinations are evaluated for re-identification risk.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
                     "analysis_mode": {
                         "type": "string",
@@ -51,6 +54,8 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "default": AnalysisMode.ANALYZE.value,
                         "title": "Analysis Mode",
                         "description": "Operation mode: 'ANALYZE' (generate metrics and visualizations), 'ENRICH' (add k-values to the DataFrame), or 'BOTH' (perform both analysis and enrichment).",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
                     "threshold_k": {
                         "type": "integer",
@@ -58,12 +63,16 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "default": 5,
                         "title": "k Threshold",
                         "description": "Threshold for considering records as vulnerable. Records/groups with k < threshold_k are flagged as privacy risks.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                     },
                     "export_metrics": {
                         "type": "boolean",
                         "default": True,
                         "title": "Export Metrics",
                         "description": "If true, export k-anonymity metrics and vulnerability analysis to JSON/CSV files.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "max_combinations": {
                         "type": "integer",
@@ -71,12 +80,16 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "default": 50,
                         "title": "Max QI Combinations",
                         "description": "Maximum number of quasi-identifier combinations to analyze. Limits combinatorial explosion for large datasets.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                     },
                     "output_field_suffix": {
                         "type": "string",
                         "default": "k_anon",
                         "title": "Output Field Suffix",
                         "description": "Suffix for the k-anonymity field added in ENRICH mode.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "quasi_identifier_sets": {
                         "type": ["array", "null"],
@@ -87,6 +100,8 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "default": None,
                         "title": "Quasi-Identifier Sets",
                         "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Overrides automatic detection.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
                     "id_fields": {
                         "type": ["array", "null"],
@@ -94,6 +109,8 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "default": None,
                         "title": "ID Fields",
                         "description": "List of columns used as record identifiers for grouping or tracking vulnerable records.",
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                 },
                 "required": ["quasi_identifiers"],

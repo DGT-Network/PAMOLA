@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of group config file
 """
 
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
@@ -44,34 +45,48 @@ class GroupAnalyzerOperationConfig(OperationConfig):
                         "description": "Dictionary mapping field names to integer configuration values (e.g., weights or thresholds) for group analysis. Must have at least one property.",
                         "minProperties": 1,
                         "additionalProperties": {"type": "integer", "minimum": 0},
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.FIELD_WEIGHTS_CONFIGURATION,
                     },
                     "text_length_threshold": {
                         "type": "integer",
                         "title": "Text Length Threshold",
                         "description": "Minimum text length required for a group to be included in the analysis.",
                         "minimum": 0,
+                        "maximum": 10000,
                         "default": 100,
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.TEXT_COMPARISON_SETTINGS,
                     },
                     "variance_threshold": {
                         "type": "number",
                         "title": "Variance Threshold",
                         "description": "Minimum variance required for a group to be considered significant in the analysis.",
                         "minimum": 0.0,
+                        "maximum": 1.0,
                         "default": 0.2,
+                        "x-component": "FloatPicker",
+                        "x-group": GroupName.GROUP_CONFIGURATION,
                     },
                     "large_group_threshold": {
                         "type": "integer",
                         "title": "Large Group Size Threshold",
                         "description": "Minimum number of records for a group to be considered 'large'.",
                         "minimum": 1,
+                        "maximum": 10000,
                         "default": 100,
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.GROUP_CONFIGURATION,
                     },
                     "large_group_variance_threshold": {
                         "type": "number",
                         "title": "Large Group Variance Threshold",
                         "description": "Variance threshold for large groups. Used to identify significant variation within large groups.",
                         "minimum": 0.0,
+                        "maximum": 1.0,
                         "default": 0.05,
+                        "x-component": "FloatPicker",
+                        "x-group": GroupName.GROUP_CONFIGURATION,
                     },
                     "hash_algorithm": {
                         "type": "string",
@@ -79,6 +94,12 @@ class GroupAnalyzerOperationConfig(OperationConfig):
                         "description": "Hashing algorithm to use for group analysis. Options are 'md5' for standard hashing or 'minhash' for similarity-based analysis.",
                         "enum": ["md5", "minhash"],
                         "default": "md5",
+                        "x-component": "Select",
+                        "oneOf": [
+                            {"const": "md5", "description": "Md5"},
+                            {"const": "minhash", "description": "Minhash"}
+                        ],
+                        "x-group": GroupName.TEXT_COMPARISON_SETTINGS,
                     },
                     "minhash_similarity_threshold": {
                         "type": "number",
@@ -87,6 +108,10 @@ class GroupAnalyzerOperationConfig(OperationConfig):
                         "minimum": 0.0,
                         "maximum": 1.0,
                         "default": 0.7,
+                        "x-component": "FloatPicker",
+                        "x-group": GroupName.TEXT_COMPARISON_SETTINGS,
+                        "x-depend-on": {"hash_algorithm": "minhash"},
+                        "x-required-on": {"hash_algorithm": "minhash"},
                     },
                 },
                 "required": ["field_name", "fields_config"],

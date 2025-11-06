@@ -41,6 +41,11 @@ class MVFAnalysisOperationTooltip:
 
     generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
 
+    force_recalculation = (
+        "Ignore saved results. Check this box to force the operation to run again "
+        "instead of using a cached result from a previous run with the same settings."
+    )
+
     @classmethod
     def as_dict(cls):
         """Return tooltips as a dictionary for Formily or schema builders."""
@@ -49,4 +54,5 @@ class MVFAnalysisOperationTooltip:
             "min_frequency": cls.min_frequency,
             "format_type": cls.format_type,
             "generate_visualization": cls.generate_visualization,
+            "force_recalculation": cls.force_recalculation,
         }

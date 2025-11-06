@@ -50,6 +50,10 @@ class GroupName(str, Enum):
     DATA_QUALITY_ANALYSIS = "data_quality_analysis"
     CURRENCY_PARSING_SETTINGS = "currency_parsing_settings"
     DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
+    GROUP_CONFIGURATION = "group_configuration"
+    TEXT_COMPARISON_SETTINGS = "text_comparison_settings"
+    ANALYSIS_CONFIGURATION = "analysis_configuration"
+    FIELD_WEIGHTS_CONFIGURATION = "field_weights_configuration"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -91,6 +95,10 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
     GroupName.CURRENCY_PARSING_SETTINGS: "Currency Parsing Settings",
     GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
+    GroupName.GROUP_CONFIGURATION: "Group Configuration",  
+    GroupName.TEXT_COMPARISON_SETTINGS: "Text Comparison Settings",
+    GroupName.ANALYSIS_CONFIGURATION: "Analysis Configuration",
+    GroupName.FIELD_WEIGHTS_CONFIGURATION: "Field Weights Configuration",
 }
 
 
@@ -215,6 +223,17 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     "CategoricalOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "GroupAnalyzerOperationConfig": [
+        GroupName.GROUP_CONFIGURATION,
+        GroupName.TEXT_COMPARISON_SETTINGS,
+        GroupName.FIELD_WEIGHTS_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "KAnonymityProfilerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.CORE_GENERALIZATION_STRATEGY,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }
