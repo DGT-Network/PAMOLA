@@ -41,9 +41,6 @@ EMAIL_FAKE_EXCLUDE_FIELDS = [
   "encryption_key",
   "save_output",
 
-  "field_name",
-  "generator",
-  "generator_params",
-  "mapping_store"
+  "field_name"
 ]
 

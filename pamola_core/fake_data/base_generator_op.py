@@ -149,7 +149,7 @@ class GeneratorOperation(FieldOperation):
 
         # === Consistency and Mapping ===
         self.consistency_mechanism = consistency_mechanism.lower()
-        self.mapping_store = mapping_store or MappingStore()
+        self.mapping_store = MappingStore()
         self.mapping_store_path = mapping_store_path
         self.save_mapping = save_mapping
 

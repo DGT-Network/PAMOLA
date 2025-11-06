@@ -142,17 +142,6 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
                         "description": "Suffix dictionary for organization names."
                     },
-                    # --- GeneratorOperation / BaseOperation common fields ---
-                    "generator": {
-                        "type": ["object", "null"],
-                        "title": "Generator",
-                        "description": "Generator instance or configuration for organization name generation."
-                    },
-                    "generator_params": {
-                        "type": ["object", "null"],
-                        "title": "Generator Parameters",
-                        "description": "Parameters passed to the organization generator."
-                    },
                     "consistency_mechanism": {
                         "type": "string",
                         "oneOf": [
@@ -196,11 +185,6 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "x-depend-on": { "consistency_mechanism": "mapping" },
                         "description": "Path to store mapping between original and synthetic organization names."
                     },
-                    "mapping_store": {
-                        "type": ["object", "null"],
-                        "title": "Mapping Store",
-                        "description": "Object for storing mapping between original and synthetic values."
-                    },
                     "save_mapping": {
                         "type": "boolean",
                         "default": False,
@@ -235,7 +219,7 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                         "description": "Whether to collect distribution statistics per organization type."
-                    },
+                    }
                 },
                 "required": ["field_name"],
             },

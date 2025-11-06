@@ -17,7 +17,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 ORGANIZATION_FAKE_EXCLUDE_FIELDS = [
-    "name",
+  "name",
   "description",
   "scope",
   "config",
@@ -41,8 +41,5 @@ ORGANIZATION_FAKE_EXCLUDE_FIELDS = [
   "encryption_key",
   "save_output",
 
-  "field_name",
-  "generator",
-  "generator_params",
-  "mapping_store"
+  "field_name"
 ]

@@ -80,14 +80,13 @@ class FakePhoneOperationConfig(OperationConfig):
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
                         "description": "Dictionary mapping country codes to lists of operator codes for phone number generation."
                     },
-                    "formats": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
+                    "format": {
+                        "type": ["string", "null"],
                         "default": None,
                         "x-component": "Select",
                         "title": "Output Format",
                         "x-group": GroupName.FORMATTING_RULES,
-                        "description": "List of phone number formats to use for generation."
+                        "description": "Phone number format template to use for generation."
                     },
                     "preserve_country_code": {
                         "type": "boolean",
@@ -104,18 +103,6 @@ class FakePhoneOperationConfig(OperationConfig):
                         "x-component": "Checkbox",
                         "x-group": GroupName.GENERATION_LOGIC,
                         "description": "Whether to preserve the original operator code in the generated phone number."
-                    },
-
-                    # --- GeneratorOperation / BaseOperation common fields ---
-                    "generator": {
-                        "type": ["object", "null"],
-                        "title": "Generator",
-                        "description": "Custom generator instance or parameters for phone number generation."
-                    },
-                    "generator_params": {
-                        "type": ["object", "null"],
-                        "title": "Generator Parameters",
-                        "description": "Parameters to configure the phone number generator."
                     },
                     "consistency_mechanism": {
                         "type": "string",
@@ -213,7 +200,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "x-component": "Input",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                         "description": "Maximum number of retries for generating a valid phone number."
-                    },
+                    }
                 },
                 "required": ["field_name"],
             },

@@ -167,18 +167,6 @@ class FakeEmailOperationConfig(OperationConfig):
                         "x-group": GroupName.DATA_SOURCES_FOR_GENERATION,
                         "description": "List of domains or path to domain dictionary for email generation."
                     },
-
-                    # --- GeneratorOperation-specific fields ---
-                    "generator": {
-                        "type": ["object", "null"],
-                        "title": "Generator",
-                        "description": "Generator instance or configuration for email generation."
-                    },
-                    "generator_params": {
-                        "type": ["object", "null"],
-                        "title": "Generator Parameters",
-                        "description": "Parameters passed to the email generator."
-                    },
                     "consistency_mechanism": {
                         "type": "string",
                         "oneOf": [
@@ -223,11 +211,6 @@ class FakeEmailOperationConfig(OperationConfig):
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "x-depend-on": { "consistency_mechanism": "mapping" },
                         "description": "Path to store mapping between original and synthetic emails."
-                    },
-                    "mapping_store": {
-                        "type": ["object", "null"],
-                        "title": "Mapping Store",
-                        "description": "Object for storing mapping between original and synthetic values."
                     },
                     "save_mapping": {
                         "type": "boolean",
@@ -277,7 +260,7 @@ class FakeEmailOperationConfig(OperationConfig):
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                         "title": "Max Retries",
                         "description": "Maximum number of retries for generating a valid synthetic email."
-                    },
+                    }
                 },
                 "required": ["field_name"],
             },
