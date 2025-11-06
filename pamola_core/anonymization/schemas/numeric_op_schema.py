@@ -170,7 +170,7 @@ class NumericGeneralizationConfig(OperationConfig):
                     "condition_values": {
                         "type": ["array", "null"],
                         "title": "Condition Values",
-                        "x-component": "Input", #ArrayItems
+                        "x-component": "Input",
                         "description": "Values of the condition field that trigger the generalization.",
                         "items": {"type": "string"},
                         "x-group": GroupName.CONDITIONAL_LOGIC,

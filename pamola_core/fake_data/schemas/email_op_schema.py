@@ -56,7 +56,7 @@ class FakeEmailOperationConfig(OperationConfig):
                         "type": ["object", "null"],
                         "title": "Format Ratio",
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
-                        "x-component": "Input",
+                        "x-component": "Input", # TODO: Custom component for JSON input
                         "x-depend-on": {"format": "null"},
                         "description": "Ratio distribution for using different email formats."
                     },

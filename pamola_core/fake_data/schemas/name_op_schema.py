@@ -86,7 +86,7 @@ class FakeNameOperationConfig(OperationConfig):
                     "dictionaries": {
                         "type": ["object", "null"],
                         "title": "Custom Dictionaries",
-                        "x-component": "Input",
+                        "x-component": "Input", # TODO: Custom component for JSON input
                         "description": "Custom dictionaries for localized name generation (advanced usage).",
                         "x-group": GroupName.NAME_GENERATION_STYLE
                     },

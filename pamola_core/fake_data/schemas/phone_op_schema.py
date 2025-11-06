@@ -17,7 +17,6 @@ Configuration schema for defining and validating fake phone generation operation
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake phone config file
 """
-from click import Group
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
