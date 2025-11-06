@@ -228,7 +228,7 @@ def convert_property(
                 "showSearch": True,
             }
 
-        if "oneOf" in field and all(
+        if "oneOf" in field and any(
             isinstance(opt, dict) and "const" in opt for opt in field["oneOf"]
         ):
             field["enum"] = [
@@ -237,6 +237,7 @@ def convert_property(
                     "label": opt.get("description", str(opt["const"])),
                 }
                 for opt in field["oneOf"]
+                if opt.get("const") is not None
             ]
             field.pop("oneOf", None)
 

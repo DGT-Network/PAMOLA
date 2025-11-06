@@ -176,6 +176,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "component" },
                         "oneOf": [
+                            {"type": "null"},
                             {"const": "year", "description": "Years"},
                             {"const": "month", "description": "Month"},
                             {"const": "day", "description": "Day"},
