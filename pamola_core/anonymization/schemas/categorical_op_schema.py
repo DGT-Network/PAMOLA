@@ -280,7 +280,27 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Condition Field",
                         "description": "Field name for conditional processing.",
-                        "visible": False
+                        "x-component": "Select",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-custom-function": ["update_condition_field"]
+                    },
+                    "condition_operator": {
+                        "type": "string",
+                        "title": "Condition Operator",
+                        "description": "Comparison operator used in the condition.",
+                        "x-component": "Select",
+                        "oneOf": [
+                            {"const": "in", "description": "In"},
+                            {"const": "not_in", "description": "Not in"},
+                            {"const": "gt", "description": "Greater than"},
+                            {"const": "lt", "description": "Less than"},
+                            {"const": "eq", "description": "Equal to"},
+                            {"const": "range", "description": "Range"}
+                        ],
+                        "default": "in",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": { "condition_field": "not_null" },
+                        "x-custom-function": ["update_condition_operator"]
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -289,13 +309,10 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "items": {
                             "type": "string"
                         },
-                        "visible": False
-                    },
-                    "condition_operator": {
-                        "type": "string",
-                        "title": "Condition Operator",
-                        "description": "Conditional operator (in|not_in|eq|ne).",
-                        "visible": False
+                        "x-component": "Input",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"},
+                        "x-custom-function": ["update_condition_values"]
                     },
                     # Risk assessment
                     "ka_risk_field": {
