@@ -47,6 +47,10 @@ class GroupName(str, Enum):
     DATA_SOURCES_FOR_GENERATION = "data_sources_for_generation"
     ORGANIZATION_GENERATION_STYLE = "organization_generation_style"
     CONTEXT_AND_DATA_SOURCES = "context_and_data_sources"
+    VALIDATION_RANGE = "validation_range"
+    DATA_QUALITY_ANALYSIS = "data_quality_analysis"
+    CURRENCY_PARSING_SETTINGS = "currency_parsing_settings"
+    DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -85,6 +89,10 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.DATA_SOURCES_FOR_GENERATION: "Data Sources for Generation",
     GroupName.ORGANIZATION_GENERATION_STYLE: "Organization Generation Style",
     GroupName.CONTEXT_AND_DATA_SOURCES: "Context & Data Sources",
+    GroupName.VALIDATION_RANGE: "Validation Range",
+    GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
+    GroupName.CURRENCY_PARSING_SETTINGS: "Currency Parsing Settings",
+    GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
 }
 
 
@@ -194,6 +202,19 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.CONSISTENCY_STRATEGY,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
+    "DateOperationConfig": [
+        GroupName.VALIDATION_RANGE,
+        GroupName.DATA_QUALITY_ANALYSIS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CurrencyOperationConfig": [
+        GroupName.CURRENCY_PARSING_SETTINGS,
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CorrelationOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ]
 }
 
 

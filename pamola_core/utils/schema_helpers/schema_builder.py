@@ -195,20 +195,20 @@ from pamola_core.profiling.schemas.categorical_config import CategoricalOperatio
 from pamola_core.profiling.schemas.categorical_config_exclude import (
     CATEGORICAL_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.correlation_config import (
+from pamola_core.profiling.schemas.correlation_schema import (
     CorrelationOperationConfig,
     CorrelationMatrixOperationConfig,
 )
-from pamola_core.profiling.schemas.correlation_config_exclude import (
+from pamola_core.profiling.schemas.correlation_schema_exclude import (
     CORRELATION_EXCLUDE_FIELDS,
     CORRELATION_MATRIX_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.currency_config import CurrencyOperationConfig
-from pamola_core.profiling.schemas.currency_config_exclude import (
+from pamola_core.profiling.schemas.currency_schema import CurrencyOperationConfig
+from pamola_core.profiling.schemas.currency_schema_exclude import (
     CURRENCY_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.date_config import DateOperationConfig
-from pamola_core.profiling.schemas.date_config_exclude import DATE_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.date_schema import DateOperationConfig
+from pamola_core.profiling.schemas.date_schema_exclude import DATE_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.email_schema import EmailOperationConfig
 from pamola_core.profiling.schemas.email_schema_exclude import EMAIL_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.group_config import GroupAnalyzerOperationConfig
@@ -235,6 +235,9 @@ from pamola_core.anonymization.schemas.categorical_op_tooltip import (
 )
 from pamola_core.anonymization.schemas.cell_op_tooltip import CellSuppressionOpTooltip
 from pamola_core.anonymization.schemas.attribute_op_tooltip import AttributeSuppressionOpTooltip
+from pamola_core.profiling.schemas.date_tooltip import DateOpTooltip
+from pamola_core.profiling.schemas.currency_tooltip import CurrencyOpTooltip
+from pamola_core.profiling.schemas.correlation_tooltip import CorrelationOpTooltip
 
 from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
@@ -304,10 +307,10 @@ ALL_OP_CONFIGS = [
     (KAnonymityProfilerOperationConfig, ANONYMITY_EXCLUDE_FIELDS, None),
     (DataAttributeProfilerOperationConfig, ATTRIBUTE_EXCLUDE_FIELDS, None),
     (CategoricalOperationConfig, CATEGORICAL_EXCLUDE_FIELDS, None),
-    (CorrelationOperationConfig, CORRELATION_EXCLUDE_FIELDS, None),
+    (CorrelationOperationConfig, CORRELATION_EXCLUDE_FIELDS, CorrelationOpTooltip.as_dict()),
     (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS, None),
-    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, None),
-    (DateOperationConfig, DATE_EXCLUDE_FIELDS, None),
+    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, CurrencyOpTooltip.as_dict()),
+    (DateOperationConfig, DATE_EXCLUDE_FIELDS, DateOpTooltip.as_dict()),
     (
         EmailOperationConfig, 
         EMAIL_EXCLUDE_FIELDS, 
