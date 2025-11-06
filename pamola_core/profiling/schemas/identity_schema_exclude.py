@@ -19,6 +19,7 @@ Changelog:
 """
 
 IDENTITY_EXCLUDE_FIELDS = [
+"output_field_name",
 "force_recalculation",
 "mode",
 "column_prefix",
