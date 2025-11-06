@@ -65,6 +65,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     # --- Rounding parameters ---
                     "rounding_unit": {
                         "type": "string",
+                        "default": "day",
                         # "enum": ["year", "quarter", "month", "week", "day", "hour"],
                         "title": "Rounding Unit",
                         "description": "Unit for rounding datetime values (e.g., year, month, day, hour).",
@@ -84,6 +85,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     # --- Binning parameters ---
                     "bin_type": {
                         "type": "string",
+                        "default": "day_range",
                         # "enum": [
                         #     "hour_range",
                         #     "day_range",
@@ -117,6 +119,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     },
                     "interval_unit": {
                         "type": "string",
+                        "default": "days",
                         # "enum": ["hours", "days", "weeks", "months"],
                         "title": "Interval Unit",
                         "description": "Unit for binning interval (e.g., days, weeks, months).",
@@ -159,17 +162,6 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     # --- Component-based generalization ---
                     "keep_components": {
                         "type": ["array", "null"],
-                        "items": {
-                            "type": "string",
-                            "enum": [
-                                "year",
-                                "month",
-                                "day",
-                                "hour",
-                                "minute",
-                                "weekday",
-                            ],
-                        },
                         "title": "Components to Keep",
                         "description": "List of datetime components to keep (e.g., year, month, day, hour, minute, weekday).",
                         "x-component": "Select",
@@ -177,6 +169,20 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-depend-on": { "strategy": "component" },
                         "oneOf": [
                             {"type": "null"},
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "year",
+                                        "month",
+                                        "day",
+                                        "hour",
+                                        "minute",
+                                        "weekday",
+                                    ]
+                                }
+                            },
                             {"const": "year", "description": "Years"},
                             {"const": "month", "description": "Month"},
                             {"const": "day", "description": "Day"},
