@@ -414,6 +414,7 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Other fields to mask consistently with the main field.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                        "x-custom-function": ["update_condition_field"]
                     },
                     # Conditional processing parameters
                     "condition_field": {

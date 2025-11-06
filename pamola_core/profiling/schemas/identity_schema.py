@@ -43,6 +43,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "minItems": 1,
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                        "x-custom-function": ["update_condition_field"]
                     },
                     "uid_field": {
                         "type": "string",
@@ -50,6 +51,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "description": "Primary identifier field to analyze (e.g., 'UID'). Must exist in the input DataFrame.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                        "x-custom-function": ["update_condition_field"]
                     },
                     "id_field": {
                         "type": ["string", "null"],
@@ -58,6 +60,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "default": None,
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                        "x-custom-function": ["update_condition_field"]
                     },
                     "top_n": {
                         "type": "integer",
@@ -69,14 +72,6 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "x-component": "NumberPicker",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
-                    "check_cross_matches": {
-                        "type": "boolean",
-                        "title": "Check Cross-Matches",
-                        "description": "Whether to check for cross-matching between identifiers and reference fields.",
-                        "default": True,
-                        "x-component": "Checkbox",
-                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                    },
                     "min_similarity": {
                         "type": "number",
                         "title": "Minimum Similarity Threshold",
@@ -85,6 +80,14 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "maximum": 1,
                         "default": 0.8,
                         "x-component": "FloatPicker",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                    },
+                    "check_cross_matches": {
+                        "type": "boolean",
+                        "title": "Check Cross-Matches",
+                        "description": "Whether to check for cross-matching between identifiers and reference fields.",
+                        "default": True,
+                        "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "fuzzy_matching": {
