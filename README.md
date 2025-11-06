@@ -55,9 +55,10 @@ PAMOLA.CORE includes various algorithms and techniques for:
 
 - **Privacy and Quality Metrics**
 - test
-
+- test
 ## Installation
 
 ```bash
 pip install pamola-core
+
 
