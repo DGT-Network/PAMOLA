@@ -17,6 +17,7 @@ Configuration schema for defining and validating fake organization generation op
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake organization config file
 """
+
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -35,12 +36,11 @@ class FakeOrganizationOperationConfig(OperationConfig):
                 "title": "FakeOrganizationOperationConfig Properties",
                 "description": "All configuration options for FakeOrganizationOperation, including generator, organization type, dictionaries, region, prefix/suffix, and advanced metrics.",
                 "properties": {
-                    
                     # --- FakeOrganizationOperation-specific fields ---
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the column containing organization names to process."
+                        "description": "Name of the column containing organization names to process.",
                     },
                     "organization_type": {
                         "type": "string",
@@ -55,7 +55,7 @@ class FakeOrganizationOperationConfig(OperationConfig):
                             {"const": "industry", "description": "Industry"},
                         ],
                         "x-group": GroupName.ORGANIZATION_GENERATION_STYLE,
-                        "description": "Type of organization to generate (e.g., 'general', 'industry', 'government')."
+                        "description": "Type of organization to generate (e.g., 'general', 'industry', 'government').",
                     },
                     "region": {
                         "type": "string",
@@ -63,7 +63,7 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "title": "Default Region",
                         "x-component": "Select",
                         "x-group": GroupName.ORGANIZATION_GENERATION_STYLE,
-                        "description": "Region code for localized organization name generation."
+                        "description": "Region code for localized organization name generation.",
                     },
                     "industry": {
                         "type": ["string", "null"],
@@ -75,9 +75,9 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         #     { "const": "retail", "title": "Manufacturing" },
                         #     { "const": "healthcare", "title": "Government" }
                         # ],
-                        "x-depend-on": { "organization_type": "industry" },
+                        "x-depend-on": {"organization_type": "industry"},
                         "x-group": GroupName.ORGANIZATION_GENERATION_STYLE,
-                        "description": "Specific industry name for contextual organization generation."
+                        "description": "Specific industry name for contextual organization generation.",
                     },
                     "preserve_type": {
                         "type": "boolean",
@@ -85,7 +85,7 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "title": "Preserve Original Type",
                         "x-component": "Checkbox",
                         "x-group": GroupName.ORGANIZATION_GENERATION_STYLE,
-                        "description": "Whether to preserve the type of organization in the generated name."
+                        "description": "Whether to preserve the type of organization in the generated name.",
                     },
                     "add_prefix_probability": {
                         "type": "number",
@@ -95,7 +95,7 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "x-component": "NumberPicker",
                         "x-group": GroupName.ORGANIZATION_GENERATION_STYLE,
                         "title": "Add Prefix Probability",
-                        "description": "Probability of adding a prefix to the organization name."
+                        "description": "Probability of adding a prefix to the organization name.",
                     },
                     "add_suffix_probability": {
                         "type": "number",
@@ -105,101 +105,101 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "x-component": "NumberPicker",
                         "x-group": GroupName.ORGANIZATION_GENERATION_STYLE,
                         "title": "Add Suffix Probability",
-                        "description": "Probability of adding a suffix to the organization name."
+                        "description": "Probability of adding a suffix to the organization name.",
                     },
                     "type_field": {
                         "type": ["string", "null"],
                         "title": "Type Field",
                         "x-component": "Input",
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
-                        "description": "Field in the dataset containing organization type codes."
+                        "description": "Field in the dataset containing organization type codes.",
                     },
                     "region_field": {
                         "type": ["string", "null"],
                         "title": "Region Field",
                         "x-component": "Select",
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
-                        "description": "Field in the dataset containing region codes."
+                        "description": "Field in the dataset containing region codes.",
                     },
                     "dictionaries": {
                         "type": ["object", "null"],
                         "title": "Dictionaries",
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
-                        "x-component": "Upload", # custom input component
-                        "description": "Custom dictionaries for organization name generation."
+                        "x-component": "Upload",  # custom input component
+                        "description": "Custom dictionaries for organization name generation.",
                     },
                     "prefixes": {
                         "type": ["object", "null"],
                         "title": "Prefixes",
                         "x-component": "Upload",  # custom input component
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
-                        "description": "Prefix dictionary for organization names."
+                        "description": "Prefix dictionary for organization names.",
                     },
                     "suffixes": {
                         "type": ["object", "null"],
                         "title": "Suffixes",
                         "x-component": "Upload",  # custom input component
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
-                        "description": "Suffix dictionary for organization names."
+                        "description": "Suffix dictionary for organization names.",
                     },
                     # --- GeneratorOperation / BaseOperation common fields ---
                     "generator": {
                         "type": ["object", "null"],
                         "title": "Generator",
-                        "description": "Generator instance or configuration for organization name generation."
+                        "description": "Generator instance or configuration for organization name generation.",
                     },
                     "generator_params": {
                         "type": ["object", "null"],
                         "title": "Generator Parameters",
-                        "description": "Parameters passed to the organization generator."
+                        "description": "Parameters passed to the organization generator.",
                     },
                     "consistency_mechanism": {
                         "type": "string",
                         "oneOf": [
-                            { "const": "mapping", "title": "mapping" },
-                            { "const": "prgn", "title": "prgn" }
+                            {"const": "mapping", "title": "mapping"},
+                            {"const": "prgn", "title": "prgn"},
                         ],
                         "default": "prgn",
                         "x-component": "Select",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "title": "Consistency Method",
-                        "description": "Controls how consistent synthetic values are generated: 'mapping' for mapping store, 'prgn' for pseudo-random generation."
+                        "description": "Controls how consistent synthetic values are generated: 'mapping' for mapping store, 'prgn' for pseudo-random generation.",
                     },
                     "id_field": {
                         "type": ["string", "null"],
                         "title": "Unique ID Field",
                         "x-component": "Select",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "description": "Field name used as unique identifier for mapping consistency."
+                        "description": "Field name used as unique identifier for mapping consistency.",
                     },
                     "key": {
                         "type": ["string", "null"],
                         "title": "PRGN Key",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "x-component": "Input",
-                        "x-depend-on": { "consistency_mechanism": "prgn" },
-                        "description": "Encryption or PRGN key for consistent pseudonymization."
+                        "x-depend-on": {"consistency_mechanism": "prgn"},
+                        "description": "Encryption or PRGN key for consistent pseudonymization.",
                     },
                     "context_salt": {
                         "type": ["string", "null"],
                         "title": "Context Salt",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "x-component": "Input",
-                        "x-depend-on": { "consistency_mechanism": "prgn" },
-                        "description": "Contextual salt for PRGN uniqueness."
+                        "x-depend-on": {"consistency_mechanism": "prgn"},
+                        "description": "Contextual salt for PRGN uniqueness.",
                     },
                     "mapping_store_path": {
                         "type": ["string", "null"],
                         "title": "Mapping Store Path",
                         "x-component": "Upload",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "x-depend-on": { "consistency_mechanism": "mapping" },
-                        "description": "Path to store mapping between original and synthetic organization names."
+                        "x-depend-on": {"consistency_mechanism": "mapping"},
+                        "description": "Path to store mapping between original and synthetic organization names.",
                     },
                     "mapping_store": {
                         "type": ["object", "null"],
                         "title": "Mapping Store",
-                        "description": "Object for storing mapping between original and synthetic values."
+                        "description": "Object for storing mapping between original and synthetic values.",
                     },
                     "save_mapping": {
                         "type": "boolean",
@@ -207,10 +207,9 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "title": "Save Mapping",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "x-component": "Checkbox",
-                        "x-depend-on": { "consistency_mechanism": "mapping" },
-                        "description": "Whether to save the mapping between original and synthetic organization names."
+                        "x-depend-on": {"consistency_mechanism": "mapping"},
+                        "description": "Whether to save the mapping between original and synthetic organization names.",
                     },
-                 
                     # --- Advanced behavior & metrics ---
                     "max_retries": {
                         "type": "integer",
@@ -219,7 +218,7 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "title": "Max Retries",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "description": "Maximum retries for failed name generations."
+                        "description": "Maximum retries for failed name generations.",
                     },
                     "detailed_metrics": {
                         "type": "boolean",
@@ -227,14 +226,15 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "title": "Detailed Metrics",
                         "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "description": "Whether to enable detailed generation statistics."
+                        "description": "Whether to enable detailed generation statistics.",
                     },
                     "collect_type_distribution": {
-                        "type": "boolean", "default": True,
+                        "type": "boolean",
+                        "default": True,
                         "title": "Collect Type Distribution",
                         "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "description": "Whether to collect distribution statistics per organization type."
+                        "description": "Whether to collect distribution statistics per organization type.",
                     },
                 },
                 "required": ["field_name"],

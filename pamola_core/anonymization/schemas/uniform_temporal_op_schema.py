@@ -122,7 +122,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "x-component": "DatePicker",
                         "x-component-props": {
                             "format": "YYYY-MM-DD",
-                            "placeholder": "Select date"
+                            "placeholder": "Select date",
                         },
                         "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
@@ -133,7 +133,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "x-component": "DatePicker",
                         "x-component-props": {
                             "format": "YYYY-MM-DD",
-                            "placeholder": "Select date"
+                            "placeholder": "Select date",
                         },
                         "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
@@ -154,7 +154,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "x-component": "DatePicker",
                         "x-component-props": {
                             "format": "YYYY-MM-DD",
-                            "placeholder": "Select date"
+                            "placeholder": "Select date",
                         },
                         "x-group": GroupName.PRESERVATION_RULES,
                         "x-depend-on": {"preserve_special_dates": True},

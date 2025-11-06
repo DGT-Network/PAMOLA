@@ -12,7 +12,8 @@ License:       BSD 3-Clause
 Description:
 Configuration schema for defining and validating date profiling operations in PAMOLA.CORE.
 Supports parameters for field names, year ranges, id columns, and profile types.
-Compatible with JSON Schema, easy to integrate and extend.
+Compatible with JSON Schema, easy to integra
+te and extend.
 
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of date config file

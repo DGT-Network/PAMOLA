@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of name operation tooltip file
 """
 
+
 class FakeNameOperationTooltip:
     language = (
         "• What it does: Selects the appropriate set of names to use for generation.\n"
@@ -30,14 +31,14 @@ class FakeNameOperationTooltip:
     format = (
         "• How it works: Uses placeholders for First (F), Last (L), and Middle (M) names.\n"
         "• Available Formats: `FL` (John Smith), `LF` (Smith John), `FML` (John Michael Smith), `LFM` (Smith John Michael), `F_L` (John_Smith), `L_F` (Smith_John).\n"
-        "• Note: You can control casing directly via the format. Using `fml` will make the output lowercase, and `FML_` will make it uppercase, overriding the global \"Name Case\" setting.\n"
+        '• Note: You can control casing directly via the format. Using `fml` will make the output lowercase, and `FML_` will make it uppercase, overriding the global "Name Case" setting.\n'
         "• Default: `FL`"
     )
 
     case = (
         "• What it does: Controls the text case of the output.\n"
         "• Options: `title` (John Smith), `upper` (JOHN SMITH), `lower` (john smith).\n"
-        "• Note: This setting can be overridden by using a case-specific format string in the \"Name Format\" field (e.g., `fml`).\n"
+        '• Note: This setting can be overridden by using a case-specific format string in the "Name Format" field (e.g., `fml`).\n'
         "• Recommended: `title` for most use cases.\n"
         "• Default: `title`"
     )
@@ -52,12 +53,12 @@ class FakeNameOperationTooltip:
 
     dictionaries = (
         "• How it works: Provide a JSON object specifying the language and name type, with a value pointing to your file path.\n"
-        "• Example: `{\"en\": {\"male_first_names\": \"/path/to/en_m_first.txt\", \"last_names\": \"/path/to/en_last.txt\"}}`\n"
+        '• Example: `{"en": {"male_first_names": "/path/to/en_m_first.txt", "last_names": "/path/to/en_last.txt"}}`\n'
         "• Impact: Gives you full control over the pool of names. This is an advanced feature."
     )
 
     gender_from_name = (
-        "• How it works: The system will analyze the original first name (e.g., \"Mary\") and determine its likely gender (\"Female\") before generating a new female name.\n"
+        '• How it works: The system will analyze the original first name (e.g., "Mary") and determine its likely gender ("Female") before generating a new female name.\n'
         "• Impact: Useful when you don't have a separate gender column but want to maintain gender accuracy.\n"
         "• Note: The `Gender Field` setting, if configured, will always take precedence over this option.\n"
         "• Default: Disabled"
@@ -65,7 +66,7 @@ class FakeNameOperationTooltip:
 
     gender_field = (
         "• What it does: Tells the operation where to find the gender for each person, ensuring a male name is replaced with another male name.\n"
-        "• Example: Select a column named \"Gender\". The system recognizes values like `M`, `Male`, `1` for male and `F`, `Female`, `2` for female.\n"
+        '• Example: Select a column named "Gender". The system recognizes values like `M`, `Male`, `1` for male and `F`, `Female`, `2` for female.\n'
         "• Impact: This is the most reliable way to ensure gender-correct name generation."
     )
 
@@ -77,7 +78,7 @@ class FakeNameOperationTooltip:
     )
 
     consistency_mechanism = (
-        "• What it does: Guarantees that \"John Doe\" is always replaced by \"Mark Smith\" every time the operation runs.\n"
+        '• What it does: Guarantees that "John Doe" is always replaced by "Mark Smith" every time the operation runs.\n'
         "• Options:\n"
         "- `prgn`: A fast, stateless method using a cryptographic key. Best for performance.\n"
         "- `mapping`: A stateful method that stores every original-to-fake pair. Slower but allows you to save and reuse the exact same mappings.\n"
@@ -99,7 +100,7 @@ class FakeNameOperationTooltip:
 
     context_salt = (
         "• How it works: It's mixed with the key during generation.\n"
-        "• Example: Use `dev` for development and `prod` for production. \"John Doe\" with the same key will become \"Mark Smith\" in `dev` but \"Peter Jones\" in `prod`.\n"
+        '• Example: Use `dev` for development and `prod` for production. "John Doe" with the same key will become "Mark Smith" in `dev` but "Peter Jones" in `prod`.\n'
         "• Impact: Allows you to create multiple, distinct pseudonymized datasets from a single source."
     )
 

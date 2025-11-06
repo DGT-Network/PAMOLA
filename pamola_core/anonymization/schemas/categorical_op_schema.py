@@ -18,6 +18,7 @@ Configuration schema for defining and validating categorical generalization para
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of categorical generalization config file
 """
+
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.anonymization.commons.categorical_config import (
@@ -62,8 +63,14 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "oneOf": [
                             {"const": "hierarchy", "description": "Hierarchy"},
-                            {"const": "merge_low_freq", "description": "Merge Low Frequency"},
-                            {"const": "frequency_based", "description": "Frequency Based"},
+                            {
+                                "const": "merge_low_freq",
+                                "description": "Merge Low Frequency",
+                            },
+                            {
+                                "const": "frequency_based",
+                                "description": "Frequency Based",
+                            },
                         ],
                     },
                     # Dictionary parameters
@@ -73,8 +80,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Path to external hierarchy or mapping dictionary file.",
                         "x-component": "Upload",
                         "x-group": GroupName.HIERARCHY_SETTINGS,
-                        "x-depend-on": { "strategy": "hierarchy" },
-                        "x-required-on": { "strategy": "hierarchy" },
+                        "x-depend-on": {"strategy": "hierarchy"},
+                        "x-required-on": {"strategy": "hierarchy"},
                     },
                     "dictionary_format": {
                         "type": "string",
@@ -84,8 +91,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "default": ".csv",
                         "x-component": "Input",
                         "x-group": GroupName.HIERARCHY_SETTINGS,
-                        "x-depend-on": { "strategy": "hierarchy" },
-                        "x-required-on": { "strategy": "hierarchy" },
+                        "x-depend-on": {"strategy": "hierarchy"},
+                        "x-required-on": {"strategy": "hierarchy"},
                     },
                     "hierarchy_level": {
                         "type": "integer",
@@ -96,8 +103,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "default": 1,
                         "x-component": "NumberPicker",
                         "x-group": GroupName.HIERARCHY_SETTINGS,
-                        "x-depend-on": { "strategy": "hierarchy" },
-                        "x-required-on": { "strategy": "hierarchy" },
+                        "x-depend-on": {"strategy": "hierarchy"},
+                        "x-required-on": {"strategy": "hierarchy"},
                     },
                     # Frequency-based parameters
                     "merge_low_freq": {
@@ -113,8 +120,12 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Minimum group size for privacy protection.",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.FREQUENCY_GROUPING_SETTINGS,
-                        "x-depend-on": { "strategy": ["merge_low_freq", "frequency_based"] },
-                        "x-required-on": { "strategy": ["merge_low_freq", "frequency_based"] },
+                        "x-depend-on": {
+                            "strategy": ["merge_low_freq", "frequency_based"]
+                        },
+                        "x-required-on": {
+                            "strategy": ["merge_low_freq", "frequency_based"]
+                        },
                     },
                     "freq_threshold": {
                         "type": "number",
@@ -125,8 +136,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Frequency threshold (0-1) for category preservation.",
                         "x-component": "FloatPicker",
                         "x-group": GroupName.FREQUENCY_GROUPING_SETTINGS,
-                        "x-depend-on": { "strategy": "merge_low_freq" },
-                        "x-required-on": { "strategy": "merge_low_freq" },
+                        "x-depend-on": {"strategy": "merge_low_freq"},
+                        "x-required-on": {"strategy": "merge_low_freq"},
                     },
                     "max_categories": {
                         "type": "integer",
@@ -136,8 +147,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Maximum number of categories to preserve.",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.FREQUENCY_GROUPING_SETTINGS,
-                        "x-depend-on": { "strategy": "frequency_based" },
-                        "x-required-on": { "strategy": "frequency_based" },
+                        "x-depend-on": {"strategy": "frequency_based"},
+                        "x-required-on": {"strategy": "frequency_based"},
                     },
                     # Unknown value handling
                     "allow_unknown": {
@@ -155,8 +166,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Placeholder string for unknown values.",
                         "x-component": "Input",
                         "x-group": GroupName.TEXT_VALUE_HANDLING,
-                        "x-depend-on": { "allow_unknown": True },
-                        "x-required-on": { "allow_unknown": True },
+                        "x-depend-on": {"allow_unknown": True},
+                        "x-required-on": {"allow_unknown": True},
                     },
                     "group_rare_as": {
                         "type": "string",
@@ -165,8 +176,12 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Strategy for grouping rare categories.",
                         "x-component": "Select",
                         "x-group": GroupName.FREQUENCY_GROUPING_SETTINGS,
-                        "x-depend-on": { "strategy": ["merge_low_freq", "frequency_based"] },
-                        "x-required-on": { "strategy": ["merge_low_freq", "frequency_based"] },
+                        "x-depend-on": {
+                            "strategy": ["merge_low_freq", "frequency_based"]
+                        },
+                        "x-required-on": {
+                            "strategy": ["merge_low_freq", "frequency_based"]
+                        },
                         "oneOf": [
                             {"const": "OTHER", "description": "OTHER"},
                             {"const": "CATEGORY_N", "description": "CATEGORY_N"},
@@ -181,8 +196,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Template for numbered rare values (must contain {n}).",
                         "x-component": "Input",
                         "x-group": GroupName.FREQUENCY_GROUPING_SETTINGS,
-                        "x-depend-on": { "group_rare_as": ["CATEGORY_N", "RARE_N"] },
-                        "x-required-on": { "group_rare_as": ["CATEGORY_N", "RARE_N"] },
+                        "x-depend-on": {"group_rare_as": ["CATEGORY_N", "RARE_N"]},
+                        "x-required-on": {"group_rare_as": ["CATEGORY_N", "RARE_N"]},
                     },
                     # Text processing
                     "text_normalization": {
@@ -214,8 +229,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Enable fuzzy string matching for categories.",
                         "x-component": "Checkbox",
                         "x-group": GroupName.TEXT_VALUE_HANDLING,
-                        "x-depend-on": { "strategy": "hierarchy" },
-                        "x-required-on": { "strategy": "hierarchy" },
+                        "x-depend-on": {"strategy": "hierarchy"},
+                        "x-required-on": {"strategy": "hierarchy"},
                     },
                     "similarity_threshold": {
                         "type": "number",
@@ -226,8 +241,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Similarity threshold for fuzzy matching (0-1).",
                         "x-component": "FloatPicker",
                         "x-group": GroupName.TEXT_VALUE_HANDLING,
-                        "x-depend-on": { "fuzzy_matching": True },
-                        "x-required-on": { "fuzzy_matching": True },
+                        "x-depend-on": {"fuzzy_matching": True},
+                        "x-required-on": {"fuzzy_matching": True},
                     },
                     # Privacy controls
                     "privacy_check_enabled": {
@@ -246,8 +261,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Minimum k-anonymity (must be ≥2).",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
-                        "x-depend-on": { "privacy_check_enabled": True },
-                        "x-required-on": { "privacy_check_enabled": True },
+                        "x-depend-on": {"privacy_check_enabled": True},
+                        "x-required-on": {"privacy_check_enabled": True},
                     },
                     "max_acceptable_disclosure_risk": {
                         "type": "number",
@@ -258,44 +273,42 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Maximum acceptable disclosure risk (0-1).",
                         "x-component": "FloatPicker",
                         "x-group": GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
-                        "x-depend-on": { "privacy_check_enabled": True },
-                        "x-required-on": { "privacy_check_enabled": True },
+                        "x-depend-on": {"privacy_check_enabled": True},
+                        "x-required-on": {"privacy_check_enabled": True},
                     },
                     "quasi_identifiers": {
                         "type": ["array", "null"],
                         "items": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "x-component": "Input"
+                            "x-component": "Input",
                         },
                         "title": "Quasi-identifiers",
                         "description": "List of quasi-identifier field names.",
                         "x-component": "ArrayItems",
                         "x-group": GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
-                        "x-depend-on": { "privacy_check_enabled": True },
-                        "x-required-on": { "privacy_check_enabled": True },
+                        "x-depend-on": {"privacy_check_enabled": True},
+                        "x-required-on": {"privacy_check_enabled": True},
                     },
                     # Conditional processing
                     "condition_field": {
                         "type": ["string", "null"],
                         "title": "Condition Field",
                         "description": "Field name for conditional processing.",
-                        "visible": False
+                        "visible": False,
                     },
                     "condition_values": {
                         "type": ["array", "null"],
                         "title": "Condition Values",
                         "description": "Values for conditional processing.",
-                        "items": {
-                            "type": "string"
-                        },
-                        "visible": False
+                        "items": {"type": "string"},
+                        "visible": False,
                     },
                     "condition_operator": {
                         "type": "string",
                         "title": "Condition Operator",
                         "description": "Conditional operator (in|not_in|eq|ne).",
-                        "visible": False
+                        "visible": False,
                     },
                     # Risk assessment
                     "ka_risk_field": {
@@ -327,34 +340,50 @@ class CategoricalGeneralizationConfig(OperationConfig):
             # === Conditional logic for strategy-specific requirements ===
             {
                 "if": {"properties": {"strategy": {"const": "hierarchy"}}},
-                "then": {"required": ["external_dictionary_path", "dictionary_format", "hierarchy_level"]}
+                "then": {
+                    "required": [
+                        "external_dictionary_path",
+                        "dictionary_format",
+                        "hierarchy_level",
+                    ]
+                },
             },
             {
                 "if": {"properties": {"strategy": {"const": "merge_low_freq"}}},
-                "then": {"required": ["min_group_size", "freq_threshold", "group_rare_as"]}
+                "then": {
+                    "required": ["min_group_size", "freq_threshold", "group_rare_as"]
+                },
             },
             {
                 "if": {"properties": {"strategy": {"const": "frequency_based"}}},
-                "then": {"required": ["min_group_size", "max_categories", "group_rare_as"]}
+                "then": {
+                    "required": ["min_group_size", "max_categories", "group_rare_as"]
+                },
             },
             {
                 "if": {"properties": {"allow_unknown": {"const": True}}},
-                "then": {"required": ["unknown_value"]}
+                "then": {"required": ["unknown_value"]},
             },
             {
                 "if": {
                     "properties": {"group_rare_as": {"enum": ["CATEGORY_N", "RARE_N"]}},
-                    "required": ["group_rare_as"]
+                    "required": ["group_rare_as"],
                 },
-                "then": {"required": ["rare_value_template"]}
+                "then": {"required": ["rare_value_template"]},
             },
             {
                 "if": {"properties": {"fuzzy_matching": {"const": True}}},
-                "then": {"required": ["similarity_threshold"]}
+                "then": {"required": ["similarity_threshold"]},
             },
             {
                 "if": {"properties": {"privacy_check_enabled": {"const": True}}},
-                "then": {"required": ["min_acceptable_k", "max_acceptable_disclosure_risk", "quasi_identifiers"]}
-            }
+                "then": {
+                    "required": [
+                        "min_acceptable_k",
+                        "max_acceptable_disclosure_risk",
+                        "quasi_identifiers",
+                    ]
+                },
+            },
         ],
     }

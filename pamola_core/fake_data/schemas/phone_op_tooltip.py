@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of phone operation tooltip file
 """
 
+
 class FakePhoneOperationTooltip:
     region = (
         "• What it does: Influences the default country code and formatting style used when no other information is available.\n"
@@ -34,7 +35,7 @@ class FakePhoneOperationTooltip:
     )
 
     country_codes = (
-        "• How it works: You can provide a simple list for random selection (e.g., [\"1\", \"44\", \"7\"]) or a dictionary with weights for prioritized selection (e.g., {\"1\": 0.8, \"44\": 0.2}).\n"
+        '• How it works: You can provide a simple list for random selection (e.g., ["1", "44", "7"]) or a dictionary with weights for prioritized selection (e.g., {"1": 0.8, "44": 0.2}).\n'
         "• Impact: Allows you to create a dataset with a diverse, international mix of phone numbers.\n"
         "• Default: A pre-defined list of common countries, weighted towards the US/Canada."
     )
@@ -70,7 +71,7 @@ class FakePhoneOperationTooltip:
     )
 
     consistency_mechanism = (
-        "• What it does: Guarantees that \"+1-555-1234\" is always replaced by \"+1-555-9876\" every time the operation runs.\n"
+        '• What it does: Guarantees that "+1-555-1234" is always replaced by "+1-555-9876" every time the operation runs.\n'
         "• Options:\n"
         "- `prgn`: A fast, stateless method using a cryptographic key. Best for performance.\n"
         "- `mapping`: A stateful method that stores every original-to-fake pair. Slower but allows you to save and reuse the exact same mappings.\n"

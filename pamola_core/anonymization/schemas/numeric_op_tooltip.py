@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of numeric operation tooltip file
 """
 
+
 class NumericOpTooltip:
     strategy = (
         "What it does: Selects the core logic for making your numbers less specific.\n"
@@ -85,13 +86,9 @@ class NumericOpTooltip:
         "• ENRICH: Keeps the original and adds a new, anonymized column."
     )
 
-    output_field_name = (
-        "Name the new column. If left blank, a name will be generated automatically (e.g., _age)."
-    )
+    output_field_name = "Name the new column. If left blank, a name will be generated automatically (e.g., _age)."
 
-    column_prefix = (
-        "Prefix for the new column name. The default is an underscore (_), which turns age into _age."
-    )
+    column_prefix = "Prefix for the new column name. The default is an underscore (_), which turns age into _age."
 
     null_strategy = (
         "What to do with empty cells?\n"

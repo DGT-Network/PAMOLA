@@ -43,15 +43,6 @@ class CellSuppressionConfig(OperationConfig):
                     },
                     "suppression_strategy": {
                         "type": "string",
-                        # "enum": [
-                        #     "null",
-                        #     "mean",
-                        #     "median",
-                        #     "mode",
-                        #     "constant",
-                        #     "group_mean",
-                        #     "group_mode",
-                        # ],
                         "title": "Suppression Strategy",
                         "x-component": "Select",
                         "x-group": GroupName.CORE_SUPPRESSION_STRATEGY,
@@ -100,7 +91,6 @@ class CellSuppressionConfig(OperationConfig):
                     },
                     "suppress_if": {
                         "type": ["string", "null"],
-                        # "enum": ["outlier", "rare", "null"],
                         "title": "Suppress If",
                         "x-component": "Select",
                         "x-group": GroupName.SUPPRESSION_RULES,
@@ -113,7 +103,6 @@ class CellSuppressionConfig(OperationConfig):
                     },
                     "outlier_method": {
                         "type": "string",
-                        # "enum": ["iqr", "zscore"],
                         "title": "Outlier Method",
                         "x-component": "Select",
                         "x-group": GroupName.SUPPRESSION_RULES,
