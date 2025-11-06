@@ -147,7 +147,6 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     ],
     "NumericOperationConfig": [
         GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
-        GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }
 

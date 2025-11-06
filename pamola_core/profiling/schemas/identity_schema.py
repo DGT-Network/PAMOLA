@@ -96,7 +96,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                 },
-                "required": ["uid_field", "reference_fields"],
+                "required": ["uid_field", "top_n", "min_similarity"],
             },
         ],
     }

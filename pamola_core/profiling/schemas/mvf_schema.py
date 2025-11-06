@@ -79,7 +79,7 @@ class MVFAnalysisOperationConfig(OperationConfig):
                         "description": "Additional keyword arguments for parsing the multi-valued field. Used to customize parsing logic, such as delimiter, quote character, or other options."
                     },
                 },
-                "required": ["field_name"],
+                "required": ["field_name", "top_n", "min_frequency"],
             },
         ],
     }
