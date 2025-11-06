@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of correlation config file
 """
 
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
@@ -56,6 +57,16 @@ class CorrelationOperationConfig(OperationConfig):
                             None,
                         ],
                         "default": None,
+                        "x-component": "Select",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                        "oneOf": [
+                            {"const": "pearson", "description": "Pearson"},
+                            {"const": "spearman", "description": "Spearman"},
+                            {"const": "cramers_v", "description": "Cramers V"},
+                            {"const": "correlation_ratio", "description": "Correlation Ratio"},
+                            {"const": "point_biserial", "description": "Point Biserial"},
+                            {"const": None, "description": "None"}
+                        ],
                     },
                     "null_handling": {
                         "type": ["string", "null"],
@@ -63,6 +74,13 @@ class CorrelationOperationConfig(OperationConfig):
                         "description": "Strategy for handling null values in the selected fields. 'drop' removes rows with nulls, 'fill_zero' replaces nulls with zero, 'fill_mean' replaces nulls with the mean value. Default is 'drop'.",
                         "enum": ["drop", "fill_zero", "fill_mean", None],
                         "default": "drop",
+                        "x-component": "Select",
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                        "oneOf": [
+                            {"const": "drop", "description": "Drop"},
+                            {"const": "fill_zero", "description": "Fill Zero"},
+                            {"const": "fill_mean", "description": "Fill Mean"},
+                        ],
                     },
                     "mvf_parser": {
                         "type": ["string", "null"],
@@ -71,7 +89,7 @@ class CorrelationOperationConfig(OperationConfig):
                         "default": None,
                     },
                 },
-                "required": ["field1", "field2"],
+                "required": ["method", "null_handling"],
             },
         ],
     }

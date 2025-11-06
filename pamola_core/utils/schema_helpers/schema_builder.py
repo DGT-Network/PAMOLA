@@ -20,6 +20,8 @@ Usage:
 
 import sys
 from pathlib import Path
+
+from regex import E
 from pamola_core.anonymization.schemas.full_masking_op_tooltip import (
     FullMaskingOpTooltip,
 )
@@ -36,25 +38,29 @@ from pamola_core.anonymization.schemas.uniform_numeric_op_tooltip import (
 from pamola_core.anonymization.schemas.uniform_temporal_op_tooltip import (
     UniformTemporalNoiseOpTooltip,
 )
-from pamola_core.fake_data.schemas.email_op_config import FakeEmailOperationConfig
-from pamola_core.fake_data.schemas.email_op_config_exclude import (
+from pamola_core.fake_data.schemas.email_op_schema import FakeEmailOperationConfig
+from pamola_core.fake_data.schemas.email_op_schema_exclude import (
     EMAIL_FAKE_EXCLUDE_FIELDS,
 )
-from pamola_core.fake_data.schemas.name_op_config import FakeNameOperationConfig
-from pamola_core.fake_data.schemas.name_op_config_exclude import (
+from pamola_core.fake_data.schemas.email_op_tooltip import FakeEmailOperationTooltip
+from pamola_core.fake_data.schemas.name_op_schema import FakeNameOperationConfig
+from pamola_core.fake_data.schemas.name_op_schema_exclude import (
     NAME_FAKE_EXCLUDE_FIELDS,
 )
-from pamola_core.fake_data.schemas.organization_op_config import (
+from pamola_core.fake_data.schemas.name_op_tooltip import FakeNameOperationTooltip
+from pamola_core.fake_data.schemas.organization_op_schema import (
     FakeOrganizationOperationConfig,
 )
-from pamola_core.fake_data.schemas.organization_op_config_exclude import (
+from pamola_core.fake_data.schemas.organization_op_schema_exclude import (
     ORGANIZATION_FAKE_EXCLUDE_FIELDS,
 )
-from pamola_core.fake_data.schemas.phone_op_config import FakePhoneOperationConfig
-from pamola_core.fake_data.schemas.phone_op_config_exclude import (
+from pamola_core.fake_data.schemas.organization_op_tooltip import FakeOrganizationOperationTooltip
+from pamola_core.fake_data.schemas.phone_op_schema import FakePhoneOperationConfig
+from pamola_core.fake_data.schemas.phone_op_schema_exclude import (
     PHONE_FAKE_EXCLUDE_FIELDS,
 )
 
+from pamola_core.fake_data.schemas.phone_op_tooltip import FakePhoneOperationTooltip
 from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
 from pamola_core.profiling.schemas.identity_tooltip import IdentityAnalysisOperationTooltip
 from pamola_core.profiling.schemas.mvf_tooltip import MVFAnalysisOperationTooltip
@@ -189,20 +195,20 @@ from pamola_core.profiling.schemas.categorical_config import CategoricalOperatio
 from pamola_core.profiling.schemas.categorical_config_exclude import (
     CATEGORICAL_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.correlation_config import (
+from pamola_core.profiling.schemas.correlation_schema import (
     CorrelationOperationConfig,
     CorrelationMatrixOperationConfig,
 )
-from pamola_core.profiling.schemas.correlation_config_exclude import (
+from pamola_core.profiling.schemas.correlation_schema_exclude import (
     CORRELATION_EXCLUDE_FIELDS,
     CORRELATION_MATRIX_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.currency_config import CurrencyOperationConfig
-from pamola_core.profiling.schemas.currency_config_exclude import (
+from pamola_core.profiling.schemas.currency_schema import CurrencyOperationConfig
+from pamola_core.profiling.schemas.currency_schema_exclude import (
     CURRENCY_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.date_config import DateOperationConfig
-from pamola_core.profiling.schemas.date_config_exclude import DATE_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.date_schema import DateOperationConfig
+from pamola_core.profiling.schemas.date_schema_exclude import DATE_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.email_schema import EmailOperationConfig
 from pamola_core.profiling.schemas.email_schema_exclude import EMAIL_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.group_config import GroupAnalyzerOperationConfig
@@ -229,14 +235,17 @@ from pamola_core.anonymization.schemas.categorical_op_tooltip import (
 )
 from pamola_core.anonymization.schemas.cell_op_tooltip import CellSuppressionOpTooltip
 from pamola_core.anonymization.schemas.attribute_op_tooltip import AttributeSuppressionOpTooltip
+from pamola_core.profiling.schemas.date_tooltip import DateOpTooltip
+from pamola_core.profiling.schemas.currency_tooltip import CurrencyOpTooltip
+from pamola_core.profiling.schemas.correlation_tooltip import CorrelationOpTooltip
 
 from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
 ALL_OP_CONFIGS = [
-    (FakeEmailOperationConfig, EMAIL_FAKE_EXCLUDE_FIELDS, None),
-    (FakeNameOperationConfig, NAME_FAKE_EXCLUDE_FIELDS, None),
-    (FakeOrganizationOperationConfig, ORGANIZATION_FAKE_EXCLUDE_FIELDS, None),
-    (FakePhoneOperationConfig, PHONE_FAKE_EXCLUDE_FIELDS, None),
+    (FakeEmailOperationConfig, EMAIL_FAKE_EXCLUDE_FIELDS, FakeEmailOperationTooltip.as_dict()),
+    (FakeNameOperationConfig, NAME_FAKE_EXCLUDE_FIELDS, FakeNameOperationTooltip.as_dict()),
+    (FakeOrganizationOperationConfig, ORGANIZATION_FAKE_EXCLUDE_FIELDS, FakeOrganizationOperationTooltip.as_dict()),
+    (FakePhoneOperationConfig, PHONE_FAKE_EXCLUDE_FIELDS, FakePhoneOperationTooltip.as_dict()),
     (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS, None),
     (AggregateRecordsOperationConfig, AGGREGATE_RECORDS_EXCLUDE_FIELDS, None),
     (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),
@@ -298,10 +307,10 @@ ALL_OP_CONFIGS = [
     (KAnonymityProfilerOperationConfig, ANONYMITY_EXCLUDE_FIELDS, None),
     (DataAttributeProfilerOperationConfig, ATTRIBUTE_EXCLUDE_FIELDS, None),
     (CategoricalOperationConfig, CATEGORICAL_EXCLUDE_FIELDS, None),
-    (CorrelationOperationConfig, CORRELATION_EXCLUDE_FIELDS, None),
+    (CorrelationOperationConfig, CORRELATION_EXCLUDE_FIELDS, CorrelationOpTooltip.as_dict()),
     (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS, None),
-    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, None),
-    (DateOperationConfig, DATE_EXCLUDE_FIELDS, None),
+    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, CurrencyOpTooltip.as_dict()),
+    (DateOperationConfig, DATE_EXCLUDE_FIELDS, DateOpTooltip.as_dict()),
     (
         EmailOperationConfig, 
         EMAIL_EXCLUDE_FIELDS, 

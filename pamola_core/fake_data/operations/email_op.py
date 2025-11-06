@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.email import EmailGenerator
-from pamola_core.fake_data.schemas.email_op_config import FakeEmailOperationConfig
+from pamola_core.fake_data.schemas.email_op_schema import FakeEmailOperationConfig
 from pamola_core.utils import io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register

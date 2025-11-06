@@ -37,6 +37,20 @@ class GroupName(str, Enum):
     DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
     IDENTIFIER_CONFIGURATION = "identifier_configuration"
     ANALYSIS_PARAMETERS = "analysis_parameters"
+    NAME_GENERATION_STYLE = "name_generation_style"
+    GENDER_CONFIGURATION = "gender_configuration"
+    CONSISTENCY_STRATEGY = "consistency_strategy"
+    REGIONAL_CONFIGURATION = "regional_configuration"
+    FORMATTING_RULES = "formatting_rules"
+    GENERATION_LOGIC = "generation_logic"
+    EMAIL_GENERATION_STYLE = "email_generation_style"
+    DATA_SOURCES_FOR_GENERATION = "data_sources_for_generation"
+    ORGANIZATION_GENERATION_STYLE = "organization_generation_style"
+    CONTEXT_AND_DATA_SOURCES = "context_and_data_sources"
+    VALIDATION_RANGE = "validation_range"
+    DATA_QUALITY_ANALYSIS = "data_quality_analysis"
+    CURRENCY_PARSING_SETTINGS = "currency_parsing_settings"
+    DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -65,6 +79,20 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
     GroupName.IDENTIFIER_CONFIGURATION: "Identifier Configuration",
     GroupName.ANALYSIS_PARAMETERS: "Analysis Parameters",
+    GroupName.NAME_GENERATION_STYLE: "Name Generation Style",
+    GroupName.GENDER_CONFIGURATION: "Gender Configuration",
+    GroupName.CONSISTENCY_STRATEGY: "Consistency Strategy",
+    GroupName.REGIONAL_CONFIGURATION: "Regional Configuration",
+    GroupName.FORMATTING_RULES: "Formatting Rules",
+    GroupName.GENERATION_LOGIC: "Generation Logic",
+    GroupName.EMAIL_GENERATION_STYLE: "Email Generation Style",
+    GroupName.DATA_SOURCES_FOR_GENERATION: "Data Sources for Generation",
+    GroupName.ORGANIZATION_GENERATION_STYLE: "Organization Generation Style",
+    GroupName.CONTEXT_AND_DATA_SOURCES: "Context & Data Sources",
+    GroupName.VALIDATION_RANGE: "Validation Range",
+    GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
+    GroupName.CURRENCY_PARSING_SETTINGS: "Currency Parsing Settings",
+    GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
 }
 
 
@@ -148,6 +176,44 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "NumericOperationConfig": [
         GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
     ],
+    "FakeNameOperationConfig": [
+        GroupName.NAME_GENERATION_STYLE,
+        GroupName.GENDER_CONFIGURATION,
+        GroupName.CONSISTENCY_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "FakePhoneOperationConfig": [
+        GroupName.REGIONAL_CONFIGURATION,
+        GroupName.FORMATTING_RULES,
+        GroupName.GENERATION_LOGIC,
+        GroupName.CONSISTENCY_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    'FakeEmailOperationConfig': [
+        GroupName.EMAIL_GENERATION_STYLE,
+        GroupName.DATA_SOURCES_FOR_GENERATION,
+        GroupName.CONSISTENCY_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    'FakeOrganizationOperationConfig': [
+        GroupName.ORGANIZATION_GENERATION_STYLE,
+        GroupName.CONTEXT_AND_DATA_SOURCES,
+        GroupName.CONSISTENCY_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "DateOperationConfig": [
+        GroupName.VALIDATION_RANGE,
+        GroupName.DATA_QUALITY_ANALYSIS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CurrencyOperationConfig": [
+        GroupName.CURRENCY_PARSING_SETTINGS,
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CorrelationOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ]
 }
 
 

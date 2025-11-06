@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.phone import PhoneGenerator
-from pamola_core.fake_data.schemas.phone_op_config import FakePhoneOperationConfig
+from pamola_core.fake_data.schemas.phone_op_schema import FakePhoneOperationConfig
 from pamola_core.utils import io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -47,6 +47,8 @@ class FakePhoneOperation(GeneratorOperation):
         max_retries: int = 3,
         key: Optional[str] = None,
         context_salt: Optional[str] = None,
+        country_code_field: Optional[str] = None,
+        formats: Optional[List[str]] = None,
         **kwargs,
     ):
         """
@@ -107,6 +109,8 @@ class FakePhoneOperation(GeneratorOperation):
             max_retries=max_retries,
             key=key,
             context_salt=context_salt,
+            country_code_field=country_code_field,
+            formats=formats,
             **kwargs,
         )
 
@@ -123,6 +127,7 @@ class FakePhoneOperation(GeneratorOperation):
             "region": region,
             "key": key,
             "context_salt": context_salt,
+            "country_code_field": country_code_field,
         }
 
         # Initialize generator
