@@ -1,4 +1,3 @@
-
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
@@ -52,5 +51,5 @@ DATE_EXCLUDE_FIELDS = [
     "null_strategy",
     "profile_type",
     "output_field_name",
-    "force_recalculation"
+    "force_recalculation",
 ]

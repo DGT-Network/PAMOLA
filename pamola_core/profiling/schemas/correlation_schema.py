@@ -63,9 +63,15 @@ class CorrelationOperationConfig(OperationConfig):
                             {"const": "pearson", "description": "Pearson"},
                             {"const": "spearman", "description": "Spearman"},
                             {"const": "cramers_v", "description": "Cramers V"},
-                            {"const": "correlation_ratio", "description": "Correlation Ratio"},
-                            {"const": "point_biserial", "description": "Point Biserial"},
-                            {"const": None, "description": "None"}
+                            {
+                                "const": "correlation_ratio",
+                                "description": "Correlation Ratio",
+                            },
+                            {
+                                "const": "point_biserial",
+                                "description": "Point Biserial",
+                            },
+                            {"const": None, "description": "None"},
                         ],
                     },
                     "null_handling": {

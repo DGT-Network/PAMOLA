@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of numeric operation tooltip file
 """
 
+
 class DateOpTooltip:
     min_year = (
         "What it does: Sets the earliest acceptable year for the date field.\n"
@@ -49,9 +50,7 @@ class DateOpTooltip:
         "• Example: Checking this for 'birth_date' field adds age_distribution to output showing counts like: ages 20-30: 150 people, ages 30-40: 200 people, ages 40-50: 175 people."
     )
 
-    generate_visualization = (
-        "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions."
-    )
+    generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions."
 
     @classmethod
     def as_dict(cls):

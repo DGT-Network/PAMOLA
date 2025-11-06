@@ -19,8 +19,8 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of MVFAnalysis Operation tooltip file
 """
 
-class MVFAnalysisOperationTooltip:
 
+class MVFAnalysisOperationTooltip:
 
     top_n = (
         "What it does: Limits the number of values shown in statistics and charts.\n"
@@ -39,9 +39,7 @@ class MVFAnalysisOperationTooltip:
         "• Impact: Only needed for unusual or mixed-format fields."
     )
 
-    generate_visualization = (
-        "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
-    )
+    generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
 
     @classmethod
     def as_dict(cls):

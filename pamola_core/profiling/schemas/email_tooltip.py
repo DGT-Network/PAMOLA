@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of Email Operation tooltip file
 """
 
+
 class EmailOperationTooltip:
 
     top_n = (
@@ -31,7 +32,6 @@ class EmailOperationTooltip:
         "What it does: Sets the minimum number of times a domain must appear to be included in the domain dictionary CSV file.\n"
         "• Example: If set to `5`, only domains appearing 5 times or more will be included in the exported list."
     )
-
 
     analyze_privacy_risk = (
         "What it does: Performs a privacy risk assessment by analyzing email uniqueness ratio, "

@@ -21,6 +21,7 @@ Changelog:
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.common.enum.form_groups import GroupName
 
+
 class MVFAnalysisOperationConfig(OperationConfig):
     """Configuration for MVFOperation with BaseOperationConfig merged."""
 
@@ -37,7 +38,7 @@ class MVFAnalysisOperationConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the multi-valued field (column) to analyze. This should be a column in the DataFrame where each cell contains multiple values (e.g., a list, set, or delimited string)."
+                        "description": "Name of the multi-valued field (column) to analyze. This should be a column in the DataFrame where each cell contains multiple values (e.g., a list, set, or delimited string).",
                     },
                     "top_n": {
                         "type": "integer",
@@ -76,11 +77,10 @@ class MVFAnalysisOperationConfig(OperationConfig):
                         "type": "object",
                         "default": {},
                         "title": "Parse Keyword Arguments",
-                        "description": "Additional keyword arguments for parsing the multi-valued field. Used to customize parsing logic, such as delimiter, quote character, or other options."
+                        "description": "Additional keyword arguments for parsing the multi-valued field. Used to customize parsing logic, such as delimiter, quote character, or other options.",
                     },
                 },
                 "required": ["field_name", "top_n", "min_frequency"],
             },
         ],
     }
-

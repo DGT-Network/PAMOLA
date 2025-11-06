@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of numeric operation tooltip file
 """
 
+
 class CurrencyOpTooltip:
     locale = (
         "What it does: Specifies the regional format (locale) used to parse currency values correctly - "
@@ -45,9 +46,7 @@ class CurrencyOpTooltip:
         "to determine if currency data follows a normal distribution."
     )
 
-    generate_visualization = (
-        "What it does: Controls whether to generate PNG visualizations showing currency distribution and outliers."
-    )
+    generate_visualization = "What it does: Controls whether to generate PNG visualizations showing currency distribution and outliers."
 
     @classmethod
     def as_dict(cls):

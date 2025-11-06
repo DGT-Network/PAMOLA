@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of numeric operation tooltip file
 """
 
+
 class CorrelationOpTooltip:
     method = (
         "What it does: Specifies which correlation algorithm to use for measuring the relationship between fields, "
@@ -38,7 +39,7 @@ class CorrelationOpTooltip:
         "• Fill Zero replaces nulls with 0 for numeric fields or empty string for categorical fields.\n"
         "• Fill Mean replaces numeric nulls with field mean, categorical nulls with mode (most common value)"
     )
-    
+
     generate_visualization = (
         "What it does: Controls whether to generate a visualization (PNG file) showing the relationship between "
         "Field 1 and Field 2."

@@ -21,6 +21,7 @@ Changelog:
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
+
 class DateOperationConfig(OperationConfig):
     """Configuration for DateOperation with BaseOperationConfig merged."""
 
@@ -37,7 +38,7 @@ class DateOperationConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the date field (column) to analyze. Must exist in the input DataFrame."
+                        "description": "Name of the date field (column) to analyze. Must exist in the input DataFrame.",
                     },
                     "min_year": {
                         "type": "number",
@@ -80,7 +81,7 @@ class DateOperationConfig(OperationConfig):
                         "title": "Profile Type",
                         "description": "Type of profiling for organizing artifacts. Default is 'date'.",
                         "enum": ["date"],
-                        "default": "date"
+                        "default": "date",
                     },
                     "is_birth_date": {
                         "type": ["boolean", "null"],
