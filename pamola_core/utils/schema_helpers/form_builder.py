@@ -291,6 +291,9 @@ def convert_property(
 
     elif field["x-component"] == "DatePicker":
         field["x-decorator"] = "FormItem"
+    
+    elif field["x-component"] == "DateFormatArray":
+        field["x-decorator"] = "FormItem"
 
     elif field.get("x-component") == "Depend-Select":
         depend_map = field.get("x-depend-map", {})

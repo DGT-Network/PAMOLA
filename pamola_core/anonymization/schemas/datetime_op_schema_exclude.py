@@ -46,4 +46,5 @@ DATETIME_GENERALIZATION_EXCLUDE_FIELDS = [
     "ka_risk_field",
     "risk_threshold",
     "vulnerable_record_strategy",
+    "generate_visualization",
 ]

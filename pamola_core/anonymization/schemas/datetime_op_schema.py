@@ -139,7 +139,6 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "strategy": "relative" },
                         "x-component-props": {
-                            "showTime": True,
                             "format": "YYYY-MM-DD",
                             "placeholder": "Select date"
                         }
@@ -152,12 +151,9 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "bin_type": "custom" },
                         "x-component-props": {
-                            "showTime": True,
-                            "format": "YYYY-MM-DD HH:mm:ss",
-                            "valueFormat": "YYYY-MM-DD HH:mm:ss",
-                            "placeholder": "YYYY-MM-DD HH:mm:ss",
+                            "format": "YYYY-MM-DD",
                             "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",
-                            "needConfirm": True
+                            "placeholder": "YYYY-MM-DD"
                         },
                     },
                     # --- Component-based generalization ---
@@ -229,12 +225,11 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         # "items": {"type": "string"},
                         "title": "Custom Input Formats",
                         "description": "Accepted input datetime formats.",
-                        "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "x-component": "Input",
+                        "x-component": "DateFormatArray",
+                        "x-component-props": {
+                            "formatActions": "{{ supportedFormatActions }}",
+                            "placeholder": "Custom datetime pattern"
                         },
-                        "x-component": "ArrayItems",
                         "x-group": GroupName.FORMATTING_AND_TIMEZONE,
                     },
                     # --- Privacy & QI ---
