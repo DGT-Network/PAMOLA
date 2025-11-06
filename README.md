@@ -54,8 +54,10 @@ PAMOLA.CORE includes various algorithms and techniques for:
   - Private Set Intersection
 
 - **Privacy and Quality Metrics**
+- test
 
 ## Installation
 
 ```bash
 pip install pamola-core
+
