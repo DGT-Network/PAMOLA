@@ -45,7 +45,6 @@ GROUP_EXCLUDE_FIELDS = [
     "encryption_mode",
     "encryption_key",
     "save_output",
-    "config",
     "field_name",
     "ka_risk_field",
     "risk_threshold",

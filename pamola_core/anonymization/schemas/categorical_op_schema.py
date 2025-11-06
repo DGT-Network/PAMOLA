@@ -88,11 +88,16 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "enum": SUPPORTED_DICT_FORMATS,
                         "title": "Dictionary Format",
                         "description": "Dictionary file format (auto-detected by default).",
-                        "default": ".csv",
-                        "x-component": "Input",
+                        "default": "csv",
+                        "x-component": "Select",
                         "x-group": GroupName.HIERARCHY_SETTINGS,
                         "x-depend-on": {"strategy": "hierarchy"},
                         "x-required-on": {"strategy": "hierarchy"},
+                        "oneOf": [
+                            {"const": "auto", "description": "Auto"},
+                            {"const": "json", "description": "Json"},
+                            {"const": "csv", "description": "Csv"},
+                        ],
                     },
                     "hierarchy_level": {
                         "type": "integer",
@@ -190,7 +195,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     },
                     "rare_value_template": {
                         "type": "string",
-                        "pattern": ".*\\{n\\}.*",
+                        "pattern": ".*\\d+.*",
                         "default": "OTHER_1",
                         "title": "Rare Value Template",
                         "description": "Template for numbered rare values (must contain {n}).",
@@ -208,10 +213,10 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.TEXT_VALUE_HANDLING,
                         "oneOf": [
-                            {"const": "NONE", "description": "none"},
-                            {"const": "BASIC", "description": "basic"},
-                            {"const": "ADVANCED", "description": "advanced"},
-                            {"const": "AGGRESSIVE", "description": "aggressive"},
+                            {"const": "none", "description": "None"},
+                            {"const": "basic", "description": "Basic"},
+                            {"const": "advanced", "description": "Advanced"},
+                            {"const": "aggressive", "description": "Aggressive"},
                         ],
                     },
                     "case_sensitive": {
@@ -279,9 +284,8 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     "quasi_identifiers": {
                         "type": ["array", "null"],
                         "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "x-component": "Input",
+                            "type": "string",
+                            "x-component": "Input"
                         },
                         "title": "Quasi-identifiers",
                         "description": "List of quasi-identifier field names.",
@@ -295,20 +299,39 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Condition Field",
                         "description": "Field name for conditional processing.",
-                        "visible": False,
+                        "x-component": "Select",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-custom-function": ["update_condition_field"]
+                    },
+                    "condition_operator": {
+                        "type": "string",
+                        "title": "Condition Operator",
+                        "description": "Comparison operator used in the condition.",
+                        "x-component": "Select",
+                        "oneOf": [
+                            {"const": "in", "description": "In"},
+                            {"const": "not_in", "description": "Not in"},
+                            {"const": "gt", "description": "Greater than"},
+                            {"const": "lt", "description": "Less than"},
+                            {"const": "eq", "description": "Equal to"},
+                            {"const": "range", "description": "Range"}
+                        ],
+                        "default": "in",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": { "condition_field": "not_null" },
+                        "x-custom-function": ["update_condition_operator"]
                     },
                     "condition_values": {
                         "type": ["array", "null"],
                         "title": "Condition Values",
                         "description": "Values for conditional processing.",
-                        "items": {"type": "string"},
-                        "visible": False,
-                    },
-                    "condition_operator": {
-                        "type": "string",
-                        "title": "Condition Operator",
-                        "description": "Conditional operator (in|not_in|eq|ne).",
-                        "visible": False,
+                        "items": {
+                            "type": "string"
+                        },
+                        "x-component": "Input",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"},
+                        "x-custom-function": ["update_condition_values"]
                     },
                     # Risk assessment
                     "ka_risk_field": {
