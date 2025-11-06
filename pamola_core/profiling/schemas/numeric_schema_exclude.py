@@ -18,6 +18,7 @@ Changelog:
 """
 
 NUMERIC_EXCLUDE_FIELDS = [
+    "output_field_name",
     "mode",
     "column_prefix",
     "null_strategy",

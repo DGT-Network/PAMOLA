@@ -131,9 +131,7 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     ],
     "UniformNumericNoiseConfig": [
         GroupName.CORE_NOISE_STRATEGY,
-        GroupName.MASK_APPEARANCE,
-        GroupName.MASKING_RULES,
-        GroupName.FORMATTING_AND_STRUCTURE,
+        GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
         GroupName.CONDITIONAL_LOGIC,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
