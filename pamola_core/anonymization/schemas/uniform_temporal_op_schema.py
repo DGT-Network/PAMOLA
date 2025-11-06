@@ -120,6 +120,10 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Minimum Datetime",
                         "description": "Minimum allowed datetime after noise is applied. Values below this will be clipped.",
                         "x-component": "DatePicker",
+                        "x-component-props": {
+                            "format": "YYYY-MM-DD",
+                            "placeholder": "Select date"
+                        },
                         "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     "max_datetime": {
@@ -127,6 +131,10 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Maximum Datetime",
                         "description": "Maximum allowed datetime after noise is applied. Values above this will be clipped.",
                         "x-component": "DatePicker",
+                        "x-component-props": {
+                            "format": "YYYY-MM-DD",
+                            "placeholder": "Select date"
+                        },
                         "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                     },
                     # Special date handling
@@ -144,6 +152,10 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Special Dates",
                         "description": "List of dates (as strings) to preserve unchanged during noise application.",
                         "x-component": "DatePicker",
+                        "x-component-props": {
+                            "format": "YYYY-MM-DD",
+                            "placeholder": "Select date"
+                        },
                         "x-group": GroupName.PRESERVATION_RULES,
                         "x-depend-on": {"preserve_special_dates": True},
                         "x-required-on": {"preserve_special_dates": True},
