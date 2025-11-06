@@ -50,6 +50,7 @@ class GroupName(str, Enum):
     DATA_QUALITY_ANALYSIS = "data_quality_analysis"
     CURRENCY_PARSING_SETTINGS = "currency_parsing_settings"
     DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
+    OUTPUT_SETTINGS = "output_settings"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -91,6 +92,7 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
     GroupName.CURRENCY_PARSING_SETTINGS: "Currency Parsing Settings",
     GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
+    GroupName.OUTPUT_SETTINGS: "Output Settings",
 }
 
 
@@ -211,7 +213,11 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     ],
     "CorrelationOperationConfig": [
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
-    ]
+    ],
+    "PhoneOperationConfig": [
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
+        GroupName.OUTPUT_SETTINGS,
+    ],
 }
 
 
