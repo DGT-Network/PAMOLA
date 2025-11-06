@@ -34,30 +34,6 @@ class GroupAnalyzerOperationConfig(OperationConfig):
             {
                 "type": "object",
                 "properties": {
-                    "field_name": {
-                        "type": "string",
-                        "title": "Group Field Name",
-                        "description": "Name of the field (column) used to define groups for analysis. Must exist in the input DataFrame.",
-                    },
-                    "fields_config": {
-                        "type": "object",
-                        "title": "Fields Configuration",
-                        "description": "Dictionary mapping field names to integer configuration values (e.g., weights or thresholds) for group analysis. Must have at least one property.",
-                        "minProperties": 1,
-                        "additionalProperties": {"type": "integer", "minimum": 0},
-                        "x-component": "NumberPicker",
-                        "x-group": GroupName.FIELD_WEIGHTS_CONFIGURATION,
-                    },
-                    "text_length_threshold": {
-                        "type": "integer",
-                        "title": "Text Length Threshold",
-                        "description": "Minimum text length required for a group to be included in the analysis.",
-                        "minimum": 0,
-                        "maximum": 10000,
-                        "default": 100,
-                        "x-component": "NumberPicker",
-                        "x-group": GroupName.TEXT_COMPARISON_SETTINGS,
-                    },
                     "variance_threshold": {
                         "type": "number",
                         "title": "Variance Threshold",
@@ -88,6 +64,16 @@ class GroupAnalyzerOperationConfig(OperationConfig):
                         "x-component": "FloatPicker",
                         "x-group": GroupName.GROUP_CONFIGURATION,
                     },
+                    "text_length_threshold": {
+                        "type": "integer",
+                        "title": "Text Length Threshold",
+                        "description": "Minimum text length required for a group to be included in the analysis.",
+                        "minimum": 0,
+                        "maximum": 10000,
+                        "default": 100,
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.TEXT_COMPARISON_SETTINGS,
+                    },
                     "hash_algorithm": {
                         "type": "string",
                         "title": "Hash Algorithm",
@@ -112,6 +98,20 @@ class GroupAnalyzerOperationConfig(OperationConfig):
                         "x-group": GroupName.TEXT_COMPARISON_SETTINGS,
                         "x-depend-on": {"hash_algorithm": "minhash"},
                         "x-required-on": {"hash_algorithm": "minhash"},
+                    },
+                    "fields_config": {
+                        "type": "object",
+                        "title": "Fields Configuration",
+                        "description": "Dictionary mapping field names to integer configuration values (e.g., weights or thresholds) for group analysis. Must have at least one property.",
+                        "minProperties": 1,
+                        "additionalProperties": {"type": "integer", "minimum": 0},
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.FIELD_WEIGHTS_CONFIGURATION,
+                    },
+                    "field_name": {
+                        "type": "string",
+                        "title": "Group Field Name",
+                        "description": "Name of the field (column) used to define groups for analysis. Must exist in the input DataFrame.",
                     },
                 },
                 "required": ["field_name", "fields_config"],

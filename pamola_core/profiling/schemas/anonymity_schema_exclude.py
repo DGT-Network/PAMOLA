@@ -18,6 +18,7 @@ Changelog:
 """
 
 ANONYMITY_EXCLUDE_FIELDS = [
+    "export_metrics",
     "output_field_name",
     "mode",
     "column_prefix",
