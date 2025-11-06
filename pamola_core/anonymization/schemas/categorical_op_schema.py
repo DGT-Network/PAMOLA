@@ -81,11 +81,16 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "enum": SUPPORTED_DICT_FORMATS,
                         "title": "Dictionary Format",
                         "description": "Dictionary file format (auto-detected by default).",
-                        "default": ".csv",
-                        "x-component": "Input",
+                        "default": "csv",
+                        "x-component": "Select",
                         "x-group": GroupName.HIERARCHY_SETTINGS,
                         "x-depend-on": { "strategy": "hierarchy" },
                         "x-required-on": { "strategy": "hierarchy" },
+                        "oneOf": [
+                            {"const": "auto", "description": "Auto"},
+                            {"const": "json", "description": "Json"},
+                            {"const": "csv", "description": "Csv"},
+                        ],
                     },
                     "hierarchy_level": {
                         "type": "integer",
@@ -175,7 +180,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     },
                     "rare_value_template": {
                         "type": "string",
-                        "pattern": ".*\\{n\\}.*",
+                        "pattern": ".*\\d+.*",
                         "default": "OTHER_1",
                         "title": "Rare Value Template",
                         "description": "Template for numbered rare values (must contain {n}).",
@@ -193,10 +198,10 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.TEXT_VALUE_HANDLING,
                         "oneOf": [
-                            {"const": "NONE", "description": "none"},
-                            {"const": "BASIC", "description": "basic"},
-                            {"const": "ADVANCED", "description": "advanced"},
-                            {"const": "AGGRESSIVE", "description": "aggressive"},
+                            {"const": "none", "description": "None"},
+                            {"const": "basic", "description": "Basic"},
+                            {"const": "advanced", "description": "Advanced"},
+                            {"const": "aggressive", "description": "Aggressive"},
                         ],
                     },
                     "case_sensitive": {
@@ -264,8 +269,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     "quasi_identifiers": {
                         "type": ["array", "null"],
                         "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
+                            "type": "string",
                             "x-component": "Input"
                         },
                         "title": "Quasi-identifiers",
