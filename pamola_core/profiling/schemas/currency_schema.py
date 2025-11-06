@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of currency config file
 """
 
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 class CurrencyOperationConfig(OperationConfig):
@@ -41,29 +42,49 @@ class CurrencyOperationConfig(OperationConfig):
                         "type": "string",
                         "title": "Locale",
                         "description": "Locale code for parsing currency values (e.g., 'en_US', 'fr_FR'). Determines currency formatting and symbols.",
-                        "default": "en_US"
+                        "default": "en_US",
+                        "x-component": "Select",
+                        "x-group": GroupName.CURRENCY_PARSING_SETTINGS,
+                        "oneOf": [
+                            {"const": "en_US", "description": "En US"},
+                            {"const": "de_DE", "description": "De DE"},
+                            {"const": "it_IT", "description": "It IT"},
+                            {"const": "fr_FR", "description": "Fr FR"},
+                            {"const": "en_GB", "description": "En GB"},
+                            {"const": "ja_JP", "description": "Ja JP"},
+                            {"const": "zh_CN", "description": "Zh CN"},
+                            {"const": "ru_RU", "description": "Ru RU"},
+                            {"const": "es_ES", "description": "Es ES"},
+                        ]
                     },
                     "bins": {
-                        "type": "integer",
-                        "title": "Histogram Bins",
+                        "type": "number",
+                        "title": "Bins",
                         "description": "Number of bins to use for histogram analysis of the currency field. Must be at least 1.",
                         "minimum": 1,
-                        "default": 10
+                        "default": 10,
+                        "maximum": 100,
+                        "x-component": "NumberPicker",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                     "detect_outliers": {
                         "type": "boolean",
                         "title": "Detect Outliers",
                         "description": "Whether to detect and report outliers in the currency field during analysis.",
-                        "default": True
+                        "default": True,
+                        "x-component": "Checkbox",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                     "test_normality": {
                         "type": "boolean",
                         "title": "Test Normality",
                         "description": "Whether to perform normality testing on the currency field values.",
-                        "default": True
+                        "default": True,
+                        "x-component": "Checkbox",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                 },
-                "required": ["field_name"],
+                "required": ["field_name", "locale", "bins"],
             },
         ],
     }

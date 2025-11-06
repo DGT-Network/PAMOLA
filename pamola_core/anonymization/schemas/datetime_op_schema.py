@@ -146,12 +146,19 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     },
                     "custom_bins": {
                         "type": ["array", "null"],
-                        "items": {"type": ["string", "number"], "x-component": "Input",},
                         "title": "Custom Bins",
                         "description": "User-defined bin boundaries for custom binning.",
-                        "x-component": "NumberPicker",
+                        "x-component": "DatePickerArray",
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": { "bin_type": "custom" },
+                        "x-component-props": {
+                            "showTime": True,
+                            "format": "YYYY-MM-DD HH:mm:ss",
+                            "valueFormat": "YYYY-MM-DD HH:mm:ss",
+                            "placeholder": "YYYY-MM-DD HH:mm:ss",
+                            "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",
+                            "needConfirm": True
+                        },
                     },
                     # --- Component-based generalization ---
                     "keep_components": {
