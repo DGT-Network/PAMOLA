@@ -95,6 +95,7 @@ GROUP_TITLES: Dict[GroupName, str] = {
 
 
 OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
+    # -------------- Anonymization ---------------
     "NumericGeneralizationConfig": [
         GroupName.CORE_GENERALIZATION_STRATEGY,
         GroupName.CONDITIONAL_LOGIC,
@@ -158,20 +159,7 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.RISK_BASED_FILTERING,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
-    "EmailOperationConfig": [
-        GroupName.OPERATION_BEHAVIOR_OUTPUT,
-    ],
-    "IdentityAnalysisOperationConfig": [
-        GroupName.IDENTIFIER_CONFIGURATION,
-        GroupName.ANALYSIS_PARAMETERS,
-        GroupName.OPERATION_BEHAVIOR_OUTPUT,
-    ],
-    "MVFAnalysisOperationConfig": [
-        GroupName.OPERATION_BEHAVIOR_OUTPUT,
-    ],
-    "NumericOperationConfig": [
-        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
-    ],
+    # -------------- Fake Data ------------------
     "FakeNameOperationConfig": [
         GroupName.NAME_GENERATION_STYLE,
         GroupName.GENDER_CONFIGURATION,
@@ -185,16 +173,32 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.CONSISTENCY_STRATEGY,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
-    'FakeEmailOperationConfig': [
+    "FakeEmailOperationConfig": [
         GroupName.EMAIL_GENERATION_STYLE,
         GroupName.DATA_SOURCES_FOR_GENERATION,
         GroupName.CONSISTENCY_STRATEGY,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
-    'FakeOrganizationOperationConfig': [
+    "FakeOrganizationOperationConfig": [
         GroupName.ORGANIZATION_GENERATION_STYLE,
         GroupName.CONTEXT_AND_DATA_SOURCES,
         GroupName.CONSISTENCY_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    # -------------- Profiling ---------------
+    "EmailOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "IdentityAnalysisOperationConfig": [
+        GroupName.IDENTIFIER_CONFIGURATION,
+        GroupName.ANALYSIS_PARAMETERS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "MVFAnalysisOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "NumericOperationConfig": [
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     "DateOperationConfig": [
@@ -209,7 +213,10 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     ],
     "CorrelationOperationConfig": [
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
-    ]
+    ],
+    "CategoricalOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
 }
 
 

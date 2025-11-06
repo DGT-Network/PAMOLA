@@ -21,6 +21,7 @@ Changelog:
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
+
 class CurrencyOperationConfig(OperationConfig):
     """Configuration for CurrencyOperation with BaseOperationConfig merged."""
 
@@ -36,7 +37,7 @@ class CurrencyOperationConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the currency field (column) to analyze. Must exist in the input DataFrame."
+                        "description": "Name of the currency field (column) to analyze. Must exist in the input DataFrame.",
                     },
                     "locale": {
                         "type": "string",
@@ -55,7 +56,7 @@ class CurrencyOperationConfig(OperationConfig):
                             {"const": "zh_CN", "description": "Zh CN"},
                             {"const": "ru_RU", "description": "Ru RU"},
                             {"const": "es_ES", "description": "Es ES"},
-                        ]
+                        ],
                     },
                     "bins": {
                         "type": "number",

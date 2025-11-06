@@ -18,21 +18,37 @@ Changelog:
 """
 
 CATEGORICAL_EXCLUDE_FIELDS = [
+    # BaseOperationConfig fields (all others)
     "name",
-    "config",
+    "description",
     "scope",
-    "engine",
+    "config",
     "optimize_memory",
     "adaptive_chunk_size",
     "mode",
     "column_prefix",
+    "output_field_name",
     "null_strategy",
+    "engine",
     "use_dask",
     "npartitions",
     "dask_partition_size",
     "use_vectorization",
     "parallel_processes",
     "chunk_size",
+    "use_cache",
     "output_format",
-    "save_output"
+    "visualization_theme",
+    "visualization_backend",
+    "visualization_strict",
+    "visualization_timeout",
+    "use_encryption",
+    "encryption_mode",
+    "encryption_key",
+    "save_output",
+    
+    # CategoricalOperationConfig fields (all others)
+    "field_name",
+    "profile_type",
+    "analyze_anomalies",
 ]

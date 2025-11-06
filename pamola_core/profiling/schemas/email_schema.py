@@ -21,6 +21,7 @@ Changelog:
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.common.enum.form_groups import GroupName
 
+
 class EmailOperationConfig(OperationConfig):
     """Configuration for EmailOperation with BaseOperationConfig merged."""
 
@@ -37,7 +38,7 @@ class EmailOperationConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the email field (column) to analyze. Must exist in the input DataFrame."
+                        "description": "Name of the email field (column) to analyze. Must exist in the input DataFrame.",
                     },
                     "top_n": {
                         "type": "integer",
@@ -64,7 +65,7 @@ class EmailOperationConfig(OperationConfig):
                         "title": "Profile Type",
                         "description": "Type of profiling for organizing artifacts. Default is 'email'.",
                         "enum": ["email"],
-                        "default": "email"
+                        "default": "email",
                     },
                     "analyze_privacy_risk": {
                         "type": "boolean",

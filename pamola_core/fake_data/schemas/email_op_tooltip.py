@@ -1,4 +1,3 @@
-
 class FakeEmailOperationTooltip:
     format = (
         "• What it does: Forces all generated emails to follow one specific pattern.\n"

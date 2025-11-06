@@ -19,24 +19,25 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of name operation tooltip file
 """
 
+
 class FakeOrganizationOperationTooltip:
     organization_type = (
         "• What it does: Selects the primary dictionary of names to use.\n"
         "• Options: `general`, `educational`, `manufacturing`, `government`, `industry`.\n"
-        "• Note: If you select `industry`, you must also specify which industry in the \"Industry Type\" field.\n"
+        '• Note: If you select `industry`, you must also specify which industry in the "Industry Type" field.\n'
         "• Default: `general`"
     )
 
     region = (
         "• What it does: Ensures that names, prefixes, and suffixes are culturally appropriate.\n"
-        "• Example: `en` for English names like \"Global Inc.\", `ru` for Russian names like \"ООО Глобал\".\n"
+        '• Example: `en` for English names like "Global Inc.", `ru` for Russian names like "ООО Глобал".\n'
         "• Default: `en`"
     )
 
     industry = (
         "• What it does: Narrows down the name generation to a specific business sector for more relevant results.\n"
         "• Examples: `tech`, `finance`, `retail`, `healthcare`.\n"
-        "• Impact: Creates more contextually specific names like \"Quantum Software\" instead of a generic \"Global Group\"."
+        '• Impact: Creates more contextually specific names like "Quantum Software" instead of a generic "Global Group".'
     )
 
     preserve_type = (
@@ -47,50 +48,50 @@ class FakeOrganizationOperationTooltip:
 
     add_prefix_probability = (
         "• How it works: A value of 0.3 means there is a 30% chance of adding a prefix.\n"
-        "• Example: \"Stellar Solutions\" might become \"International Stellar Solutions\".\n"
+        '• Example: "Stellar Solutions" might become "International Stellar Solutions".\n'
         "• Impact: Adds variation to the generated names.\n"
         "• Default: `0.3` (30%)"
     )
 
     add_suffix_probability = (
         "• How it works: A value of 0.5 means there is a 50% chance of adding a suffix.\n"
-        "• Example: \"Apex Digital\" might become \"Apex Digital LLC\".\n"
+        '• Example: "Apex Digital" might become "Apex Digital LLC".\n'
         "• Impact: Makes the generated names appear more formal and realistic.\n"
         "• Default: `0.5` (50%)"
     )
 
     type_field = (
-        "• What it does: Overrides the \"Default Organization Type\" on a per-row basis, allowing for dynamic generation.\n"
+        '• What it does: Overrides the "Default Organization Type" on a per-row basis, allowing for dynamic generation.\n'
         "• Example: If a row has 'educational' in this column, an educational name will be generated for that row, regardless of the default setting.\n"
         "• Impact: Powerful for datasets with mixed organization types."
     )
 
     region_field = (
-        "• What it does: Overrides the \"Default Region\" setting on a per-row basis.\n"
+        '• What it does: Overrides the "Default Region" setting on a per-row basis.\n'
         "• Example: If a row has 'ru' in this column, a Russian-style organization name will be generated for that specific row.\n"
         "• Impact: Enables highly accurate, row-level regional name generation."
     )
 
     dictionaries = (
         "• How it works: Provide a JSON object linking an organization type to a file path.\n"
-        "• Example: `{\"general\": \"/path/to/my_companies.txt\", \"educational\": \"/path/to/schools.txt\"}`\n"
+        '• Example: `{"general": "/path/to/my_companies.txt", "educational": "/path/to/schools.txt"}`\n'
         "• Impact: Gives you full control over the pool of base names used for generation."
     )
 
     prefixes = (
         "• How it works: Provide a JSON object linking an organization type to a file of prefixes.\n"
-        "• Example: `{\"tech\": \"/path/to/tech_prefixes.txt\"}`\n"
+        '• Example: `{"tech": "/path/to/tech_prefixes.txt"}`\n'
         "• Impact: Tailors the generated prefixes to your specific business context."
     )
 
     suffixes = (
         "• How it works: Provide a JSON object linking an organization type to a file of suffixes.\n"
-        "• Example: `{\"general\": \"/path/to/legal_endings.txt\"}`\n"
+        '• Example: `{"general": "/path/to/legal_endings.txt"}`\n'
         "• Impact: Allows you to use region-specific or industry-specific legal identifiers."
     )
 
     consistency_mechanism = (
-        "• What it does: Guarantees that \"Acme Corp\" is always replaced by \"Stellar Inc.\" every time the operation runs.\n"
+        '• What it does: Guarantees that "Acme Corp" is always replaced by "Stellar Inc." every time the operation runs.\n'
         "• Options:\n"
         "- `prgn`: A fast, stateless method using a cryptographic key. Best for performance.\n"
         "- `mapping`: A stateful method that stores every original-to-fake pair. Slower but allows you to save and reuse the exact same mappings.\n"
@@ -111,7 +112,7 @@ class FakeOrganizationOperationTooltip:
 
     context_salt = (
         "• How it works: It's mixed with the key during generation.\n"
-        "• Example: Use `dev` for development and `prod` for production. \"Acme Corp\" with the same key will generate a different fake name in each environment.\n"
+        '• Example: Use `dev` for development and `prod` for production. "Acme Corp" with the same key will generate a different fake name in each environment.\n'
         "• Impact: Allows you to create multiple, distinct pseudonymized datasets from a single source.\n"
         "• Default: `org-generation`"
     )

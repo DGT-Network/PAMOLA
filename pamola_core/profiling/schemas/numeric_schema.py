@@ -21,6 +21,7 @@ Changelog:
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.common.enum.form_groups import GroupName
 
+
 class NumericOperationConfig(OperationConfig):
     """Configuration for NumericOperation with BaseOperationConfig merged."""
 
@@ -37,7 +38,7 @@ class NumericOperationConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the numeric field (column) to analyze. This should be a column in the DataFrame containing numeric values."
+                        "description": "Name of the numeric field (column) to analyze. This should be a column in the DataFrame containing numeric values.",
                     },
                     "bins": {
                         "type": "integer",
@@ -79,7 +80,7 @@ class NumericOperationConfig(OperationConfig):
                         "type": "string",
                         "default": "numeric",
                         "title": "Profile Type",
-                        "description": "Type of profiling operation. For numeric analysis, this should be set to 'numeric'."
+                        "description": "Type of profiling operation. For numeric analysis, this should be set to 'numeric'.",
                     },
                 },
                 "required": ["field_name", "bins", "near_zero_threshold"],

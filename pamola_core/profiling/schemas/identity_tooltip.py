@@ -19,8 +19,9 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of Identity Analysis Operation tooltip file
 """
 
+
 class IdentityAnalysisOperationTooltip:
-    
+
     uid_field = (
         "What it does: Selects the primary identifier field to analyze for consistency with reference fields.\n"
         "• Example: Select `customer_id` to analyze whether each customer_id consistently represents the same person "
@@ -62,9 +63,7 @@ class IdentityAnalysisOperationTooltip:
         "• Impact: Helps detect records that refer to the same entity despite minor spelling or formatting differences."
     )
 
-    generate_visualization = (
-        "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
-    )
+    generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
 
     @classmethod
     def as_dict(cls):

@@ -19,11 +19,10 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of Numeric Operation tooltip file
 """
 
+
 class NumericOperationTooltip:
 
-    bins = (
-        "What it does: Sets the number of intervals (bins) used to group values when creating the histogram visualization."
-    )
+    bins = "What it does: Sets the number of intervals (bins) used to group values when creating the histogram visualization."
 
     near_zero_threshold = (
         "What it does: Defines the threshold below which numeric values are classified as 'near zero' in the special value analysis.\n"
@@ -42,9 +41,7 @@ class NumericOperationTooltip:
         "• Impact: Useful for deciding which statistical models or anonymization strategies are appropriate for the data."
     )
 
-    generate_visualization = (
-        "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
-    )
+    generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
 
     @classmethod
     def as_dict(cls):

@@ -1,4 +1,3 @@
-
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
@@ -19,14 +18,13 @@ Changelog:
 """
 
 TEXT_EXCLUDE_FIELDS = [
-  "config", 
-  "scope", 
-  "engine"
-  "optimize_memory",
-  "adaptive_chunk_size",
-  "mode",
-  "column_prefix",
-  "null_strategy",
-  "engine",
-  "dask_partition_size"
+    "config",
+    "scope",
+    "engine" "optimize_memory",
+    "adaptive_chunk_size",
+    "mode",
+    "column_prefix",
+    "null_strategy",
+    "engine",
+    "dask_partition_size",
 ]
