@@ -43,6 +43,7 @@ class CellSuppressionConfig(OperationConfig):
                     },
                     "suppression_strategy": {
                         "type": "string",
+                        "default": "null",
                         "title": "Suppression Strategy",
                         "x-component": "Select",
                         "x-group": GroupName.CORE_SUPPRESSION_STRATEGY,
@@ -95,6 +96,7 @@ class CellSuppressionConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.SUPPRESSION_RULES,
                         "oneOf": [
+                            {"type": "null"},
                             {"const": "outlier", "description": "Outlier"},
                             {"const": "rare", "description": "Rare"},
                             {"const": "null", "description": "Null"},
@@ -103,6 +105,7 @@ class CellSuppressionConfig(OperationConfig):
                     },
                     "outlier_method": {
                         "type": "string",
+                        "default": "iqr",
                         "title": "Outlier Method",
                         "x-component": "Select",
                         "x-group": GroupName.SUPPRESSION_RULES,
@@ -137,17 +140,16 @@ class CellSuppressionConfig(OperationConfig):
                     "condition_field": {
                         "type": ["string", "null"],
                         "title": "Condition Field",
-                        "default": "in",
-                        "x-component": "Input",
+                        "description": "Field name for conditional processing.",
+                        "x-component": "Select",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "description": "Field to check for conditional suppression. Active only if Suppression Trigger is not set.",
-                        "x-depend-on": {"suppress_if": "null"},
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "condition_operator": {
                         "type": "string",
                         "title": "Condition Operator",
+                        "description": "Comparison operator used in the condition.",
                         "x-component": "Select",
-                        "x-group": GroupName.CONDITIONAL_LOGIC,
                         "oneOf": [
                             {"const": "in", "description": "In"},
                             {"const": "not_in", "description": "Not in"},
@@ -156,24 +158,23 @@ class CellSuppressionConfig(OperationConfig):
                             {"const": "eq", "description": "Equal to"},
                             {"const": "range", "description": "Range"},
                         ],
-                        "description": "Operator for condition evaluation. Active only if Suppression Trigger is not set.",
-                        "x-depend-on": {
-                            "suppress_if": "null",
-                            "condition_field": "not_null",
-                        },
+                        "default": "in",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {"condition_field": "not_null"},
+                        "x-custom-function": ["update_condition_operator"],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
                         "title": "Condition Values",
+                        "description": "Values for conditional processing.",
+                        "items": {"type": "string"},
                         "x-component": "Input",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "items": {"type": "string"},
-                        "description": "Values that trigger conditional suppression. Active only if Suppression Trigger is not set.",
                         "x-depend-on": {
-                            "suppress_if": "null",
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
+                        "x-custom-function": ["update_condition_values"],
                     },
                 },
                 "required": ["field_name", "suppression_strategy"],
@@ -221,18 +222,6 @@ class CellSuppressionConfig(OperationConfig):
                         "condition_operator": {"type": "string", "minLength": 1}
                     },
                     "required": ["condition_operator"],
-                },
-            },
-            {
-                "if": {
-                    "anyOf": [
-                        {"required": ["output_field_name"]},
-                        {"required": ["column_prefix"]},
-                    ]
-                },
-                "then": {
-                    "properties": {"mode": {"const": "ENRICH"}},
-                    "required": ["mode"],
                 },
             },
         ],
