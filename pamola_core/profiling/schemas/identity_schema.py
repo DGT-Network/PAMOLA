@@ -43,9 +43,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "minItems": 1,
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-ignore-depend-fields": True,
                         "x-custom-function": ["update_condition_field"],
-                        "x-ignore-depend-fields": True,
                     },
                     "uid_field": {
                         "type": "string",
@@ -53,9 +51,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "description": "Primary identifier field to analyze (e.g., 'UID'). Must exist in the input DataFrame.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-ignore-depend-fields": True,
                         "x-custom-function": ["update_condition_field"],
-                        "x-ignore-depend-fields": True,
                     },
                     "id_field": {
                         "type": ["string", "null"],
@@ -64,9 +60,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "default": None,
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-ignore-depend-fields": True,
                         "x-custom-function": ["update_condition_field"],
-                        "x-ignore-depend-fields": True,
                     },
                     "top_n": {
                         "type": "integer",
