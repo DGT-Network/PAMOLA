@@ -96,10 +96,10 @@ from pamola_core.transformations.schemas.impute_missing_values_op_config import 
 from pamola_core.transformations.schemas.impute_missing_values_op_config_exclude import (
     IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS,
 )
-from pamola_core.transformations.schemas.merge_datasets_op_config import (
+from pamola_core.transformations.schemas.merge_datasets_op_schema import (
     MergeDatasetsOperationConfig,
 )
-from pamola_core.transformations.schemas.merge_datasets_op_config_exclude import (
+from pamola_core.transformations.schemas.merge_datasets_op_schema_exclude import (
     MERGE_DATASETS_EXCLUDE_FIELDS,
 )
 from pamola_core.transformations.schemas.merge_datasets_op_tooltip import MergeDatasetsOperationTooltip

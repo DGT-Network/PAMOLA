@@ -18,7 +18,9 @@ Usage:
 """
 import json
 import copy
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+
+from tomlkit import item
 
 from pamola_core.common.enum.form_groups import (
     get_groups_with_titles,
@@ -56,6 +58,51 @@ def _merge_allOf(allOf_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
     return merged
 
 
+def _normalize_field_type(type: Union[str, List[str]]) -> Union[str, List[str]]:
+    """
+    Normalize field type from JSON Schema to Formily format.
+    Handles both single type and union types (list of types).
+    Filters out null values and converts integer to number.
+    
+    Args:
+        type: Field type - can be string or list of strings (e.g., ["string", "null"])
+    
+    Returns:
+        Normalized type - can be string or list of strings
+        - Single type: "integer" -> "number", "string" -> "string"
+        - List types: ["string", "integer", "null"] -> ["string", "number"]
+    
+    Examples:
+        "integer" -> "number"
+        ["integer", "null"] -> "number" (single type after filtering)
+        ["string", "integer", "null"] -> ["string", "number"]
+        "string" -> "string"
+    """
+    if isinstance(type, list):
+        # Filter out null values and convert integer to number
+        normalized_types = []
+        for t in type:
+            if t == "null":
+                continue
+            elif t == "integer":
+                normalized_types.append("number")
+            else:
+                normalized_types.append(t)
+        
+        if not normalized_types:
+            return "string"  # Default fallback if only null
+        
+        # Return single type if only one remains, otherwise return list
+        if len(normalized_types) == 1:
+            return normalized_types[0]
+        return normalized_types
+    else:
+        # Single type - convert integer to number
+        if type == "integer":
+            return "number"
+        return type
+
+
 def _handle_array_items_component(
     field: Dict[str, Any],
     t: Any,
@@ -76,6 +123,7 @@ def _handle_array_items_component(
         items_schema = field["items"]
         if field["type"] == "array" or (isinstance(t, list) and "array" in t):
             field["type"] = "array"
+            item_type = field["items"].get("type")
             field["items"] = {
                 "type": "object",
                 "x-component": "ArrayItems.Item",
@@ -103,10 +151,11 @@ def _handle_array_items_component(
                     items_zip = zip(items_titles, item_params)
                 else:
                     items_zip = zip(items_titles, items_titles)
+                
                 for title, param in items_zip:
                     item_key = param.lower().replace(" ", "_")
                     field["items"]["properties"][param] = {
-                        "type": "number",
+                        "type": _normalize_field_type(item_type),
                         "title": f"{title}",
                         "x-decorator": "FormItem",
                         "x-component": items_schema["x-component"],
@@ -125,23 +174,35 @@ def _handle_array_items_component(
                                 },
                             }
                         ]
+                
+                # Convert default values to array of objects format if needed
+                # This handles both input formats:
+                # 1. Simple array: ["value1", "value2"] -> [{"prop1": "value1", "prop2": "value2"}]
+                # 2. Array of objects: [{"prop1": "value1", "prop2": "value2"}] -> keep as is
+                if "default" in field and isinstance(field["default"], list) and len(field["default"]) > 0:
+                    if isinstance(field["default"][0], dict):
+                        # Already in array of objects format - no conversion needed
+                        default_obj = field["default"][0]
+                    else:
+                        # Convert simple array to object by mapping values to property keys
+                        default_obj = {}
+                        property_keys = list(field["items"]["properties"].keys())
+                        for i, value in enumerate(field["default"]):
+                            if i < len(property_keys):
+                                default_obj[property_keys[i]] = value
+                        
+                        # Convert to array of objects format
+                        field["default"] = [default_obj]
             else:
                 minItems = field.get("minItems", 1)
                 for i in range(minItems):
                     item_key = f"value_{i+1}"
                     field["items"]["properties"][item_key] = {
-                        "type": "number",
+                        "type": _normalize_field_type(item_type),
                         "x-decorator": "FormItem",
                         "x-component": items_schema["x-component"],
                         "x-component-props": {"placeholder": "Value"},
                     }
-            
-            if (("minItems" not in field or "maxItems" not in field) or field["minItems"] <= field["maxItems"]):
-                field["items"]["properties"]["remove"] = {
-                    "type": "void",
-                    "x-component": "ArrayItems.Remove",
-                    "x-component-props": {"style": {"marginLeft": "8px"}},
-                }
     else:
         field["type"] = field.get("type", "array")
         field["x-decorator"] = "FormItem"
@@ -151,18 +212,28 @@ def _handle_array_items_component(
             "x-component": "ArrayItems.Item",
             "properties": {
                 "value": {
-                    "type": "string",
+                    "type": _normalize_field_type(field["items"]["type"]),
                     "x-decorator": "FormItem",
                     "x-component": "Input",
                 },
-                "remove": {
+                # "remove": {
+                #     "type": "void",
+                #     "x-component": "ArrayItems.Remove",
+                #     "x-component-props": {"style": {"marginLeft": "8px"}},
+                # },
+            },
+        }
+
+    if "minItems" in field and "maxItems" in field and field["minItems"] == field["maxItems"]:
+        field.pop("minItems", None)
+        field.pop("maxItems", None)
+        
+    else:
+        field["items"]["properties"]["remove"] = {
                     "type": "void",
                     "x-component": "ArrayItems.Remove",
                     "x-component-props": {"style": {"marginLeft": "8px"}},
-                },
-            },
-        }
-    if (("minItems" not in field or "maxItems" not in field) or field["minItems"] <= field["maxItems"]):
+                }
         field["properties"] = {
             "add": {
                 "type": "void",
@@ -171,10 +242,6 @@ def _handle_array_items_component(
                 "x-component-props": {"style": {"marginTop": "8px"}},
             }
         }
-    
-    if "minItems" in field and "maxItems" in field and field["minItems"] == field["maxItems"]:
-        field.pop("minItems", None)
-        field.pop("maxItems", None)
 
     return field
 
@@ -196,12 +263,8 @@ def convert_property(
     if tooltip is not None and name in tooltip:
         field["tooltip"] = tooltip[name]
 
-    if "type" in prop:
-        t = prop["type"]
-        if t == "integer" or (isinstance(t, list) and "integer" in t):
-            field["type"] = "number"
-        else:
-            field["type"] = t
+    if "type" in field:
+        field["type"] = _normalize_field_type(field["type"])
 
     if "default" in field:
         field["default"] = field["default"]
@@ -214,6 +277,7 @@ def convert_property(
         return field
 
     if field["x-component"] == "Select":
+        t = prop.get("type")
         if (
             field["type"] == "string"
             or (isinstance(t, list) and "string" in t)
@@ -297,6 +361,7 @@ def convert_property(
             )
 
     elif field["x-component"] == "ArrayItems":
+        t = prop.get("type")
         field = _handle_array_items_component(field, t, formily_schema, tooltip)
 
     elif field["x-component"] == "DatePicker":
