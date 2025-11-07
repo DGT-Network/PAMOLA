@@ -63,7 +63,6 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "x-group": GroupName.CORE_NOISE_STRATEGY,
                         "name": "noise_range",
                         "x-decorator": "FormItem",
-                        "tooltip": "What it does: Defines the boundaries for the uniform random noise.\n• Symmetric: If you enter a single number (e.g., `10`), the noise will be in the range `[-10, 10]`.\n• Asymmetric: If you enter two numbers (e.g., `-5, 20`), the noise will be in that specific range.\n• Validation: This field is required. For a range, the first number must be smaller than the second.",
                         "required": True,
                         "default": 0.1,
                         "enum": [
