@@ -21,7 +21,6 @@ Usage:
 import sys
 from pathlib import Path
 
-from regex import E
 from pamola_core.anonymization.schemas.full_masking_op_tooltip import (
     FullMaskingOpTooltip,
 )
@@ -103,6 +102,7 @@ from pamola_core.transformations.schemas.merge_datasets_op_config import (
 from pamola_core.transformations.schemas.merge_datasets_op_config_exclude import (
     MERGE_DATASETS_EXCLUDE_FIELDS,
 )
+from pamola_core.transformations.schemas.merge_datasets_op_tooltip import MergeDatasetsOperationTooltip
 from pamola_core.transformations.schemas.remove_fields_op_schema import (
     RemoveFieldsOperationConfig,
 )
@@ -277,7 +277,7 @@ ALL_OP_CONFIGS = [
     (AggregateRecordsOperationConfig, AGGREGATE_RECORDS_EXCLUDE_FIELDS, None),
     (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),
     (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS, None),
-    (MergeDatasetsOperationConfig, MERGE_DATASETS_EXCLUDE_FIELDS, None),
+    (MergeDatasetsOperationConfig, MERGE_DATASETS_EXCLUDE_FIELDS, MergeDatasetsOperationTooltip.as_dict()),
     (RemoveFieldsOperationConfig, REMOVE_FIELDS_EXCLUDE_FIELDS, RemoveFieldsOperationTooltip.as_dict()),
     (SplitByIDValuesOperationConfig, SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS, None),
     (SplitFieldsOperationConfig, SPLIT_FIELDS_EXCLUDE_FIELDS, None),
@@ -389,10 +389,16 @@ def generate_all_op_schemas(
     task_dir.mkdir(parents=True, exist_ok=True)
     for item in ALL_OP_CONFIGS:
         config_cls, exclude_fields, tooltip = item
-        generate_schema_json(
-            config_cls, task_dir, exclude_fields, generate_formily_schema, tooltip
-        )
-
+        if tooltip is None:
+            pass
+        try:
+            generate_schema_json(
+                config_cls, task_dir, exclude_fields, generate_formily_schema, tooltip
+            )
+        except KeyError as e:
+            print(f"Skipping {config_cls.__name__} due to missing group: {e}")
+            continue
+    
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

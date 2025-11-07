@@ -94,14 +94,18 @@ class MergeDatasetsOperationConfig(OperationConfig):
                     },
                     "suffixes": {
                         "type": "array",
+                        "x-component": "ArrayItems",
                         "items": {
                             "type": "string",
                             "x-component": "Input",
-                            "itemsTitle": ["Left Column Suffix", "Right Column Suffix"],
+                            "x-items-title": ["Left Column Suffix", "Right Column Suffix"],
+                            "x-item-params": ["left", "right"],
                         },
                         "minItems": 2,
                         "maxItems": 2,
+                        "default": ["_x", "_y"],
                         "title": "Suffixes",
+                        "x-group": GroupName.SUFFIXES,
                         "description": "Suffixes to apply to overlapping columns in the merged dataset.",
                     },
                     

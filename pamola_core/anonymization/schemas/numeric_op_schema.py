@@ -119,7 +119,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             "type": "array",
                             "items": {"type": "number"},
                             "minItems": 2,
-                            "itemsTitle": ["Min", "Max"],
+                            "x-items-title": ["Min", "Max"],
                             "x-component": "NumberPicker",
                             "maxItems": 2,
                         },

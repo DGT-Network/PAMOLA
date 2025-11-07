@@ -1,4 +1,3 @@
-
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
@@ -17,4 +16,33 @@ These fields are typically configuration or engine-related and should not be pro
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
-MERGE_DATASETS_EXCLUDE_FIELDS = ["config", "scope", "engine", "mode", "column_prefix", "null_strategy", "output_field_name"]
+
+MERGE_DATASETS_EXCLUDE_FIELDS = [
+    "name",
+    "description",
+    "scope",
+    "config",
+    "optimize_memory",
+    "adaptive_chunk_size",
+    "mode",
+    "output_field_name",
+    "column_prefix",
+    "null_strategy",
+    "engine",
+    "use_dask",
+    "npartitions",
+    "dask_partition_size",
+    "use_vectorization",
+    "parallel_processes",
+    "chunk_size",
+    "visualization_theme",
+    "visualization_backend",
+    "visualization_strict",
+    "visualization_timeout",
+    "use_encryption",
+    "encryption_mode",
+    "encryption_key",
+    "left_dataset_name",
+    "right_dataset_name",
+    "right_dataset_path",
+]

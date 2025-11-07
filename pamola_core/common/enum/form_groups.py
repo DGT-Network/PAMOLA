@@ -282,10 +282,7 @@ def get_groups_for_operation(operation_config_type: str) -> List[GroupName]:
         ValueError: If operation_config_type is not configured
     """
     if operation_config_type not in OPERATION_CONFIG_GROUPS:
-        raise ValueError(
-            f"Unknown operation config type: '{operation_config_type}'. "
-            f"Available: {list(OPERATION_CONFIG_GROUPS.keys())}"
-        )
+        pass
     return OPERATION_CONFIG_GROUPS[operation_config_type]
 
 

@@ -61,7 +61,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                             {"type": "number"},
                             {
                                 "type": "array",
-                                "itemsTitle": ["Min", "Max"],
+                                "x-items-title": ["Min", "Max"],
                                 "x-component": "NumberPicker",
                                 "minItems": 2,
                                 "maxItems": 2,

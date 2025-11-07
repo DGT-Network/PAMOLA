@@ -96,11 +96,16 @@ def _handle_array_items_component(
                         )
                         field["items"]["properties"][k] = converted
 
-            elif "itemsTitle" in items_schema:
-                items_titles = items_schema["itemsTitle"]
-                for title in items_titles:
-                    item_key = title.lower().replace(" ", "_")
-                    field["items"]["properties"][item_key] = {
+            elif "x-items-title" in items_schema:
+                items_titles = items_schema.get("x-items-title", [])
+                item_params = items_schema.get("x-item-params", [])
+                if item_params and len(item_params) == len(items_titles):
+                    items_zip = zip(items_titles, item_params)
+                else:
+                    items_zip = zip(items_titles, items_titles)
+                for title, param in items_zip:
+                    item_key = param.lower().replace(" ", "_")
+                    field["items"]["properties"][param] = {
                         "type": "number",
                         "title": f"{title}",
                         "x-decorator": "FormItem",
@@ -111,7 +116,6 @@ def _handle_array_items_component(
                         field["items"]["properties"][item_key]["x-decorator-props"] = {
                             "style": {"marginLeft": "8px"}
                         }
-
                         field["items"]["properties"][item_key]["x-reactions"] = [
                             {
                                 "dependencies": [".min"],
@@ -131,14 +135,15 @@ def _handle_array_items_component(
                         "x-component": items_schema["x-component"],
                         "x-component-props": {"placeholder": "Value"},
                     }
-
-            field["items"]["properties"]["remove"] = {
-                "type": "void",
-                "x-component": "ArrayItems.Remove",
-                "x-component-props": {"style": {"marginLeft": "8px"}},
-            }
+            
+            if (("minItems" not in field or "maxItems" not in field) or field["minItems"] <= field["maxItems"]):
+                field["items"]["properties"]["remove"] = {
+                    "type": "void",
+                    "x-component": "ArrayItems.Remove",
+                    "x-component-props": {"style": {"marginLeft": "8px"}},
+                }
     else:
-        field["type"] = "array"
+        field["type"] = field.get("type", "array")
         field["x-decorator"] = "FormItem"
         field["x-component"] = "ArrayItems"
         field["items"] = {
@@ -157,15 +162,19 @@ def _handle_array_items_component(
                 },
             },
         }
-
-    field["properties"] = {
-        "add": {
-            "type": "void",
-            "title": "Add",
-            "x-component": "ArrayItems.Addition",
-            "x-component-props": {"style": {"marginTop": "8px"}},
+    if (("minItems" not in field or "maxItems" not in field) or field["minItems"] <= field["maxItems"]):
+        field["properties"] = {
+            "add": {
+                "type": "void",
+                "title": "Add",
+                "x-component": "ArrayItems.Addition",
+                "x-component-props": {"style": {"marginTop": "8px"}},
+            }
         }
-    }
+    
+    if "minItems" in field and "maxItems" in field and field["minItems"] == field["maxItems"]:
+        field.pop("minItems", None)
+        field.pop("maxItems", None)
 
     return field
 
