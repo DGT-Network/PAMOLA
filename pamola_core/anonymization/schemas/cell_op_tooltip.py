@@ -115,9 +115,12 @@ class CellSuppressionOpTooltip:
         "• Recommended: `PRESERVE`"
     )
 
-    force_recalculation = (
-        "What it does: Disables the caching mechanism for this run, forcing the operation to re-process all data from scratch.\n"
-        "• Use Case: Enable this if you have changed the underlying data or want to ensure a fresh run for auditing purposes."
+    force_recalculation = "What it does: Disables the caching mechanism for this run, forcing the operation to re-process all data from scratch."
+
+    generate_visualization = (
+        "What it does: Enables the creation of charts that help you visually understand the impact of the anonymization.\n"
+        "• Charts will show changes to either data values (for Generalization, Masking, etc.) or the dataset's structure (for Remove Rows/Columns), depending on the operation.\n"
+        "• Note: Enabled by default. Uncheck for faster execution if visuals are not needed."
     )
 
     @classmethod
@@ -140,4 +143,5 @@ class CellSuppressionOpTooltip:
             "column_prefix": cls.column_prefix,
             "null_strategy": cls.null_strategy,
             "force_recalculation": cls.force_recalculation,
+            "generate_visualization": cls.generate_visualization,
         }

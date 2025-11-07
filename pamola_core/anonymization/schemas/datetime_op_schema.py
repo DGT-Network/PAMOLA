@@ -65,6 +65,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     # --- Rounding parameters ---
                     "rounding_unit": {
                         "type": "string",
+                        "default": "day",
                         "title": "Rounding Unit",
                         "description": "Unit for rounding datetime values (e.g., year, month, day, hour).",
                         "x-component": "Select",
@@ -83,6 +84,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     # --- Binning parameters ---
                     "bin_type": {
                         "type": "string",
+                        "default": "day_range",
                         "title": "Binning Type",
                         "description": "Type of binning to apply (e.g., day_range, hour_range, business_period, seasonal, custom).",
                         "x-component": "Select",
@@ -103,6 +105,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     "interval_size": {
                         "type": "integer",
                         "minimum": 1,
+                        "default": 7,
                         "title": "Interval Size",
                         "description": "Size of each binning interval.",
                         "x-component": "NumberPicker",
@@ -112,6 +115,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     },
                     "interval_unit": {
                         "type": "string",
+                        "default": "days",
                         "title": "Interval Unit",
                         "description": "Unit for binning interval (e.g., days, weeks, months).",
                         "x-component": "Select",
@@ -133,7 +137,6 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": {"strategy": "relative"},
                         "x-component-props": {
-                            "showTime": True,
                             "format": "YYYY-MM-DD",
                             "placeholder": "Select date",
                         },
@@ -146,34 +149,35 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": {"bin_type": "custom"},
                         "x-component-props": {
-                            "showTime": True,
-                            "format": "YYYY-MM-DD HH:mm:ss",
-                            "valueFormat": "YYYY-MM-DD HH:mm:ss",
-                            "placeholder": "YYYY-MM-DD HH:mm:ss",
+                            "format": "YYYY-MM-DD",
                             "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",
-                            "needConfirm": True,
+                            "placeholder": "YYYY-MM-DD",
                         },
                     },
                     # --- Component-based generalization ---
                     "keep_components": {
                         "type": ["array", "null"],
-                        "items": {
-                            "type": "string",
-                            "enum": [
-                                "year",
-                                "month",
-                                "day",
-                                "hour",
-                                "minute",
-                                "weekday",
-                            ],
-                        },
                         "title": "Components to Keep",
                         "description": "List of datetime components to keep (e.g., year, month, day, hour, minute, weekday).",
                         "x-component": "Select",
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": {"strategy": "component"},
                         "oneOf": [
+                            {"type": "null"},
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "year",
+                                        "month",
+                                        "day",
+                                        "hour",
+                                        "minute",
+                                        "weekday",
+                                    ],
+                                },
+                            },
                             {"const": "year", "description": "Years"},
                             {"const": "month", "description": "Month"},
                             {"const": "day", "description": "Day"},
@@ -219,15 +223,13 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     },
                     "input_formats": {
                         "type": ["array", "null"],
-                        # "items": {"type": "string"},
                         "title": "Custom Input Formats",
                         "description": "Accepted input datetime formats.",
-                        "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "x-component": "Input",
+                        "x-component": "DateFormatArray",
+                        "x-component-props": {
+                            "formatActions": "{{ supportedFormatActions }}",
+                            "placeholder": "Custom datetime pattern",
                         },
-                        "x-component": "ArrayItems",
                         "x-group": GroupName.FORMATTING_AND_TIMEZONE,
                     },
                     # --- Privacy & QI ---
@@ -235,6 +237,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1,
+                        "default": 0.0,
                         "title": "Minimum Privacy Threshold",
                         "description": "Minimum privacy preservation threshold (ratio of unique value reduction).",
                         "x-component": "FloatPicker",
@@ -245,7 +248,6 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "items": {"type": "string"},
                         "title": "Quasi-identifiers",
                         "description": "List of quasi-identifier fields to consider for privacy checks.",
-                        "visible": False,
                     },
                 },
                 "required": ["field_name", "strategy"],
