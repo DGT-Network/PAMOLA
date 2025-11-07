@@ -185,7 +185,6 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "description": "Granularity to which output datetimes are rounded: 'day', 'hour', 'minute', or 'second'.",
                         "oneOf": [
                             {"type": "null"},
-                            {"const": "", "description": ""},
                             {"const": "day", "description": "Day"},
                             {"const": "hour", "description": "Hour"},
                             {"const": "minute", "description": "Minute"},
