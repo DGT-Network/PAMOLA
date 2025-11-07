@@ -16,7 +16,6 @@ These fields are typically configuration or engine-related and should not be pro
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
-
 PHONE_FAKE_EXCLUDE_FIELDS = [
     "name",
     "description",
@@ -42,7 +41,4 @@ PHONE_FAKE_EXCLUDE_FIELDS = [
     "encryption_key",
     "save_output",
     "field_name",
-    "generator",
-    "generator_params",
-    "mapping_store",
 ]

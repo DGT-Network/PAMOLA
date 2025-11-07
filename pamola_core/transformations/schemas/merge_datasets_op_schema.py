@@ -17,7 +17,10 @@ Configuration schema for defining and validating merge datasets operations in PA
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of merge datasets config file
 """
+
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+
 
 class MergeDatasetsOperationConfig(OperationConfig):
     """Configuration for MergeDatasetsOperation with BaseOperationConfig merged."""
@@ -36,48 +39,76 @@ class MergeDatasetsOperationConfig(OperationConfig):
                     "left_dataset_name": {
                         "type": "string",
                         "title": "Left Dataset Name",
-                        "description": "Name of the main (left) dataset to merge."
+                        "description": "Name of the main (left) dataset to merge.",
                     },
                     "right_dataset_name": {
                         "type": ["string", "null"],
                         "title": "Right Dataset Name",
-                        "description": "Name of the right (lookup) dataset to merge."
+                        "description": "Name of the right (lookup) dataset to merge.",
                     },
                     "right_dataset_path": {
                         "type": ["string", "null"],
                         "title": "Right Dataset Path",
-                        "description": "File path to the right dataset if not using a named dataset."
+                        "description": "File path to the right dataset if not using a named dataset.",
                     },
                     "left_key": {
                         "type": "string",
                         "title": "Left Key",
-                        "description": "Key field in the left dataset for joining."
+                        "description": "Key field in the left dataset for joining.",
+                        "x-component": "Select",
+                        "x-group": GroupName.JOIN_KEYS,
                     },
                     "right_key": {
                         "type": ["string", "null"],
                         "title": "Right Key",
-                        "description": "Key field in the right dataset for joining. Defaults to left_key if not set."
+                        "description": "Key field in the right dataset for joining. Defaults to left_key if not set.",
+                        "x-component": "Select",
+                        "x-group": GroupName.JOIN_KEYS,
                     },
                     "join_type": {
                         "type": "string",
-                        "enum": ["inner", "left", "right", "outer"],
+                        "oneOf": [
+                            {"const": "inner", "description": "Inner"},
+                            {"const": "left", "description": "Left"},
+                            {"const": "right", "description": "Right"},
+                            {"const": "outer", "description": "Outer"},
+                        ],
                         "title": "Join Type",
-                        "description": "Type of join to perform: inner, left, right, or outer."
-                    },
-                    "suffixes": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 2,
-                        "maxItems": 2,
-                        "title": "Suffixes",
-                        "description": "Suffixes to apply to overlapping columns in the merged dataset."
+                        "description": "Type of join to perform: inner, left, right, or outer.",
+                        "x-component": "Select",
+                        "default": "left",
+                        "x-group": GroupName.INPUT_DATASETS,
                     },
                     "relationship_type": {
                         "type": "string",
-                        "enum": ["auto", "one-to-one", "one-to-many"],
+                        "oneOf": [
+                            {"const": "auto", "description": "Auto-detect"},
+                            {"const": "one-to-one", "description": "One-to-One"},
+                            {"const": "one-to-many", "description": "One-to-Many"},
+                        ],
                         "title": "Relationship Type",
-                        "description": "Type of relationship between datasets: auto-detect, one-to-one, or one-to-many."
+                        "x-component": "Select",
+                        "default": "auto",
+                        "x-group": GroupName.INPUT_DATASETS,
+                        "description": "Type of relationship between datasets: auto-detect, one-to-one, or one-to-many.",
                     },
+                    "suffixes": {
+                        "type": "array",
+                        "x-component": "ArrayItems",
+                        "items": {
+                            "type": "string",
+                            "x-component": "Input",
+                            "x-items-title": ["Left Column Suffix", "Right Column Suffix"],
+                            "x-item-params": ["left", "right"],
+                        },
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "default": ["_x", "_y"],
+                        "title": "Suffixes",
+                        "x-group": GroupName.SUFFIXES,
+                        "description": "Suffixes to apply to overlapping columns in the merged dataset.",
+                    },
+                    
                 },
                 "required": [
                     "left_dataset_name",

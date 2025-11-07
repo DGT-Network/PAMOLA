@@ -116,10 +116,10 @@ class NumericGeneralizationConfig(OperationConfig):
                             "Each range is defined as a two-element array [min, max]."
                         ),
                         "items": {
-                            "type": "array",
+                            "type": "number",
                             "items": {"type": "number"},
                             "minItems": 2,
-                            "itemsTitle": ["Min", "Max"],
+                            "x-items-title": ["Min", "Max"],
                             "x-component": "NumberPicker",
                             "maxItems": 2,
                         },

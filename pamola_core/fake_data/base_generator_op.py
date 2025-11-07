@@ -105,7 +105,6 @@ class GeneratorOperation(FieldOperation):
         consistency_mechanism: str = "prgn",
         id_field: Optional[str] = None,
         mapping_store_path: Optional[str] = None,
-        mapping_store: Optional[MappingStore] = None,
         save_mapping: bool = False,
         **kwargs,
     ):
@@ -149,7 +148,7 @@ class GeneratorOperation(FieldOperation):
 
         # === Consistency and Mapping ===
         self.consistency_mechanism = consistency_mechanism.lower()
-        self.mapping_store = mapping_store or MappingStore()
+        self.mapping_store = MappingStore()
         self.mapping_store_path = mapping_store_path
         self.save_mapping = save_mapping
 
