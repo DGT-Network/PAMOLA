@@ -167,6 +167,7 @@ class FullMaskingConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -184,6 +185,7 @@ class FullMaskingConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
+                        "x-custom-function": ["update_condition_operator"],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -196,6 +198,7 @@ class FullMaskingConfig(OperationConfig):
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
+                        "x-custom-function": ["update_condition_values"],
                     },
                     # K-anonymity integration
                     "ka_risk_field": {

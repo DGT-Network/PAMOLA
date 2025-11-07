@@ -57,20 +57,28 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "x-group": GroupName.CORE_NOISE_STRATEGY,
                     },
                     "noise_range": {
-                        "oneOf": [
-                            {"type": "number"},
+                        "type": ["number", "array"],
+                        "title": "Noise Range",
+                        "x-component": "NumericRangeMode",
+                        "x-group": GroupName.CORE_NOISE_STRATEGY,
+                        "name": "noise_range",
+                        "x-decorator": "FormItem",
+                        "tooltip": "What it does: Defines the boundaries for the uniform random noise.\n• Symmetric: If you enter a single number (e.g., `10`), the noise will be in the range `[-10, 10]`.\n• Asymmetric: If you enter two numbers (e.g., `-5, 20`), the noise will be in that specific range.\n• Validation: This field is required. For a range, the first number must be smaller than the second.",
+                        "required": True,
+                        "default": 0.1,
+                        "enum": [
                             {
-                                "type": "array",
-                                "itemsTitle": ["Min", "Max"],
-                                "x-component": "NumberPicker",
-                                "minItems": 2,
-                                "maxItems": 2,
+                                "label": "Symetric",
+                                "value": "Symetric",
+                                "dataType": "number",
+                            },
+                            {
+                                "label": "Asymmetric",
+                                "value": "Asymmetric",
+                                "dataType": "array",
                             },
                         ],
-                        "title": "Noise Range",
-                        "description": "Range of uniform noise to add. Use a single number for symmetric range (±value), or a two-element array [min, max] for asymmetric range.",
-                        "x-component": "NumberPicker",
-                        "x-group": GroupName.CORE_NOISE_STRATEGY,
+                        "x-component-props": {"step": 0.1, "precision": 1},
                     },
                     # ==== Bounds and Constraints ====
                     "output_min": {
@@ -141,6 +149,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -158,6 +167,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
+                        "x-custom-function": ["update_condition_operator"],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -170,6 +180,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
+                        "x-custom-function": ["update_condition_values"],
                     },
                     # Multi-field conditions
                     "multi_conditions": {

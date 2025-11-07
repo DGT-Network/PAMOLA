@@ -149,36 +149,96 @@ class PartialMaskingConfig(OperationConfig):
                             {"const": "email", "description": "Email address"},
                             {"const": "email_domain", "description": "Email domain"},
                             {"const": "phone", "description": "Phone number"},
-                            {"const": "phone_international", "description": "International phone number"},
-                            {"const": "phone_us_formatted", "description": "US phone number (formatted)"},
-                            {"const": "phone_us_compact", "description": "US phone number (compact)"},
-                            {"const": "ssn", "description": "Social Security Number (SSN)"},
-                            {"const": "ssn_middle", "description": "Middle part of SSN"},
-                            {"const": "credit_card", "description": "Credit card number"},
-                            {"const": "credit_card_strict", "description": "Strictly formatted credit card number"},
+                            {
+                                "const": "phone_international",
+                                "description": "International phone number",
+                            },
+                            {
+                                "const": "phone_us_formatted",
+                                "description": "US phone number (formatted)",
+                            },
+                            {
+                                "const": "phone_us_compact",
+                                "description": "US phone number (compact)",
+                            },
+                            {
+                                "const": "ssn",
+                                "description": "Social Security Number (SSN)",
+                            },
+                            {
+                                "const": "ssn_middle",
+                                "description": "Middle part of SSN",
+                            },
+                            {
+                                "const": "credit_card",
+                                "description": "Credit card number",
+                            },
+                            {
+                                "const": "credit_card_strict",
+                                "description": "Strictly formatted credit card number",
+                            },
                             {"const": "ip_address", "description": "IP address"},
-                            {"const": "ip_address_last_only", "description": "Last segment of IP address"},
+                            {
+                                "const": "ip_address_last_only",
+                                "description": "Last segment of IP address",
+                            },
                             {"const": "date_mdy", "description": "Date (MM/DD/YYYY)"},
                             {"const": "date_dmy", "description": "Date (DD/MM/YYYY)"},
                             {"const": "date_ymd", "description": "Date (YYYY/MM/DD)"},
-                            {"const": "date_iso", "description": "ISO date (YYYY-MM-DD)"},
+                            {
+                                "const": "date_iso",
+                                "description": "ISO date (YYYY-MM-DD)",
+                            },
                             {"const": "date_year_only", "description": "Year only"},
                             {"const": "birthdate", "description": "Birthdate"},
-                            {"const": "birthdate_dmy", "description": "Birthdate (DD/MM/YYYY)"},
-                            {"const": "date_month_year", "description": "Date (Month/Year)"},
-                            {"const": "date_dotted", "description": "Date with dots (DD.MM.YYYY)"},
-                            {"const": "account_number", "description": "Account number"},
-                            {"const": "account_number_last_only", "description": "Last digits of account number"},
-                            {"const": "license_plate", "description": "License plate number"},
-                            {"const": "driver_license", "description": "Driver's license number"},
+                            {
+                                "const": "birthdate_dmy",
+                                "description": "Birthdate (DD/MM/YYYY)",
+                            },
+                            {
+                                "const": "date_month_year",
+                                "description": "Date (Month/Year)",
+                            },
+                            {
+                                "const": "date_dotted",
+                                "description": "Date with dots (DD.MM.YYYY)",
+                            },
+                            {
+                                "const": "account_number",
+                                "description": "Account number",
+                            },
+                            {
+                                "const": "account_number_last_only",
+                                "description": "Last digits of account number",
+                            },
+                            {
+                                "const": "license_plate",
+                                "description": "License plate number",
+                            },
+                            {
+                                "const": "driver_license",
+                                "description": "Driver's license number",
+                            },
                             {"const": "passport", "description": "Passport number"},
-                            {"const": "iban", "description": "IBAN (International Bank Account Number)"},
+                            {
+                                "const": "iban",
+                                "description": "IBAN (International Bank Account Number)",
+                            },
                             {"const": "url", "description": "Website URL"},
                             {"const": "username", "description": "Username"},
-                            {"const": "medical_record", "description": "Medical record number"},
-                            {"const": "health_insurance_number", "description": "Health insurance number"},
-                            {"const": "icd10_code", "description": "ICD-10 medical code"},
-                            {"const": "patient_id", "description": "Patient ID"}
+                            {
+                                "const": "medical_record",
+                                "description": "Medical record number",
+                            },
+                            {
+                                "const": "health_insurance_number",
+                                "description": "Health insurance number",
+                            },
+                            {
+                                "const": "icd10_code",
+                                "description": "ICD-10 medical code",
+                            },
+                            {"const": "patient_id", "description": "Patient ID"},
                         ],
                         "x-group": GroupName.CORE_MASKING_STRATEGY,
                         "x-depend-on": {
@@ -414,7 +474,7 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Other fields to mask consistently with the main field.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": ["update_condition_field"]
+                        "x-custom-function": ["update_condition_field"],
                     },
                     # Conditional processing parameters
                     "condition_field": {
@@ -423,6 +483,7 @@ class PartialMaskingConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -440,6 +501,7 @@ class PartialMaskingConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
+                        "x-custom-function": ["update_condition_operator"],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -452,6 +514,7 @@ class PartialMaskingConfig(OperationConfig):
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
+                        "x-custom-function": ["update_condition_values"],
                     },
                     # K-anonymity integration
                     "ka_risk_field": {
