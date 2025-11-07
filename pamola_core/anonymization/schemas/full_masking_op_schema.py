@@ -116,13 +116,22 @@ class FullMaskingConfig(OperationConfig):
                                             "const": "phone",
                                             "description": "Phone Number",
                                         },
-                                        {"const": "ssn", "description": "SSN"},
+                                        {
+                                            "const": "ssn",
+                                            "description": "SSN",
+                                        },
                                         {
                                             "const": "credit_card",
                                             "description": "Credit Card",
                                         },
-                                        {"const": "email", "description": "Email"},
-                                        {"const": "date", "description": "Date"},
+                                        {
+                                            "const": "email",
+                                            "description": "Email",
+                                        },
+                                        {
+                                            "const": "date",
+                                            "description": "Date",
+                                        },
                                     ],
                                 },
                                 "pattern": {
