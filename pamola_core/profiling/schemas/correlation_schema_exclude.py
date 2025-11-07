@@ -54,6 +54,7 @@ CORRELATION_EXCLUDE_FIELDS = [
     "mvf_parser",
     "field1",
     "field2",
+    "force_recalculation",
 ]
 CORRELATION_MATRIX_EXCLUDE_FIELDS = [
     "config",
