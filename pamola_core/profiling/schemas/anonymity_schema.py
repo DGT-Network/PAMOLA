@@ -71,7 +71,6 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
                         "x-custom-function": ["update_condition_field"],
-                        "x-ignore-depend-fields": True,
                     },
                     "quasi_identifier_sets": {
                         "type": ["array", "null"],
@@ -85,7 +84,6 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
                         "x-custom-function": ["update_condition_field"],
-                        "x-ignore-depend-fields": True,
                     },
                     "threshold_k": {
                         "type": "integer",
