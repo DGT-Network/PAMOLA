@@ -511,13 +511,17 @@ def _add_x_reactions(
     if is_nested:
         depend_fields = [f".{field_name}" for field_name in depend_fields]
 
-    if depend_fields:
+    is_ignore_depend_fields = field.get("x-ignore-depend-fields", False)
+    if depend_fields and not is_ignore_depend_fields:
         reactions = field.get("x-reactions", [])
         if "x-custom-function" in field:
             deps_expr = ", ".join([f"$deps[{i}]" for i in range(len(depend_fields))])
             run = f"{field['x-custom-function'][0]}({deps_expr}, $self)"
         else:
             run = f"$self.setValue({default_value_str})"
+            
+            if field.get("x-component") == "Upload":
+                run = "init_upload($self)" # For upload component initialization
         reactions.append(
             {
                 "dependencies": depend_fields,
