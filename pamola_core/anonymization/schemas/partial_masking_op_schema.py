@@ -132,6 +132,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Unmasked Positions",
                         "description": "Specific index positions to remain unmasked.",
                         "x-component": "Select",
+                        "default": None,
                         "oneOf": [
                             {"const": 0, "description": "0"},
                             {"const": 2, "description": "2"},
@@ -145,7 +146,9 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Pattern Type",
                         "description": "Predefined pattern type (e.g., email, phone) for pattern-based masking.",
                         "x-component": "Select",
+                        "default": None,
                         "oneOf": [
+                            {"type": "null"},
                             {"const": "email", "description": "Email address"},
                             {"const": "email_domain", "description": "Email domain"},
                             {"const": "phone", "description": "Phone number"},
@@ -320,7 +323,9 @@ class PartialMaskingConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Preset Type",
                         "description": "Preset category for reusable masking templates.",
+                        "default": None,
                         "oneOf": [
+                            {"type": "null"},
                             {"const": MaskingType.EMAIL.value, "description": "Email"},
                             {"const": MaskingType.PHONE.value, "description": "Phone"},
                             {
