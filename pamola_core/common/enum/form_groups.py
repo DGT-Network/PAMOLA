@@ -56,6 +56,10 @@ class GroupName(str, Enum):
     JOIN_KEYS = "join_keys"
     INPUT_DATASETS = "input_datasets"
     SUFFIXES = "suffixes"
+    GROUP_CONFIGURATION = "group_configuration"
+    TEXT_COMPARISON_SETTINGS = "text_comparison_settings"
+    ANALYSIS_CONFIGURATION = "analysis_configuration"
+    FIELD_WEIGHTS_CONFIGURATION = "field_weights_configuration"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -103,6 +107,10 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.JOIN_KEYS: "Join Keys",
     GroupName.INPUT_DATASETS: "Input Datasets",
     GroupName.SUFFIXES: "Suffixes",
+    GroupName.GROUP_CONFIGURATION: "Group Configuration",  
+    GroupName.TEXT_COMPARISON_SETTINGS: "Text Comparison Settings",
+    GroupName.ANALYSIS_CONFIGURATION: "Analysis Configuration",
+    GroupName.FIELD_WEIGHTS_CONFIGURATION: "Field Weights Configuration",
 }
 
 
@@ -245,6 +253,17 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.SUFFIXES,
         GroupName.OUTPUT_CONFIGURATION,
         GroupName.EXECUTION_BEHAVIOR,
+    ],
+    "GroupAnalyzerOperationConfig": [
+        GroupName.GROUP_CONFIGURATION,
+        GroupName.TEXT_COMPARISON_SETTINGS,
+        GroupName.FIELD_WEIGHTS_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "KAnonymityProfilerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }
 

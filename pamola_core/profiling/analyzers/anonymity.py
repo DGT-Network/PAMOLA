@@ -62,7 +62,7 @@ import pandas as pd
 
 from pamola_core.common.constants import Constants
 from pamola_core.profiling.commons.analysis_mode_enum import AnalysisMode
-from pamola_core.profiling.schemas.anonymity_config import KAnonymityProfilerOperationConfig
+from pamola_core.profiling.schemas.anonymity_schema import KAnonymityProfilerOperationConfig
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register

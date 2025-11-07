@@ -65,6 +65,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     # --- Rounding parameters ---
                     "rounding_unit": {
                         "type": "string",
+                        "default": "day",
                         "title": "Rounding Unit",
                         "description": "Unit for rounding datetime values (e.g., year, month, day, hour).",
                         "x-component": "Select",
@@ -112,6 +113,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     },
                     "interval_unit": {
                         "type": "string",
+                        "default": "days",
                         "title": "Interval Unit",
                         "description": "Unit for binning interval (e.g., days, weeks, months).",
                         "x-component": "Select",
@@ -133,9 +135,8 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": {"strategy": "relative"},
                         "x-component-props": {
-                            "showTime": True,
                             "format": "YYYY-MM-DD",
-                            "placeholder": "Select date",
+                            "placeholder": "Select date"
                         },
                     },
                     "custom_bins": {
@@ -146,34 +147,35 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": {"bin_type": "custom"},
                         "x-component-props": {
-                            "showTime": True,
-                            "format": "YYYY-MM-DD HH:mm:ss",
-                            "valueFormat": "YYYY-MM-DD HH:mm:ss",
-                            "placeholder": "YYYY-MM-DD HH:mm:ss",
+                            "format": "YYYY-MM-DD",
                             "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",
-                            "needConfirm": True,
+                            "placeholder": "YYYY-MM-DD"
                         },
                     },
                     # --- Component-based generalization ---
                     "keep_components": {
                         "type": ["array", "null"],
-                        "items": {
-                            "type": "string",
-                            "enum": [
-                                "year",
-                                "month",
-                                "day",
-                                "hour",
-                                "minute",
-                                "weekday",
-                            ],
-                        },
                         "title": "Components to Keep",
                         "description": "List of datetime components to keep (e.g., year, month, day, hour, minute, weekday).",
                         "x-component": "Select",
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": {"strategy": "component"},
                         "oneOf": [
+                            {"type": "null"},
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "enum": [
+                                        "year",
+                                        "month",
+                                        "day",
+                                        "hour",
+                                        "minute",
+                                        "weekday",
+                                    ]
+                                }
+                            },
                             {"const": "year", "description": "Years"},
                             {"const": "month", "description": "Month"},
                             {"const": "day", "description": "Day"},
@@ -219,15 +221,13 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     },
                     "input_formats": {
                         "type": ["array", "null"],
-                        # "items": {"type": "string"},
                         "title": "Custom Input Formats",
                         "description": "Accepted input datetime formats.",
-                        "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "x-component": "Input",
+                        "x-component": "DateFormatArray",
+                        "x-component-props": {
+                            "formatActions": "{{ supportedFormatActions }}",
+                            "placeholder": "Custom datetime pattern"
                         },
-                        "x-component": "ArrayItems",
                         "x-group": GroupName.FORMATTING_AND_TIMEZONE,
                     },
                     # --- Privacy & QI ---

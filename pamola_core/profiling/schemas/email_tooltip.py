@@ -44,6 +44,12 @@ class EmailOperationTooltip:
         "• Impact: Useful for exploring domain usage patterns visually during data profiling."
     )
 
+    force_recalculation = (
+        "Ignore saved results. Check this box to force the operation to run again "
+        "instead of using a cached result from a previous run with the same settings."
+    )
+
+
     @classmethod
     def as_dict(cls):
         """Return tooltips as a dictionary for Formily or schema builders."""
@@ -52,4 +58,5 @@ class EmailOperationTooltip:
             "min_frequency": cls.min_frequency,
             "generate_visualization": cls.generate_visualization,
             "analyze_privacy_risk": cls.analyze_privacy_risk,
+            "force_recalculation": cls.force_recalculation,
         }
