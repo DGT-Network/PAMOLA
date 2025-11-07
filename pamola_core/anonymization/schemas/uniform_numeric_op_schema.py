@@ -185,6 +185,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                     "multi_conditions": {
                         "type": ["array", "null"],
                         "x-component": "ArrayItems",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                         "items": {
                             "type": "object",
                             "properties": {

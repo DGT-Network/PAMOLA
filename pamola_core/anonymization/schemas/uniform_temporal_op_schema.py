@@ -181,8 +181,10 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "type": ["string", "null"],
                         "enum": ["day", "hour", "minute", "second", None],
                         "title": "Output Granularity",
+                        "default": None,
                         "description": "Granularity to which output datetimes are rounded: 'day', 'hour', 'minute', or 'second'.",
                         "oneOf": [
+                            {"type": "null"},
                             {"const": "", "description": ""},
                             {"const": "day", "description": "Day"},
                             {"const": "hour", "description": "Hour"},
@@ -208,6 +210,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                     "multi_conditions": {
                         "type": ["array", "null"],
                         "x-component": "ArrayItems",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                         "items": {
                             "type": "object",
                             "properties": {
