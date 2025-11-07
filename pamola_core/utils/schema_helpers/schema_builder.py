@@ -24,7 +24,7 @@ from pathlib import Path
 from pamola_core.anonymization.schemas.full_masking_op_tooltip import (
     FullMaskingOpTooltip,
 )
-from pamola_core.anonymization.schemas.numeric_op_tooltip import NumericOpTooltip
+from pamola_core.anonymization.schemas.numeric_op_tooltip import NumericGeneralizationTooltip
 from pamola_core.anonymization.schemas.partial_masking_op_tooltip import (
     PartialMaskingOpTooltip,
 )
@@ -299,7 +299,7 @@ ALL_OP_CONFIGS = [
     (
         NumericGeneralizationConfig,
         NUMERIC_GENERALIZATION_EXCLUDE_FIELDS,
-        NumericOpTooltip.as_dict(),
+        NumericGeneralizationTooltip.as_dict(),
     ),
     (
         PartialMaskingConfig,

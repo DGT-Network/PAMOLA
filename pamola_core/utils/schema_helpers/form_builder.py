@@ -62,7 +62,7 @@ def _normalize_field_type(type: Union[str, List[str]]) -> Union[str, List[str]]:
     """
     Normalize field type from JSON Schema to Formily format.
     Handles both single type and union types (list of types).
-    Filters out null values and converts integer to number.
+    Keeps null values and only converts integer to number.
     
     Args:
         type: Field type - can be string or list of strings (e.g., ["string", "null"])
@@ -70,31 +70,23 @@ def _normalize_field_type(type: Union[str, List[str]]) -> Union[str, List[str]]:
     Returns:
         Normalized type - can be string or list of strings
         - Single type: "integer" -> "number", "string" -> "string"
-        - List types: ["string", "integer", "null"] -> ["string", "number"]
+        - List types: ["string", "integer", "null"] -> ["string", "number", "null"]
     
     Examples:
         "integer" -> "number"
-        ["integer", "null"] -> "number" (single type after filtering)
-        ["string", "integer", "null"] -> ["string", "number"]
+        ["integer", "null"] -> ["number", "null"]
+        ["string", "integer", "null"] -> ["string", "number", "null"]
         "string" -> "string"
     """
     if isinstance(type, list):
-        # Filter out null values and convert integer to number
+        # Keep null values, only convert integer to number
         normalized_types = []
         for t in type:
-            if t == "null":
-                continue
-            elif t == "integer":
+            if t == "integer":
                 normalized_types.append("number")
             else:
                 normalized_types.append(t)
         
-        if not normalized_types:
-            return "string"  # Default fallback if only null
-        
-        # Return single type if only one remains, otherwise return list
-        if len(normalized_types) == 1:
-            return normalized_types[0]
         return normalized_types
     else:
         # Single type - convert integer to number
@@ -154,7 +146,7 @@ def _handle_array_items_component(
                 
                 for title, param in items_zip:
                     item_key = param.lower().replace(" ", "_")
-                    field["items"]["properties"][param] = {
+                    field["items"]["properties"][item_key] = {
                         "type": _normalize_field_type(item_type),
                         "title": f"{title}",
                         "x-decorator": "FormItem",

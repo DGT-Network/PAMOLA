@@ -116,7 +116,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             "Each range is defined as a two-element array [min, max]."
                         ),
                         "items": {
-                            "type": "array",
+                            "type": "number",
                             "items": {"type": "number"},
                             "minItems": 2,
                             "x-items-title": ["Min", "Max"],
