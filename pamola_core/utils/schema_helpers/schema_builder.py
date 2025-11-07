@@ -70,6 +70,7 @@ from pamola_core.profiling.schemas.identity_tooltip import (
 )
 from pamola_core.profiling.schemas.mvf_tooltip import MVFAnalysisOperationTooltip
 from pamola_core.profiling.schemas.numeric_tooltip import NumericOperationTooltip
+from pamola_core.profiling.schemas.phone_tooltip import PhoneOperationTooltip
 from pamola_core.transformations.schemas.add_modify_fields_config import (
     AddOrModifyFieldsOperationConfig,
 )
@@ -100,12 +101,13 @@ from pamola_core.transformations.schemas.merge_datasets_op_config import (
 from pamola_core.transformations.schemas.merge_datasets_op_config_exclude import (
     MERGE_DATASETS_EXCLUDE_FIELDS,
 )
-from pamola_core.transformations.schemas.remove_fields_config import (
+from pamola_core.transformations.schemas.remove_fields_op_schema import (
     RemoveFieldsOperationConfig,
 )
-from pamola_core.transformations.schemas.remove_fields_config_exclude import (
+from pamola_core.transformations.schemas.remove_fields_op_schema_exclude import (
     REMOVE_FIELDS_EXCLUDE_FIELDS,
 )
+from pamola_core.transformations.schemas.remove_fields_op_tooltip import RemoveFieldsOperationTooltip
 from pamola_core.transformations.schemas.split_by_id_values_op_config import (
     SplitByIDValuesOperationConfig,
 )
@@ -228,8 +230,8 @@ from pamola_core.profiling.schemas.mvf_schema import MVFAnalysisOperationConfig
 from pamola_core.profiling.schemas.mvf_schema_exclude import MVF_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.numeric_schema import NumericOperationConfig
 from pamola_core.profiling.schemas.numeric_schema_exclude import NUMERIC_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.phone_config import PhoneOperationConfig
-from pamola_core.profiling.schemas.phone_config_exclude import PHONE_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.phone_schema import PhoneOperationConfig
+from pamola_core.profiling.schemas.phone_schema_exclude import PHONE_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.text_config import (
     TextSemanticCategorizerOperationConfig,
 )
@@ -274,7 +276,7 @@ ALL_OP_CONFIGS = [
     (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),
     (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS, None),
     (MergeDatasetsOperationConfig, MERGE_DATASETS_EXCLUDE_FIELDS, None),
-    (RemoveFieldsOperationConfig, REMOVE_FIELDS_EXCLUDE_FIELDS, None),
+    (RemoveFieldsOperationConfig, REMOVE_FIELDS_EXCLUDE_FIELDS, RemoveFieldsOperationTooltip.as_dict()),
     (SplitByIDValuesOperationConfig, SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS, None),
     (SplitFieldsOperationConfig, SPLIT_FIELDS_EXCLUDE_FIELDS, None),
     (
@@ -350,7 +352,7 @@ ALL_OP_CONFIGS = [
         MVFAnalysisOperationTooltip.as_dict(),
     ),
     (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS, NumericOperationTooltip.as_dict()),
-    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, None),
+    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, PhoneOperationTooltip.as_dict()),
     (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS, None),
 ]
 

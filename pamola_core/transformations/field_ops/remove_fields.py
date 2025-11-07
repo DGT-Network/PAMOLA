@@ -37,7 +37,7 @@ from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.transformations.schemas.remove_fields_config import RemoveFieldsOperationConfig
+from pamola_core.transformations.schemas.remove_fields_op_schema import RemoveFieldsOperationConfig
 
 # Configure module logger
 logger = logging.getLogger(__name__)
