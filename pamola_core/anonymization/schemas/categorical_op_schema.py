@@ -197,7 +197,6 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     },
                     "rare_value_template": {
                         "type": "string",
-                        "pattern": ".*\\d+.*",
                         "default": "OTHER_1",
                         "title": "Rare Value Template",
                         "description": "Template for numbered rare values (must contain {n}).",

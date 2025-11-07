@@ -458,6 +458,9 @@ def _add_x_reactions(
             run = f"{field['x-custom-function'][0]}({deps_expr}, $self)"
         else:
             run = f"$self.setValue({default_value_str})"
+            
+            if field.get("x-component") == "Upload":
+                run = "init_upload($self)" # For upload component initialization
         reactions.append(
             {
                 "dependencies": depend_fields,
