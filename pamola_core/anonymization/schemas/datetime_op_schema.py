@@ -84,6 +84,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     # --- Binning parameters ---
                     "bin_type": {
                         "type": "string",
+                        "default": "day_range",
                         "title": "Binning Type",
                         "description": "Type of binning to apply (e.g., day_range, hour_range, business_period, seasonal, custom).",
                         "x-component": "Select",
@@ -104,6 +105,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                     "interval_size": {
                         "type": "integer",
                         "minimum": 1,
+                        "default": 7,
                         "title": "Interval Size",
                         "description": "Size of each binning interval.",
                         "x-component": "NumberPicker",
@@ -136,7 +138,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-depend-on": {"strategy": "relative"},
                         "x-component-props": {
                             "format": "YYYY-MM-DD",
-                            "placeholder": "Select date"
+                            "placeholder": "Select date",
                         },
                     },
                     "custom_bins": {
@@ -149,7 +151,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-component-props": {
                             "format": "YYYY-MM-DD",
                             "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",
-                            "placeholder": "YYYY-MM-DD"
+                            "placeholder": "YYYY-MM-DD",
                         },
                     },
                     # --- Component-based generalization ---
@@ -173,8 +175,8 @@ class DateTimeGeneralizationConfig(OperationConfig):
                                         "hour",
                                         "minute",
                                         "weekday",
-                                    ]
-                                }
+                                    ],
+                                },
                             },
                             {"const": "year", "description": "Years"},
                             {"const": "month", "description": "Month"},
@@ -226,7 +228,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "x-component": "DateFormatArray",
                         "x-component-props": {
                             "formatActions": "{{ supportedFormatActions }}",
-                            "placeholder": "Custom datetime pattern"
+                            "placeholder": "Custom datetime pattern",
                         },
                         "x-group": GroupName.FORMATTING_AND_TIMEZONE,
                     },
@@ -235,6 +237,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1,
+                        "default": 0.0,
                         "title": "Minimum Privacy Threshold",
                         "description": "Minimum privacy preservation threshold (ratio of unique value reduction).",
                         "x-component": "FloatPicker",
@@ -245,7 +248,6 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "items": {"type": "string"},
                         "title": "Quasi-identifiers",
                         "description": "List of quasi-identifier fields to consider for privacy checks.",
-                        "visible": False,
                     },
                 },
                 "required": ["field_name", "strategy"],

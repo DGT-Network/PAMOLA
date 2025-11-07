@@ -158,6 +158,7 @@ def validate_json_schema(data: Dict[str, Any],
         # jsonschema not installed, log warning and continue
         logger.warning("jsonschema package not installed. Schema validation skipped.")
     except jsonschema.exceptions.ValidationError as e:
+        logger.error(f"Schema validation failed: {e}")
         raise error_class(f"Schema validation failed: {e.message}") from e
 
 
