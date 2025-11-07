@@ -48,7 +48,6 @@ class FakePhoneOperation(GeneratorOperation):
         key: Optional[str] = None,
         context_salt: Optional[str] = None,
         country_code_field: Optional[str] = None,
-        formats: Optional[List[str]] = None,
         **kwargs,
     ):
         """
@@ -110,7 +109,6 @@ class FakePhoneOperation(GeneratorOperation):
             key=key,
             context_salt=context_salt,
             country_code_field=country_code_field,
-            formats=formats,
             **kwargs,
         )
 
@@ -258,8 +256,6 @@ class FakePhoneOperation(GeneratorOperation):
             gen_params = {
                 "country_code": country_code,
                 "region": self.region,
-                "international_format": self.international_format,
-                "local_formatting": self.local_formatting,
                 "context_salt": self.context_salt or "phone-generation",
                 "record_id": record_id,
             }
@@ -584,8 +580,6 @@ class FakePhoneOperation(GeneratorOperation):
             "format": getattr(gen, "format", None),
             "default_country": getattr(self, "default_country", None),
             "region": getattr(self, "region", None),
-            "international_format": getattr(self, "international_format", False),
-            "local_formatting": getattr(self, "local_formatting", False),
             "preserve_country_code": getattr(gen, "preserve_country_code", True),
             "preserve_operator_code": getattr(gen, "preserve_operator_code", False),
             "validate_source": getattr(gen, "validate_source", True),

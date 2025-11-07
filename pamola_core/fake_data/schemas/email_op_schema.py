@@ -17,7 +17,6 @@ Configuration schema for defining and validating fake email generation operation
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake email config file
 """
-
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -38,7 +37,7 @@ class FakeEmailOperationConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the column containing email addresses to process.",
+                        "description": "Name of the column containing email addresses to process."
                     },
                     "format": {
                         "type": ["string", "null"],
@@ -48,13 +47,10 @@ class FakeEmailOperationConfig(OperationConfig):
                             {"const": "name_surname", "description": "Name Surname"},
                             {"const": "surname_name", "description": "Surname Name"},
                             {"const": "nickname", "description": "Nickname"},
-                            {
-                                "const": "existing_domain",
-                                "description": "Existing Domain",
-                            },
+                            {"const": "existing_domain", "description": "Existing Domain"}
                         ],
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
-                        "description": "Format for generating email addresses (e.g., 'first_last', 'nickname').",
+                        "description": "Format for generating email addresses (e.g., 'first_last', 'nickname')."
                     },
                     "format_ratio": {
                         "type": ["object", "null"],
@@ -62,8 +58,9 @@ class FakeEmailOperationConfig(OperationConfig):
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
                         "x-component": "Input",
                         "x-depend-on": {"format": "null"},
-                        "description": "Ratio distribution for using different email formats.",
+                        "description": "Ratio distribution for using different email formats."
                     },
+                    
                     # --- Generator fine-tuning fields ---
                     "separator_options": {
                         "type": ["array", "null"],
@@ -74,11 +71,11 @@ class FakeEmailOperationConfig(OperationConfig):
                             {"const": ".", "description": "Dot"},
                             {"const": "_", "description": "Underscore"},
                             {"const": "-", "description": "Dash"},
-                            {"const": "", "description": "Blank"},
+                            {"const": "", "description": "Blank"}
                         ],
                         "title": "Separator Options",
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
-                        "description": "List of separators to use between name parts in email addresses.",
+                        "description": "List of separators to use between name parts in email addresses."
                     },
                     "number_suffix_probability": {
                         "type": "number",
@@ -88,7 +85,7 @@ class FakeEmailOperationConfig(OperationConfig):
                         "x-component": "NumberPicker",
                         "title": "Number Suffix Probability",
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
-                        "description": "Probability of adding a numeric suffix to the email local part.",
+                        "description": "Probability of adding a numeric suffix to the email local part."
                     },
                     "preserve_domain_ratio": {
                         "type": "number",
@@ -98,7 +95,7 @@ class FakeEmailOperationConfig(OperationConfig):
                         "title": "Preserve Domain Ratio",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
-                        "description": "Probability of preserving the original domain in the generated email.",
+                        "description": "Probability of preserving the original domain in the generated email."
                     },
                     "business_domain_ratio": {
                         "type": "number",
@@ -108,7 +105,7 @@ class FakeEmailOperationConfig(OperationConfig):
                         "title": "Business Domain Ratio",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
-                        "description": "Probability of using a business-related domain in the generated email.",
+                        "description": "Probability of using a business-related domain in the generated email."
                     },
                     "max_length": {
                         "type": "integer",
@@ -117,58 +114,58 @@ class FakeEmailOperationConfig(OperationConfig):
                         "title": "Max Email Length",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
-                        "description": "Maximum allowed length for generated email addresses.",
+                        "description": "Maximum allowed length for generated email addresses."
                     },
                     "first_name_field": {
                         "type": ["string", "null"],
                         "title": "First Name Field",
                         "x-group": GroupName.DATA_SOURCES_FOR_GENERATION,
                         "x-component": "Select",
-                        "description": "Column name for first name, used in name-based email generation.",
+                        "description": "Column name for first name, used in name-based email generation."
                     },
                     "last_name_field": {
                         "type": ["string", "null"],
                         "title": "Last Name Field",
                         "x-group": GroupName.DATA_SOURCES_FOR_GENERATION,
                         "x-component": "Select",
-                        "description": "Column name for last name, used in name-based email generation.",
+                        "description": "Column name for last name, used in name-based email generation."
                     },
                     "full_name_field": {
                         "type": ["string", "null"],
                         "title": "Full Name Field",
                         "x-group": GroupName.DATA_SOURCES_FOR_GENERATION,
                         "x-component": "Select",
-                        "description": "Column name for full name, used in name-based email generation.",
+                        "description": "Column name for full name, used in name-based email generation."
                     },
                     "name_format": {
                         "type": ["string", "null"],
                         "title": "Name Format",
                         "oneOf": [
-                            {"const": "FL", "title": "First Last"},
-                            {"const": "LF", "title": "Last First"},
-                            {"const": "FML", "title": "First Middle Last"},
-                            {"const": "LFM", "title": "Last First Middle"},
-                            {"const": "F", "title": "First Name"},
-                            {"const": "L", "title": "Last Name"},
+                            { "const": "FL", "title": "First Last" },
+                            { "const": "LF", "title": "Last First" },
+                            { "const": "FML", "title": "First Middle Last" },
+                            { "const": "LFM", "title": "Last First Middle" },
+                            { "const": "F", "title": "First Name" },
+                            { "const": "L", "title": "Last Name" }
                         ],
                         "x-component": "Select",
                         "x-group": GroupName.DATA_SOURCES_FOR_GENERATION,
                         "x-depend-on": {"full_name_field": "not_null"},
-                        "description": "Format of the full name (e.g., 'FL', 'LF').",
+                        "description": "Format of the full name (e.g., 'FL', 'LF')."
                     },
                     "nicknames_dict": {
                         "type": ["string", "null"],
                         "title": "Nicknames Dictionary",
                         "x-component": "Upload",
                         "x-group": GroupName.DATA_SOURCES_FOR_GENERATION,
-                        "description": "Path to nickname mapping file for generating nickname-based emails.",
+                        "description": "Path to nickname mapping file for generating nickname-based emails."
                     },
                     "domains": {
                         "type": ["array", "string", "null"],
                         "title": "Domains",
                         "x-component": "Select",
                         "x-group": GroupName.DATA_SOURCES_FOR_GENERATION,
-                        "description": "List of domains or path to domain dictionary for email generation.",
+                        "description": "List of domains or path to domain dictionary for email generation."
                     },
                     # --- GeneratorOperation-specific fields ---
                     "generator": {
@@ -184,46 +181,47 @@ class FakeEmailOperationConfig(OperationConfig):
                     "consistency_mechanism": {
                         "type": "string",
                         "oneOf": [
-                            {"const": "mapping", "title": "mapping"},
-                            {"const": "prgn", "title": "prgn"},
+                            { "const": "mapping", "title": "mapping" },
+                            { "const": "prgn", "title": "prgn" }
                         ],
                         "default": "prgn",
                         "x-component": "Select",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "title": "Consistency Method",
-                        "description": "Controls how consistent synthetic values are generated: 'mapping' for mapping store, 'prgn' for pseudo-random generation.",
+                        "description": "Controls how consistent synthetic values are generated: 'mapping' for mapping store, 'prgn' for pseudo-random generation."
                     },
                     "id_field": {
                         "type": ["string", "null"],
                         "title": "Unique ID Field",
                         "x-component": "Select",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "description": "Field name used as unique identifier for mapping consistency.",
+                        "description": "Field name used as unique identifier for mapping consistency."
                     },
                     # --- Generator fine-tuning fields ---
                     "key": {
                         "type": ["string", "null"],
                         "title": "PRGN Key",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "x-depend-on": {"consistency_mechanism": "prgn"},
+                        "x-depend-on": { "consistency_mechanism": "prgn" },
                         "x-component": "Input",
-                        "description": "Key for encryption or PRGN consistency, if applicable.",
+                        "description": "Key for encryption or PRGN consistency, if applicable."
                     },
                     "context_salt": {
                         "type": ["string", "null"],
                         "title": "PRGN Context Salt",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "x-depend-on": {"consistency_mechanism": "prgn"},
+                        "x-depend-on": { "consistency_mechanism": "prgn" },
                         "x-component": "Input",
-                        "description": "Additional context salt for PRGN to enhance uniqueness.",
+                        "description": "Additional context salt for PRGN to enhance uniqueness."
                     },
+
                     "mapping_store_path": {
                         "type": ["string", "null"],
                         "title": "Mapping Store Path",
                         "x-component": "Input",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "x-depend-on": {"consistency_mechanism": "mapping"},
-                        "description": "Path to store mapping between original and synthetic emails.",
+                        "x-depend-on": { "consistency_mechanism": "mapping" },
+                        "description": "Path to store mapping between original and synthetic emails."
                     },
                     "mapping_store": {
                         "type": ["object", "null"],
@@ -236,8 +234,8 @@ class FakeEmailOperationConfig(OperationConfig):
                         "title": "Save Mapping",
                         "x-component": "Select",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "x-depend-on": {"consistency_mechanism": "mapping"},
-                        "description": "Whether to save the mapping between original and synthetic emails.",
+                        "x-depend-on": { "consistency_mechanism": "mapping" },
+                        "description": "Whether to save the mapping between original and synthetic emails."
                     },
                     "validate_source": {
                         "type": "boolean",
@@ -245,24 +243,22 @@ class FakeEmailOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                         "title": "Validate Source Emails",
-                        "description": "Whether to validate input email addresses before generating synthetic ones.",
+                        "description": "Whether to validate input email addresses before generating synthetic ones."
                     },
                     "handle_invalid_email": {
                         "type": "string",
                         "oneOf": [
-                            {"const": "generate_new", "title": "Generate New"},
-                            {"const": "keep_empty", "title": "Keep Empty"},
-                            {
-                                "const": "generate_with_default_domain",
-                                "title": "Generate with Default Domain",
-                            },
+                            { "const": "generate_new", "title": "Generate New" },
+                            { "const": "keep_empty", "title": "Keep Empty" },
+                            { "const": "generate_with_default_domain", "title": "Generate with Default Domain" }
                         ],
                         "x-component": "Select",
                         "x-group": GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
                         "default": "generate_new",
                         "title": "Invalid Email Handling",
-                        "description": "Strategy for handling invalid emails: generate new, keep empty, or use default domain.",
+                        "description": "Strategy for handling invalid emails: generate new, keep empty, or use default domain."
                     },
+
                     # --- Generator fine-tuning fields ---
                     "detailed_metrics": {
                         "type": "boolean",
@@ -270,7 +266,7 @@ class FakeEmailOperationConfig(OperationConfig):
                         "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                         "title": "Detailed Metrics",
-                        "description": "Whether to collect detailed metrics during email generation.",
+                        "description": "Whether to collect detailed metrics during email generation."
                     },
                     "max_retries": {
                         "type": "integer",
@@ -279,7 +275,7 @@ class FakeEmailOperationConfig(OperationConfig):
                         "x-component": "NumberPicker",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                         "title": "Max Retries",
-                        "description": "Maximum number of retries for generating a valid synthetic email.",
+                        "description": "Maximum number of retries for generating a valid synthetic email."
                     },
                 },
                 "required": ["field_name"],

@@ -34,17 +34,6 @@ class FakeNameOperationConfig(OperationConfig):
             {
                 "type": "object",
                 "properties": {
-                    # --- GeneratorOperation-specific fields ---
-                    "generator": {
-                        "type": ["object", "null"],
-                        "title": "Generator Instance",
-                        "description": "Custom generator instance for name synthesis (advanced usage).",
-                    },
-                    "generator_params": {
-                        "type": ["object", "null"],
-                        "title": "Generator Parameters",
-                        "description": "Parameters passed to the name generator (language, gender, format, etc.).",
-                    },
                     # --- FakeNameOperation-specific fields ---
                     "field_name": {
                         "type": "string",
@@ -99,7 +88,7 @@ class FakeNameOperationConfig(OperationConfig):
                     "dictionaries": {
                         "type": ["object", "null"],
                         "title": "Custom Dictionaries",
-                        "x-component": "Input",
+                        "x-component": "Upload",  # TODO: Use custom component when available
                         "description": "Custom dictionaries for localized name generation (advanced usage).",
                         "x-group": GroupName.NAME_GENERATION_STYLE,
                     },
@@ -184,11 +173,6 @@ class FakeNameOperationConfig(OperationConfig):
                         "x-depend-on": {"consistency_mechanism": "mapping"},
                         "description": "Whether to save the mapping between original and synthetic names to disk.",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                    },
-                    "mapping_store": {
-                        "type": ["object", "null"],
-                        "title": "Mapping Store",
-                        "description": "In-memory mapping store object for value-to-synthetic mapping (internal use).",
                     },
                 },
                 "required": ["field_name"],

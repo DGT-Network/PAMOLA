@@ -21,11 +21,10 @@ Usage:
 import sys
 from pathlib import Path
 
-from regex import E
 from pamola_core.anonymization.schemas.full_masking_op_tooltip import (
     FullMaskingOpTooltip,
 )
-from pamola_core.anonymization.schemas.numeric_op_tooltip import NumericOpTooltip
+from pamola_core.anonymization.schemas.numeric_op_tooltip import NumericGeneralizationTooltip
 from pamola_core.anonymization.schemas.partial_masking_op_tooltip import (
     PartialMaskingOpTooltip,
 )
@@ -72,6 +71,7 @@ from pamola_core.profiling.schemas.identity_tooltip import (
 )
 from pamola_core.profiling.schemas.mvf_tooltip import MVFAnalysisOperationTooltip
 from pamola_core.profiling.schemas.numeric_tooltip import NumericOperationTooltip
+from pamola_core.profiling.schemas.phone_tooltip import PhoneOperationTooltip
 from pamola_core.transformations.schemas.add_modify_fields_config import (
     AddOrModifyFieldsOperationConfig,
 )
@@ -96,18 +96,20 @@ from pamola_core.transformations.schemas.impute_missing_values_op_config import 
 from pamola_core.transformations.schemas.impute_missing_values_op_config_exclude import (
     IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS,
 )
-from pamola_core.transformations.schemas.merge_datasets_op_config import (
+from pamola_core.transformations.schemas.merge_datasets_op_schema import (
     MergeDatasetsOperationConfig,
 )
-from pamola_core.transformations.schemas.merge_datasets_op_config_exclude import (
+from pamola_core.transformations.schemas.merge_datasets_op_schema_exclude import (
     MERGE_DATASETS_EXCLUDE_FIELDS,
 )
-from pamola_core.transformations.schemas.remove_fields_config import (
+from pamola_core.transformations.schemas.merge_datasets_op_tooltip import MergeDatasetsOperationTooltip
+from pamola_core.transformations.schemas.remove_fields_op_schema import (
     RemoveFieldsOperationConfig,
 )
-from pamola_core.transformations.schemas.remove_fields_config_exclude import (
+from pamola_core.transformations.schemas.remove_fields_op_schema_exclude import (
     REMOVE_FIELDS_EXCLUDE_FIELDS,
 )
+from pamola_core.transformations.schemas.remove_fields_op_tooltip import RemoveFieldsOperationTooltip
 from pamola_core.transformations.schemas.split_by_id_values_op_config import (
     SplitByIDValuesOperationConfig,
 )
@@ -230,8 +232,8 @@ from pamola_core.profiling.schemas.mvf_schema import MVFAnalysisOperationConfig
 from pamola_core.profiling.schemas.mvf_schema_exclude import MVF_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.numeric_schema import NumericOperationConfig
 from pamola_core.profiling.schemas.numeric_schema_exclude import NUMERIC_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.phone_config import PhoneOperationConfig
-from pamola_core.profiling.schemas.phone_config_exclude import PHONE_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.phone_schema import PhoneOperationConfig
+from pamola_core.profiling.schemas.phone_schema_exclude import PHONE_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.text_config import (
     TextSemanticCategorizerOperationConfig,
 )
@@ -275,8 +277,8 @@ ALL_OP_CONFIGS = [
     (AggregateRecordsOperationConfig, AGGREGATE_RECORDS_EXCLUDE_FIELDS, None),
     (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),
     (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS, None),
-    (MergeDatasetsOperationConfig, MERGE_DATASETS_EXCLUDE_FIELDS, None),
-    (RemoveFieldsOperationConfig, REMOVE_FIELDS_EXCLUDE_FIELDS, None),
+    (MergeDatasetsOperationConfig, MERGE_DATASETS_EXCLUDE_FIELDS, MergeDatasetsOperationTooltip.as_dict()),
+    (RemoveFieldsOperationConfig, REMOVE_FIELDS_EXCLUDE_FIELDS, RemoveFieldsOperationTooltip.as_dict()),
     (SplitByIDValuesOperationConfig, SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS, None),
     (SplitFieldsOperationConfig, SPLIT_FIELDS_EXCLUDE_FIELDS, None),
     (
@@ -297,7 +299,7 @@ ALL_OP_CONFIGS = [
     (
         NumericGeneralizationConfig,
         NUMERIC_GENERALIZATION_EXCLUDE_FIELDS,
-        NumericOpTooltip.as_dict(),
+        NumericGeneralizationTooltip.as_dict(),
     ),
     (
         PartialMaskingConfig,
@@ -375,12 +377,8 @@ ALL_OP_CONFIGS = [
         MVF_EXCLUDE_FIELDS,
         MVFAnalysisOperationTooltip.as_dict(),
     ),
-    (
-        NumericOperationConfig, 
-        NUMERIC_EXCLUDE_FIELDS, 
-        NumericOperationTooltip.as_dict()
-    ),
-    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, None),
+    (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS, NumericOperationTooltip.as_dict()),
+    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, PhoneOperationTooltip.as_dict()),
     (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS, None),
 ]
 
@@ -391,10 +389,16 @@ def generate_all_op_schemas(
     task_dir.mkdir(parents=True, exist_ok=True)
     for item in ALL_OP_CONFIGS:
         config_cls, exclude_fields, tooltip = item
-        generate_schema_json(
-            config_cls, task_dir, exclude_fields, generate_formily_schema, tooltip
-        )
-
+        if tooltip is None:
+            pass
+        try:
+            generate_schema_json(
+                config_cls, task_dir, exclude_fields, generate_formily_schema, tooltip
+            )
+        except KeyError as e:
+            print(f"Skipping {config_cls.__name__} due to missing group: {e}")
+            continue
+    
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

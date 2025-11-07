@@ -17,7 +17,6 @@ Configuration schema for defining and validating fake phone generation operation
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake phone config file
 """
-
 from click import Group
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -41,14 +40,14 @@ class FakePhoneOperationConfig(OperationConfig):
                     "field_name": {
                         "type": "string",
                         "title": "Field Name",
-                        "description": "Name of the field to be replaced with a fake phone number.",
+                        "description": "Name of the field to be replaced with a fake phone number."
                     },
                     "region": {
                         "type": ["string", "null"],
                         "title": "Default Region & Format",
                         "x-component": "Input",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
-                        "description": "Region for phone number style (e.g., 'global', 'US', 'VN').",
+                        "description": "Region for phone number style (e.g., 'global', 'US', 'VN')."
                     },
                     "default_country": {
                         "type": ["string", "null"],
@@ -56,7 +55,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Fallback Country",
                         "x-component": "Select",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
-                        "description": "Sets the default region to determine the country code and phone number formatting rules.",
+                        "description": "Sets the default region to determine the country code and phone number formatting rules."
                     },
                     "country_codes": {
                         "type": ["array", "null"],
@@ -64,14 +63,14 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Country Codes List",
                         "x-component": "Select",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
-                        "description": "Country codes to use for phone number generation (e.g., '+84', 'US').",
+                        "description": "Country codes to use for phone number generation (e.g., '+84', 'US')."
                     },
                     "country_code_field": {
                         "type": ["string", "null"],
                         "x-component": "Select",
                         "title": "Country Code Field",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
-                        "description": "Field name containing country codes to guide phone number generation.",
+                        "description": "Field name containing country codes to guide phone number generation."
                     },
                     "operator_codes_dict": {
                         "type": ["object", "null"],
@@ -79,16 +78,15 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Operator Codes Dictionary",
                         "x-component": "Upload",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
-                        "description": "Dictionary mapping country codes to lists of operator codes for phone number generation.",
+                        "description": "Dictionary mapping country codes to lists of operator codes for phone number generation."
                     },
-                    "formats": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
+                    "format": {
+                        "type": ["string", "null"],
                         "default": None,
                         "x-component": "Select",
                         "title": "Output Format",
                         "x-group": GroupName.FORMATTING_RULES,
-                        "description": "List of phone number formats to use for generation.",
+                        "description": "Phone number format template to use for generation."
                     },
                     "preserve_country_code": {
                         "type": "boolean",
@@ -96,7 +94,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Preserve Country Code",
                         "x-component": "Checkbox",
                         "x-group": GroupName.GENERATION_LOGIC,
-                        "description": "Whether to preserve the original country code in the generated phone number.",
+                        "description": "Whether to preserve the original country code in the generated phone number."
                     },
                     "preserve_operator_code": {
                         "type": "boolean",
@@ -104,19 +102,10 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Preserve Operator Code",
                         "x-component": "Checkbox",
                         "x-group": GroupName.GENERATION_LOGIC,
-                        "description": "Whether to preserve the original operator code in the generated phone number.",
+                        "description": "Whether to preserve the original operator code in the generated phone number."
                     },
+
                     # --- GeneratorOperation / BaseOperation common fields ---
-                    "generator": {
-                        "type": ["object", "null"],
-                        "title": "Generator",
-                        "description": "Custom generator instance or parameters for phone number generation.",
-                    },
-                    "generator_params": {
-                        "type": ["object", "null"],
-                        "title": "Generator Parameters",
-                        "description": "Parameters to configure the phone number generator.",
-                    },
                     "consistency_mechanism": {
                         "type": "string",
                         "enum": ["mapping", "prgn"],
@@ -125,17 +114,17 @@ class FakePhoneOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "oneOf": [
                             {"const": "mapping", "description": "mapping"},
-                            {"const": "prgn", "description": "prgn"},
+                            {"const": "prgn", "description": "prgn"}
                         ],
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "description": "Mechanism for consistent pseudonymization: 'mapping' for mapping store, 'prgn' for deterministic pseudo-random generation.",
+                        "description": "Mechanism for consistent pseudonymization: 'mapping' for mapping store, 'prgn' for deterministic pseudo-random generation."
                     },
                     "id_field": {
                         "type": ["string", "null"],
                         "title": "Unique ID Field",
                         "x-component": "Select",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "description": "Field name used as unique identifier for mapping consistency.",
+                        "description": "Field name used as unique identifier for mapping consistency."
                     },
                     # --- Advanced behavior & metrics ---
                     "key": {
@@ -143,38 +132,33 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "PRGN Key",
                         "x-component": "Input",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "x-depend-on": {"consistency_mechanism": "prgn"},
-                        "description": "Optional key for advanced configuration or encryption.",
+                        "x-depend-on": { "consistency_mechanism": "prgn" },
+                        "description": "Optional key for advanced configuration or encryption."
                     },
                     "context_salt": {
                         "type": ["string", "null"],
                         "title": "PRGN Context Salt",
                         "x-component": "Input",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "x-depend-on": {"consistency_mechanism": "prgn"},
-                        "description": "Salt value for context-aware pseudonymization.",
+                        "x-depend-on": { "consistency_mechanism": "prgn" },
+                        "description": "Salt value for context-aware pseudonymization."
                     },
                     "mapping_store_path": {
                         "type": ["string", "null"],
                         "title": "Mapping Store Path",
                         "x-component": "Upload",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "x-depend-on": {"consistency_mechanism": "mapping"},
-                        "description": "File path to persistently store mapping for consistent pseudonymization.",
-                    },
-                    "mapping_store": {
-                        "type": ["object", "null"],
-                        "title": "Mapping Store",
-                        "description": "In-memory mapping store for value consistency.",
+                        "x-depend-on": { "consistency_mechanism": "mapping" },
+                        "description": "File path to persistently store mapping for consistent pseudonymization."
                     },
                     "save_mapping": {
                         "type": "boolean",
                         "default": False,
                         "title": "Save Mapping",
                         "x-component": "Checkbox",
-                        "x-depend-on": {"consistency_mechanism": "mapping"},
+                        "x-depend-on": { "consistency_mechanism": "mapping" },
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
-                        "description": "Whether to save the mapping store to disk after operation.",
+                        "description": "Whether to save the mapping store to disk after operation."
                     },
                     "validate_source": {
                         "type": "boolean",
@@ -182,23 +166,20 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Validate Source",
                         "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "description": "Whether to validate source phone numbers before processing.",
+                        "description": "Whether to validate source phone numbers before processing."
                     },
                     "handle_invalid_phone": {
-                        "type": "string",
+                        "type": "string",   
                         "default": "generate",
                         "title": "Invalid Number Handling",
                         "x-component": "Select",
                         "oneOf": [
                             {"const": "generate_new", "description": "Generate New"},
                             {"const": "keep_empty", "description": "Keep Empty"},
-                            {
-                                "const": "generate_with_default_country",
-                                "description": "Generate with Default Country",
-                            },
+                            {"const": "generate_with_default_country", "description": "Generate with Default Country"}
                         ],
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "description": "Strategy to handle invalid phone numbers in the source data.",
+                        "description": "Strategy to handle invalid phone numbers in the source data."
                     },
                     "detailed_metrics": {
                         "type": "boolean",
@@ -206,7 +187,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Detailed Metrics",
                         "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "description": "Collect detailed metrics during phone number generation.",
+                        "description": "Collect detailed metrics during phone number generation."
                     },
                     "max_retries": {
                         "type": "integer",
@@ -215,7 +196,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Max Retries",
                         "x-component": "Input",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "description": "Maximum number of retries for generating a valid phone number.",
+                        "description": "Maximum number of retries for generating a valid phone number."
                     },
                 },
                 "required": ["field_name"],
