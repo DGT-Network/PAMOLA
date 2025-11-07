@@ -181,9 +181,10 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "type": ["string", "null"],
                         "enum": ["day", "hour", "minute", "second", None],
                         "title": "Output Granularity",
+                        "default": None,
                         "description": "Granularity to which output datetimes are rounded: 'day', 'hour', 'minute', or 'second'.",
                         "oneOf": [
-                            {"const": "", "description": ""},
+                            {"type": "null"},
                             {"const": "day", "description": "Day"},
                             {"const": "hour", "description": "Hour"},
                             {"const": "minute", "description": "Minute"},
@@ -208,6 +209,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                     "multi_conditions": {
                         "type": ["array", "null"],
                         "x-component": "ArrayItems",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                         "items": {
                             "type": "object",
                             "properties": {
@@ -276,6 +278,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -293,6 +296,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
+                        "x-custom-function": ["update_condition_operator"],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -305,6 +309,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
+                        "x-custom-function": ["update_condition_values"],
                     },
                     # K-anonymity integration
                     "ka_risk_field": {

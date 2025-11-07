@@ -57,6 +57,7 @@ from pamola_core.utils.ops.op_result import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.utils.helpers import filter_used_kwargs
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -484,11 +485,14 @@ class EmailOperation(FieldOperation):
                     progress_tracker.update(5, {"step": "Created visualization"})
 
             # Create and save domain dictionary
+            safe_kwargs = filter_used_kwargs(
+                kwargs, EmailAnalyzer.create_domain_dictionary
+            )
             dict_result = EmailAnalyzer.create_domain_dictionary(
                 df=df,
                 field_name=self.field_name,
                 min_count=self.min_frequency,
-                **kwargs,
+                **safe_kwargs,
             )
 
             if "error" not in dict_result:
