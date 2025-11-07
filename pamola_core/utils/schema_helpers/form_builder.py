@@ -216,11 +216,6 @@ def _handle_array_items_component(
                     "x-decorator": "FormItem",
                     "x-component": "Input",
                 },
-                # "remove": {
-                #     "type": "void",
-                #     "x-component": "ArrayItems.Remove",
-                #     "x-component-props": {"style": {"marginLeft": "8px"}},
-                # },
             },
         }
 
