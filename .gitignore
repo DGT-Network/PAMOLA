@@ -56,6 +56,7 @@ dmypy.json
 
 # Jupyter
 .ipynb_checkpoints
+notebook_artifacts/
 
 # macOS files
 .DS_Store
