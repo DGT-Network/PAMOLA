@@ -151,7 +151,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "items": {"type": "string"},
                         "title": "Special Dates",
                         "description": "List of dates (as strings) to preserve unchanged during noise application.",
-                        "x-component": "DatePicker",
+                        "x-component": "DatePickerArray",
                         "x-component-props": {
                             "format": "YYYY-MM-DD",
                             "placeholder": "Select date",
@@ -218,6 +218,11 @@ class UniformTemporalNoiseConfig(OperationConfig):
                                     "title": "Condition Field",
                                     "x-component": "Select",
                                     "description": "Field name for the condition.",
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
+                                    "x-custom-function": ["update_condition_field"],
                                 },
                                 "operator": {
                                     "type": "string",
@@ -242,7 +247,12 @@ class UniformTemporalNoiseConfig(OperationConfig):
                                         {"const": "all", "description": "All"},
                                     ],
                                     "x-depend-on": {"field": "not_null"},
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
                                     "description": "Operator for the condition (e.g., '=', '>', '<', 'in').",
+                                    "x-custom-function": ["update_condition_operator"],
                                 },
                                 "values": {
                                     "type": "array",
@@ -253,6 +263,11 @@ class UniformTemporalNoiseConfig(OperationConfig):
                                         "field": "not_null",
                                         "operator": "not_null",
                                     },
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
+                                    "x-custom-function": ["update_condition_values"],
                                 },
                             },
                         },
@@ -303,7 +318,6 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Condition Values",
                         "x-component": "Input",  # ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
-                        "items": {"type": "string"},
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {
                             "condition_field": "not_null",

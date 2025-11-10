@@ -16,6 +16,7 @@ Description:
 Usage:
     Import and use convert_json_schema_to_formily, and related helpers.
 """
+
 import json
 import copy
 from typing import Any, Dict, List, Optional, Union
@@ -63,15 +64,15 @@ def _normalize_field_type(type: Union[str, List[str]]) -> Union[str, List[str]]:
     Normalize field type from JSON Schema to Formily format.
     Handles both single type and union types (list of types).
     Keeps null values and only converts integer to number.
-    
+
     Args:
         type: Field type - can be string or list of strings (e.g., ["string", "null"])
-    
+
     Returns:
         Normalized type - can be string or list of strings
         - Single type: "integer" -> "number", "string" -> "string"
         - List types: ["string", "integer", "null"] -> ["string", "number", "null"]
-    
+
     Examples:
         "integer" -> "number"
         ["integer", "null"] -> ["number", "null"]
@@ -86,7 +87,7 @@ def _normalize_field_type(type: Union[str, List[str]]) -> Union[str, List[str]]:
                 normalized_types.append("number")
             else:
                 normalized_types.append(t)
-        
+
         return normalized_types
     else:
         # Single type - convert integer to number
@@ -143,7 +144,7 @@ def _handle_array_items_component(
                     items_zip = zip(items_titles, item_params)
                 else:
                     items_zip = zip(items_titles, items_titles)
-                
+
                 for title, param in items_zip:
                     item_key = param.lower().replace(" ", "_")
                     field["items"]["properties"][item_key] = {
@@ -166,12 +167,16 @@ def _handle_array_items_component(
                                 },
                             }
                         ]
-                
+
                 # Convert default values to array of objects format if needed
                 # This handles both input formats:
                 # 1. Simple array: ["value1", "value2"] -> [{"prop1": "value1", "prop2": "value2"}]
                 # 2. Array of objects: [{"prop1": "value1", "prop2": "value2"}] -> keep as is
-                if "default" in field and isinstance(field["default"], list) and len(field["default"]) > 0:
+                if (
+                    "default" in field
+                    and isinstance(field["default"], list)
+                    and len(field["default"]) > 0
+                ):
                     if isinstance(field["default"][0], dict):
                         # Already in array of objects format - no conversion needed
                         default_obj = field["default"][0]
@@ -182,7 +187,7 @@ def _handle_array_items_component(
                         for i, value in enumerate(field["default"]):
                             if i < len(property_keys):
                                 default_obj[property_keys[i]] = value
-                        
+
                         # Convert to array of objects format
                         field["default"] = [default_obj]
             else:
@@ -211,16 +216,20 @@ def _handle_array_items_component(
             },
         }
 
-    if "minItems" in field and "maxItems" in field and field["minItems"] == field["maxItems"]:
+    if (
+        "minItems" in field
+        and "maxItems" in field
+        and field["minItems"] == field["maxItems"]
+    ):
         field.pop("minItems", None)
         field.pop("maxItems", None)
-        
+
     else:
         field["items"]["properties"]["remove"] = {
-                    "type": "void",
-                    "x-component": "ArrayItems.Remove",
-                    "x-component-props": {"style": {"marginLeft": "8px"}},
-                }
+            "type": "void",
+            "x-component": "ArrayItems.Remove",
+            "x-component-props": {"style": {"marginLeft": "8px"}},
+        }
         field["properties"] = {
             "add": {
                 "type": "void",
@@ -353,7 +362,7 @@ def convert_property(
 
     elif field["x-component"] == "DatePicker":
         field["x-decorator"] = "FormItem"
-    
+
     elif field["x-component"] == "DateFormatArray":
         field["x-decorator"] = "FormItem"
 
@@ -375,38 +384,58 @@ def convert_property(
                 "fulfill": {
                     "schema": {
                         "enum": "{{ (function() { \
-                            const map = " + str(options_map).replace("'", '"') + "; \
+                            const map = "
+                        + str(options_map).replace("'", '"')
+                        + "; \
                             return map[$deps[0]] || []; \
                         })() }}"
                     },
-                }
+                },
             },
             {
                 "dependencies": [f".{depend_on}"],
                 "fulfill": {
-                    "state": {
-                        "visible": "{{ !!$deps[0] }}"
-                    },
-                    "run": "{{ $self.setValue(undefined); }}"
-                }
-            }
+                    "state": {"visible": "{{ !!$deps[0] }}"},
+                    "run": "{{ $self.setValue(undefined); }}",
+                },
+            },
         ]
 
         field.pop("x-depend-map", None)
-            
+
+    elif field.get("x-component") == "NumericRangeMode":
+        field["enum"] = [
+            {
+                "label": "Symetric",
+                "value": "Symetric",
+                "dataType": "number",
+            },
+            {
+                "label": "Asymmetric",
+                "value": "Asymmetric",
+                "dataType": "array",
+            },
+        ]
 
     if "x-depend-on" in field or "x-required-on" in field:
         field = _add_x_reactions(field, formily_schema, is_nested)
 
-    if "x-custom-function" in field and "x-required-on" not in field and "x-depend-on" not in field:
+    if (
+        "x-custom-function" in field
+        and "x-required-on" not in field
+        and "x-depend-on" not in field
+    ):
         run = f"{field['x-custom-function'][0]}($self)"
-        field["x-reactions"] = field.get("x-reactions", [
-            {
-                "fulfill": {
-                    "run": f"{{{{ {run} }}}}",
-                },
-            }
-        ])
+        field["x-reactions"] = field.get(
+            "x-reactions",
+            [
+                {
+                    "fulfill": {
+                        "run": f"{{{{ {run} }}}}",
+                    },
+                }
+            ],
+        )
 
     # Nested object - mark as nested when calling recursively
     if field.get("type") == "object" and "properties" in field:
@@ -437,7 +466,7 @@ def _get_default_value_str(field: Dict[str, Any]) -> str:
 def _build_condition_expression(condition_value: Any, field_index: int) -> str:
     """Build a condition expression for field dependencies using $deps array."""
     if isinstance(condition_value, bool):
-        js_value = 'true' if condition_value else 'false'
+        js_value = "true" if condition_value else "false"
         return f" $deps[{field_index}] === {js_value} "
     if condition_value == "not_null":
         return f" !!$deps[{field_index}] "
@@ -517,9 +546,9 @@ def _add_x_reactions(
             run = f"{field['x-custom-function'][0]}({deps_expr}, $self)"
         else:
             run = f"$self.setValue({default_value_str})"
-            
+
             if field.get("x-component") == "Upload":
-                run = "init_upload($self)" # For upload component initialization
+                run = "init_upload($self)"  # For upload component initialization
         reactions.append(
             {
                 "dependencies": depend_fields,
@@ -603,6 +632,7 @@ def convert_json_schema_to_formily(
         result["group"] = get_groups_with_titles(operation_config_type)
 
     return result
+
 
 def _get_ordered_unique_keys(keys: list) -> List[str]:
     """Get unique keys from two dictionaries while preserving order."""

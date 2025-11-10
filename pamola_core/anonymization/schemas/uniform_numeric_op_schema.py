@@ -63,20 +63,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "x-group": GroupName.CORE_NOISE_STRATEGY,
                         "name": "noise_range",
                         "x-decorator": "FormItem",
-                        "required": True,
                         "default": 0.1,
-                        "enum": [
-                            {
-                                "label": "Symetric",
-                                "value": "Symetric",
-                                "dataType": "number",
-                            },
-                            {
-                                "label": "Asymmetric",
-                                "value": "Asymmetric",
-                                "dataType": "array",
-                            },
-                        ],
                         "x-component-props": {"step": 0.1, "precision": 1},
                     },
                     # ==== Bounds and Constraints ====
@@ -173,7 +160,6 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "title": "Condition Values",
                         "x-component": "Input",  # ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
-                        "items": {"type": "string"},
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {
                             "condition_field": "not_null",
@@ -194,6 +180,11 @@ class UniformNumericNoiseConfig(OperationConfig):
                                     "title": "Condition Field",
                                     "x-component": "Select",
                                     "description": "Field name for the condition.",
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
+                                    "x-custom-function": ["update_condition_field"],
                                 },
                                 "operator": {
                                     "type": "string",
@@ -218,7 +209,12 @@ class UniformNumericNoiseConfig(OperationConfig):
                                         {"const": "all", "description": "All"},
                                     ],
                                     "x-depend-on": {"field": "not_null"},
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
                                     "description": "Operator for the condition (e.g., '=', '>', '<', 'in').",
+                                    "x-custom-function": ["update_condition_operator"],
                                 },
                                 "values": {
                                     "type": "array",
@@ -229,6 +225,11 @@ class UniformNumericNoiseConfig(OperationConfig):
                                         "field": "not_null",
                                         "operator": "not_null",
                                     },
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
+                                    "x-custom-function": ["update_condition_values"],
                                 },
                             },
                         },

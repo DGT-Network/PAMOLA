@@ -602,7 +602,7 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Other fields to mask consistently with the main field.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": ["update_field_options"],
                     },
                     # Conditional processing parameters
                     "condition_field": {
@@ -636,7 +636,6 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Condition Values",
                         "x-component": "Input",  # ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
-                        "items": {"type": "string"},
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {
                             "condition_field": "not_null",
