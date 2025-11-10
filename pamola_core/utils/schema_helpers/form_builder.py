@@ -484,12 +484,10 @@ def _add_x_reactions(
     state = {}
 
     # Add reactions to field
-    depend_fields = list(
-        set(
-            list(field.get("x-depend-on", {}).keys())
-            + list(field.get("x-required-on", {}).keys())
-        )
-    )
+    x_depend_on = field.get("x-depend-on", {})
+    x_required_on = field.get("x-required-on", {})
+    keys = list(x_depend_on.keys()) + list(x_required_on.keys())
+    depend_fields = _get_ordered_unique_keys(keys)
 
     # Handle visibility conditions
     if "x-depend-on" in field:
@@ -604,4 +602,14 @@ def convert_json_schema_to_formily(
     if operation_config_type:
         result["group"] = get_groups_with_titles(operation_config_type)
 
+    return result
+
+def _get_ordered_unique_keys(keys: list) -> List[str]:
+    """Get unique keys from two dictionaries while preserving order."""
+    seen = set()
+    result = []
+    for key in keys:
+        if key not in seen:
+            result.append(key)
+            seen.add(key)
     return result
