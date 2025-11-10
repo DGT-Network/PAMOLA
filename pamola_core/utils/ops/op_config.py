@@ -445,6 +445,7 @@ class BaseOperationConfig(OperationConfig):
                     {"const": "json", "description": "json"},
                 ],
                 "x-component": "Select",
+                "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                 "title": "Output Format",
                 "description": "Format used when saving processed output data.",
                 "default": "csv",

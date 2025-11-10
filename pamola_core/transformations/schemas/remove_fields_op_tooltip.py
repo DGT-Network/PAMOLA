@@ -27,18 +27,37 @@ class RemoveFieldsOperationTooltip:
         'Pattern match="_old$" removes fields ending with "_old"'
     )
 
-    mode = "What it does: Determines whether the operation replaces the original dataset or creates enriched output with additional fields"
+    fields_to_remove = (
+        "What it does: Specifies which columns should be excluded from the split partitions\n"
+        "• Select one or more column names to remove before partitioning\n"
+        "• Useful for excluding sensitive fields, temporary columns, or irrelevant data from output files\n"
+        "• Example: Remove columns like 'password', 'ssn', or 'internal_notes' from all generated partitions\n"
+        "• Note: The ID field used for splitting cannot be removed and will always be included"
+    )
 
     output_format = "What it does: Specifies the file format used to save the dataset after field removal processing"
 
-    use_cache = "What it does: Enables caching of field removal results to speed up repeated operations with the same input data and field removal settings"
+    save_output = (
+        "What it does: Controls whether the generated partition files are actually saved to storage or just processed in memory\n"
+        "• When checked, creates separate files for each partition that can be downloaded or accessed later.\n"
+        "• When unchecked, partitions are created in memory only for immediate downstream processing"
+    )
+
+    generate_visualization = "What it does: Controls whether to generate PNG visualizations showing value distributions, combination frequencies, and value count distributions"
+
+    force_recalculation = (
+        "What it does: Forces the operation to recalculate results from scratch, ignoring any existing cached results. Useful when you want "
+        "to ensure results reflect any subtle data changes"
+    )
 
     @classmethod
     def as_dict(cls):
         """Return tooltips as a dictionary for Formily or schema builders."""
         return {
             "pattern": cls.pattern,
-            "mode": cls.mode,
+            "fields_to_remove": cls.fields_to_remove,
             "output_format": cls.output_format,
-            "use_cache": cls.use_cache,
+            "save_output": cls.save_output,
+            "generate_visualization": cls.generate_visualization,
+            "force_recalculation": cls.force_recalculation,
         }

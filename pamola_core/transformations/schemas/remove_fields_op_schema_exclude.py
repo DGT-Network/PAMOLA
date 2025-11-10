@@ -24,6 +24,7 @@ REMOVE_FIELDS_EXCLUDE_FIELDS = [
     "config",
     "optimize_memory",
     "adaptive_chunk_size",
+    "mode",
     "output_field_name",
     "column_prefix",
     "null_strategy",
@@ -41,8 +42,4 @@ REMOVE_FIELDS_EXCLUDE_FIELDS = [
     "use_encryption",
     "encryption_mode",
     "encryption_key",
-    "force_recalculation",
-    "generate_visualization",
-    "save_output",
-    "fields_to_remove",
 ]

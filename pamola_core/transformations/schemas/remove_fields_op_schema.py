@@ -39,14 +39,16 @@ class RemoveFieldsOperationConfig(OperationConfig):
                     "pattern": {
                         "type": ["string", "null"],
                         "title": "Pattern",
-                        "x-component": "Select",
+                        "x-component": "Input",
+                        "x-group": GroupName.FIELD_REMOVAL,
                         "description": "Regex pattern to match field names for removal. If null, no pattern-based removal is performed.",
                     },
                     "fields_to_remove": {
                         "type": ["array", "null"],
                         "items": {"type": "string"},
                         "title": "Fields to Remove",
-                        "x-group": GroupName.OUTPUT_CONFIGURATION,
+                        "x-component": "Select",
+                        "x-group": GroupName.FIELD_REMOVAL,
                         "description": "List of field names to remove from the dataset. If null, no explicit fields are removed.",
                     },
                 },

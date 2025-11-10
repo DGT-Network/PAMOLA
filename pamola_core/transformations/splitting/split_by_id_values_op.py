@@ -42,7 +42,7 @@ import matplotlib
 # Set the backend to 'Agg' to avoid GUI issues
 matplotlib.use("Agg")
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.commons.enum import PartitionMethod
+from pamola_core.transformations.commons.enum import OutputFormat, PartitionMethod
 from pamola_core.utils.io import (
     load_data_operation,
     ensure_directory,
