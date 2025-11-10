@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of numeric generalization config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -146,7 +147,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -164,7 +165,7 @@ class NumericGeneralizationConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
-                        "x-custom-function": ["update_condition_operator"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_OPERATOR],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -176,7 +177,7 @@ class NumericGeneralizationConfig(OperationConfig):
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
-                        "x-custom-function": ["update_condition_values"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_VALUES],
                     },
                     # === K-Anonymity integration ===
                     "ka_risk_field": {

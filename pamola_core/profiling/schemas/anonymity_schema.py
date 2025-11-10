@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of anonymity config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.profiling.analyzers.anonymity import AnalysisMode
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -70,7 +71,7 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of fields used as quasi-identifiers for k-anonymity analysis. These are the columns whose combinations are evaluated for re-identification risk.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                     },
                     "quasi_identifier_sets": {
                         "type": ["array", "null"],
@@ -83,7 +84,7 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Overrides automatic detection.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                     },
                     "threshold_k": {
                         "type": "integer",
@@ -111,7 +112,7 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of columns used as record identifiers for grouping or tracking vulnerable records.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                     },
                     "output_field_suffix": {
                         "type": "string",

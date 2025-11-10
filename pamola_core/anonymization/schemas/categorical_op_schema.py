@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of categorical generalization config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.anonymization.commons.categorical_config import (
@@ -291,7 +292,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "List of quasi-identifier field names.",
                         "x-component": "Select",
                         "x-group": GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                         "x-ignore-depend-fields": True,
                         "x-depend-on": {"privacy_check_enabled": True},
                         "x-required-on": {"privacy_check_enabled": True},
@@ -303,7 +304,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Field name for conditional processing.",
                         "x-component": "Select",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -321,7 +322,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
-                        "x-custom-function": ["update_condition_operator"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_OPERATOR],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -333,7 +334,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
-                        "x-custom-function": ["update_condition_values"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_VALUES],
                     },
                     # Risk assessment
                     "ka_risk_field": {
