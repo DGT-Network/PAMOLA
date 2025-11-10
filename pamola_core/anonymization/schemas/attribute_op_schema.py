@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of attribute suppression config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -72,7 +73,7 @@ class AttributeSuppressionConfig(OperationConfig):
                                     "title": "Condition Field",
                                     "description": "Field name for conditional processing.",
                                     "x-component": "Select",
-                                    "x-custom-function": ["update_condition_field"],
+                                    "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                                 },
                                 "operator": {
                                     "type": "string",
@@ -89,7 +90,7 @@ class AttributeSuppressionConfig(OperationConfig):
                                     ],
                                     "default": "in",
                                     "x-depend-on": {"condition_field": "not_null"},
-                                    "x-custom-function": ["update_condition_operator"],
+                                    "x-custom-function": [CustomFunctions.UPDATE_CONDITION_OPERATOR],
                                 },
                                 "values": {
                                     "type": ["array", "null"],
@@ -101,7 +102,7 @@ class AttributeSuppressionConfig(OperationConfig):
                                         "condition_field": "not_null",
                                         "condition_operator": "not_null",
                                     },
-                                    "x-custom-function": ["update_condition_values"],
+                                    "x-custom-function": [CustomFunctions.UPDATE_CONDITION_VALUES],
                                 },
                             },
                         },
@@ -128,7 +129,7 @@ class AttributeSuppressionConfig(OperationConfig):
                         "description": "Field name for conditional processing.",
                         "x-component": "Select",
                         "x-group": GroupName.SIMPLE_CONDITIONAL_RULE,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -146,7 +147,7 @@ class AttributeSuppressionConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.SIMPLE_CONDITIONAL_RULE,
                         "x-depend-on": {"condition_field": "not_null"},
-                        "x-custom-function": ["update_condition_operator"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_OPERATOR],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -158,7 +159,7 @@ class AttributeSuppressionConfig(OperationConfig):
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
-                        "x-custom-function": ["update_condition_values"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_VALUES],
                     },
                     # K-anonymity integration
                     "ka_risk_field": {
