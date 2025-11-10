@@ -286,7 +286,11 @@ ALL_OP_CONFIGS = [
         DATETIME_GENERALIZATION_EXCLUDE_FIELDS,
         DateTimeOpTooltip.as_dict(),
     ),
-    (FullMaskingConfig, FULL_MASKING_EXCLUDE_FIELDS, FullMaskingOpTooltip.as_dict()),
+    (
+        FullMaskingConfig,
+        FULL_MASKING_EXCLUDE_FIELDS,
+        FullMaskingOpTooltip.as_dict(),
+    ),
     (
         PartialMaskingConfig,
         PARTIAL_MASKING_EXCLUDE_FIELDS,
@@ -307,7 +311,11 @@ ALL_OP_CONFIGS = [
         ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS,
         AttributeSuppressionOpTooltip.as_dict(),
     ),
-    (CellSuppressionConfig, CELL_EXCLUDE_FIELDS, CellSuppressionOpTooltip.as_dict()),
+    (
+        CellSuppressionConfig,
+        CELL_EXCLUDE_FIELDS,
+        CellSuppressionOpTooltip.as_dict(),
+    ),
     (
         RecordSuppressionConfig,
         RECORD_EXCLUDE_FIELDS,
@@ -352,9 +360,21 @@ ALL_OP_CONFIGS = [
         CorrelationOpTooltip.as_dict(),
     ),
     (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS, None),
-    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, CurrencyOpTooltip.as_dict()),
-    (DateOperationConfig, DATE_EXCLUDE_FIELDS, DateOpTooltip.as_dict()),
-    (EmailOperationConfig, EMAIL_EXCLUDE_FIELDS, EmailOperationTooltip.as_dict()),
+    (
+        CurrencyOperationConfig,
+        CURRENCY_EXCLUDE_FIELDS,
+        CurrencyOpTooltip.as_dict(),
+    ),
+    (
+        DateOperationConfig,
+        DATE_EXCLUDE_FIELDS,
+        DateOpTooltip.as_dict(),
+    ),
+    (
+        EmailOperationConfig,
+        EMAIL_EXCLUDE_FIELDS,
+        EmailOperationTooltip.as_dict(),
+    ),
     (
         GroupAnalyzerOperationConfig,
         GROUP_EXCLUDE_FIELDS,
@@ -370,8 +390,16 @@ ALL_OP_CONFIGS = [
         MVF_EXCLUDE_FIELDS,
         MVFAnalysisOperationTooltip.as_dict(),
     ),
-    (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS, NumericOperationTooltip.as_dict()),
-    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, PhoneOperationTooltip.as_dict()),
+    (
+        NumericOperationConfig,
+        NUMERIC_EXCLUDE_FIELDS,
+        NumericOperationTooltip.as_dict(),
+    ),
+    (
+        PhoneOperationConfig,
+        PHONE_EXCLUDE_FIELDS,
+        PhoneOperationTooltip.as_dict(),
+    ),
     (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS, None),
     # -------------- Transformations -------------
     (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS, None),
