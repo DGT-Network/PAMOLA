@@ -47,9 +47,18 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "Operation mode: 'ANALYZE' (generate metrics and visualizations), 'ENRICH' (add k-values to the DataFrame), or 'BOTH' (perform both analysis and enrichment).",
                         "x-component": "Select",
                         "oneOf": [
-                            {"const": AnalysisMode.ANALYZE.value, "description": "ANALYZE"},
-                            {"const": AnalysisMode.ENRICH.value, "description": "ENRICH"},
-                            {"const": AnalysisMode.BOTH.value, "description": "BOTH"},
+                            {
+                                "const": AnalysisMode.ANALYZE.value,
+                                "description": "ANALYZE",
+                            },
+                            {
+                                "const": AnalysisMode.ENRICH.value,
+                                "description": "ENRICH",
+                            },
+                            {
+                                "const": AnalysisMode.BOTH.value,
+                                "description": "BOTH",
+                            },
                         ],
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
@@ -74,7 +83,7 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Overrides automatic detection.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
-                        "x-custom-function": ["update_condition_field"]
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "threshold_k": {
                         "type": "integer",
@@ -102,7 +111,7 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of columns used as record identifiers for grouping or tracking vulnerable records.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": ["update_condition_field"]
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "output_field_suffix": {
                         "type": "string",

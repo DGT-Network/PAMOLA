@@ -132,6 +132,7 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Unmasked Positions",
                         "description": "Specific index positions to remain unmasked.",
                         "x-component": "Select",
+                        "default": None,
                         "oneOf": [
                             {"const": 0, "description": "0"},
                             {"const": 2, "description": "2"},
@@ -145,40 +146,135 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Pattern Type",
                         "description": "Predefined pattern type (e.g., email, phone) for pattern-based masking.",
                         "x-component": "Select",
+                        "default": None,
                         "oneOf": [
-                            {"const": "email", "description": "Email address"},
-                            {"const": "email_domain", "description": "Email domain"},
-                            {"const": "phone", "description": "Phone number"},
-                            {"const": "phone_international", "description": "International phone number"},
-                            {"const": "phone_us_formatted", "description": "US phone number (formatted)"},
-                            {"const": "phone_us_compact", "description": "US phone number (compact)"},
-                            {"const": "ssn", "description": "Social Security Number (SSN)"},
-                            {"const": "ssn_middle", "description": "Middle part of SSN"},
-                            {"const": "credit_card", "description": "Credit card number"},
-                            {"const": "credit_card_strict", "description": "Strictly formatted credit card number"},
-                            {"const": "ip_address", "description": "IP address"},
-                            {"const": "ip_address_last_only", "description": "Last segment of IP address"},
-                            {"const": "date_mdy", "description": "Date (MM/DD/YYYY)"},
-                            {"const": "date_dmy", "description": "Date (DD/MM/YYYY)"},
-                            {"const": "date_ymd", "description": "Date (YYYY/MM/DD)"},
-                            {"const": "date_iso", "description": "ISO date (YYYY-MM-DD)"},
-                            {"const": "date_year_only", "description": "Year only"},
-                            {"const": "birthdate", "description": "Birthdate"},
-                            {"const": "birthdate_dmy", "description": "Birthdate (DD/MM/YYYY)"},
-                            {"const": "date_month_year", "description": "Date (Month/Year)"},
-                            {"const": "date_dotted", "description": "Date with dots (DD.MM.YYYY)"},
-                            {"const": "account_number", "description": "Account number"},
-                            {"const": "account_number_last_only", "description": "Last digits of account number"},
-                            {"const": "license_plate", "description": "License plate number"},
-                            {"const": "driver_license", "description": "Driver's license number"},
+                            {"type": "null"},
+                            {
+                                "const": "email",
+                                "description": "Email address",
+                            },
+                            {
+                                "const": "email_domain",
+                                "description": "Email domain",
+                            },
+                            {
+                                "const": "phone",
+                                "description": "Phone number",
+                            },
+                            {
+                                "const": "phone_international",
+                                "description": "International phone number",
+                            },
+                            {
+                                "const": "phone_us_formatted",
+                                "description": "US phone number (formatted)",
+                            },
+                            {
+                                "const": "phone_us_compact",
+                                "description": "US phone number (compact)",
+                            },
+                            {
+                                "const": "ssn",
+                                "description": "Social Security Number (SSN)",
+                            },
+                            {
+                                "const": "ssn_middle",
+                                "description": "Middle part of SSN",
+                            },
+                            {
+                                "const": "credit_card",
+                                "description": "Credit card number",
+                            },
+                            {
+                                "const": "credit_card_strict",
+                                "description": "Strictly formatted credit card number",
+                            },
+                            {
+                                "const": "ip_address",
+                                "description": "IP address",
+                            },
+                            {
+                                "const": "ip_address_last_only",
+                                "description": "Last segment of IP address",
+                            },
+                            {
+                                "const": "date_mdy",
+                                "description": "Date (MM/DD/YYYY)",
+                            },
+                            {
+                                "const": "date_dmy",
+                                "description": "Date (DD/MM/YYYY)",
+                            },
+                            {
+                                "const": "date_ymd",
+                                "description": "Date (YYYY/MM/DD)",
+                            },
+                            {
+                                "const": "date_iso",
+                                "description": "ISO date (YYYY-MM-DD)",
+                            },
+                            {
+                                "const": "date_year_only",
+                                "description": "Year only",
+                            },
+                            {
+                                "const": "birthdate",
+                                "description": "Birthdate",
+                            },
+                            {
+                                "const": "birthdate_dmy",
+                                "description": "Birthdate (DD/MM/YYYY)",
+                            },
+                            {
+                                "const": "date_month_year",
+                                "description": "Date (Month/Year)",
+                            },
+                            {
+                                "const": "date_dotted",
+                                "description": "Date with dots (DD.MM.YYYY)",
+                            },
+                            {
+                                "const": "account_number",
+                                "description": "Account number",
+                            },
+                            {
+                                "const": "account_number_last_only",
+                                "description": "Last digits of account number",
+                            },
+                            {
+                                "const": "license_plate",
+                                "description": "License plate number",
+                            },
+                            {
+                                "const": "driver_license",
+                                "description": "Driver's license number",
+                            },
                             {"const": "passport", "description": "Passport number"},
-                            {"const": "iban", "description": "IBAN (International Bank Account Number)"},
-                            {"const": "url", "description": "Website URL"},
-                            {"const": "username", "description": "Username"},
-                            {"const": "medical_record", "description": "Medical record number"},
-                            {"const": "health_insurance_number", "description": "Health insurance number"},
-                            {"const": "icd10_code", "description": "ICD-10 medical code"},
-                            {"const": "patient_id", "description": "Patient ID"}
+                            {
+                                "const": "iban",
+                                "description": "IBAN (International Bank Account Number)",
+                            },
+                            {
+                                "const": "url",
+                                "description": "Website URL",
+                            },
+                            {
+                                "const": "username",
+                                "description": "Username",
+                            },
+                            {
+                                "const": "medical_record",
+                                "description": "Medical record number",
+                            },
+                            {
+                                "const": "health_insurance_number",
+                                "description": "Health insurance number",
+                            },
+                            {
+                                "const": "icd10_code",
+                                "description": "ICD-10 medical code",
+                            },
+                            {"const": "patient_id", "description": "Patient ID"},
                         ],
                         "x-group": GroupName.CORE_MASKING_STRATEGY,
                         "x-depend-on": {
@@ -260,14 +356,25 @@ class PartialMaskingConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Preset Type",
                         "description": "Preset category for reusable masking templates.",
+                        "default": None,
                         "oneOf": [
-                            {"const": MaskingType.EMAIL.value, "description": "Email"},
-                            {"const": MaskingType.PHONE.value, "description": "Phone"},
+                            {"type": "null"},
+                            {
+                                "const": MaskingType.EMAIL.value,
+                                "description": "Email",
+                            },
+                            {
+                                "const": MaskingType.PHONE.value,
+                                "description": "Phone",
+                            },
                             {
                                 "const": MaskingType.CREDIT_CARD.value,
                                 "description": "Credit Card",
                             },
-                            {"const": MaskingType.SSN.value, "description": "SSN"},
+                            {
+                                "const": MaskingType.SSN.value,
+                                "description": "SSN",
+                            },
                             {
                                 "const": MaskingType.IP_ADDRESS.value,
                                 "description": "IP Address",
@@ -298,8 +405,14 @@ class PartialMaskingConfig(OperationConfig):
                             "depend_on": "preset_type",
                             "options_map": {
                                 MaskingType.EMAIL.value: [
-                                    {"label": "FULL_DOMAIN", "value": "FULL_DOMAIN"},
-                                    {"label": "DOMAIN_ONLY", "value": "DOMAIN_ONLY"},
+                                    {
+                                        "label": "FULL_DOMAIN",
+                                        "value": "FULL_DOMAIN",
+                                    },
+                                    {
+                                        "label": "DOMAIN_ONLY",
+                                        "value": "DOMAIN_ONLY",
+                                    },
                                     {
                                         "label": "PARTIAL_DOMAIN",
                                         "value": "PARTIAL_DOMAIN",
@@ -322,8 +435,14 @@ class PartialMaskingConfig(OperationConfig):
                                     },
                                 ],
                                 MaskingType.PHONE.value: [
-                                    {"label": "US_STANDARD", "value": "US_STANDARD"},
-                                    {"label": "US_FORMATTED", "value": "US_FORMATTED"},
+                                    {
+                                        "label": "US_STANDARD",
+                                        "value": "US_STANDARD",
+                                    },
+                                    {
+                                        "label": "US_FORMATTED",
+                                        "value": "US_FORMATTED",
+                                    },
                                     {
                                         "label": "INTERNATIONAL",
                                         "value": "INTERNATIONAL",
@@ -336,36 +455,72 @@ class PartialMaskingConfig(OperationConfig):
                                         "label": "AREA_CODE_ONLY",
                                         "value": "AREA_CODE_ONLY",
                                     },
-                                    {"label": "FULL_MASK", "value": "FULL_MASK"},
+                                    {
+                                        "label": "FULL_MASK",
+                                        "value": "FULL_MASK",
+                                    },
                                 ],
                                 MaskingType.CREDIT_CARD.value: [
                                     {
                                         "label": "PCI_COMPLIANT",
                                         "value": "PCI_COMPLIANT",
                                     },
-                                    {"label": "STRICT", "value": "STRICT"},
-                                    {"label": "FULL_MASK", "value": "FULL_MASK"},
-                                    {"label": "NUMERIC_ONLY", "value": "NUMERIC_ONLY"},
+                                    {
+                                        "label": "STRICT",
+                                        "value": "STRICT",
+                                    },
+                                    {
+                                        "label": "FULL_MASK",
+                                        "value": "FULL_MASK",
+                                    },
+                                    {
+                                        "label": "NUMERIC_ONLY",
+                                        "value": "NUMERIC_ONLY",
+                                    },
                                     {
                                         "label": "FIRST_LAST_FOUR",
                                         "value": "FIRST_LAST_FOUR",
                                     },
                                 ],
                                 MaskingType.SSN.value: [
-                                    {"label": "LAST_FOUR", "value": "LAST_FOUR"},
-                                    {"label": "FIRST_THREE", "value": "FIRST_THREE"},
-                                    {"label": "FULL_MASK", "value": "FULL_MASK"},
-                                    {"label": "NUMERIC_MASK", "value": "NUMERIC_MASK"},
+                                    {
+                                        "label": "LAST_FOUR",
+                                        "value": "LAST_FOUR",
+                                    },
+                                    {
+                                        "label": "FIRST_THREE",
+                                        "value": "FIRST_THREE",
+                                    },
+                                    {
+                                        "label": "FULL_MASK",
+                                        "value": "FULL_MASK",
+                                    },
+                                    {
+                                        "label": "NUMERIC_MASK",
+                                        "value": "NUMERIC_MASK",
+                                    },
                                     {
                                         "label": "AREA_NUMBER_ONLY",
                                         "value": "AREA_NUMBER_ONLY",
                                     },
                                 ],
                                 MaskingType.IP_ADDRESS.value: [
-                                    {"label": "SUBNET_MASK", "value": "SUBNET_MASK"},
-                                    {"label": "NETWORK_ONLY", "value": "NETWORK_ONLY"},
-                                    {"label": "FULL_MASK", "value": "FULL_MASK"},
-                                    {"label": "ZERO_MASK", "value": "ZERO_MASK"},
+                                    {
+                                        "label": "SUBNET_MASK",
+                                        "value": "SUBNET_MASK",
+                                    },
+                                    {
+                                        "label": "NETWORK_ONLY",
+                                        "value": "NETWORK_ONLY",
+                                    },
+                                    {
+                                        "label": "FULL_MASK",
+                                        "value": "FULL_MASK",
+                                    },
+                                    {
+                                        "label": "ZERO_MASK",
+                                        "value": "ZERO_MASK",
+                                    },
                                     {
                                         "label": "PRIVATE_NETWORK",
                                         "value": "PRIVATE_NETWORK",
@@ -376,9 +531,18 @@ class PartialMaskingConfig(OperationConfig):
                                         "label": "MEDICAL_RECORD",
                                         "value": "MEDICAL_RECORD",
                                     },
-                                    {"label": "PATIENT_ID", "value": "PATIENT_ID"},
-                                    {"label": "NPI_NUMBER", "value": "NPI_NUMBER"},
-                                    {"label": "DEA_NUMBER", "value": "DEA_NUMBER"},
+                                    {
+                                        "label": "PATIENT_ID",
+                                        "value": "PATIENT_ID",
+                                    },
+                                    {
+                                        "label": "NPI_NUMBER",
+                                        "value": "NPI_NUMBER",
+                                    },
+                                    {
+                                        "label": "DEA_NUMBER",
+                                        "value": "DEA_NUMBER",
+                                    },
                                 ],
                                 MaskingType.FINANCIAL.value: [
                                     {
@@ -393,16 +557,40 @@ class PartialMaskingConfig(OperationConfig):
                                         "label": "BANK_STANDARD",
                                         "value": "BANK_STANDARD",
                                     },
-                                    {"label": "SWIFT_CODE", "value": "SWIFT_CODE"},
-                                    {"label": "IBAN", "value": "IBAN"},
-                                    {"label": "CREDIT_LIMIT", "value": "CREDIT_LIMIT"},
-                                    {"label": "LOAN_NUMBER", "value": "LOAN_NUMBER"},
+                                    {
+                                        "label": "SWIFT_CODE",
+                                        "value": "SWIFT_CODE",
+                                    },
+                                    {
+                                        "label": "IBAN",
+                                        "value": "IBAN",
+                                    },
+                                    {
+                                        "label": "CREDIT_LIMIT",
+                                        "value": "CREDIT_LIMIT",
+                                    },
+                                    {
+                                        "label": "LOAN_NUMBER",
+                                        "value": "LOAN_NUMBER",
+                                    },
                                 ],
                                 MaskingType.DATE_ISO.value: [
-                                    {"label": "MASK_DAY", "value": "MASK_DAY"},
-                                    {"label": "MASK_MONTH", "value": "MASK_MONTH"},
-                                    {"label": "MASK_YEAR", "value": "MASK_YEAR"},
-                                    {"label": "MASK_FULL", "value": "MASK_FULL"},
+                                    {
+                                        "label": "MASK_DAY",
+                                        "value": "MASK_DAY",
+                                    },
+                                    {
+                                        "label": "MASK_MONTH",
+                                        "value": "MASK_MONTH",
+                                    },
+                                    {
+                                        "label": "MASK_YEAR",
+                                        "value": "MASK_YEAR",
+                                    },
+                                    {
+                                        "label": "MASK_FULL",
+                                        "value": "MASK_FULL",
+                                    },
                                 ],
                             },
                         },
@@ -414,7 +602,7 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Other fields to mask consistently with the main field.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": ["update_condition_field"]
+                        "x-custom-function": ["update_condition_field"],
                     },
                     # Conditional processing parameters
                     "condition_field": {
@@ -423,6 +611,7 @@ class PartialMaskingConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -440,6 +629,7 @@ class PartialMaskingConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
+                        "x-custom-function": ["update_condition_operator"],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -452,6 +642,7 @@ class PartialMaskingConfig(OperationConfig):
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
+                        "x-custom-function": ["update_condition_values"],
                     },
                     # K-anonymity integration
                     "ka_risk_field": {

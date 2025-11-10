@@ -20,7 +20,7 @@ Changelog:
 """
 
 
-class NumericOpTooltip:
+class NumericGeneralizationTooltip:
     strategy = (
         "What it does: Selects the core logic for making your numbers less specific.\n"
         "• Binning: Groups numbers into ranges (e.g., 27 -> '25-30').\n"

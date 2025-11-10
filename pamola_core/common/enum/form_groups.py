@@ -50,6 +50,12 @@ class GroupName(str, Enum):
     DATA_QUALITY_ANALYSIS = "data_quality_analysis"
     CURRENCY_PARSING_SETTINGS = "currency_parsing_settings"
     DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
+    OUTPUT_SETTINGS = "output_settings"
+    OUTPUT_CONFIGURATION = "output_configuration"
+    EXECUTION_BEHAVIOR = "execution_behavior"
+    JOIN_KEYS = "join_keys"
+    INPUT_DATASETS = "input_datasets"
+    SUFFIXES = "suffixes"
     GROUP_CONFIGURATION = "group_configuration"
     TEXT_COMPARISON_SETTINGS = "text_comparison_settings"
     ANALYSIS_CONFIGURATION = "analysis_configuration"
@@ -95,6 +101,12 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
     GroupName.CURRENCY_PARSING_SETTINGS: "Currency Parsing Settings",
     GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
+    GroupName.OUTPUT_SETTINGS: "Output Settings",
+    GroupName.OUTPUT_CONFIGURATION: "Output Configuration",
+    GroupName.EXECUTION_BEHAVIOR: "Execution Behavior",
+    GroupName.JOIN_KEYS: "Join Keys",
+    GroupName.INPUT_DATASETS: "Input Datasets",
+    GroupName.SUFFIXES: "Suffixes",
     GroupName.GROUP_CONFIGURATION: "Group Configuration",  
     GroupName.TEXT_COMPARISON_SETTINGS: "Text Comparison Settings",
     GroupName.ANALYSIS_CONFIGURATION: "Analysis Configuration",
@@ -225,6 +237,23 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "CategoricalOperationConfig": [
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
+    "PhoneOperationConfig": [
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
+        GroupName.OUTPUT_SETTINGS,
+    ],
+
+    # -------------- Transformations ---------------
+    "RemoveFieldsOperationConfig": [
+        GroupName.OUTPUT_CONFIGURATION,
+        GroupName.EXECUTION_BEHAVIOR,
+    ],
+    "MergeDatasetsOperationConfig": [
+        GroupName.JOIN_KEYS,
+        GroupName.INPUT_DATASETS,
+        GroupName.SUFFIXES,
+        GroupName.OUTPUT_CONFIGURATION,
+        GroupName.EXECUTION_BEHAVIOR,
+    ],
     "GroupAnalyzerOperationConfig": [
         GroupName.GROUP_CONFIGURATION,
         GroupName.TEXT_COMPARISON_SETTINGS,
@@ -253,10 +282,7 @@ def get_groups_for_operation(operation_config_type: str) -> List[GroupName]:
         ValueError: If operation_config_type is not configured
     """
     if operation_config_type not in OPERATION_CONFIG_GROUPS:
-        raise ValueError(
-            f"Unknown operation config type: '{operation_config_type}'. "
-            f"Available: {list(OPERATION_CONFIG_GROUPS.keys())}"
-        )
+        pass
     return OPERATION_CONFIG_GROUPS[operation_config_type]
 
 

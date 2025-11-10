@@ -47,7 +47,7 @@ from pamola_core.transformations.commons.merging_utils import (
     generate_record_overlap_vis,
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.schemas.merge_datasets_op_config import MergeDatasetsOperationConfig
+from pamola_core.transformations.schemas.merge_datasets_op_schema import MergeDatasetsOperationConfig
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
