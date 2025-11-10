@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of identity config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.common.enum.form_groups import GroupName
 
@@ -43,7 +44,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "minItems": 1,
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                     },
                     "uid_field": {
                         "type": "string",
@@ -51,7 +52,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "description": "Primary identifier field to analyze (e.g., 'UID'). Must exist in the input DataFrame.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                     },
                     "id_field": {
                         "type": ["string", "null"],
@@ -60,7 +61,7 @@ class IdentityAnalysisOperationConfig(OperationConfig):
                         "default": None,
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
                     },
                     "top_n": {
                         "type": "integer",

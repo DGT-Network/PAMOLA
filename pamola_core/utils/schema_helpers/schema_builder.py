@@ -24,7 +24,9 @@ from pathlib import Path
 from pamola_core.anonymization.schemas.full_masking_op_tooltip import (
     FullMaskingOpTooltip,
 )
-from pamola_core.anonymization.schemas.numeric_op_tooltip import NumericGeneralizationTooltip
+from pamola_core.anonymization.schemas.numeric_op_tooltip import (
+    NumericGeneralizationTooltip,
+)
 from pamola_core.anonymization.schemas.partial_masking_op_tooltip import (
     PartialMaskingOpTooltip,
 )
@@ -62,7 +64,9 @@ from pamola_core.fake_data.schemas.phone_op_schema_exclude import (
 )
 
 from pamola_core.fake_data.schemas.phone_op_tooltip import FakePhoneOperationTooltip
-from pamola_core.profiling.schemas.anonymity_tooltip import KAnonymityProfilerOperationTooltip
+from pamola_core.profiling.schemas.anonymity_tooltip import (
+    KAnonymityProfilerOperationTooltip,
+)
 from pamola_core.profiling.schemas.categorical_tooltip import CategoricalTooltip
 from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
 from pamola_core.profiling.schemas.group_tooltip import GroupAnalyzerOperationTooltip
@@ -84,6 +88,9 @@ from pamola_core.transformations.schemas.aggregate_records_op_config import (
 from pamola_core.transformations.schemas.aggregate_records_op_config_exclude import (
     AGGREGATE_RECORDS_EXCLUDE_FIELDS,
 )
+from pamola_core.transformations.schemas.aggregate_records_op_tooltip import (
+    AggregateRecordsOperationTooltip,
+)
 from pamola_core.transformations.schemas.clean_invalid_values_config import (
     CleanInvalidValuesOperationConfig,
 )
@@ -102,19 +109,26 @@ from pamola_core.transformations.schemas.merge_datasets_op_schema import (
 from pamola_core.transformations.schemas.merge_datasets_op_schema_exclude import (
     MERGE_DATASETS_EXCLUDE_FIELDS,
 )
-from pamola_core.transformations.schemas.merge_datasets_op_tooltip import MergeDatasetsOperationTooltip
+from pamola_core.transformations.schemas.merge_datasets_op_tooltip import (
+    MergeDatasetsOperationTooltip,
+)
 from pamola_core.transformations.schemas.remove_fields_op_schema import (
     RemoveFieldsOperationConfig,
 )
 from pamola_core.transformations.schemas.remove_fields_op_schema_exclude import (
     REMOVE_FIELDS_EXCLUDE_FIELDS,
 )
-from pamola_core.transformations.schemas.remove_fields_op_tooltip import RemoveFieldsOperationTooltip
+from pamola_core.transformations.schemas.remove_fields_op_tooltip import (
+    RemoveFieldsOperationTooltip,
+)
 from pamola_core.transformations.schemas.split_by_id_values_op_config import (
     SplitByIDValuesOperationConfig,
 )
 from pamola_core.transformations.schemas.split_by_id_values_op_config_exclude import (
     SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS,
+)
+from pamola_core.transformations.schemas.split_by_id_values_op_tooltip import (
+    SplitByIDValuesOperationTooltip,
 )
 from pamola_core.transformations.schemas.split_fields_op_config import (
     SplitFieldsOperationConfig,
@@ -250,9 +264,56 @@ from pamola_core.profiling.schemas.date_tooltip import DateOpTooltip
 from pamola_core.profiling.schemas.currency_tooltip import CurrencyOpTooltip
 from pamola_core.profiling.schemas.correlation_tooltip import CorrelationOpTooltip
 
+from pamola_core.transformations.schemas.split_fields_op_tooltip import (
+    SplitFieldsOperationTooltip,
+)
 from pamola_core.utils.schema_helpers.schema_utils import generate_schema_json
 
 ALL_OP_CONFIGS = [
+    # -------------- Anonymization ---------------
+    (
+        NumericGeneralizationConfig,
+        NUMERIC_GENERALIZATION_EXCLUDE_FIELDS,
+        NumericGeneralizationTooltip.as_dict(),
+    ),
+    (
+        CategoricalGeneralizationConfig,
+        CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS,
+        CategoricalOpTooltip.as_dict(),
+    ),
+    (
+        DateTimeGeneralizationConfig,
+        DATETIME_GENERALIZATION_EXCLUDE_FIELDS,
+        DateTimeOpTooltip.as_dict(),
+    ),
+    (FullMaskingConfig, FULL_MASKING_EXCLUDE_FIELDS, FullMaskingOpTooltip.as_dict()),
+    (
+        PartialMaskingConfig,
+        PARTIAL_MASKING_EXCLUDE_FIELDS,
+        PartialMaskingOpTooltip.as_dict(),
+    ),
+    (
+        UniformNumericNoiseConfig,
+        UNIFORM_NUMERIC_EXCLUDE_FIELDS,
+        UniformNumericNoiseOpTooltip.as_dict(),
+    ),
+    (
+        UniformTemporalNoiseConfig,
+        UNIFORM_TEMPORAL_EXCLUDE_FIELDS,
+        UniformTemporalNoiseOpTooltip.as_dict(),
+    ),
+    (
+        AttributeSuppressionConfig,
+        ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS,
+        AttributeSuppressionOpTooltip.as_dict(),
+    ),
+    (CellSuppressionConfig, CELL_EXCLUDE_FIELDS, CellSuppressionOpTooltip.as_dict()),
+    (
+        RecordSuppressionConfig,
+        RECORD_EXCLUDE_FIELDS,
+        RecordSuppressionOpTooltip.as_dict(),
+    ),
+    # -------------- Fake Data -------------------
     (
         FakeEmailOperationConfig,
         EMAIL_FAKE_EXCLUDE_FIELDS,
@@ -273,71 +334,11 @@ ALL_OP_CONFIGS = [
         PHONE_FAKE_EXCLUDE_FIELDS,
         FakePhoneOperationTooltip.as_dict(),
     ),
-    (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS, None),
-    (AggregateRecordsOperationConfig, AGGREGATE_RECORDS_EXCLUDE_FIELDS, None),
-    (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),
-    (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS, None),
-    (MergeDatasetsOperationConfig, MERGE_DATASETS_EXCLUDE_FIELDS, MergeDatasetsOperationTooltip.as_dict()),
-    (RemoveFieldsOperationConfig, REMOVE_FIELDS_EXCLUDE_FIELDS, RemoveFieldsOperationTooltip.as_dict()),
-    (SplitByIDValuesOperationConfig, SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS, None),
-    (SplitFieldsOperationConfig, SPLIT_FIELDS_EXCLUDE_FIELDS, None),
+    # -------------- Profiling -------------------
     (
-        CategoricalGeneralizationConfig,
-        CATEGORICAL_GENERALIZATION_EXCLUDE_FIELDS,
-        CategoricalOpTooltip.as_dict(),
-    ),
-    (
-        DateTimeGeneralizationConfig,
-        DATETIME_GENERALIZATION_EXCLUDE_FIELDS,
-        DateTimeOpTooltip.as_dict(),
-    ),
-    (
-        FullMaskingConfig, 
-        FULL_MASKING_EXCLUDE_FIELDS, 
-        FullMaskingOpTooltip.as_dict()
-    ),
-    (
-        NumericGeneralizationConfig,
-        NUMERIC_GENERALIZATION_EXCLUDE_FIELDS,
-        NumericGeneralizationTooltip.as_dict(),
-    ),
-    (
-        PartialMaskingConfig,
-        PARTIAL_MASKING_EXCLUDE_FIELDS,
-        PartialMaskingOpTooltip.as_dict(),
-    ),
-    (
-        AttributeSuppressionConfig,
-        ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS,
-        AttributeSuppressionOpTooltip.as_dict(),
-    ),
-    (
-        CellSuppressionConfig, 
-        CELL_EXCLUDE_FIELDS, 
-        CellSuppressionOpTooltip.as_dict()
-    ),
-    (
-        RecordSuppressionConfig,
-        RECORD_EXCLUDE_FIELDS,
-        RecordSuppressionOpTooltip.as_dict(),
-    ),
-    (
-        UniformNumericNoiseConfig,
-        UNIFORM_NUMERIC_EXCLUDE_FIELDS,
-        UniformNumericNoiseOpTooltip.as_dict(),
-    ),
-    (
-        UniformTemporalNoiseConfig,
-        UNIFORM_TEMPORAL_EXCLUDE_FIELDS,
-        UniformTemporalNoiseOpTooltip.as_dict(),
-    ),
-    (FidelityConfig, FIDELITY_EXCLUDE_FIELDS, None),
-    (PrivacyMetricConfig, PRIVACY_EXCLUDE_FIELDS, None),
-    (UtilityMetricConfig, UTILITY_EXCLUDE_FIELDS, None),
-    (
-        KAnonymityProfilerOperationConfig, 
-        ANONYMITY_EXCLUDE_FIELDS, 
-        KAnonymityProfilerOperationTooltip.as_dict()
+        KAnonymityProfilerOperationConfig,
+        ANONYMITY_EXCLUDE_FIELDS,
+        KAnonymityProfilerOperationTooltip.as_dict(),
     ),
     (DataAttributeProfilerOperationConfig, ATTRIBUTE_EXCLUDE_FIELDS, None),
     (
@@ -351,21 +352,13 @@ ALL_OP_CONFIGS = [
         CorrelationOpTooltip.as_dict(),
     ),
     (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS, None),
-    (
-        CurrencyOperationConfig, 
-        CURRENCY_EXCLUDE_FIELDS, 
-        CurrencyOpTooltip.as_dict()
-    ),
+    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, CurrencyOpTooltip.as_dict()),
     (DateOperationConfig, DATE_EXCLUDE_FIELDS, DateOpTooltip.as_dict()),
+    (EmailOperationConfig, EMAIL_EXCLUDE_FIELDS, EmailOperationTooltip.as_dict()),
     (
-        EmailOperationConfig, 
-        EMAIL_EXCLUDE_FIELDS, 
-        EmailOperationTooltip.as_dict()
-    ),
-    (
-        GroupAnalyzerOperationConfig, 
-        GROUP_EXCLUDE_FIELDS, 
-        GroupAnalyzerOperationTooltip.as_dict()
+        GroupAnalyzerOperationConfig,
+        GROUP_EXCLUDE_FIELDS,
+        GroupAnalyzerOperationTooltip.as_dict(),
     ),
     (
         IdentityAnalysisOperationConfig,
@@ -380,6 +373,39 @@ ALL_OP_CONFIGS = [
     (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS, NumericOperationTooltip.as_dict()),
     (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, PhoneOperationTooltip.as_dict()),
     (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS, None),
+    # -------------- Transformations -------------
+    (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS, None),
+    (
+        RemoveFieldsOperationConfig,
+        REMOVE_FIELDS_EXCLUDE_FIELDS,
+        RemoveFieldsOperationTooltip.as_dict(),
+    ),
+    (
+        AggregateRecordsOperationConfig,
+        AGGREGATE_RECORDS_EXCLUDE_FIELDS,
+        AggregateRecordsOperationTooltip.as_dict(),
+    ),
+    (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),
+    (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS, None),
+    (
+        MergeDatasetsOperationConfig,
+        MERGE_DATASETS_EXCLUDE_FIELDS,
+        MergeDatasetsOperationTooltip.as_dict(),
+    ),
+    (
+        SplitByIDValuesOperationConfig,
+        SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS,
+        SplitByIDValuesOperationTooltip.as_dict(),
+    ),
+    (
+        SplitFieldsOperationConfig,
+        SPLIT_FIELDS_EXCLUDE_FIELDS,
+        SplitFieldsOperationTooltip.as_dict(),
+    ),
+    # -------------- Metrics -------------
+    (FidelityConfig, FIDELITY_EXCLUDE_FIELDS, None),
+    (PrivacyMetricConfig, PRIVACY_EXCLUDE_FIELDS, None),
+    (UtilityMetricConfig, UTILITY_EXCLUDE_FIELDS, None),
 ]
 
 
@@ -398,7 +424,7 @@ def generate_all_op_schemas(
         except KeyError as e:
             print(f"Skipping {config_cls.__name__} due to missing group: {e}")
             continue
-    
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

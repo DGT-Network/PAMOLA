@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of date config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -68,7 +69,7 @@ class DateOperationConfig(OperationConfig):
                         "default": None,
                         "x-component": "Select",
                         "x-group": GroupName.DATA_QUALITY_ANALYSIS,
-                        "x-custom-function": ["get_data_fields"],
+                        "x-custom-function": [CustomFunctions.GET_DATA_FIELDS],
                     },
                     "uid_column": {
                         "type": ["string", "null"],
@@ -77,7 +78,7 @@ class DateOperationConfig(OperationConfig):
                         "default": None,
                         "x-component": "Select",
                         "x-group": GroupName.DATA_QUALITY_ANALYSIS,
-                        "x-custom-function": ["get_data_fields"],
+                        "x-custom-function": [CustomFunctions.GET_DATA_FIELDS],
                     },
                     "profile_type": {
                         "type": "string",
