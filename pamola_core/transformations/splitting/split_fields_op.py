@@ -33,6 +33,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Union, Tuple
 import pandas as pd
+from pamola_core.transformations.commons.enum import OutputFormat
 from pamola_core.transformations.schemas.split_fields_op_config import SplitFieldsOperationConfig
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import (
@@ -60,11 +61,6 @@ import matplotlib
 matplotlib.use("Agg")
 import hashlib
 from pamola_core.utils.ops.op_registry import register
-
-
-class OutputFormat(Enum):
-    CSV = "csv"
-    JSON = "json"
 
 
 @register(version="1.0.0")
