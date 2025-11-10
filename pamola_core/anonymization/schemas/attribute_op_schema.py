@@ -152,7 +152,6 @@ class AttributeSuppressionConfig(OperationConfig):
                         "type": ["array", "null"],
                         "title": "Condition Values",
                         "description": "Values for conditional processing.",
-                        "items": {"type": "string"},
                         "x-component": "Input",
                         "x-group": GroupName.SIMPLE_CONDITIONAL_RULE,
                         "x-depend-on": {
