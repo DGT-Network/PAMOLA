@@ -327,7 +327,6 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "type": ["array", "null"],
                         "title": "Condition Values",
                         "description": "Values for conditional processing.",
-                        "items": {"type": "string"},
                         "x-component": "Input",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {
