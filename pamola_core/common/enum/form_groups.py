@@ -64,6 +64,9 @@ class GroupName(str, Enum):
     VALUE_GROUPS = "value_groups"
     INPUT_SETTINGS = "input_settings"
     FIELD_GROUPS_CONFIGURATION = "field_groups_configuration"
+    GROUPING_SETTINGS = "grouping_settings",
+    AGGREGATION_SETUP = "aggregation_setup",
+    CUSTOM_AGGREGATIONS = "custom_aggregations",
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -119,6 +122,9 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.VALUE_GROUPS: "Value Groups",
     GroupName.INPUT_SETTINGS: "Input Settings",
     GroupName.FIELD_GROUPS_CONFIGURATION: "Field Groups Configuration",
+    GroupName.GROUPING_SETTINGS: "Grouping Settings",
+    GroupName.AGGREGATION_SETUP: "Aggregation Setup",
+    GroupName.CUSTOM_AGGREGATIONS: "Custom Aggregations",
 }
 
 
@@ -282,6 +288,13 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.FIELD_GROUPS_CONFIGURATION,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
+    "AggregateRecordsOperationConfig": [
+        GroupName.GROUPING_SETTINGS,
+        GroupName.AGGREGATION_SETUP,
+        GroupName.CUSTOM_AGGREGATIONS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    
 }
 
 

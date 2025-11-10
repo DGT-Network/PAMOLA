@@ -17,6 +17,8 @@ Configuration schema for defining and validating aggregate records operations in
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of aggregate records config file
 """
+
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
@@ -39,24 +41,36 @@ class AggregateRecordsOperationConfig(OperationConfig):
                         "items": {"type": "string"},
                         "minItems": 1,
                         "title": "Group By Fields",
-                        "description": "List of fields to group records by (like SQL GROUP BY). Must have at least one field."
+                        "x-component": "Select",
+                        "description": "List of fields to group records by (like SQL GROUP BY). Must have at least one field.",
+                        "x-group": GroupName.GROUPING_SETTINGS,
                     },
                     "aggregations": {
                         "type": "object",
                         "title": "Aggregations",
+                        "x-component": "Object",
                         "description": "Dictionary mapping field names to a list of aggregation functions (e.g., sum, mean, count).",
                         "additionalProperties": {
                             "type": "array",
                             "items": {"type": "string"},
                             "title": "Aggregation Functions",
-                            "description": "List of aggregation functions to apply to the field."
+                            "description": "List of aggregation functions to apply to the field.",
+                            "x-component": "Select",
                         },
+                        "x-group": GroupName.AGGREGATION_SETUP,
                     },
                     "custom_aggregations": {
                         "type": "object",
                         "title": "Custom Aggregations",
+                        "x-component": "Object",
                         "description": "Dictionary mapping field names to custom aggregation function names or expressions.",
-                        "additionalProperties": {"type": "string", "title": "Custom Aggregation Function", "description": "Custom aggregation function or expression for the field."},
+                        "additionalProperties": {
+                            "type": "string",
+                            "title": "Custom Aggregation Function",
+                            "description": "Custom aggregation function or expression for the field.",
+                            "x-component": "Input",
+                        },
+                        "x-group": GroupName.CUSTOM_AGGREGATIONS,
                     },
                 },
                 "required": ["group_by_fields", "aggregations"],
