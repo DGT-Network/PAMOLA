@@ -17,6 +17,7 @@ Configuration schema for defining and validating split fields operations in PAMO
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of split fields config file
 """
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
@@ -37,25 +38,32 @@ class SplitFieldsOperationConfig(OperationConfig):
                     "id_field": {
                         "type": ["string", "null"],
                         "title": "ID Field",
-                        "description": "Name of the field used as a unique identifier to be included in all splits. If null, no ID field is included."
-                    },
-                    "field_groups": {
-                        "type": ["object", "null"],
-                        "title": "Field Groups",
-                        "description": "Dictionary mapping group names to lists of field names for each split. If null, no field grouping is applied.",
-                        "additionalProperties": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
+                        "x-component": "Select",
+                        "description": "Name of the field used as a unique identifier to be included in all splits. If null, no ID field is included.",
+                        "x-group": GroupName.INPUT_SETTINGS,
                     },
                     "include_id_field": {
                         "type": "boolean",
                         "default": True,
                         "title": "Include ID Field",
-                        "description": "Whether to include the ID field in all output splits. Default is true."
+                        "x-component": "Checkbox",
+                        "description": "Whether to include the ID field in all output splits. Default is true.",
+                        "x-group": GroupName.INPUT_SETTINGS,
+                        "x-depend-on": {"id_field": "not_null"},
+                    },
+                     "field_groups": {
+                        "type": ["object", "null"],
+                        "title": "Field Groups",
+                        "x-component": "ArrayItems",
+                        "description": "Dictionary mapping group names to lists of field names for each split. If null, no field grouping is applied.",
+                        "items": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "x-group": GroupName.FIELD_GROUPS_CONFIGURATION,
                     },
                 },
+                "required": ["field_groups"],
             },
         ],
     }
-

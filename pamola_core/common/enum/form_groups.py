@@ -62,6 +62,8 @@ class GroupName(str, Enum):
     ID_FIELD = "id_field"
     PARTITION_SETTINGS = "partition_settings"
     VALUE_GROUPS = "value_groups"
+    INPUT_SETTINGS = "input_settings"
+    FIELD_GROUPS_CONFIGURATION = "field_groups_configuration"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -115,6 +117,8 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.ID_FIELD: "ID Field",
     GroupName.PARTITION_SETTINGS: "Partition Settings",
     GroupName.VALUE_GROUPS: "Value Groups",
+    GroupName.INPUT_SETTINGS: "Input Settings",
+    GroupName.FIELD_GROUPS_CONFIGURATION: "Field Groups Configuration",
 }
 
 
@@ -271,6 +275,11 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.ID_FIELD,
         GroupName.PARTITION_SETTINGS,
         GroupName.VALUE_GROUPS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "SplitFieldsOperationConfig": [
+        GroupName.INPUT_SETTINGS,
+        GroupName.FIELD_GROUPS_CONFIGURATION,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }
