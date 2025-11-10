@@ -136,7 +136,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": ["update_field_options"],
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -187,7 +187,9 @@ class UniformNumericNoiseConfig(OperationConfig):
                                         "layout": "vertical",
                                         "style": {"width": "250px", "marginBottom": 8},
                                     },
-                                    "x-custom-function": ["update_field_options"],
+                                    "x-custom-function": [
+                                        CustomFunctions.UPDATE_FIELD_OPTIONS
+                                    ],
                                 },
                                 "operator": {
                                     "type": "string",
