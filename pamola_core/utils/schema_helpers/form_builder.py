@@ -310,6 +310,21 @@ def convert_property(
             ]
             field.pop("oneOf", None)
 
+        if field["type"] == "array" or (isinstance(t, list) and "array" in t):
+            if (
+                "items" in field
+                and isinstance(field["items"], dict)
+                and "enum" in field["items"]
+            ):
+                # Convert items.enum thành field.enum với label/value format
+                field["enum"] = [
+                    {
+                        "value": value,
+                        "label": str(value),
+                    }
+                    for value in field["items"]["enum"]
+                ]
+
     elif field["x-component"] == "Switch":
         field["x-content"] = f"Enable {field['title']}"
 

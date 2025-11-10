@@ -222,7 +222,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                                         "layout": "vertical",
                                         "style": {"width": "250px", "marginBottom": 8},
                                     },
-                                    "x-custom-function": ["update_condition_field"],
+                                    "x-custom-function": ["update_field_options"],
                                 },
                                 "operator": {
                                     "type": "string",
@@ -293,7 +293,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": ["update_field_options"],
                     },
                     "condition_operator": {
                         "type": "string",

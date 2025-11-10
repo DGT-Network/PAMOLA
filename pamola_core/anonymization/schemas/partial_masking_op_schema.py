@@ -128,16 +128,14 @@ class PartialMaskingConfig(OperationConfig):
                     },
                     "unmasked_positions": {
                         "type": ["array", "null"],
-                        "items": {"type": "integer", "minimum": 0},
+                        "items": {
+                            "type": "integer",
+                            "enum": [0, 2, 4],
+                        },
                         "title": "Unmasked Positions",
                         "description": "Specific index positions to remain unmasked.",
                         "x-component": "Select",
                         "default": None,
-                        "oneOf": [
-                            {"const": 0, "description": "0"},
-                            {"const": 2, "description": "2"},
-                            {"const": 4, "description": "4"},
-                        ],
                         "x-group": GroupName.MASKING_RULES,
                         "x-depend-on": {"mask_strategy": MaskStrategyEnum.FIXED.value},
                     },
@@ -611,7 +609,7 @@ class PartialMaskingConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": ["update_condition_field"],
+                        "x-custom-function": ["update_field_options"],
                     },
                     "condition_operator": {
                         "type": "string",
