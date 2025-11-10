@@ -95,7 +95,7 @@ class DateOperationConfig(OperationConfig):
                         "x-group": GroupName.DATA_QUALITY_ANALYSIS,
                     },
                 },
-                "required": ["field_name"],
+                "required": ["field_name", "min_year", "max_year"],
             },
         ],
     }
