@@ -67,6 +67,7 @@ class GroupName(str, Enum):
     GROUPING_SETTINGS = "grouping_settings",
     AGGREGATION_SETUP = "aggregation_setup",
     CUSTOM_AGGREGATIONS = "custom_aggregations",
+    DICTIONARY_CONFIGURATION = "dictionary_configuration",
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -125,6 +126,7 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.GROUPING_SETTINGS: "Grouping Settings",
     GroupName.AGGREGATION_SETUP: "Aggregation Setup",
     GroupName.CUSTOM_AGGREGATIONS: "Custom Aggregations",
+    GroupName.DICTIONARY_CONFIGURATION: "Dictionary Configuration",
 }
 
 
@@ -264,6 +266,11 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "KAnonymityProfilerOperationConfig": [
         GroupName.ANALYSIS_CONFIGURATION,
         GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "DataAttributeProfilerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.DICTIONARY_CONFIGURATION,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     # -------------- Transformations ---------------

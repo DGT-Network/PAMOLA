@@ -67,6 +67,9 @@ from pamola_core.fake_data.schemas.phone_op_tooltip import FakePhoneOperationToo
 from pamola_core.profiling.schemas.anonymity_tooltip import (
     KAnonymityProfilerOperationTooltip,
 )
+from pamola_core.profiling.schemas.attribute_tooltip import (
+    DataAttributeProfilerOperationTooltip,
+)
 from pamola_core.profiling.schemas.categorical_tooltip import CategoricalTooltip
 from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
 from pamola_core.profiling.schemas.group_tooltip import GroupAnalyzerOperationTooltip
@@ -82,10 +85,10 @@ from pamola_core.transformations.schemas.add_modify_fields_config import (
 from pamola_core.transformations.schemas.add_modify_fields_config_exclude import (
     ADD_MODIFY_FIELDS_EXCLUDE_FIELDS,
 )
-from pamola_core.transformations.schemas.aggregate_records_op_config import (
+from pamola_core.transformations.schemas.aggregate_records_op_schema import (
     AggregateRecordsOperationConfig,
 )
-from pamola_core.transformations.schemas.aggregate_records_op_config_exclude import (
+from pamola_core.transformations.schemas.aggregate_records_op_schema_exclude import (
     AGGREGATE_RECORDS_EXCLUDE_FIELDS,
 )
 from pamola_core.transformations.schemas.aggregate_records_op_tooltip import (
@@ -121,19 +124,19 @@ from pamola_core.transformations.schemas.remove_fields_op_schema_exclude import 
 from pamola_core.transformations.schemas.remove_fields_op_tooltip import (
     RemoveFieldsOperationTooltip,
 )
-from pamola_core.transformations.schemas.split_by_id_values_op_config import (
+from pamola_core.transformations.schemas.split_by_id_values_op_schema import (
     SplitByIDValuesOperationConfig,
 )
-from pamola_core.transformations.schemas.split_by_id_values_op_config_exclude import (
+from pamola_core.transformations.schemas.split_by_id_values_op_schema_exclude import (
     SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS,
 )
 from pamola_core.transformations.schemas.split_by_id_values_op_tooltip import (
     SplitByIDValuesOperationTooltip,
 )
-from pamola_core.transformations.schemas.split_fields_op_config import (
+from pamola_core.transformations.schemas.split_fields_op_schema import (
     SplitFieldsOperationConfig,
 )
-from pamola_core.transformations.schemas.split_fields_op_config_exclude import (
+from pamola_core.transformations.schemas.split_fields_op_schema_exclude import (
     SPLIT_FIELDS_EXCLUDE_FIELDS,
 )
 from pamola_core.anonymization.schemas.categorical_op_schema import (
@@ -173,7 +176,7 @@ from pamola_core.anonymization.schemas.attribute_op_schema_exclude import (
 from pamola_core.anonymization.schemas.cell_op_schema import CellSuppressionConfig
 from pamola_core.anonymization.schemas.cell_op_schema_exclude import CELL_EXCLUDE_FIELDS
 from pamola_core.anonymization.schemas.record_op_schema import RecordSuppressionConfig
-from pamola_core.anonymization.schemas.record_op_config_exclude import (
+from pamola_core.anonymization.schemas.record_op_schema_exclude import (
     RECORD_EXCLUDE_FIELDS,
 )
 from pamola_core.anonymization.schemas.uniform_numeric_op_schema import (
@@ -208,14 +211,14 @@ from pamola_core.profiling.schemas.anonymity_schema import (
 from pamola_core.profiling.schemas.anonymity_schema_exclude import (
     ANONYMITY_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.attribute_config import (
+from pamola_core.profiling.schemas.attribute_schema import (
     DataAttributeProfilerOperationConfig,
 )
-from pamola_core.profiling.schemas.attribute_config_exclude import (
+from pamola_core.profiling.schemas.attribute_schema_exclude import (
     ATTRIBUTE_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.categorical_config import CategoricalOperationConfig
-from pamola_core.profiling.schemas.categorical_config_exclude import (
+from pamola_core.profiling.schemas.categorical_schema import CategoricalOperationConfig
+from pamola_core.profiling.schemas.categorical_schema_exclude import (
     CATEGORICAL_EXCLUDE_FIELDS,
 )
 from pamola_core.profiling.schemas.correlation_schema import (
@@ -340,7 +343,11 @@ ALL_OP_CONFIGS = [
         ANONYMITY_EXCLUDE_FIELDS,
         KAnonymityProfilerOperationTooltip.as_dict(),
     ),
-    (DataAttributeProfilerOperationConfig, ATTRIBUTE_EXCLUDE_FIELDS, None),
+    (
+        DataAttributeProfilerOperationConfig,
+        ATTRIBUTE_EXCLUDE_FIELDS,
+        DataAttributeProfilerOperationTooltip.as_dict(),
+    ),
     (
         CategoricalOperationConfig,
         CATEGORICAL_EXCLUDE_FIELDS,

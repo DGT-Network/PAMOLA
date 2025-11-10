@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of attribute config file
 """
 
+from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
@@ -33,37 +34,47 @@ class DataAttributeProfilerOperationConfig(OperationConfig):
             {
                 "type": "object",
                 "properties": {
-                    "dictionary_path": {
-                        "type": ["string", "null"],
-                        "default": None,
-                        "title": "Attribute Dictionary Path",
-                        "description": "Path to a custom attribute dictionary file for role detection. If null, uses the default built-in dictionary.",
-                    },
                     "language": {
                         "type": "string",
                         "default": "en",
                         "title": "Language",
+                        "x-component": "Select",
                         "description": "Language code for keyword matching and attribute role detection (e.g., 'en' for English, 'vi' for Vietnamese).",
+                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
                     "sample_size": {
                         "type": "integer",
                         "minimum": 1,
                         "default": 10,
                         "title": "Sample Size",
+                        "x-component": "NumberPicker",
                         "description": "Number of sample values to extract and inspect per column for profiling.",
+                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
                     "max_columns": {
                         "type": ["integer", "null"],
                         "minimum": 1,
                         "default": None,
                         "title": "Max Columns",
+                        "x-component": "NumberPicker",
                         "description": "Maximum number of columns to analyze in the dataset. If null, all columns are analyzed.",
+                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
                     "id_column": {
                         "type": ["string", "null"],
                         "default": None,
                         "title": "ID Column",
+                        "x-component": "Select",
                         "description": "Name of the column used as a unique record identifier for record-level analysis. Optional.",
+                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
+                    },
+                    "dictionary_path": {
+                        "type": ["string", "null"],
+                        "default": None,
+                        "title": "Attribute Dictionary Path",
+                        "x-component": "Upload",
+                        "description": "Path to a custom attribute dictionary file for role detection. If null, uses the default built-in dictionary.",
+                        "x-group": GroupName.DICTIONARY_CONFIGURATION,
                     },
                 },
                 "required": [],

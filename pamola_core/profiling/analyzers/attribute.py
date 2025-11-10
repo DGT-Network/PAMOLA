@@ -35,7 +35,7 @@ from pamola_core.profiling.commons.attribute_utils import (
     analyze_dataset_attributes,
     load_attribute_dictionary,
 )
-from pamola_core.profiling.schemas.attribute_config import DataAttributeProfilerOperationConfig
+from pamola_core.profiling.schemas.attribute_schema import DataAttributeProfilerOperationConfig
 from pamola_core.utils.io import (
     ensure_directory,
     write_json,
