@@ -57,6 +57,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     "strategy": {
                         "type": "string",
                         "enum": STRATEGY_VALUES,
+                        "default": "hierarchy",
                         "title": "Strategy",
                         "description": "Generalization strategy to apply (e.g., hierarchy, frequency, dictionary).",
                         "x-component": "Select",
@@ -88,7 +89,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "enum": SUPPORTED_DICT_FORMATS,
                         "title": "Dictionary Format",
                         "description": "Dictionary file format (auto-detected by default).",
-                        "default": "csv",
+                        "default": "auto",
                         "x-component": "Select",
                         "x-group": GroupName.HIERARCHY_SETTINGS,
                         "x-depend-on": {"strategy": "hierarchy"},
@@ -177,6 +178,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     "group_rare_as": {
                         "type": "string",
                         "enum": GROUP_RARE_VALUES,
+                        "default": "OTHER",
                         "title": "Group Rare As",
                         "description": "Strategy for grouping rare categories.",
                         "x-component": "Select",
@@ -195,7 +197,6 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     },
                     "rare_value_template": {
                         "type": "string",
-                        "pattern": ".*\\d+.*",
                         "default": "OTHER_1",
                         "title": "Rare Value Template",
                         "description": "Template for numbered rare values (must contain {n}).",
@@ -208,6 +209,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     "text_normalization": {
                         "type": "string",
                         "enum": TEXT_NORM_VALUES,
+                        "default": "basic",
                         "title": "Text Normalization",
                         "description": "Text normalization level to apply.",
                         "x-component": "Select",
@@ -283,14 +285,14 @@ class CategoricalGeneralizationConfig(OperationConfig):
                     },
                     "quasi_identifiers": {
                         "type": ["array", "null"],
-                        "items": {
-                            "type": "string",
-                            "x-component": "Input"
-                        },
+                        "items": {"type": "string"},
+                        "default": None,
                         "title": "Quasi-identifiers",
                         "description": "List of quasi-identifier field names.",
-                        "x-component": "ArrayItems",
+                        "x-component": "Select",
                         "x-group": GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
+                        "x-custom-function": ["update_condition_field"],
+                        "x-ignore-depend-fields": True,
                         "x-depend-on": {"privacy_check_enabled": True},
                         "x-required-on": {"privacy_check_enabled": True},
                     },
@@ -301,7 +303,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Field name for conditional processing.",
                         "x-component": "Select",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": ["update_condition_field"]
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -314,24 +316,25 @@ class CategoricalGeneralizationConfig(OperationConfig):
                             {"const": "gt", "description": "Greater than"},
                             {"const": "lt", "description": "Less than"},
                             {"const": "eq", "description": "Equal to"},
-                            {"const": "range", "description": "Range"}
+                            {"const": "range", "description": "Range"},
                         ],
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null" },
-                        "x-custom-function": ["update_condition_operator"]
+                        "x-depend-on": {"condition_field": "not_null"},
+                        "x-custom-function": ["update_condition_operator"],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
                         "title": "Condition Values",
                         "description": "Values for conditional processing.",
-                        "items": {
-                            "type": "string"
-                        },
+                        "items": {"type": "string"},
                         "x-component": "Input",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-depend-on": { "condition_field": "not_null", "condition_operator": "not_null"},
-                        "x-custom-function": ["update_condition_values"]
+                        "x-depend-on": {
+                            "condition_field": "not_null",
+                            "condition_operator": "not_null",
+                        },
+                        "x-custom-function": ["update_condition_values"],
                     },
                     # Risk assessment
                     "ka_risk_field": {

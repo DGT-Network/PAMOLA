@@ -68,6 +68,7 @@ class DateOperationConfig(OperationConfig):
                         "default": None,
                         "x-component": "Select",
                         "x-group": GroupName.DATA_QUALITY_ANALYSIS,
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "uid_column": {
                         "type": ["string", "null"],
@@ -76,6 +77,7 @@ class DateOperationConfig(OperationConfig):
                         "default": None,
                         "x-component": "Select",
                         "x-group": GroupName.DATA_QUALITY_ANALYSIS,
+                        "x-custom-function": ["update_condition_field"],
                     },
                     "profile_type": {
                         "type": "string",
@@ -93,7 +95,7 @@ class DateOperationConfig(OperationConfig):
                         "x-group": GroupName.DATA_QUALITY_ANALYSIS,
                     },
                 },
-                "required": ["field_name"],
+                "required": ["field_name", "min_year", "max_year"],
             },
         ],
     }

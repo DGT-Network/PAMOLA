@@ -239,71 +239,68 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         **kwargs
             Additional keyword arguments passed to AnonymizationOperation.
         """
-        try:
-            # Description fallback
-            kwargs.setdefault(
-                "description",
-                f"Categorical generalization for '{field_name}' using {strategy} strategy",
-            )
+        # Description fallback
+        kwargs.setdefault(
+            "description",
+            f"Categorical generalization for '{field_name}' using {strategy} strategy",
+        )
 
-            # Build config object (if used for schema/validation)
-            config = CategoricalGeneralizationConfig(
-                field_name=field_name,
-                strategy=strategy,
-                external_dictionary_path=external_dictionary_path,
-                dictionary_format=dictionary_format,
-                hierarchy_level=hierarchy_level,
-                merge_low_freq=merge_low_freq,
-                min_group_size=min_group_size,
-                freq_threshold=freq_threshold,
-                max_categories=max_categories,
-                allow_unknown=allow_unknown,
-                unknown_value=unknown_value,
-                group_rare_as=group_rare_as,
-                rare_value_template=rare_value_template,
-                text_normalization=text_normalization,
-                case_sensitive=case_sensitive,
-                fuzzy_matching=fuzzy_matching,
-                similarity_threshold=similarity_threshold,
-                privacy_check_enabled=privacy_check_enabled,
-                min_acceptable_k=min_acceptable_k,
-                max_acceptable_disclosure_risk=max_acceptable_disclosure_risk,
-                quasi_identifiers=quasi_identifiers,
-                **kwargs,
-            )
+        # Build config object (if used for schema/validation)
+        config = CategoricalGeneralizationConfig(
+            field_name=field_name,
+            strategy=strategy,
+            external_dictionary_path=external_dictionary_path,
+            dictionary_format=dictionary_format,
+            hierarchy_level=hierarchy_level,
+            merge_low_freq=merge_low_freq,
+            min_group_size=min_group_size,
+            freq_threshold=freq_threshold,
+            max_categories=max_categories,
+            allow_unknown=allow_unknown,
+            unknown_value=unknown_value,
+            group_rare_as=group_rare_as,
+            rare_value_template=rare_value_template,
+            text_normalization=text_normalization,
+            case_sensitive=case_sensitive,
+            fuzzy_matching=fuzzy_matching,
+            similarity_threshold=similarity_threshold,
+            privacy_check_enabled=privacy_check_enabled,
+            min_acceptable_k=min_acceptable_k,
+            max_acceptable_disclosure_risk=max_acceptable_disclosure_risk,
+            quasi_identifiers=quasi_identifiers,
+            **kwargs,
+        )
 
-            # Pass config into kwargs for parent constructor
-            kwargs["config"] = config
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
 
-            # Initialize base AnonymizationOperation
-            super().__init__(
-                field_name=field_name,
-                **kwargs,
-            )
+        # Initialize base AnonymizationOperation
+        super().__init__(
+            field_name=field_name,
+            **kwargs,
+        )
 
-            # Save config attributes to self
-            for k, v in config.to_dict().items():
-                setattr(self, k, v)
-                self.process_kwargs[k] = v
+        # Save config attributes to self
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+            self.process_kwargs[k] = v
 
-            # Extract strategy-specific parameters
-            self.strategy_params: Dict[str, Any] = get_strategy_params(config._params)
+        # Extract strategy-specific parameters
+        self.strategy_params: Dict[str, Any] = get_strategy_params(config._params)
 
-            # Operation metadata
-            self.operation_id = self._generate_trace_id()
-            self.operation_name = self.__class__.__name__
+        # Operation metadata
+        self.operation_id = self._generate_trace_id()
+        self.operation_name = self.__class__.__name__
 
-            self._hierarchy_cache: Dict[str, Any] = {}
-            self._category_mapping: Optional[Dict[str, str]] = {}
-            self._hierarchy_info: Optional[Dict[str, Any]] = {}
-            self._fuzzy_matches: int = 0
-            self._unknown_values: set[str] = set()
+        self._hierarchy_cache: Dict[str, Any] = {}
+        self._category_mapping: Optional[Dict[str, str]] = {}
+        self._hierarchy_info: Optional[Dict[str, Any]] = {}
+        self._fuzzy_matches: int = 0
+        self._unknown_values: set[str] = set()
 
-            # Prepare processing parameters
-            self._prepare_process_kwargs()
-            self._metrics = {}
-        except Exception as e:
-            self.logger.error(f"Error in generalization: {str(e)}")
+        # Prepare processing parameters
+        self._prepare_process_kwargs()
+        self._metrics = {}
 
     def execute(
         self,
