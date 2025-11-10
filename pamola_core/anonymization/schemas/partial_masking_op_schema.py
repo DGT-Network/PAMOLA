@@ -636,7 +636,6 @@ class PartialMaskingConfig(OperationConfig):
                         "title": "Condition Values",
                         "x-component": "Input",  # ArrayItems
                         "description": "Values of the condition field that trigger the generalization.",
-                        "items": {"type": "string"},
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {
                             "condition_field": "not_null",
