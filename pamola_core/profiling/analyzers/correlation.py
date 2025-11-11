@@ -36,9 +36,9 @@ from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation_matrix,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.correlation_schema import (
+from pamola_core.profiling.schemas.correlation_schema import CorrelationOperationConfig
+from pamola_core.profiling.schemas.correlation_matrix_schema import (
     CorrelationMatrixOperationConfig,
-    CorrelationOperationConfig,
 )
 from pamola_core.utils.io import (
     write_json,

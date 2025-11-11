@@ -441,6 +441,7 @@ def convert_property(
 
     if (
         "x-custom-function" in field
+        and field.get("x-custom-function") != CustomFunctions.NUMERIC_RANGE_MODE
         and "x-required-on" not in field
         and "x-depend-on" not in field
     ):
