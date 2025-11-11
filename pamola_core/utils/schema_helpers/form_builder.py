@@ -419,8 +419,8 @@ def convert_property(
 
         field.pop("x-depend-map", None)
 
-    elif field.get("x-custom-field") == "NumericRangeMode":
-        field["x-component"] = "NumericRangeMode"
+    if field.get("x-custom-function") == CustomFunctions.NUMERIC_RANGE_MODE:
+        field["x-component"] = CustomFunctions.NUMERIC_RANGE_MODE
         field["x-decorator"] = "FormItem"
         field["x-component-props"] = {"step": 0.1, "precision": 1}
         field["enum"] = [
@@ -441,6 +441,7 @@ def convert_property(
 
     if (
         "x-custom-function" in field
+        and field.get("x-custom-function") != CustomFunctions.NUMERIC_RANGE_MODE
         and "x-required-on" not in field
         and "x-depend-on" not in field
     ):
@@ -450,11 +451,11 @@ def convert_property(
         configs = {
             CustomFunctions.QUASI_IDENTIFIER_OPTIONS: (
                 ["id_fields"],
-                f"{fn}($self, $deps[0])",
+                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0])",
             ),
             CustomFunctions.ID_FIELD_OPTIONS: (
                 ["quasi_identifiers", "quasi_identifier_sets"],
-                f"{fn}($self, $deps[0], $deps[1])",
+                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0], $deps[1])",
             ),
         }
 
