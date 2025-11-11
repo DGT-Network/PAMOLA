@@ -45,7 +45,7 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.schemas.clean_invalid_values_config import CleanInvalidValuesOperationConfig
+from pamola_core.transformations.schemas.clean_invalid_values_schema import CleanInvalidValuesOperationConfig
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure module logger

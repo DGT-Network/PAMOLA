@@ -67,6 +67,11 @@ class GroupName(str, Enum):
     AGGREGATION_SETUP = "aggregation_setup"
     CUSTOM_AGGREGATIONS = "custom_aggregations"
     DICTIONARY_CONFIGURATION = "dictionary_configuration"
+    CORRELATION_CONFIGURATION = "correlation_configuration"
+    FIELD_CONSTRAINTS_CONFIGURATION = "field_constraints_configuration"
+    WHITELIST_CONFIGURATION = "whitelist_configuration"
+    BLACKLIST_CONFIGURATION = "blacklist_configuration"
+    NULL_REPLACEMENT_CONFIGURATION = "null_replacement_configuration"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -125,6 +130,11 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.AGGREGATION_SETUP: "Aggregation Setup",
     GroupName.CUSTOM_AGGREGATIONS: "Custom Aggregations",
     GroupName.DICTIONARY_CONFIGURATION: "Dictionary Configuration",
+    GroupName.CORRELATION_CONFIGURATION: "Correlation Configuration",
+    GroupName.FIELD_CONSTRAINTS_CONFIGURATION: "Field Constraints Configuration",
+    GroupName.WHITELIST_CONFIGURATION: "Whitelist Configuration",
+    GroupName.BLACKLIST_CONFIGURATION: "Blacklist Configuration",
+    GroupName.NULL_REPLACEMENT_CONFIGURATION: "Null Replacement Configuration",
 }
 
 
@@ -249,6 +259,10 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "CorrelationOperationConfig": [
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
+    "CorrelationMatrixOperationConfig": [
+        GroupName.CORRELATION_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
     "CategoricalOperationConfig": [
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
@@ -269,6 +283,13 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     ],
     "DataAttributeProfilerOperationConfig": [
         GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.DICTIONARY_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "TextSemanticCategorizerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.CONDITIONAL_LOGIC,
         GroupName.DICTIONARY_CONFIGURATION,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
@@ -298,6 +319,13 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.GROUPING_SETTINGS,
         GroupName.AGGREGATION_SETUP,
         GroupName.CUSTOM_AGGREGATIONS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CleanInvalidValuesOperationConfig": [
+        GroupName.FIELD_CONSTRAINTS_CONFIGURATION,
+        GroupName.WHITELIST_CONFIGURATION,
+        GroupName.BLACKLIST_CONFIGURATION,
+        GroupName.NULL_REPLACEMENT_CONFIGURATION,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }
