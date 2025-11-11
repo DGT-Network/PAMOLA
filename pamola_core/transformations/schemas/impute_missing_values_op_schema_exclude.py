@@ -1,7 +1,7 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
-Module:        Clean Invalid Values Operation Exclude Fields
+Module:        Impute Missing Values Operation Exclude Fields
 Package:       pamola_core.transformation.schemas
 Version:       1.0.0
 Status:        stable
@@ -10,36 +10,33 @@ Created:       2025-11-11
 License:       BSD 3-Clause
 
 Description:
-Defines field exclusion rules for CleanInvalidValuesOperation UI rendering in PAMOLA.CORE.
+Defines field exclusion rules for ImputeMissingValuesOperation UI rendering in PAMOLA.CORE.
 - Specifies which configuration fields should be hidden from the user interface
 - Controls the visibility of inherited BaseOperationConfig parameters
-- Simplifies the UI by exposing only data cleaning-specific parameters
+- Simplifies the UI by exposing only imputation-specific parameters
 - Maintains consistency across operation configuration interfaces
 
 Purpose:
-This module contains the CLEAN_INVALID_VALUES_EXCLUDE_FIELDS list, which filters out
-unnecessary or advanced configuration options from the clean invalid values operation UI.
+This module contains the IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS list, which filters out
+unnecessary or advanced configuration options from the impute missing values operation UI.
 Only the most relevant parameters are exposed to users, improving usability and reducing
 configuration complexity.
 
 Visible Parameters (Not Excluded):
-- field_constraints: Validation rules for each field
-- whitelist_path: File paths for allowed values per field
-- blacklist_path: File paths for prohibited values per field
-- null_replacement: Strategy for replacing invalid values
+- field_strategies: Imputation strategies per field
+- invalid_values: Invalid values per field to be treated as missing
 - generate_visualization: Toggle for automatic visualization generation
 - force_recalculation: Force re-execution bypassing cache
 
 Hidden Parameters (Excluded):
 - All BaseOperationConfig fields except generate_visualization and force_recalculation
-- The 'name' parameter from CleanInvalidValuesOperationConfig (if it exists)
+- The 'name' parameter from ImputeMissingValuesConfig
 
 Changelog:
-1.0.0 - 2025-11-11 - Initial creation of exclude fields list
-                   - Defined 29 excluded fields from BaseOperationConfig
+1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-CLEAN_INVALID_VALUES_EXCLUDE_FIELDS = [
+IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS = [
     "name",
     "description",
     "scope",
@@ -56,6 +53,7 @@ CLEAN_INVALID_VALUES_EXCLUDE_FIELDS = [
     "output_field_name",
     "null_strategy",
     "use_cache",
+    "save_output",
     "visualization_theme",
     "visualization_backend",
     "visualization_strict",

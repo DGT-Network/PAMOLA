@@ -91,11 +91,14 @@ from pamola_core.profiling.schemas.phone_tooltip import PhoneOperationTooltip
 from pamola_core.profiling.schemas.text_tooltip import (
     TextSemanticCategorizerOperationTooltip,
 )
-from pamola_core.transformations.schemas.add_modify_fields_config import (
+from pamola_core.transformations.schemas.add_modify_fields_schema import (
     AddOrModifyFieldsOperationConfig,
 )
-from pamola_core.transformations.schemas.add_modify_fields_config_exclude import (
+from pamola_core.transformations.schemas.add_modify_fields_schema_exclude import (
     ADD_MODIFY_FIELDS_EXCLUDE_FIELDS,
+)
+from pamola_core.transformations.schemas.add_modify_fields_tooltip import (
+    AddOrModifyFieldsOperationTooltip,
 )
 from pamola_core.transformations.schemas.aggregate_records_op_schema import (
     AggregateRecordsOperationConfig,
@@ -115,11 +118,14 @@ from pamola_core.transformations.schemas.clean_invalid_values_schema_exclude imp
 from pamola_core.transformations.schemas.clean_invalid_values_tooltip import (
     CleanInvalidValuesOperationTooltip,
 )
-from pamola_core.transformations.schemas.impute_missing_values_op_config import (
+from pamola_core.transformations.schemas.impute_missing_values_op_schema import (
     ImputeMissingValuesConfig,
 )
-from pamola_core.transformations.schemas.impute_missing_values_op_config_exclude import (
+from pamola_core.transformations.schemas.impute_missing_values_op_schema_exclude import (
     IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS,
+)
+from pamola_core.transformations.schemas.impute_missing_values_op_tooltip import (
+    ImputeMissingValuesOperationTooltip,
 )
 from pamola_core.transformations.schemas.merge_datasets_op_schema import (
     MergeDatasetsOperationConfig,
@@ -430,8 +436,11 @@ ALL_OP_CONFIGS = [
         TextSemanticCategorizerOperationTooltip.as_dict(),
     ),
     # -------------- Transformations -------------
-    (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS, None),
     (
+        AddOrModifyFieldsOperationConfig,
+        ADD_MODIFY_FIELDS_EXCLUDE_FIELDS,
+        AddOrModifyFieldsOperationTooltip.as_dict(),
+    )(
         RemoveFieldsOperationConfig,
         REMOVE_FIELDS_EXCLUDE_FIELDS,
         RemoveFieldsOperationTooltip.as_dict(),
@@ -446,7 +455,11 @@ ALL_OP_CONFIGS = [
         CLEAN_INVALID_VALUES_EXCLUDE_FIELDS,
         CleanInvalidValuesOperationTooltip.as_dict(),
     ),
-    (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS, None),
+    (
+        ImputeMissingValuesConfig,
+        IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS,
+        ImputeMissingValuesOperationTooltip.as_dict(),
+    ),
     (
         MergeDatasetsOperationConfig,
         MERGE_DATASETS_EXCLUDE_FIELDS,
