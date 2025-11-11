@@ -39,7 +39,7 @@ class PhoneOperationConfig(OperationConfig):
                         "type": "string",
                         "title": "Field Name",
                         "x-component": "Select",
-                        "description": "Name of the phone number field (column) to analyze. This should be a column in the DataFrame containing phone numbers."
+                        "description": "Name of the phone number field (column) to analyze. This should be a column in the DataFrame containing phone numbers.",
                     },
                     "min_frequency": {
                         "type": "integer",
@@ -47,9 +47,9 @@ class PhoneOperationConfig(OperationConfig):
                         "maximum": 1000,
                         "default": 1,
                         "title": "Minimum Frequency",
-                        "x-component": "Select",
-                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
+                        "x-component": "NumberPicker",
                         "description": "Minimum number of occurrences for a phone number or component to be included in the results. Values appearing fewer times will be excluded from the output.",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                     "country_codes": {
                         "type": ["array", "null"],
@@ -57,20 +57,19 @@ class PhoneOperationConfig(OperationConfig):
                         "default": None,
                         "title": "Country Codes",
                         "x-component": "Select",
-                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                         "description": "List of country codes to restrict the analysis to specific countries. If null, all detected country codes will be included.",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                     "patterns_csv": {
                         "type": ["string", "null"],
                         "default": None,
                         "title": "Patterns CSV",
                         "x-component": "Upload",
-                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                         "description": "Path to a CSV file containing phone number patterns for validation and parsing. If null, default patterns will be used.",
+                        "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },
                 },
                 "required": ["field_name"],
             },
         ],
     }
-
