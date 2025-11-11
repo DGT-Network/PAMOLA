@@ -72,35 +72,16 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
                         "x-custom-function": [CustomFunctions.QUASI_IDENTIFIER_OPTIONS],
-                        "x-reactions": [
-                            {
-                                "dependencies": ["id_fields"],
-                                "fulfill": {
-                                    "run": "{{ get_anonymity_quasi_identifier_options($self, $deps[0]) }}"
-                                },
-                            }
-                        ],
                     },
                     "quasi_identifier_sets": {
                         "type": ["array", "null"],
-                        "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
+                        "items": {"type": "string"},
                         "default": None,
                         "title": "Quasi-Identifier Sets",
                         "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Overrides automatic detection.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
-                        "x-custom-function": [CustomFunctions.QUASI_SETS_OPTIONS],
-                        "x-reactions": [
-                            {
-                                "dependencies": ["id_fields"],
-                                "fulfill": {
-                                    "run": "{{ get_anonymity_quasi_sets_options($self, $deps[0]) }}"
-                                },
-                            }
-                        ],
+                        "x-custom-function": [CustomFunctions.QUASI_IDENTIFIER_OPTIONS],
                     },
                     "threshold_k": {
                         "type": "integer",
@@ -129,17 +110,6 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                         "x-custom-function": [CustomFunctions.QUASI_SETS_OPTIONS],
-                        "x-reactions": [
-                            {
-                                "dependencies": [
-                                    "quasi_identifiers",
-                                    "quasi_identifier_sets",
-                                ],
-                                "fulfill": {
-                                    "run": "{{ get_anonymity_id_field_options($self, $deps[0], $deps[1]) }}"
-                                },
-                            }
-                        ],
                     },
                     "output_field_suffix": {
                         "type": "string",

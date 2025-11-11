@@ -450,10 +450,6 @@ def convert_property(
                 ["id_fields"],
                 f"{fn}($self, $deps[0])",
             ),
-            CustomFunctions.QUASI_SETS_OPTIONS: (
-                ["id_fields"],
-                f"{fn}($self, $deps[0])",
-            ),
             CustomFunctions.ID_FIELD_OPTIONS: (
                 ["quasi_identifiers", "quasi_identifier_sets"],
                 f"{fn}($self, $deps[0], $deps[1])",
