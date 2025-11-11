@@ -181,6 +181,7 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     ],
     "UniformTemporalNoiseConfig": [
         GroupName.CORE_NOISE_STRATEGY,
+        GroupName.PRESERVATION_RULES,
         GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
         GroupName.CONDITIONAL_LOGIC,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,

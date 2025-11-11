@@ -195,7 +195,9 @@ class FullMaskingConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_OPERATOR],
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_CONDITION_OPERATOR
+                        ],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
