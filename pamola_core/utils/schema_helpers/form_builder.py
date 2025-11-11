@@ -227,6 +227,12 @@ def _handle_array_items_component(
         field.pop("maxItems", None)
 
     else:
+        # Ensure items structure exists
+        if "items" not in field:
+            field["items"] = {}
+        if "properties" not in field["items"]:
+            field["items"]["properties"] = {}
+
         field["items"]["properties"]["remove"] = {
             "type": "void",
             "x-component": "ArrayItems.Remove",
