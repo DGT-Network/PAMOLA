@@ -67,6 +67,7 @@ class GroupName(str, Enum):
     AGGREGATION_SETUP = "aggregation_setup"
     CUSTOM_AGGREGATIONS = "custom_aggregations"
     DICTIONARY_CONFIGURATION = "dictionary_configuration"
+    CORRELATION_CONFIGURATION = "correlation_configuration"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -125,6 +126,7 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.AGGREGATION_SETUP: "Aggregation Setup",
     GroupName.CUSTOM_AGGREGATIONS: "Custom Aggregations",
     GroupName.DICTIONARY_CONFIGURATION: "Dictionary Configuration",
+    GroupName.CORRELATION_CONFIGURATION: "Correlation Configuration",
 }
 
 
@@ -248,6 +250,10 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "CorrelationOperationConfig": [
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
+    "CorrelationMatrixOperationConfig": [
+        GroupName.CORRELATION_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
     "CategoricalOperationConfig": [
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
@@ -268,6 +274,13 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     ],
     "DataAttributeProfilerOperationConfig": [
         GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.DICTIONARY_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "TextSemanticCategorizerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.CONDITIONAL_LOGIC,
         GroupName.DICTIONARY_CONFIGURATION,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],

@@ -71,6 +71,15 @@ from pamola_core.profiling.schemas.attribute_tooltip import (
     DataAttributeProfilerOperationTooltip,
 )
 from pamola_core.profiling.schemas.categorical_tooltip import CategoricalTooltip
+from pamola_core.profiling.schemas.correlation_matrix_schema import (
+    CorrelationMatrixOperationConfig,
+)
+from pamola_core.profiling.schemas.correlation_matrix_schema_exclude import (
+    CORRELATION_MATRIX_EXCLUDE_FIELDS,
+)
+from pamola_core.profiling.schemas.correlation_matrix_tooltip import (
+    CorrelationMatrixOperationTooltip,
+)
 from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
 from pamola_core.profiling.schemas.group_tooltip import GroupAnalyzerOperationTooltip
 from pamola_core.profiling.schemas.identity_tooltip import (
@@ -79,6 +88,9 @@ from pamola_core.profiling.schemas.identity_tooltip import (
 from pamola_core.profiling.schemas.mvf_tooltip import MVFAnalysisOperationTooltip
 from pamola_core.profiling.schemas.numeric_tooltip import NumericOperationTooltip
 from pamola_core.profiling.schemas.phone_tooltip import PhoneOperationTooltip
+from pamola_core.profiling.schemas.text_tooltip import (
+    TextSemanticCategorizerOperationTooltip,
+)
 from pamola_core.transformations.schemas.add_modify_fields_config import (
     AddOrModifyFieldsOperationConfig,
 )
@@ -223,11 +235,9 @@ from pamola_core.profiling.schemas.categorical_schema_exclude import (
 )
 from pamola_core.profiling.schemas.correlation_schema import (
     CorrelationOperationConfig,
-    CorrelationMatrixOperationConfig,
 )
 from pamola_core.profiling.schemas.correlation_schema_exclude import (
     CORRELATION_EXCLUDE_FIELDS,
-    CORRELATION_MATRIX_EXCLUDE_FIELDS,
 )
 from pamola_core.profiling.schemas.currency_schema import CurrencyOperationConfig
 from pamola_core.profiling.schemas.currency_schema_exclude import (
@@ -251,10 +261,10 @@ from pamola_core.profiling.schemas.numeric_schema import NumericOperationConfig
 from pamola_core.profiling.schemas.numeric_schema_exclude import NUMERIC_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.phone_schema import PhoneOperationConfig
 from pamola_core.profiling.schemas.phone_schema_exclude import PHONE_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.text_config import (
+from pamola_core.profiling.schemas.text_schema import (
     TextSemanticCategorizerOperationConfig,
 )
-from pamola_core.profiling.schemas.text_config_exclude import TEXT_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.text_schema_exclude import TEXT_EXCLUDE_FIELDS
 from pamola_core.anonymization.schemas.datetime_op_tooltip import DateTimeOpTooltip
 from pamola_core.anonymization.schemas.categorical_op_tooltip import (
     CategoricalOpTooltip,
@@ -358,7 +368,11 @@ ALL_OP_CONFIGS = [
         CORRELATION_EXCLUDE_FIELDS,
         CorrelationOpTooltip.as_dict(),
     ),
-    (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS, None),
+    (
+        CorrelationMatrixOperationConfig,
+        CORRELATION_MATRIX_EXCLUDE_FIELDS,
+        CorrelationMatrixOperationTooltip.as_dict(),
+    ),
     (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, CurrencyOpTooltip.as_dict()),
     (DateOperationConfig, DATE_EXCLUDE_FIELDS, DateOpTooltip.as_dict()),
     (EmailOperationConfig, EMAIL_EXCLUDE_FIELDS, EmailOperationTooltip.as_dict()),
@@ -379,7 +393,11 @@ ALL_OP_CONFIGS = [
     ),
     (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS, NumericOperationTooltip.as_dict()),
     (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, PhoneOperationTooltip.as_dict()),
-    (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS, None),
+    (
+        TextSemanticCategorizerOperationConfig,
+        TEXT_EXCLUDE_FIELDS,
+        TextSemanticCategorizerOperationTooltip.as_dict(),
+    ),
     # -------------- Transformations -------------
     (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS, None),
     (
