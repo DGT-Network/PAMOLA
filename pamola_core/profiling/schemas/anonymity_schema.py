@@ -71,7 +71,14 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of fields used as quasi-identifiers for k-anonymity analysis. These are the columns whose combinations are evaluated for re-identification risk.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
-                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
+                        "x-reactions": [
+                            {
+                                "dependencies": ["id_fields"],
+                                "fulfill": {
+                                    "run": "{{ get_anonymity_quasi_identifier_options($self, $deps[0]) }}"
+                                },
+                            }
+                        ],
                     },
                     "quasi_identifier_sets": {
                         "type": ["array", "null"],
@@ -84,7 +91,14 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Overrides automatic detection.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
-                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
+                        "x-reactions": [
+                            {
+                                "dependencies": ["id_fields"],
+                                "fulfill": {
+                                    "run": "{{ get_anonymity_quasi_sets_options($self, $deps[0]) }}"
+                                },
+                            }
+                        ],
                     },
                     "threshold_k": {
                         "type": "integer",
@@ -112,7 +126,17 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of columns used as record identifiers for grouping or tracking vulnerable records.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
+                        "x-reactions": [
+                            {
+                                "dependencies": [
+                                    "quasi_identifiers",
+                                    "quasi_identifier_sets",
+                                ],
+                                "fulfill": {
+                                    "run": "{{ get_anonymity_id_field_options($self, $deps[0], $deps[1]) }}"
+                                },
+                            }
+                        ],
                     },
                     "output_field_suffix": {
                         "type": "string",

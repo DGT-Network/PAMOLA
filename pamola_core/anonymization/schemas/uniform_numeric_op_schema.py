@@ -196,12 +196,30 @@ class UniformNumericNoiseConfig(OperationConfig):
                                     "title": "Condition Operator",
                                     "x-component": "Select",
                                     "oneOf": [
-                                        {"const": "in", "description": "In"},
-                                        {"const": "not_in", "description": "Not in"},
-                                        {"const": "gt", "description": "Greater than"},
-                                        {"const": "lt", "description": "Less than"},
-                                        {"const": "eq", "description": "Equal to"},
-                                        {"const": "ne", "description": "Not equal"},
+                                        {
+                                            "const": "in",
+                                            "description": "In",
+                                        },
+                                        {
+                                            "const": "not_in",
+                                            "description": "Not in",
+                                        },
+                                        {
+                                            "const": "gt",
+                                            "description": "Greater than",
+                                        },
+                                        {
+                                            "const": "lt",
+                                            "description": "Less than",
+                                        },
+                                        {
+                                            "const": "eq",
+                                            "description": "Equal to",
+                                        },
+                                        {
+                                            "const": "ne",
+                                            "description": "Not equal",
+                                        },
                                         {
                                             "const": "ge",
                                             "description": "Greater than or equal",
@@ -210,8 +228,14 @@ class UniformNumericNoiseConfig(OperationConfig):
                                             "const": "le",
                                             "description": "Less than or equal",
                                         },
-                                        {"const": "range", "description": "Range"},
-                                        {"const": "all", "description": "All"},
+                                        {
+                                            "const": "range",
+                                            "description": "Range",
+                                        },
+                                        {
+                                            "const": "all",
+                                            "description": "All",
+                                        },
                                     ],
                                     "x-depend-on": {"field": "not_null"},
                                     "x-decorator-props": {
@@ -219,7 +243,9 @@ class UniformNumericNoiseConfig(OperationConfig):
                                         "style": {"width": "250px", "marginBottom": 8},
                                     },
                                     "description": "Operator for the condition (e.g., '=', '>', '<', 'in').",
-                                    "x-custom-function": ["update_condition_operator"],
+                                    "x-custom-function": [
+                                        CustomFunctions.UPDATE_CONDITION_OPERATOR
+                                    ],
                                 },
                                 "values": {
                                     "type": "array",
@@ -234,7 +260,9 @@ class UniformNumericNoiseConfig(OperationConfig):
                                         "layout": "vertical",
                                         "style": {"width": "250px", "marginBottom": 8},
                                     },
-                                    "x-custom-function": ["update_condition_values"],
+                                    "x-custom-function": [
+                                        CustomFunctions.UPDATE_CONDITION_VALUES
+                                    ],
                                 },
                             },
                         },
@@ -247,11 +275,18 @@ class UniformNumericNoiseConfig(OperationConfig):
                         "description": "Logical operator for combining multiple conditions (e.g., 'AND', 'OR').",
                         "default": "AND",
                         "oneOf": [
-                            {"const": "AND", "description": "AND"},
-                            {"const": "OR", "description": "OR"},
+                            {
+                                "const": "AND",
+                                "description": "AND",
+                            },
+                            {
+                                "const": "OR",
+                                "description": "OR",
+                            },
                         ],
                         "x-component": "Select",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {"multi_conditions": "not_null"},
                     },
                     # K-anonymity integration
                     "ka_risk_field": {
