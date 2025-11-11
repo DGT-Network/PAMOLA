@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake name config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -106,6 +107,7 @@ class FakeNameOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Column name providing gender information (if available).",
                         "x-depend-on": {"gender_from_name": False},
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                         "x-group": GroupName.GENDER_CONFIGURATION,
                     },
                     "f_m_ratio": {
@@ -139,6 +141,7 @@ class FakeNameOperationConfig(OperationConfig):
                         "title": "Unique ID Field",
                         "x-component": "Select",
                         "description": "Column name used as unique identifier for mapping consistency (optional).",
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                     },
                     "key": {
