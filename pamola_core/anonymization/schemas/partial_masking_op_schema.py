@@ -129,16 +129,14 @@ class PartialMaskingConfig(OperationConfig):
                     },
                     "unmasked_positions": {
                         "type": ["array", "null"],
-                        "items": {"type": "integer", "minimum": 0},
+                        "items": {
+                            "type": "integer",
+                            "enum": [0, 2, 4],
+                        },
                         "title": "Unmasked Positions",
                         "description": "Specific index positions to remain unmasked.",
                         "x-component": "Select",
                         "default": None,
-                        "oneOf": [
-                            {"const": 0, "description": "0"},
-                            {"const": 2, "description": "2"},
-                            {"const": 4, "description": "4"},
-                        ],
                         "x-group": GroupName.MASKING_RULES,
                         "x-depend-on": {"mask_strategy": MaskStrategyEnum.FIXED.value},
                     },
@@ -603,7 +601,7 @@ class PartialMaskingConfig(OperationConfig):
                         "description": "Other fields to mask consistently with the main field.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     # Conditional processing parameters
                     "condition_field": {
@@ -612,7 +610,7 @@ class PartialMaskingConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -630,7 +628,9 @@ class PartialMaskingConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_OPERATOR],
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_CONDITION_OPERATOR
+                        ],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
