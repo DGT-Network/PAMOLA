@@ -21,3 +21,4 @@ class CustomFunctions:
     UPDATE_CONDITION_OPERATOR = "update_condition_operator"
     UPDATE_CONDITION_VALUES = "update_condition_values"
     GET_DATA_FIELDS = "get_data_fields"
+    UPDATE_QUASI_FIELD_OPTIONS = "update_quasi_field_options"
