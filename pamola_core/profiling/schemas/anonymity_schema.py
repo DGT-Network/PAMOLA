@@ -109,7 +109,7 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of columns used as record identifiers for grouping or tracking vulnerable records.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": [CustomFunctions.QUASI_SETS_OPTIONS],
+                        "x-custom-function": [CustomFunctions.ID_FIELD_OPTIONS],
                     },
                     "output_field_suffix": {
                         "type": "string",

@@ -419,7 +419,10 @@ def convert_property(
 
         field.pop("x-depend-map", None)
 
-    elif field.get("x-component") == "NumericRangeMode":
+    elif field.get("x-custom-field") == "NumericRangeMode":
+        field["x-component"] = "NumericRangeMode"
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {"step": 0.1, "precision": 1}
         field["enum"] = [
             {
                 "label": "Symetric",
