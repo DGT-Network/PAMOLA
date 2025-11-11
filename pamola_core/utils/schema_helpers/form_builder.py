@@ -318,7 +318,6 @@ def convert_property(
                 and isinstance(field["items"], dict)
                 and "enum" in field["items"]
             ):
-                # Convert items.enum thành field.enum với label/value format
                 field["enum"] = [
                     {
                         "value": value,
