@@ -22,3 +22,6 @@ class CustomFunctions:
     UPDATE_CONDITION_VALUES = "update_condition_values"
     GET_DATA_FIELDS = "get_data_fields"
     UPDATE_FIELD_OPTIONS = "update_field_options"
+    QUASI_IDENTIFIER_OPTIONS = "get_anonymity_quasi_identifier_options"
+    QUASI_SETS_OPTIONS = "get_anonymity_quasi_sets_options"
+    ID_FIELD_OPTIONS = "get_anonymity_id_field_options"

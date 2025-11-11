@@ -71,6 +71,7 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of fields used as quasi-identifiers for k-anonymity analysis. These are the columns whose combinations are evaluated for re-identification risk.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.QUASI_IDENTIFIER_OPTIONS],
                         "x-reactions": [
                             {
                                 "dependencies": ["id_fields"],
@@ -91,6 +92,7 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Overrides automatic detection.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.QUASI_SETS_OPTIONS],
                         "x-reactions": [
                             {
                                 "dependencies": ["id_fields"],
@@ -126,6 +128,7 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of columns used as record identifiers for grouping or tracking vulnerable records.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                        "x-custom-function": [CustomFunctions.QUASI_SETS_OPTIONS],
                         "x-reactions": [
                             {
                                 "dependencies": [

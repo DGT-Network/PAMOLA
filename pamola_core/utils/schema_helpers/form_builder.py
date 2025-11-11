@@ -21,6 +21,8 @@ import json
 import copy
 from typing import Any, Dict, List, Optional, Union
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
+
 from tomlkit import item
 
 from pamola_core.common.enum.form_groups import (
@@ -440,17 +442,31 @@ def convert_property(
         and "x-required-on" not in field
         and "x-depend-on" not in field
     ):
-        run = f"{field['x-custom-function'][0]}($self)"
-        field["x-reactions"] = field.get(
-            "x-reactions",
-            [
-                {
-                    "fulfill": {
-                        "run": f"{{{{ {run} }}}}",
-                    },
-                }
-            ],
-        )
+        fn = field["x-custom-function"][0]
+
+        # Map function -> (dependencies, run_template)
+        configs = {
+            CustomFunctions.QUASI_IDENTIFIER_OPTIONS: (
+                ["id_fields"],
+                f"{fn}($self, $deps[0])",
+            ),
+            CustomFunctions.QUASI_SETS_OPTIONS: (
+                ["id_fields"],
+                f"{fn}($self, $deps[0])",
+            ),
+            CustomFunctions.ID_FIELD_OPTIONS: (
+                ["quasi_identifiers", "quasi_identifier_sets"],
+                f"{fn}($self, $deps[0], $deps[1])",
+            ),
+        }
+
+        deps, run = configs.get(fn, (None, f"{fn}($self)"))
+
+        reaction = {"fulfill": {"run": f"{{{{ {run} }}}}"}}
+        if deps:
+            reaction["dependencies"] = deps
+
+        field["x-reactions"] = field.get("x-reactions", [reaction])
 
     # Nested object - mark as nested when calling recursively
     if field.get("type") == "object" and "properties" in field:
