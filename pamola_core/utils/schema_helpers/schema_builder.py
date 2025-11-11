@@ -106,11 +106,14 @@ from pamola_core.transformations.schemas.aggregate_records_op_schema_exclude imp
 from pamola_core.transformations.schemas.aggregate_records_op_tooltip import (
     AggregateRecordsOperationTooltip,
 )
-from pamola_core.transformations.schemas.clean_invalid_values_config import (
+from pamola_core.transformations.schemas.clean_invalid_values_schema import (
     CleanInvalidValuesOperationConfig,
 )
-from pamola_core.transformations.schemas.clean_invalid_values_config_exclude import (
+from pamola_core.transformations.schemas.clean_invalid_values_schema_exclude import (
     CLEAN_INVALID_VALUES_EXCLUDE_FIELDS,
+)
+from pamola_core.transformations.schemas.clean_invalid_values_tooltip import (
+    CleanInvalidValuesOperationTooltip,
 )
 from pamola_core.transformations.schemas.impute_missing_values_op_config import (
     ImputeMissingValuesConfig,
@@ -410,7 +413,11 @@ ALL_OP_CONFIGS = [
         AGGREGATE_RECORDS_EXCLUDE_FIELDS,
         AggregateRecordsOperationTooltip.as_dict(),
     ),
-    (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),
+    (
+        CleanInvalidValuesOperationConfig,
+        CLEAN_INVALID_VALUES_EXCLUDE_FIELDS,
+        CleanInvalidValuesOperationTooltip.as_dict(),
+    ),
     (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS, None),
     (
         MergeDatasetsOperationConfig,
