@@ -72,6 +72,10 @@ class GroupName(str, Enum):
     WHITELIST_CONFIGURATION = "whitelist_configuration"
     BLACKLIST_CONFIGURATION = "blacklist_configuration"
     NULL_REPLACEMENT_CONFIGURATION = "null_replacement_configuration"
+    FIELD_STRATEGIES_CONFIGURATION = "field_strategies_configuration"
+    INVALID_VALUES_CONFIGURATION = "invalid_values_configuration"
+    FIELD_OPERATIONS_CONFIGURATION = "field_operations_configuration"
+    LOOKUP_TABLE_CONFIGURATION = "lookup_table_configuration"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -135,6 +139,10 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.WHITELIST_CONFIGURATION: "Whitelist Configuration",
     GroupName.BLACKLIST_CONFIGURATION: "Blacklist Configuration",
     GroupName.NULL_REPLACEMENT_CONFIGURATION: "Null Replacement Configuration",
+    GroupName.FIELD_STRATEGIES_CONFIGURATION: "Field Strategies Configuration",
+    GroupName.INVALID_VALUES_CONFIGURATION: "Invalid Values Configuration",
+    GroupName.FIELD_OPERATIONS_CONFIGURATION: "Field Operations Configuration",
+    GroupName.LOOKUP_TABLE_CONFIGURATION: "Lookup Table Configuration",
 }
 
 
@@ -326,6 +334,16 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.WHITELIST_CONFIGURATION,
         GroupName.BLACKLIST_CONFIGURATION,
         GroupName.NULL_REPLACEMENT_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "ImputeMissingValuesConfig": [
+        GroupName.INVALID_VALUES_CONFIGURATION,
+        GroupName.FIELD_STRATEGIES_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "AddOrModifyFieldsOperationConfig": [
+        GroupName.LOOKUP_TABLE_CONFIGURATION,
+        GroupName.FIELD_OPERATIONS_CONFIGURATION,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
 }

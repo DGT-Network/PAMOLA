@@ -45,7 +45,7 @@ from pamola_core.common.constants import Constants
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.transformations.schemas.impute_missing_values_op_config import ImputeMissingValuesConfig
+from pamola_core.transformations.schemas.impute_missing_values_op_schema import ImputeMissingValuesConfig
 
 
 @register(version="1.0.0")
