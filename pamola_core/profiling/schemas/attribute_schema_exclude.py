@@ -18,11 +18,14 @@ Changelog:
 """
 
 ATTRIBUTE_EXCLUDE_FIELDS = [
+    "name",
+    "description",
     "scope",
     "config",
     "optimize_memory",
     "adaptive_chunk_size",
     "mode",
+    "output_field_name",
     "column_prefix",
     "null_strategy",
     "engine",
@@ -32,6 +35,14 @@ ATTRIBUTE_EXCLUDE_FIELDS = [
     "use_vectorization",
     "parallel_processes",
     "chunk_size",
+    "use_cache",
     "output_format",
+    "visualization_theme",
+    "visualization_backend",
+    "visualization_strict",
+    "visualization_timeout",
+    "use_encryption",
+    "encryption_mode",
+    "encryption_key",
     "save_output",
 ]

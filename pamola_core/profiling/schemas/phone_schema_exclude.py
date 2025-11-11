@@ -44,7 +44,6 @@ PHONE_EXCLUDE_FIELDS = [
     "use_encryption",
     "encryption_mode",
     "encryption_key",
-    "force_recalculation",
     "save_output",
     "field_name",
 ]
