@@ -73,7 +73,7 @@ class AttributeSuppressionConfig(OperationConfig):
                                     "title": "Condition Field",
                                     "description": "Field name for conditional processing.",
                                     "x-component": "Select",
-                                    "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
+                                    "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                                 },
                                 "operator": {
                                     "type": "string",
@@ -129,7 +129,7 @@ class AttributeSuppressionConfig(OperationConfig):
                         "description": "Field name for conditional processing.",
                         "x-component": "Select",
                         "x-group": GroupName.SIMPLE_CONDITIONAL_RULE,
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "condition_operator": {
                         "type": "string",
