@@ -209,7 +209,7 @@ class FullMaskingConfig(OperationConfig):
                             "condition_field": "not_null",
                             "condition_operator": "not_null",
                         },
-                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
+                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_VALUES],
                     },
                     # K-anonymity integration
                     "ka_risk_field": {
