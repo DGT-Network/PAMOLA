@@ -60,12 +60,11 @@ class UniformNumericNoiseConfig(OperationConfig):
                     "noise_range": {
                         "type": ["number", "array"],
                         "title": "Noise Range",
-                        "x-component": "NumericRangeMode",
+                        "x-component": "Input",
+                        "x-custom-field": "NumericRangeMode",
                         "x-group": GroupName.CORE_NOISE_STRATEGY,
                         "name": "noise_range",
-                        "x-decorator": "FormItem",
                         "default": 0.1,
-                        "x-component-props": {"step": 0.1, "precision": 1},
                     },
                     # ==== Bounds and Constraints ====
                     "output_min": {
