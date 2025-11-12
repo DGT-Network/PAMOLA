@@ -101,6 +101,7 @@ class RecordSuppressionConfig(OperationConfig):
                         "type": ["array", "null"],
                         "x-component": "ArrayItems",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {"suppression_condition": "custom"},
                         "items": {
                             "type": "object",
                             "properties": {
@@ -221,11 +222,14 @@ class RecordSuppressionConfig(OperationConfig):
                         "description": "Field containing k-anonymity risk scores for suppression based on risk.",
                         "x-component": "Select",
                         "x-group": GroupName.RISK_BASED_FILTERING,
-                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
+                        "x-custom-function": [CustomFunctions.UPDATE_INT64_FIELD_OPTIONS],
+                        "x-depend-on": {"suppression_condition": "risk"},
+                        "x-required-on": {"suppression_condition": "risk"},
                     },
                     "risk_threshold": {
                         "type": "number",
                         "title": "Risk Threshold",
+                        "default": 5.0,
                         "description": "Threshold for k-anonymity risk triggering suppression.",
                         "x-component": "NumberPicker",
                         "x-group": GroupName.RISK_BASED_FILTERING,

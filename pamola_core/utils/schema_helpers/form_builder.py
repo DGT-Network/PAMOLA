@@ -21,6 +21,7 @@ import json
 import copy
 from typing import Any, Dict, List, Optional, Union
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 
 from tomlkit import item
@@ -393,7 +394,7 @@ def convert_property(
         depend_on = depend_map.get("depend_on")
         options_map = depend_map.get("options_map", {})
 
-        # Chuyển sang Select
+        # Convert to Select
         field["x-decorator"] = "FormItem"
         field["x-component"] = "Select"
         field["x-component-props"] = {
@@ -425,8 +426,8 @@ def convert_property(
 
         field.pop("x-depend-map", None)
 
-    if field.get("x-custom-function") == CustomFunctions.NUMERIC_RANGE_MODE:
-        field["x-component"] = CustomFunctions.NUMERIC_RANGE_MODE
+    if field.get("x-custom-function") == CustomComponents.NUMERIC_RANGE_MODE:
+        field["x-component"] = CustomComponents.NUMERIC_RANGE_MODE
         field["x-decorator"] = "FormItem"
         field["x-component-props"] = {"step": 0.1, "precision": 1}
         field["enum"] = [
@@ -442,12 +443,16 @@ def convert_property(
             },
         ]
 
-    if "x-depend-on" in field or "x-required-on" in field:
+    if (
+        "x-depend-on" in field
+        or "x-required-on" in field
+        or field.get("x-component") == "Upload"
+    ):
         field = _add_x_reactions(field, formily_schema, is_nested)
 
     if (
         "x-custom-function" in field
-        and field.get("x-custom-function") != CustomFunctions.NUMERIC_RANGE_MODE
+        and field.get("x-custom-function") != CustomComponents.NUMERIC_RANGE_MODE
         and "x-required-on" not in field
         and "x-depend-on" not in field
     ):
@@ -555,17 +560,17 @@ def _add_x_reactions(
     depend_fields = _get_ordered_unique_keys(keys)
 
     # Handle visibility conditions
-    if "x-depend-on" in field:
+    if x_depend_on:
         visible_state = _process_field_conditions(
-            field["x-depend-on"], formily_schema, depend_fields
+            x_depend_on, formily_schema, depend_fields
         )
         if visible_state:
             state["visible"] = f"{{{{ {visible_state} }}}}"
 
     # Handle requirement conditions
-    if "x-required-on" in field:
+    if x_required_on:
         required_state = _process_field_conditions(
-            field["x-required-on"], formily_schema, depend_fields
+            x_required_on, formily_schema, depend_fields
         )
         if required_state:
             state["required"] = f"{{{{ {required_state} }}}}"
@@ -574,26 +579,37 @@ def _add_x_reactions(
     if is_nested:
         depend_fields = [f".{field_name}" for field_name in depend_fields]
 
+    # Determine if reactions should be added
     is_ignore_depend_fields = field.get("x-ignore-depend-fields", False)
-    if depend_fields and not is_ignore_depend_fields:
+    is_upload_component = field.get("x-component") == "Upload"
+    should_add_reactions = (
+        depend_fields and not is_ignore_depend_fields
+    ) or is_upload_component
+
+    if should_add_reactions:
         reactions = field.get("x-reactions", [])
+
+        # Determine the run script
         if "x-custom-function" in field:
             deps_expr = ", ".join([f"$deps[{i}]" for i in range(len(depend_fields))])
             run = f"{field['x-custom-function'][0]}({deps_expr}, $self)"
+        elif is_upload_component:
+            run = "init_upload($self)"
         else:
             run = f"$self.setValue({default_value_str})"
 
-            if field.get("x-component") == "Upload":
-                run = "init_upload($self)"  # For upload component initialization
-        reactions.append(
-            {
-                "dependencies": depend_fields,
-                "fulfill": {
-                    "state": state,
-                    "run": f"{{{{ {run} }}}}",
-                },
-            }
-        )
+        # Build reaction config
+        reaction = {"fulfill": {"run": f"{{{{ {run} }}}}"}}
+
+        # Add state if present
+        if state:
+            reaction["fulfill"]["state"] = state
+
+        # Add dependencies if present
+        if depend_fields and not is_ignore_depend_fields:
+            reaction["dependencies"] = depend_fields
+
+        reactions.append(reaction)
         field["x-reactions"] = reactions
 
     # Clean up temporary properties
