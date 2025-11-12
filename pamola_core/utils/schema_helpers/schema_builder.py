@@ -440,7 +440,8 @@ ALL_OP_CONFIGS = [
         AddOrModifyFieldsOperationConfig,
         ADD_MODIFY_FIELDS_EXCLUDE_FIELDS,
         AddOrModifyFieldsOperationTooltip.as_dict(),
-    )(
+    ),
+    (
         RemoveFieldsOperationConfig,
         REMOVE_FIELDS_EXCLUDE_FIELDS,
         RemoveFieldsOperationTooltip.as_dict(),
