@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of remove fields config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -49,6 +50,7 @@ class RemoveFieldsOperationConfig(OperationConfig):
                         "title": "Fields to Remove",
                         "x-component": "Select",
                         "x-group": GroupName.FIELD_REMOVAL,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                         "description": "List of field names to remove from the dataset. If null, no explicit fields are removed.",
                     },
                 },

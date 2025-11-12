@@ -34,7 +34,7 @@ from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.categorical_config import CategoricalOperationConfig
+from pamola_core.profiling.schemas.categorical_schema import CategoricalOperationConfig
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,

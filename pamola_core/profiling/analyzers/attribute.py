@@ -31,11 +31,12 @@ from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional, Union
 import pandas as pd
+from pamola_core.common.enum.language_enum import Language
 from pamola_core.profiling.commons.attribute_utils import (
     analyze_dataset_attributes,
     load_attribute_dictionary,
 )
-from pamola_core.profiling.schemas.attribute_config import DataAttributeProfilerOperationConfig
+from pamola_core.profiling.schemas.attribute_schema import DataAttributeProfilerOperationConfig
 from pamola_core.utils.io import (
     ensure_directory,
     write_json,
@@ -78,10 +79,9 @@ class DataAttributeProfilerOperation(BaseOperation):
         self,
         name: str = "DataAttributeProfiler",
         dictionary_path: Optional[Union[str, Path]] = None,
-        language: str = "en",
+        language: str = Language.ENGLISH.value,
         sample_size: int = 10,
         max_columns: Optional[int] = None,
-        id_column: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -94,13 +94,11 @@ class DataAttributeProfilerOperation(BaseOperation):
         dictionary_path : str | Path | None
             Path to attribute dictionary (optional).
         language : str
-            Language code for keyword matching (default "en").
+            Language code for keyword matching (default Language.ENGLISH.value).
         sample_size : int
             Number of sample values to inspect per column.
         max_columns : int | None
             Max number of columns to analyze.
-        id_column : str | None
-            ID column name for record-level analysis.
         kwargs : dict
             Extra BaseOperation params (chunk_size, use_dask, visualization_*, etc.)
         """
@@ -118,7 +116,6 @@ class DataAttributeProfilerOperation(BaseOperation):
             language=language,
             sample_size=sample_size,
             max_columns=max_columns,
-            id_column=id_column,
             **kwargs,
         )
 
@@ -299,7 +296,6 @@ class DataAttributeProfilerOperation(BaseOperation):
                 language=self.language,
                 sample_size=self.sample_size,
                 max_columns=self.max_columns,
-                id_column=self.id_column,
             )
 
             # Step 3: Analysis
@@ -973,7 +969,6 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         # Get basic operation parameters
         parameters = {
-            "id_column": self.id_column,
             "sample_size": self.sample_size,
             "max_columns": self.max_columns,
             "language": self.language,

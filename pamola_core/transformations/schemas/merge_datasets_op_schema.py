@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of merge datasets config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -56,6 +57,7 @@ class MergeDatasetsOperationConfig(OperationConfig):
                         "title": "Left Key",
                         "description": "Key field in the left dataset for joining.",
                         "x-component": "Select",
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                         "x-group": GroupName.JOIN_KEYS,
                     },
                     "right_key": {
@@ -63,6 +65,7 @@ class MergeDatasetsOperationConfig(OperationConfig):
                         "title": "Right Key",
                         "description": "Key field in the right dataset for joining. Defaults to left_key if not set.",
                         "x-component": "Select",
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                         "x-group": GroupName.JOIN_KEYS,
                     },
                     "join_type": {
@@ -98,7 +101,10 @@ class MergeDatasetsOperationConfig(OperationConfig):
                         "items": {
                             "type": "string",
                             "x-component": "Input",
-                            "x-items-title": ["Left Column Suffix", "Right Column Suffix"],
+                            "x-items-title": [
+                                "Left Column Suffix",
+                                "Right Column Suffix",
+                            ],
                             "x-item-params": ["left", "right"],
                         },
                         "minItems": 2,
@@ -108,13 +114,11 @@ class MergeDatasetsOperationConfig(OperationConfig):
                         "x-group": GroupName.SUFFIXES,
                         "description": "Suffixes to apply to overlapping columns in the merged dataset.",
                     },
-                    
                 },
                 "required": [
                     "left_dataset_name",
                     "left_key",
                     "right_dataset_name",
-                    "right_key",
                     "join_type",
                     "relationship_type",
                 ],

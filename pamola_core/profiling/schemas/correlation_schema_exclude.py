@@ -56,21 +56,3 @@ CORRELATION_EXCLUDE_FIELDS = [
     "field2",
     "force_recalculation",
 ]
-CORRELATION_MATRIX_EXCLUDE_FIELDS = [
-    "config",
-    "scope",
-    "optimize_memory",
-    "adaptive_chunk_size",
-    "mode",
-    "column_prefix",
-    "null_strategy",
-    "engine",
-    "dask_partition_size",
-    "output_format",
-    "save_output",
-    "use_dask",
-    "npartitions",
-    "use_vectorization",
-    "parallel_processes",
-    "chunk_size",
-]

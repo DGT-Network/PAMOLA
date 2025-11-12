@@ -292,7 +292,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "List of quasi-identifier field names.",
                         "x-component": "Select",
                         "x-group": GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
+                        "x-custom-function": [CustomFunctions.UPDATE_QUASI_FIELD_OPTIONS],
                         "x-ignore-depend-fields": True,
                         "x-depend-on": {"privacy_check_enabled": True},
                         "x-required-on": {"privacy_check_enabled": True},
@@ -304,7 +304,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "Field name for conditional processing.",
                         "x-component": "Select",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "condition_operator": {
                         "type": "string",

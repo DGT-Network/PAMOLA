@@ -50,7 +50,6 @@ class GroupName(str, Enum):
     DATA_QUALITY_ANALYSIS = "data_quality_analysis"
     CURRENCY_PARSING_SETTINGS = "currency_parsing_settings"
     DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
-    OUTPUT_SETTINGS = "output_settings"
     FIELD_REMOVAL = "field_removal"
     JOIN_KEYS = "join_keys"
     INPUT_DATASETS = "input_datasets"
@@ -64,9 +63,19 @@ class GroupName(str, Enum):
     VALUE_GROUPS = "value_groups"
     INPUT_SETTINGS = "input_settings"
     FIELD_GROUPS_CONFIGURATION = "field_groups_configuration"
-    GROUPING_SETTINGS = "grouping_settings",
-    AGGREGATION_SETUP = "aggregation_setup",
-    CUSTOM_AGGREGATIONS = "custom_aggregations",
+    GROUPING_SETTINGS = "grouping_settings"
+    AGGREGATION_SETUP = "aggregation_setup"
+    CUSTOM_AGGREGATIONS = "custom_aggregations"
+    DICTIONARY_CONFIGURATION = "dictionary_configuration"
+    CORRELATION_CONFIGURATION = "correlation_configuration"
+    FIELD_CONSTRAINTS_CONFIGURATION = "field_constraints_configuration"
+    WHITELIST_CONFIGURATION = "whitelist_configuration"
+    BLACKLIST_CONFIGURATION = "blacklist_configuration"
+    NULL_REPLACEMENT_CONFIGURATION = "null_replacement_configuration"
+    FIELD_STRATEGIES_CONFIGURATION = "field_strategies_configuration"
+    INVALID_VALUES_CONFIGURATION = "invalid_values_configuration"
+    FIELD_OPERATIONS_CONFIGURATION = "field_operations_configuration"
+    LOOKUP_TABLE_CONFIGURATION = "lookup_table_configuration"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -108,7 +117,6 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
     GroupName.CURRENCY_PARSING_SETTINGS: "Currency Parsing Settings",
     GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
-    GroupName.OUTPUT_SETTINGS: "Output Settings",
     GroupName.FIELD_REMOVAL: "Field Removal",
     GroupName.JOIN_KEYS: "Join Keys",
     GroupName.INPUT_DATASETS: "Input Datasets",
@@ -125,6 +133,16 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.GROUPING_SETTINGS: "Grouping Settings",
     GroupName.AGGREGATION_SETUP: "Aggregation Setup",
     GroupName.CUSTOM_AGGREGATIONS: "Custom Aggregations",
+    GroupName.DICTIONARY_CONFIGURATION: "Dictionary Configuration",
+    GroupName.CORRELATION_CONFIGURATION: "Correlation Configuration",
+    GroupName.FIELD_CONSTRAINTS_CONFIGURATION: "Field Constraints Configuration",
+    GroupName.WHITELIST_CONFIGURATION: "Whitelist Configuration",
+    GroupName.BLACKLIST_CONFIGURATION: "Blacklist Configuration",
+    GroupName.NULL_REPLACEMENT_CONFIGURATION: "Null Replacement Configuration",
+    GroupName.FIELD_STRATEGIES_CONFIGURATION: "Field Strategies Configuration",
+    GroupName.INVALID_VALUES_CONFIGURATION: "Invalid Values Configuration",
+    GroupName.FIELD_OPERATIONS_CONFIGURATION: "Field Operations Configuration",
+    GroupName.LOOKUP_TABLE_CONFIGURATION: "Lookup Table Configuration",
 }
 
 
@@ -171,6 +189,7 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     ],
     "UniformTemporalNoiseConfig": [
         GroupName.CORE_NOISE_STRATEGY,
+        GroupName.PRESERVATION_RULES,
         GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
         GroupName.CONDITIONAL_LOGIC,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
@@ -248,12 +267,16 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "CorrelationOperationConfig": [
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
+    "CorrelationMatrixOperationConfig": [
+        GroupName.CORRELATION_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
     "CategoricalOperationConfig": [
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     "PhoneOperationConfig": [
         GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
-        GroupName.OUTPUT_SETTINGS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     "GroupAnalyzerOperationConfig": [
         GroupName.GROUP_CONFIGURATION,
@@ -264,6 +287,18 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
     "KAnonymityProfilerOperationConfig": [
         GroupName.ANALYSIS_CONFIGURATION,
         GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "DataAttributeProfilerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.DICTIONARY_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "TextSemanticCategorizerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.DICTIONARY_CONFIGURATION,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     # -------------- Transformations ---------------
@@ -294,7 +329,23 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.CUSTOM_AGGREGATIONS,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
-    
+    "CleanInvalidValuesOperationConfig": [
+        GroupName.FIELD_CONSTRAINTS_CONFIGURATION,
+        GroupName.WHITELIST_CONFIGURATION,
+        GroupName.BLACKLIST_CONFIGURATION,
+        GroupName.NULL_REPLACEMENT_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "ImputeMissingValuesConfig": [
+        GroupName.INVALID_VALUES_CONFIGURATION,
+        GroupName.FIELD_STRATEGIES_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "AddOrModifyFieldsOperationConfig": [
+        GroupName.LOOKUP_TABLE_CONFIGURATION,
+        GroupName.FIELD_OPERATIONS_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
 }
 
 

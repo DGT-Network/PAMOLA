@@ -1,7 +1,7 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
-Module:        Phone Exclude Fields
+Module:        Attribute Exclude Fields
 Package:       pamola_core.profiling.schemas
 Version:       1.0.0
 Status:        stable
@@ -10,14 +10,14 @@ Created:       2025-01-15
 License:       BSD 3-Clause
 
 Description:
-Defines a list of field names to be excluded from phone profiling operations in PAMOLA.CORE.
-These fields are typically configuration or engine-related and should not be processed for phone profiling.
+Defines a list of field names to be excluded from attribute profiling operations in PAMOLA.CORE.
+These fields are typically configuration or engine-related and should not be processed for attribute profiling.
 
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of exclude fields list
 """
 
-PHONE_EXCLUDE_FIELDS = [
+ATTRIBUTE_EXCLUDE_FIELDS = [
     "name",
     "description",
     "scope",
@@ -45,5 +45,4 @@ PHONE_EXCLUDE_FIELDS = [
     "encryption_mode",
     "encryption_key",
     "save_output",
-    "field_name",
 ]

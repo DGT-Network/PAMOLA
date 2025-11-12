@@ -144,7 +144,7 @@ class CellSuppressionConfig(OperationConfig):
                         "description": "Field name for conditional processing.",
                         "x-component": "Select",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "condition_operator": {
                         "type": "string",

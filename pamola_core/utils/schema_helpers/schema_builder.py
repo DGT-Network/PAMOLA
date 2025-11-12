@@ -67,7 +67,19 @@ from pamola_core.fake_data.schemas.phone_op_tooltip import FakePhoneOperationToo
 from pamola_core.profiling.schemas.anonymity_tooltip import (
     KAnonymityProfilerOperationTooltip,
 )
+from pamola_core.profiling.schemas.attribute_tooltip import (
+    DataAttributeProfilerOperationTooltip,
+)
 from pamola_core.profiling.schemas.categorical_tooltip import CategoricalTooltip
+from pamola_core.profiling.schemas.correlation_matrix_schema import (
+    CorrelationMatrixOperationConfig,
+)
+from pamola_core.profiling.schemas.correlation_matrix_schema_exclude import (
+    CORRELATION_MATRIX_EXCLUDE_FIELDS,
+)
+from pamola_core.profiling.schemas.correlation_matrix_tooltip import (
+    CorrelationMatrixOperationTooltip,
+)
 from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
 from pamola_core.profiling.schemas.group_tooltip import GroupAnalyzerOperationTooltip
 from pamola_core.profiling.schemas.identity_tooltip import (
@@ -76,32 +88,44 @@ from pamola_core.profiling.schemas.identity_tooltip import (
 from pamola_core.profiling.schemas.mvf_tooltip import MVFAnalysisOperationTooltip
 from pamola_core.profiling.schemas.numeric_tooltip import NumericOperationTooltip
 from pamola_core.profiling.schemas.phone_tooltip import PhoneOperationTooltip
-from pamola_core.transformations.schemas.add_modify_fields_config import (
+from pamola_core.profiling.schemas.text_tooltip import (
+    TextSemanticCategorizerOperationTooltip,
+)
+from pamola_core.transformations.schemas.add_modify_fields_schema import (
     AddOrModifyFieldsOperationConfig,
 )
-from pamola_core.transformations.schemas.add_modify_fields_config_exclude import (
+from pamola_core.transformations.schemas.add_modify_fields_schema_exclude import (
     ADD_MODIFY_FIELDS_EXCLUDE_FIELDS,
 )
-from pamola_core.transformations.schemas.aggregate_records_op_config import (
+from pamola_core.transformations.schemas.add_modify_fields_tooltip import (
+    AddOrModifyFieldsOperationTooltip,
+)
+from pamola_core.transformations.schemas.aggregate_records_op_schema import (
     AggregateRecordsOperationConfig,
 )
-from pamola_core.transformations.schemas.aggregate_records_op_config_exclude import (
+from pamola_core.transformations.schemas.aggregate_records_op_schema_exclude import (
     AGGREGATE_RECORDS_EXCLUDE_FIELDS,
 )
 from pamola_core.transformations.schemas.aggregate_records_op_tooltip import (
     AggregateRecordsOperationTooltip,
 )
-from pamola_core.transformations.schemas.clean_invalid_values_config import (
+from pamola_core.transformations.schemas.clean_invalid_values_schema import (
     CleanInvalidValuesOperationConfig,
 )
-from pamola_core.transformations.schemas.clean_invalid_values_config_exclude import (
+from pamola_core.transformations.schemas.clean_invalid_values_schema_exclude import (
     CLEAN_INVALID_VALUES_EXCLUDE_FIELDS,
 )
-from pamola_core.transformations.schemas.impute_missing_values_op_config import (
+from pamola_core.transformations.schemas.clean_invalid_values_tooltip import (
+    CleanInvalidValuesOperationTooltip,
+)
+from pamola_core.transformations.schemas.impute_missing_values_op_schema import (
     ImputeMissingValuesConfig,
 )
-from pamola_core.transformations.schemas.impute_missing_values_op_config_exclude import (
+from pamola_core.transformations.schemas.impute_missing_values_op_schema_exclude import (
     IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS,
+)
+from pamola_core.transformations.schemas.impute_missing_values_op_tooltip import (
+    ImputeMissingValuesOperationTooltip,
 )
 from pamola_core.transformations.schemas.merge_datasets_op_schema import (
     MergeDatasetsOperationConfig,
@@ -121,19 +145,19 @@ from pamola_core.transformations.schemas.remove_fields_op_schema_exclude import 
 from pamola_core.transformations.schemas.remove_fields_op_tooltip import (
     RemoveFieldsOperationTooltip,
 )
-from pamola_core.transformations.schemas.split_by_id_values_op_config import (
+from pamola_core.transformations.schemas.split_by_id_values_op_schema import (
     SplitByIDValuesOperationConfig,
 )
-from pamola_core.transformations.schemas.split_by_id_values_op_config_exclude import (
+from pamola_core.transformations.schemas.split_by_id_values_op_schema_exclude import (
     SPLIT_BY_ID_VALUES_EXCLUDE_FIELDS,
 )
 from pamola_core.transformations.schemas.split_by_id_values_op_tooltip import (
     SplitByIDValuesOperationTooltip,
 )
-from pamola_core.transformations.schemas.split_fields_op_config import (
+from pamola_core.transformations.schemas.split_fields_op_schema import (
     SplitFieldsOperationConfig,
 )
-from pamola_core.transformations.schemas.split_fields_op_config_exclude import (
+from pamola_core.transformations.schemas.split_fields_op_schema_exclude import (
     SPLIT_FIELDS_EXCLUDE_FIELDS,
 )
 from pamola_core.anonymization.schemas.categorical_op_schema import (
@@ -173,7 +197,7 @@ from pamola_core.anonymization.schemas.attribute_op_schema_exclude import (
 from pamola_core.anonymization.schemas.cell_op_schema import CellSuppressionConfig
 from pamola_core.anonymization.schemas.cell_op_schema_exclude import CELL_EXCLUDE_FIELDS
 from pamola_core.anonymization.schemas.record_op_schema import RecordSuppressionConfig
-from pamola_core.anonymization.schemas.record_op_config_exclude import (
+from pamola_core.anonymization.schemas.record_op_schema_exclude import (
     RECORD_EXCLUDE_FIELDS,
 )
 from pamola_core.anonymization.schemas.uniform_numeric_op_schema import (
@@ -208,23 +232,21 @@ from pamola_core.profiling.schemas.anonymity_schema import (
 from pamola_core.profiling.schemas.anonymity_schema_exclude import (
     ANONYMITY_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.attribute_config import (
+from pamola_core.profiling.schemas.attribute_schema import (
     DataAttributeProfilerOperationConfig,
 )
-from pamola_core.profiling.schemas.attribute_config_exclude import (
+from pamola_core.profiling.schemas.attribute_schema_exclude import (
     ATTRIBUTE_EXCLUDE_FIELDS,
 )
-from pamola_core.profiling.schemas.categorical_config import CategoricalOperationConfig
-from pamola_core.profiling.schemas.categorical_config_exclude import (
+from pamola_core.profiling.schemas.categorical_schema import CategoricalOperationConfig
+from pamola_core.profiling.schemas.categorical_schema_exclude import (
     CATEGORICAL_EXCLUDE_FIELDS,
 )
 from pamola_core.profiling.schemas.correlation_schema import (
     CorrelationOperationConfig,
-    CorrelationMatrixOperationConfig,
 )
 from pamola_core.profiling.schemas.correlation_schema_exclude import (
     CORRELATION_EXCLUDE_FIELDS,
-    CORRELATION_MATRIX_EXCLUDE_FIELDS,
 )
 from pamola_core.profiling.schemas.currency_schema import CurrencyOperationConfig
 from pamola_core.profiling.schemas.currency_schema_exclude import (
@@ -248,10 +270,10 @@ from pamola_core.profiling.schemas.numeric_schema import NumericOperationConfig
 from pamola_core.profiling.schemas.numeric_schema_exclude import NUMERIC_EXCLUDE_FIELDS
 from pamola_core.profiling.schemas.phone_schema import PhoneOperationConfig
 from pamola_core.profiling.schemas.phone_schema_exclude import PHONE_EXCLUDE_FIELDS
-from pamola_core.profiling.schemas.text_config import (
+from pamola_core.profiling.schemas.text_schema import (
     TextSemanticCategorizerOperationConfig,
 )
-from pamola_core.profiling.schemas.text_config_exclude import TEXT_EXCLUDE_FIELDS
+from pamola_core.profiling.schemas.text_schema_exclude import TEXT_EXCLUDE_FIELDS
 from pamola_core.anonymization.schemas.datetime_op_tooltip import DateTimeOpTooltip
 from pamola_core.anonymization.schemas.categorical_op_tooltip import (
     CategoricalOpTooltip,
@@ -286,7 +308,11 @@ ALL_OP_CONFIGS = [
         DATETIME_GENERALIZATION_EXCLUDE_FIELDS,
         DateTimeOpTooltip.as_dict(),
     ),
-    (FullMaskingConfig, FULL_MASKING_EXCLUDE_FIELDS, FullMaskingOpTooltip.as_dict()),
+    (
+        FullMaskingConfig,
+        FULL_MASKING_EXCLUDE_FIELDS,
+        FullMaskingOpTooltip.as_dict(),
+    ),
     (
         PartialMaskingConfig,
         PARTIAL_MASKING_EXCLUDE_FIELDS,
@@ -307,7 +333,11 @@ ALL_OP_CONFIGS = [
         ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS,
         AttributeSuppressionOpTooltip.as_dict(),
     ),
-    (CellSuppressionConfig, CELL_EXCLUDE_FIELDS, CellSuppressionOpTooltip.as_dict()),
+    (
+        CellSuppressionConfig,
+        CELL_EXCLUDE_FIELDS,
+        CellSuppressionOpTooltip.as_dict(),
+    ),
     (
         RecordSuppressionConfig,
         RECORD_EXCLUDE_FIELDS,
@@ -340,7 +370,11 @@ ALL_OP_CONFIGS = [
         ANONYMITY_EXCLUDE_FIELDS,
         KAnonymityProfilerOperationTooltip.as_dict(),
     ),
-    (DataAttributeProfilerOperationConfig, ATTRIBUTE_EXCLUDE_FIELDS, None),
+    (
+        DataAttributeProfilerOperationConfig,
+        ATTRIBUTE_EXCLUDE_FIELDS,
+        DataAttributeProfilerOperationTooltip.as_dict(),
+    ),
     (
         CategoricalOperationConfig,
         CATEGORICAL_EXCLUDE_FIELDS,
@@ -351,10 +385,26 @@ ALL_OP_CONFIGS = [
         CORRELATION_EXCLUDE_FIELDS,
         CorrelationOpTooltip.as_dict(),
     ),
-    (CorrelationMatrixOperationConfig, CORRELATION_MATRIX_EXCLUDE_FIELDS, None),
-    (CurrencyOperationConfig, CURRENCY_EXCLUDE_FIELDS, CurrencyOpTooltip.as_dict()),
-    (DateOperationConfig, DATE_EXCLUDE_FIELDS, DateOpTooltip.as_dict()),
-    (EmailOperationConfig, EMAIL_EXCLUDE_FIELDS, EmailOperationTooltip.as_dict()),
+    (
+        CorrelationMatrixOperationConfig,
+        CORRELATION_MATRIX_EXCLUDE_FIELDS,
+        CorrelationMatrixOperationTooltip.as_dict(),
+    ),
+    (
+        CurrencyOperationConfig,
+        CURRENCY_EXCLUDE_FIELDS,
+        CurrencyOpTooltip.as_dict(),
+    ),
+    (
+        DateOperationConfig,
+        DATE_EXCLUDE_FIELDS,
+        DateOpTooltip.as_dict(),
+    ),
+    (
+        EmailOperationConfig,
+        EMAIL_EXCLUDE_FIELDS,
+        EmailOperationTooltip.as_dict(),
+    ),
     (
         GroupAnalyzerOperationConfig,
         GROUP_EXCLUDE_FIELDS,
@@ -370,11 +420,27 @@ ALL_OP_CONFIGS = [
         MVF_EXCLUDE_FIELDS,
         MVFAnalysisOperationTooltip.as_dict(),
     ),
-    (NumericOperationConfig, NUMERIC_EXCLUDE_FIELDS, NumericOperationTooltip.as_dict()),
-    (PhoneOperationConfig, PHONE_EXCLUDE_FIELDS, PhoneOperationTooltip.as_dict()),
-    (TextSemanticCategorizerOperationConfig, TEXT_EXCLUDE_FIELDS, None),
+    (
+        NumericOperationConfig,
+        NUMERIC_EXCLUDE_FIELDS,
+        NumericOperationTooltip.as_dict(),
+    ),
+    (
+        PhoneOperationConfig,
+        PHONE_EXCLUDE_FIELDS,
+        PhoneOperationTooltip.as_dict(),
+    ),
+    (
+        TextSemanticCategorizerOperationConfig,
+        TEXT_EXCLUDE_FIELDS,
+        TextSemanticCategorizerOperationTooltip.as_dict(),
+    ),
     # -------------- Transformations -------------
-    (AddOrModifyFieldsOperationConfig, ADD_MODIFY_FIELDS_EXCLUDE_FIELDS, None),
+    (
+        AddOrModifyFieldsOperationConfig,
+        ADD_MODIFY_FIELDS_EXCLUDE_FIELDS,
+        AddOrModifyFieldsOperationTooltip.as_dict(),
+    ),
     (
         RemoveFieldsOperationConfig,
         REMOVE_FIELDS_EXCLUDE_FIELDS,
@@ -385,8 +451,16 @@ ALL_OP_CONFIGS = [
         AGGREGATE_RECORDS_EXCLUDE_FIELDS,
         AggregateRecordsOperationTooltip.as_dict(),
     ),
-    (CleanInvalidValuesOperationConfig, CLEAN_INVALID_VALUES_EXCLUDE_FIELDS, None),
-    (ImputeMissingValuesConfig, IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS, None),
+    (
+        CleanInvalidValuesOperationConfig,
+        CLEAN_INVALID_VALUES_EXCLUDE_FIELDS,
+        CleanInvalidValuesOperationTooltip.as_dict(),
+    ),
+    (
+        ImputeMissingValuesConfig,
+        IMPUTE_MISSING_VALUES_EXCLUDE_FIELDS,
+        ImputeMissingValuesOperationTooltip.as_dict(),
+    ),
     (
         MergeDatasetsOperationConfig,
         MERGE_DATASETS_EXCLUDE_FIELDS,

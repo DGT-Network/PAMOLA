@@ -152,7 +152,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "items": {"type": "string"},
                         "title": "Special Dates",
                         "description": "List of dates (as strings) to preserve unchanged during noise application.",
-                        "x-component": "DatePicker",
+                        "x-component": "DatePickerArray",
                         "x-component-props": {
                             "format": "YYYY-MM-DD",
                             "placeholder": "Select date",
@@ -206,72 +206,6 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "title": "Use Secure Random",
                         "description": "If true, uses cryptographically secure random number generation.",
                     },
-                    # Multi-field conditions
-                    "multi_conditions": {
-                        "type": ["array", "null"],
-                        "x-component": "ArrayItems",
-                        "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "field": {
-                                    "type": "string",
-                                    "title": "Condition Field",
-                                    "x-component": "Select",
-                                    "description": "Field name for the condition.",
-                                },
-                                "operator": {
-                                    "type": "string",
-                                    "title": "Condition Operator",
-                                    "x-component": "Select",
-                                    "oneOf": [
-                                        {"const": "in", "description": "In"},
-                                        {"const": "not_in", "description": "Not in"},
-                                        {"const": "gt", "description": "Greater than"},
-                                        {"const": "lt", "description": "Less than"},
-                                        {"const": "eq", "description": "Equal to"},
-                                        {"const": "ne", "description": "Not equal"},
-                                        {
-                                            "const": "ge",
-                                            "description": "Greater than or equal",
-                                        },
-                                        {
-                                            "const": "le",
-                                            "description": "Less than or equal",
-                                        },
-                                        {"const": "range", "description": "Range"},
-                                        {"const": "all", "description": "All"},
-                                    ],
-                                    "x-depend-on": {"field": "not_null"},
-                                    "description": "Operator for the condition (e.g., '=', '>', '<', 'in').",
-                                },
-                                "values": {
-                                    "type": "array",
-                                    "title": "Condition Value",
-                                    "x-component": "Input",
-                                    "description": "Value(s) for the condition.",
-                                    "x-depend-on": {
-                                        "field": "not_null",
-                                        "operator": "not_null",
-                                    },
-                                },
-                            },
-                        },
-                        "title": "Multi-Conditions",
-                        "description": "List of multi-field conditions for custom noise application logic.",
-                    },
-                    "condition_logic": {
-                        "type": "string",
-                        "title": "Condition Logic",
-                        "description": "Logical operator for combining multiple conditions (e.g., 'AND', 'OR').",
-                        "default": "AND",
-                        "oneOf": [
-                            {"const": "AND", "description": "AND"},
-                            {"const": "OR", "description": "OR"},
-                        ],
-                        "x-component": "Select",
-                        "x-group": GroupName.CONDITIONAL_LOGIC,
-                    },
                     # Conditional processing parameters
                     "condition_field": {
                         "type": ["string", "null"],
@@ -279,7 +213,7 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Field name used as condition for applying the generalization.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_FIELD],
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "condition_operator": {
                         "type": "string",
@@ -297,7 +231,9 @@ class UniformTemporalNoiseConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_OPERATOR],
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_CONDITION_OPERATOR
+                        ],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -310,6 +246,124 @@ class UniformTemporalNoiseConfig(OperationConfig):
                             "condition_operator": "not_null",
                         },
                         "x-custom-function": [CustomFunctions.UPDATE_CONDITION_VALUES],
+                    },
+                    # Multi-field conditions
+                    "multi_conditions": {
+                        "type": ["array", "null"],
+                        "x-component": "ArrayItems",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "field": {
+                                    "type": "string",
+                                    "title": "Condition Field",
+                                    "x-component": "Select",
+                                    "description": "Field name for the condition.",
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
+                                    "x-custom-function": [
+                                        CustomFunctions.UPDATE_FIELD_OPTIONS
+                                    ],
+                                },
+                                "operator": {
+                                    "type": "string",
+                                    "title": "Condition Operator",
+                                    "x-component": "Select",
+                                    "oneOf": [
+                                        {
+                                            "const": "in",
+                                            "description": "In",
+                                        },
+                                        {
+                                            "const": "not_in",
+                                            "description": "Not in",
+                                        },
+                                        {
+                                            "const": "gt",
+                                            "description": "Greater than",
+                                        },
+                                        {
+                                            "const": "lt",
+                                            "description": "Less than",
+                                        },
+                                        {
+                                            "const": "eq",
+                                            "description": "Equal to",
+                                        },
+                                        {
+                                            "const": "ne",
+                                            "description": "Not equal",
+                                        },
+                                        {
+                                            "const": "ge",
+                                            "description": "Greater than or equal",
+                                        },
+                                        {
+                                            "const": "le",
+                                            "description": "Less than or equal",
+                                        },
+                                        {
+                                            "const": "range",
+                                            "description": "Range",
+                                        },
+                                        {
+                                            "const": "all",
+                                            "description": "All",
+                                        },
+                                    ],
+                                    "x-depend-on": {"field": "not_null"},
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
+                                    "description": "Operator for the condition (e.g., '=', '>', '<', 'in').",
+                                    "x-custom-function": [
+                                        CustomFunctions.UPDATE_CONDITION_OPERATOR
+                                    ],
+                                },
+                                "values": {
+                                    "type": "array",
+                                    "title": "Condition Value",
+                                    "x-component": "Input",
+                                    "description": "Value(s) for the condition.",
+                                    "x-depend-on": {
+                                        "field": "not_null",
+                                        "operator": "not_null",
+                                    },
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
+                                    "x-custom-function": [
+                                        CustomFunctions.UPDATE_CONDITION_VALUES
+                                    ],
+                                },
+                            },
+                        },
+                        "title": "Multi-Conditions",
+                        "description": "List of multi-field conditions for custom noise application logic.",
+                    },
+                    "condition_logic": {
+                        "type": "string",
+                        "title": "Condition Logic",
+                        "description": "Logical operator for combining multiple conditions (e.g., 'AND', 'OR').",
+                        "default": "AND",
+                        "oneOf": [
+                            {
+                                "const": "AND",
+                                "description": "AND",
+                            },
+                            {
+                                "const": "OR",
+                                "description": "OR",
+                            },
+                        ],
+                        "x-component": "Select",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-depend-on": {"multi_conditions": "not_null"},
                     },
                     # K-anonymity integration
                     "ka_risk_field": {

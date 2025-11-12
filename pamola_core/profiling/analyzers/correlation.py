@@ -36,7 +36,10 @@ from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation_matrix,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.correlation_schema import CorrelationMatrixOperationConfig, CorrelationOperationConfig
+from pamola_core.profiling.schemas.correlation_schema import CorrelationOperationConfig
+from pamola_core.profiling.schemas.correlation_matrix_schema import (
+    CorrelationMatrixOperationConfig,
+)
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
@@ -200,11 +203,9 @@ class CorrelationOperation(FieldOperation):
         **kwargs
             Additional keyword arguments passed to FieldOperation.
         """
-
-        description = (
-            description or f"Correlation analysis between '{field1}' and '{field2}'"
+        kwargs.setdefault(
+            "description", f"Correlation analysis between '{field1}' and '{field2}'"
         )
-        kwargs.setdefault("description", description)
 
         # --- Build config ---
         config = CorrelationOperationConfig(
@@ -1430,10 +1431,9 @@ class CorrelationMatrixOperation(BaseOperation):
         **kwargs
             Additional keyword arguments passed to FieldOperation.
         """
-        description = (
-            description or f"Correlation matrix analysis for {len(fields)} fields"
+        kwargs.setdefault(
+            "description", f"Correlation matrix analysis for {len(fields)} fields"
         )
-        kwargs.setdefault("description", description)
 
         # --- Build config ---
         config = CorrelationMatrixOperationConfig(

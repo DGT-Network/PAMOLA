@@ -62,10 +62,11 @@ class MVFAnalysisOperationConfig(OperationConfig):
                     },
                     "format_type": {
                         "type": ["string", "null"],
-                        "default": "json",
+                        "default": None,
                         "title": "Format Type",
                         "description": "Format of the multi-valued field. Can specify how to parse the field (e.g., 'list', 'csv', 'json', or a custom delimiter). If null, auto-detection or default parsing is used.",
                         "oneOf": [
+                            {"type": "null"},
                             {"const": "json", "description": "JSON"},
                             {"const": "csv", "description": "CSV"},
                             {"const": "array_string", "description": "Array String"},

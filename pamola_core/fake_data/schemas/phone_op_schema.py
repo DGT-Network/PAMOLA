@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake phone config file
 """
 from click import Group
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -70,6 +71,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "title": "Country Code Field",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                         "description": "Field name containing country codes to guide phone number generation."
                     },
                     "operator_codes_dict": {
@@ -124,6 +126,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Unique ID Field",
                         "x-component": "Select",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                         "description": "Field name used as unique identifier for mapping consistency."
                     },
                     # --- Advanced behavior & metrics ---

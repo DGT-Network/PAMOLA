@@ -450,6 +450,14 @@ class BaseOperationConfig(OperationConfig):
                 "description": "Format used when saving processed output data.",
                 "default": "csv",
             },
+            "save_output": {
+                "type": "boolean",
+                "title": "Save Output",
+                "x-component": "Checkbox",
+                "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
+                "description": "If true, persist processed data to disk or database.",
+                "default": True,
+            },
             "visualization_theme": {
                 "type": ["string", "null"],
                 "title": "Visualization Theme",
@@ -525,13 +533,6 @@ class BaseOperationConfig(OperationConfig):
                 "description": "If true, automatically generate visualization outputs after processing.",
                 "default": True,
                 "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-            },
-            "save_output": {
-                "type": "boolean",
-                "title": "Save Output",
-                "x-component": "Checkbox",
-                "description": "If true, persist processed data to disk or database.",
-                "default": True,
             },
         },
     }
