@@ -238,7 +238,7 @@ class RecordSuppressionConfig(OperationConfig):
                         "default": False,
                         "title": "Save Suppressed Records",
                         "description": "Whether to save removed records to a separate artifact.",
-                        "x-component": "Switch",
+                        "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
                     "suppression_reason_field": {
