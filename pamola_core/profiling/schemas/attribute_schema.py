@@ -19,6 +19,7 @@ Changelog:
 """
 
 from pamola_core.common.enum.form_groups import GroupName
+from pamola_core.common.enum.language_enum import Language
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
@@ -36,9 +37,23 @@ class DataAttributeProfilerOperationConfig(OperationConfig):
                 "properties": {
                     "language": {
                         "type": "string",
-                        "default": "en",
+                        "default": Language.ENGLISH.value,
                         "title": "Language",
                         "x-component": "Select",
+                        "oneOf": [
+                            {
+                                "const": Language.ENGLISH.value,
+                                "description": "English",
+                            },
+                            {
+                                "const": Language.VIETNAMESE.value,
+                                "description": "Vietnamese",
+                            },
+                            {
+                                "const": Language.RUSSIAN.value,
+                                "description": "Russian",
+                            },
+                        ],
                         "description": "Language code for keyword matching and attribute role detection (e.g., 'en' for English, 'vi' for Vietnamese).",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
@@ -58,14 +73,6 @@ class DataAttributeProfilerOperationConfig(OperationConfig):
                         "title": "Max Columns",
                         "x-component": "NumberPicker",
                         "description": "Maximum number of columns to analyze in the dataset. If null, all columns are analyzed.",
-                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
-                    },
-                    "id_column": {
-                        "type": ["string", "null"],
-                        "default": None,
-                        "title": "ID Column",
-                        "x-component": "Select",
-                        "description": "Name of the column used as a unique record identifier for record-level analysis. Optional.",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
                     "dictionary_path": {

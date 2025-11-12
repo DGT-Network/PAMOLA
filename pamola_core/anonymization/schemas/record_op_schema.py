@@ -20,6 +20,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of record suppression config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -95,9 +96,11 @@ class RecordSuppressionConfig(OperationConfig):
                         "x-depend-on": {"suppression_condition": "range"},
                         "x-required-on": {"suppression_condition": "range"},
                     },
-                    # === Advanced Conditional Rules ===
+                    # Multi-field conditions
                     "multi_conditions": {
                         "type": ["array", "null"],
+                        "x-component": "ArrayItems",
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                         "items": {
                             "type": "object",
                             "properties": {
@@ -106,18 +109,43 @@ class RecordSuppressionConfig(OperationConfig):
                                     "title": "Condition Field",
                                     "x-component": "Select",
                                     "description": "Field name for the condition.",
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
+                                    "x-custom-function": [
+                                        CustomFunctions.UPDATE_FIELD_OPTIONS
+                                    ],
                                 },
                                 "operator": {
                                     "type": "string",
                                     "title": "Condition Operator",
                                     "x-component": "Select",
                                     "oneOf": [
-                                        {"const": "in", "description": "In"},
-                                        {"const": "not_in", "description": "Not in"},
-                                        {"const": "gt", "description": "Greater than"},
-                                        {"const": "lt", "description": "Less than"},
-                                        {"const": "eq", "description": "Equal to"},
-                                        {"const": "ne", "description": "Not equal"},
+                                        {
+                                            "const": "in",
+                                            "description": "In",
+                                        },
+                                        {
+                                            "const": "not_in",
+                                            "description": "Not in",
+                                        },
+                                        {
+                                            "const": "gt",
+                                            "description": "Greater than",
+                                        },
+                                        {
+                                            "const": "lt",
+                                            "description": "Less than",
+                                        },
+                                        {
+                                            "const": "eq",
+                                            "description": "Equal to",
+                                        },
+                                        {
+                                            "const": "ne",
+                                            "description": "Not equal",
+                                        },
                                         {
                                             "const": "ge",
                                             "description": "Greater than or equal",
@@ -126,11 +154,24 @@ class RecordSuppressionConfig(OperationConfig):
                                             "const": "le",
                                             "description": "Less than or equal",
                                         },
-                                        {"const": "range", "description": "Range"},
-                                        {"const": "all", "description": "All"},
+                                        {
+                                            "const": "range",
+                                            "description": "Range",
+                                        },
+                                        {
+                                            "const": "all",
+                                            "description": "All",
+                                        },
                                     ],
                                     "x-depend-on": {"field": "not_null"},
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
                                     "description": "Operator for the condition (e.g., '=', '>', '<', 'in').",
+                                    "x-custom-function": [
+                                        CustomFunctions.UPDATE_CONDITION_OPERATOR
+                                    ],
                                 },
                                 "values": {
                                     "type": "array",
@@ -141,24 +182,36 @@ class RecordSuppressionConfig(OperationConfig):
                                         "field": "not_null",
                                         "operator": "not_null",
                                     },
+                                    "x-decorator-props": {
+                                        "layout": "vertical",
+                                        "style": {"width": "250px", "marginBottom": 8},
+                                    },
+                                    "x-custom-function": [
+                                        CustomFunctions.UPDATE_CONDITION_VALUES
+                                    ],
                                 },
                             },
                         },
                         "title": "Multi-Conditions",
                         "description": "List of multi-field conditions for custom suppression logic.",
-                        "x-component": "ArrayItems",
-                        "x-group": GroupName.ADVANCED_CONDITIONAL_RULES,
                     },
                     "condition_logic": {
                         "type": "string",
                         "title": "Condition Logic",
-                        "description": "Logical expression for combining multi-field conditions (e.g., 'AND', 'OR').",
+                        "description": "Logical operator for combining multiple conditions (e.g., 'AND', 'OR').",
+                        "default": "AND",
                         "oneOf": [
-                            {"const": "AND", "description": "AND"},
-                            {"const": "OR", "description": "OR"},
+                            {
+                                "const": "AND",
+                                "description": "AND",
+                            },
+                            {
+                                "const": "OR",
+                                "description": "OR",
+                            },
                         ],
                         "x-component": "Select",
-                        "x-group": GroupName.ADVANCED_CONDITIONAL_RULES,
+                        "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"multi_conditions": "not_null"},
                     },
                     # === Risk-Based Filtering ===
@@ -168,6 +221,7 @@ class RecordSuppressionConfig(OperationConfig):
                         "description": "Field containing k-anonymity risk scores for suppression based on risk.",
                         "x-component": "Select",
                         "x-group": GroupName.RISK_BASED_FILTERING,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "risk_threshold": {
                         "type": "number",
@@ -206,32 +260,6 @@ class RecordSuppressionConfig(OperationConfig):
             {
                 "if": {"properties": {"suppression_condition": {"const": "range"}}},
                 "then": {"required": ["suppression_range"]},
-            },
-            {
-                "if": {"properties": {"suppression_condition": {"const": "risk"}}},
-                "then": {"required": ["ka_risk_field", "risk_threshold"]},
-            },
-            {
-                "if": {
-                    "properties": {"risk_threshold": {"type": "number"}},
-                    "required": ["risk_threshold"],
-                },
-                "then": {
-                    "properties": {"ka_risk_field": {"type": "string", "minLength": 1}},
-                    "required": ["ka_risk_field"],
-                },
-            },
-            {
-                "if": {
-                    "properties": {"condition_logic": {"type": "string"}},
-                    "required": ["condition_logic"],
-                },
-                "then": {
-                    "properties": {
-                        "multi_conditions": {"type": "array", "minItems": 1}
-                    },
-                    "required": ["multi_conditions"],
-                },
             },
         ],
     }

@@ -61,7 +61,7 @@ import numpy as np
 import pandas as pd
 
 from pamola_core.common.constants import Constants
-from pamola_core.profiling.commons.analysis_mode_enum import AnalysisMode
+from pamola_core.common.enum.analysis_mode_enum import AnalysisMode
 from pamola_core.profiling.schemas.anonymity_schema import KAnonymityProfilerOperationConfig
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -1625,12 +1625,3 @@ class KAnonymityProfilerOperation(BaseOperation):
                 )
 
         return visualization_paths
-
-
-# Module metadata
-__version__ = "2.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main classes
-__all__ = ["KAnonymityProfilerOperation", "AnalysisMode"]
