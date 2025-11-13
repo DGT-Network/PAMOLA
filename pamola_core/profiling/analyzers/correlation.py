@@ -203,11 +203,9 @@ class CorrelationOperation(FieldOperation):
         **kwargs
             Additional keyword arguments passed to FieldOperation.
         """
-
-        description = (
-            description or f"Correlation analysis between '{field1}' and '{field2}'"
+        kwargs.setdefault(
+            "description", f"Correlation analysis between '{field1}' and '{field2}'"
         )
-        kwargs.setdefault("description", description)
 
         # --- Build config ---
         config = CorrelationOperationConfig(
@@ -1433,10 +1431,9 @@ class CorrelationMatrixOperation(BaseOperation):
         **kwargs
             Additional keyword arguments passed to FieldOperation.
         """
-        description = (
-            description or f"Correlation matrix analysis for {len(fields)} fields"
+        kwargs.setdefault(
+            "description", f"Correlation matrix analysis for {len(fields)} fields"
         )
-        kwargs.setdefault("description", description)
 
         # --- Build config ---
         config = CorrelationMatrixOperationConfig(
