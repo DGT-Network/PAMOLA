@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake email config file
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -163,7 +164,7 @@ class FakeEmailOperationConfig(OperationConfig):
                     "nicknames_dict": {
                         "type": ["string", "null"],
                         "title": "Nicknames Dictionary",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "x-group": GroupName.DATA_SOURCES_FOR_GENERATION,
                         "description": "Path to nickname mapping file for generating nickname-based emails.",
                     },

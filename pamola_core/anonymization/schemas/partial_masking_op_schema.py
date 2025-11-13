@@ -20,6 +20,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of partial masking config file
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.mask_strategy_enum import MaskStrategyEnum
 from pamola_core.anonymization.commons.masking_presets import MaskingType
@@ -398,7 +399,7 @@ class PartialMaskingConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Preset Name",
                         "description": "Name of the specific preset configuration to apply.",
-                        "x-component": "Depend-Select",
+                        "x-component": CustomComponents.DEPEND_SELECT,
                         "x-group": GroupName.CORE_MASKING_STRATEGY,
                         "x-depend-map": {
                             "depend_on": "preset_type",

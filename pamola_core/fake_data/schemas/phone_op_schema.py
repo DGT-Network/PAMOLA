@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake phone config file
 """
 from click import Group
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -78,7 +79,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "type": ["object", "null"],
                         "default": None,
                         "title": "Operator Codes Dictionary",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
                         "description": "Dictionary mapping country codes to lists of operator codes for phone number generation."
                     },
@@ -149,7 +150,7 @@ class FakePhoneOperationConfig(OperationConfig):
                     "mapping_store_path": {
                         "type": ["string", "null"],
                         "title": "Mapping Store Path",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "x-depend-on": { "consistency_mechanism": "mapping" },
                         "description": "File path to persistently store mapping for consistent pseudonymization."

@@ -389,18 +389,159 @@ def convert_property(
     elif field["x-component"] == "DateFormatArray":
         field["x-decorator"] = "FormItem"
 
-    elif field.get("x-component") == "Depend-Select":
+    elif field.get("x-component") in [
+        CustomComponents.NUMERIC_RANGE_MODE,
+        CustomComponents.DEPEND_SELECT,
+    ]:
+        field = _handle_custom_component(field)
+
+    # Add this NEW section before the existing x-reactions handling
+    if "x-toggle-groups" in field:
+        toggle_groups = field.pop("x-toggle-groups")
+        group_reactions = []
+
+        for value, groups in toggle_groups.items():
+            for group_name in groups:
+                # Get the actual string value from GroupName enum
+                group_value = group_name.value if hasattr(group_name, 'value') else str(group_name)
+                group_reactions.append(
+                    {
+                        "target": f"*({group_value})",
+                        "fulfill": {
+                            "state": {
+                                "display": f"{{{{$self.value === '{value}' ? 'visible' : 'none'}}}}"
+                            }
+                        },
+                    }
+                )
+
+        # Merge with existing x-reactions
+        existing_reactions = field.get("x-reactions", [])
+        field["x-reactions"] = group_reactions + existing_reactions
+
+    if (
+        "x-depend-on" in field
+        or "x-required-on" in field
+        or field.get("x-component") == CustomComponents.UPLOAD
+    ):
+        field = _add_x_reactions(field, formily_schema, is_nested)
+
+    if (
+        "x-custom-function" in field
+        and "x-required-on" not in field
+        and "x-depend-on" not in field
+    ):
+        function_name = field["x-custom-function"][0]
+
+        function_configs = {
+            CustomFunctions.QUASI_IDENTIFIER_OPTIONS: (
+                ["id_fields"],
+                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0])",
+            ),
+            CustomFunctions.ID_FIELD_OPTIONS: (
+                ["quasi_identifiers", "quasi_identifier_sets"],
+                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0], $deps[1])",
+            ),
+            CustomFunctions.UPDATE_INT64_FIELD_OPTIONS: (
+                None,
+                f"{CustomFunctions.UPDATE_INT64_FIELD_OPTIONS}($self); $self.setValue(null)",
+            ),
+        }
+
+        if function_name in function_configs:
+            dependency_fields, run_template = function_configs[function_name]
+
+            existing_reactions = field.get("x-reactions", [])
+
+            # Find first reaction WITHOUT "target" key (not a toggle-groups reaction)
+            reaction = next((r for r in existing_reactions if "target" not in r), None)
+
+            # If no suitable reaction found, create new one
+            if reaction is None:
+                reaction = {}
+                existing_reactions.append(reaction)
+
+            # Ensure fulfill exists
+            reaction.setdefault("fulfill", {})
+
+            # Update run
+            reaction["fulfill"]["run"] = f"{{{{ {run_template} }}}}"
+
+            # Add dependencies if provided
+            if dependency_fields:
+                reaction["dependencies"] = dependency_fields
+
+            field["x-reactions"] = existing_reactions
+        else:
+            run_template = f"{function_name}($self)"
+            existing_reactions = field.get("x-reactions", [])
+
+            # Only add if no non-toggle reaction exists
+            if not any(r for r in existing_reactions if "target" not in r):
+                new_reaction = {"fulfill": {"run": f"{{{{ {run_template} }}}}"}}
+                existing_reactions.append(new_reaction)
+
+            field["x-reactions"] = existing_reactions
+
+    # Nested object - mark as nested when calling recursively
+    if field.get("type") == "object" and "properties" in field:
+        nested_required = field.get("required", [])
+        field["properties"] = {
+            k: convert_property(
+                k, v, nested_required, field["properties"], True, tooltip
+            )  # is_nested=True
+            for k, v in field["properties"].items()
+        }
+    return field
+
+
+def _handle_custom_component(field: dict) -> dict:
+    """
+    Transform custom component fields into standard Formily components.
+
+    Parameters:
+    -----------
+    field : dict
+        Field configuration dictionary
+
+    Returns:
+    --------
+    dict
+        Transformed field configuration
+    """
+    component = field.get("x-component")
+
+    if component == CustomComponents.NUMERIC_RANGE_MODE:
+        # Handle NUMERIC_RANGE_MODE: allows symmetric (number) or asymmetric (array) noise
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {"step": 0.1, "precision": 1}
+        field["enum"] = [
+            {
+                "label": "Symetric",
+                "value": "Symetric",
+                "dataType": "number",
+            },
+            {
+                "label": "Asymmetric",
+                "value": "Asymmetric",
+                "dataType": "array",
+            },
+        ]
+
+    elif component == CustomComponents.DEPEND_SELECT:
+        # Handle DependentSelect: options change based on another field
         depend_map = field.get("x-depend-map", {})
         depend_on = depend_map.get("depend_on")
         options_map = depend_map.get("options_map", {})
 
-        # Convert to Select
+        # Convert to Select with reactions
         field["x-decorator"] = "FormItem"
         field["x-component"] = "Select"
         field["x-component-props"] = {
             "placeholder": f"Select {field.get('title', '').lower() or 'option'}"
         }
 
+        # Add reactions to update options based on dependency
         field["x-reactions"] = [
             {
                 "dependencies": [f".{depend_on}"],
@@ -424,69 +565,9 @@ def convert_property(
             },
         ]
 
+        # Clean up custom properties
         field.pop("x-depend-map", None)
 
-    if field.get("x-custom-function") == CustomComponents.NUMERIC_RANGE_MODE:
-        field["x-component"] = CustomComponents.NUMERIC_RANGE_MODE
-        field["x-decorator"] = "FormItem"
-        field["x-component-props"] = {"step": 0.1, "precision": 1}
-        field["enum"] = [
-            {
-                "label": "Symetric",
-                "value": "Symetric",
-                "dataType": "number",
-            },
-            {
-                "label": "Asymmetric",
-                "value": "Asymmetric",
-                "dataType": "array",
-            },
-        ]
-
-    if (
-        "x-depend-on" in field
-        or "x-required-on" in field
-        or field.get("x-component") == "Upload"
-    ):
-        field = _add_x_reactions(field, formily_schema, is_nested)
-
-    if (
-        "x-custom-function" in field
-        and field.get("x-custom-function") != CustomComponents.NUMERIC_RANGE_MODE
-        and "x-required-on" not in field
-        and "x-depend-on" not in field
-    ):
-        fn = field["x-custom-function"][0]
-
-        # Map function -> (dependencies, run_template)
-        configs = {
-            CustomFunctions.QUASI_IDENTIFIER_OPTIONS: (
-                ["id_fields"],
-                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0])",
-            ),
-            CustomFunctions.ID_FIELD_OPTIONS: (
-                ["quasi_identifiers", "quasi_identifier_sets"],
-                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0], $deps[1])",
-            ),
-        }
-
-        deps, run = configs.get(fn, (None, f"{fn}($self)"))
-
-        reaction = {"fulfill": {"run": f"{{{{ {run} }}}}"}}
-        if deps:
-            reaction["dependencies"] = deps
-
-        field["x-reactions"] = field.get("x-reactions", [reaction])
-
-    # Nested object - mark as nested when calling recursively
-    if field.get("type") == "object" and "properties" in field:
-        nested_required = field.get("required", [])
-        field["properties"] = {
-            k: convert_property(
-                k, v, nested_required, field["properties"], True, tooltip
-            )  # is_nested=True
-            for k, v in field["properties"].items()
-        }
     return field
 
 
@@ -581,7 +662,7 @@ def _add_x_reactions(
 
     # Determine if reactions should be added
     is_ignore_depend_fields = field.get("x-ignore-depend-fields", False)
-    is_upload_component = field.get("x-component") == "Upload"
+    is_upload_component = field.get("x-component") == CustomComponents.UPLOAD
     should_add_reactions = (
         depend_fields and not is_ignore_depend_fields
     ) or is_upload_component

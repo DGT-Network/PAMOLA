@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of phone config file
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -64,7 +65,7 @@ class PhoneOperationConfig(OperationConfig):
                         "type": ["string", "null"],
                         "default": None,
                         "title": "Patterns CSV",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "description": "Path to a CSV file containing phone number patterns for validation and parsing. If null, default patterns will be used.",
                         "x-group": GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
                     },

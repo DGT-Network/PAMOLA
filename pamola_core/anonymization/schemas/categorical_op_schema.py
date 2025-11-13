@@ -19,6 +19,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of categorical generalization config file
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -80,7 +81,7 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "External Dictionary Path",
                         "description": "Path to external hierarchy or mapping dictionary file.",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "x-group": GroupName.HIERARCHY_SETTINGS,
                         "x-depend-on": {"strategy": "hierarchy"},
                         "x-required-on": {"strategy": "hierarchy"},

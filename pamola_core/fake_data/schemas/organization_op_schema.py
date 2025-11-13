@@ -17,6 +17,7 @@ Configuration schema for defining and validating fake organization generation op
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake organization config file
 """
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -128,20 +129,20 @@ class FakeOrganizationOperationConfig(OperationConfig):
                         "type": ["object", "null"],
                         "title": "Dictionaries",
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
-                        "x-component": "Upload",  # TODO: custom input component
+                        "x-component": CustomComponents.UPLOAD, 
                         "description": "Custom dictionaries for organization name generation.",
                     },
                     "prefixes": {
                         "type": ["object", "null"],
                         "title": "Prefixes",
-                        "x-component": "Upload",  # TODO: custom input component
+                        "x-component": CustomComponents.UPLOAD, 
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
                         "description": "Prefix dictionary for organization names."
                     },
                     "suffixes": {
                         "type": ["object", "null"],
                         "title": "Suffixes",
-                        "x-component": "Upload",  # TODO: custom input component
+                        "x-component": CustomComponents.UPLOAD, 
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
                         "description": "Suffix dictionary for organization names."
                     },
@@ -185,7 +186,7 @@ class FakeOrganizationOperationConfig(OperationConfig):
                     "mapping_store_path": {
                         "type": ["string", "null"],
                         "title": "Mapping Store Path",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "x-depend-on": { "consistency_mechanism": "mapping" },
                         "description": "Path to store mapping between original and synthetic organization names."

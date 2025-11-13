@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of attribute config file
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.common.enum.language_enum import Language
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -79,7 +80,7 @@ class DataAttributeProfilerOperationConfig(OperationConfig):
                         "type": ["string", "null"],
                         "default": None,
                         "title": "Attribute Dictionary Path",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "description": "Path to a custom attribute dictionary file for role detection. If null, uses the default built-in dictionary.",
                         "x-group": GroupName.DICTIONARY_CONFIGURATION,
                     },
