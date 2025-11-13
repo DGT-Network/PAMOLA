@@ -26,3 +26,4 @@ class CustomFunctions:
     UPDATE_QUASI_FIELD_OPTIONS = "update_quasi_field_options"
     UPDATE_EXCLUSIVE_FIELD_OPTIONS = "update_exclusive_field_options"
     NUMERIC_RANGE_MODE = "NumericRangeMode"
+    UPDATE_INT64_FIELD_OPTIONS = "update_int64_field_options"
