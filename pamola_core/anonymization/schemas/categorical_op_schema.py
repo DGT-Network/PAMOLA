@@ -292,7 +292,9 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "description": "List of quasi-identifier field names.",
                         "x-component": "Select",
                         "x-group": GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
-                        "x-custom-function": [CustomFunctions.UPDATE_QUASI_FIELD_OPTIONS],
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_QUASI_FIELD_OPTIONS
+                        ],
                         "x-ignore-depend-fields": True,
                         "x-depend-on": {"privacy_check_enabled": True},
                         "x-required-on": {"privacy_check_enabled": True},
@@ -322,7 +324,9 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "default": "in",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
                         "x-depend-on": {"condition_field": "not_null"},
-                        "x-custom-function": [CustomFunctions.UPDATE_CONDITION_OPERATOR],
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_CONDITION_OPERATOR
+                        ],
                     },
                     "condition_values": {
                         "type": ["array", "null"],
@@ -341,8 +345,11 @@ class CategoricalGeneralizationConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "K-anonymity Risk Field",
                         "description": "Field for k-anonymity risk assessment.",
-                        "x-component": "Input",
+                        "x-component": "Select",
                         "x-group": GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_INT64_FIELD_OPTIONS
+                        ],
                     },
                     "risk_threshold": {
                         "type": "number",
