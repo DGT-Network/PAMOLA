@@ -85,7 +85,7 @@ class DataAttributeProfilerOperationConfig(OperationConfig):
                         "x-group": GroupName.DICTIONARY_CONFIGURATION,
                     },
                 },
-                "required": [],
+                "required": ["language", "sample_size"],
             },
         ],
     }

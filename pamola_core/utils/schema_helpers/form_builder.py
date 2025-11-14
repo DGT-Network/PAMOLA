@@ -24,6 +24,7 @@ from pamola_core.common.enum.custom_components import CustomComponents
 
 from tomlkit import item
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import (
     get_groups_with_titles,
 )
@@ -425,6 +426,7 @@ def convert_property(
     if (
         "x-depend-on" in field
         or "x-required-on" in field
+        or "x-disabled-on" in field
         or "x-custom-function" in field
     ):
         field = _add_x_reactions(field, formily_schema, is_nested)
@@ -613,8 +615,14 @@ def _add_x_reactions(
     # Add reactions to field
     x_depend_on = field.get("x-depend-on", {})
     x_required_on = field.get("x-required-on", {})
+    x_disabled_on = field.get("x-disabled-on", {})
+    existing_reactions = field.get("x-reactions", [])
 
-    keys = list(x_depend_on.keys()) + list(x_required_on.keys())
+    keys = (
+        list(x_depend_on.keys())
+        + list(x_required_on.keys())
+        + list(x_disabled_on.keys())
+    )
     depend_fields = _get_ordered_unique_keys(keys)
 
     # Handle visibility conditions
@@ -633,6 +641,14 @@ def _add_x_reactions(
         if required_state:
             state["required"] = f"{{{{ {required_state} }}}}"
 
+    # Handle disabled conditions
+    if x_disabled_on:
+        disabled_state = _process_field_conditions(
+            x_disabled_on, formily_schema, depend_fields
+        )
+        if disabled_state:
+            state["disabled"] = f"{{{{ {disabled_state} }}}}"
+
     # Add a dot prefix if this is a nested field
     if is_nested:
         depend_fields = [f".{field_name}" for field_name in depend_fields]
@@ -641,34 +657,45 @@ def _add_x_reactions(
     is_ignore_depend_fields = field.get("x-ignore-depend-fields", False)
     has_dependencies = depend_fields and not is_ignore_depend_fields
     has_custom_function = "x-custom-function" in field
+    custom_functions = field.get("x-custom-function", [])
+    function_name = (
+        custom_functions[0] if custom_functions else None
+    )
 
-    # Case 1: Has dependencies (x-depend-on or x-required-on)
+    # Case 1: Has dependencies (x-depend-on or x-required-on or x-disabled-on)
     if has_dependencies:
-        reactions = field.get("x-reactions", [])
+        reaction = {
+            "dependencies": depend_fields,
+            "fulfill": {
+                "state": state,
+            },
+        }
 
-        # Determine run script based on custom function
-        if has_custom_function:
-            deps_expr = ", ".join([f"$deps[{i}]" for i in range(len(depend_fields))])
-            run = f"{field['x-custom-function'][0]}($self, {deps_expr})"
-        else:
-            run = f"$self.setValue({default_value_str})"
+        # Only add run if NOT x-disabled-on only case
+        has_visible_or_required = bool(x_depend_on or x_required_on)
 
-        reactions.append(
-            {
-                "dependencies": depend_fields,
-                "fulfill": {
-                    "state": state,
-                    "run": f"{{{{ {run} }}}}",
-                },
-            }
-        )
-        field["x-reactions"] = reactions
+        if has_visible_or_required or has_custom_function:
+            # Determine run script
+            if has_custom_function:
+                if (
+                    function_name == CustomFunctions.UPDATE_INT64_FIELD_OPTIONS
+                ):
+                    run = f"{function_name}($self); $self.setValue({default_value_str})"
+                else:
+                    deps_expr = ", ".join(
+                        [f"$deps[{i}]" for i in range(len(depend_fields))]
+                    )
+                    run = f"{function_name}($self, {deps_expr})"
+            else:
+                run = f"$self.setValue({default_value_str})"
+
+            reaction["fulfill"]["run"] = f"{{{{ {run} }}}}"
+
+        existing_reactions.append(reaction)
+        field["x-reactions"] = existing_reactions
 
     # Case 2: Has custom function but NO dependencies
     elif has_custom_function:
-        function_name = field["x-custom-function"][0]
-        existing_reactions = field.get("x-reactions", [])
-
         # Build run template
         run_template = f"{function_name}($self); $self.setValue({default_value_str})"
 
@@ -682,6 +709,7 @@ def _add_x_reactions(
     # Clean up temporary properties
     field.pop("x-depend-on", None)
     field.pop("x-required-on", None)
+    field.pop("x-disabled-on", None)
 
     return field
 
