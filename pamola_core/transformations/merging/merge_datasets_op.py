@@ -570,57 +570,6 @@ class MergeDatasetsOperation(TransformationOperation):
         )
         return batch_df
 
-    def _detect_relationship_type_auto(
-        self,
-        left_df: pd.DataFrame,
-        right_df: pd.DataFrame,
-        left_key: str,
-        right_key: str,
-    ) -> str:
-        """
-        Automatically detect the relationship type between two datasets based on key uniqueness.
-
-        Only supports:
-            - one-to-one
-            - one-to-many
-
-        Parameters:
-        -----------
-        left_df : pd.DataFrame
-            The left (main) dataset.
-        right_df : pd.DataFrame
-            The right (lookup) dataset.
-        left_key : str
-            The join key in the left dataset.
-        right_key : str
-            The join key in the right dataset.
-
-        Returns:
-        --------
-        str
-            The detected relationship type.
-
-        Raises:
-        -------
-        ValueError
-            If the relationship is not one-to-one or one-to-many.
-        """
-        left_key_is_unique = left_df[left_key].is_unique
-        right_key_is_unique = right_df[right_key].is_unique
-
-        if left_key_is_unique and right_key_is_unique:
-            detected_relationship = RelationshipType.ONE_TO_ONE.value
-        elif right_key_is_unique:
-            detected_relationship = RelationshipType.ONE_TO_MANY.value
-        else:
-            raise ValueError(
-                "Only 'one-to-one' and 'one-to-many' relationships are supported. "
-                "Detected unsupported relationship (many-to-one or many-to-many)."
-            )
-
-        self.logger.info(f"Auto-detected relationship type: {detected_relationship}")
-        return detected_relationship
-
     def _validate_relationship(
         self, left_df: pd.DataFrame, right_df: pd.DataFrame
     ) -> None:

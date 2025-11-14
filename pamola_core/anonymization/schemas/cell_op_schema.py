@@ -200,29 +200,5 @@ class CellSuppressionConfig(OperationConfig):
                 "if": {"properties": {"suppress_if": {"const": "rare"}}},
                 "then": {"required": ["rare_threshold"]},
             },
-            {
-                "if": {
-                    "properties": {"condition_operator": {"type": "string"}},
-                    "required": ["condition_operator"],
-                },
-                "then": {
-                    "properties": {
-                        "condition_field": {"type": "string", "minLength": 1}
-                    },
-                    "required": ["condition_field"],
-                },
-            },
-            {
-                "if": {
-                    "properties": {"condition_values": {"type": "array"}},
-                    "required": ["condition_values"],
-                },
-                "then": {
-                    "properties": {
-                        "condition_operator": {"type": "string", "minLength": 1}
-                    },
-                    "required": ["condition_operator"],
-                },
-            },
         ],
     }
