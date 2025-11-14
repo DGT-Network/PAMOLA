@@ -71,7 +71,10 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of fields used as quasi-identifiers for k-anonymity analysis. These are the columns whose combinations are evaluated for re-identification risk.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
-                        "x-custom-function": [CustomFunctions.QUASI_IDENTIFIER_OPTIONS],
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS
+                        ],
+                        "x-depend-on": {"id_fields": "not_null"},
                     },
                     "quasi_identifier_sets": {
                         "type": ["array", "null"],
@@ -81,7 +84,10 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Overrides automatic detection.",
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
-                        "x-custom-function": [CustomFunctions.QUASI_IDENTIFIER_OPTIONS],
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS
+                        ],
+                        "x-depend-on": {"id_fields": "not_null"},
                     },
                     "threshold_k": {
                         "type": "integer",
@@ -109,7 +115,13 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "List of columns used as record identifiers for grouping or tracking vulnerable records.",
                         "x-component": "Select",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": [CustomFunctions.ID_FIELD_OPTIONS],
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS
+                        ],
+                        "x-depend-on": {
+                            "quasi_identifiers": "not_null",
+                            "quasi_identifier_sets": "not_null",
+                        },
                     },
                     "output_field_suffix": {
                         "type": "string",

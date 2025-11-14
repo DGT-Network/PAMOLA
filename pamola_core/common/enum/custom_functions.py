@@ -20,8 +20,6 @@ class CustomFunctions:
     UPDATE_FIELD_OPTIONS = "update_field_options"
     UPDATE_CONDITION_OPERATOR = "update_condition_operator"
     UPDATE_CONDITION_VALUES = "update_condition_values"
-    QUASI_IDENTIFIER_OPTIONS = "update_anonymity_quasi_options"
-    ID_FIELD_OPTIONS = "update_anonymity_field_options"
     UPDATE_QUASI_FIELD_OPTIONS = "update_quasi_field_options"
     UPDATE_EXCLUSIVE_FIELD_OPTIONS = "update_exclusive_field_options"
     UPDATE_INT64_FIELD_OPTIONS = "update_int64_field_options"

@@ -17,12 +17,10 @@ Usage:
     Import and use convert_json_schema_to_formily, and related helpers.
 """
 
-import json
 import copy
 from typing import Any, Dict, List, Optional, Union
 
 from pamola_core.common.enum.custom_components import CustomComponents
-from pamola_core.common.enum.custom_functions import CustomFunctions
 
 from tomlkit import item
 
@@ -403,7 +401,11 @@ def convert_property(
         for value, groups in toggle_groups.items():
             for group_name in groups:
                 # Get the actual string value from GroupName enum
-                group_value = group_name.value if hasattr(group_name, 'value') else str(group_name)
+                group_value = (
+                    group_name.value
+                    if hasattr(group_name, "value")
+                    else str(group_name)
+                )
                 group_reactions.append(
                     {
                         "target": f"*({group_value})",
@@ -419,69 +421,17 @@ def convert_property(
         existing_reactions = field.get("x-reactions", [])
         field["x-reactions"] = group_reactions + existing_reactions
 
+    # Handle x-depend-on, x-required-on, and x-custom-function
     if (
         "x-depend-on" in field
         or "x-required-on" in field
-        or field.get("x-component") == CustomComponents.UPLOAD
+        or "x-custom-function" in field
     ):
         field = _add_x_reactions(field, formily_schema, is_nested)
 
-    if (
-        "x-custom-function" in field
-        and "x-required-on" not in field
-        and "x-depend-on" not in field
-    ):
-        function_name = field["x-custom-function"][0]
-
-        function_configs = {
-            CustomFunctions.QUASI_IDENTIFIER_OPTIONS: (
-                ["id_fields"],
-                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0])",
-            ),
-            CustomFunctions.ID_FIELD_OPTIONS: (
-                ["quasi_identifiers", "quasi_identifier_sets"],
-                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0], $deps[1])",
-            ),
-            CustomFunctions.UPDATE_INT64_FIELD_OPTIONS: (
-                None,
-                f"{CustomFunctions.UPDATE_INT64_FIELD_OPTIONS}($self); $self.setValue(null)",
-            ),
-        }
-
-        if function_name in function_configs:
-            dependency_fields, run_template = function_configs[function_name]
-
-            existing_reactions = field.get("x-reactions", [])
-
-            # Find first reaction WITHOUT "target" key (not a toggle-groups reaction)
-            reaction = next((r for r in existing_reactions if "target" not in r), None)
-
-            # If no suitable reaction found, create new one
-            if reaction is None:
-                reaction = {}
-                existing_reactions.append(reaction)
-
-            # Ensure fulfill exists
-            reaction.setdefault("fulfill", {})
-
-            # Update run
-            reaction["fulfill"]["run"] = f"{{{{ {run_template} }}}}"
-
-            # Add dependencies if provided
-            if dependency_fields:
-                reaction["dependencies"] = dependency_fields
-
-            field["x-reactions"] = existing_reactions
-        else:
-            run_template = f"{function_name}($self)"
-            existing_reactions = field.get("x-reactions", [])
-
-            # Only add if no non-toggle reaction exists
-            if not any(r for r in existing_reactions if "target" not in r):
-                new_reaction = {"fulfill": {"run": f"{{{{ {run_template} }}}}"}}
-                existing_reactions.append(new_reaction)
-
-            field["x-reactions"] = existing_reactions
+    # Add Upload component initialization (AFTER dependencies)
+    if field.get("x-component") == CustomComponents.UPLOAD:
+        field = _add_upload_reaction(field)
 
     # Nested object - mark as nested when calling recursively
     if field.get("type") == "object" and "properties" in field:
@@ -571,6 +521,32 @@ def _handle_custom_component(field: dict) -> dict:
     return field
 
 
+def _add_upload_reaction(field: dict) -> dict:
+    """
+    Add initialization reaction for Upload component.
+    Overwrites existing run script in the first reaction instead of appending.
+    """
+    reactions = field.get("x-reactions", [])
+
+    if reactions:
+        # Overwrite run in first existing reaction
+        if "fulfill" not in reactions[0]:
+            reactions[0]["fulfill"] = {}
+        reactions[0]["fulfill"]["run"] = "{{ init_upload($self) }}"
+    else:
+        # Create new reaction if none exist
+        reactions.append(
+            {
+                "fulfill": {
+                    "run": "{{ init_upload($self) }}",
+                },
+            }
+        )
+
+    field["x-reactions"] = reactions
+    return field
+
+
 def _get_default_value_str(field: Dict[str, Any]) -> str:
     """Get the default value string for a field based on its type and current value."""
     default_value = field.get("default", None)
@@ -637,6 +613,7 @@ def _add_x_reactions(
     # Add reactions to field
     x_depend_on = field.get("x-depend-on", {})
     x_required_on = field.get("x-required-on", {})
+
     keys = list(x_depend_on.keys()) + list(x_required_on.keys())
     depend_fields = _get_ordered_unique_keys(keys)
 
@@ -662,36 +639,45 @@ def _add_x_reactions(
 
     # Determine if reactions should be added
     is_ignore_depend_fields = field.get("x-ignore-depend-fields", False)
-    is_upload_component = field.get("x-component") == CustomComponents.UPLOAD
-    should_add_reactions = (
-        depend_fields and not is_ignore_depend_fields
-    ) or is_upload_component
+    has_dependencies = depend_fields and not is_ignore_depend_fields
+    has_custom_function = "x-custom-function" in field
 
-    if should_add_reactions:
+    # Case 1: Has dependencies (x-depend-on or x-required-on)
+    if has_dependencies:
         reactions = field.get("x-reactions", [])
 
-        # Determine the run script
-        if "x-custom-function" in field:
+        # Determine run script based on custom function
+        if has_custom_function:
             deps_expr = ", ".join([f"$deps[{i}]" for i in range(len(depend_fields))])
-            run = f"{field['x-custom-function'][0]}({deps_expr}, $self)"
-        elif is_upload_component:
-            run = "init_upload($self)"
+            run = f"{field['x-custom-function'][0]}($self, {deps_expr})"
         else:
             run = f"$self.setValue({default_value_str})"
 
-        # Build reaction config
-        reaction = {"fulfill": {"run": f"{{{{ {run} }}}}"}}
-
-        # Add state if present
-        if state:
-            reaction["fulfill"]["state"] = state
-
-        # Add dependencies if present
-        if depend_fields and not is_ignore_depend_fields:
-            reaction["dependencies"] = depend_fields
-
-        reactions.append(reaction)
+        reactions.append(
+            {
+                "dependencies": depend_fields,
+                "fulfill": {
+                    "state": state,
+                    "run": f"{{{{ {run} }}}}",
+                },
+            }
+        )
         field["x-reactions"] = reactions
+
+    # Case 2: Has custom function but NO dependencies
+    elif has_custom_function:
+        function_name = field["x-custom-function"][0]
+        existing_reactions = field.get("x-reactions", [])
+
+        # Build run template
+        run_template = f"{function_name}($self); $self.setValue({default_value_str})"
+
+        # Only add if no non-toggle reaction exists
+        if not any(r for r in existing_reactions if "target" not in r):
+            new_reaction = {"fulfill": {"run": f"{{{{ {run_template} }}}}"}}
+            existing_reactions.append(new_reaction)
+
+        field["x-reactions"] = existing_reactions
 
     # Clean up temporary properties
     field.pop("x-depend-on", None)
