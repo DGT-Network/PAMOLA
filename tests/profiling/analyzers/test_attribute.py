@@ -64,7 +64,6 @@ def kwargs():
             "language": "en",
             "sample_size": 10,
             "max_columns": None,
-            "id_column": None,
             "use_encryption": False,
             "encryption_key": None,
             "use_dask": False,
