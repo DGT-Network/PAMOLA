@@ -57,6 +57,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Fallback Country",
                         "x-component": "Select",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_DEFAULT_COUNTRY_OPTIONS],
                         "description": "Sets the default region to determine the country code and phone number formatting rules."
                     },
                     "country_codes": {
@@ -65,6 +66,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Country Codes List",
                         "x-component": "Select",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_DEFAULT_COUNTRY_OPTIONS],
                         "description": "Country codes to use for phone number generation (e.g., '+84', 'US')."
                     },
                     "country_code_field": {
@@ -89,6 +91,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "title": "Output Format",
                         "x-group": GroupName.FORMATTING_RULES,
+                        "x-custom-function": [CustomFunctions.UPDATE_FAKE_PHONE_FORMAT],
                         "description": "Phone number format template to use for generation."
                     },
                     "preserve_country_code": {
