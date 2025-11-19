@@ -17,6 +17,8 @@ Configuration schema for defining and validating split fields operations in PAMO
 Changelog:
 1.0.0 - 2025-01-15 - Initial creation of split fields config file
 """
+
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -41,6 +43,7 @@ class SplitFieldsOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Name of the field used as a unique identifier to be included in all splits. If null, no ID field is included.",
                         "x-group": GroupName.INPUT_SETTINGS,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "include_id_field": {
                         "type": "boolean",
@@ -51,19 +54,16 @@ class SplitFieldsOperationConfig(OperationConfig):
                         "x-group": GroupName.INPUT_SETTINGS,
                         "x-depend-on": {"id_field": "not_null"},
                     },
-                     "field_groups": {
+                    "field_groups": {
                         "type": ["object", "null"],
                         "title": "Field Groups",
-                        "x-component": "ArrayItems",
+                        "x-component": "FieldGroupArray",
                         "description": "Dictionary mapping group names to lists of field names for each split. If null, no field grouping is applied.",
-                        "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
                         "x-group": GroupName.FIELD_GROUPS_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                 },
-                "required": ["field_groups"],
+                "required": ["id_field", "field_groups"],
             },
         ],
     }
