@@ -32,12 +32,12 @@ Changelog:
         - Improved type annotations and error handling
 """
 
+from datetime import datetime
 import hashlib
 import json
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union, Tuple
+from typing import Dict, List, Optional, Any, Tuple
 import pandas as pd
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons import calculate_anonymization_effectiveness
@@ -46,6 +46,7 @@ from pamola_core.anonymization.commons.validation import (
     FieldNotFoundError,
 )
 from pamola_core.anonymization.commons.visualization_utils import create_bar_plot
+from pamola_core.anonymization.schemas.attribute_op_schema import AttributeSuppressionConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
@@ -53,7 +54,6 @@ from pamola_core.utils.io import (
     ensure_directory,
     write_dataframe_to_csv,
     write_json,
-    get_timestamped_filename,
 )
 from pamola_core.utils.io_helpers import crypto_utils, directory_utils
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
@@ -77,57 +77,22 @@ import dask.dataframe as dd
 SuppressedSchema = Dict[str, Dict[str, Any]]
 
 
-@register()
+@register(version="1.0.0")
 class AttributeSuppressionOperation(AnonymizationOperation):
     """
-    Attribute Suppression Operation for removing entire columns from datasets.
+    Operation for removing one or more columns (attributes) from datasets.
 
-    This operation implements REQ-ATTR-001 through REQ-ATTR-005 from the
+    Implements REQ-ATTR-001 through REQ-ATTR-005 from the
     PAMOLA.CORE Suppression Operations Sub-Specification.
-
-    Attributes:
-        field_name (str): Primary field to suppress
-        additional_fields (List[str]): Additional fields to suppress
-        mode (str): Operation mode (always "REMOVE" for attribute suppression)
-        save_suppressed_schema (bool): Whether to save metadata about suppressed columns
-        _suppressed_schema (SuppressedSchema): Metadata about suppressed columns
-        _suppression_count (int): Number of columns suppressed
-        _original_column_count (int): Number of columns in original DataFrame
     """
 
     def __init__(
         self,
         field_name: str,
         additional_fields: Optional[List[str]] = None,
-        mode: str = "REMOVE",
+        suppression_mode: str = "REMOVE",
         save_suppressed_schema: bool = True,
-        condition_field: Optional[str] = None,
-        condition_values: Optional[List] = None,
-        condition_operator: str = "in",
-        condition_logic: str = "AND",
-        multi_conditions: Optional[List[Dict[str, Any]]] = None,
-        ka_risk_field: Optional[str] = None,
-        risk_threshold: float = 5.0,
-        optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
-        output_format: str = "csv",
-        save_output: bool = True,
-        generate_visualization: bool = True,
-        use_cache: bool = True,
-        force_recalculation: bool = False,
-        use_dask: bool = False,
-        npartitions: int = 1,
-        dask_partition_size: Optional[str] = None,
-        use_vectorization: bool = False,
-        parallel_processes: int = 1,
-        chunk_size: int = 10000,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_theme: Optional[str] = None,
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        use_encryption: bool = False,
-        encryption_key: Optional[Union[str, Path]] = None,
-        encryption_mode: Optional[str] = None,
+        **kwargs,
     ):
         """
         Initialize the Attribute Suppression Operation.
@@ -135,124 +100,61 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         This operation removes one or more columns (attributes) from the dataset,
         optionally based on conditional logic or k-anonymity risk thresholds.
 
-        Args:
-            field_name (str): Name of the primary field (column) to suppress. Required.
-            additional_fields (List[str], optional): Additional fields to suppress alongside `field_name`.
-
-            mode (str): Operation mode. Must be "REMOVE" for attribute suppression. Raises ValueError otherwise.
-
-            # Conditional suppression
-            condition_field (str, optional): Field used for conditional matching.
-            condition_values (List, optional): Values to match in `condition_field`.
-            condition_operator (str, optional): Operator used for matching condition values.
-                Supported values: ["in", "not_in", "gt", "lt", "eq", "range"].
-            condition_logic (str, optional): Logic to combine multiple conditions.
-                Supported values: ["AND", "OR"].
-            multi_conditions (List[Dict[str, Any]], optional): List of condition blocks for complex logic.
-                Overrides simple condition parameters if provided.
-
-            # Risk-based suppression
-            ka_risk_field (str, optional): Field containing k-anonymity risk values.
-            risk_threshold (float, optional): Threshold below which records are considered unsafe (k < threshold).
-                Records meeting this condition will have their associated attributes suppressed.
-
-            # Memory & performance
-            optimize_memory (bool): Whether to optimize memory usage during processing.
-            adaptive_chunk_size (bool): Adjust chunk size dynamically based on data characteristics.
-            chunk_size (int): Number of rows to process per chunk (used in batch and parallel mode).
-
-            # Output
-            save_output (bool): Whether to save the resulting dataset to disk.
-            output_format (str): Format to save output. Supported: ["csv", "parquet"].
-            save_suppressed_schema (bool): Whether to save metadata about suppressed columns.
-
-            # Caching
-            use_cache (bool): Enable caching to avoid reprocessing unchanged inputs.
-            force_recalculation (bool): Force reprocessing even if a cached result exists.
-
-            # Parallelism
-            use_dask (bool): Use Dask for distributed processing on large datasets.
-            npartitions (int): Number of partitions to use with Dask.
-            dask_partition_size (str, optional): Size hint per Dask partition (e.g., "100MB").
-            use_vectorization (bool): Use joblib for CPU-bound parallel processing.
-            parallel_processes (int): Number of parallel processes when using joblib.
-
-            # Visualization
-            generate_visualization (bool): Whether to generate visualizations of the suppression result.
-            visualization_backend (str, optional): Visualization backend. Supported: ["matplotlib", "plotly"].
-            visualization_theme (str, optional): Theme for visualization. Supported: ["light", "dark"].
-            visualization_strict (bool): If True, raise exceptions on visualization errors.
-            visualization_timeout (int): Maximum time (in seconds) allowed for visualization rendering.
-
-            # Encryption
-            use_encryption (bool): Whether to encrypt the output.
-            encryption_key (Union[str, Path], optional): Key or path to key for encryption.
-            encryption_mode (str, optional): Mode for encryption. Implementation-specific.
-
-        Raises:
-            ValueError: If `mode` is not "REMOVE".
-
-        Notes:
-            - If both `multi_conditions` and `condition_field`/`condition_values` are provided,
-              `multi_conditions` takes precedence.
-            - If `ka_risk_field` is set, records with risk below `risk_threshold` will be suppressed
-              regardless of other conditions.
-            - Either `field_name` or `additional_fields` must be provided to have an actual suppression effect.
+        Parameters
+        ----------
+        field_name : str
+            Name of the primary field (column) to suppress. Required.
+        additional_fields : list[str], optional
+            Additional fields to suppress alongside `field_name`.
+        suppression_mode : str, optional
+            Operation suppression_mode. Must be "REMOVE" for attribute suppression. Default = "REMOVE".
+        save_suppressed_schema : bool, optional
+            Whether to save metadata about suppressed columns. Default = True.
+        **kwargs
+            Additional keyword arguments passed to AnonymizationOperation.
         """
-        # Validate mode
-        if mode != "REMOVE":
-            raise ValueError(
-                f"AttributeSuppressionOperation only supports mode='REMOVE', got '{mode}'"
-            )
-
-        # Initialize parent class
-        super().__init__(
-            field_name=field_name,
-            mode=mode,
-            condition_field=condition_field,
-            condition_values=condition_values,
-            condition_operator=condition_operator,
-            multi_conditions=multi_conditions,
-            condition_logic=condition_logic,
-            ka_risk_field=ka_risk_field,
-            risk_threshold=risk_threshold,
-            optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            chunk_size=chunk_size,
-            output_format=output_format,
-            use_cache=use_cache,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            visualization_backend=visualization_backend,
-            visualization_theme=visualization_theme,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
+        # Description fallback
+        kwargs.setdefault(
+            "description",
+            f"Attribute suppresstion for '{field_name}' using {suppression_mode} suppression mode",
         )
 
-        # Store operation-specific parameters
-        self.additional_fields = additional_fields or []
-        self.save_suppressed_schema = save_suppressed_schema
+        # --- Validate suppression_mode ---
+        if suppression_mode != "REMOVE":
+            raise ValueError(
+                f"AttributeSuppressionOperation only supports suppression_mode='REMOVE', got '{suppression_mode}'"
+            )
 
-        self.save_output = save_output
-        self.generate_visualization = generate_visualization
-        self.force_recalculation = force_recalculation
+        # --- Build config object ---
+        config = AttributeSuppressionConfig(
+            field_name=field_name,
+            additional_fields=additional_fields or [],
+            suppression_mode=suppression_mode,
+            save_suppressed_schema=save_suppressed_schema,
+            **kwargs,
+        )
 
-        # Initialize internal state
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
+
+        # --- Initialize base operation ---
+        super().__init__(
+            field_name=field_name,
+            **kwargs,
+        )
+
+        # --- Save config attributes ---
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+
+        # --- Internal state ---
         self._suppressed_schema: SuppressedSchema = {}
         self._suppression_count = 0
         self._original_column_count = 0
 
-        # Log initialization
-        self.logger.debug(
-            f"Initialized AttributeSuppressionOperation for field '{field_name}' "
-            f"with {len(self.additional_fields)} additional fields"
-        )
+        # --- Metadata ---
+        self.operation_name = self.__class__.__name__
+        self._original_df = None
 
     def execute(
         self,
@@ -263,33 +165,33 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         **kwargs,
     ) -> OperationResult:
         """
-        Execute the attribute suppression operation.
+        Execute the operation with timing and error handling.
 
-        Overrides parent execute to handle additional functionality specific to
-        attribute suppression, particularly saving the suppressed schema.
-
-        Justification (REQ-ANON-010):
-            This override is necessary because attribute suppression needs to save
-            metadata about the suppressed columns after the main operation completes.
-            The base class doesn't know about the suppressed_schema concept, so we
-            extend the base functionality to save this additional metadata as a
-            separate JSON file using DataWriter.
-
-        Args:
-            data_source: Input data source
-            task_dir: Directory for output and intermediate files
-            reporter: Reporter for tracking operation progress
-            progress_tracker: Progress tracker instance
-            **kwargs: Additional keyword arguments
+        Parameters:
+        -----------
+        data_source : DataSource
+            Source of data for the operation
+        task_dir : Path
+            Directory where task artifacts should be saved
+        reporter : Any
+            Reporter object for tracking progress and artifacts
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Progress tracker for the operation
+        **kwargs : dict
+            Additional parameters for the operation
 
         Returns:
-            OperationResult containing results and metadata
+        --------
+        OperationResult
+            Results of the operation
         """
         try:
             # Initialize operation
             self.start_time = time.time()
-            operation_name = self.__class__.__name__
             self.logger = kwargs.get("logger", self.logger)
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Initialize result object
             result = OperationResult(
@@ -303,7 +205,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             # Start operation - Preparation
             self.logger.info(
-                f"Operation: {operation_name}, Start operation - Preparation"
+                f"Operation: {self.operation_name}, Start operation - Preparation"
             )
 
             # Handle preparation
@@ -316,7 +218,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             # Load data and validate input parameters
             self.logger.info(
-                f"Operation: {operation_name}, Load data and validate input parameters"
+                f"Operation: {self.operation_name}, Load data and validate input parameters"
             )
             df, is_valid = self._load_data_and_validate_input_parameters(
                 data_source,
@@ -329,7 +231,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             if self.use_cache and not self.force_recalculation:
                 try:
                     self.logger.info(
-                        f"Operation: {operation_name}, Load result from cache"
+                        f"Operation: {self.operation_name}, Load result from cache"
                     )
                     cached_result = self._get_cache(
                         df.copy(), progress_tracker=progress_tracker, reporter=reporter
@@ -349,7 +251,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             try:
                 # Process data
-                self.logger.info(f"Operation: {operation_name}, Process data")
+                self.logger.info(f"Operation: {self.operation_name}, Process data")
                 mask, output_data = self._process_data(
                     df, progress_tracker=progress_tracker, reporter=reporter
                 )
@@ -367,7 +269,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             try:
                 # Handle metric
-                self.logger.info(f"Operation: {operation_name}, Collect metric")
+                self.logger.info(f"Operation: {self.operation_name}, Collect metric")
                 self._handle_metrics(
                     input_data=df,
                     output_data=output_data,
@@ -376,6 +278,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                     task_dir=task_dir,
                     progress_tracker=progress_tracker,
                     reporter=reporter,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -385,13 +288,14 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             # Save output if required
             if self.save_output:
                 try:
-                    self.logger.info(f"Operation: {operation_name}, Save output")
+                    self.logger.info(f"Operation: {self.operation_name}, Save output")
                     self._save_output(
                         output_data=output_data,
                         task_dir=task_dir,
                         result=result,
                         progress_tracker=progress_tracker,
                         reporter=reporter,
+                        operation_timestamp=operation_timestamp,
                     )
                 except Exception as e:
                     error_message = f"Error saving output: {str(e)}"
@@ -406,7 +310,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             if self.generate_visualization:
                 try:
                     self.logger.info(
-                        f"Operation: {operation_name}, Generate visualizations"
+                        f"Operation: {self.operation_name}, Generate visualizations"
                     )
                     self._handle_visualizations(
                         input_data=df,
@@ -415,6 +319,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                         result=result,
                         progress_tracker=progress_tracker,
                         reporter=reporter,
+                        operation_timestamp=operation_timestamp,
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
@@ -424,7 +329,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             # Save cache if required
             if self.use_cache:
                 try:
-                    self.logger.info(f"Operation: {operation_name}, Save cache")
+                    self.logger.info(f"Operation: {self.operation_name}, Save cache")
                     self._save_cache(
                         task_dir,
                         result,
@@ -447,10 +352,10 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             return result
         except Exception as e:
-            self.logger.error(f"Operation: {operation_name}, error occurred: {e}")
+            self.logger.error(f"Operation: {self.operation_name}, error occurred: {e}")
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": "Exception",
@@ -549,13 +454,12 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         Dict[str, Path]
             Dictionary of prepared directory paths.
         """
-        operation_name = self.__class__.__name__
         step = "Preparation"
 
         # Setup total progress steps
         if progress_tracker:
-            progress_tracker.total = self._compute_total_steps(**kwargs)
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.total = self._compute_total_steps()
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         # Prepare necessary directories
         dirs = self._prepare_directories(task_dir)
@@ -565,10 +469,13 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             cache_dir=task_dir / "cache",
         )
 
+        # Save configuration to task directory
+        self.save_config(task_dir)
+
         # Report preparation success
         if reporter:
             reporter.add_operation(
-                f"Operation {operation_name}",
+                f"Operation {self.operation_name}",
                 status="info",
                 details={
                     "step": "Preparation",
@@ -641,11 +548,10 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             - mask: Boolean mask of rows that match suppression conditions.
             - result: Final DataFrame after suppressing selected columns.
         """
-        operation_name = self.__class__.__name__
         step = "Process data"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         try:
             mask = self._build_suppression_mask(input_data)
@@ -681,7 +587,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -694,10 +600,12 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             return mask, result
 
         except Exception as e:
-            self.logger.error(f"{operation_name} - {step} failed: {e}", exc_info=True)
+            self.logger.error(
+                f"{self.operation_name} - {step} failed: {e}", exc_info=True
+            )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -874,7 +782,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             raise
 
     def _save_metrics(
-        self, metrics: Dict[str, Any], task_dir: Path, result: OperationResult
+        self, metrics: Dict[str, Any], task_dir: Path, result: OperationResult, operation_timestamp: Optional[str] = None
     ) -> None:
         """
         Save the collected metrics as a JSON file and register it as an artifact.
@@ -886,10 +794,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             metrics_dir = task_dir / "metrics"
             ensure_directory(metrics_dir)
 
-            operation_name = self.__class__.__name__
-            metrics_filename = get_timestamped_filename(
-                f"{operation_name}_metrics", "json"
-            )
+            operation_name = self.operation_name.lower()
+            metrics_filename = f"{operation_name}_metrics_{operation_timestamp}.json"
             metrics_path = metrics_dir / metrics_filename
 
             write_json(metrics, metrics_path, encryption_key=self.encryption_key)
@@ -897,11 +803,41 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             result.add_artifact(
                 artifact_type="json",
                 path=metrics_path,
-                description=f"Metrics for {operation_name}",
+                description=f"Metrics for {self.operation_name}",
                 category=Constants.Artifact_Category_Metrics,
             )
 
             self.logger.info(f"Structured metrics saved to {metrics_path}")
+
+            # Save suppressed schema if requested
+            if self.save_suppressed_schema and self._suppressed_schema:
+                try:
+                    schema_filename = f"{operation_name}_suppressed_columns_schema_{operation_timestamp}.json"
+                    schema_path = metrics_dir / schema_filename
+
+                    # Write the schema using write_json method
+                    write_json(
+                        self._suppressed_schema,
+                        schema_path,
+                        encryption_key=self.encryption_key,
+                    )
+
+                    self.logger.info(
+                        f"Saved suppressed column schema to: {schema_path}"
+                    )
+
+                    # Register the schema file as an artifact
+                    result.add_artifact(
+                        artifact_type="json",
+                        path=schema_path,
+                        description=f"Metadata about suppressed columns including data types and statistics",
+                        category=Constants.Artifact_Category_Metrics,
+                    )
+
+                except Exception as e:
+                    self.logger.error(f"Failed to save suppressed schema: {e}")
+                    # Don't fail the operation if schema saving fails
+                    result.add_metric("suppressed_schema_error", str(e))
 
         except Exception as e:
             self.logger.error(
@@ -918,6 +854,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         task_dir: Path,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
+        operation_timestamp: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Handle the collection and saving of metrics for the operation.
@@ -943,27 +880,28 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             Progress tracker to update.
         reporter : Optional[Any]
             Reporter to log detailed status.
-        **kwargs : dict
-            Additional parameters such as encryption options.
+        operation_timestamp : Optional[str]
+            Timestamp string to use for naming metric files.
 
         Returns
         -------
         Optional[Dict[str, Any]]
             The collected metrics dictionary, or None if an error occurred.
         """
-        operation_name = self.__class__.__name__
         step = "Collect metrics"
         try:
             if progress_tracker:
-                progress_tracker.update(1, {"step": step, "operation": operation_name})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             metrics = self._collect_metrics(input_data, output_data, mask)
             result.metrics = metrics
-            self._save_metrics(metrics, task_dir, result)
+            self._save_metrics(metrics, task_dir, result, operation_timestamp)
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": "Collect metric",
@@ -985,11 +923,11 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
         except Exception as e:
             self.logger.error(
-                f"Failed to handle metrics in {operation_name}: {e}", exc_info=True
+                f"Failed to handle metrics in {self.operation_name}: {e}", exc_info=True
             )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={"step": "Collect metric", "message": str(e)},
                 )
@@ -1002,6 +940,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         result: OperationResult,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
+        operation_timestamp: Optional[str] = None,
     ):
         """
         Save the processed output DataFrame to disk and register it as an artifact.
@@ -1022,14 +961,14 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             Progress tracker instance to update progress.
         reporter : Optional[Any]
             Reporter object to log progress and status.
-        **kwargs : dict
-            Additional keyword arguments, including encryption settings.
+        operation_timestamp : Optional[str]
+            Timestamp string to use for naming output files.
         """
-        operation_name = self.__class__.__name__
         step = "Save output"
+        operation_name = self.operation_name.lower()
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         output_dir = task_dir / "output"
         ensure_directory(output_dir)
@@ -1042,10 +981,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             "encryption_mode": self.encryption_mode,
         }
         encryption_mode = get_encryption_mode(output_data, **kwargs_encryption)
-
-        filename = get_timestamped_filename(
-            f"{operation_name}_{self.field_name}", self.output_format, True
-        )
+        filename = f"{operation_name}_{self.field_name}_output_{operation_timestamp}.{self.output_format}"
         output_path = output_dir / filename
 
         try:
@@ -1080,7 +1016,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 self.logger.warning(warning_msg)
                 if reporter:
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="warning",
                         details={"step": step, "message": warning_msg},
                     )
@@ -1096,7 +1032,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1111,7 +1047,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -1126,6 +1062,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         output_data: pd.DataFrame,
         task_dir: Path,
         result: OperationResult,
+        operation_timestamp: Optional[str] = None,
     ) -> Optional[Path]:
         """
         Generate visualizations showing columns before/after suppression and data type distribution.
@@ -1134,6 +1071,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             input_data: Original DataFrame
             output_data: Processed DataFrame
             task_dir: Directory to save visualization
+            result: OperationResult to register visualization artifacts
+            operation_timestamp: Timestamp string for naming files
 
         Returns:
             Path to saved visualization or None
@@ -1141,7 +1080,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
         vis_dir = task_dir / "visualizations"
         ensure_directory(vis_dir)
-        operation_name = self.__class__.__name__
+        operation_name = self.operation_name.lower()
 
         kwargs_visualization = {
             "use_encryption": self.use_encryption,
@@ -1161,9 +1100,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             values = [len(input_data.columns), len(output_data.columns)]
 
             viz_data = pd.DataFrame({"Status": categories, "Column Count": values})
-            bar_path = vis_dir / get_timestamped_filename(
-                f"{operation_name}_attribute_suppression_summary", "png", True
-            )
+            bar_file_name = f"{operation_name}_attribute_suppression_summary_{operation_timestamp}.png"
+            bar_path = vis_dir / bar_file_name
             bar_result = create_bar_plot(
                 data=viz_data.set_index("Status")["Column Count"].to_dict(),
                 output_path=bar_path,
@@ -1213,11 +1151,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                         dtypes_count[dtype] = dtypes_count.get(dtype, 0) + 1
 
                 if dtypes_count:
-                    dtype_bar_path = vis_dir / get_timestamped_filename(
-                        f"{operation_name}_suppressed_columns_dtype_distribution_",
-                        "png",
-                        True,
-                    )
+                    dtype_bar_file_name = f"{operation_name}_suppressed_columns_dtype_distribution_{operation_timestamp}.png"
+                    dtype_bar_path = vis_dir / dtype_bar_file_name
                     dtype_bar_result = create_bar_plot(
                         data=dtypes_count,
                         output_path=dtype_bar_path,
@@ -1258,6 +1193,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         result: OperationResult,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
+        operation_timestamp: Optional[str] = None,
     ) -> None:
         """
         Handle generation of visualizations in a separate thread, with logging and timeout.
@@ -1276,11 +1212,12 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             Optional progress tracker to report progress.
         reporter : Optional[Any]
             Optional reporter to log operation status.
+        operation_timestamp : Optional[str]
+            Timestamp string for naming files.
         """
         import threading
         import contextvars
 
-        operation_name = self.__class__.__name__
         step = "Generate visualizations"
         self.logger.info(
             f"[VIZ] Preparing to generate visualizations in a separate thread"
@@ -1296,6 +1233,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                     output_data=output_data,
                     task_dir=task_dir,
                     result=result,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
                 viz_error = e
@@ -1305,7 +1243,9 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
         try:
             if progress_tracker:
-                progress_tracker.update(1, {"step": step, "operation": operation_name})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             ctx = contextvars.copy_context()
             thread = threading.Thread(
@@ -1324,7 +1264,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 )
                 if reporter:
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="warning",
                         details={
                             "step": "Generate visualizations",
@@ -1335,7 +1275,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
                 if reporter:
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="warning",
                         details={
                             "step": "Generate visualizations",
@@ -1349,7 +1289,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                         [a for a in result.artifacts if a.artifact_type == "png"]
                     )
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="info",
                         details={
                             "step": "Generate visualizations",
@@ -1364,7 +1304,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": "Generate visualizations",
@@ -1395,7 +1335,6 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         **kwargs : dict
             Additional keyword arguments, used to compute the cache key.
         """
-        operation_name = self.__class__.__name__
         step = "Save cache"
 
         try:
@@ -1418,7 +1357,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             }
 
             cache_key = self.operation_cache.generate_cache_key(
-                operation_name=operation_name,
+                operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(),
                 data_hash=self._generate_data_hash(self._original_df.copy()),
             )
@@ -1426,18 +1365,20 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=operation_name,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
             self.logger.info(f"Saved result to cache with key: {cache_key}")
 
             if progress_tracker:
-                progress_tracker.update(1, {"step": step, "operation": operation_name})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": "Save cache",
@@ -1473,21 +1414,20 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         Optional[OperationResult]
             The cached OperationResult if available, otherwise None.
         """
-        operation_name = self.__class__.__name__
         step = "Load result from cache"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         try:
             cache_key = self.operation_cache.generate_cache_key(
-                operation_name=operation_name,
+                operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(),
                 data_hash=self._generate_data_hash(df),
             )
 
             cached = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=operation_name
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             result_data = cached.get("result")
@@ -1527,7 +1467,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1538,11 +1478,11 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             return result
 
         except Exception as e:
-            self.logger.info(f"{operation_name} - {step} failed: {e}")
+            self.logger.info(f"{self.operation_name} - {step} failed: {e}")
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1569,11 +1509,11 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         """
 
         return {
-            "operation": self.__class__.__name__,
+            "operation": self.operation_name,
             "version": self.version,
             "field_name": self.field_name,
             "additional_fields": self.additional_fields,
-            "mode": self.mode,
+            "suppression_mode": self.suppression_mode,
             "save_suppressed_schema": self.save_suppressed_schema,
             "condition_field": self.condition_field,
             "condition_values": self.condition_values,
@@ -1665,101 +1605,6 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             fallback = f"{df.shape}_{list(df.dtypes)}"
             return hashlib.md5(fallback.encode()).hexdigest()
 
-    def _set_input_parameters(self, **kwargs):
-        """
-        Set common configurable operation parameters from keyword arguments.
-        """
-
-        self.field_name = kwargs.get("field_name", getattr(self, "field_name", None))
-        self.additional_fields = kwargs.get(
-            "additional_fields", getattr(self, "additional_fields", None)
-        )
-        self.mode = kwargs.get("mode", getattr(self, "mode", "REMOVE"))
-        self.save_suppressed_schema = kwargs.get(
-            "save_suppressed_schema", getattr(self, "save_suppressed_schema", True)
-        )
-
-        self.condition_field = kwargs.get(
-            "condition_field", getattr(self, "condition_field", None)
-        )
-        self.condition_values = kwargs.get(
-            "condition_values", getattr(self, "condition_values", None)
-        )
-        self.condition_operator = kwargs.get(
-            "condition_operator", getattr(self, "condition_operator", "in")
-        )
-        self.condition_logic = kwargs.get(
-            "condition_logic", getattr(self, "condition_logic", "AND")
-        )
-        self.multi_conditions = kwargs.get(
-            "multi_conditions", getattr(self, "multi_conditions", None)
-        )
-        self.ka_risk_field = kwargs.get(
-            "ka_risk_field", getattr(self, "ka_risk_field", None)
-        )
-        self.risk_threshold = kwargs.get(
-            "risk_threshold", getattr(self, "risk_threshold", 5.0)
-        )
-        self.optimize_memory = kwargs.get(
-            "optimize_memory", getattr(self, "optimize_memory", True)
-        )
-        self.adaptive_chunk_size = kwargs.get(
-            "adaptive_chunk_size", getattr(self, "adaptive_chunk_size", True)
-        )
-
-        self.generate_visualization = kwargs.get(
-            "generate_visualization", getattr(self, "generate_visualization", True)
-        )
-        self.save_output = kwargs.get("save_output", getattr(self, "save_output", True))
-        self.output_format = kwargs.get(
-            "output_format", getattr(self, "output_format", "csv")
-        )
-
-        self.use_cache = kwargs.get("use_cache", getattr(self, "use_cache", True))
-        self.force_recalculation = kwargs.get(
-            "force_recalculation", getattr(self, "force_recalculation", False)
-        )
-
-        self.use_dask = kwargs.get("use_dask", getattr(self, "use_dask", False))
-        self.npartitions = kwargs.get("npartitions", getattr(self, "npartitions", 1))
-        self.dask_partition_size = kwargs.get(
-            "dask_partition_size", getattr(self, "dask_partition_size", None)
-        )
-
-        self.use_vectorization = kwargs.get(
-            "use_vectorization", getattr(self, "use_vectorization", False)
-        )
-        self.parallel_processes = kwargs.get(
-            "parallel_processes", getattr(self, "parallel_processes", 1)
-        )
-
-        self.chunk_size = kwargs.get("chunk_size", getattr(self, "chunk_size", 10000))
-
-        self.visualization_backend = kwargs.get(
-            "visualization_backend", getattr(self, "visualization_backend", "plotly")
-        )
-        self.visualization_theme = kwargs.get(
-            "visualization_theme", getattr(self, "visualization_theme", None)
-        )
-        self.visualization_strict = kwargs.get(
-            "visualization_strict", getattr(self, "visualization_strict", False)
-        )
-        self.visualization_timeout = kwargs.get(
-            "visualization_timeout", getattr(self, "visualization_timeout", 120)
-        )
-
-        self.use_encryption = kwargs.get(
-            "use_encryption", getattr(self, "use_encryption", False)
-        )
-        self.encryption_key = (
-            kwargs.get("encryption_key", getattr(self, "encryption_key", None))
-            if self.use_encryption
-            else None
-        )
-        self.encryption_mode = kwargs.get(
-            "encryption_mode", getattr(self, "encryption_mode", None)
-        )
-
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         missing = [
             f for f in [self.field_name] + self.additional_fields if f not in df.columns
@@ -1797,13 +1642,10 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         Tuple[Optional[pd.DataFrame], bool]
             Loaded DataFrame (or None), and validation success flag.
         """
-        operation_name = self.__class__.__name__
         step = "Load data and validate input parameters"
 
-        self._set_input_parameters(**kwargs)
-
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         dataset_name = kwargs.get("dataset_name", "main")
         settings_operation = load_settings_operation(
@@ -1816,7 +1658,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -1825,14 +1667,13 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 )
             return None, False
 
-        self._input_dataset = dataset_name
         self._original_df = df.copy(deep=True)
 
         is_valid = self._validate_input_parameters(df)
 
         if reporter:
             reporter.add_operation(
-                f"Operation {operation_name}",
+                f"Operation {self.operation_name}",
                 status="info" if is_valid else "warning",
                 details={
                     "step": step,
@@ -1847,34 +1688,25 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
         return df, is_valid
 
-    def _compute_total_steps(self, **kwargs) -> int:
-        use_cache = kwargs.get("use_cache", self.use_cache)
-        force_recalculation = kwargs.get(
-            "force_recalculation", self.force_recalculation
-        )
-        save_output = kwargs.get("save_output", self.save_output)
-        generate_visualization = kwargs.get(
-            "generate_visualization", self.generate_visualization
-        )
-
+    def _compute_total_steps(self) -> int:
         steps = 0
 
         steps += 1  # Step 1: Preparation
         steps += 1  # Step 2: Load data and validate input
 
-        if use_cache and not force_recalculation:
+        if self.use_cache and not self.force_recalculation:
             steps += 1  # Step 3: Try to load from cache
 
         steps += 1  # Step 4: Process data
         steps += 1  # Step 5: Collect metrics
 
-        if save_output:
+        if self.save_output:
             steps += 1  # Step 6: Save output
 
-        if generate_visualization:
+        if self.generate_visualization:
             steps += 1  # Step 7: Generate visualizations
 
-        if use_cache:
+        if self.use_cache:
             steps += 1  # Step 8: Save cache
 
         return steps

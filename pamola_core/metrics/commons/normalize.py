@@ -30,7 +30,7 @@ Dependencies:
   - typing - Type annotations for clarity
 """
 
-from typing import Tuple
+from typing import Any, Dict, Tuple
 import numpy as np
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
@@ -165,3 +165,30 @@ def normalize_array_sklearn(data: np.ndarray, method: str = "zscore") -> np.ndar
 
     else:
         raise ValueError(f"Unknown normalization method: {method}")
+
+
+def round_metric_values(metrics: Dict[str, Any], decimals: int = 2) -> Dict[str, Any]:
+    """
+    Round numeric values in a metrics dictionary for better readability.
+
+    Parameters:
+    -----------
+    metrics : dict
+        Dictionary containing metric values.
+    decimals : int, optional
+        Number of decimal places to round to (default: 2).
+
+    Returns:
+    --------
+    dict
+        Dictionary with rounded metric values.
+    """
+    result = {}
+    for key, value in metrics.items():
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            result[key] = round(value, decimals)
+        elif isinstance(value, dict):
+            result[key] = round_metric_values(value, decimals)
+        else:
+            result[key] = value
+    return result

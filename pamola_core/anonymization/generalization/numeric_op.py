@@ -95,7 +95,7 @@ TODO:
 from datetime import datetime
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union, List
+from typing import Any, Dict, Optional, Tuple, List
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
@@ -124,105 +124,17 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_metrics_overview_visualization,
     sample_large_dataset,
 )
+from pamola_core.anonymization.schemas.numeric_op_schema import NumericGeneralizationConfig
 from pamola_core.common.constants import Constants
+from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.helpers import filter_used_kwargs
-
-
-class NumericGeneralizationConfig(OperationConfig):
-    """Configuration for NumericGeneralizationOperation."""
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "field_name": {"type": "string"},
-            "strategy": {"type": "string", "enum": ["binning", "rounding", "range"]},
-            "bin_count": {"type": "integer", "minimum": 2},
-            "binning_method": {
-                "type": "string",
-                "enum": ["equal_width", "equal_frequency", "quantile"],
-            },
-            "precision": {"type": "integer"},
-            "range_limits": {
-                "type": ["array", "null"],
-                "items": {
-                    "type": "array",
-                    "items": {"type": "number"},
-                    "minItems": 2,
-                    "maxItems": 2,
-                },
-            },
-            "mode": {"type": "string", "enum": ["REPLACE", "ENRICH"]},
-            "output_field_name": {"type": ["string", "null"]},
-            "column_prefix": {"type": "string"},
-            "null_strategy": {
-                "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
-            },
-            "quasi_identifiers": {
-                "type": ["array", "null"],
-                "items": {"type": "string"},
-            },
-            "description": {"type": "string", "default": ""},
-            "condition_field": {"type": ["string", "null"]},
-            "condition_values": {"type": ["array", "null"]},
-            "condition_operator": {"type": "string"},
-            "ka_risk_field": {"type": ["string", "null"]},
-            "risk_threshold": {"type": "number"},
-            "vulnerable_record_strategy": {"type": "string"},
-            "optimize_memory": {"type": "boolean"},
-            "adaptive_chunk_size": {"type": "boolean"},
-            "chunk_size": {"type": "integer", "minimum": 1},
-            "use_dask": {"type": "boolean"},
-            "npartitions": {"type": ["integer", "null"], "minimum": 1},
-            "dask_partition_size": {"type": ["string", "null"], "default": "100MB"},
-            "use_vectorization": {"type": "boolean"},
-            "parallel_processes": {"type": ["integer", "null"], "minimum": 1},
-            "use_cache": {"type": "boolean"},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]},
-            "encryption_mode": {
-                "type": ["string", "null"],
-                "enum": ["age", "simple", "none"],
-                "default": "none",
-            },
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {
-                "type": ["string", "null"],
-                "enum": ["plotly", "matplotlib", None],
-            },
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
-            "output_format": {
-                "type": "string",
-                "enum": ["csv", "parquet", "json"],
-                "default": "csv",
-            },
-        },
-        "required": ["field_name", "strategy"],
-        "allOf": [
-            {
-                "if": {"properties": {"strategy": {"const": "binning"}}},
-                "then": {"required": ["bin_count"]},
-            },
-            {
-                "if": {"properties": {"strategy": {"const": "rounding"}}},
-                "then": {"required": ["precision"]},
-            },
-            {
-                "if": {"properties": {"strategy": {"const": "range"}}},
-                "then": {"required": ["range_limits"]},
-            },
-        ],
-    }
-
 
 @register(version="1.0.0")
 class NumericGeneralizationOperation(AnonymizationOperation):
@@ -242,160 +154,68 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         binning_method: str = "equal_width",
         precision: int = 0,
         range_limits: Optional[List[Tuple[float, float]]] = None,
-        mode: str = "REPLACE",
-        output_field_name: Optional[str] = None,
-        column_prefix: str = "_",
-        null_strategy: str = "PRESERVE",
         quasi_identifiers: Optional[List[str]] = None,
-        description: str = "",
-        # Conditional processing parameters
-        condition_field: Optional[str] = None,
-        condition_values: Optional[List] = None,
-        condition_operator: str = "in",
-        # K-anonymity integration
-        ka_risk_field: Optional[str] = None,
-        risk_threshold: float = 5.0,
-        vulnerable_record_strategy: str = "suppress",
-        # Memory optimization
-        optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
-        # Specific parameters
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        dask_partition_size: Optional[str] = None,
-        use_vectorization: bool = False,
-        parallel_processes: Optional[int] = None,
-        use_cache: bool = True,
-        use_encryption: bool = False,
-        encryption_mode: Optional[str] = "none",
-        encryption_key: Optional[Union[str, Path]] = None,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        output_format: str = "csv",
+        **kwargs,
     ):
         """
         Initialize numeric generalization operation.
 
-        Parameters:
-        -----------
-        field_name: str
-            The name of the numeric field to generalize.
-        strategy: str
-            The generalization strategy to use: 'binning', 'rounding', or 'range' (default: 'binning')
-        bin_count: int
-            The number of bins to use for the 'binning' strategy (default: 10)
-        binning_method: str
-            The method to use for binning: 'equal_width', 'equal_frequency', or 'custom' (default: 'equal_width')
-        precision: int
-            The number of decimal places to keep for the 'rounding' strategy (default: 0)
-        range_limits: List[Tuple[float, float]]
-            The min/max range limits for the 'range' strategy (default: None)
-        Other parameters follow base class convention
+        Parameters
+        ----------
+        field_name : str
+            Name of the numeric field to generalize.
+        strategy : str, optional
+            Generalization strategy: 'binning', 'rounding', or 'range'.
+        bin_count : int, optional
+            Number of bins for 'binning' (default=10).
+        binning_method : str, optional
+            Binning method: 'equal_width', 'equal_frequency', or 'custom'.
+        precision : int, optional
+            Decimal precision for 'rounding' (default=0).
+        range_limits : list of tuple, optional
+            Range limits for 'range' strategy.
+        quasi_identifiers : list of str, optional
+            Optional QI list for risk evaluation.
+        **kwargs
+            Additional keyword arguments passed to AnonymizationOperation.
         """
-        # Set default description if missing
-        description = (
-            description
-            or f"Numeric generalization for field '{field_name}' using {strategy} strategy"
+        # Description fallback
+        kwargs.setdefault(
+            "description",
+            f"Numeric generalization for '{field_name}' using {strategy} strategy",
         )
 
-        # Normalize range limits
+        # Normalize range limits (custom helper for schema validation)
         range_limits = self.convert_range_limits_for_schema(range_limits)
 
-        # Group parameters into a config dict
-        config_params = dict(
+        # Build config object (if used for schema/validation)
+        config = NumericGeneralizationConfig(
             field_name=field_name,
             strategy=strategy,
             bin_count=bin_count,
             binning_method=binning_method,
             precision=precision,
             range_limits=range_limits,
-            mode=mode,
-            output_field_name=output_field_name,
-            column_prefix=column_prefix,
-            null_strategy=null_strategy,
             quasi_identifiers=quasi_identifiers,
-            description=description,
-            condition_field=condition_field,
-            condition_values=condition_values,
-            condition_operator=condition_operator,
-            ka_risk_field=ka_risk_field,
-            risk_threshold=risk_threshold,
-            vulnerable_record_strategy=vulnerable_record_strategy,
-            optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            chunk_size=chunk_size,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            use_cache=use_cache,
-            use_encryption=use_encryption,
-            encryption_mode=encryption_mode,
-            encryption_key=encryption_key,
-            visualization_theme=visualization_theme,
-            visualization_backend=visualization_backend,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            output_format=output_format,
+            **kwargs,
         )
 
-        # Create config object (you can keep this if needed for validation)
-        config = NumericGeneralizationConfig(**config_params)
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
 
-        # Initialize parent class
+        # Initialize base AnonymizationOperation
         super().__init__(
-            **{
-                k: config_params[k]
-                for k in [
-                    "field_name",
-                    "mode",
-                    "output_field_name",
-                    "column_prefix",
-                    "null_strategy",
-                    "description",
-                    "condition_field",
-                    "condition_values",
-                    "condition_operator",
-                    "ka_risk_field",
-                    "risk_threshold",
-                    "vulnerable_record_strategy",
-                    "optimize_memory",
-                    "adaptive_chunk_size",
-                    "chunk_size",
-                    "use_dask",
-                    "npartitions",
-                    "dask_partition_size",
-                    "use_vectorization",
-                    "parallel_processes",
-                    "use_cache",
-                    "use_encryption",
-                    "encryption_mode",
-                    "encryption_key",
-                    "visualization_theme",
-                    "visualization_backend",
-                    "visualization_strict",
-                    "visualization_timeout",
-                    "output_format",
-                ]
-            }
+            field_name=field_name,
+            **kwargs,
         )
 
         # Save config attributes to self
-        for k, v in config_params.items():
+        for k, v in config.to_dict().items():
             setattr(self, k, v)
             self.process_kwargs[k] = v
 
-        self.config = config
-        self.version = "3.0.0"
+        # Operation metadata
         self.operation_name = self.__class__.__name__
-        self.operation_cache = None
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
 
     def execute(
         self,
@@ -406,7 +226,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         **kwargs,
     ) -> OperationResult:
         """
-        Execute the operation with timing and error handling.
+        Execute the numeric generalization operation.
 
         Parameters:
         -----------
@@ -419,14 +239,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation including:
-            - force_recalculation: bool - Skip cache check
-            - generate_visualization: bool - Create visualizations
-            - save_output: bool - Save processed data to output directory
-            - visualization_theme: str - Override theme for visualizations
-            - visualization_backend: str - Override backend for visualizations
-            - visualization_strict: bool - Override strict mode for visualizations
-            - visualization_timeout: int - Override timeout for visualizations
+            Additional parameters for the operation
 
         Returns:
         --------
@@ -440,7 +253,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             self.logger.info(
                 f"Starting {self.operation_name} operation at {self.start_time}"
             )
-            self.process_count = 0
+
             df = None
             result = OperationResult(status=OperationStatus.PENDING)
 
@@ -464,25 +277,8 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Decompose kwargs and introduce variables for clarity
-            self.generate_visualization = kwargs.get("generate_visualization", True)
-            self.save_output = kwargs.get("save_output", True)
-            self.force_recalculation = kwargs.get("force_recalculation", False)
+            # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
-
-            # Extract visualization parameters
-            self.visualization_theme = kwargs.get(
-                "visualization_theme", self.visualization_theme
-            )
-            self.visualization_backend = kwargs.get(
-                "visualization_backend", self.visualization_backend
-            )
-            self.visualization_strict = kwargs.get(
-                "visualization_strict", self.visualization_strict
-            )
-            self.visualization_timeout = kwargs.get(
-                "visualization_timeout", self.visualization_timeout
-            )
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -636,6 +432,11 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 )
 
             try:
+                # Normalize integer dtype if required
+                df[self.field_name] = DataHelper.normalize_int_dtype_vectorized(
+                    df[self.field_name], safe_mode=False
+                )
+
                 # Copy original data for processing
                 original_data = df[self.field_name].copy(deep=True)
 
@@ -656,17 +457,24 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 # Apply conditional filtering
                 self.filter_mask, filtered_df = self._apply_conditional_filtering(df)
 
+                # Process the filtered data only if not empty
+                if not filtered_df.empty:
+                    processed_df = self._process_data_with_config(
+                        df=filtered_df,
+                        progress_tracker=data_tracker,
+                    )
+                else:
+                    self.logger.warning(
+                        "Filtered DataFrame is empty. Skipping _process_data_with_config."
+                    )
+                    processed_df = df.copy(deep=True)
+                    processed_df[self.output_field_name] = original_data
+
                 # Handle vulnerable records if k-anonymity is enabled
                 if self.ka_risk_field and self.ka_risk_field in df.columns:
-                    filtered_df = self._handle_vulnerable_records(
-                        filtered_df, self.output_field_name
+                    processed_df = self._handle_vulnerable_records(
+                        processed_df, self.output_field_name
                     )
-
-                # Process the filtered data
-                processed_df = self._process_data_with_config(
-                    df=filtered_df,
-                    progress_tracker=data_tracker,
-                )
 
                 # Get the anonymized data
                 anonymized_data = processed_df[self.output_field_name]
@@ -901,7 +709,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         # Extract parameters from kwargs
         field_name = kwargs.get("field_name")
-        null_strategy = kwargs.get("null_strategy")
         output_field_name = kwargs.get("output_field_name")
         mode = kwargs.get("mode")
         strategy = kwargs.get("strategy")

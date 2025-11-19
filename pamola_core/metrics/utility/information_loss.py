@@ -28,15 +28,14 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 import numpy as np
 import logging
-from typing import Dict, List, Tuple, Optional, Any, Union
-
-from pamola_core.metrics.base import UtilityMetric, round_metric_values
+from typing import Dict, List, Optional, Any
+from pamola_core.metrics.commons.normalize import round_metric_values
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-class InformationLossMetric(UtilityMetric):
+class InformationLossMetric:
     """
     Calculates information loss metrics for anonymized data.
 
@@ -49,10 +48,12 @@ class InformationLossMetric(UtilityMetric):
     indicating more information loss (lower utility).
     """
 
-    def __init__(self,
-                 record_weight: float = 0.4,
-                 numerical_weight: float = 0.3,
-                 categorical_weight: float = 0.3):
+    def __init__(
+        self,
+        record_weight: float = 0.4,
+        numerical_weight: float = 0.3,
+        categorical_weight: float = 0.3,
+    ):
         """
         Initialize the information loss metric.
 
@@ -65,10 +66,8 @@ class InformationLossMetric(UtilityMetric):
         categorical_weight : float, optional
             Weight for categorical attribute loss in overall calculation (default: 0.3).
         """
-        super().__init__(
-            name="Information Loss",
-            description="Measures the loss of information after anonymization"
-        )
+        self.name = "Information Loss"
+        self.description = "Measures the loss of information after anonymization"
         self.record_weight = record_weight
         self.numerical_weight = numerical_weight
         self.categorical_weight = categorical_weight
@@ -80,10 +79,15 @@ class InformationLossMetric(UtilityMetric):
             self.numerical_weight /= total_weight
             self.categorical_weight /= total_weight
 
-    def calculate(self, original_data: pd.DataFrame,
-                  anonymized_data: pd.DataFrame,
-                  numerical_columns: Optional[List[str]] = None,
-                  **kwargs) -> Dict[str, Any]:
+        self.last_result = {}
+
+    def calculate_metric(
+        self,
+        original_data: pd.DataFrame,
+        anonymized_data: pd.DataFrame,
+        numerical_columns: Optional[List[str]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Calculate information loss metrics.
 
@@ -116,11 +120,17 @@ class InformationLossMetric(UtilityMetric):
 
         try:
             # Calculate record loss
-            record_loss = 100 * (1 - len(anonymized_data) / len(original_data)) if len(original_data) > 0 else 0
+            record_loss = (
+                100 * (1 - len(anonymized_data) / len(original_data))
+                if len(original_data) > 0
+                else 0
+            )
 
             # Get numeric columns if not specified
             if numerical_columns is None:
-                numerical_columns = original_data.select_dtypes(include=['number']).columns.tolist()
+                numerical_columns = original_data.select_dtypes(
+                    include=["number"]
+                ).columns.tolist()
 
             # Calculate column-level loss
             column_level_loss = {}
@@ -131,8 +141,11 @@ class InformationLossMetric(UtilityMetric):
 
             if numerical_columns:
                 # Ensure we only use columns present in both datasets
-                valid_numeric_columns = [col for col in numerical_columns
-                                         if col in anonymized_data.columns and col in original_data.columns]
+                valid_numeric_columns = [
+                    col
+                    for col in numerical_columns
+                    if col in anonymized_data.columns and col in original_data.columns
+                ]
 
                 if valid_numeric_columns:
                     # Calculate variance for each column
@@ -149,21 +162,28 @@ class InformationLossMetric(UtilityMetric):
                         numeric_loss_values.append(col_loss)
                         column_level_loss[col] = {
                             "type": "numeric",
-                            "loss_percentage": col_loss
+                            "loss_percentage": col_loss,
                         }
 
                     # Average across columns
-                    generalization_loss = np.mean(numeric_loss_values) if numeric_loss_values else 0
+                    generalization_loss = (
+                        np.mean(numeric_loss_values) if numeric_loss_values else 0
+                    )
 
             # Calculate diversity loss for categorical columns
-            categorical_columns = [col for col in original_data.columns if col not in numerical_columns]
+            categorical_columns = [
+                col for col in original_data.columns if col not in numerical_columns
+            ]
             categorical_loss = 0
             categorical_loss_values = []
 
             if categorical_columns:
                 # Ensure we only use columns present in both datasets
-                valid_cat_columns = [col for col in categorical_columns
-                                     if col in anonymized_data.columns and col in original_data.columns]
+                valid_cat_columns = [
+                    col
+                    for col in categorical_columns
+                    if col in anonymized_data.columns and col in original_data.columns
+                ]
 
                 if valid_cat_columns:
                     # Calculate unique value counts for each column
@@ -179,16 +199,22 @@ class InformationLossMetric(UtilityMetric):
                         categorical_loss_values.append(col_loss)
                         column_level_loss[col] = {
                             "type": "categorical",
-                            "loss_percentage": col_loss
+                            "loss_percentage": col_loss,
                         }
 
                     # Average across columns
-                    categorical_loss = np.mean(categorical_loss_values) if categorical_loss_values else 0
+                    categorical_loss = (
+                        np.mean(categorical_loss_values)
+                        if categorical_loss_values
+                        else 0
+                    )
 
             # Calculate overall information loss (weighted average)
-            overall_loss = (self.record_weight * record_loss +
-                            self.numerical_weight * generalization_loss +
-                            self.categorical_weight * categorical_loss)
+            overall_loss = (
+                self.record_weight * record_loss
+                + self.numerical_weight * generalization_loss
+                + self.categorical_weight * categorical_loss
+            )
 
             # Prepare result
             result = {
@@ -200,8 +226,8 @@ class InformationLossMetric(UtilityMetric):
                 "weights": {
                     "record_weight": self.record_weight,
                     "numerical_weight": self.numerical_weight,
-                    "categorical_weight": self.categorical_weight
-                }
+                    "categorical_weight": self.categorical_weight,
+                },
             }
 
             # Round numeric values for readability
@@ -210,7 +236,9 @@ class InformationLossMetric(UtilityMetric):
             # Store the result
             self.last_result = result
 
-            logger.info(f"Information loss analysis: Overall loss = {overall_loss:.2f}%")
+            logger.info(
+                f"Information loss analysis: Overall loss = {overall_loss:.2f}%"
+            )
             return result
 
         except Exception as e:
@@ -246,7 +274,7 @@ class InformationLossMetric(UtilityMetric):
             return f"Information Loss: {value:.2f}% - Severe loss, very limited utility remains"
 
 
-class GeneralizationLossMetric(UtilityMetric):
+class GeneralizationLossMetric:
     """
     Specialized metric for measuring information loss due to generalization.
 
@@ -255,19 +283,23 @@ class GeneralizationLossMetric(UtilityMetric):
     of the data.
     """
 
-    def __init__(self):
-        """
-        Initialize the generalization loss metric.
-        """
-        super().__init__(
-            name="Generalization Loss",
-            description="Measures information loss due to generalization of attribute values"
-        )
+    def __init__(
+        self,
+        name: str = "Generalization Loss",
+        description: str = "Measures information loss due to generalization of attribute values",
+    ):
+        """Initialize the Generalization Loss metric."""
+        self.name = name
+        self.description = description
+        self.last_result = {}
 
-    def calculate(self, original_data: pd.DataFrame,
-                  anonymized_data: pd.DataFrame,
-                  columns: Optional[List[str]] = None,
-                  **kwargs) -> Dict[str, Any]:
+    def calculate_metric(
+        self,
+        original_data: pd.DataFrame,
+        anonymized_data: pd.DataFrame,
+        columns: Optional[List[str]] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Calculate generalization loss metrics.
 
@@ -296,11 +328,17 @@ class GeneralizationLossMetric(UtilityMetric):
         try:
             # Determine columns to analyze
             if columns is None:
-                columns = [col for col in original_data.columns
-                           if col in anonymized_data.columns]
+                columns = [
+                    col
+                    for col in original_data.columns
+                    if col in anonymized_data.columns
+                ]
             else:
-                columns = [col for col in columns
-                           if col in original_data.columns and col in anonymized_data.columns]
+                columns = [
+                    col
+                    for col in columns
+                    if col in original_data.columns and col in anonymized_data.columns
+                ]
 
             if not columns:
                 raise ValueError("No valid columns for generalization loss calculation")
@@ -332,7 +370,7 @@ class GeneralizationLossMetric(UtilityMetric):
                     column_loss[col] = {
                         "type": "numeric",
                         "loss_percentage": col_loss,
-                        "range_preservation": min(100, range_preservation)
+                        "range_preservation": min(100, range_preservation),
                     }
                 else:
                     # Categorical column: compare unique values
@@ -355,7 +393,7 @@ class GeneralizationLossMetric(UtilityMetric):
                     column_loss[col] = {
                         "type": "categorical",
                         "loss_percentage": col_loss,
-                        "entropy_preservation": min(100, entropy_ratio)
+                        "entropy_preservation": min(100, entropy_ratio),
                     }
 
                 loss_values.append(col_loss)
@@ -366,13 +404,15 @@ class GeneralizationLossMetric(UtilityMetric):
             # Find worst column (highest loss)
             worst_column = None
             if column_loss:
-                worst_column = max(column_loss.items(), key=lambda x: x[1]["loss_percentage"])[0]
+                worst_column = max(
+                    column_loss.items(), key=lambda x: x[1]["loss_percentage"]
+                )[0]
 
             # Prepare result
             result = {
                 "overall_generalization_loss": overall_loss,
                 "column_level_loss": column_loss,
-                "worst_column": worst_column
+                "worst_column": worst_column,
             }
 
             # Round numeric values for readability
@@ -381,7 +421,9 @@ class GeneralizationLossMetric(UtilityMetric):
             # Store the result
             self.last_result = result
 
-            logger.info(f"Generalization loss analysis: Overall loss = {overall_loss:.2f}%")
+            logger.info(
+                f"Generalization loss analysis: Overall loss = {overall_loss:.2f}%"
+            )
             return result
 
         except Exception as e:
@@ -389,7 +431,7 @@ class GeneralizationLossMetric(UtilityMetric):
             raise
 
 
-class SuppressionLossMetric(UtilityMetric):
+class SuppressionLossMetric:
     """
     Specialized metric for measuring information loss due to suppression.
 
@@ -397,18 +439,21 @@ class SuppressionLossMetric(UtilityMetric):
     as part of the anonymization process.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        name: str = "Suppression Loss",
+        description: str = "Measures information loss due to suppression of records or values",
+    ):
         """
         Initialize the suppression loss metric.
         """
-        super().__init__(
-            name="Suppression Loss",
-            description="Measures information loss due to suppression of records or values"
-        )
+        self.name = name
+        self.description = description
+        self.last_result = {}
 
-    def calculate(self, original_data: pd.DataFrame,
-                  anonymized_data: pd.DataFrame,
-                  **kwargs) -> Dict[str, Any]:
+    def calculate_metric(
+        self, original_data: pd.DataFrame, anonymized_data: pd.DataFrame, **kwargs
+    ) -> Dict[str, Any]:
         """
         Calculate suppression loss metrics.
 
@@ -435,14 +480,20 @@ class SuppressionLossMetric(UtilityMetric):
         try:
             # Calculate record suppression
             records_suppressed = len(original_data) - len(anonymized_data)
-            record_suppression_rate = 100 * records_suppressed / len(original_data) if len(original_data) > 0 else 0
+            record_suppression_rate = (
+                100 * records_suppressed / len(original_data)
+                if len(original_data) > 0
+                else 0
+            )
 
             # Calculate value suppression (for cell-level suppression)
             values_suppressed = 0
             total_values = 0
 
             # Count missing values in both datasets
-            common_columns = [col for col in original_data.columns if col in anonymized_data.columns]
+            common_columns = [
+                col for col in original_data.columns if col in anonymized_data.columns
+            ]
 
             for col in common_columns:
                 # Count original non-null values
@@ -456,14 +507,16 @@ class SuppressionLossMetric(UtilityMetric):
                 values_suppressed += max(0, orig_non_null - anon_non_null)
 
             # Calculate suppression rates
-            value_suppression_rate = 100 * values_suppressed / total_values if total_values > 0 else 0
+            value_suppression_rate = (
+                100 * values_suppressed / total_values if total_values > 0 else 0
+            )
 
             # Prepare result
             result = {
                 "records_suppressed": int(records_suppressed),
                 "record_suppression_rate": record_suppression_rate,
                 "values_suppressed": int(values_suppressed),
-                "value_suppression_rate": value_suppression_rate
+                "value_suppression_rate": value_suppression_rate,
             }
 
             # Round numeric values for readability
@@ -472,7 +525,9 @@ class SuppressionLossMetric(UtilityMetric):
             # Store the result
             self.last_result = result
 
-            logger.info(f"Suppression loss analysis: Record suppression rate = {record_suppression_rate:.2f}%")
+            logger.info(
+                f"Suppression loss analysis: Record suppression rate = {record_suppression_rate:.2f}%"
+            )
             return result
 
         except Exception as e:
@@ -511,9 +566,9 @@ def calculate_entropy(series: pd.Series) -> float:
 
 
 # Convenience function for calculating all information loss metrics
-def calculate_information_loss_metrics(original_data: pd.DataFrame,
-                                       anonymized_data: pd.DataFrame,
-                                       **kwargs) -> Dict[str, Dict[str, Any]]:
+def calculate_information_loss_metrics(
+    original_data: pd.DataFrame, anonymized_data: pd.DataFrame, **kwargs
+) -> Dict[str, Dict[str, Any]]:
     """
     Calculate multiple information loss metrics for anonymized data.
 
@@ -535,23 +590,23 @@ def calculate_information_loss_metrics(original_data: pd.DataFrame,
 
     # Calculate general information loss
     info_loss = InformationLossMetric(
-        record_weight=kwargs.get('record_weight', 0.4),
-        numerical_weight=kwargs.get('numerical_weight', 0.3),
-        categorical_weight=kwargs.get('categorical_weight', 0.3)
+        record_weight=kwargs.get("record_weight", 0.4),
+        numerical_weight=kwargs.get("numerical_weight", 0.3),
+        categorical_weight=kwargs.get("categorical_weight", 0.3),
     )
-    results["information_loss"] = info_loss.calculate(
-        original_data, anonymized_data, kwargs.get('numerical_columns')
+    results["information_loss"] = info_loss.calculate_metric(
+        original_data, anonymized_data, kwargs.get("numerical_columns")
     )
 
     # Calculate generalization loss
     gen_loss = GeneralizationLossMetric()
-    results["generalization_loss"] = gen_loss.calculate(
-        original_data, anonymized_data, kwargs.get('columns')
+    results["generalization_loss"] = gen_loss.calculate_metric(
+        original_data, anonymized_data, kwargs.get("columns")
     )
 
     # Calculate suppression loss
     supp_loss = SuppressionLossMetric()
-    results["suppression_loss"] = supp_loss.calculate(
+    results["suppression_loss"] = supp_loss.calculate_metric(
         original_data, anonymized_data
     )
 

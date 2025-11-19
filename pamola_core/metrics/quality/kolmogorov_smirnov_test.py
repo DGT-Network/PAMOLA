@@ -25,20 +25,36 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 from scipy.stats import ks_2samp
 from typing import List, Dict
-from pamola_core.metrics.base import QualityMetric
 
 # Configure logging
 import logging
+
 logger = logging.getLogger(__name__)
 
-class KolmogorovSmirnovTest(QualityMetric):
-    def __init__(self, name: str = "Kolmogorov-Smirnov Test", description: str = "Evaluate distribution similarity"):
-        super().__init__(name, description)
 
-    def calculate(self, real_data: pd.DataFrame, synthetic_data: pd.DataFrame, target_columns: List[str] = None) -> Dict[str, tuple]:
+class KolmogorovSmirnovTest:
+    def __init__(
+        self,
+        name: str = "Kolmogorov-Smirnov Test",
+        description: str = "Evaluate distribution similarity",
+    ):
+        """Initialize the Kolmogorov-Smirnov Test metric."""
+        self.name = name
+        self.description = description
+
+    def calculate_metric(
+        self,
+        real_data: pd.DataFrame,
+        synthetic_data: pd.DataFrame,
+        target_columns: List[str] = None,
+    ) -> Dict[str, tuple]:
         logger.info("Calculating Kolmogorov-Smirnov Test metrics")
         results = {}
-        columns_to_evaluate = target_columns if target_columns else real_data.select_dtypes(include=["number"]).columns.tolist()
+        columns_to_evaluate = (
+            target_columns
+            if target_columns
+            else real_data.select_dtypes(include=["number"]).columns.tolist()
+        )
 
         try:
             for col in columns_to_evaluate:

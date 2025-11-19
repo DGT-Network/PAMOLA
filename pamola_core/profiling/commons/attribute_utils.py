@@ -86,8 +86,9 @@ DEFAULT_THRESHOLDS = {
     "uniqueness_high": 0.9,
     "uniqueness_low": 0.2,
     "text_length_long": 100,
-    "mvf_threshold": 2
+    "mvf_threshold": 2,
 }
+
 
 def _has_list_or_tuple(series: pd.Series) -> bool:
     """
@@ -101,7 +102,10 @@ def _has_list_or_tuple(series: pd.Series) -> bool:
     """
     return series.astype(object).apply(lambda x: isinstance(x, (list, tuple))).any()
 
-def load_attribute_dictionary(file_path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
+
+def load_attribute_dictionary(
+    file_path: Optional[Union[str, Path]] = None,
+) -> Dict[str, Any]:
     """
     Load attribute dictionary from a user-defined or default JSON file.
 
@@ -121,7 +125,7 @@ def load_attribute_dictionary(file_path: Optional[Union[str, Path]] = None) -> D
         file_path = Path(file_path)
         if file_path.exists():
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, "r", encoding="utf-8") as f:
                     logger.info(f"Loading user-defined dictionary from {file_path}")
                     return _validate_dictionary(json.load(f))
             except Exception as e:
@@ -145,7 +149,7 @@ def load_attribute_dictionary(file_path: Optional[Union[str, Path]] = None) -> D
     for path in possible_paths:
         if path.exists():
             try:
-                with open(path, 'r', encoding='utf-8') as f:
+                with open(path, "r", encoding="utf-8") as f:
                     logger.info(f"Found dictionary at {path}")
                     return _validate_dictionary(json.load(f))
             except Exception as e:
@@ -155,7 +159,7 @@ def load_attribute_dictionary(file_path: Optional[Union[str, Path]] = None) -> D
     logger.warning("No custom attribute dictionary found. Using default dictionary.")
     return {
         "categories": DEFAULT_ATTRIBUTE_ROLES,
-        "statistical_thresholds": DEFAULT_THRESHOLDS
+        "statistical_thresholds": DEFAULT_THRESHOLDS,
     }
 
 
@@ -175,7 +179,9 @@ def _validate_dictionary(data: Dict[str, Any]) -> Dict[str, Any]:
         data["categories"] = DEFAULT_ATTRIBUTE_ROLES
 
     if "statistical_thresholds" not in data:
-        logger.warning("Missing 'statistical_thresholds' in dictionary. Using defaults.")
+        logger.warning(
+            "Missing 'statistical_thresholds' in dictionary. Using defaults."
+        )
         data["statistical_thresholds"] = DEFAULT_THRESHOLDS
 
     return data
@@ -197,60 +203,64 @@ def infer_data_type(series: pd.Series) -> str:
     """
     # Check for empty series
     if series.empty:
-        return 'unknown'
+        return "unknown"
 
     # Get pandas dtype
     dtype = series.dtype
 
     # Handle boolean type
     if pd.api.types.is_bool_dtype(dtype):
-        return 'boolean'
+        return "boolean"
 
     # Handle numeric types
     if pd.api.types.is_numeric_dtype(dtype):
         # Check if the values are mostly integers or have limited unique values
-        if pd.api.types.is_integer_dtype(dtype) or series.nunique() <= min(10, int(len(series) * 0.05)):
-            return 'categorical'
-        return 'numeric'
+        if pd.api.types.is_integer_dtype(dtype) or series.nunique() <= min(
+            10, int(len(series) * 0.05)
+        ):
+            return "categorical"
+        return "numeric"
 
     # Handle datetime
     if pd.api.types.is_datetime64_dtype(dtype):
-        return 'datetime'
+        return "datetime"
 
     # For object/string types, we need more analysis
     non_null = series.dropna()
 
     # If empty after dropping nulls, return unknown
     if len(non_null) == 0:
-        return 'unknown'
+        return "unknown"
 
     # Check if it contains lists (MVF)
     if _has_list_or_tuple(non_null):
-        return 'mvf'
+        return "mvf"
 
     # Check for MVF in string format
-    mvf_pattern = re.compile(r'\[.*]|\{.*}|.*;.*|.*,.*|.*\|.*')
+    mvf_pattern = re.compile(r"\[.*]|\{.*}|.*;.*|.*,.*|.*\|.*")
     sample = non_null.sample(min(100, len(non_null)))
     mvf_count = sample.astype(str).str.contains(mvf_pattern, regex=True, na=False).sum()
 
     if mvf_count >= len(sample) * 0.5:  # If at least 50% match MVF pattern
         sample_values = sample.iloc[0] if not sample.empty else ""
-        avg_token_length = np.mean([len(str(token).strip()) for token in str(sample_values).split(',')])
+        avg_token_length = np.mean(
+            [len(str(token).strip()) for token in str(sample_values).split(",")]
+        )
 
         # If average token length is small, likely MVF
         if avg_token_length < 15:
-            return 'mvf'
+            return "mvf"
 
     # Check for text length
     avg_length = non_null.astype(str).str.len().mean()
 
-    if avg_length > DEFAULT_THRESHOLDS['text_length_long']:
-        return 'long_text'
+    if avg_length > DEFAULT_THRESHOLDS["text_length_long"]:
+        return "long_text"
     else:
         # If small number of unique values, likely categorical
         if non_null.nunique() <= min(10, int(len(non_null) * 0.1)):
-            return 'categorical'
-        return 'text'
+            return "categorical"
+        return "text"
 
 
 def calculate_entropy(series: pd.Series) -> float:
@@ -373,7 +383,7 @@ def is_mvf_field(series: pd.Series) -> bool:
         return True
 
     # Check for common MVF string patterns
-    mvf_pattern = re.compile(r'\[.*]|\{.*}|.*;.*|.*,.*|.*\|.*')
+    mvf_pattern = re.compile(r"\[.*]|\{.*}|.*;.*|.*,.*|.*\|.*")
 
     # Sample the data to avoid processing very large series
     sample = non_null.sample(min(100, len(non_null)))
@@ -381,10 +391,12 @@ def is_mvf_field(series: pd.Series) -> bool:
 
     # If at least 50% match MVF pattern
     if mvf_count >= len(sample) * 0.5:
-        
+
         # Check average token length to distinguish from free text
-        sample_values = sample.head(1).iloc[0] if len(sample.head(1))> 0 else ""
-        avg_token_length = np.mean([len(str(token).strip()) for token in str(sample_values).split(',')])
+        sample_values = sample.head(1).iloc[0] if len(sample.head(1)) > 0 else ""
+        avg_token_length = np.mean(
+            [len(str(token).strip()) for token in str(sample_values).split(",")]
+        )
 
         # If average token length is small, likely MVF
         if avg_token_length < 15:
@@ -393,7 +405,9 @@ def is_mvf_field(series: pd.Series) -> bool:
     return False
 
 
-def analyze_column_values(df: pd.DataFrame, column: str, sample_size: int = 10) -> Dict[str, Any]:
+def analyze_column_values(
+    df: pd.DataFrame, column: str, sample_size: int = 10
+) -> Dict[str, Any]:
     """
     Analyze comprehensive statistics and characteristics of a specific column in a DataFrame.
 
@@ -422,19 +436,28 @@ def analyze_column_values(df: pd.DataFrame, column: str, sample_size: int = 10) 
             "inferred_type": infer_data_type(series),  # Logical data type inference
             "is_mvf": is_mvf_field(series),  # Check if multi-valued field
             "entropy": calculate_entropy(series),  # Shannon entropy calculation
-            "normalized_entropy": calculate_normalized_entropy(series),  # Normalized entropy
-            "uniqueness_ratio": calculate_uniqueness_ratio(series)  # Unique values ratio
+            "normalized_entropy": calculate_normalized_entropy(
+                series
+            ),  # Normalized entropy
+            "uniqueness_ratio": calculate_uniqueness_ratio(
+                series
+            ),  # Unique values ratio
         }
 
         # Sample values extraction with special handling for different data types
         if stats["inferred_type"] == "long_text":
             # Truncate long text samples to improve readability
-            samples = series.dropna().sample(min(sample_size, len(series.dropna()))).apply(
-                lambda x: str(x)[:100] + "..." if len(str(x)) > 100 else str(x)
-            ).tolist()
+            samples = (
+                series.dropna()
+                .sample(min(sample_size, len(series.dropna())))
+                .apply(lambda x: str(x)[:100] + "..." if len(str(x)) > 100 else str(x))
+                .tolist()
+            )
         else:
             # Standard sampling for other data types
-            samples = series.dropna().sample(min(sample_size, len(series.dropna()))).tolist()
+            samples = (
+                series.dropna().sample(min(sample_size, len(series.dropna()))).tolist()
+            )
 
         # Add sampled values to statistics
         stats["samples"] = samples
@@ -454,14 +477,16 @@ def analyze_column_values(df: pd.DataFrame, column: str, sample_size: int = 10) 
 
                 # Handle list/tuple type MVF
                 if _has_list_or_tuple(series):
-                    flattened = [item for sublist in series.dropna() for item in sublist]
+                    flattened = [
+                        item for sublist in series.dropna() for item in sublist
+                    ]
                 else:
                     # Detect and process string-based MVF
                     non_null_series = series.dropna()
                     if not non_null_series.empty:
                         sample_value = str(non_null_series.iloc[0])
                         # Try common delimiters
-                        for delim in [',', ';', '|']:
+                        for delim in [",", ";", "|"]:
                             if delim in sample_value:
                                 delimiter = delim
                                 break
@@ -469,7 +494,9 @@ def analyze_column_values(df: pd.DataFrame, column: str, sample_size: int = 10) 
                         if delimiter:
                             for val in non_null_series:
                                 if isinstance(val, str):
-                                    items = [item.strip() for item in val.split(delimiter)]
+                                    items = [
+                                        item.strip() for item in val.split(delimiter)
+                                    ]
                                     flattened.extend(items)
 
                 # Count unique values in MVF
@@ -485,7 +512,9 @@ def analyze_column_values(df: pd.DataFrame, column: str, sample_size: int = 10) 
                             mvf_lengths.append(len(x.split(delimiter)))
 
                     # Safely calculate mean
-                    stats["mvf_avg_items_per_record"] = np.mean(mvf_lengths) if mvf_lengths else None
+                    stats["mvf_avg_items_per_record"] = (
+                        np.mean(mvf_lengths) if mvf_lengths else None
+                    )
                 else:
                     stats["mvf_avg_items_per_record"] = None
 
@@ -502,13 +531,13 @@ def analyze_column_values(df: pd.DataFrame, column: str, sample_size: int = 10) 
             "error": str(e),
             "count": len(df),
             "missing_count": df[column].isna().sum() if column in df.columns else None,
-            "samples": []
+            "samples": [],
         }
 
 
-def categorize_column_by_name(column_name: str,
-                              dictionary: Dict[str, Any],
-                              language: str = "en") -> Tuple[str, float]:
+def categorize_column_by_name(
+    column_name: str, dictionary: Dict[str, Any], language: str = "en"
+) -> Tuple[str, float]:
     """
     Categorize a column based on its name using the keyword dictionary.
 
@@ -527,7 +556,7 @@ def categorize_column_by_name(column_name: str,
         Tuple containing (role_category, confidence_score)
     """
     # Normalize column name (lowercase, underscores to spaces)
-    normalized_name = column_name.lower().replace('_', ' ')
+    normalized_name = column_name.lower().replace("_", " ")
 
     # Initialize best match
     best_match = ("NON_SENSITIVE", 0.0)
@@ -548,7 +577,10 @@ def categorize_column_by_name(column_name: str,
 
         # Check for exact matches
         for keyword in keywords:
-            if keyword.lower() == normalized_name or keyword.lower() in normalized_name.split():
+            if (
+                keyword.lower() == normalized_name
+                or keyword.lower() in normalized_name.split()
+            ):
                 return (role, 1.0)
 
         # Check for partial matches
@@ -568,8 +600,9 @@ def categorize_column_by_name(column_name: str,
     return best_match
 
 
-def categorize_column_by_statistics(stats: Dict[str, Any],
-                                    dictionary: Dict[str, Any]) -> Tuple[str, float]:
+def categorize_column_by_statistics(
+    stats: Dict[str, Any], dictionary: Dict[str, Any]
+) -> Tuple[str, float]:
     """
     Categorize a column based on its statistical properties.
 
@@ -595,7 +628,10 @@ def categorize_column_by_statistics(stats: Dict[str, Any],
     inferred_type = stats.get("inferred_type", "unknown")
 
     # High entropy + high uniqueness often indicates identifiers
-    if uniqueness_ratio > thresholds["uniqueness_high"] and entropy > thresholds["entropy_high"]:
+    if (
+        uniqueness_ratio > thresholds["uniqueness_high"]
+        and entropy > thresholds["entropy_high"]
+    ):
         return ("DIRECT_IDENTIFIER", 0.8)
 
     # Long text likely contains indirect identifying information
@@ -618,8 +654,9 @@ def categorize_column_by_statistics(stats: Dict[str, Any],
     return ("NON_SENSITIVE", 0.3)
 
 
-def resolve_category_conflicts(semantic_result: Tuple[str, float],
-                               statistical_result: Tuple[str, float]) -> Tuple[str, float, Dict[str, Any]]:
+def resolve_category_conflicts(
+    semantic_result: Tuple[str, float], statistical_result: Tuple[str, float]
+) -> Tuple[str, float, Dict[str, Any]]:
     """
     Resolve conflicts between semantic and statistical categorization.
 
@@ -647,7 +684,7 @@ def resolve_category_conflicts(semantic_result: Tuple[str, float],
         "semantic_category": semantic_category,
         "semantic_confidence": semantic_confidence,
         "statistical_category": statistical_category,
-        "statistical_confidence": statistical_confidence
+        "statistical_confidence": statistical_confidence,
     }
 
     # Semantic analysis has priority, especially for high-confidence matches
@@ -660,7 +697,7 @@ def resolve_category_conflicts(semantic_result: Tuple[str, float],
         "SENSITIVE_ATTRIBUTE": 4,
         "QUASI_IDENTIFIER": 3,
         "INDIRECT_IDENTIFIER": 2,
-        "NON_SENSITIVE": 1
+        "NON_SENSITIVE": 1,
     }
 
     semantic_priority = category_priority.get(semantic_category, 0)
@@ -674,11 +711,13 @@ def resolve_category_conflicts(semantic_result: Tuple[str, float],
     return (semantic_category, semantic_confidence, conflict_details)
 
 
-def categorize_column(df: pd.DataFrame,
-                      column: str,
-                      dictionary: Dict[str, Any],
-                      language: str = "en",
-                      sample_size: int = 10) -> Dict[str, Any]:
+def categorize_column(
+    df: pd.DataFrame,
+    column: str,
+    dictionary: Dict[str, Any],
+    language: str = "en",
+    sample_size: int = 10,
+) -> Dict[str, Any]:
     """
     Analyze and categorize a column based on both name and statistics.
 
@@ -722,12 +761,12 @@ def categorize_column(df: pd.DataFrame,
         "statistics": stats,
         "semantic_analysis": {
             "category": semantic_result[0],
-            "confidence": semantic_result[1]
+            "confidence": semantic_result[1],
         },
         "statistical_analysis": {
             "category": statistical_result[0],
-            "confidence": statistical_result[1]
-        }
+            "confidence": statistical_result[1],
+        },
     }
 
     # Add conflict details if any
@@ -737,13 +776,14 @@ def categorize_column(df: pd.DataFrame,
     return result
 
 
-def analyze_dataset_attributes(df: pd.DataFrame,
-                               dictionary: Optional[Dict[str, Any]] = None,
-                               dictionary_path: Optional[Union[str, Path]] = None,
-                               language: str = "en",
-                               sample_size: int = 10,
-                               max_columns: Optional[int] = None,
-                               id_column: Optional[str] = None) -> Dict[str, Any]:
+def analyze_dataset_attributes(
+    df: pd.DataFrame,
+    dictionary: Optional[Dict[str, Any]] = None,
+    dictionary_path: Optional[Union[str, Path]] = None,
+    language: str = "en",
+    sample_size: int = 10,
+    max_columns: Optional[int] = None,
+) -> Dict[str, Any]:
     """
     Analyze and categorize all columns in a dataset.
 
@@ -754,7 +794,6 @@ def analyze_dataset_attributes(df: pd.DataFrame,
         language (str): Language code for keyword matching
         sample_size (int): Number of sample values to return per column
         max_columns (int, optional): Maximum number of columns to analyze
-        id_column (str, optional): Name of ID column for record-level analysis
 
     Returns:
         Dict[str, Any]: Dictionary with dataset attribute analysis results
@@ -768,7 +807,7 @@ def analyze_dataset_attributes(df: pd.DataFrame,
         "dataset_info": {
             "rows": len(df),
             "columns": len(df.columns),
-            "analyzed_at": pd.Timestamp.now().isoformat()
+            "analyzed_at": pd.Timestamp.now().isoformat(),
         },
         "columns": {},
         "summary": {
@@ -776,15 +815,15 @@ def analyze_dataset_attributes(df: pd.DataFrame,
             "QUASI_IDENTIFIER": 0,
             "SENSITIVE_ATTRIBUTE": 0,
             "INDIRECT_IDENTIFIER": 0,
-            "NON_SENSITIVE": 0
+            "NON_SENSITIVE": 0,
         },
         "column_groups": {
             "DIRECT_IDENTIFIER": [],
             "QUASI_IDENTIFIER": [],
             "SENSITIVE_ATTRIBUTE": [],
             "INDIRECT_IDENTIFIER": [],
-            "NON_SENSITIVE": []
-        }
+            "NON_SENSITIVE": [],
+        },
     }
 
     # Limit columns if needed
@@ -793,7 +832,9 @@ def analyze_dataset_attributes(df: pd.DataFrame,
     # Analyze each column
     for column in columns_to_analyze:
         try:
-            column_result = categorize_column(df, column, dictionary, language, sample_size)
+            column_result = categorize_column(
+                df, column, dictionary, language, sample_size
+            )
             results["columns"][column] = column_result
 
             # Update summary counts
@@ -825,7 +866,7 @@ def analyze_dataset_attributes(df: pd.DataFrame,
         # Calculate averages only if values exist
         results["dataset_metrics"] = {
             "avg_entropy": np.mean(entropy_values) if entropy_values else 0,
-            "avg_uniqueness": np.mean(uniqueness_values) if uniqueness_values else 0
+            "avg_uniqueness": np.mean(uniqueness_values) if uniqueness_values else 0,
         }
 
     # Record conflicts

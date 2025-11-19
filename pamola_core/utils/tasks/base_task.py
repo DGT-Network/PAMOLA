@@ -80,8 +80,6 @@ RESERVED_OPERATION_PARAMS = {
     "dataset_name",
     "force_recalculation",
     "save_output",
-    "encrypt_output",
-    "include_timestamp",
     "generate_visualization",
     "visualization_theme",
     "visualization_backend",

@@ -53,8 +53,7 @@ import json
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Optional, Union
-from enum import Enum
+from typing import Dict, List, Any, Optional
 from itertools import combinations
 
 from joblib import Parallel, delayed
@@ -62,9 +61,11 @@ import numpy as np
 import pandas as pd
 
 from pamola_core.common.constants import Constants
+from pamola_core.common.enum.analysis_mode_enum import AnalysisMode
+from pamola_core.profiling.schemas.anonymity_schema import KAnonymityProfilerOperationConfig
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_registry import register_operation
+from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
     OperationArtifact,
     OperationResult,
@@ -82,25 +83,16 @@ from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
     write_json,
-    get_timestamped_filename,
     write_dataframe_to_csv,
 )
 from pamola_core.utils.visualization import create_bar_plot, create_spider_chart
-from pamola_core.utils.vis_helpers.context import visualization_context
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 
-class AnalysisMode(Enum):
-    """K-anonymity analysis modes."""
-
-    ANALYZE = "ANALYZE"  # Generate metrics and reports
-    ENRICH = "ENRICH"  # Add k-values to DataFrame
-    BOTH = "BOTH"  # Both analyze and enrich
-
-
+@register(version="1.0.0")
 class KAnonymityProfilerOperation(BaseOperation):
     """
     Operation for k-anonymity profiling with optional DataFrame enrichment.
@@ -114,86 +106,74 @@ class KAnonymityProfilerOperation(BaseOperation):
     def __init__(
         self,
         name: str = "KAnonymityProfiler",
-        description: str = "K-anonymity profiling and risk assessment",
         quasi_identifiers: List[str] = None,
-        mode: str = "ANALYZE",
+        analysis_mode: str = "ANALYZE",
         threshold_k: int = 5,
-        generate_visualizations: bool = True,
         export_metrics: bool = True,
-        visualization_theme: str = "professional",
         max_combinations: int = 50,
-        chunk_size: int = 100000,
         output_field_suffix: str = "k_anon",
-        quasi_identifier_sets=List[List[str]],
-        id_fields=List[str],
-        use_dask: bool = False,
-        use_cache: bool = True,
-        use_vectorization: bool = False,
-        parallel_processes: int = 1,
-        npartitions: int = 1,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        use_encryption: bool = False,
-        encryption_key: Optional[Union[str, Path]] = None,
-        encryption_mode: Optional[str] = None,
+        quasi_identifier_sets: Optional[List[List[str]]] = None,
+        id_fields: Optional[List[str]] = None,
+        **kwargs,
     ):
         """
         Initialize the k-anonymity profiler.
 
-        Parameters:
-        -----------
-        name : str
-            Operation name
-        description : str
-            Operation description
+        Parameters
+        ----------
+        name : str, optional
+            Name of the operation (default: "KAnonymityProfiler")
         quasi_identifiers : List[str]
             List of quasi-identifier fields to analyze
-        mode : str
+        analysis_mode : str
             Analysis mode: "ANALYZE", "ENRICH", or "BOTH"
         threshold_k : int
             Threshold for considering records vulnerable (k < threshold)
-        generate_visualizations : bool
-            Whether to generate visualization artifacts
         export_metrics : bool
             Whether to export metrics to JSON/CSV files
-        visualization_theme : str
-            Theme for visualizations
         max_combinations : int
             Maximum number of QI combinations to analyze
-        chunk_size : int
-            Size of chunks for processing large datasets
         output_field_suffix : str
             Suffix for the k-anonymity field in ENRICH mode
+        quasi_identifier_sets : List[List[str]]
+            Optional pre-defined sets of quasi-identifiers
+        id_fields : List[str]
+            ID columns used for grouping or record tracking
+        kwargs : dict
+            Additional BaseOperation parameters (e.g. name, description, chunk_size, etc.)
         """
-        super().__init__(
-            name=name,
-            description=description,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
+        # Ensure default metadata
+        kwargs.setdefault("name", name)
+        kwargs.setdefault("description", "K-anonymity profiling and risk assessment")
+
+        # Merge specific config parameters
+        config = KAnonymityProfilerOperationConfig(
+            quasi_identifiers=quasi_identifiers or [],
+            analysis_mode=analysis_mode,
+            threshold_k=threshold_k,
+            export_metrics=export_metrics,
+            max_combinations=max_combinations,
+            output_field_suffix=output_field_suffix,
+            quasi_identifier_sets=quasi_identifier_sets or [],
+            id_fields=id_fields or [],
+            **kwargs,
         )
 
-        self.quasi_identifiers = quasi_identifiers or []
-        self.analysis_mode = AnalysisMode(mode)
-        self.threshold_k = threshold_k
-        self.generate_visualizations = generate_visualizations
-        self.export_metrics = export_metrics
-        self.visualization_theme = visualization_theme
-        self.max_combinations = max_combinations
-        self.chunk_size = chunk_size
-        self.output_field_suffix = output_field_suffix
-        self.mode = mode
-        self.use_dask = use_dask
-        self.use_cache = use_cache
-        self.use_vectorization = use_vectorization
-        self.parallel_processes = parallel_processes
-        self.npartitions = npartitions
-        self.visualization_backend = visualization_backend
-        self.visualization_strict = visualization_strict
-        self.visualization_timeout = visualization_timeout
-        self.quasi_identifier_sets = quasi_identifier_sets
-        self.id_fields = id_fields
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
+
+        # Initialize BaseOperation with remaining parameters
+        super().__init__(**kwargs)
+
+        # Save config attributes to self
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+
+        # Enum-safe mode
+        self.analysis_mode = AnalysisMode(analysis_mode)
+
+        # Operation metadata
+        self.operation_name = self.__class__.__name__
 
     def execute(
         self,
@@ -209,102 +189,85 @@ class KAnonymityProfilerOperation(BaseOperation):
         Parameters:
         -----------
         data_source : DataSource
-            Input data source
+            Source of data for the operation
         task_dir : Path
-            Directory for operation artifacts
+            Directory where task artifacts should be saved
         reporter : Any
-            Reporter for operation tracking
-        progress_tracker : HierarchicalProgressTracker
-            Optional progress tracker
+            Reporter object for tracking progress and artifacts
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Progress tracker for the operation
         **kwargs : dict
-            Additional parameters:
-            - quasi_identifier_sets: List of QI combinations to analyze
-            - id_fields: Fields to identify vulnerable records
-            - include_timestamp: Whether to timestamp output files
+            Additional parameters for the operation
 
         Returns:
         --------
         OperationResult
-            Operation result with status and artifacts
+            Results of the operation
         """
-        # Save configuration
-        self.save_config(task_dir)
+        try:
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Extract additional parameters
-        qi_sets = kwargs.get("quasi_identifier_sets", self.quasi_identifier_sets)
-        id_fields = kwargs.get("id_fields", self.id_fields)
-        include_timestamp = kwargs.get("include_timestamp", True)
-        force_recalculation = kwargs.get("force_recalculation", False)
-        dataset_name = kwargs.get("dataset_name", "main")
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
 
-        self.visualization_theme = kwargs.get(
-            "visualization_theme", self.visualization_theme
-        )
-        self.visualization_backend = kwargs.get(
-            "visualization_backend", self.visualization_backend
-        )
-        self.visualization_strict = kwargs.get(
-            "visualization_strict", self.visualization_strict
-        )
-        self.visualization_timeout = kwargs.get(
-            "visualization_timeout", self.visualization_timeout
-        )
+            # Initialize result
+            result = OperationResult(status=OperationStatus.SUCCESS)
 
-        # Initialize result
-        result = OperationResult(status=OperationStatus.SUCCESS)
+            # Save configuration
+            self.save_config(task_dir)
 
-        # Set up progress tracking
-        # Initializing, Prepared QI combinations, Completed
-        total_steps = (
-            4
-            + (1 if self.use_cache and not force_recalculation else 0)
-            + (1 if self.analysis_mode == AnalysisMode.ANALYZE else 0)
-        )
-        current_steps = 0
-
-        # Set up progress tracking
-        # Step 1: Initializing
-        if progress_tracker:
-            progress_tracker.total = total_steps
-            current_steps += 1
-            progress_tracker.update(
-                current_steps,
-                {
-                    "step": "Initializing",
-                    "operation": self.name,
-                    "total_steps": total_steps,
-                },
+            # Set up progress tracking
+            # Initializing, Prepared QI combinations, Completed
+            total_steps = (
+                4
+                + (1 if self.use_cache and not self.force_recalculation else 0)
+                + (1 if self.analysis_mode == AnalysisMode.ANALYZE else 0)
             )
+            current_steps = 0
 
-        # Step 2: Check Cache (if enabled and not forced to recalculate)
-        if self.use_cache and not force_recalculation:
+            # Set up progress tracking
+            # Step 1: Initializing
+            if progress_tracker:
+                progress_tracker.total = total_steps
+                current_steps += 1
+                progress_tracker.update(
+                    current_steps,
+                    {
+                        "step": "Initializing",
+                        "operation": self.name,
+                        "total_steps": total_steps,
+                    },
+                )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(data_source, dataset_name, **kwargs)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(total_steps, {"step": "Complete (cached)"})
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)", details={"cached": True}
+                        )
+                    return cache_result
+
+            # Step 3: Data Loading
             if progress_tracker:
                 current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Checking Cache"})
+                progress_tracker.update(current_steps, {"step": "Data Loading"})
 
-            self.logger.info("Checking operation cache...")
-            cache_result = self._check_cache(data_source, dataset_name, **kwargs)
-
-            if cache_result:
-                self.logger.info("Cache hit! Using cached results.")
-
-                # Update progress
-                if progress_tracker:
-                    progress_tracker.update(total_steps, {"step": "Complete (cached)"})
-
-                # Report cache hit to reporter
-                if reporter:
-                    reporter.add_operation(
-                        f"Clean invalid values (from cache)", details={"cached": True}
-                    )
-                return cache_result
-
-        # Step 3: Data Loading
-        if progress_tracker:
-            current_steps += 1
-            progress_tracker.update(current_steps, {"step": "Data Loading"})
-
-        try:
             # Get DataFrame
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
@@ -317,14 +280,18 @@ class KAnonymityProfilerOperation(BaseOperation):
                 )
 
             # Check if field exists
-            missing_fields = [field for field in id_fields if field not in df.columns]
+            missing_fields = [
+                field for field in self.id_fields if field not in df.columns
+            ]
             if missing_fields:
                 raise ValueError(
                     f"The following id_fields are not in the DataFrame columns: {missing_fields}"
                 )
 
             # Prepare QI combinations
-            qi_combinations = self._prepare_qi_combinations(df, qi_sets, id_fields)
+            qi_combinations = self._prepare_qi_combinations(
+                df, self.quasi_identifier_sets, self.id_fields
+            )
             if not qi_combinations:
                 return OperationResult(
                     status=OperationStatus.ERROR,
@@ -348,9 +315,9 @@ class KAnonymityProfilerOperation(BaseOperation):
                 )
 
             kwargs_encryption = {
-                "use_encryption": kwargs.get("use_encryption", False),
-                "encryption_key": kwargs.get("encryption_key", None),
-                "encryption_mode": kwargs.get("encryption_mode", "none"),
+                "use_encryption": self.use_encryption,
+                "encryption_key": self.encryption_key,
+                "encryption_mode": self.encryption_mode,
             }
 
             # Perform analysis based on mode
@@ -359,11 +326,11 @@ class KAnonymityProfilerOperation(BaseOperation):
                     df,
                     qi_combinations,
                     task_dir,
-                    id_fields,
-                    include_timestamp,
+                    self.id_fields,
                     result,
                     reporter,
                     progress_tracker,
+                    operation_timestamp,
                     **kwargs_encryption,
                 )
 
@@ -385,10 +352,10 @@ class KAnonymityProfilerOperation(BaseOperation):
                     df,
                     qi_combinations[0],
                     task_dir,
-                    include_timestamp,
                     result,
                     reporter,
                     progress_tracker,
+                    operation_timestamp,
                     **kwargs_encryption,
                 )
 
@@ -503,10 +470,10 @@ class KAnonymityProfilerOperation(BaseOperation):
         qi_combinations: List[List[str]],
         task_dir: Path,
         id_fields: List[str],
-        include_timestamp: bool,
         result: OperationResult,
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
+        operation_timestamp: Optional[str] = None,
         **kwargs,
     ) -> Dict[str, Dict[str, Any]]:
         """
@@ -554,17 +521,16 @@ class KAnonymityProfilerOperation(BaseOperation):
                 all_metrics,
                 vulnerable_records,
                 dirs["output"],
-                include_timestamp,
                 result,
                 reporter,
+                operation_timestamp,
                 **kwargs,
             )
 
         # Generate visualizations if requested
-        if self.generate_visualizations and all_metrics:
+        if self.generate_visualization and all_metrics:
             self._handle_visualizations(
                 all_metrics=all_metrics,
-                include_timestamp=include_timestamp,
                 progress_tracker=progress_tracker,
                 reporter=reporter,
                 result=result,
@@ -573,6 +539,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                 vis_strict=self.visualization_strict,
                 vis_theme=self.visualization_theme,
                 vis_timeout=self.visualization_timeout,
+                operation_timestamp=operation_timestamp,
                 **kwargs,
             )
 
@@ -587,10 +554,10 @@ class KAnonymityProfilerOperation(BaseOperation):
         df: pd.DataFrame,
         qi_fields: List[str],
         task_dir: Path,
-        include_timestamp: bool,
         result: OperationResult,
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
+        operation_timestamp: Optional[str] = None,
         **kwargs,
     ) -> Optional[pd.DataFrame]:
         """
@@ -619,17 +586,15 @@ class KAnonymityProfilerOperation(BaseOperation):
             output_dir = task_dir / "output"
             ensure_directory(output_dir)
 
-            output_filename = get_timestamped_filename(
-                "enriched_data", "csv", include_timestamp
-            )
+            output_filename = f"enriched_data_{operation_timestamp}.csv"
             output_path = output_dir / output_filename
 
             encryption_mode_enriched_df = get_encryption_mode(enriched_df, **kwargs)
             write_dataframe_to_csv(
                 df=enriched_df,
                 file_path=output_path,
-                encryption_key=kwargs.get("encryption_key", None),
-                use_encryption=kwargs.get("use_encryption", False),
+                encryption_key=self.encryption_key,
+                use_encryption=self.use_encryption,
                 encryption_mode=encryption_mode_enriched_df,
             )
 
@@ -1065,16 +1030,13 @@ class KAnonymityProfilerOperation(BaseOperation):
         all_metrics: Dict[str, Dict[str, Any]],
         vulnerable_records: Dict[str, Dict[str, Any]],
         output_dir: Path,
-        include_timestamp: bool,
         result: OperationResult,
         reporter: Any,
+        operation_timestamp: Optional[str] = None,
         **kwargs,
     ):
         """Export metrics to JSON files."""
-        # Export summary metrics
-        summary_filename = get_timestamped_filename(
-            "k_anonymity_summary", "json", include_timestamp
-        )
+        summary_filename = f"k_anonymity_summary_{operation_timestamp}.json"
         summary_path = output_dir / summary_filename
 
         summary_data = {
@@ -1092,7 +1054,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         write_json(
             summary_data,
             str(summary_path),
-            encryption_key=kwargs.get("encryption_key", None),
+            encryption_key=self.encryption_key,
             encryption_mode=encryption_mode_summary_data,
         )
         result.add_artifact(
@@ -1102,15 +1064,13 @@ class KAnonymityProfilerOperation(BaseOperation):
 
         # Export detailed metrics if needed
         if vulnerable_records:
-            vuln_filename = get_timestamped_filename(
-                "vulnerable_records", "json", include_timestamp
-            )
+            vuln_filename = f"vulnerable_records_{operation_timestamp}.json"
             vuln_path = output_dir / vuln_filename
             encryption_mode_records = get_encryption_mode(vulnerable_records, **kwargs)
             write_json(
                 vulnerable_records,
                 str(vuln_path),
-                encryption_key=kwargs.get("encryption_key", None),
+                encryption_key=self.encryption_key,
                 encryption_mode=encryption_mode_records,
             )
             result.add_artifact(
@@ -1122,10 +1082,10 @@ class KAnonymityProfilerOperation(BaseOperation):
         self,
         all_metrics: Dict[str, Dict[str, Any]],
         vis_dir: Path,
-        include_timestamp: bool,
         vis_theme: Optional[str] = None,
         vis_backend: Optional[str] = None,
         vis_strict: bool = False,
+        operation_timestamp: Optional[str] = None,
         **kwargs,
     ) -> Dict[str, Path]:
         """Generate visualizations for k-anonymity metrics."""
@@ -1137,9 +1097,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             }
 
             if vuln_data:
-                vuln_filename = get_timestamped_filename(
-                    "vulnerability_comparison", "png", include_timestamp
-                )
+                vuln_filename = f"vulnerability_comparison_{operation_timestamp}.png"
                 vuln_path = vis_dir / vuln_filename
 
                 result_vuln = create_bar_plot(
@@ -1171,9 +1129,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                         "Uniqueness": metrics["unique_percent"] / 100,
                     }
 
-                spider_filename = get_timestamped_filename(
-                    "k_anonymity_spider", "png", include_timestamp
-                )
+                spider_filename = f"k_anonymity_spider_{operation_timestamp}.png"
                 spider_path = vis_dir / spider_filename
 
                 result_k = create_spider_chart(
@@ -1253,7 +1209,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
             cached_data = operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             if cached_data:
@@ -1350,7 +1306,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             success = operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -1388,7 +1344,7 @@ class KAnonymityProfilerOperation(BaseOperation):
 
         # Use the operation_cache utility to generate a consistent cache key
         return operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
+            operation_name=self.operation_name,
             parameters=parameters,
             data_hash=data_hash,
         )
@@ -1462,7 +1418,6 @@ class KAnonymityProfilerOperation(BaseOperation):
         self,
         all_metrics: Dict[str, Dict[str, Any]],
         vis_dir: Path,
-        include_timestamp: bool,
         result: OperationResult,
         reporter: Any,
         vis_theme: Optional[str] = None,
@@ -1470,6 +1425,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         vis_strict: bool = False,
         vis_timeout: int = 120,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        operation_timestamp: Optional[str] = None,
         **kwargs,
     ) -> Dict[str, Path]:
         """
@@ -1483,8 +1439,6 @@ class KAnonymityProfilerOperation(BaseOperation):
             Results of the analysis
         vis_dir : Path
             Directory to save visualizations
-        include_timestamp : bool
-            Whether to include timestamps in output filenames
         result : OperationResult
             Operation result to add artifacts to
         reporter : Any
@@ -1499,6 +1453,8 @@ class KAnonymityProfilerOperation(BaseOperation):
             Timeout for visualization generation (default: 120 seconds)
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
+        operation_timestamp : str, optional
+            Timestamp for operation
 
         Returns:
         --------
@@ -1567,10 +1523,10 @@ class KAnonymityProfilerOperation(BaseOperation):
                     visualization_paths = self._create_visualizations(
                         all_metrics,
                         vis_dir,
-                        include_timestamp,
                         vis_theme,
                         vis_backend,
                         vis_strict,
+                        operation_timestamp,
                         **kwargs,
                     )
 
@@ -1669,15 +1625,3 @@ class KAnonymityProfilerOperation(BaseOperation):
                 )
 
         return visualization_paths
-
-
-# Register the operation
-register_operation(KAnonymityProfilerOperation)
-
-# Module metadata
-__version__ = "2.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main classes
-__all__ = ["KAnonymityProfilerOperation", "AnalysisMode"]

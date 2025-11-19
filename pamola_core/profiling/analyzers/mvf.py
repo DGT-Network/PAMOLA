@@ -1,20 +1,28 @@
 """
-Multi-valued field analyzer module for the project.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module:        Multi-Valued Field Profiler Operation
+Package:       pamola.pamola_core.profiling.analyzers
+Version:       2.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025
+License:       BSD 3-Clause
 
-This module provides analyzers and operations for multi-valued fields (MVF),
-following the operation architecture. It includes parsing, distribution analysis,
-dictionary creation, and visualization capabilities.
+Description:
+  This module provides analyzers and operations for profiling multi-valued fields (MVF) in tabular datasets.
+  It includes parsing, distribution analysis, value and combination dictionary creation, and visualization capabilities.
+  The module supports chunked, parallel, and Dask-based processing for large datasets and integrates with the PAMOLA.CORE operation framework.
 
-It integrates with utility modules:
-- io.py: For reading/writing data and managing directories
-- visualization.py: For creating standardized plots
-- progress.py: For tracking operation progress
-- logging.py: For operation logging
-
-MVF fields contain multiple values per record, typically stored as:
-- String representations of arrays: "['Value1', 'Value2']"
-- JSON arrays: ["Value1", "Value2"]
-- Comma-separated values: "Value1, Value2"
+Key Features:
+  - Parsing and detection of multi-valued field formats (string, JSON, CSV)
+  - Frequency and combination analysis for MVF values
+  - Value and combination dictionary generation with configurable thresholds
+  - Visualization generation for value and combination distributions
+  - Efficient chunked, parallel, and Dask-based processing for large datasets
+  - Robust error handling, progress tracking, and operation logging
+  - Caching and efficient repeated analysis
+  - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
 
 from datetime import datetime
@@ -43,12 +51,13 @@ from pamola_core.profiling.commons.mvf_utils import (
     estimate_resources,
     process_mvf_partition,
 )
+from pamola_core.profiling.schemas.mvf_schema import MVFAnalysisOperationConfig
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
@@ -291,7 +300,10 @@ class MVFAnalyzer:
 
     @staticmethod
     def create_value_dictionary(
-        df: pd.DataFrame, field_name: str, min_frequency: int = 1, parse_args: Optional[Dict[str, Any]] = None
+        df: pd.DataFrame,
+        field_name: str,
+        min_frequency: int = 1,
+        parse_args: Optional[Dict[str, Any]] = None,
     ) -> pd.DataFrame:
         """
         Create a dictionary of values with frequencies for an MVF field.
@@ -313,12 +325,18 @@ class MVFAnalyzer:
             DataFrame with values and frequencies
         """
         return create_value_dictionary(
-           df=df, field_name=field_name, min_frequency=min_frequency, parse_args=parse_args
+            df=df,
+            field_name=field_name,
+            min_frequency=min_frequency,
+            parse_args=parse_args,
         )
 
     @staticmethod
     def create_combinations_dictionary(
-        df: pd.DataFrame, field_name: str, min_frequency: int = 1, parse_args: Optional[Dict[str, Any]] = None
+        df: pd.DataFrame,
+        field_name: str,
+        min_frequency: int = 1,
+        parse_args: Optional[Dict[str, Any]] = None,
     ) -> pd.DataFrame:
         """
         Create a dictionary of value combinations with frequencies for an MVF field.
@@ -340,7 +358,10 @@ class MVFAnalyzer:
             DataFrame with combinations and frequencies
         """
         return create_combinations_dictionary(
-            df=df, field_name=field_name, min_frequency=min_frequency, parse_args=parse_args
+            df=df,
+            field_name=field_name,
+            min_frequency=min_frequency,
+            parse_args=parse_args,
         )
 
     @staticmethod
@@ -388,47 +409,7 @@ class MVFAnalyzer:
         return estimate_resources(df, field_name)
 
 
-class MVFAnalysisOperationConfig(OperationConfig):
-    """Configuration for MVFOperation."""
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "field_name": {"type": "string"},
-            "top_n": {"type": "integer", "minimum": 1, "default": 20},
-            "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-            "format_type": {"type": ["string", "null"], "default": None},
-            "parse_kwargs": {"type": "object", "default": {}},
-            "chunk_size": {"type": "integer", "minimum": 1},
-            "use_cache": {"type": "boolean"},
-            "use_dask": {"type": "boolean"},
-            "npartitions": {"type": ["integer", "null"]},
-            "use_vectorization": {"type": "boolean"},
-            "parallel_processes": {"type": ["integer", "null"]},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]},
-            # Visualization-related properties
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {
-                "type": ["string", "null"],
-                "enum": ["plotly", "matplotlib", None],
-            },
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
-            # Output format properties
-            "output_format": {
-                "type": "string",
-                "enum": ["csv", "parquet", "json"],
-                "default": "csv",
-            },
-        },
-        "required": [
-            "field_name",
-        ],
-    }
-
-
-@register(override=True)
+@register(version="1.0.0")
 class MVFOperation(FieldOperation):
     """
     Operation for analyzing multi-valued fields.
@@ -443,125 +424,58 @@ class MVFOperation(FieldOperation):
         top_n: int = 20,
         min_frequency: int = 1,
         format_type: Optional[str] = None,
-        parse_kwargs: Dict[str, Any] = {},
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        use_vectorization: bool = False,
-        parallel_processes: Optional[int] = None,
-        use_cache: bool = True,
-        use_encryption: bool = False,
-        encryption_key: Optional[Union[str, Path]] = None,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        output_format: str = "csv",
-        description: str = "",
+        parse_kwargs: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ):
         """
         Initialize the MVF operation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         field_name : str
-            The name of the field to analyze
+            The name of the field to analyze.
         top_n : int
-            Number of top values to include in the results
+            Number of top values to include in the results.
         min_frequency : int
-            Minimum frequency for inclusion in the dictionary
+            Minimum frequency for inclusion in the dictionary.
         format_type : str, optional
-            Format type hint for parsing (default: None)
+            Format type hint for parsing (default: None).
         parse_kwargs : dict, optional
-            Additional parameters for parsing (default: {})
-        chunk_size : int, optional
-            Chunk size for processing large datasets (default: 10000)
-        use_dask : bool, optional
-            Whether to use Dask for parallel processing (default: False)
-        npartitions : Optional[int], optional
-            Number of partitions to use with Dask (default: None)
-        use_vectorization : bool, optional
-            Whether to use vectorized operations (default: False)
-        parallel_processes : Optional[int], optional
-            Number of parallel processes to use (default: None)
-        use_cache : bool, optional
-            Whether to use operation caching (default: True)
-        use_encryption : bool, optional
-            Whether to encrypt output files (default: False)
-        encryption_key : Optional[Union[str, Path]], optional
-            Encryption key for securing outputs (default: None)
-        visualization_theme : str, optional
-            Theme to use for visualizations (default: None - uses system default)
-        visualization_backend : str, optional
-            Backend to use for visualizations: "plotly" or "matplotlib" (default: None - uses system default)
-        visualization_strict : bool, optional
-            If True, raise exceptions for visualization config errors (default: False)
-        visualization_timeout : int, optional
-            Timeout in seconds for visualization generation (default: 120)
-        output_format : str, optional
-            Output file format: "csv", "parquet", or "json" (default: "csv")
-        description : str, optional
-            Operation description (default: "")
+            Additional parameters for parsing.
+        **kwargs : dict
+            Additional parameters passed to FieldOperation.
         """
-        # Use default description if not provided
-        if not description:
-            description = f"Analysis of MVF field '{field_name}'"
-
-        # Build config parameters, excluding None values for optional fields
-        config_params = {
-            "field_name": field_name,
-            "top_n": top_n,
-            "min_frequency": min_frequency,
-            "format_type": format_type,
-            "parse_kwargs": parse_kwargs,
-            "chunk_size": chunk_size,
-            "use_dask": use_dask,
-            "npartitions": npartitions,
-            "use_vectorization": use_vectorization,
-            "parallel_processes": parallel_processes,
-            "use_cache": use_cache,
-            "use_encryption": use_encryption,
-            "encryption_key": encryption_key,
-            "visualization_theme": visualization_theme,
-            "visualization_backend": visualization_backend,
-            "visualization_strict": visualization_strict,
-            "visualization_timeout": visualization_timeout,
-            "output_format": output_format,
-        }
-
-        # Create configuration and validate parameters
-        config = MVFAnalysisOperationConfig(**config_params)
-
-        super().__init__(
-            field_name=field_name,
-            description=description,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            config=config,
+        # --- Default description ---
+        kwargs.setdefault(
+            "description",
+            f"Analysis of multi-valued field '{field_name}'",
         )
 
-        # Assign instance properties from config
-        for key, value in config_params.items():
+        # --- Build config ---
+        config = MVFAnalysisOperationConfig(
+            field_name=field_name,
+            top_n=top_n,
+            min_frequency=min_frequency,
+            format_type=format_type,
+            parse_kwargs=parse_kwargs or {},
+            **kwargs,
+        )
+
+        # Inject config to parent kwargs
+        kwargs["config"] = config
+
+        # --- Initialize base FieldOperation ---
+        super().__init__(
+            field_name=field_name,
+            **kwargs,
+        )
+
+        # --- Apply config values to self ---
+        for key, value in config.to_dict().items():
             setattr(self, key, value)
 
-        # Optionally store the config
-        self.config = config
-
-        # Set up performance tracking variables
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
-
-        # Set up common variables
-        self.force_recalculation = False  # Skip cache check
-        self.generate_visualization = True  # Create visualizations
-        self.encrypt_output = False  # Override encryption setting
-
-        # Updated version for fixes
-        self.version = "1.4.1"
-
-        # Temporary storage for cleanup
-        self.operation_cache = None
+        # --- Operation metadata ---
+        self.operation_name = self.__class__.__name__
 
     def execute(
         self,
@@ -572,7 +486,7 @@ class MVFOperation(FieldOperation):
         **kwargs,
     ) -> OperationResult:
         """
-        Execute the operation with timing and error handling.
+        Execute the mvf analysis operation.
 
         Parameters:
         -----------
@@ -582,72 +496,47 @@ class MVFOperation(FieldOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : Optional[ProgressTracker]
+        progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation including:
-            - force_recalculation: bool - Skip cache check
-            - generate_visualization: bool - Create visualizations
-            - encrypt_output: bool - Override encryption setting
-            - visualization_theme: str - Override theme for visualizations
-            - visualization_backend: str - Override backend for visualizations
-            - visualization_strict: bool - Override strict mode for visualizations
-            - visualization_timeout: int - Override timeout for visualizations
+            Additional parameters for the operation
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-        # Initialize timing and result
-        self.start_time = time.time()
-        self.logger = kwargs.get("logger", self.logger)
-        self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-        self.process_count = 0
-        df = None
-        result = OperationResult(status=OperationStatus.PENDING)
-
-        # Prepare directories for artifacts
-        directories = self._prepare_directories(task_dir)
-
-        # Initialize operation cache
-        self.operation_cache = OperationCache(
-            cache_dir=task_dir / "cache",
-        )
-
-        # Save configuration to task directory
-        self.save_config(task_dir)
-
-        # Create DataWriter for consistent file operations
-        writer = DataWriter(
-            task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-        )
-
-        # Decompose kwargs and introduce variables for clarity
-        self.encrypt_output = kwargs.get("encrypt_output", False) or self.use_encryption
-        self.generate_visualization = kwargs.get("generate_visualization", True)
-        self.save_output = kwargs.get("save_output", True)
-        self.force_recalculation = kwargs.get("force_recalculation", False)
-        dataset_name = kwargs.get("dataset_name", "main")
-
-        # Extract visualization parameters
-        self.visualization_theme = kwargs.get(
-            "visualization_theme", self.visualization_theme
-        )
-        self.visualization_backend = kwargs.get(
-            "visualization_backend", self.visualization_backend
-        )
-        self.visualization_strict = kwargs.get(
-            "visualization_strict", self.visualization_strict
-        )
-        self.visualization_timeout = kwargs.get(
-            "visualization_timeout", self.visualization_timeout
-        )
-
-        self.logger.info(
-            f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
-        )
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting {self.name} operation at {self.start_time}")
+            df = None
+            result = OperationResult(status=OperationStatus.PENDING)
+
+            # Prepare directories for artifacts
+            directories = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=task_dir / "cache",
+            )
+
+            # Save configuration to task directory
+            self.save_config(task_dir)
+
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            self.logger.info(
+                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
+            )
+
             # Set up progress tracking with proper steps
             # Main steps: 1. Cache check, 2. Validation, 3. Data loading, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
@@ -892,7 +781,7 @@ class MVFOperation(FieldOperation):
                         name=statistics_filename,
                         timestamp_in_name=False,
                         encryption_key=(
-                            self.encryption_key if self.encrypt_output else None
+                            self.encryption_key if self.use_encryption else None
                         ),
                     )
 
@@ -933,7 +822,7 @@ class MVFOperation(FieldOperation):
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
-                        "use_encryption": self.encrypt_output,
+                        "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
                     visualization_paths = self._handle_visualizations(
@@ -971,7 +860,7 @@ class MVFOperation(FieldOperation):
                     values_str_path = self._save_output_data(
                         df=values_dict,
                         suffix="values_dictionary",
-                        is_encryption_required=self.encrypt_output,
+                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -984,7 +873,7 @@ class MVFOperation(FieldOperation):
                     combinations_str_path = self._save_output_data(
                         df=combinations_dict,
                         suffix="combinations_dictionary",
-                        is_encryption_required=self.encrypt_output,
+                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -1178,7 +1067,6 @@ class MVFOperation(FieldOperation):
             "visualization_timeout": self.visualization_timeout,
             "force_recalculation": self.force_recalculation,
             "generate_visualization": self.generate_visualization,
-            "encrypt_output": self.encrypt_output,
             "output_format": self.output_format,
         }
 
@@ -1946,7 +1834,6 @@ def analyze_mvf_fields(
         Additional parameters for the operations:
         - top_n: int, number of top values to include in results (default: 20)
         - min_frequency: int, minimum frequency for inclusion in dictionary (default: 1)
-        - include_timestamp: bool, whether to include timestamps in filenames (default: True)
         - format_type: str, format type hint for parsing (default: None)
         - parse_kwargs: dict, additional parameters for MVF parsing
 

@@ -821,10 +821,10 @@ def analyze_phone_field_with_dask(df: pd.DataFrame, field_name: str, patterns_cs
 
     return final_stats
 
-def create_country_code_dictionary(df: pd.DataFrame,
-                                   field_name: str,
-                                   min_count: int = 1,
-                                   **kwargs) -> Dict[str, Any]:
+
+def create_country_code_dictionary(
+    df: pd.DataFrame, field_name: str, min_count: int = 1
+) -> Dict[str, Any]:
     """
     Create a frequency dictionary for country codes.
 
@@ -1010,11 +1010,13 @@ def create_operator_code_dictionary(df: pd.DataFrame,
         logger.error(f"Error creating operator code dictionary for {field_name}: {e}", exc_info=True)
         return {'error': str(e)}
 
-def create_messenger_dictionary(df: pd.DataFrame,
-                                field_name: str,
-                                min_count: int = 1,
-                                patterns_csv: Optional[str] = None,
-                                **kwargs) -> Dict[str, Any]:
+
+def create_messenger_dictionary(
+    df: pd.DataFrame,
+    field_name: str,
+    min_count: int = 1,
+    patterns_csv: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Create a frequency dictionary for messenger mentions in phone comments.
 

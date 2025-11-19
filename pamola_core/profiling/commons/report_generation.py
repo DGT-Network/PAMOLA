@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple, Union
 
-from pamola_core.utils.io import ensure_directory, save_json
+from pamola_core.utils.io import ensure_directory
 from pamola_core.utils.logging import configure_logging
 
 # Configure logger using the custom logging utility
@@ -51,7 +51,7 @@ def save_profiling_results(
     str
         Path to the saved file
     """
-    from pamola_core.utils.io import save_json, save_csv
+    from pamola_core.utils.io import write_json, write_csv
 
     try:
         # Add timestamp if requested
@@ -74,25 +74,25 @@ def save_profiling_results(
         output_path = base_dir / filename
 
         if format.lower() == 'json':
-            save_json(result, output_path)
+            write_json(result, output_path)
         elif format.lower() == 'csv':
             if isinstance(result, pd.DataFrame):
-                save_csv(result, output_path)
+                write_csv(result, output_path)
             else:
                 # Try to convert dictionary to DataFrame
                 try:
                     df = pd.DataFrame.from_dict(result, orient='index').reset_index()
                     df.columns = ['key', 'value']
-                    save_csv(df, output_path)
+                    write_csv(df, output_path)
                 except Exception as e:
                     logger.error(f"Failed to convert result to DataFrame for CSV saving: {e}")
                     # Fall back to JSON
                     output_path = base_dir / f"{output_name}.json"
-                    save_json(result, output_path)
+                    write_json(result, output_path)
         else:
             logger.warning(f"Unsupported format {format}, saving as JSON")
             output_path = base_dir / f"{output_name}.json"
-            save_json(result, output_path)
+            write_json(result, output_path)
 
         return str(output_path)
 

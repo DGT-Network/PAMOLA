@@ -45,7 +45,7 @@ from pamola_core.metrics.base_metrics_op import MetricsOperation
 from pamola_core.metrics.commons.safe_instantiate import safe_instantiate
 from pamola_core.metrics.fidelity.distribution.kl_divergence import KLDivergence
 from pamola_core.metrics.fidelity.distribution.ks_test import KolmogorovSmirnovTest
-from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.metrics.schemas.fidelity_ops_config import FidelityConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -57,62 +57,6 @@ FIDELITY_METRIC_FACTORY = {
     FidelityMetricsType.KL.value: KLDivergence,
     FidelityMetricsType.KS.value: KolmogorovSmirnovTest,
 }
-
-
-class FidelityConfig(OperationConfig):
-    """Configuration for FidelityOperation."""
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string", "default": "fidelity_metrics"},
-            "fidelity_metrics": {
-                "type": "array",
-                "items": {
-                    "type": "string",
-                    "enum": [
-                        FidelityMetricsType.KS.value,
-                        FidelityMetricsType.KL.value,
-                    ],
-                },
-                "default": [FidelityMetricsType.KS.value, FidelityMetricsType.KL.value],
-            },
-            "metric_params": {"type": ["object", "null"]},
-            "columns": {
-                "type": "array",
-                "items": {"type": "string"},
-            },
-            "column_mapping": {"type": ["object", "null"]},
-            "normalize": {"type": "boolean", "default": True},
-            "confidence_level": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1,
-                "default": 0.95,
-            },
-            "description": {"type": "string", "default": ""},
-            "optimize_memory": {"type": "boolean"},
-            "use_dask": {"type": "boolean"},
-            "npartitions": {"type": ["integer", "null"], "minimum": 1},
-            "dask_partition_size": {"type": ["string", "null"], "default": "100MB"},
-            "use_cache": {"type": "boolean"},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]},
-            "encryption_mode": {
-                "type": ["string", "null"],
-                "enum": ["age", "simple", "none"],
-                "default": "none",
-            },
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {
-                "type": ["string", "null"],
-                "enum": ["plotly", "matplotlib", None],
-            },
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
-        },
-        "required": ["fidelity_metrics"],
-    }
 
 
 @register(version="1.0.0")
@@ -128,146 +72,53 @@ class FidelityOperation(MetricsOperation):
     def __init__(
         self,
         name: str = "fidelity_metrics",
-        fidelity_metrics: List[str] = [
-            FidelityMetricsType.KS.value,
-            FidelityMetricsType.KL.value,
-        ],
+        fidelity_metrics: Optional[List[str]] = None,
         metric_params: Optional[Dict[str, Any]] = None,
-        columns: Optional[List[str]] = None,
-        column_mapping: Optional[Dict[str, str]] = None,
-        normalize: bool = True,
-        confidence_level: float = 0.95,
-        description: str = "",
-        # Memory optimization
-        optimize_memory: bool = True,
-        # Specific parameters
-        sample_size: Optional[int] = None,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        dask_partition_size: Optional[str] = None,
-        use_cache: bool = True,
-        use_encryption: bool = False,
-        encryption_mode: Optional[str] = "none",
-        encryption_key: Optional[Union[str, Path]] = None,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
+        **kwargs,
     ):
         """
-        Initialize the metrics operation.
+        Initialize the Fidelity Operation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         name : str, optional
             Name of the operation (default: "fidelity_metrics")
         fidelity_metrics : List[str], optional
-            List of fidelity metrics to calculate (default: [FidelityMetricsType.KS.value, FidelityMetricsType.KL.value])
-        metric_params : Optional[Dict[str, Any]], optional
-            Additional parameters for metrics calculation (default: None)
-        columns : List[str], optional
-            List of columns to include in the operation
-        column_mapping : Dict[str, str], optional
-            Mapping of original columns to new names (if applicable)
-        normalize : bool, optional
-            Whether to normalize the data (default: True)
-        confidence_level : float, optional
-            Confidence level for statistical metrics (default: 0.95)
-        sample_size : Optional[int], optional
-            Size of the sample to use for metrics calculation (default: None, uses full dataset)
-        description : str, optional
-            Operation description
-        optimize_memory : bool, optional
-            Whether to optimize DataFrame memory usage
-        use_dask : bool, optional
-            Whether to use Dask for parallel processing (default: False)
-        npartitions : Optional[int], optional
-            Number of partitions to use with Dask (default: None)
-        dask_partition_size : Optional[str], optional
-            Size of Dask partitions (default: None, auto-determined)
-        use_cache : bool, optional
-            Whether to use operation caching (default: True)
-        use_encryption : bool, optional
-            Whether to encrypt output files (default: False)
-        encryption_key : str or Path, optional
-            The encryption key or path to a key file (default: None)
-        encryption_mode : Optional[str], optional
-            The encryption mode to use (default: None)
-        visualization_theme : Optional[str], optional
-            Theme for visualizations (default: None)
-        visualization_backend : Optional[str], optional
-            Backend for visualizations ("plotly" or "matplotlib", default: None)
-        visualization_strict : bool, optional
-            If True, raise exceptions for visualization config errors (default: False)
-        visualization_timeout : int, optional
-            Timeout for visualization generation in seconds (default: 120)
+            List of fidelity metrics to calculate.
+            Defaults to `[FidelityMetricsType.KS.value, FidelityMetricsType.KL.value]`.
+        metric_params : Dict[str, Any], optional
+            Additional parameters to customize metric computation.
+        **kwargs : dict
+            Additional arguments passed to :class:`MetricsOperation` or
+            :class:`BaseOperation` (e.g., columns, normalize, confidence_level,
+            description, use_dask, encryption_key, visualization options, etc.).
         """
-        # Use a default description if none provided
-        if not description:
-            description = f"Fidelity metrics operation"
 
-        # Group parameters into a config dict
-        config_params = dict(
-            name=name,
-            fidelity_metrics=fidelity_metrics,
+        # Ensure default metadata
+        kwargs.setdefault("name", name)
+        kwargs.setdefault("description", "Fidelity metrics operation")
+
+        # Build config object using FidelityConfig
+        config = FidelityConfig(
+            fidelity_metrics=fidelity_metrics
+            or [FidelityMetricsType.KS.value, FidelityMetricsType.KL.value],
             metric_params=metric_params or {},
-            columns=columns or [],
-            column_mapping=column_mapping or {},
-            normalize=normalize,
-            confidence_level=confidence_level,
-            sample_size=sample_size,
-            description=description,
-            optimize_memory=optimize_memory,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_cache=use_cache,
-            use_encryption=use_encryption,
-            encryption_mode=encryption_mode,
-            encryption_key=encryption_key,
-            visualization_theme=visualization_theme,
-            visualization_backend=visualization_backend,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
+            **kwargs,
         )
 
-        # Create configuration
-        config = FidelityConfig(**config_params)
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
 
-        # Initialize parent class
-        super().__init__(
-            **{
-                k: config_params[k]
-                for k in [
-                    "name",
-                    "columns",
-                    "column_mapping",
-                    "normalize",
-                    "confidence_level",
-                    "description",
-                    "optimize_memory",
-                    "use_dask",
-                    "npartitions",
-                    "dask_partition_size",
-                    "use_cache",
-                    "use_encryption",
-                    "encryption_mode",
-                    "encryption_key",
-                    "visualization_theme",
-                    "visualization_backend",
-                    "visualization_strict",
-                    "visualization_timeout",
-                ]
-            }
-        )
+        # Initialize parent MetricsOperation
+        super().__init__(**kwargs)
 
-        # Save config attributes to self
-        for k, v in config_params.items():
+        # Save config attributes to self for easy access
+        for k, v in config.to_dict().items():
             setattr(self, k, v)
             self.process_kwargs[k] = v
 
-        # Store the configuration
-        self.config = config
+        # Operation metadata
+        self.operation_name = self.__class__.__name__
 
     def execute(
         self,
@@ -561,7 +412,7 @@ class FidelityOperation(MetricsOperation):
             column_mapping=self.column_mapping,
             normalize=self.normalize,
             confidence_level=self.confidence_level,
-            mode=self.mode,
+            sample_size=self.sample_size,
             optimize_memory=self.optimize_memory,
             use_dask=self.use_dask,
             npartitions=self.npartitions,

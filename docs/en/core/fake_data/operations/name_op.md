@@ -20,9 +20,8 @@ pamola_core/fake_data/
 
 ```
 pamola_core.utils.ops.op_base.BaseOperation
-    └── pamola_core.fake_data.commons.operations.BaseOperation
-        └── pamola_core.fake_data.commons.operations.FieldOperation
-            └── pamola_core.fake_data.commons.operations.GeneratorOperation
+    └── pamola_core.utils.ops.op_base.FieldOperation
+            └── pamola_core.fake_data.base_generator_op.GeneratorOperation
                 └── pamola_core.fake_data.operations.name_op.NameOperation
 ```
 

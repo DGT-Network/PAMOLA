@@ -6,24 +6,23 @@ while maintaining statistical properties of the original data and supporting
 consistent mapping.
 """
 
-import logging
 import time
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List
-
 import numpy as np
 import pandas as pd
-
-from pamola_core.fake_data.commons import metrics
-from pamola_core.fake_data.commons.operations import GeneratorOperation
+from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.email import EmailGenerator
+from pamola_core.fake_data.schemas.email_op_schema import FakeEmailOperationConfig
 from pamola_core.utils import io
+from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
+from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
 
-@register()
+@register(version="1.0.0")
 class FakeEmailOperation(GeneratorOperation):
     """
     Operation for generating synthetic email addresses.
@@ -33,116 +32,107 @@ class FakeEmailOperation(GeneratorOperation):
     using name information to generate realistic addresses.
     """
 
-    name = "email_generator"
-    description = "Generates synthetic email addresses with configurable formats"
-    category = "fake_data"
-
-    def __init__(self, field_name: str,
-                 mode: str = "ENRICH",
-                 output_field_name: Optional[str] = None,
-                 domains: Optional[Union[List[str], str]] = None,
-                 format: Optional[str] = None,
-                 format_ratio: Optional[Dict[str, float]] = None,
-                 first_name_field: Optional[str] = None,
-                 last_name_field: Optional[str] = None,
-                 full_name_field: Optional[str] = None,
-                 name_format: Optional[str] = None,
-                 validate_source: bool = True,
-                 handle_invalid_email: str = "generate_new",
-                 nicknames_dict: Optional[str] = None,
-                 max_length: int = 254,
-                 chunk_size: int = 10000,
-                 null_strategy: str = "PRESERVE",
-                 consistency_mechanism: str = "prgn",
-                 mapping_store_path: Optional[str] = None,
-                 id_field: Optional[str] = None,
-                 key: Optional[str] = None,
-                 context_salt: Optional[str] = None,
-                 save_mapping: bool = False,
-                 column_prefix: str = "_",
-                 # New parameters
-                 separator_options: Optional[List[str]] = None,
-                 number_suffix_probability: float = 0.4,
-                 preserve_domain_ratio: float = 0.5,
-                 business_domain_ratio: float = 0.2,
-                 detailed_metrics: bool = False,  # Collect detailed metrics
-                 error_logging_level: str = "WARNING",  # Error logging level
-                 max_retries: int = 3,  # Maximum retry attempts on error
-                 use_cache: bool = True,
-                 force_recalculation: bool = False,
-                 use_dask: bool = False,
-                 npartitions: int = 1,
-                 use_vectorization: bool = False,
-                 parallel_processes: int = 1,
-                 visualization_backend: Optional[str] = "plotly",
-                 visualization_theme: Optional[str] = None,
-                 visualization_strict: bool = False,
-                 visualization_timeout: int = 120,
-                 use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None,
-                 encryption_mode: Optional[str] = None):
-
+    def __init__(
+        self,
+        field_name: str,
+        domains: Optional[Union[List[str], str]] = None,
+        format: Optional[str] = None,
+        format_ratio: Optional[Dict[str, float]] = None,
+        first_name_field: Optional[str] = None,
+        last_name_field: Optional[str] = None,
+        full_name_field: Optional[str] = None,
+        name_format: Optional[str] = None,
+        validate_source: bool = True,
+        handle_invalid_email: str = "generate_new",
+        nicknames_dict: Optional[str] = None,
+        max_length: int = 254,
+        separator_options: Optional[List[str]] = None,
+        number_suffix_probability: float = 0.4,
+        preserve_domain_ratio: float = 0.5,
+        business_domain_ratio: float = 0.2,
+        detailed_metrics: bool = False,
+        max_retries: int = 3,
+        key: Optional[str] = None,
+        context_salt: Optional[str] = None,
+        **kwargs,
+    ):
         """
-        Initialize email generation operation.
+        Initialize FakeEmailOperation.
 
-        Args:
-            field_name: Field to process (containing email addresses)
-            mode: Operation mode (REPLACE or ENRICH)
-            output_field_name: Name for the output field (if mode=ENRICH)
-            domains: List of domains or path to domain dictionary
-            format: Format for email generation (name_surname, surname_name, nickname, existing_domain)
-            format_ratio: Distribution of format usage (e.g. {'name_surname': 0.4, 'nickname': 0.6})
-            first_name_field: Field containing first names
-            last_name_field: Field containing last names
-            full_name_field: Field containing full names (alternative to separate first/last name fields)
-            name_format: Format of full names (FL, FML, LF, etc.)
-            validate_source: Whether to validate source email addresses
-            handle_invalid_email: How to handle invalid emails (generate_new, keep_empty, generate_with_default_domain)
-            nicknames_dict: Path to nickname dictionary
-            max_length: Maximum length for email address
-            chunk_size: Number of records to process in one batch
-            null_strategy: Strategy for handling NULL values
-            consistency_mechanism: Method for ensuring consistency (mapping or prgn)
-            mapping_store_path: Path to store mappings
-            id_field: Field for record identification
-            key: Key for encryption/PRGN
-            context_salt: Salt for PRGN
-            save_mapping: Whether to save mapping to file
-            column_prefix: Prefix for new column (if mode=ENRICH)
-            separator_options: List of separators to use in email generation
-            number_suffix_probability: Probability of adding number suffix to email
-            preserve_domain_ratio: Probability of preserving original domain
-            business_domain_ratio: Probability of using business domains
-            detailed_metrics: Whether to collect detailed metrics
-            error_logging_level: Level for error logging (ERROR, WARNING, INFO)
-            max_retries: Maximum number of retries for generation on error
-            use_dask: Whether to use Dask for large datasets
-            npartitions: Number of partitions for Dask processing (if use_dask=True)
+        Parameters
+        ----------
+        field_name : str
+            Target column containing email addresses.
+        domains : list or str, optional
+            List of available domains or path to domain dictionary.
+        format : str, optional
+            Email format (e.g., 'first_last', 'nickname', 'existing_domain').
+        format_ratio : dict, optional
+            Ratio distribution for format usage.
+        first_name_field, last_name_field, full_name_field : str, optional
+            Reference fields for name-based email generation.
+        name_format : str, optional
+            Format of full names (e.g., 'FL', 'LF').
+        validate_source : bool, optional
+            Whether to validate input email addresses.
+        handle_invalid_email : str, optional
+            Strategy for invalid emails ('generate_new', 'keep_empty', etc.).
+        nicknames_dict : str, optional
+            Path to nickname mapping file.
+        max_length : int, optional
+            Maximum email length (default 254).
+        separator_options : list, optional
+            Separators used between name parts (default ['.', '_', '']).
+        number_suffix_probability : float, optional
+            Probability of adding numeric suffixes.
+        preserve_domain_ratio : float, optional
+            Probability of preserving original domain.
+        business_domain_ratio : float, optional
+            Probability of using business-related domains.
+        detailed_metrics : bool, optional
+            Whether to collect detailed per-domain statistics.
+        max_retries : int, optional
+            Maximum retries on generation failure.
+        key : str, optional
+            Key for encryption or PRGN consistency (if applicable).
+        context_salt : str, optional
+                Additional context salt for PRGN to enhance uniqueness.
+        **kwargs : dict
+            Additional parameters forwarded to GeneratorOperation and BaseOperation.
         """
-        self.detailed_metrics = detailed_metrics
-        self.error_logging_level = error_logging_level.upper()
-        self.max_retries = max_retries
-        self.chunk_size = chunk_size
-        self.use_cache = use_cache
-        self.force_recalculation = force_recalculation
-        self.use_dask = use_dask
-        self.npartitions = npartitions
-        self.use_vectorization = use_vectorization
-        self.parallel_processes = parallel_processes
 
-        # Store attributes locally that we need to access directly
-        self.column_prefix = column_prefix
-        self.id_field = id_field
-        self.key = key
-        self.context_salt = context_salt
-        self.save_mapping = save_mapping
-        self.mapping_store_path = mapping_store_path
-        self.first_name_field = first_name_field
-        self.last_name_field = last_name_field
-        self.full_name_field = full_name_field
-        self.name_format = name_format
+        # Fallback description for this operation
+        kwargs.setdefault(
+            "description",
+            f"Synthetic email generation for '{field_name}' with configurable format and domain patterns",
+        )
 
-        # Set up email generator configuration
+        # Build configuration object for schema validation
+        config = FakeEmailOperationConfig(
+            field_name=field_name,
+            domains=domains,
+            format=format,
+            format_ratio=format_ratio,
+            first_name_field=first_name_field,
+            last_name_field=last_name_field,
+            full_name_field=full_name_field,
+            name_format=name_format,
+            validate_source=validate_source,
+            handle_invalid_email=handle_invalid_email,
+            nicknames_dict=nicknames_dict,
+            max_length=max_length,
+            separator_options=separator_options,
+            number_suffix_probability=number_suffix_probability,
+            preserve_domain_ratio=preserve_domain_ratio,
+            business_domain_ratio=business_domain_ratio,
+            detailed_metrics=detailed_metrics,
+            max_retries=max_retries,
+            key=key,
+            context_salt=context_salt,
+            **kwargs,
+        )
+
+        # Prepare generator-specific configuration
         generator_params = {
             "domains": domains,
             "format": format,
@@ -151,116 +141,85 @@ class FakeEmailOperation(GeneratorOperation):
             "handle_invalid_email": handle_invalid_email,
             "nicknames_dict": nicknames_dict,
             "max_length": max_length,
-            "key": key,
-            "context_salt": context_salt,
-            # Add new configuration parameters
             "separator_options": separator_options,
             "number_suffix_probability": number_suffix_probability,
             "preserve_domain_ratio": preserve_domain_ratio,
-            "business_domain_ratio": business_domain_ratio
+            "business_domain_ratio": business_domain_ratio,
+            "key": key,
+            "context_salt": context_salt,
         }
 
-        # Create a temporary BaseGenerator to pass to parent constructor
-        # We'll replace it with the real EmailGenerator after initialization
-        base_generator = EmailGenerator(config=generator_params)
+        # Initialize generator
+        email_generator = EmailGenerator(config=generator_params)
 
-        # Initialize parent class first with the base generator
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
+
+        # Initialize parent class
         super().__init__(
             field_name=field_name,
-            generator=base_generator,
-            mode=mode,
-            output_field_name=output_field_name,
-            chunk_size=chunk_size,
-            null_strategy=null_strategy,
-            consistency_mechanism=consistency_mechanism,
-            use_cache=use_cache,
-            force_recalculation=force_recalculation,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
-            visualization_backend=visualization_backend,
-            visualization_theme=visualization_theme,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout
+            generator=email_generator,
+            generator_params=generator_params,
+            **kwargs,
         )
 
-        # Set up performance metrics
-        self.start_time = None
-        self.process_count = 0
+        # Expose config fields as attributes
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+
+        # Initialize internal metrics
+        self.operation_name = self.__class__.__name__
+        self._original_df = None
         self.error_count = 0
         self.retry_count = 0
 
-        # Ensure we have a reference to the original DataFrame for metrics collection
-        self._original_df = None
-
-        # Initialize mapping store if path is provided
-        if mapping_store_path:
-            self._initialize_mapping_store(mapping_store_path)
-
-        # For detailed metrics
         if self.detailed_metrics:
             self._domain_stats = Counter()
             self._format_stats = Counter()
             self._generation_times = []
 
-    def _initialize_mapping_store(self, path: Union[str, Path]) -> None:
+    def execute(
+        self,
+        data_source: DataSource,
+        task_dir: Path,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
+    ) -> OperationResult:
         """
-        Initialize the mapping store if needed.
+        Execute the operation with timing and error handling.
 
-        Args:
-            path: Path to mapping store file
-        """
-        try:
-            from pamola_core.fake_data.commons.mapping_store import MappingStore
-
-            self.mapping_store = MappingStore()
-
-            # Load existing mappings if the file exists
-            path_obj = Path(path)
-            if path_obj.exists():
-                self.mapping_store.load(path_obj)
-                self.logger.info(f"Loaded mapping store from {path_obj.name}")
-        except Exception as e:
-            self.logger.warning(f"Failed to initialize mapping store: {str(e)}")
-            self.mapping_store = None
-
-    def execute(self, data_source, task_dir, reporter, progress_tracker: Optional[HierarchicalProgressTracker] = None, **kwargs):
-        """
-        Execute the email generation operation.
-
-        Args:
-            data_source: Source of data (DataFrame or path to file)
-            task_dir: Directory for storing operation artifacts
-            reporter: Reporter for progress updates
-            **kwargs: Additional parameters
+        Parameters:
+        -----------
+        data_source : DataSource
+            Source of data for the operation
+        task_dir : Path
+            Directory where task artifacts should be saved
+        reporter : Any
+            Reporter object for tracking progress and artifacts
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Progress tracker for the operation
+        **kwargs : dict
+            Additional parameters for the operation
 
         Returns:
-            Operation result with processed data and metrics
+        --------
+        OperationResult
+            Results of the operation
         """
-        # Config logger task for operatiions
-        self.logger = kwargs.get('logger', self.logger)
+        # Config logger task for operation
+        self.logger = kwargs.get("logger", self.logger)
 
         # Start timing for performance metrics
         self.start_time = time.time()
-        self.process_count = 0
-
-        # Load data if needed
-        if isinstance(data_source, pd.DataFrame):
-            self._original_df = data_source.copy()
-        else:
-            # If data_source is a path, it will be loaded by the parent class
-            pass
+        self.logger.info(
+            f"Starting {self.operation_name} operation at {self.start_time}"
+        )
 
         # Call parent execute method
-        result = super().execute(data_source, task_dir, reporter, progress_tracker, **kwargs)
-
-        # If we didn't set _original_df earlier and the parent loaded it, get it now
-        if self._original_df is None and hasattr(self, "_df"):
-            self._original_df = self._df.copy()
+        result = super().execute(
+            data_source, task_dir, reporter, progress_tracker, **kwargs
+        )
 
         # Save mapping if requested
         if self.save_mapping and hasattr(self, "mapping_store") and self.mapping_store:
@@ -272,12 +231,13 @@ class FakeEmailOperation(GeneratorOperation):
 
         return result
 
-    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
         Process a batch of data to generate synthetic email addresses.
 
         Args:
             batch: DataFrame batch to process
+            kwargs: Additional parameters
 
         Returns:
             Processed DataFrame batch
@@ -302,30 +262,11 @@ class FakeEmailOperation(GeneratorOperation):
         if self.full_name_field and self.full_name_field in batch.columns:
             full_names = batch[self.full_name_field]
 
-        # Determine output field based on mode
-        if self.mode == "REPLACE":
-            output_field = self.field_name
-        else:  # ENRICH
-            output_field = self.output_field_name or f"{self.column_prefix}{self.field_name}"
-
         # Prepare a list to store generated values
         generated_values = []
 
         # Process each value according to null strategy
         for idx, value in enumerate(field_values):
-            # Handle null values according to strategy
-            if pd.isna(value):
-                if self.null_strategy == "PRESERVE":
-                    generated_values.append(np.nan)
-                    continue
-                elif self.null_strategy == "EXCLUDE":
-                    # Skip this value but keep in result with NaN
-                    generated_values.append(np.nan)
-                    continue
-                elif self.null_strategy == "ERROR":
-                    raise ValueError(f"Null value found in {self.field_name} at position {idx}")
-                # If strategy is REPLACE, we'll generate a value for the null
-
             # Get name information for this record
             first_name = None
             last_name = None
@@ -359,20 +300,21 @@ class FakeEmailOperation(GeneratorOperation):
                 "name_format": self.name_format,
                 "original_email": value if pd.notna(value) else None,
                 "context_salt": self.context_salt or "email-generation",
-                "record_id": record_id
+                "record_id": record_id,
             }
 
             # Process the value
             try:
                 synthetic_value = self.process_value(value, **gen_params)
                 generated_values.append(synthetic_value)
-                self.process_count += 1
             except Exception as e:
-                self.logger.error(f"Error generating email for value '{value}': {str(e)}")
+                self.logger.error(
+                    f"Error generating email for value '{value}': {str(e)}"
+                )
                 generated_values.append(value if pd.notna(value) else np.nan)
 
         # Update the dataframe with generated values
-        result[output_field] = generated_values
+        result[self.output_field_name] = generated_values
 
         return result
 
@@ -391,7 +333,11 @@ class FakeEmailOperation(GeneratorOperation):
         start_time = time.time() if self.detailed_metrics else None
 
         # If using mapping store, check for existing mapping
-        if self.consistency_mechanism == "mapping" and hasattr(self, "mapping_store") and self.mapping_store:
+        if (
+            self.consistency_mechanism == "mapping"
+            and hasattr(self, "mapping_store")
+            and self.mapping_store
+        ):
             # Check if we already have a mapping for this value
             synthetic_value = self.mapping_store.get_mapping(self.field_name, value)
 
@@ -402,14 +348,16 @@ class FakeEmailOperation(GeneratorOperation):
                     self._generation_times.append(time.time() - start_time)
 
                     # Try to collect domain statistics
-                    if isinstance(synthetic_value, str) and '@' in synthetic_value:
-                        domain = synthetic_value.split('@')[-1]
+                    if isinstance(synthetic_value, str) and "@" in synthetic_value:
+                        domain = synthetic_value.split("@")[-1]
                         self._domain_stats[domain] += 1
 
                     # And format statistics
                     if hasattr(self.generator, "parse_email_format"):
                         try:
-                            format_used = self.generator.parse_email_format(synthetic_value)
+                            format_used = self.generator.parse_email_format(
+                                synthetic_value
+                            )
                             self._format_stats[format_used] += 1
                         except:
                             pass
@@ -425,11 +373,17 @@ class FakeEmailOperation(GeneratorOperation):
                 # Generate new value based on consistency mechanism
                 if self.consistency_mechanism == "prgn":
                     # Ensure the generator has PRGN capabilities
-                    if not hasattr(self.generator, "prgn_generator") or self.generator.prgn_generator is None:
+                    if (
+                        not hasattr(self.generator, "prgn_generator")
+                        or self.generator.prgn_generator is None
+                    ):
                         # Set up PRGN generator if not already done
                         if not hasattr(self, "_prgn_generator"):
                             from pamola_core.fake_data.commons.prgn import PRNGenerator
-                            self._prgn_generator = PRNGenerator(global_seed=self.key or "email-generation")
+
+                            self._prgn_generator = PRNGenerator(
+                                global_seed=self.key or "email-generation"
+                            )
                         self.generator.prgn_generator = self._prgn_generator
 
                     # Generate using PRGN
@@ -439,22 +393,30 @@ class FakeEmailOperation(GeneratorOperation):
                     synthetic_value = self.generator.generate_like(value, **params)
 
                 # If using mapping store, store the mapping
-                if self.consistency_mechanism == "mapping" and hasattr(self, "mapping_store") and self.mapping_store:
-                    self.mapping_store.add_mapping(self.field_name, value, synthetic_value)
+                if (
+                    self.consistency_mechanism == "mapping"
+                    and hasattr(self, "mapping_store")
+                    and self.mapping_store
+                ):
+                    self.mapping_store.add_mapping(
+                        self.field_name, value, synthetic_value
+                    )
 
                 # Collect metrics if needed
                 if self.detailed_metrics and start_time:
                     self._generation_times.append(time.time() - start_time)
 
                     # Collect domain statistics
-                    if isinstance(synthetic_value, str) and '@' in synthetic_value:
-                        domain = synthetic_value.split('@')[-1]
+                    if isinstance(synthetic_value, str) and "@" in synthetic_value:
+                        domain = synthetic_value.split("@")[-1]
                         self._domain_stats[domain] += 1
 
                     # And format statistics
                     if hasattr(self.generator, "parse_email_format"):
                         try:
-                            format_used = self.generator.parse_email_format(synthetic_value)
+                            format_used = self.generator.parse_email_format(
+                                synthetic_value
+                            )
                             self._format_stats[format_used] += 1
                         except:
                             pass
@@ -468,10 +430,13 @@ class FakeEmailOperation(GeneratorOperation):
 
                 # Log error with appropriate level
                 if retries <= self.max_retries:
-                    self.logger.debug(f"Retry {retries}/{self.max_retries} generating email for value '{value}': {str(e)}")
+                    self.logger.debug(
+                        f"Retry {retries}/{self.max_retries} generating email for value '{value}': {str(e)}"
+                    )
                 else:
                     self.logger.error(
-                        f"Failed to generate email for value '{value}' after {self.max_retries} retries: {str(e)}")
+                        f"Failed to generate email for value '{value}' after {self.max_retries} retries: {str(e)}"
+                    )
                     self.error_count += 1
 
         # If all attempts failed, return original value or None
@@ -499,31 +464,39 @@ class FakeEmailOperation(GeneratorOperation):
             return {}
 
         # If we have detailed metrics and they're already collected, use them
-        if self.detailed_metrics and hasattr(self, "_domain_stats") and self._domain_stats:
+        if (
+            self.detailed_metrics
+            and hasattr(self, "_domain_stats")
+            and self._domain_stats
+        ):
             top_domains = self._domain_stats.most_common(20)
             total = sum(self._domain_stats.values())
-            domain_distribution = {domain: count / total for domain, count in top_domains}
+            domain_distribution = {
+                domain: count / total for domain, count in top_domains
+            }
 
             # Calculate diversity metrics
             unique_domains = len(self._domain_stats)
             diversity_ratio = unique_domains / total if total > 0 else 0
 
             # Add domain categorization
-            domain_categories = self._categorize_domains_distribution(self._domain_stats)
+            domain_categories = self._categorize_domains_distribution(
+                self._domain_stats
+            )
 
             return {
                 "total_emails": total,
                 "unique_domains": unique_domains,
                 "diversity_ratio": diversity_ratio,
                 "top_domains": domain_distribution,
-                "domain_categories": domain_categories
+                "domain_categories": domain_categories,
             }
 
         # Otherwise extract domains from email addresses
         domains = []
         for email in df[field].dropna():
-            if isinstance(email, str) and '@' in email:
-                domain = email.split('@')[-1]
+            if isinstance(email, str) and "@" in email:
+                domain = email.split("@")[-1]
                 domains.append(domain)
 
         if not domains:
@@ -549,10 +522,12 @@ class FakeEmailOperation(GeneratorOperation):
             "unique_domains": unique_domains,
             "diversity_ratio": diversity_ratio,
             "top_domains": domain_distribution,
-            "domain_categories": domain_categories
+            "domain_categories": domain_categories,
         }
 
-    def _categorize_domains_distribution(self, domain_counts: Counter) -> Dict[str, float]:
+    def _categorize_domains_distribution(
+        self, domain_counts: Counter
+    ) -> Dict[str, float]:
         """
         Categorize domains into business, personal, educational, etc.
 
@@ -562,12 +537,7 @@ class FakeEmailOperation(GeneratorOperation):
         Returns:
             Dictionary with domain category distribution
         """
-        categories = {
-            "common": 0,
-            "business": 0,
-            "educational": 0,
-            "others": 0
-        }
+        categories = {"common": 0, "business": 0, "educational": 0, "others": 0}
 
         total = sum(domain_counts.values())
         if total == 0:
@@ -591,11 +561,30 @@ class FakeEmailOperation(GeneratorOperation):
                     categories["educational"] += count
                 else:
                     # Heuristic determination of category
-                    if any(business_term in domain for business_term in
-                           ['company', 'corp', 'enterprise', 'business', 'inc', 'llc', 'agency', 'consulting']):
+                    if any(
+                        business_term in domain
+                        for business_term in [
+                            "company",
+                            "corp",
+                            "enterprise",
+                            "business",
+                            "inc",
+                            "llc",
+                            "agency",
+                            "consulting",
+                        ]
+                    ):
                         categories["business"] += count
-                    elif any(edu_term in domain for edu_term in
-                             ['edu', 'ac.', 'university', 'school', 'college']):
+                    elif any(
+                        edu_term in domain
+                        for edu_term in [
+                            "edu",
+                            "ac.",
+                            "university",
+                            "school",
+                            "college",
+                        ]
+                    ):
                         categories["educational"] += count
                     else:
                         categories["others"] += count
@@ -603,14 +592,37 @@ class FakeEmailOperation(GeneratorOperation):
         except Exception:
             # In case of error, use heuristic determination
             for domain, count in domain_counts.items():
-                if any(common_term in domain for common_term in
-                       ['gmail', 'yahoo', 'hotmail', 'outlook', 'mail', 'proton', 'aol']):
+                if any(
+                    common_term in domain
+                    for common_term in [
+                        "gmail",
+                        "yahoo",
+                        "hotmail",
+                        "outlook",
+                        "mail",
+                        "proton",
+                        "aol",
+                    ]
+                ):
                     categories["common"] += count
-                elif any(business_term in domain for business_term in
-                         ['company', 'corp', 'enterprise', 'business', 'inc', 'llc', 'agency', 'consulting']):
+                elif any(
+                    business_term in domain
+                    for business_term in [
+                        "company",
+                        "corp",
+                        "enterprise",
+                        "business",
+                        "inc",
+                        "llc",
+                        "agency",
+                        "consulting",
+                    ]
+                ):
                     categories["business"] += count
-                elif any(edu_term in domain for edu_term in
-                         ['edu', 'ac.', 'university', 'school', 'college']):
+                elif any(
+                    edu_term in domain
+                    for edu_term in ["edu", "ac.", "university", "school", "college"]
+                ):
                     categories["educational"] += count
                 else:
                     categories["others"] += count
@@ -633,88 +645,86 @@ class FakeEmailOperation(GeneratorOperation):
             return []
 
         # Return the first 10 domains (assuming they are already sorted by popularity)
-        return domains[:min(10, len(domains))]
+        return domains[: min(10, len(domains))]
 
-    def _collect_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def _collect_specific_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
-        Collect metrics for the email generation operation.
+        Collect operation-specific metrics for the Email Generation operation.
 
-        Args:
-            df: Processed DataFrame
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Processed DataFrame
 
-        Returns:
-            Dictionary with metrics
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary with metrics.
         """
-        # Get basic metrics from parent
-        metrics_data = super()._collect_metrics(df)
-
-        # Add email-specific metrics
-        metrics_data["email_generator"] = {
-            "format": getattr(self.generator, "format", None),
-            "domains_count": len(getattr(self.generator, "_domain_list", [])),
-            "validate_source": getattr(self.generator, "validate_source", True),
-            "handle_invalid_email": getattr(self.generator, "handle_invalid_email", "generate_new"),
-            "name_fields_used": {
-                "first_name_field": self.first_name_field,
-                "last_name_field": self.last_name_field,
-                "full_name_field": self.full_name_field,
-                "name_format": self.name_format
-            }
+        metrics_data = {
+            "email_generator": {},
+            "dictionary_metrics": {},
         }
 
-        # Add performance metrics
-        if self.start_time is not None:
-            execution_time = time.time() - self.start_time
-            metrics_data["performance"] = {
-                "generation_time": execution_time,
-                "records_per_second": int(self.process_count / execution_time) if execution_time > 0 else 0,
-                "error_count": self.error_count,
-                "retry_count": self.retry_count
+        gen = self.generator
+
+        # === 1. Email generator configuration ===
+        metrics_data["email_generator"].update(
+            {
+                "format": getattr(gen, "format", None),
+                "domains_count": len(getattr(gen, "_domain_list", [])),
+                "validate_source": getattr(gen, "validate_source", True),
+                "handle_invalid_email": getattr(
+                    gen, "handle_invalid_email", "generate_new"
+                ),
+                "name_fields_used": {
+                    "first_name_field": getattr(self, "first_name_field", None),
+                    "last_name_field": getattr(self, "last_name_field", None),
+                    "full_name_field": getattr(self, "full_name_field", None),
+                    "name_format": getattr(self, "name_format", None),
+                },
             }
+        )
 
-            # Add extended performance metrics if collected
-            if self.detailed_metrics and hasattr(self, "_generation_times") and self._generation_times:
-                metrics_data["performance"]["avg_record_generation_time"] = sum(self._generation_times) / len(
-                    self._generation_times)
-                metrics_data["performance"]["min_record_generation_time"] = min(self._generation_times)
-                metrics_data["performance"]["max_record_generation_time"] = max(self._generation_times)
-
-        # Add domain distribution
+        # === 2. Domain distribution ===
         try:
-            # Get domain distribution
             domain_metrics = self._analyze_domain_distribution(df)
             if domain_metrics:
                 metrics_data["email_generator"]["domain_distribution"] = domain_metrics
         except Exception as e:
             self.logger.warning(f"Error collecting domain distribution: {str(e)}")
 
-        # Add domain dictionary metrics
-        dictionary_metrics = {
-            "total_domains": len(getattr(self.generator, "_domain_list", [])),
-            "popular_domains": self._get_popular_domains()
-        }
+        # === 3. Dictionary (domain) metrics ===
+        metrics_data["dictionary_metrics"] = self._collect_domain_dictionary_metrics()
 
-        # Add statistics on formats used
-        if self.detailed_metrics and hasattr(self, "_format_stats") and self._format_stats:
-            total_formats = sum(self._format_stats.values())
-            format_distribution = {
-                format_name: count / total_formats
-                for format_name, count in self._format_stats.most_common()
-            }
-            dictionary_metrics["format_distribution"] = format_distribution
-
-        metrics_data["dictionary_metrics"] = dictionary_metrics
-
-        # Add quality metrics if we can collect them
-        if self.mode == "ENRICH" and hasattr(self, "_original_df") and self._original_df is not None:
+        # === 4. Format distribution (if detailed metrics enabled) ===
+        if (
+            getattr(self, "detailed_metrics", False)
+            and hasattr(self, "_format_stats")
+            and self._format_stats
+        ):
             try:
-                # Output field name
-                output_field = self.output_field_name or f"{self.column_prefix}{self.field_name}"
+                total_formats = sum(self._format_stats.values())
+                format_distribution = {
+                    fmt: count / total_formats
+                    for fmt, count in self._format_stats.most_common()
+                }
+                metrics_data["dictionary_metrics"][
+                    "format_distribution"
+                ] = format_distribution
+            except Exception as e:
+                self.logger.warning(f"Error calculating format distribution: {str(e)}")
 
+        # === 5. Quality metrics (if enrich mode) ===
+        if self.mode == "ENRICH" and getattr(self, "_original_df", None) is not None:
+            try:
+                output_field = (
+                    self.output_field_name or f"{self.column_prefix}{self.field_name}"
+                )
                 if output_field in self._original_df.columns:
                     quality_metrics = self._calculate_quality_metrics(
                         self._original_df[self.field_name],
-                        self._original_df[output_field]
+                        self._original_df[output_field],
                     )
                     metrics_data["quality_metrics"] = quality_metrics
             except Exception as e:
@@ -722,7 +732,23 @@ class FakeEmailOperation(GeneratorOperation):
 
         return metrics_data
 
-    def _calculate_quality_metrics(self, original_series: pd.Series, generated_series: pd.Series) -> Dict[str, Any]:
+    def _collect_domain_dictionary_metrics(self) -> Dict[str, Any]:
+        """
+        Helper method to collect dictionary (domain-level) metrics for email generation.
+        """
+        dictionary_metrics = {}
+        try:
+            domain_list = getattr(self.generator, "_domain_list", [])
+            dictionary_metrics["total_domains"] = len(domain_list)
+            dictionary_metrics["popular_domains"] = self._get_popular_domains()
+        except Exception as e:
+            self.logger.warning(f"Error collecting domain dictionary metrics: {str(e)}")
+            dictionary_metrics["error"] = str(e)
+        return dictionary_metrics
+
+    def _calculate_quality_metrics(
+        self, original_series: pd.Series, generated_series: pd.Series
+    ) -> Dict[str, Any]:
         """
         Calculate quality metrics comparing original and generated email addresses.
 
@@ -745,7 +771,9 @@ class FakeEmailOperation(GeneratorOperation):
             gen_mean_len = generated_lengths.mean()
 
             # Length similarity (1.0 = perfect match)
-            length_similarity = 1.0 - min(1.0, abs(orig_mean_len - gen_mean_len) / orig_mean_len)
+            length_similarity = 1.0 - min(
+                1.0, abs(orig_mean_len - gen_mean_len) / orig_mean_len
+            )
             metrics["length_similarity"] = length_similarity
 
         # Analyze domain preservation
@@ -753,20 +781,29 @@ class FakeEmailOperation(GeneratorOperation):
         gen_domains = []
 
         for orig, gen in zip(original_series.dropna(), generated_series.dropna()):
-            if isinstance(orig, str) and '@' in orig and isinstance(gen, str) and '@' in gen:
-                orig_domains.append(orig.split('@')[-1])
-                gen_domains.append(gen.split('@')[-1])
+            if (
+                isinstance(orig, str)
+                and "@" in orig
+                and isinstance(gen, str)
+                and "@" in gen
+            ):
+                orig_domains.append(orig.split("@")[-1])
+                gen_domains.append(gen.split("@")[-1])
 
         if orig_domains and gen_domains:
             # Calculate percentage of preserved domains
-            domain_preservation_count = sum(1 for o, g in zip(orig_domains, gen_domains) if o == g)
+            domain_preservation_count = sum(
+                1 for o, g in zip(orig_domains, gen_domains) if o == g
+            )
             domain_preservation_ratio = domain_preservation_count / len(orig_domains)
             metrics["domain_preservation_ratio"] = domain_preservation_ratio
 
             # Calculate domain diversity
             orig_domain_count = len(set(orig_domains))
             gen_domain_count = len(set(gen_domains))
-            domain_diversity_ratio = gen_domain_count / orig_domain_count if orig_domain_count > 0 else 0
+            domain_diversity_ratio = (
+                gen_domain_count / orig_domain_count if orig_domain_count > 0 else 0
+            )
             metrics["domain_diversity_ratio"] = domain_diversity_ratio
 
         # Analyze local part structure
@@ -774,17 +811,28 @@ class FakeEmailOperation(GeneratorOperation):
         gen_local_parts = []
 
         for orig, gen in zip(original_series.dropna(), generated_series.dropna()):
-            if isinstance(orig, str) and '@' in orig and isinstance(gen, str) and '@' in gen:
-                orig_local_parts.append(orig.split('@')[0])
-                gen_local_parts.append(gen.split('@')[0])
+            if (
+                isinstance(orig, str)
+                and "@" in orig
+                and isinstance(gen, str)
+                and "@" in gen
+            ):
+                orig_local_parts.append(orig.split("@")[0])
+                gen_local_parts.append(gen.split("@")[0])
 
         if orig_local_parts and gen_local_parts:
             # Calculate average local part length
-            orig_lp_mean_len = sum(len(lp) for lp in orig_local_parts) / len(orig_local_parts)
-            gen_lp_mean_len = sum(len(lp) for lp in gen_local_parts) / len(gen_local_parts)
+            orig_lp_mean_len = sum(len(lp) for lp in orig_local_parts) / len(
+                orig_local_parts
+            )
+            gen_lp_mean_len = sum(len(lp) for lp in gen_local_parts) / len(
+                gen_local_parts
+            )
 
             # Local part length similarity
-            lp_length_similarity = 1.0 - min(1.0, abs(orig_lp_mean_len - gen_lp_mean_len) / orig_lp_mean_len)
+            lp_length_similarity = 1.0 - min(
+                1.0, abs(orig_lp_mean_len - gen_lp_mean_len) / orig_lp_mean_len
+            )
             metrics["local_part_length_similarity"] = lp_length_similarity
 
             # Analyze separator usage
@@ -792,24 +840,24 @@ class FakeEmailOperation(GeneratorOperation):
             gen_separator_stats = Counter()
 
             for lp in orig_local_parts:
-                if '.' in lp:
-                    orig_separator_stats['.'] += 1
-                if '_' in lp:
-                    orig_separator_stats['_'] += 1
-                if '-' in lp:
-                    orig_separator_stats['-'] += 1
+                if "." in lp:
+                    orig_separator_stats["."] += 1
+                if "_" in lp:
+                    orig_separator_stats["_"] += 1
+                if "-" in lp:
+                    orig_separator_stats["-"] += 1
 
             for lp in gen_local_parts:
-                if '.' in lp:
-                    gen_separator_stats['.'] += 1
-                if '_' in lp:
-                    gen_separator_stats['_'] += 1
-                if '-' in lp:
-                    gen_separator_stats['-'] += 1
+                if "." in lp:
+                    gen_separator_stats["."] += 1
+                if "_" in lp:
+                    gen_separator_stats["_"] += 1
+                if "-" in lp:
+                    gen_separator_stats["-"] += 1
 
             # Calculate separator usage similarity
             separator_similarity = {}
-            for sep in ['.', '_', '-']:
+            for sep in [".", "_", "-"]:
                 orig_ratio = orig_separator_stats[sep] / len(orig_local_parts)
                 gen_ratio = gen_separator_stats[sep] / len(gen_local_parts)
                 separator_similarity[sep] = 1.0 - min(1.0, abs(orig_ratio - gen_ratio))
@@ -818,67 +866,38 @@ class FakeEmailOperation(GeneratorOperation):
 
         return metrics
 
-    def _save_metrics(self, metrics_data: Dict[str, Any], task_dir: Path, **kwargs) -> Path:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
-        Save metrics to a file and generate visualizations.
-
-        Args:
-            metrics_data: Metrics data
-            task_dir: Directory for storing artifacts
+        Get operation-specific parameters for cache key generation.
 
         Returns:
-            Path to the saved metrics file
+        --------
+        Dict[str, Any]
+            Strategy-specific parameters for numeric generalization
         """
-        # Create directories
-        metrics_dir = task_dir / "metrics"
-        vis_dir = task_dir / "visualizations"
-        io.ensure_directory(metrics_dir)
-        io.ensure_directory(vis_dir)
-
-        # Create output path
-        metrics_path = metrics_dir / f"{self.name}_{self.field_name}_metrics.json"
-
-        # Create metrics collector
-        collector = metrics.create_metrics_collector()
-
-        # Generate visualizations if we have both original and generated data
-        if self.mode == "ENRICH" and "original_data" in metrics_data and "generated_data" in metrics_data:
-            try:
-                # Get output field name
-                output_field = self.output_field_name or f"{self.column_prefix}{self.field_name}"
-
-                # Get DataFrame for visualization
-                if hasattr(self,
-                           "_original_df") and self._original_df is not None and output_field in self._original_df.columns:
-                    # Get original data series
-                    orig_series = self._original_df[self.field_name]
-                    gen_series = self._original_df[output_field]
-                    
-                    kwargs_encryption = {
-                        "use_encryption": kwargs.get('use_encryption', False),
-                        "encryption_key": kwargs.get('encryption_key', None)
-                    }
-
-                    # Create visualizations
-                    visualizations = collector.visualize_metrics(
-                        metrics_data,
-                        self.field_name,
-                        vis_dir,
-                        self.name,
-                        **kwargs_encryption
-                    )
-
-                    # Add visualization paths to metrics
-                    metrics_data["visualizations"] = {
-                        name: str(path) for name, path in visualizations.items()
-                    }
-            except Exception as e:
-                self.logger.warning(f"Error generating visualizations: {str(e)}")
-
-
-        # Save metrics to file
-        use_encryption = kwargs.get('use_encryption', False)
-        encryption_key= kwargs.get('encryption_key', None) if use_encryption else None
-        io.write_json(metrics_data, metrics_path, encryption_key=encryption_key)
-
-        return metrics_path
+        return {
+            "domains": self.domains,
+            "format": self.format,
+            "format_ratio": self.format_ratio,
+            "first_name_field": self.first_name_field,
+            "last_name_field": self.last_name_field,
+            "full_name_field": self.full_name_field,
+            "name_format": self.name_format,
+            "validate_source": self.validate_source,
+            "handle_invalid_email": self.handle_invalid_email,
+            "nicknames_dict": self.nicknames_dict,
+            "max_length": self.max_length,
+            "consistency_mechanism": self.consistency_mechanism,
+            "mapping_store_path": self.mapping_store_path,
+            "id_field": self.id_field,
+            "key": self.key,
+            "context_salt": self.context_salt,
+            "save_mapping": self.save_mapping,
+            "column_prefix": self.column_prefix,
+            "separator_options": self.separator_options,
+            "number_suffix_probability": self.number_suffix_probability,
+            "preserve_domain_ratio": self.preserve_domain_ratio,
+            "business_domain_ratio": self.business_domain_ratio,
+            "detailed_metrics": self.detailed_metrics,
+            "max_retries": self.max_retries,
+        }

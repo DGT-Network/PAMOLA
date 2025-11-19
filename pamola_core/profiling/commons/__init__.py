@@ -14,9 +14,6 @@ from pamola_core.profiling.commons.dtype_helpers import (
 # Import data_types now, as it has no internal dependencies
 from pamola_core.profiling.commons.data_types import DataType, AnalysisType, ResultType, ArtifactType, OperationStatus, PrivacyLevel, ProfilerConfig, FieldCategory
 
-# Import base classes
-from pamola_core.profiling.commons.base import BaseAnalyzer, BaseOperation, AnalysisResult, BaseMultiFieldAnalyzer, DataFrameProfiler, ProfileOperation
-
 # Finally, import helpers that depend on data_types
 from pamola_core.profiling.commons.helpers import (
     infer_data_type, prepare_field_for_analysis, parse_multi_valued_field,

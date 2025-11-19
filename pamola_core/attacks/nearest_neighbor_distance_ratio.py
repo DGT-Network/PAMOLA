@@ -25,10 +25,10 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
 import numpy as np
+import pandas as pd
 from scipy.spatial import KDTree
 from sklearn.neighbors import NearestNeighbors
 from pamola_core.attacks.preprocess_data import PreprocessData
-
 
 
 class NearestNeighborDistanceRatio(PreprocessData):
@@ -40,67 +40,54 @@ class NearestNeighborDistanceRatio(PreprocessData):
     def __init__(self):
         pass
 
-
-    def calculate_nndr_kdtree(self, data1, data2):
+    def calculate_nndr(
+        self, data1: pd.DataFrame, data2: pd.DataFrame, method: str = "kdtree"
+    ) -> np.ndarray:
         """
-        Nearest Neighbor Distance Ratio (NNDR): The ratio of the distance between a given data point of a dataset to the nearest data point and the second nearest data point in the another dataset
-        Using library sklearn.neighbors.NearestNeighbors
+        Nearest Neighbor Distance Ratio (NNDR):
+        Ratio of distance to the nearest neighbor vs. second nearest neighbor
+        for each record in data2, relative to data1.
+
+        A smaller NNDR indicates a more distinct / reliable match.
 
         Parameters
-        -----------
-        data1: First data set
-        data2: Second data set
+        ----------
+        data1 : pd.DataFrame
+            First dataset (reference set)
+        data2 : pd.DataFrame
+            Second dataset (query set)
+        method : {"kdtree", "neighbors"}, default="kdtree"
+            - "kdtree": use scipy.spatial.KDTree (fast for numeric data)
+            - "neighbors": use sklearn NearestNeighbors (more flexible metrics)
 
-        Returns:
-        -----------
-        nndr_value: Array of the ratio of the distance between a given data point of dataset data2 to the nearest data point and the second nearest data point in the dataset data1
-        The smaller the value of nndr_value, the more clearly the data point has a nearest neighbor. More reliable pairing
+        Returns
+        -------
+        nndr_values : np.ndarray
+            Array of NNDR values for each record in data2.
         """
-
-        # Check that the datasets are valid
+        # --- 1. Validate input ---
         if data1 is None or data2 is None:
             raise ValueError("Input datasets cannot be None.")
-        
-        data1_transform, data2_transform = self.preprocess_data(data1, data2)
+        if data1.empty or data2.empty:
+            return np.array([])
 
-        # Init KDTree and for each data point in data2_transform find the 2 nearest neighbors in data1_transform
-        tree = KDTree(data1_transform)
-        distances, indices = tree.query(data2_transform, k=2)
+        # --- 2. Preprocess ---
+        data1_vec, data2_vec = self.preprocess_data(data1, data2)
 
-        # Calculate the ratio between two nearest neighbors
-        nndr_values = distances[:, 0] / np.maximum(distances[:, 1], 1e-10)
+        # --- 3. Find two nearest neighbors ---
+        if method == "kdtree":
+            tree = KDTree(data1_vec)
+            distances, _ = tree.query(data2_vec, k=2)
+        elif method == "neighbors":
+            nbrs = NearestNeighbors(n_neighbors=2, algorithm="auto")
+            nbrs.fit(data1_vec)
+            distances, _ = nbrs.kneighbors(data2_vec)
+        else:
+            raise ValueError(
+                f"Unknown NNDR method: {method}. Must be 'kdtree' or 'neighbors'."
+            )
 
-        return nndr_values
-
-
-    def calculate_nndr_neighbors(self, data1, data2):
-        """
-        Nearest Neighbor Distance Ratio (NNDR): The ratio of the distance between a given data point of a dataset to the nearest data point and the second nearest data point in the another dataset
-        Using library sklearn.neighbors.NearestNeighbors
-
-        Parameters
-        -----------
-        data1: First data set
-        data2: Second data set
-
-        Returns:
-        -----------
-        nndr_value: Array of the ratio of the distance between a given data point of dataset data2 to the nearest data point and the second nearest data point in the dataset data1
-        The smaller the value of nndr_value, the more clearly the data point has a nearest neighbor. More reliable pairing
-        """
-
-        # Check that the datasets are valid
-        if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
-        
-        data1_transform, data2_transform = self.preprocess_data(data1, data2)
-
-        # Init NearestNeighbors and for each data point in data2 find the 2 nearest neighbors in data1
-        nbrs = NearestNeighbors(n_neighbors=2, algorithm='auto')
-        nbrs.fit(data1_transform)
-        distances, indices = nbrs.kneighbors(data2_transform)
-
-        # Calculate the ratio between two nearest neighbors
+        # --- 4. Compute NNDR ---
         nndr_values = distances[:, 0] / np.maximum(distances[:, 1], 1e-10)
 
         return nndr_values

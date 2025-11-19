@@ -24,12 +24,10 @@ NOTE: This is a template and will be updated as development progresses.
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-from abc import abstractmethod
-from pamola_core.base_processor import BaseProcessor
+from abc import ABC, abstractmethod
 
 
-
-class AttackInitialization(BaseProcessor):
+class AttackInitialization(ABC):
     """
     Abstract base class for attack simulation in PAMOLA.CORE.
     This class extends BaseProcessor and declare methods used for attack simulation.
@@ -51,4 +49,20 @@ class AttackInitialization(BaseProcessor):
         data2_final: The dataset contains numeric values corresponding to data2
         """
 
+        pass
+
+    @abstractmethod
+    def process(self, data):
+        """
+        Process the input data.
+
+        Parameters:
+        -----------
+        data : Any
+            The input data to be processed.
+
+        Returns:
+        --------
+        Processed data, transformed according to the specific processor logic.
+        """
         pass

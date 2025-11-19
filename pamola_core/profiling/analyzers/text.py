@@ -1,32 +1,56 @@
 """
-Text semantic categorization operation for the project.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module:        Text Semantic Categorization Operation
+Package:       pamola.pamola_core.profiling.analyzers
+Version:       2.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025
+License:       BSD 3-Clause
 
-This module provides operations for analyzing and categorizing text fields
-with support for entity extraction, semantic categorization, and clustering.
+Description:
+  This module provides operations for analyzing and categorizing text fields in tabular datasets.
+  It supports entity extraction, semantic categorization, clustering, and language analysis,
+  with robust handling for large datasets and integration with the PAMOLA.CORE operation framework.
+
+Key Features:
+  - Entity extraction and semantic categorization for text fields
+  - Configurable dictionary-based and NER-based categorization
+  - Clustering of unresolved/unmatched text values
+  - Language detection and text length statistics
+  - Visualization generation for category, alias, and length distributions
+  - Efficient chunked, parallel, and Dask-based processing for large datasets
+  - Robust error handling, progress tracking, and operation logging
+  - Caching and efficient repeated analysis
+  - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
 
-import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Callable, Dict, List, Any, Optional, Union, Tuple
 
 import pandas as pd
 
 from pamola_core.profiling.commons.text_utils import (
+    analyze_language,
     analyze_null_and_empty,
     analyze_null_and_empty_in_chunks_joblib,
     analyze_null_and_empty_in_chunks_dask,
     calculate_length_stats,
+    extract_text_and_ids,
+    find_dictionary_file,
+)
+from pamola_core.profiling.schemas.text_schema import (
+    TextSemanticCategorizerOperationConfig,
 )
 from pamola_core.utils.io import (
     ensure_directory,
-    write_json,
-    write_dataframe_to_csv,
-    get_timestamped_filename,
-    read_json,
     load_data_operation,
     load_settings_operation,
+    write_json,
+    write_dataframe_to_csv,
 )
 from pamola_core.utils.logging import get_logger
 from pamola_core.utils.nlp.cache import get_cache
@@ -36,8 +60,8 @@ from pamola_core.utils.nlp.category_matching import (
 )
 from pamola_core.utils.nlp.clustering import cluster_by_similarity
 from pamola_core.utils.nlp.entity import create_entity_extractor
-from pamola_core.utils.nlp.language import detect_languages
 from pamola_core.utils.ops.op_base import FieldOperation
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -48,7 +72,6 @@ from pamola_core.utils.visualization import (
     plot_text_length_distribution,
 )
 from pamola_core.common.constants import Constants
-from pamola_core.utils.helpers import filter_used_kwargs
 
 # Configure logger
 logger = get_logger(__name__)
@@ -58,7 +81,7 @@ file_cache = get_cache("file")
 memory_cache = get_cache("memory")
 
 
-@register()
+@register(version="1.0.0")
 class TextSemanticCategorizerOperation(FieldOperation):
     """
     Operation for categorizing text fields based on semantic content.
@@ -70,6 +93,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
     def __init__(
         self,
         field_name: str,
+        id_field: Optional[str] = None,
         entity_type: str = "generic",
         dictionary_path: Optional[Union[str, Path]] = None,
         min_word_length: int = 3,
@@ -78,107 +102,69 @@ class TextSemanticCategorizerOperation(FieldOperation):
         perform_categorization: bool = True,
         perform_clustering: bool = True,
         match_strategy: str = "specific_first",
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        npartitions: int = 2,
-        use_vectorization: bool = False,
-        parallel_processes: int = 2,
-        use_cache: bool = True,
-        cache_dir: Optional[Path] = None,
-        include_timestamp: Any = None,
-        description: str = "",
-        use_encryption: bool = False,
-        encryption_key: Optional[Union[str, Path]] = None,
-        encryption_mode: Optional[str] = None,
+        **kwargs,
     ):
         """
-        Initialize the text semantic categorizer operation.
+        Initialize the TextSemanticCategorizerOperation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         field_name : str
-            Name of the field to analyze
+            Name of the field to analyze.
+        id_field : str, optional
+            Name of the ID field for record identification.
         entity_type : str
-            Type of entities to extract ("job", "organization", "skill", "generic", etc.)
+            Type of entities to extract ("job", "organization", "skill", "generic", etc.).
         dictionary_path : str or Path, optional
-            Path to the semantic categories dictionary file
+            Path to the semantic categories dictionary file.
         min_word_length : int
-            Minimum length for words to include in token analysis
+            Minimum length for words to include in token analysis.
         clustering_threshold : float
-            Similarity threshold for clustering (0-1)
+            Similarity threshold for clustering (0–1).
         use_ner : bool
-            Whether to use Named Entity Recognition for uncategorized texts
+            Whether to use Named Entity Recognition for uncategorized texts.
         perform_categorization : bool
-            Whether to perform semantic categorization
+            Whether to perform semantic categorization.
         perform_clustering : bool
-            Whether to perform clustering for unmatched items
+            Whether to perform clustering for unmatched items.
         match_strategy : str
-            Strategy for resolving category conflicts:
-            "specific_first" (default), "domain_prefer", "alias_only", "user_override"
-        visualization_theme : str, optional
-            Theme to use for visualizations (default: None - uses system default)
-        visualization_backend : str, optional
-            Backend to use for visualizations: "plotly" or "matplotlib" (default: None - uses system default)
-        visualization_strict : bool, optional
-            If True, raise exceptions for visualization config errors (default: False)
-        visualization_timeout : int, optional
-            Timeout in seconds for visualization generation (default: 120)
-        chunk_size : int
-            Size of data chunks for processing large datasets
-        use_dask : bool, optional
-            Whether to use Dask for processing (default: False).
-        npartitions : int, optional
-            Number of partitions use with Dask (default: 1).
-        use_vectorization : bool, optional
-            Whether to use vectorized (parallel) processing (default: False).
-        parallel_processes : int, optional
-            Number of processes use with vectorized (parallel) (default: 1).
-        use_cache : bool
-            Whether to use caching for intermediate results
-        cache_dir : Path, optional
-            Directory to store cache files (defaults to task_dir/cache)
-        description : str
-            Description of the operation
+            Strategy for resolving category conflicts.
+        **kwargs
+            Additional arguments forwarded to FieldOperation.
         """
-        super().__init__(
-            field_name=field_name,
-            description=description
-            or f"Semantic categorization of text field '{field_name}'",
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
+        # --- Default description ---
+        kwargs.setdefault(
+            "description",
+            f"Semantic categorization of text field '{field_name}'",
         )
-        self.entity_type = entity_type
-        self.dictionary_path = dictionary_path
-        self.min_word_length = min_word_length
-        self.clustering_threshold = clustering_threshold
-        self.use_ner = use_ner
-        self.perform_categorization = perform_categorization
-        self.perform_clustering = perform_clustering
-        self.match_strategy = match_strategy
-        self.visualization_theme = visualization_theme
-        self.visualization_backend = visualization_backend
-        self.visualization_strict = visualization_strict
-        self.visualization_timeout = visualization_timeout
-        self.chunk_size = chunk_size
-        self.use_dask = use_dask
-        self.npartitions = npartitions
-        self.use_vectorization = use_vectorization
-        self.parallel_processes = parallel_processes
-        self.use_cache = use_cache
-        self.cache_dir = cache_dir
-        self.include_timestamp = include_timestamp
 
-        # Set up performance tracking variables
-        self.is_encryption_required = False
-        self.start_time = None
-        self.end_time = None
-        self.execution_time = 0
-        self.process_count = 0
+        # --- Build config object ---
+        config = TextSemanticCategorizerOperationConfig(
+            field_name=field_name,
+            id_field=id_field,
+            entity_type=entity_type,
+            dictionary_path=dictionary_path,
+            min_word_length=min_word_length,
+            clustering_threshold=clustering_threshold,
+            use_ner=use_ner,
+            perform_categorization=perform_categorization,
+            perform_clustering=perform_clustering,
+            match_strategy=match_strategy,
+            **kwargs,
+        )
+
+        # Inject config into kwargs
+        kwargs["config"] = config
+
+        # --- Initialize parent ---
+        super().__init__(field_name=field_name, **kwargs)
+
+        # --- Apply config attributes ---
+        for key, value in config.to_dict().items():
+            setattr(self, key, value)
+
+        # --- Operation metadata ---
+        self.operation_name = self.__class__.__name__
 
     def execute(
         self,
@@ -199,73 +185,47 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : HierarchicalProgressTracker, optional
+        progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for customizing the operation
-            - dataset_name: str - Name of dataset - main
-            - force_recalculation: bool - Force operation even if cached results exist - False
-            - use_dask: bool - Use Dask for large dataset processing - False
-            - parallel_processes: int - Number of parallel processes to use - 1
-            - generate_visualization: bool - Create visualizations - True
-            - include_timestamp: bool - Include timestamp in filenames - True
-            - save_output: bool - Save processed data to output directory - True
-            - encrypt_output: bool - Override encryption setting for outputs - False
-            - visualization_theme: str - Override theme for visualizations - None
-            - visualization_backend: str - Override backend for visualizations - None
-            - visualization_strict: bool - Override strict mode for visualizations - False
-            - visualization_timeout: int - Override timeout for visualizations - 120
+            Additional parameters for the operation
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-        global logger
-        if kwargs.get("logger"):
-            logger = kwargs.get("logger")
-
         try:
             # Initialize timing and result
             self.start_time = time.time()
-            self.process_count = 0
-            result = OperationResult(status=OperationStatus.SUCCESS)
 
-            # Decompose kwargs and introduce variables for clarity
-            force_recalculation = kwargs.get("force_recalculation", False)
-            use_dask = kwargs.get("use_dask", self.use_dask)
-            parallel_processes = kwargs.get("parallel_processes", 1)
-            generate_visualization = kwargs.get("generate_visualization", True)
-            include_timestamp = kwargs.get("include_timestamp", True)
-            save_output = kwargs.get("save_output", True)
-            is_encryption_required = (
-                kwargs.get("encrypt_output", False) or self.use_encryption
-            )
-            encryption_key = kwargs.get("encryption_key", None)
+            # Set logger if provided in kwargs
+            if kwargs.get("logger"):
+                self.logger = kwargs.get("logger")
 
-            self.use_dask = use_dask
-            self.parallel_processes = parallel_processes
-            self.include_timestamp = include_timestamp
-            self.is_encryption_required = is_encryption_required
+            dirs = self._prepare_directories(task_dir)
 
-            # Extract visualization parameters
-            self.visualization_theme = kwargs.get(
-                "visualization_theme", self.visualization_theme
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=task_dir / "cache",
             )
-            self.visualization_backend = kwargs.get(
-                "visualization_backend", self.visualization_backend
-            )
-            self.visualization_strict = kwargs.get(
-                "visualization_strict", self.visualization_strict
-            )
-            self.visualization_timeout = kwargs.get(
-                "visualization_timeout", self.visualization_timeout
-            )
+
+            # Save configuration
+            self.save_config(task_dir)
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
 
             logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
                 f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
             )
+
+            # Initialize result
+            result = OperationResult(status=OperationStatus.SUCCESS)
 
             # Update progress if tracker provided
             if progress_tracker:
@@ -273,21 +233,33 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     1, {"step": "Initialization", "field": self.field_name}
                 )
 
-            # Prepare directories and execution parameters
-            dirs = self._prepare_directories(task_dir)
-            params = self._prepare_execution_parameters(kwargs, task_dir, dirs)
-
             # Get DataFrame from data source
-            dataset_name = kwargs.get("dataset_name", "main")
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+            try:
+                # Load data
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = load_data_operation(
+                    data_source, dataset_name, **settings_operation
+                )
+
+                if df is None:
+                    error_message = "Failed to load input data"
+                    logger.error(error_message)
+                    return OperationResult(
+                        status=OperationStatus.ERROR, error_message=error_message
+                    )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
+
+            if progress_tracker:
+                progress_tracker.update(2, {"step": "Data Loading"})
 
             # Check if field exists
             if self.field_name not in df.columns:
@@ -307,15 +279,17 @@ class TextSemanticCategorizerOperation(FieldOperation):
             )
 
             # Check for cached results if caching is enabled
-            if self.use_cache and not force_recalculation:
-                cached_result = self._check_cache(df, reporter, task_dir, **kwargs)
+            if self.use_cache and not self.force_recalculation:
+
+                logger.info("Checking operation cache...")
+                cached_result = self._check_cache(df, reporter, **kwargs)
                 if cached_result:
                     logger.info(f"Using cached results for {self.field_name}")
 
                     # Update progress if tracker provided
                     if progress_tracker:
                         progress_tracker.update(
-                            5, {"step": "Loaded from cache", "field": self.field_name}
+                            3, {"step": "Loaded from cache", "field": self.field_name}
                         )
 
                     return cached_result
@@ -323,14 +297,14 @@ class TextSemanticCategorizerOperation(FieldOperation):
             # Update progress
             if progress_tracker:
                 progress_tracker.update(
-                    1, {"step": "Basic text analysis", "field": self.field_name}
+                    3, {"step": "Basic text analysis", "field": self.field_name}
                 )
 
             # Step 1: Perform basic text analysis (always executed)
             basic_analysis = self._perform_basic_analysis(
                 df,
                 self.field_name,
-                params["chunk_size"],
+                self.chunk_size,
                 self.use_dask,
                 self.npartitions,
                 self.use_vectorization,
@@ -338,14 +312,14 @@ class TextSemanticCategorizerOperation(FieldOperation):
             )
 
             # Get text values and record IDs
-            text_values, record_ids = self._extract_text_and_ids(
-                df, self.field_name, params.get("id_field")
+            text_values, record_ids = extract_text_and_ids(
+                df, self.field_name, self.id_field
             )
 
             # Update progress
             if progress_tracker:
                 progress_tracker.update(
-                    1, {"step": "Semantic categorization", "field": self.field_name}
+                    4, {"step": "Semantic categorization", "field": self.field_name}
                 )
 
             # Initialize categorization results with defaults
@@ -354,21 +328,25 @@ class TextSemanticCategorizerOperation(FieldOperation):
             )
 
             # Step 2: Perform categorization if requested
-            if params["perform_categorization"]:
+            if self.perform_categorization:
                 # Load dictionary if categorization is needed
-                dictionary_path = self._find_dictionary_file(
-                    self.entity_type, task_dir, dirs["dictionaries"]
-                )
+                if self.dictionary_path:
+                    self.dictionary_path = find_dictionary_file(
+                        self.dictionary_path,
+                        self.entity_type,
+                        task_dir,
+                        logger,
+                    )
 
                 categorization_results = self._perform_semantic_categorization(
                     text_values,
                     record_ids,
-                    dictionary_path,
+                    self.dictionary_path,
                     basic_analysis["language_analysis"]["predominant_language"],
-                    params["match_strategy"],
-                    params["use_ner"],
-                    params["perform_clustering"],
-                    params["clustering_threshold"],
+                    self.match_strategy,
+                    self.use_ner,
+                    self.perform_clustering,
+                    self.clustering_threshold,
                     self.chunk_size,
                     self.use_dask,
                     self.npartitions,
@@ -379,7 +357,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             # Update progress
             if progress_tracker:
                 progress_tracker.update(
-                    1, {"step": "Creating artifacts", "field": self.field_name}
+                    5, {"step": "Creating artifacts", "field": self.field_name}
                 )
 
             # Prepare complete analysis results
@@ -389,39 +367,47 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             # Save main artifacts
             analysis_result_path = self._save_main_artifacts(
-                analysis_results, dirs, params["include_timestamp"], result, reporter
+                analysis_results, dirs, operation_timestamp, result, reporter
             )
 
             # Save categorization artifacts if categorization was performed
             categorization_result_paths = []
-            if params["perform_categorization"]:
+            if self.perform_categorization:
                 categorization_result_paths = self._save_categorization_artifacts(
                     categorization_results,
                     record_ids,
                     text_values,
+                    operation_timestamp,
                     dirs,
                     result,
                     reporter,
-                    encryption_key=encryption_key,
+                    encryption_key=self.encryption_key,
                 )
 
             # Generate visualizations
             visualization_paths = []
-            if generate_visualization and self.visualization_backend is not None:
-                safe_kwargs = filter_used_kwargs(kwargs, self._handle_visualizations)
-                visualization_paths = self._handle_visualizations(
-                    analysis_results=analysis_results,
-                    visualizations_dir=dirs["visualizations"],
-                    include_timestamp=params["include_timestamp"],
-                    result=result,
-                    reporter=reporter,
-                    vis_theme=self.visualization_theme,
-                    vis_backend=self.visualization_backend,
-                    vis_strict=self.visualization_strict,
-                    vis_timeout=self.visualization_timeout,
-                    progress_tracker=progress_tracker,
-                    **safe_kwargs,
-                )
+            if self.generate_visualization and self.visualization_backend is not None:
+                # Update progress
+                if progress_tracker:
+                    progress_tracker.update(5, {"step": "Generating visualizations"})
+
+                try:
+                    visualization_paths = self._handle_visualizations(
+                        analysis_results=analysis_results,
+                        visualizations_dir=dirs["visualizations"],
+                        operation_timestamp=operation_timestamp,
+                        result=result,
+                        reporter=reporter,
+                        vis_theme=self.visualization_theme,
+                        vis_backend=self.visualization_backend,
+                        vis_strict=self.visualization_strict,
+                        vis_timeout=self.visualization_timeout,
+                        progress_tracker=progress_tracker,
+                    )
+                except Exception as e:
+                    error_message = f"Error generating visualizations: {str(e)}"
+                    logger.error(error_message)
+                    # Continue execution - visualization failure is not critical
 
             # Add metrics to result
             self._add_metrics_to_result(analysis_results, result)
@@ -440,7 +426,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             # Update progress
             if progress_tracker:
                 progress_tracker.update(
-                    1, {"step": "Completed", "field": self.field_name}
+                    6, {"step": "Completed", "field": self.field_name}
                 )
 
             self.end_time = time.time()
@@ -498,172 +484,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         return directories
 
-    def _prepare_execution_parameters(
-        self, kwargs: Dict[str, Any], task_dir: Path, dirs: Dict[str, Path]
-    ) -> Dict[str, Any]:
-        """
-        Extract and validate parameters from kwargs with defaults from instance.
-
-        Parameters:
-        -----------
-        kwargs : Dict[str, Any]
-            Parameters passed to execute method
-        task_dir : Path
-            Task directory
-        dirs : Dict[str, Path]
-            Dictionary with standard directory paths
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Dictionary with validated parameters
-        """
-        # Extract parameters from kwargs with defaults from instance
-        params = {
-            "dictionary_path": kwargs.get("dictionary_path", self.dictionary_path),
-            "include_timestamp": kwargs.get(
-                "include_timestamp", self.include_timestamp
-            ),
-            "min_word_length": kwargs.get("min_word_length", self.min_word_length),
-            "clustering_threshold": kwargs.get(
-                "clustering_threshold", self.clustering_threshold
-            ),
-            "use_ner": kwargs.get("use_ner", self.use_ner),
-            "perform_categorization": kwargs.get(
-                "perform_categorization", self.perform_categorization
-            ),
-            "perform_clustering": kwargs.get(
-                "perform_clustering", self.perform_clustering
-            ),
-            "match_strategy": kwargs.get("match_strategy", self.match_strategy),
-            "id_field": kwargs.get("id_field"),
-            "chunk_size": kwargs.get("chunk_size", self.chunk_size),
-            "use_cache": kwargs.get("use_cache", self.use_cache),
-            "entity_type": kwargs.get("entity_type", self.entity_type),
-        }
-
-        # Set up cache directory if not provided
-        if self.cache_dir is None and params["use_cache"]:
-            params["cache_dir"] = dirs.get("cache", task_dir / "cache")
-        else:
-            params["cache_dir"] = self.cache_dir
-
-        return params
-
-    def _get_cache_key(self, data_source: DataSource, task_dir: Path) -> str:
-        """
-        Generate a unique cache key for the current operation and data.
-
-        Parameters:
-        -----------
-        data_source : DataSource
-            Data source used for the operation
-        task_dir : Path
-            Task directory
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        import hashlib
-
-        # Create a hash of the operation parameters and data source
-        hasher = hashlib.md5()
-
-        # Add operation parameters to hash
-        params_str = (
-            f"{self.field_name}:{self.entity_type}:{self.min_word_length}:{self.clustering_threshold}:"
-            f"{self.use_ner}:{self.perform_categorization}:{self.perform_clustering}:"
-            f"{self.match_strategy}:{self.dictionary_path}"
-        )
-        hasher.update(params_str.encode("utf-8"))
-
-        # Add data source identifier to hash if available
-        if hasattr(data_source, "get_identifier"):
-            source_id = data_source.get_identifier()
-            if source_id:
-                hasher.update(source_id.encode("utf-8"))
-
-        # Generate a unique key for this operation and data
-        return (
-            f"text_semantic_{self.field_name}_{self.entity_type}_{hasher.hexdigest()}"
-        )
-
-    def _load_cache(
-        self, cache_key: str, cache_dir: Optional[Path]
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Load cached results if available.
-
-        Parameters:
-        -----------
-        cache_key : str
-            Cache key for the results
-        cache_dir : Path, optional
-            Directory where cache files are stored
-
-        Returns:
-        --------
-        Dict[str, Any] or None
-            Cached results or None if not available
-        """
-        if not cache_dir or not cache_key:
-            return None
-
-        cache_file = cache_dir / f"{cache_key}.json"
-
-        if not cache_file.exists():
-            return None
-
-        try:
-            cached_data = read_json(cache_file)
-            logger.info(f"Loaded cache from {cache_file}")
-            return cached_data
-        except Exception as e:
-            logger.warning(f"Failed to load cache from {cache_file}: {e}")
-            return None
-
-    def _save_cache(
-        self,
-        results: Dict[str, Any],
-        cache_key: str,
-        cache_dir: Optional[Path],
-        encryption_key: Optional[str] = None,
-    ) -> bool:
-        """
-        Save results to cache.
-
-        Parameters:
-        -----------
-        results : Dict[str, Any]
-            Results to cache
-        cache_key : str
-            Cache key for the results
-        cache_dir : Path, optional
-            Directory where cache files should be stored
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not cache_dir or not cache_key:
-            return False
-
-        ensure_directory(cache_dir)
-        cache_file = cache_dir / f"{cache_key}.json"
-
-        try:
-            write_json(results, cache_file, encryption_key=encryption_key)
-            logger.info(f"Saved cache to {cache_file}")
-            return True
-        except Exception as e:
-            logger.warning(f"Failed to save cache to {cache_file}: {e}")
-            return False
-
     def _check_cache(
-        self, df: pd.DataFrame, reporter: Any, task_dir: Path, **kwargs
+        self, df: pd.DataFrame, reporter: Any, **kwargs
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -686,17 +508,13 @@ class TextSemanticCategorizerOperation(FieldOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
             logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache_dir.get_cache(
+
+            cached_data = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.__class__.__name__
             )
 
@@ -791,7 +609,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         analysis_results: Dict[str, Any],
         analysis_result_path: Dict[str, str],
         categorization_result_paths: List[Dict[str, str]],
-        visualization_paths: List[Dict[str, str]],
+        visualization_paths: List[Dict[str, Any]],
         task_dir: Path,
     ) -> bool:
         """
@@ -821,12 +639,6 @@ class TextSemanticCategorizerOperation(FieldOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            # Generate operation cache
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
@@ -845,7 +657,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             # Save to cache
             logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache_dir.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,
@@ -876,8 +688,6 @@ class TextSemanticCategorizerOperation(FieldOperation):
         str
             Unique cache key
         """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
         # Get operation parameters
         parameters = self._get_operation_parameters()
 
@@ -885,7 +695,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         data_hash = self._generate_data_hash(df)
 
         # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
+        return self.operation_cache.generate_cache_key(
             operation_name=self.__class__.__name__,
             parameters=parameters,
             data_hash=data_hash,
@@ -903,6 +713,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         # Get basic operation parameters
         parameters = {
             "field_name": self.field_name,
+            "id_field": self.id_field,
             "entity_type": self.entity_type,
             "dictionary_path": self.dictionary_path,
             "min_word_length": self.min_word_length,
@@ -961,42 +772,11 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         return hashlib.md5(json_str.encode()).hexdigest()
 
-    def _extract_text_and_ids(
-        self, df: pd.DataFrame, field_name: str, id_field: Optional[str]
-    ) -> Tuple[List[str], List[str]]:
-        """
-        Extract text values and record IDs from DataFrame.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame containing the data
-        field_name : str
-            Name of the field containing text
-        id_field : str, optional
-            Name of the field containing record IDs
-
-        Returns:
-        --------
-        Tuple[List[str], List[str]]
-            Tuple of (text_values, record_ids)
-        """
-        # Get text values
-        text_values = df[field_name].astype("object").fillna("").astype(str).tolist()
-
-        # Get record IDs (use specified ID field or fall back to index)
-        if id_field and id_field in df.columns:
-            record_ids = df[id_field].astype(str).tolist()
-        else:
-            record_ids = df.index.astype(str).tolist()
-
-        return text_values, record_ids
-
     def _perform_basic_analysis(
         self,
         df: pd.DataFrame,
         field_name: str,
-        chunk_size: Optional[int] = None,
+        chunk_size: Optional[int] = 10000,
         use_dask: bool = False,
         npartitions: int = 2,
         use_vectorization: bool = False,
@@ -1091,9 +871,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             random.seed(42)  # For reproducibility
             language_sample = random.sample(text_values, max_texts_for_language)
-            language_analysis = self._analyze_language(language_sample)
+            language_analysis = analyze_language(language_sample)
         else:
-            language_analysis = self._analyze_language(text_values)
+            language_analysis = analyze_language(text_values)
 
         # Calculate length stats - can be compute-intensive for large datasets
         length_stats = calculate_length_stats(text_values, max_texts=chunk_size)
@@ -1103,113 +883,6 @@ class TextSemanticCategorizerOperation(FieldOperation):
             "language_analysis": language_analysis,
             "length_stats": length_stats,
         }
-
-    def _analyze_language(self, text_values: List[str]) -> Dict[str, Any]:
-        """
-        Analyze language distribution in text values.
-
-        Parameters:
-        -----------
-        text_values : List[str]
-            List of text values
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Language analysis results
-        """
-        # Use language detection from nlp module
-        language_distribution = detect_languages(text_values)
-
-        # Determine predominant language
-        predominant_language = (
-            max(language_distribution.items(), key=lambda x: x[1])[0]
-            if language_distribution
-            else "unknown"
-        )
-
-        return {
-            "language_distribution": language_distribution,
-            "predominant_language": predominant_language,
-        }
-
-    def _find_dictionary_file(
-        self, entity_type: str, task_dir: Path, dictionaries_dir: Path
-    ) -> Optional[Path]:
-        """
-        Find the appropriate dictionary file for the entity type.
-
-        Search order:
-        1. Explicitly provided dictionary path
-        2. Task dictionaries directory
-        3. Global data repository from config
-
-        Parameters:
-        -----------
-        entity_type : str
-            Type of entities to extract
-        task_dir : Path
-            Task directory
-        dictionaries_dir : Path
-            Dictionaries directory within task_dir
-
-        Returns:
-        --------
-        Path or None
-            Path to the dictionary file if found, None otherwise
-        """
-        # 1. Check explicitly provided path
-        if self.dictionary_path:
-            path = Path(self.dictionary_path)
-            if path.exists():
-                logger.info(f"Using provided dictionary: {path}")
-                return path
-
-        # 2. Check in task dictionaries directory
-        task_dict_path = dictionaries_dir / f"{entity_type}.json"
-        if task_dict_path.exists():
-            logger.info(f"Using task dictionary: {task_dict_path}")
-            return task_dict_path
-
-        # 3. Check in global data repository from config
-        try:
-            # Try to find the PAMOLA.CORE config file
-            config_paths = [
-                Path("configs/prj_config.json"),  # Relative to working directory
-                Path(
-                    "D:/VK/_DEVEL/PAMOLA.CORE/configs/prj_config.json"
-                ),  # Hardcoded path from example
-            ]
-
-            config_file = None
-            for path in config_paths:
-                if path.exists():
-                    config_file = path
-                    break
-
-            if config_file:
-                with open(config_file, "r") as f:
-                    config = json.load(f)
-                    data_repo = config.get("data_repository")
-                    if data_repo:
-                        repo_dict_path = (
-                            Path(data_repo)
-                            / "external_dictionaries"
-                            / "ner"
-                            / f"{entity_type}.json"
-                        )
-                        if repo_dict_path.exists():
-                            logger.info(
-                                f"Using repository dictionary: {repo_dict_path}"
-                            )
-                            return repo_dict_path
-        except Exception as e:
-            logger.warning(f"Error finding repository dictionary: {e}")
-
-        logger.warning(
-            f"No dictionary found for entity type '{entity_type}'. Using built-in fallback."
-        )
-        return None
 
     def _initialize_categorization_results(
         self, text_values: List[str]
@@ -1249,7 +922,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         self,
         text_values: List[str],
         record_ids: List[str],
-        dictionary_path: Optional[Path],
+        dictionary_path: Optional[Union[Path, str]],
         language: str,
         match_strategy: str,
         use_ner: bool,
@@ -1330,26 +1003,26 @@ class TextSemanticCategorizerOperation(FieldOperation):
         category_counts = {}
         alias_counts = {}
 
-        # Track counts by method
+        # Track counts by match_method
         dictionary_matched = []
         ner_matched = []
 
         # Process matching results
-        if "matches" in extraction_results:
-            for match in extraction_results["matches"]:
-                # Get matching method
-                method = match.get("method", "unknown")
+        if "entities" in extraction_results:
+            for match in extraction_results["entities"]:
+                # Get matching match_method
+                match_method = match.get("match_method", "unknown")
                 record_id = match.get("record_id", "")
 
-                # Track matched by method
-                if method == "dictionary":
+                # Track matched by match_method
+                if match_method == "dictionary":
                     dictionary_matched.append(record_id)
-                elif method == "ner":
+                elif match_method == "ner":
                     ner_matched.append(record_id)
 
                 # Update category and alias counts
-                category = match.get("category", "Unknown")
-                alias = match.get("alias", "unknown")
+                category = match.get("matched_category", "Unknown")
+                alias = match.get("matched_alias", "unknown")
 
                 category_counts[category] = category_counts.get(category, 0) + 1
                 alias_counts[alias] = alias_counts.get(alias, 0) + 1
@@ -1358,8 +1031,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 categorization.append(match)
 
         # Get unresolved texts
-        if "unmatched" in extraction_results:
-            unmatched_texts = extraction_results["unmatched"]
+        if "unresolved" in extraction_results:
+            unmatched_texts = extraction_results["unresolved"]
             unmatched_ids = [item.get("record_id", "") for item in unmatched_texts]
 
             # Perform clustering on unmatched if requested
@@ -1397,7 +1070,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                                 "matched_alias": cluster_alias,
                                 "matched_domain": "Cluster",
                                 "seniority": "Any",
-                                "method": "cluster",
+                                "match_method": "cluster",
                                 "score": 0.3,
                                 "cluster_id": cluster_label,
                                 "language": language,
@@ -1427,19 +1100,23 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         # Get hierarchy analysis if available
         hierarchy_analysis = {}
-        if dictionary_path and dictionary_path.exists():
-            try:
-                # Load dictionary to extract hierarchy
-                category_dict = CategoryDictionary.from_file(dictionary_path)
-                if category_dict.hierarchy:
-                    hierarchy_analysis = analyze_hierarchy(category_dict.hierarchy)
-            except Exception as e:
-                logger.warning(f"Error analyzing hierarchy: {e}")
+        if dictionary_path:
+            if isinstance(dictionary_path, str):
+                dictionary_path = Path(dictionary_path)
+            if dictionary_path.exists():
+                try:
+                    # Load dictionary to extract hierarchy
+                    category_dict = CategoryDictionary.from_file(dictionary_path)
+                    if category_dict.hierarchy:
+                        hierarchy_analysis = analyze_hierarchy(category_dict.hierarchy)
+                except Exception as e:
+                    logger.warning(f"Error analyzing hierarchy: {e}")
 
         # Sort category and alias counts by frequency
         category_distribution = dict(
             sorted(category_counts.items(), key=lambda x: x[1], reverse=True)
         )
+
         aliases_distribution = dict(
             sorted(alias_counts.items(), key=lambda x: x[1], reverse=True)
         )
@@ -1489,7 +1166,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         self,
         text_values: List[str],
         record_ids: List[str],
-        dictionary_path: Optional[Path],
+        dictionary_path: Optional[Union[Path, str]],
         language: str,
         match_strategy: str,
         use_ner: bool,
@@ -1811,11 +1488,11 @@ class TextSemanticCategorizerOperation(FieldOperation):
         self,
         analysis_results: Dict[str, Any],
         dirs: Dict[str, Path],
-        include_timestamp: bool,
+        operation_timestamp: Optional[str],
         result: OperationResult,
         reporter: Any,
         encryption_key: Optional[str] = None,
-    ) -> Dict[str, str]:
+    ) -> Dict[str, Any]:
         """
         Save main analysis artifacts.
 
@@ -1825,8 +1502,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Analysis results to save
         dirs : Dict[str, Path]
             Directory paths for storing artifacts
-        include_timestamp : bool
-            Whether to include timestamps in filenames
+        operation_timestamp : Optional[str]
+            Timestamp for file naming
         result : OperationResult
             Operation result to add artifacts to
         reporter : Any
@@ -1838,10 +1515,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Information of artifact
         """
         # Save results as JSON
-        results_filename = get_timestamped_filename(
-            f"{self.field_name}_text_semantic_analysis",
-            extension="json",
-            include_timestamp=include_timestamp,
+        results_filename = (
+            f"{self.field_name}_text_semantic_analysis_{operation_timestamp}.json"
         )
         results_path = dirs["output"] / results_filename
         write_json(analysis_results, results_path, encryption_key=encryption_key)
@@ -1868,6 +1543,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         categorization_results: Dict[str, Any],
         record_ids: List[str],
         text_values: List[str],
+        operation_timestamp: Optional[str],
         dirs: Dict[str, Path],
         result: OperationResult,
         reporter: Any,
@@ -1884,6 +1560,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
             List of record IDs
         text_values : List[str]
             List of text values
+        operation_timestamp : Optional[str]
+            Timestamp for file naming
         dirs : Dict[str, Path]
             Directory paths for storing artifacts
         result : OperationResult
@@ -1899,7 +1577,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
         categorization_result_paths = []
 
         # Save semantic roles mapping
-        semantic_roles_filename = f"{self.field_name}_semantic_roles.json"
+        semantic_roles_filename = (
+            f"{self.field_name}_semantic_roles_{operation_timestamp}.json"
+        )
         semantic_roles_path = dirs["dictionaries"] / semantic_roles_filename
         write_json(
             categorization_results["categorization"],
@@ -1926,7 +1606,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
         )
 
         # Save category mappings CSV
-        category_mappings_filename = f"{self.field_name}_category_mappings.csv"
+        category_mappings_filename = (
+            f"{self.field_name}_category_mappings_{operation_timestamp}.csv"
+        )
         category_mappings_path = dirs["dictionaries"] / category_mappings_filename
 
         # Create DataFrame for category mappings
@@ -1985,7 +1667,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
         # Save unresolved terms CSV
         if categorization_results["unresolved"]:
-            unresolved_filename = f"{self.field_name}_unresolved_terms.csv"
+            unresolved_filename = (
+                f"{self.field_name}_unresolved_terms_{operation_timestamp}.csv"
+            )
             unresolved_path = dirs["dictionaries"] / unresolved_filename
 
             # Convert to DataFrame and save
@@ -2117,7 +1801,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         self,
         analysis_results: Dict[str, Any],
         visualizations_dir: Path,
-        include_timestamp: bool,
+        operation_timestamp: Optional[str],
         result: OperationResult,
         reporter: Any,
         vis_theme: Optional[str],
@@ -2125,7 +1809,6 @@ class TextSemanticCategorizerOperation(FieldOperation):
         vis_strict: bool,
         vis_timeout: int,
         progress_tracker: Optional[HierarchicalProgressTracker],
-        **safe_kwargs,
     ) -> List[Dict[str, Path]]:
         """
         Generate and save visualizations.
@@ -2134,10 +1817,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
-        vis_dir : Path
+        visualizations_dir : Path
             Directory to save visualizations
-        include_timestamp : bool
-            Whether to include timestamps in filenames
+        operation_timestamp : Optional[str]
+            Timestamp for file naming
         result : OperationResult
             The operation result to add artifacts to
         reporter : Any
@@ -2171,6 +1854,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             visualization_paths = []
             visualization_error = None
+
+            if operation_timestamp is None:
+                operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             def generate_viz_with_diagnostics():
                 nonlocal visualization_paths, visualization_error
@@ -2218,13 +1904,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     visualization_paths = self._generate_visualizations(
                         analysis_results=analysis_results,
                         visualizations_dir=visualizations_dir,
-                        include_timestamp=include_timestamp,
+                        operation_timestamp=operation_timestamp,
                         result=result,
                         reporter=reporter,
                         vis_theme=vis_theme,
                         vis_backend=vis_backend,
                         vis_strict=vis_strict,
-                        **safe_kwargs,
                     )
 
                     # Close visualization progress tracker
@@ -2282,12 +1967,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 logger.error(
                     f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
                 )
-                visualization_paths = {}
+                visualization_paths = []
             elif visualization_error:
                 logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
-                visualization_paths = {}
+                visualization_paths = []
             else:
                 total_time = time.time() - thread_start_time
                 logger.info(
@@ -2302,7 +1987,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
             logger.error(f"[DIAG] Stack trace:", exc_info=True)
-            visualization_paths = {}
+            visualization_paths = []
 
         return visualization_paths
 
@@ -2310,13 +1995,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
         self,
         analysis_results: Dict[str, Any],
         visualizations_dir: Path,
-        include_timestamp: bool,
+        operation_timestamp: Optional[str],
         result: OperationResult,
         reporter: Any,
+        vis_strict: bool,
         vis_theme: Optional[str],
         vis_backend: Optional[str],
-        vis_strict: bool,
-        **kwargs,
     ) -> List[Dict[str, str]]:
         """
         Generate visualizations for the text analysis.
@@ -2327,8 +2011,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Results of the analysis
         visualizations_dir : Path
             Directory to save visualizations
-        include_timestamp : bool
-            Whether to include timestamps in filenames
+        operation_timestamp : Optional[str]
+            Timestamp for file naming
         result : OperationResult
             Operation result to add artifacts to
         reporter : Any
@@ -2356,7 +2040,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     filename=f"{self.field_name}_category_distribution",
                     title=f"Category Distribution: {self.field_name}",
                     output_dir=visualizations_dir,
-                    include_timestamp=include_timestamp,
+                    operation_timestamp=operation_timestamp,
                     result=result,
                     reporter=reporter,
                     description=f"Category distribution for {self.field_name}",
@@ -2365,8 +2049,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     vis_strict=vis_strict,
                     additional_params={
                         "show_percentages": True,
-                        "use_encryption": kwargs.get("use_encryption", False),
-                        "encryption_key": kwargs.get("encryption_key", None),
+                        "use_encryption": self.use_encryption,
+                        "encryption_key": self.encryption_key,
                     },
                 )
             )
@@ -2389,7 +2073,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     filename=f"{self.field_name}_alias_distribution",
                     title=f"Alias Distribution: {self.field_name}",
                     output_dir=visualizations_dir,
-                    include_timestamp=include_timestamp,
+                    operation_timestamp=operation_timestamp,
                     result=result,
                     reporter=reporter,
                     description=f"Alias distribution for {self.field_name}",
@@ -2399,8 +2083,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     additional_params={
                         "orientation": "h",
                         "max_items": 15,
-                        "use_encryption": kwargs.get("use_encryption", False),
-                        "encryption_key": kwargs.get("encryption_key", None),
+                        "use_encryption": self.use_encryption,
+                        "encryption_key": self.encryption_key,
                     },
                 )
             )
@@ -2425,7 +2109,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     filename=f"{self.field_name}_length_distribution",
                     title=f"Text Length Distribution: {self.field_name}",
                     output_dir=visualizations_dir,
-                    include_timestamp=include_timestamp,
+                    operation_timestamp=operation_timestamp,
                     result=result,
                     reporter=reporter,
                     description=f"Length distribution for {self.field_name}",
@@ -2433,8 +2117,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     vis_backend=vis_backend,
                     vis_strict=vis_strict,
                     additional_params={
-                        "use_encryption": kwargs.get("use_encryption", False),
-                        "encryption_key": kwargs.get("encryption_key", None),
+                        "use_encryption": self.use_encryption,
+                        "encryption_key": self.encryption_key,
                     },
                 )
             )
@@ -2453,17 +2137,17 @@ class TextSemanticCategorizerOperation(FieldOperation):
     def _create_visualization(
         self,
         data: Dict[str, Any],
-        vis_func: callable,
+        vis_func: Callable,
         filename: str,
         title: str,
         output_dir: Path,
-        include_timestamp: bool,
+        operation_timestamp: Optional[str],
         result: OperationResult,
         reporter: Any,
         description: str,
+        vis_strict: bool,
         vis_theme: Optional[str],
         vis_backend: Optional[str],
-        vis_strict: bool,
         additional_params: Dict[str, Any] = None,
     ) -> Tuple[str, bool]:
         """
@@ -2481,8 +2165,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Title for the visualization
         output_dir : Path
             Directory to save the visualization
-        include_timestamp : bool
-            Whether to include timestamp in the filename
+        operation_timestamp : Optional[str]
+            Timestamp for file naming
         result : OperationResult
             Operation result to add artifact to
         reporter : Any
@@ -2505,21 +2189,23 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         is_create_and_register_artifact = False
 
-        # Get timestamped filename
-        output_filename = get_timestamped_filename(
-            filename, extension="png", include_timestamp=include_timestamp
-        )
+        output_filename = f"{filename}_{operation_timestamp}.png"
         output_path = output_dir / output_filename
 
         # Prepare parameters for the visualization function
         params = {
-            "length_data": data,
             "output_path": str(output_path),
             "title": title,
             "theme": vis_theme,
             "backend": vis_backend,
             "strict": vis_strict,
         }
+
+        # Special handling for plot_text_length_distribution
+        if vis_func.__name__ == "plot_text_length_distribution":
+            params["length_data"] = data
+        else:
+            params["data"] = data
 
         # Add additional parameters if provided
         if additional_params:

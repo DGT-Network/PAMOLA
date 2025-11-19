@@ -1,0 +1,392 @@
+"""
+Form group definitions for UI configuration.
+
+This module provides metadata for organizing operation configuration
+fields into logical groups in the UI.
+"""
+
+from enum import Enum
+from typing import List, Dict
+
+
+class GroupName(str, Enum):
+    """Form field groups for organizing configuration UI."""
+
+    CORE_GENERALIZATION_STRATEGY = "core_generalization_strategy"
+    CONDITIONAL_LOGIC = "conditional_logic"
+    OPERATION_BEHAVIOR_OUTPUT = "operation_behavior_output"
+    HIERARCHY_SETTINGS = "hierarchy_settings"
+    FREQUENCY_GROUPING_SETTINGS = "frequency_grouping_settings"
+    TEXT_VALUE_HANDLING = "text_value_handling"
+    RISK_BASED_PROCESSING_AND_PRIVACY = "risk_based_processing_and_privacy"
+    FORMATTING_AND_TIMEZONE = "formatting_and_timezone"
+    CORE_NOISE_STRATEGY = "core_noise_strategy"
+    PRESERVATION_RULES = "preservation_rules"
+    OUTPUT_FORMATTING_CONSTRAINTS = "output_formatting_constraints"
+    CORE_MASKING_RULES = "core_masking_rules"
+    MASK_APPEARANCE = "mask_appearance"
+    MASKING_RULES = "masking_rules"
+    FORMATTING_AND_STRUCTURE = "formatting_and_structure"
+    CORE_MASKING_STRATEGY = "core_masking_strategy"
+    CORE_SUPPRESSION_RULE = "core_suppression_rule"
+    ADVANCED_CONDITIONAL_RULES = "advanced_conditional_rules"
+    RISK_BASED_FILTERING = "risk_based_filtering"
+    CORE_SUPPRESSION_STRATEGY = "core_suppression_strategy"
+    SIMPLE_CONDITIONAL_RULE = "simple_conditional_rule"
+    SUPPRESSION_RULES = "suppression_rules"
+    IDENTIFIER_CONFIGURATION = "identifier_configuration"
+    ANALYSIS_PARAMETERS = "analysis_parameters"
+    NAME_GENERATION_STYLE = "name_generation_style"
+    GENDER_CONFIGURATION = "gender_configuration"
+    CONSISTENCY_STRATEGY = "consistency_strategy"
+    REGIONAL_CONFIGURATION = "regional_configuration"
+    FORMATTING_RULES = "formatting_rules"
+    GENERATION_LOGIC = "generation_logic"
+    EMAIL_GENERATION_STYLE = "email_generation_style"
+    DATA_SOURCES_FOR_GENERATION = "data_sources_for_generation"
+    ORGANIZATION_GENERATION_STYLE = "organization_generation_style"
+    CONTEXT_AND_DATA_SOURCES = "context_and_data_sources"
+    VALIDATION_RANGE = "validation_range"
+    DATA_QUALITY_ANALYSIS = "data_quality_analysis"
+    CURRENCY_PARSING_SETTINGS = "currency_parsing_settings"
+    DISTRIBUTION_AND_ANALYSIS_SETTINGS = "distribution_and_analysis_settings"
+    FIELD_REMOVAL = "field_removal"
+    JOIN_KEYS = "join_keys"
+    INPUT_DATASETS = "input_datasets"
+    SUFFIXES = "suffixes"
+    GROUP_CONFIGURATION = "group_configuration"
+    TEXT_COMPARISON_SETTINGS = "text_comparison_settings"
+    ANALYSIS_CONFIGURATION = "analysis_configuration"
+    FIELD_WEIGHTS_CONFIGURATION = "field_weights_configuration"
+    ID_FIELD = "id_field"
+    PARTITION_SETTINGS = "partition_settings"
+    VALUE_GROUPS = "value_groups"
+    INPUT_SETTINGS = "input_settings"
+    FIELD_GROUPS_CONFIGURATION = "field_groups_configuration"
+    GROUPING_SETTINGS = "grouping_settings"
+    AGGREGATION_SETUP = "aggregation_setup"
+    CUSTOM_AGGREGATIONS = "custom_aggregations"
+    DICTIONARY_CONFIGURATION = "dictionary_configuration"
+    CORRELATION_CONFIGURATION = "correlation_configuration"
+    FIELD_CONSTRAINTS_CONFIGURATION = "field_constraints_configuration"
+    WHITELIST_CONFIGURATION = "whitelist_configuration"
+    BLACKLIST_CONFIGURATION = "blacklist_configuration"
+    NULL_REPLACEMENT_CONFIGURATION = "null_replacement_configuration"
+    FIELD_STRATEGIES_CONFIGURATION = "field_strategies_configuration"
+    INVALID_VALUES_CONFIGURATION = "invalid_values_configuration"
+    FIELD_OPERATIONS_CONFIGURATION = "field_operations_configuration"
+    LOOKUP_TABLE_CONFIGURATION = "lookup_table_configuration"
+    FIELD_SETTINGS = "field_settings"
+
+
+GROUP_TITLES: Dict[GroupName, str] = {
+    GroupName.CORE_GENERALIZATION_STRATEGY: "Core Generalization Strategy",
+    GroupName.CONDITIONAL_LOGIC: "Conditional Logic",
+    GroupName.OPERATION_BEHAVIOR_OUTPUT: "Operation Behavior & Output",
+    GroupName.HIERARCHY_SETTINGS: "Hierarchy Settings",
+    GroupName.FREQUENCY_GROUPING_SETTINGS: "Frequency & Grouping Settings",
+    GroupName.TEXT_VALUE_HANDLING: "Text & Value Handling",
+    GroupName.RISK_BASED_PROCESSING_AND_PRIVACY: "Risk-Based Processing & Privacy",
+    GroupName.FORMATTING_AND_TIMEZONE: "Formatting & Timezone",
+    GroupName.CORE_NOISE_STRATEGY: "Core Noise Strategy",
+    GroupName.PRESERVATION_RULES: "Preservation Rules",
+    GroupName.OUTPUT_FORMATTING_CONSTRAINTS: "Output Formatting Constraints",
+    GroupName.CORE_MASKING_RULES: "Core Masking Rules",
+    GroupName.MASK_APPEARANCE: "Mask Appearance",
+    GroupName.MASKING_RULES: "Masking Rules",
+    GroupName.FORMATTING_AND_STRUCTURE: "Formatting & Structure",
+    GroupName.CORE_MASKING_STRATEGY: "Core Masking Strategy",
+    GroupName.CORE_SUPPRESSION_RULE: "Core Suppression Rule",
+    GroupName.ADVANCED_CONDITIONAL_RULES: "Advanced Conditional Rules",
+    GroupName.RISK_BASED_FILTERING: "Risk-Based Filtering",
+    GroupName.CORE_SUPPRESSION_STRATEGY: "Core Suppression Strategy",
+    GroupName.SUPPRESSION_RULES: "Suppression Rules",
+    GroupName.SIMPLE_CONDITIONAL_RULE: "Simple Conditional Rule",
+    GroupName.IDENTIFIER_CONFIGURATION: "Identifier Configuration",
+    GroupName.ANALYSIS_PARAMETERS: "Analysis Parameters",
+    GroupName.NAME_GENERATION_STYLE: "Name Generation Style",
+    GroupName.GENDER_CONFIGURATION: "Gender Configuration",
+    GroupName.CONSISTENCY_STRATEGY: "Consistency Strategy",
+    GroupName.REGIONAL_CONFIGURATION: "Regional Configuration",
+    GroupName.FORMATTING_RULES: "Formatting Rules",
+    GroupName.GENERATION_LOGIC: "Generation Logic",
+    GroupName.EMAIL_GENERATION_STYLE: "Email Generation Style",
+    GroupName.DATA_SOURCES_FOR_GENERATION: "Data Sources for Generation",
+    GroupName.ORGANIZATION_GENERATION_STYLE: "Organization Generation Style",
+    GroupName.CONTEXT_AND_DATA_SOURCES: "Context & Data Sources",
+    GroupName.VALIDATION_RANGE: "Validation Range",
+    GroupName.DATA_QUALITY_ANALYSIS: "Data Quality Analysis",
+    GroupName.CURRENCY_PARSING_SETTINGS: "Currency Parsing Settings",
+    GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS: "Distribution & Analysis Settings",
+    GroupName.FIELD_REMOVAL: "Field Removal",
+    GroupName.JOIN_KEYS: "Join Keys",
+    GroupName.INPUT_DATASETS: "Input Datasets",
+    GroupName.SUFFIXES: "Suffixes",
+    GroupName.GROUP_CONFIGURATION: "Group Configuration",
+    GroupName.TEXT_COMPARISON_SETTINGS: "Text Comparison Settings",
+    GroupName.ANALYSIS_CONFIGURATION: "Analysis Configuration",
+    GroupName.FIELD_WEIGHTS_CONFIGURATION: "Field Weights Configuration",
+    GroupName.ID_FIELD: "ID Field",
+    GroupName.PARTITION_SETTINGS: "Partition Settings",
+    GroupName.VALUE_GROUPS: "Value Groups",
+    GroupName.INPUT_SETTINGS: "Input Settings",
+    GroupName.FIELD_GROUPS_CONFIGURATION: "Field Groups Configuration",
+    GroupName.GROUPING_SETTINGS: "Grouping Settings",
+    GroupName.AGGREGATION_SETUP: "Aggregation Setup",
+    GroupName.CUSTOM_AGGREGATIONS: "Custom Aggregations",
+    GroupName.DICTIONARY_CONFIGURATION: "Dictionary Configuration",
+    GroupName.CORRELATION_CONFIGURATION: "Correlation Configuration",
+    GroupName.FIELD_CONSTRAINTS_CONFIGURATION: "Field Constraints Configuration",
+    GroupName.WHITELIST_CONFIGURATION: "Whitelist Configuration",
+    GroupName.BLACKLIST_CONFIGURATION: "Blacklist Configuration",
+    GroupName.NULL_REPLACEMENT_CONFIGURATION: "Null Replacement Configuration",
+    GroupName.FIELD_STRATEGIES_CONFIGURATION: "Field Strategies Configuration",
+    GroupName.INVALID_VALUES_CONFIGURATION: "Invalid Values Configuration",
+    GroupName.FIELD_OPERATIONS_CONFIGURATION: "Field Operations Configuration",
+    GroupName.LOOKUP_TABLE_CONFIGURATION: "Lookup Table Configuration",
+    GroupName.FIELD_SETTINGS: "Field Settings",
+}
+
+
+OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
+    # -------------- Anonymization ---------------
+    "NumericGeneralizationConfig": [
+        GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CategoricalGeneralizationConfig": [
+        GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.HIERARCHY_SETTINGS,
+        GroupName.FREQUENCY_GROUPING_SETTINGS,
+        GroupName.TEXT_VALUE_HANDLING,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.RISK_BASED_PROCESSING_AND_PRIVACY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "DateTimeGeneralizationConfig": [
+        GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.FORMATTING_AND_TIMEZONE,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "FullMaskingConfig": [
+        GroupName.CORE_MASKING_RULES,
+        GroupName.FORMATTING_AND_STRUCTURE,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "PartialMaskingConfig": [
+        GroupName.CORE_MASKING_STRATEGY,
+        GroupName.MASK_APPEARANCE,
+        GroupName.MASKING_RULES,
+        GroupName.FORMATTING_AND_STRUCTURE,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "UniformNumericNoiseConfig": [
+        GroupName.CORE_NOISE_STRATEGY,
+        GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "UniformTemporalNoiseConfig": [
+        GroupName.CORE_NOISE_STRATEGY,
+        GroupName.PRESERVATION_RULES,
+        GroupName.OUTPUT_FORMATTING_CONSTRAINTS,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "RecordSuppressionConfig": [
+        GroupName.CORE_SUPPRESSION_RULE,
+        GroupName.ADVANCED_CONDITIONAL_RULES,
+        GroupName.RISK_BASED_FILTERING,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CellSuppressionConfig": [
+        GroupName.CORE_SUPPRESSION_STRATEGY,
+        GroupName.SUPPRESSION_RULES,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "AttributeSuppressionConfig": [
+        GroupName.SIMPLE_CONDITIONAL_RULE,
+        GroupName.ADVANCED_CONDITIONAL_RULES,
+        GroupName.RISK_BASED_FILTERING,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    # -------------- Fake Data ------------------
+    "FakeNameOperationConfig": [
+        GroupName.NAME_GENERATION_STYLE,
+        GroupName.GENDER_CONFIGURATION,
+        GroupName.CONSISTENCY_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "FakePhoneOperationConfig": [
+        GroupName.REGIONAL_CONFIGURATION,
+        GroupName.FORMATTING_RULES,
+        GroupName.GENERATION_LOGIC,
+        GroupName.CONSISTENCY_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "FakeEmailOperationConfig": [
+        GroupName.EMAIL_GENERATION_STYLE,
+        GroupName.DATA_SOURCES_FOR_GENERATION,
+        GroupName.CONSISTENCY_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "FakeOrganizationOperationConfig": [
+        GroupName.ORGANIZATION_GENERATION_STYLE,
+        GroupName.CONTEXT_AND_DATA_SOURCES,
+        GroupName.CONSISTENCY_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    # -------------- Profiling ---------------
+    "EmailOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "IdentityAnalysisOperationConfig": [
+        GroupName.IDENTIFIER_CONFIGURATION,
+        GroupName.ANALYSIS_PARAMETERS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "MVFAnalysisOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "NumericOperationConfig": [
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "DateOperationConfig": [
+        GroupName.VALIDATION_RANGE,
+        GroupName.DATA_QUALITY_ANALYSIS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CurrencyOperationConfig": [
+        GroupName.CURRENCY_PARSING_SETTINGS,
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CorrelationOperationConfig": [
+        GroupName.FIELD_SETTINGS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CorrelationMatrixOperationConfig": [
+        GroupName.CORRELATION_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CategoricalOperationConfig": [
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "PhoneOperationConfig": [
+        GroupName.DISTRIBUTION_AND_ANALYSIS_SETTINGS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "GroupAnalyzerOperationConfig": [
+        GroupName.GROUP_CONFIGURATION,
+        GroupName.TEXT_COMPARISON_SETTINGS,
+        GroupName.FIELD_WEIGHTS_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "KAnonymityProfilerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "DataAttributeProfilerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.DICTIONARY_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "TextSemanticCategorizerOperationConfig": [
+        GroupName.ANALYSIS_CONFIGURATION,
+        GroupName.CORE_GENERALIZATION_STRATEGY,
+        GroupName.CONDITIONAL_LOGIC,
+        GroupName.DICTIONARY_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    # -------------- Transformations ---------------
+    "RemoveFieldsOperationConfig": [
+        GroupName.FIELD_REMOVAL,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "MergeDatasetsOperationConfig": [
+        GroupName.JOIN_KEYS,
+        GroupName.INPUT_DATASETS,
+        GroupName.SUFFIXES,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "SplitByIDValuesOperationConfig": [
+        GroupName.ID_FIELD,
+        GroupName.PARTITION_SETTINGS,
+        GroupName.VALUE_GROUPS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "SplitFieldsOperationConfig": [
+        GroupName.INPUT_SETTINGS,
+        GroupName.FIELD_GROUPS_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "AggregateRecordsOperationConfig": [
+        GroupName.GROUPING_SETTINGS,
+        GroupName.AGGREGATION_SETUP,
+        GroupName.CUSTOM_AGGREGATIONS,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "CleanInvalidValuesOperationConfig": [
+        GroupName.FIELD_CONSTRAINTS_CONFIGURATION,
+        GroupName.WHITELIST_CONFIGURATION,
+        GroupName.BLACKLIST_CONFIGURATION,
+        GroupName.NULL_REPLACEMENT_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "ImputeMissingValuesConfig": [
+        GroupName.INVALID_VALUES_CONFIGURATION,
+        GroupName.FIELD_STRATEGIES_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+    "AddOrModifyFieldsOperationConfig": [
+        GroupName.LOOKUP_TABLE_CONFIGURATION,
+        GroupName.FIELD_OPERATIONS_CONFIGURATION,
+        GroupName.OPERATION_BEHAVIOR_OUTPUT,
+    ],
+}
+
+
+def get_groups_for_operation(operation_config_type: str) -> List[GroupName]:
+    """
+    Get ordered groups for a specific operation config type.
+
+    Args:
+        operation_config_type: The operation config type (e.g., 'NumericGeneralizationConfig')
+
+    Returns:
+        List of GroupName enums in display order
+
+    Raises:
+        ValueError: If operation_config_type is not configured
+    """
+    if operation_config_type not in OPERATION_CONFIG_GROUPS:
+        pass
+    return OPERATION_CONFIG_GROUPS[operation_config_type]
+
+
+def get_groups_with_titles(operation_config_type: str) -> List[Dict[str, str]]:
+    """
+    Get group metadata for an operation config type.
+
+    Args:
+        operation_config_type: The operation config type
+
+    Returns:
+        List of dicts with 'name' and 'title' keys
+
+    Example:
+        >>> get_groups_with_titles("NumericGeneralizationConfig")
+        [
+            {"name": "core_generalization_strategy", "title": "Core Generalization Strategy"},
+            {"name": "conditional_logic", "title": "Conditional Logic"},
+            {"name": "operation_behavior_output", "title": "Operation Behavior & Output"}
+        ]
+    """
+    groups = get_groups_for_operation(operation_config_type)
+    return [{"name": group.value, "title": GROUP_TITLES[group]} for group in groups]

@@ -44,13 +44,14 @@ from .exceptions import (
     FieldTypeError,
     FieldValueError,
     RangeValidationError,
-    InvalidDataFormatError
+    InvalidDataFormatError,
 )
 
 
 # =============================================================================
 # Numeric Field Validator
 # =============================================================================
+
 
 class NumericFieldValidator(BaseValidator):
     """
@@ -59,11 +60,13 @@ class NumericFieldValidator(BaseValidator):
     Validates numeric data and optionally checks value ranges.
     """
 
-    def __init__(self,
-                 allow_null: bool = True,
-                 min_value: Optional[float] = None,
-                 max_value: Optional[float] = None,
-                 allow_inf: bool = False):
+    def __init__(
+        self,
+        allow_null: bool = True,
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+        allow_inf: bool = False,
+    ):
         """
         Initialize numeric field validator.
 
@@ -79,7 +82,9 @@ class NumericFieldValidator(BaseValidator):
         self.max_value = max_value
         self.allow_inf = allow_inf
 
-    def validate(self, series: pd.Series, field_name: Optional[str] = None) -> ValidationResult:
+    def validate(
+        self, series: pd.Series, field_name: Optional[str] = None
+    ) -> ValidationResult:
         """Validate numeric field."""
         result = ValidationResult(is_valid=True, field_name=field_name)
 
@@ -88,7 +93,7 @@ class NumericFieldValidator(BaseValidator):
             raise FieldTypeError(
                 field_name=field_name or "field",
                 expected_type="numeric",
-                actual_type=str(series.dtype)
+                actual_type=str(series.dtype),
             )
 
         # Null check
@@ -97,7 +102,7 @@ class NumericFieldValidator(BaseValidator):
             raise FieldValueError(
                 field_name=field_name or "field",
                 reason=f"Contains {null_count} null values",
-                invalid_count=null_count
+                invalid_count=null_count,
             )
 
         # Get non-null values
@@ -112,7 +117,7 @@ class NumericFieldValidator(BaseValidator):
             raise FieldValueError(
                 field_name=field_name or "field",
                 reason=f"Contains {inf_count} infinite values",
-                invalid_count=inf_count
+                invalid_count=inf_count,
             )
 
         # Range validation
@@ -123,23 +128,23 @@ class NumericFieldValidator(BaseValidator):
             raise RangeValidationError(
                 field_name=field_name or "field",
                 min_value=self.min_value,
-                actual_min=actual_min
+                actual_min=actual_min,
             )
 
         if self.max_value is not None and actual_max > self.max_value:
             raise RangeValidationError(
                 field_name=field_name or "field",
                 max_value=self.max_value,
-                actual_max=actual_max
+                actual_max=actual_max,
             )
 
         # Add statistics to result
-        result.details['statistics'] = {
-            'count': int(len(non_null)),
-            'mean': float(non_null.mean()),
-            'std': float(non_null.std()),
-            'min': actual_min,
-            'max': actual_max
+        result.details["statistics"] = {
+            "count": int(len(non_null)),
+            "mean": float(non_null.mean()),
+            "std": float(non_null.std()),
+            "min": actual_min,
+            "max": actual_max,
         }
 
         return result
@@ -149,6 +154,7 @@ class NumericFieldValidator(BaseValidator):
 # Categorical Field Validator
 # =============================================================================
 
+
 class CategoricalFieldValidator(BaseValidator):
     """
     Validator for categorical fields.
@@ -156,10 +162,12 @@ class CategoricalFieldValidator(BaseValidator):
     Validates categorical data and checks for valid categories.
     """
 
-    def __init__(self,
-                 allow_null: bool = True,
-                 valid_categories: Optional[List[str]] = None,
-                 max_categories: Optional[int] = None):
+    def __init__(
+        self,
+        allow_null: bool = True,
+        valid_categories: Optional[List[str]] = None,
+        max_categories: Optional[int] = None,
+    ):
         """
         Initialize categorical field validator.
 
@@ -173,22 +181,24 @@ class CategoricalFieldValidator(BaseValidator):
         self.valid_categories = set(valid_categories) if valid_categories else None
         self.max_categories = max_categories
 
-    def validate(self, series: pd.Series, field_name: Optional[str] = None) -> ValidationResult:
+    def validate(
+        self, series: pd.Series, field_name: Optional[str] = None
+    ) -> ValidationResult:
         """Validate categorical field."""
         result = ValidationResult(is_valid=True, field_name=field_name)
 
         # Type check - allow string, category, or object
         valid_types = (
-                pd.api.types.is_string_dtype(series) or
-                isinstance(series.dtype, pd.CategoricalDtype) or
-                pd.api.types.is_object_dtype(series)
+            pd.api.types.is_string_dtype(series)
+            or isinstance(series.dtype, pd.CategoricalDtype)
+            or pd.api.types.is_object_dtype(series)
         )
 
         if not valid_types:
             raise FieldTypeError(
                 field_name=field_name or "field",
                 expected_type="categorical",
-                actual_type=str(series.dtype)
+                actual_type=str(series.dtype),
             )
 
         # Null check
@@ -197,7 +207,7 @@ class CategoricalFieldValidator(BaseValidator):
             raise FieldValueError(
                 field_name=field_name or "field",
                 reason=f"Contains {null_count} null values",
-                invalid_count=null_count
+                invalid_count=null_count,
             )
 
         # Category analysis
@@ -209,7 +219,7 @@ class CategoricalFieldValidator(BaseValidator):
             raise FieldValueError(
                 field_name=field_name or "field",
                 reason=f"Too many categories: {unique_count} > {self.max_categories}",
-                invalid_count=unique_count
+                invalid_count=unique_count,
             )
 
         # Valid categories check
@@ -220,12 +230,14 @@ class CategoricalFieldValidator(BaseValidator):
                     field_name=field_name or "field",
                     reason="Invalid categories found",
                     invalid_count=len(invalid),
-                    examples=list(invalid)[:5]
+                    examples=list(invalid)[:5],
                 )
 
         # Add category info to result
-        result.details['unique_count'] = unique_count
-        result.details['top_categories'] = pd.Series(unique_values).value_counts().head(10).to_dict()
+        result.details["unique_count"] = unique_count
+        result.details["top_categories"] = (
+            pd.Series(unique_values).value_counts().head(10).to_dict()
+        )
 
         return result
 
@@ -234,6 +246,7 @@ class CategoricalFieldValidator(BaseValidator):
 # DateTime Field Validator
 # =============================================================================
 
+
 class DateTimeFieldValidator(BaseValidator):
     """
     Validator for datetime fields.
@@ -241,11 +254,13 @@ class DateTimeFieldValidator(BaseValidator):
     Validates datetime data and checks for valid ranges.
     """
 
-    def __init__(self,
-                 allow_null: bool = True,
-                 min_date: Optional[Union[str, pd.Timestamp]] = None,
-                 max_date: Optional[Union[str, pd.Timestamp]] = None,
-                 future_dates_allowed: bool = True):
+    def __init__(
+        self,
+        allow_null: bool = True,
+        min_date: Optional[Union[str, pd.Timestamp]] = None,
+        max_date: Optional[Union[str, pd.Timestamp]] = None,
+        future_dates_allowed: bool = True,
+    ):
         """
         Initialize datetime field validator.
 
@@ -261,20 +276,22 @@ class DateTimeFieldValidator(BaseValidator):
         self.max_date = pd.Timestamp(max_date) if max_date else None
         self.future_dates_allowed = future_dates_allowed
 
-    def validate(self, series: pd.Series, field_name: Optional[str] = None) -> ValidationResult:
+    def validate(
+        self, series: pd.Series, field_name: Optional[str] = None
+    ) -> ValidationResult:
         """Validate datetime field."""
         result = ValidationResult(is_valid=True, field_name=field_name)
 
         # Try to convert if not already datetime
         if not pd.api.types.is_datetime64_any_dtype(series):
             try:
-                series = pd.to_datetime(series, errors='coerce')
+                series = pd.to_datetime(series, errors="coerce")
                 series = pd.Series(series.values, index=series.index)
             except Exception:
                 raise FieldTypeError(
                     field_name=field_name or "field",
                     expected_type="datetime",
-                    actual_type=str(series.dtype)
+                    actual_type=str(series.dtype),
                 )
 
         # Null check
@@ -283,7 +300,7 @@ class DateTimeFieldValidator(BaseValidator):
             raise FieldValueError(
                 field_name=field_name or "field",
                 reason=f"Contains {null_count} null values",
-                invalid_count=null_count
+                invalid_count=null_count,
             )
 
         # Get non-null values
@@ -300,14 +317,14 @@ class DateTimeFieldValidator(BaseValidator):
             raise RangeValidationError(
                 field_name=field_name or "field",
                 min_value=self.min_date,
-                actual_min=actual_min
+                actual_min=actual_min,
             )
 
         if self.max_date and actual_max > self.max_date:
             raise RangeValidationError(
                 field_name=field_name or "field",
                 max_value=self.max_date,
-                actual_max=actual_max
+                actual_max=actual_max,
             )
 
         # Future dates check
@@ -318,14 +335,14 @@ class DateTimeFieldValidator(BaseValidator):
                 raise FieldValueError(
                     field_name=field_name or "field",
                     reason=f"Contains {future_count} future dates",
-                    invalid_count=future_count
+                    invalid_count=future_count,
                 )
 
         # Add date range to result
-        result.details['date_range'] = {
-            'min': str(actual_min),
-            'max': str(actual_max),
-            'span_days': int((actual_max - actual_min).days)
+        result.details["date_range"] = {
+            "min": str(actual_min),
+            "max": str(actual_max),
+            "span_days": int((actual_max - actual_min).days),
         }
 
         return result
@@ -334,6 +351,7 @@ class DateTimeFieldValidator(BaseValidator):
 # =============================================================================
 # Boolean Field Validator
 # =============================================================================
+
 
 class BooleanFieldValidator(BaseValidator):
     """
@@ -352,7 +370,9 @@ class BooleanFieldValidator(BaseValidator):
         super().__init__()
         self.allow_null = allow_null
 
-    def validate(self, series: pd.Series, field_name: Optional[str] = None) -> ValidationResult:
+    def validate(
+        self, series: pd.Series, field_name: Optional[str] = None
+    ) -> ValidationResult:
         """Validate boolean field."""
         result = ValidationResult(is_valid=True, field_name=field_name)
 
@@ -364,15 +384,29 @@ class BooleanFieldValidator(BaseValidator):
                 raise FieldValueError(
                     field_name=field_name or "field",
                     reason=f"Contains {null_count} null values",
-                    invalid_count=null_count
+                    invalid_count=null_count,
                 )
         else:
             # Check for boolean-like values
             unique_values = set(series.dropna().unique())
 
             # Standard boolean representations
-            bool_values = {True, False, 1, 0, '1', '0', 'true', 'false',
-                           'True', 'False', 'yes', 'no', 'Yes', 'No'}
+            bool_values = {
+                True,
+                False,
+                1,
+                0,
+                "1",
+                "0",
+                "true",
+                "false",
+                "True",
+                "False",
+                "yes",
+                "no",
+                "Yes",
+                "No",
+            }
 
             # Check if all values are boolean-like
             non_bool = unique_values - bool_values
@@ -381,11 +415,11 @@ class BooleanFieldValidator(BaseValidator):
                     field_name=field_name or "field",
                     expected_type="boolean",
                     actual_type="mixed",
-                    convertible=False
+                    convertible=False,
                 )
 
         # Add value counts to result
-        result.details['value_counts'] = series.value_counts().to_dict()
+        result.details["value_counts"] = series.value_counts().to_dict()
 
         return result
 
@@ -394,6 +428,7 @@ class BooleanFieldValidator(BaseValidator):
 # Text Field Validator
 # =============================================================================
 
+
 class TextFieldValidator(BaseValidator):
     """
     Validator for text fields.
@@ -401,11 +436,13 @@ class TextFieldValidator(BaseValidator):
     Validates text data with length and pattern checks.
     """
 
-    def __init__(self,
-                 allow_null: bool = True,
-                 min_length: Optional[int] = None,
-                 max_length: Optional[int] = None,
-                 pattern: Optional[str] = None):
+    def __init__(
+        self,
+        allow_null: bool = True,
+        min_length: Optional[int] = None,
+        max_length: Optional[int] = None,
+        pattern: Optional[str] = None,
+    ):
         """
         Initialize text field validator.
 
@@ -421,17 +458,20 @@ class TextFieldValidator(BaseValidator):
         self.max_length = max_length
         self.pattern = re.compile(pattern) if pattern else None
 
-    def validate(self, series: pd.Series, field_name: Optional[str] = None) -> ValidationResult:
+    def validate(
+        self, series: pd.Series, field_name: Optional[str] = None
+    ) -> ValidationResult:
         """Validate text field."""
         result = ValidationResult(is_valid=True, field_name=field_name)
 
         # Type check
-        if not (pd.api.types.is_string_dtype(series) or
-                pd.api.types.is_object_dtype(series)):
+        if not (
+            pd.api.types.is_string_dtype(series) or pd.api.types.is_object_dtype(series)
+        ):
             raise FieldTypeError(
                 field_name=field_name or "field",
                 expected_type="text",
-                actual_type=str(series.dtype)
+                actual_type=str(series.dtype),
             )
 
         # Null check
@@ -440,7 +480,7 @@ class TextFieldValidator(BaseValidator):
             raise FieldValueError(
                 field_name=field_name or "field",
                 reason=f"Contains {null_count} null values",
-                invalid_count=null_count
+                invalid_count=null_count,
             )
 
         # Get non-null string values
@@ -457,7 +497,7 @@ class TextFieldValidator(BaseValidator):
             raise FieldValueError(
                 field_name=field_name or "field",
                 reason=f"{short_count} values shorter than {self.min_length}",
-                invalid_count=short_count
+                invalid_count=short_count,
             )
 
         if self.max_length and (lengths > self.max_length).any():
@@ -465,7 +505,7 @@ class TextFieldValidator(BaseValidator):
             raise FieldValueError(
                 field_name=field_name or "field",
                 reason=f"{long_count} values longer than {self.max_length}",
-                invalid_count=long_count
+                invalid_count=long_count,
             )
 
         # Pattern check
@@ -481,14 +521,18 @@ class TextFieldValidator(BaseValidator):
                     field_name=field_name or "field",
                     data_type="text",
                     format_description=f"Pattern: {self.pattern.pattern}",
-                    sample_invalid=sample[~sample.apply(lambda x: bool(self.pattern.match(x)))].head(3).tolist()
+                    sample_invalid=sample[
+                        ~sample.apply(lambda x: bool(self.pattern.match(x)))
+                    ]
+                    .head(3)
+                    .tolist(),
                 )
 
         # Add length stats to result
-        result.details['length_stats'] = {
-            'min': int(lengths.min()),
-            'max': int(lengths.max()),
-            'mean': float(lengths.mean())
+        result.details["length_stats"] = {
+            "min": int(lengths.min()),
+            "max": int(lengths.max()),
+            "mean": float(lengths.mean()),
         }
 
         return result
@@ -524,9 +568,10 @@ class FieldExistsValidator(BaseValidator):
             raise FieldTypeError(
                 field_name=field_name,
                 expected_type="existing column",
-                actual_type="missing"
+                actual_type="missing",
             )
         return result
+
 
 # =============================================================================
 # Pattern Validator
@@ -551,7 +596,9 @@ class PatternValidator(BaseValidator):
         self.pattern = re.compile(pattern)
         self.allow_null = allow_null
 
-    def validate(self, series: pd.Series, field_name: Optional[str] = None) -> ValidationResult:
+    def validate(
+        self, series: pd.Series, field_name: Optional[str] = None
+    ) -> ValidationResult:
         """
         Validate that all values in the Series match the pattern.
 
@@ -573,7 +620,7 @@ class PatternValidator(BaseValidator):
             raise FieldValueError(
                 field_name=field_name or "field",
                 reason=f"Contains {null_count} null values",
-                invalid_count=null_count
+                invalid_count=null_count,
             )
 
         # Check pattern
@@ -588,14 +635,16 @@ class PatternValidator(BaseValidator):
                 field_name=field_name or "field",
                 data_type="pattern",
                 format_description=f"Pattern: {self.pattern.pattern}",
-                sample_invalid=non_matching.head(3).tolist()
+                sample_invalid=non_matching.head(3).tolist(),
             )
 
         return result
-   
+
+
 # =============================================================================
 # Factory Function
 # =============================================================================
+
 
 def create_field_validator(field_type: str, **kwargs) -> BaseValidator:
     """
@@ -612,11 +661,11 @@ def create_field_validator(field_type: str, **kwargs) -> BaseValidator:
         ValueError: If field_type is not recognized
     """
     validators = {
-        'numeric': NumericFieldValidator,
-        'categorical': CategoricalFieldValidator,
-        'datetime': DateTimeFieldValidator,
-        'boolean': BooleanFieldValidator,
-        'text': TextFieldValidator
+        "numeric": NumericFieldValidator,
+        "categorical": CategoricalFieldValidator,
+        "datetime": DateTimeFieldValidator,
+        "boolean": BooleanFieldValidator,
+        "text": TextFieldValidator,
     }
 
     if field_type not in validators:
@@ -630,12 +679,12 @@ def create_field_validator(field_type: str, **kwargs) -> BaseValidator:
 
 # Module exports
 __all__ = [
-    'NumericFieldValidator',
-    'CategoricalFieldValidator',
-    'DateTimeFieldValidator',
-    'BooleanFieldValidator',
-    'TextFieldValidator',
-    'FieldExistsValidator',
-    'PatternValidator',
-    'create_field_validator'
+    "NumericFieldValidator",
+    "CategoricalFieldValidator",
+    "DateTimeFieldValidator",
+    "BooleanFieldValidator",
+    "TextFieldValidator",
+    "FieldExistsValidator",
+    "PatternValidator",
+    "create_field_validator",
 ]

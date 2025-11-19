@@ -60,6 +60,7 @@ Changelog:
         - Full Dask support for large-scale processing
 """
 
+from datetime import datetime
 import hashlib
 import json
 import time
@@ -74,20 +75,22 @@ from pamola_core.anonymization.commons.metric_utils import (
     calculate_suppression_metrics,
     calculate_anonymization_effectiveness,
 )
+from pamola_core.anonymization.commons.validation.exceptions import FieldTypeError
 from pamola_core.anonymization.commons.validation_utils import (
     check_field_exists,
     FieldNotFoundError,
+    validate_numeric_field,
 )
 from pamola_core.anonymization.commons.visualization_utils import (
     create_histogram,
     create_comparison_visualization,
 )
+from pamola_core.anonymization.schemas.cell_op_schema import CellSuppressionConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
     load_data_operation,
     ensure_directory,
-    get_timestamped_filename,
     write_json,
     write_dataframe_to_csv,
 )
@@ -102,7 +105,7 @@ from pamola_core.utils.ops.op_result import (
     OperationArtifact,
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.ops.op_registry import register_operation
+from pamola_core.utils.ops.op_registry import register
 
 import dask.dataframe as dd
 
@@ -110,27 +113,14 @@ import dask.dataframe as dd
 MAX_GROUP_STATISTICS_SIZE = 10000
 
 
+@register(version="1.0.0")
 class CellSuppressionOperation(AnonymizationOperation):
     """
-    Cell Suppression Operation for replacing individual cell values.
+    Operation for suppressing or replacing individual cell values based on rules,
+    conditional logic, or statistical criteria.
 
-    This operation implements REQ-CELL-001 through REQ-CELL-006 from the
+    Implements REQ-CELL-001 through REQ-CELL-006 from the
     PAMOLA.CORE Suppression Operations Sub-Specification.
-
-    Attributes:
-        field_name (str): Field containing cells to suppress
-        suppression_strategy (str): Strategy for replacement
-        suppression_value (Any): Value for constant strategy
-        group_by_field (str): Field for group-based statistics
-        min_group_size (int): Minimum size for group statistics
-        suppress_if (str): Condition for automatic suppression
-        outlier_method (str): Method for outlier detection
-        outlier_threshold (float): Threshold for outlier detection
-        rare_threshold (int): Threshold for rare value detection
-        _cells_suppressed (int): Count of suppressed cells
-        _total_cells_processed (int): Total cells processed
-        _group_statistics (Dict): Cached group statistics
-        _global_statistics (Dict): Cached global statistics
     """
 
     def __init__(
@@ -138,154 +128,50 @@ class CellSuppressionOperation(AnonymizationOperation):
         field_name: str,
         suppression_strategy: str = "null",
         suppression_value: Optional[Any] = None,
-        mode: str = "REPLACE",
-        output_field_name: Optional[str] = None,
-        null_strategy: str = "PRESERVE",
-        # Conditional suppression
-        condition_field: Optional[str] = None,
-        condition_values: Optional[List] = None,
-        condition_operator: str = "in",
-        # Group-based suppression
         group_by_field: Optional[str] = None,
         min_group_size: int = 5,
-        # Value-based conditions
         suppress_if: Optional[str] = None,
         outlier_method: str = "iqr",
         outlier_threshold: float = 1.5,
         rare_threshold: int = 10,
-        optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
-        output_format: str = "csv",
-        save_output: bool = True,
-        generate_visualization: bool = True,
-        use_cache: bool = True,
-        force_recalculation: bool = False,
-        use_dask: bool = False,
-        npartitions: int = 1,
-        dask_partition_size: Optional[str] = None,
-        use_vectorization: bool = False,
-        parallel_processes: int = 1,
-        chunk_size: int = 10000,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_theme: Optional[str] = None,
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        use_encryption: bool = False,
-        encryption_key: Optional[Union[str, Path]] = None,
-        encryption_mode: Optional[str] = None,
         **kwargs,
     ):
         """
         Initialize the Cell Suppression Operation.
 
-        This operation replaces or enriches individual cell values in a column
-        based on the chosen suppression strategy, conditional logic, or value characteristics
-        such as being outliers, rare, or null.
+        This operation replaces or enriches cell values based on suppression strategy,
+        statistical thresholds, or conditional logic.
 
         Parameters
         ----------
         field_name : str
-            The column name containing cells to suppress.
+            The column containing cells to suppress.
         suppression_strategy : str, optional
-            Strategy to apply for suppression. Must be one of:
+            Suppression strategy. Supported:
             {"null", "mean", "median", "mode", "constant", "group_mean", "group_mode"}.
             Defaults to "null".
         suppression_value : Any, optional
-            Required if `suppression_strategy` is "constant". The value to use for replacement.
-        mode : str, optional
-            Operation mode, either:
-            - "REPLACE": Replace the original value.
-            - "ENRICH": Write suppressed value to a new column specified in `output_field_name`.
-            Defaults to "REPLACE".
-        output_field_name : str, optional
-            Name of the output column when `mode="ENRICH"`.
-        null_strategy : str, optional
-            Strategy for handling null values in input. One of {"PRESERVE", "SUPPRESS"}.
-            Defaults to "PRESERVE".
-
-        condition_field : str, optional
-            Name of the field to evaluate for conditional suppression.
-        condition_values : List, optional
-            List of values used to trigger suppression when matched in `condition_field`.
-        condition_operator : str, optional
-            Operator to apply when comparing `condition_field` to `condition_values`.
-            "condition_operator": condition_type,  # Supported values: ["in", "not_in", "gt", "lt", "eq", "range"]
-
+            Replacement value when using "constant" strategy.
         group_by_field : str, optional
-            Field name used to compute group-level statistics for "group_mean" or "group_mode".
-            Required if such strategies are used.
+            Column for group-based suppression (required if using "group_mean" or "group_mode").
         min_group_size : int, optional
-            Minimum number of rows required for a group to be eligible for suppression stats.
-            Defaults to 5.
-
+            Minimum group size for valid group-level suppression. Defaults to 5.
         suppress_if : str, optional
-            Automatic suppression trigger based on value characteristics. Must be one of:
-            {"outlier", "rare", "null"}.
+            Automatic suppression trigger. One of {"outlier", "rare", "null"}.
         outlier_method : str, optional
-            Method to detect outliers if `suppress_if="outlier"`.
-            Must be one of: {"iqr", "zscore"}. Defaults to "iqr".
+            Outlier detection method if `suppress_if="outlier"`. {"iqr", "zscore"}.
         outlier_threshold : float, optional
-            Sensitivity threshold for outlier detection. E.g., 1.5 for IQR. Defaults to 1.5.
+            Threshold for outlier detection. Defaults to 1.5.
         rare_threshold : int, optional
-            Minimum frequency below which values are considered rare. Defaults to 10.
-
-        optimize_memory : bool, optional
-            Whether to optimize memory usage when processing. Defaults to True.
-        adaptive_chunk_size : bool, optional
-            Whether to automatically adjust chunk sizes based on available memory. Defaults to True.
-        output_format : str, optional
-            Output file format if saving is enabled. E.g., "csv", "json". Defaults to "csv".
-        save_output : bool, optional
-            Whether to save the processed output to disk. Defaults to True.
-        generate_visualization : bool, optional
-            Whether to generate suppression visualizations. Defaults to True.
-        use_cache : bool, optional
-            Use cached results if available. Defaults to True.
-        force_recalculation : bool, optional
-            Re-run suppression even if cached output exists. Defaults to False.
-
-        use_dask : bool, optional
-            Use Dask for distributed processing. Defaults to False.
-        npartitions : int, optional
-            Number of partitions to use with Dask. Defaults to 1.
-        dask_partition_size : str, optional
-            Size of each Dask partition (e.g., "100MB").
-        use_vectorization : bool, optional
-            Use joblib for parallel execution. Defaults to False.
-        parallel_processes : int, optional
-            Number of parallel processes for joblib. Defaults to 1.
-        chunk_size : int, optional
-            Number of rows to process per chunk if memory optimization is enabled. Defaults to 10000.
-
-        visualization_backend : str, optional
-            Visualization library to use. E.g., "matplotlib", "plotly".
-        visualization_theme : str, optional
-            Theme for visualizations. E.g., "light", "dark".
-        visualization_strict : bool, optional
-            Raise error on visualization failure if True. Defaults to False.
-        visualization_timeout : int, optional
-            Maximum time in seconds to wait for visualizations to finish. Defaults to 120.
-
-        use_encryption : bool, optional
-            Whether to encrypt the saved output. Defaults to False.
-        encryption_key : str or Path, optional
-            Key or path to key file used for encryption.
-        encryption_mode : str, optional
-            Encryption algorithm to use, e.g., "AES".
-
-        **kwargs : dict
-            Additional keyword arguments passed to the base `AnonymizationOperation` class.
-
-        Raises
-        ------
-        ValueError
-            If:
-            - `suppression_strategy` is not one of the supported types.
-            - `suppression_strategy="constant"` but `suppression_value` is None.
-            - `suppression_strategy` is group-based but `group_by_field` is not provided.
-            - `suppress_if` is not in {"outlier", "rare", "null"}.
+            Frequency threshold for rare value detection. Defaults to 10.
+        **kwargs
+            Additional keyword arguments passed to AnonymizationOperation.
         """
-
+        # Description fallback
+        kwargs.setdefault(
+            "description",
+            f"Cell suppresstion for '{field_name}' using {suppression_strategy} strategy",
+        )
         # Validate suppression strategy
         valid_strategies = [
             "null",
@@ -318,48 +204,32 @@ class CellSuppressionOperation(AnonymizationOperation):
                 "Must be one of: outlier, rare, null"
             )
 
-        # Initialize parent class
-        super().__init__(
+        # --- Build config object for schema-based validation ---
+        config = CellSuppressionConfig(
             field_name=field_name,
-            mode=mode,
-            output_field_name=output_field_name,
-            null_strategy=null_strategy,
-            condition_field=condition_field,
-            condition_values=condition_values,
-            condition_operator=condition_operator,
-            optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            chunk_size=chunk_size,
-            output_format=output_format,
-            use_cache=use_cache,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            visualization_backend=visualization_backend,
-            visualization_theme=visualization_theme,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
+            suppression_strategy=suppression_strategy,
+            suppression_value=suppression_value,
+            group_by_field=group_by_field,
+            min_group_size=min_group_size,
+            suppress_if=suppress_if,
+            outlier_method=outlier_method,
+            outlier_threshold=outlier_threshold,
+            rare_threshold=rare_threshold,
             **kwargs,
         )
 
-        # Store operation-specific parameters
-        self.suppression_strategy = suppression_strategy
-        self.suppression_value = suppression_value
-        self.group_by_field = group_by_field
-        self.min_group_size = min_group_size
-        self.suppress_if = suppress_if
-        self.outlier_method = outlier_method.lower()
-        self.outlier_threshold = outlier_threshold
-        self.rare_threshold = rare_threshold
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
 
-        self.save_output = save_output
-        self.generate_visualization = generate_visualization
-        self.force_recalculation = force_recalculation
+        # Initialize base AnonymizationOperation
+        super().__init__(
+            field_name=field_name,
+            **kwargs,
+        )
+
+        # Save config attributes to self
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
 
         # Initialize internal state
         self._cells_suppressed = 0
@@ -372,6 +242,10 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         # Thread safety for Dask
         self._counter_lock = Lock()
+
+        # Operation metadata
+        self.operation_name = self.__class__.__name__
+        self._original_df = None
 
     def _cache_group_statistics(self, group_val: Any, stats: Dict[str, Any]) -> None:
         """
@@ -470,44 +344,33 @@ class CellSuppressionOperation(AnonymizationOperation):
         **kwargs,
     ) -> OperationResult:
         """
-        Execute the cell suppression operation.
+        Execute the operation with timing and error handling.
 
-        Steps include:
-        - Preparing output directories and environment.
-        - Loading and validating the input dataset.
-        - Checking and returning cached results if available and permitted.
-        - Processing data in batches or partitions to suppress records.
-        - Collecting and saving suppression metrics.
-        - Saving the final output dataset and visualizations.
-        - Caching results if enabled.
-
-        This method overrides the base `execute` method to customize logic specific
-        to record-level suppression, including tracking suppressed record counts
-        and optionally saving removed rows.
-
-        Parameters
-        ----------
+        Parameters:
+        -----------
         data_source : DataSource
-            Source of input data for the suppression operation.
+            Source of data for the operation
         task_dir : Path
-            Directory where output files, visualizations, and metrics will be saved.
-        reporter : Any, optional
-            Reporter object for logging and reporting operation progress and results.
-        progress_tracker : Optional[HierarchicalProgressTracker], optional
-            Tracker to update real-time progress feedback.
+            Directory where task artifacts should be saved
+        reporter : Any
+            Reporter object for tracking progress and artifacts
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Progress tracker for the operation
         **kwargs : dict
-            Additional parameters that may influence suppression behavior (e.g. logger, settings).
+            Additional parameters for the operation
 
-        Returns
-        -------
+        Returns:
+        --------
         OperationResult
-            Structured result object including status, metrics, artifacts, and optional errors.
+            Results of the operation
         """
         try:
             # Initialize operation metadata
             self.start_time = time.time()
-            operation_name = self.__class__.__name__
             self.logger = kwargs.get("logger", self.logger)
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Initialize result object
             result = OperationResult(
@@ -521,7 +384,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             # Start operation - Preparation
             self.logger.info(
-                f"Operation: {operation_name}, Start operation - Preparation"
+                f"Operation: {self.operation_name}, Start operation - Preparation"
             )
 
             # Handle preparation
@@ -534,7 +397,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             # Load data and validate input parameters
             self.logger.info(
-                f"Operation: {operation_name}, Load data and validate input parameters"
+                f"Operation: {self.operation_name}, Load data and validate input parameters"
             )
 
             df, is_valid = self._load_data_and_validate_input_parameters(
@@ -548,7 +411,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             if self.use_cache and not self.force_recalculation:
                 try:
                     self.logger.info(
-                        f"Operation: {operation_name}, Load result from cache"
+                        f"Operation: {self.operation_name}, Load result from cache"
                     )
                     cached_result = self._get_cache(
                         df.copy(), progress_tracker=progress_tracker, reporter=reporter
@@ -568,7 +431,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             try:
                 # Process data
-                self.logger.info(f"Operation: {operation_name}, Process data")
+                self.logger.info(f"Operation: {self.operation_name}, Process data")
                 mask, output_data = self._process_data(
                     df, progress_tracker=progress_tracker, reporter=reporter
                 )
@@ -586,7 +449,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             try:
                 # Handle metric
-                self.logger.info(f"Operation: {operation_name}, Collect metric")
+                self.logger.info(f"Operation: {self.operation_name}, Collect metric")
                 self._handle_metrics(
                     input_data=df,
                     output_data=output_data,
@@ -595,6 +458,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                     task_dir=task_dir,
                     progress_tracker=progress_tracker,
                     reporter=reporter,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -604,13 +468,14 @@ class CellSuppressionOperation(AnonymizationOperation):
             # Save output if required
             if self.save_output:
                 try:
-                    self.logger.info(f"Operation: {operation_name}, Save output")
+                    self.logger.info(f"Operation: {self.operation_name}, Save output")
                     self._save_output(
                         output_data=output_data,
                         task_dir=task_dir,
                         result=result,
                         progress_tracker=progress_tracker,
                         reporter=reporter,
+                        operation_timestamp=operation_timestamp,
                     )
                 except Exception as e:
                     error_message = f"Error saving output: {str(e)}"
@@ -625,7 +490,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             if self.generate_visualization:
                 try:
                     self.logger.info(
-                        f"Operation: {operation_name}, Generate visualizations"
+                        f"Operation: {self.operation_name}, Generate visualizations"
                     )
                     self._handle_visualizations(
                         input_data=df,
@@ -634,6 +499,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                         result=result,
                         progress_tracker=progress_tracker,
                         reporter=reporter,
+                        operation_timestamp=operation_timestamp,
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
@@ -643,7 +509,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             # Save cache if required
             if self.use_cache:
                 try:
-                    self.logger.info(f"Operation: {operation_name}, Save cache")
+                    self.logger.info(f"Operation: {self.operation_name}, Save cache")
                     self._save_cache(
                         task_dir,
                         result,
@@ -666,10 +532,10 @@ class CellSuppressionOperation(AnonymizationOperation):
             return result
 
         except Exception as e:
-            self.logger.error(f"Operation: {operation_name}, error occurred: {e}")
+            self.logger.error(f"Operation: {self.operation_name}, error occurred: {e}")
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": "Exception",
@@ -716,13 +582,12 @@ class CellSuppressionOperation(AnonymizationOperation):
         Dict[str, Path]
             Dictionary of prepared directory paths.
         """
-        operation_name = self.__class__.__name__
         step = "Preparation"
 
         # Setup total progress steps
         if progress_tracker:
-            progress_tracker.total = self._compute_total_steps(**kwargs)
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.total = self._compute_total_steps()
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         # Prepare necessary directories
         dirs = self._prepare_directories(task_dir)
@@ -732,10 +597,13 @@ class CellSuppressionOperation(AnonymizationOperation):
             cache_dir=task_dir / "cache",
         )
 
+        # Save configuration to task directory
+        self.save_config(task_dir)
+
         # Report preparation success
         if reporter:
             reporter.add_operation(
-                f"Operation {operation_name}",
+                f"Operation {self.operation_name}",
                 status="info",
                 details={
                     "step": "Preparation",
@@ -804,11 +672,10 @@ class CellSuppressionOperation(AnonymizationOperation):
             - mask: A global boolean mask indicating which cells were suppressed.
             - output_data: The resulting DataFrame after cell suppression.
         """
-        operation_name = self.__class__.__name__
         step = "Process data with pandas"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         try:
             total_rows = len(input_data)
@@ -888,7 +755,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -904,10 +771,12 @@ class CellSuppressionOperation(AnonymizationOperation):
             return global_mask, output_data
 
         except Exception as e:
-            self.logger.error(f"{operation_name} - {step} failed: {e}", exc_info=True)
+            self.logger.error(
+                f"{self.operation_name} - {step} failed: {e}", exc_info=True
+            )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -926,11 +795,10 @@ class CellSuppressionOperation(AnonymizationOperation):
         import dask.dataframe as dd
         from functools import partial
 
-        operation_name = self.__class__.__name__
         step = "Process data with Dask"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         try:
             suppression_counter = {}
@@ -1008,7 +876,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1023,10 +891,12 @@ class CellSuppressionOperation(AnonymizationOperation):
             return global_mask, output_df
 
         except Exception as e:
-            self.logger.error(f"{operation_name} - {step} failed: {e}", exc_info=True)
+            self.logger.error(
+                f"{self.operation_name} - {step} failed: {e}", exc_info=True
+            )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -1047,11 +917,10 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         from joblib import Parallel, delayed
 
-        operation_name = self.__class__.__name__
         step = "Process data with Joblib"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         try:
             total_rows = len(input_data)
@@ -1114,7 +983,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1130,10 +999,12 @@ class CellSuppressionOperation(AnonymizationOperation):
             return global_mask, output_df
 
         except Exception as e:
-            self.logger.error(f"{operation_name} - {step} failed: {e}", exc_info=True)
+            self.logger.error(
+                f"{self.operation_name} - {step} failed: {e}", exc_info=True
+            )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -1316,7 +1187,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             raise
 
     def _save_metrics(
-        self, metrics: Dict[str, Any], task_dir: Path, result: OperationResult
+        self, metrics: Dict[str, Any], task_dir: Path, result: OperationResult, operation_timestamp: Optional[str] = None
     ) -> None:
         """
         Save the collected metrics as a JSON file and register it as an artifact.
@@ -1328,10 +1199,8 @@ class CellSuppressionOperation(AnonymizationOperation):
             metrics_dir = task_dir / "metrics"
             ensure_directory(metrics_dir)
 
-            operation_name = self.__class__.__name__
-            filename = get_timestamped_filename(
-                f"{operation_name}__metrics", "json", True
-            )
+            operation_name = self.operation_name.lower()
+            filename = f"{operation_name}_metrics_{operation_timestamp}.json"
             metrics_path = metrics_dir / filename
 
             write_json(metrics, metrics_path, encryption_key=self.encryption_key)
@@ -1339,7 +1208,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             result.add_artifact(
                 artifact_type="json",
                 path=metrics_path,
-                description=f"Metrics for {operation_name}",
+                description=f"Metrics for {self.operation_name}",
                 category=Constants.Artifact_Category_Metrics,
             )
 
@@ -1360,6 +1229,7 @@ class CellSuppressionOperation(AnonymizationOperation):
         task_dir: Path,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
+        operation_timestamp: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Handle the collection and saving of metrics for record suppression.
@@ -1372,19 +1242,20 @@ class CellSuppressionOperation(AnonymizationOperation):
         -------
         Optional[Dict[str, Any]]
         """
-        operation_name = self.__class__.__name__
         step = "Collect metrics"
         try:
             if progress_tracker:
-                progress_tracker.update(1, {"step": step, "operation": operation_name})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             metrics = self._collect_metrics(input_data, output_data, mask)
             result.metrics = metrics
-            self._save_metrics(metrics, task_dir, result)
+            self._save_metrics(metrics, task_dir, result, operation_timestamp)
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1412,11 +1283,11 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         except Exception as e:
             self.logger.error(
-                f"Failed to handle metrics in {operation_name}: {e}", exc_info=True
+                f"Failed to handle metrics in {self.operation_name}: {e}", exc_info=True
             )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={"step": step, "message": str(e)},
                 )
@@ -1429,6 +1300,7 @@ class CellSuppressionOperation(AnonymizationOperation):
         result: OperationResult,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
+        operation_timestamp: Optional[str] = None,
     ):
         """
         Save the processed output DataFrame to disk and register it as an artifact.
@@ -1449,14 +1321,14 @@ class CellSuppressionOperation(AnonymizationOperation):
             Progress tracker instance to update progress.
         reporter : Optional[Any]
             Reporter object to log progress and status.
-        **kwargs : dict
-            Additional keyword arguments, including encryption settings.
+        operation_timestamp : Optional[str]
+            Timestamp string for file naming.
         """
-        operation_name = self.__class__.__name__
         step = "Save output"
+        operation_name = self.operation_name.lower()
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         output_dir = task_dir / "output"
         ensure_directory(output_dir)
@@ -1469,10 +1341,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             "encryption_mode": self.encryption_mode,
         }
         encryption_mode = get_encryption_mode(output_data, **kwargs_encryption)
-
-        filename = get_timestamped_filename(
-            f"{operation_name}_{self.field_name}", self.output_format, True
-        )
+        filename = f"{operation_name}_{self.field_name}_output_{operation_timestamp}.{self.output_format}"
         output_path = output_dir / filename
 
         try:
@@ -1507,7 +1376,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 self.logger.warning(warning_msg)
                 if reporter:
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="warning",
                         details={"step": step, "message": warning_msg},
                     )
@@ -1523,7 +1392,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1538,7 +1407,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -1553,6 +1422,7 @@ class CellSuppressionOperation(AnonymizationOperation):
         output_data: pd.DataFrame,
         task_dir: Path,
         result: OperationResult,
+        operation_timestamp: Optional[str] = None,
     ) -> Optional[Path]:
         """
         Generate visualization showing distribution changes.
@@ -1561,6 +1431,8 @@ class CellSuppressionOperation(AnonymizationOperation):
             input_data: Original DataFrame
             output_data: Processed DataFrame
             task_dir: Directory to save visualization
+            result: OperationResult to register artifacts
+            operation_timestamp: Timestamp string for file naming
 
         Returns:
             Path to saved visualization or None
@@ -1568,7 +1440,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         vis_dir = task_dir / "visualizations"
         ensure_directory(vis_dir)
-        operation_name = self.__class__.__name__
+        operation_name = self.operation_name.lower()
 
         kwargs_visualization = {
             "use_encryption": self.use_encryption,
@@ -1594,7 +1466,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 vis_dir,
                 self.field_name,
                 operation_name,
-                timestamp=None,
+                timestamp=operation_timestamp,
                 **kwargs_visualization,
             )
 
@@ -1614,9 +1486,8 @@ class CellSuppressionOperation(AnonymizationOperation):
             # Create histogram if numeric data
             if pd.api.types.is_numeric_dtype(original_series):
                 try:
-                    file_path = vis_dir / get_timestamped_filename(
-                        f"{operation_name}_suppressed_distribution", "png", True
-                    )
+                    distribution_file_name = f"{operation_name}_suppressed_distribution_{operation_timestamp}.png"
+                    file_path = vis_dir / distribution_file_name
                     hist_path = create_histogram(
                         data=processed_series.dropna().tolist(),
                         output_path=file_path,
@@ -1656,6 +1527,7 @@ class CellSuppressionOperation(AnonymizationOperation):
         result: OperationResult,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
+        operation_timestamp: Optional[str] = None,
     ) -> None:
         """
         Handle generation of visualizations in a separate thread, with logging and timeout.
@@ -1674,11 +1546,12 @@ class CellSuppressionOperation(AnonymizationOperation):
             Optional progress tracker to report progress.
         reporter : Optional[Any]
             Optional reporter to log operation status.
+        operation_timestamp : Optional[str]
+            Timestamp string for file naming.
         """
         import threading
         import contextvars
 
-        operation_name = self.__class__.__name__
         step = "Generate visualizations"
         self.logger.info(
             f"[VIZ] Preparing to generate visualizations in a separate thread"
@@ -1694,6 +1567,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                     output_data=output_data,
                     task_dir=task_dir,
                     result=result,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
                 viz_error = e
@@ -1703,7 +1577,9 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         try:
             if progress_tracker:
-                progress_tracker.update(1, {"step": step, "operation": operation_name})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             ctx = contextvars.copy_context()
             thread = threading.Thread(
@@ -1722,7 +1598,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 )
                 if reporter:
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="warning",
                         details={
                             "step": "Generate visualizations",
@@ -1733,7 +1609,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 self.logger.warning(f"[VIZ] Visualization thread failed: {viz_error}")
                 if reporter:
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="warning",
                         details={
                             "step": "Generate visualizations",
@@ -1747,7 +1623,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                         [a for a in result.artifacts if a.artifact_type == "png"]
                     )
                     reporter.add_operation(
-                        f"Operation {operation_name}",
+                        f"Operation {self.operation_name}",
                         status="info",
                         details={
                             "step": "Generate visualizations",
@@ -1762,7 +1638,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             )
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": "Generate visualizations",
@@ -1793,7 +1669,6 @@ class CellSuppressionOperation(AnonymizationOperation):
         **kwargs : dict
             Additional keyword arguments, used to compute the cache key.
         """
-        operation_name = self.__class__.__name__
         step = "Save cache"
 
         try:
@@ -1816,7 +1691,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             }
 
             cache_key = self.operation_cache.generate_cache_key(
-                operation_name=operation_name,
+                operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(),
                 data_hash=self._generate_data_hash(self._original_df.copy()),
             )
@@ -1824,18 +1699,20 @@ class CellSuppressionOperation(AnonymizationOperation):
             self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=operation_name,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
             self.logger.info(f"Saved result to cache with key: {cache_key}")
 
             if progress_tracker:
-                progress_tracker.update(1, {"step": step, "operation": operation_name})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": "Save cache",
@@ -1871,21 +1748,20 @@ class CellSuppressionOperation(AnonymizationOperation):
         Optional[OperationResult]
             The cached OperationResult if available, otherwise None.
         """
-        operation_name = self.__class__.__name__
         step = "Load result from cache"
 
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         try:
             cache_key = self.operation_cache.generate_cache_key(
-                operation_name=operation_name,
+                operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(),
                 data_hash=self._generate_data_hash(df),
             )
 
             cached = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=operation_name
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             result_data = cached.get("result")
@@ -1925,7 +1801,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1936,11 +1812,11 @@ class CellSuppressionOperation(AnonymizationOperation):
             return result
 
         except Exception as e:
-            self.logger.info(f"{operation_name} - {step} failed: {e}")
+            self.logger.info(f"{self.operation_name} - {step} failed: {e}")
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="info",
                     details={
                         "step": step,
@@ -1960,7 +1836,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             Dict[str, Any]: Dictionary of relevant parameters for cache identity.
         """
         return {
-            "operation": self.__class__.__name__,
+            "operation": self.operation_name,
             "version": self.version,
             "field_name": self.field_name,
             "mode": self.mode,
@@ -2068,119 +1944,6 @@ class CellSuppressionOperation(AnonymizationOperation):
             fallback = f"{df.shape}_{list(df.dtypes)}"
             return hashlib.md5(fallback.encode()).hexdigest()
 
-    def _set_input_parameters(self, **kwargs):
-        """
-        Set common configurable operation parameters from keyword arguments.
-        """
-
-        self.field_name = kwargs.get("field_name", getattr(self, "field_name", None))
-        self.mode = kwargs.get("mode", getattr(self, "mode", "REPLACE"))
-        self.output_field_name = kwargs.get(
-            "output_field_name", getattr(self, "output_field_name", None)
-        )
-
-        # Suppression strategy
-        self.suppression_strategy = kwargs.get(
-            "suppression_strategy", getattr(self, "suppression_strategy", "null")
-        )
-        self.suppression_value = kwargs.get(
-            "suppression_value", getattr(self, "suppression_value", None)
-        )
-        self.group_by_field = kwargs.get(
-            "group_by_field", getattr(self, "group_by_field", None)
-        )
-        self.min_group_size = kwargs.get(
-            "min_group_size", getattr(self, "min_group_size", 5)
-        )
-
-        # Conditional suppression
-        self.condition_field = kwargs.get(
-            "condition_field", getattr(self, "condition_field", None)
-        )
-        self.condition_values = kwargs.get(
-            "condition_values", getattr(self, "condition_values", None)
-        )
-        self.condition_operator = kwargs.get(
-            "condition_operator", getattr(self, "condition_operator", "in")
-        )
-
-        # Auto suppression criteria
-        self.suppress_if = kwargs.get("suppress_if", getattr(self, "suppress_if", None))
-        self.outlier_method = kwargs.get(
-            "outlier_method", getattr(self, "outlier_method", "iqr")
-        ).lower()
-        self.outlier_threshold = kwargs.get(
-            "outlier_threshold", getattr(self, "outlier_threshold", 1.5)
-        )
-        self.rare_threshold = kwargs.get(
-            "rare_threshold", getattr(self, "rare_threshold", 10)
-        )
-
-        # Execution options
-        self.optimize_memory = kwargs.get(
-            "optimize_memory", getattr(self, "optimize_memory", True)
-        )
-        self.adaptive_chunk_size = kwargs.get(
-            "adaptive_chunk_size", getattr(self, "adaptive_chunk_size", True)
-        )
-
-        # Dask settings
-        self.use_dask = kwargs.get("use_dask", getattr(self, "use_dask", False))
-        self.npartitions = kwargs.get("npartitions", getattr(self, "npartitions", 1))
-        self.dask_partition_size = kwargs.get(
-            "dask_partition_size", getattr(self, "dask_partition_size", None)
-        )
-
-        # Joblib settings
-        self.use_vectorization = kwargs.get(
-            "use_vectorization", getattr(self, "use_vectorization", False)
-        )
-        self.parallel_processes = kwargs.get(
-            "parallel_processes", getattr(self, "parallel_processes", 1)
-        )
-
-        self.chunk_size = kwargs.get("chunk_size", getattr(self, "chunk_size", 10000))
-
-        # Visualization
-        self.generate_visualization = kwargs.get(
-            "generate_visualization", getattr(self, "generate_visualization", True)
-        )
-        self.visualization_backend = kwargs.get(
-            "visualization_backend", getattr(self, "visualization_backend", None)
-        )
-        self.visualization_theme = kwargs.get(
-            "visualization_theme", getattr(self, "visualization_theme", None)
-        )
-        self.visualization_strict = kwargs.get(
-            "visualization_strict", getattr(self, "visualization_strict", False)
-        )
-        self.visualization_timeout = kwargs.get(
-            "visualization_timeout", getattr(self, "visualization_timeout", 120)
-        )
-
-        # Output and caching
-        self.save_output = kwargs.get("save_output", getattr(self, "save_output", True))
-        self.output_format = kwargs.get(
-            "output_format", getattr(self, "output_format", "csv")
-        )
-        self.use_cache = kwargs.get("use_cache", getattr(self, "use_cache", True))
-        self.force_recalculation = kwargs.get(
-            "force_recalculation", getattr(self, "force_recalculation", False)
-        )
-
-        # Encryption
-        self.use_encryption = kwargs.get(
-            "use_encryption", getattr(self, "use_encryption", False)
-        )
-        self.encryption_key = (
-            kwargs.get("encryption_key", getattr(self, "encryption_key", None))
-            if self.use_encryption
-            else None
-        )
-        self.encryption_mode = kwargs.get(
-            "encryption_mode", getattr(self, "encryption_mode", None)
-        )
-
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """
         Validate that required input parameters and fields exist in the DataFrame.
@@ -2266,13 +2029,10 @@ class CellSuppressionOperation(AnonymizationOperation):
         Tuple[Optional[pd.DataFrame], bool]
             Loaded DataFrame (or None), and validation success flag.
         """
-        operation_name = self.__class__.__name__
         step = "Load data and validate input parameters"
 
-        self._set_input_parameters(**kwargs)
-
         if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": operation_name})
+            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
 
         dataset_name = kwargs.get("dataset_name", "main")
         settings_operation = load_settings_operation(
@@ -2285,7 +2045,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             if reporter:
                 reporter.add_operation(
-                    f"Operation {operation_name}",
+                    f"Operation {self.operation_name}",
                     status="error",
                     details={
                         "step": step,
@@ -2294,14 +2054,13 @@ class CellSuppressionOperation(AnonymizationOperation):
                 )
             return None, False
 
-        self._input_dataset = dataset_name
         self._original_df = df.copy(deep=True)
 
         is_valid = self._validate_input_parameters(df)
 
         if reporter:
             reporter.add_operation(
-                f"Operation {operation_name}",
+                f"Operation {self.operation_name}",
                 status="info" if is_valid else "warning",
                 details={
                     "step": step,
@@ -2316,34 +2075,26 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         return df, is_valid
 
-    def _compute_total_steps(self, **kwargs) -> int:
-        use_cache = kwargs.get("use_cache", self.use_cache)
-        force_recalculation = kwargs.get(
-            "force_recalculation", self.force_recalculation
-        )
-        save_output = kwargs.get("save_output", self.save_output)
-        generate_visualization = kwargs.get(
-            "generate_visualization", self.generate_visualization
-        )
+    def _compute_total_steps(self) -> int:
 
         steps = 0
 
         steps += 1  # Step 1: Preparation
         steps += 1  # Step 2: Load data and validate input
 
-        if use_cache and not force_recalculation:
+        if self.use_cache and not self.force_recalculation:
             steps += 1  # Step 3: Try to load from cache
 
         steps += 1  # Step 4: Process data
         steps += 1  # Step 5: Collect metrics
 
-        if save_output:
+        if self.save_output:
             steps += 1  # Step 6: Save output
 
-        if generate_visualization:
+        if self.generate_visualization:
             steps += 1  # Step 7: Generate visualizations
 
-        if use_cache:
+        if self.use_cache:
             steps += 1  # Step 8: Save cache
 
         return steps
@@ -2664,20 +2415,24 @@ def apply_suppression_strategy(
     min_group_size: int = 5,
 ) -> pd.DataFrame:
     working_field = field_name
-    original = batch[working_field].copy()
+    original_dtype = batch[working_field].dtype
 
+    # --- Strategy cases ---
     if strategy == "null":
-        batch.loc[batch_mask, working_field] = None
+        if pd.api.types.is_numeric_dtype(original_dtype):
+            batch.loc[batch_mask, working_field] = np.nan
+        else:
+            batch.loc[batch_mask, working_field] = None
 
     elif strategy == "mean":
-        numeric_series = pd.to_numeric(batch[working_field], errors="coerce")
-        mean_val = numeric_series.mean()
+        _require_numeric(batch, working_field)
+        mean_val = pd.to_numeric(batch[working_field], errors="coerce").mean()
         if pd.notna(mean_val):
             batch.loc[batch_mask, working_field] = mean_val
 
     elif strategy == "median":
-        numeric_series = pd.to_numeric(batch[working_field], errors="coerce")
-        median_val = numeric_series.median()
+        _require_numeric(batch, working_field)
+        median_val = pd.to_numeric(batch[working_field], errors="coerce").median()
         if pd.notna(median_val):
             batch.loc[batch_mask, working_field] = median_val
 
@@ -2688,9 +2443,16 @@ def apply_suppression_strategy(
             batch.loc[batch_mask, working_field] = mode_val
 
     elif strategy == "constant":
-        batch.loc[batch_mask, working_field] = suppression_value
+        try:
+            suppression_value_casted = np.array([suppression_value]).astype(
+                original_dtype
+            )[0]
+        except Exception:
+            suppression_value_casted = suppression_value
+        batch.loc[batch_mask, working_field] = suppression_value_casted
 
     elif strategy == "group_mean":
+        _require_numeric(batch, working_field)
         if not group_by_field:
             raise ValueError("group_mean strategy requires group_by_field")
         global_mean = pd.to_numeric(batch[working_field], errors="coerce").mean()
@@ -2722,8 +2484,27 @@ def apply_suppression_strategy(
     else:
         raise ValueError(f"Unsupported suppression strategy: {strategy}")
 
+    # --- Restore dtype ---
+    try:
+        if pd.api.types.is_numeric_dtype(original_dtype):
+            batch[working_field] = pd.to_numeric(batch[working_field], errors="coerce")
+        else:
+            batch[working_field] = batch[working_field].astype(
+                original_dtype, errors="ignore"
+            )
+    except Exception:
+        pass
+
     return batch
 
 
-# Register the operation with the framework
-register_operation(CellSuppressionOperation)
+def _require_numeric(batch: pd.DataFrame, field_name: str) -> None:
+    """
+    Ensure that the field is numeric for strategies that require numeric values.
+    """
+    if not validate_numeric_field(batch, field_name, allow_null=True):
+        raise FieldTypeError(
+            field_name,
+            expected_type="numeric",
+            actual_type=str(batch[field_name].dtype),
+        )

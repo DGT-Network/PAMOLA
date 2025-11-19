@@ -121,16 +121,6 @@ if result:
     print(f"Extracted entity: {result.category}")
 ```
 
-### Integration with BaseTask
-```python
-from pamola_core.base_processor import BaseTask
-
-class MyEntityTask(BaseTask):
-    def run(self, text):
-        extractor = GenericDictionaryExtractor(entity_type='org', language='en')
-        return extractor.extract(text)
-```
-
 ### Continue-on-Error Example
 ```python
 try:

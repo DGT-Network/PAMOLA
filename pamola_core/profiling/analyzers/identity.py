@@ -1,15 +1,27 @@
 """
-Identity analysis module for the project.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+Module:        Identity Field Profiler Operation
+Package:       pamola.pamola_core.profiling.analyzers
+Version:       2.0.0
+Status:        stable
+Author:        PAMOLA Core Team
+Created:       2025
+License:       BSD 3-Clause
 
-This module provides analyzers and operations for identity fields, following the
-operation architecture. It includes analysis of identifier consistency, distribution
-of records per identifier, and cross-matching of identifiers.
+Description:
+  This module provides analyzers and operations for profiling identity fields in tabular datasets.
+  It includes analysis of identifier consistency, distribution of records per identifier,
+  and cross-matching of identifiers for privacy and data quality assessment.
 
-It integrates with the utility modules:
-- io.py: For reading/writing data and managing directories
-- visualization.py: For creating standardized plots
-- progress.py: For tracking operation progress
-- logging.py: For operation logging
+Key Features:
+  - Identifier consistency and uniqueness analysis
+  - Distribution analysis of records per identifier
+  - Cross-matching of identifiers and reference fields
+  - Visualization generation for identifier statistics and consistency
+  - Robust error handling, progress tracking, and operation logging
+  - Caching and efficient repeated analysis
+  - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
 
 from datetime import datetime
@@ -29,19 +41,21 @@ from pamola_core.profiling.commons.identity_utils import (
     generate_field_distribution_vis,
     generate_identifier_statistics_vis,
 )
+from pamola_core.profiling.schemas.identity_schema import IdentityAnalysisOperationConfig
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
+
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -163,47 +177,6 @@ class IdentityAnalyzer:
         return compute_identifier_stats(df, id_field, entity_field)
 
 
-class IdentityAnalysisOperationConfig(OperationConfig):
-    """Configuration for IdentityAnalysisOperation."""
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "uid_field": {"type": "string"},
-            "reference_fields": {
-                "type": "array",
-                "items": {"type": "string"},
-                "minItems": 1,
-            },
-            "id_field": {"type": ["string", "null"]},
-            "top_n": {"type": "integer", "minimum": 1, "default": 15},
-            "check_cross_matches": {"type": "boolean", "default": True},
-            "min_similarity": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 1,
-                "default": 0.8,
-            },
-            "fuzzy_matching": {"type": "boolean", "default": False},
-            "use_cache": {"type": "boolean"},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]},
-            # Visualization-related properties
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {
-                "type": ["string", "null"],
-                "enum": ["plotly", "matplotlib", None],
-            },
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
-        },
-        "required": [
-            "uid_field",
-            "reference_fields",
-        ],
-    }
-
-
 @register(version="1.0.0")
 class IdentityAnalysisOperation(FieldOperation):
     """
@@ -224,106 +197,63 @@ class IdentityAnalysisOperation(FieldOperation):
         check_cross_matches: bool = True,
         min_similarity: float = 0.8,
         fuzzy_matching: bool = False,
-        description: str = "",
-        use_encryption: bool = False,
-        encryption_key: Optional[Union[str, Path]] = None,
-        use_cache: bool = True,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
+        **kwargs,
     ):
         """
         Initialize the identity analysis operation.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         uid_field : str
-            Primary identifier field to analyze (e.g., 'UID')
+            Primary identifier field to analyze (e.g., 'UID').
         reference_fields : List[str]
-            Fields that can be used to identify an entity (e.g., ['first_name', 'last_name', 'birth_day'])
+            Fields used to identify an entity (e.g., ['first_name', 'last_name']).
         id_field : Optional[str]
-            Entity identifier field (e.g., 'resume_id'), used to analyze entities per identifier
+            Entity-level identifier field (optional).
         top_n : int
-            Number of top entries to include (default: 15)
+            Number of top entries to include (default: 15).
         check_cross_matches : bool
-            Whether to check for cross matches (default: True)
+            Whether to check for cross-matching (default: True).
         min_similarity : float
-            Minimum similarity for fuzzy matching (default: 0.8)
+            Minimum similarity threshold for fuzzy matching (default: 0.8).
         fuzzy_matching : bool
-            Whether to use fuzzy matching (default: False)
-        description : str
-            Description of the operation (optional)
-        use_encryption : bool
-            Whether to use encryption (default: False)
-        encryption_key : Optional[Union[str, Path]]
-            Encryption key to use for sensitive data (default: None)
-        use_cache : bool
-            Whether to use caching (default: True)
-        visualization_theme : Optional[str]
-            Theme to use for visualizations (default: None)
-        visualization_backend : Optional[str]
-            Backend to use for visualizations (default: None)
-        visualization_strict : bool
-            Whether to enforce strict visualization rules (default: False)
-        visualization_timeout : int
-            Timeout for visualizations in seconds (default: 120)
+            Whether to use fuzzy matching (default: False).
+        **kwargs : dict
+            Additional parameters passed to FieldOperation.
         """
-        # Use default description if not provided
-        if not description:
-            description = f"Analysis of identity field '{uid_field}'"
-
-        # Build config parameters, excluding None values for optional fields
-        config_params = {
-            "uid_field": uid_field,
-            "reference_fields": reference_fields or [],
-            "id_field": id_field,
-            "top_n": top_n,
-            "check_cross_matches": check_cross_matches,
-            "min_similarity": min_similarity,
-            "fuzzy_matching": fuzzy_matching or False,
-            "use_cache": use_cache,
-            "use_encryption": use_encryption,
-            "encryption_key": encryption_key,
-            "visualization_theme": visualization_theme,
-            "visualization_backend": visualization_backend,
-            "visualization_strict": visualization_strict,
-            "visualization_timeout": visualization_timeout,
-        }
-
-        # Create configuration and validate parameters
-        config = IdentityAnalysisOperationConfig(**config_params)
-
-        super().__init__(
-            field_name=uid_field,
-            description=description,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            config=config,
+        # --- Default description fallback ---
+        kwargs.setdefault(
+            "description",
+            f"Analysis of identity field '{uid_field}'",
         )
 
-        # Assign instance properties from config
-        for key, value in config_params.items():
+        # --- Build unified config ---
+        config = IdentityAnalysisOperationConfig(
+            uid_field=uid_field,
+            reference_fields=reference_fields or [],
+            id_field=id_field,
+            top_n=top_n,
+            check_cross_matches=check_cross_matches,
+            min_similarity=min_similarity,
+            fuzzy_matching=fuzzy_matching,
+            **kwargs,
+        )
+
+        # Inject config into kwargs for parent constructor
+        kwargs["config"] = config
+
+        # --- Initialize parent FieldOperation ---
+        super().__init__(
+            field_name=uid_field,
+            **kwargs,
+        )
+
+        # --- Save config attributes to instance ---
+        for key, value in config.to_dict().items():
             setattr(self, key, value)
 
-        # Optionally store the config
-        self.config = config
-
-        # Set up performance tracking variables
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
-
-        # Set up common variables
-        self.force_recalculation = False  # Skip cache check
-        self.generate_visualization = True  # Create visualizations
-        self.encrypt_output = False  # Override encryption setting
-
-        # Updated version for fixes
-        self.version = "1.4.1"
-
-        # Temporary storage for cleanup
-        self.operation_cache = None
+        # Operation metadata---
+        self.operation_name = self.__class__.__name__
 
     def execute(
         self,
@@ -344,78 +274,54 @@ class IdentityAnalysisOperation(FieldOperation):
             Directory where task artifacts should be saved
         reporter : Any
             Reporter object for tracking progress and artifacts
-        progress_tracker : HierarchicalProgressTracker, optional
+        progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation including:
-            - force_recalculation: bool - Skip cache check
-            - generate_visualization: bool - Create visualizations
-            - encrypt_output: bool - Override encryption setting
-            - visualization_theme: str - Override theme for visualizations
-            - visualization_backend: str - Override backend for visualizations
-            - visualization_strict: bool - Override strict mode for visualizations
-            - visualization_timeout: int - Override timeout for visualizations
+            Additional parameters for the operation
 
         Returns:
         --------
         OperationResult
             Results of the operation
         """
-        # Initialize global analysis dictionaries
-        global identifier_stats, consistency_analysis, distribution_analysis, cross_match_analysis
-        identifier_stats = {}
-        consistency_analysis = {}
-        distribution_analysis = {}
-        cross_match_analysis = {}
-        # Initialize timing and result
-        self.start_time = time.time()
-        self.logger = kwargs.get("logger", self.logger)
-        self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-        self.process_count = 0
-        df = None
-        result = OperationResult(status=OperationStatus.PENDING)
-
-        # Prepare directories for artifacts
-        directories = self._prepare_directories(task_dir)
-
-        # Initialize operation cache
-        self.operation_cache = OperationCache(
-            cache_dir=task_dir / "cache",
-        )
-
-        # Create DataWriter for consistent file operations
-        writer = DataWriter(
-            task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-        )
-
-        # Save configuration to task directory
-        self.save_config(task_dir)
-
-        # Decompose kwargs and introduce variables for clarity
-        self.encrypt_output = kwargs.get("encrypt_output", False) or self.use_encryption
-        self.generate_visualization = kwargs.get("generate_visualization", True)
-        self.force_recalculation = kwargs.get("force_recalculation", False)
-        dataset_name = kwargs.get("dataset_name", "main")
-
-        # Extract visualization parameters
-        self.visualization_theme = kwargs.get(
-            "visualization_theme", self.visualization_theme
-        )
-        self.visualization_backend = kwargs.get(
-            "visualization_backend", self.visualization_backend
-        )
-        self.visualization_strict = kwargs.get(
-            "visualization_strict", self.visualization_strict
-        )
-        self.visualization_timeout = kwargs.get(
-            "visualization_timeout", self.visualization_timeout
-        )
-
-        self.logger.info(
-            f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
-        )
-
         try:
+            # Initialize global analysis dictionaries
+            global identifier_stats, consistency_analysis, distribution_analysis, cross_match_analysis
+            identifier_stats = {}
+            consistency_analysis = {}
+            distribution_analysis = {}
+            cross_match_analysis = {}
+
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting {self.name} operation at {self.start_time}")
+            df = None
+            result = OperationResult(status=OperationStatus.PENDING)
+
+            # Prepare directories for artifacts
+            directories = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=task_dir / "cache",
+            )
+
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
+            # Save configuration to task directory
+            self.save_config(task_dir)
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            self.logger.info(
+                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
+            )
+
             # Set up progress tracking with proper steps
             # Main steps: 1. Cache check, 2. Validation, 3. Data loading, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
@@ -723,7 +629,7 @@ class IdentityAnalysisOperation(FieldOperation):
                         name=identifier_filename,
                         timestamp_in_name=False,
                         encryption_key=(
-                            self.encryption_key if self.encrypt_output else None
+                            self.encryption_key if self.use_encryption else None
                         ),
                     )
 
@@ -755,7 +661,7 @@ class IdentityAnalysisOperation(FieldOperation):
                         name=consistency_filename,
                         timestamp_in_name=False,
                         encryption_key=(
-                            self.encryption_key if self.encrypt_output else None
+                            self.encryption_key if self.use_encryption else None
                         ),
                     )
 
@@ -788,7 +694,7 @@ class IdentityAnalysisOperation(FieldOperation):
                         name=distribution_filename,
                         timestamp_in_name=False,
                         encryption_key=(
-                            self.encryption_key if self.encrypt_output else None
+                            self.encryption_key if self.use_encryption else None
                         ),
                     )
 
@@ -821,7 +727,7 @@ class IdentityAnalysisOperation(FieldOperation):
                         name=cross_match_filename,
                         timestamp_in_name=False,
                         encryption_key=(
-                            self.encryption_key if self.encrypt_output else None
+                            self.encryption_key if self.use_encryption else None
                         ),
                     )
 
@@ -881,7 +787,7 @@ class IdentityAnalysisOperation(FieldOperation):
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
-                        "use_encryption": self.encrypt_output,
+                        "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
                     visualization_paths = self._handle_visualizations(
@@ -1031,7 +937,6 @@ class IdentityAnalysisOperation(FieldOperation):
             "visualization_timeout": self.visualization_timeout,
             "force_recalculation": self.force_recalculation,
             "generate_visualization": self.generate_visualization,
-            "encrypt_output": self.encrypt_output,
         }
 
         return params
@@ -1850,7 +1755,6 @@ def analyze_identities(
         Additional parameters for the operations:
         - top_n: int, number of top entries to include (default: 15)
         - check_cross_matches: bool, whether to analyze cross matches (default: True)
-        - include_timestamp: bool, whether to include timestamps (default: True)
 
     Returns:
     --------
@@ -1858,7 +1762,7 @@ def analyze_identities(
         Dictionary mapping field names to their operation results
     """
     # Get DataFrame from data source
-    dataset_name = kwargs.get('dataset_name', "main")
+    dataset_name = kwargs.get("dataset_name", "main")
     settings_operation = load_settings_operation(data_source, dataset_name, **kwargs)
     df = load_data_operation(data_source, dataset_name, **settings_operation)
     # Use get_dataframe safely

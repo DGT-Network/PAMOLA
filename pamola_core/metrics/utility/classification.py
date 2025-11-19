@@ -9,7 +9,6 @@ License: BSD 3-Clause
 This module implements the classifiers metric.
 """
 
-
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -18,7 +17,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split, KFold, StratifiedKFold
-from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, precision_recall_curve, auc
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    roc_auc_score,
+    precision_recall_curve,
+    auc,
+)
 from sklearn.preprocessing import label_binarize
 
 from pamola_core.utils import logging
@@ -31,12 +36,12 @@ class ClassificationUtility:
     """Implements the classifiers metric."""
 
     def __init__(
-            self,
-            models: Optional[List[str]] = None,
-            metrics: Optional[List[str]] = None,
-            cv_folds: int = 5,
-            stratified: bool = True,
-            test_size: float = 0.2
+        self,
+        models: Optional[List[str]] = None,
+        metrics: Optional[List[str]] = None,
+        cv_folds: int = 5,
+        stratified: bool = True,
+        test_size: float = 0.2,
     ):
         """
         Initialize.
@@ -69,14 +74,11 @@ class ClassificationUtility:
         self.model_dict = {
             "logistic": LogisticRegression(max_iter=1000),
             "rf": RandomForestClassifier(),
-            "svm": SVC(probability=True)
+            "svm": SVC(probability=True),
         }
 
     def calculate_metric(
-            self,
-            original_df: pd.DataFrame,
-            transformed_df: pd.DataFrame,
-            value_field: str
+        self, original_df: pd.DataFrame, transformed_df: pd.DataFrame, value_field: str
     ) -> Dict[str, Any]:
         """
         Calculate metrics.
@@ -119,16 +121,33 @@ class ClassificationUtility:
         y_transformed_test = None
         if self.cv_folds > 2:
             if self.stratified:
-                cv = StratifiedKFold(n_splits=self.cv_folds, shuffle=True, random_state=42)
+                cv = StratifiedKFold(
+                    n_splits=self.cv_folds, shuffle=True, random_state=42
+                )
             else:
                 cv = KFold(n_splits=self.cv_folds, shuffle=True, random_state=42)
         elif self.test_size > 0:
-            X_original_train, X_original_test, y_original_train, y_original_test = train_test_split(
-                X_original, y_original, test_size=self.test_size, random_state=42, shuffle=True
+            X_original_train, X_original_test, y_original_train, y_original_test = (
+                train_test_split(
+                    X_original,
+                    y_original,
+                    test_size=self.test_size,
+                    random_state=42,
+                    shuffle=True,
+                )
             )
 
-            X_transformed_train, X_transformed_test, y_transformed_train, y_transformed_test = train_test_split(
-                X_transformed, y_transformed, test_size=self.test_size, random_state=42, shuffle=True
+            (
+                X_transformed_train,
+                X_transformed_test,
+                y_transformed_train,
+                y_transformed_test,
+            ) = train_test_split(
+                X_transformed,
+                y_transformed,
+                test_size=self.test_size,
+                random_state=42,
+                shuffle=True,
             )
 
         for model_name in self.models:
@@ -144,8 +163,14 @@ class ClassificationUtility:
 
             if self.cv_folds > 2:
                 for train_index, test_index in cv.split(X_original, y_original):
-                    X_train, X_test = X_original.iloc[train_index], X_transformed.iloc[test_index]
-                    y_train, y_test = y_original.iloc[train_index], y_transformed.iloc[test_index]
+                    X_train, X_test = (
+                        X_original.iloc[train_index],
+                        X_transformed.iloc[test_index],
+                    )
+                    y_train, y_test = (
+                        y_original.iloc[train_index],
+                        y_transformed.iloc[test_index],
+                    )
 
                     self._calculate_model(
                         model=model,
@@ -159,7 +184,7 @@ class ClassificationUtility:
                         roc_auc_scores=roc_auc_scores,
                         precision_values=precision_values,
                         recall_values=recall_values,
-                        thresholds_values=thresholds_values
+                        thresholds_values=thresholds_values,
                     )
 
             elif self.test_size > 0:
@@ -178,7 +203,7 @@ class ClassificationUtility:
                     roc_auc_scores=roc_auc_scores,
                     precision_values=precision_values,
                     recall_values=recall_values,
-                    thresholds_values=thresholds_values
+                    thresholds_values=thresholds_values,
                 )
 
             else:
@@ -197,7 +222,7 @@ class ClassificationUtility:
                     roc_auc_scores=roc_auc_scores,
                     precision_values=precision_values,
                     recall_values=recall_values,
-                    thresholds_values=thresholds_values
+                    thresholds_values=thresholds_values,
                 )
 
             # Aggregate metrics per model
@@ -213,9 +238,15 @@ class ClassificationUtility:
                 model_results["roc_auc"] = float(np.mean(roc_auc_scores))
 
             if "precision_recall_tradeoff" in self.metrics:
-                precision_dict = self._calculate_precision_recall_tradeoff(tradeoff_values=precision_values)
-                recall_dict = self._calculate_precision_recall_tradeoff(tradeoff_values=recall_values)
-                thresholds_dict = self._calculate_precision_recall_tradeoff(tradeoff_values=thresholds_values)
+                precision_dict = self._calculate_precision_recall_tradeoff(
+                    tradeoff_values=precision_values
+                )
+                recall_dict = self._calculate_precision_recall_tradeoff(
+                    tradeoff_values=recall_values
+                )
+                thresholds_dict = self._calculate_precision_recall_tradeoff(
+                    tradeoff_values=thresholds_values
+                )
 
                 # Calculate the area under the precision-recall curve (PR AUC)
                 pr_auc_dict = {}
@@ -227,7 +258,7 @@ class ClassificationUtility:
                     "pr_auc": pr_auc_dict,
                     "precision": precision_dict,
                     "recall": recall_dict,
-                    "thresholds": thresholds_dict
+                    "thresholds": thresholds_dict,
                 }
 
             if model_results:
@@ -236,19 +267,19 @@ class ClassificationUtility:
         return results
 
     def _calculate_model(
-            self,
-            model: Any,
-            X_train: Any,
-            y_train: Any,
-            X_test: Any,
-            y_test: Any,
-            metrics: List[str],
-            accuracies: List[float],
-            f1_scores: List[Any],
-            roc_auc_scores: List[float],
-            precision_values: List[Any],
-            recall_values: List[Any],
-            thresholds_values: List[Any]
+        self,
+        model: Any,
+        X_train: Any,
+        y_train: Any,
+        X_test: Any,
+        y_test: Any,
+        metrics: List[str],
+        accuracies: List[float],
+        f1_scores: List[Any],
+        roc_auc_scores: List[float],
+        precision_values: List[Any],
+        recall_values: List[Any],
+        thresholds_values: List[Any],
     ) -> None:
         """
         Calculate model.
@@ -296,7 +327,9 @@ class ClassificationUtility:
                 roc_auc = roc_auc_score(y_test, y_prob[:, 1])
             else:
                 y_bin = label_binarize(y_test, classes=np.unique(y_test))
-                roc_auc = roc_auc_score(y_bin, y_prob, average="macro", multi_class="ovr")
+                roc_auc = roc_auc_score(
+                    y_bin, y_prob, average="macro", multi_class="ovr"
+                )
 
             roc_auc_scores.append(float(roc_auc))
 
@@ -306,7 +339,9 @@ class ClassificationUtility:
             classes_thresholds = {}
 
             if len(set(y_test)) == 2:
-                precision, recall, thresholds = precision_recall_curve(y_test, y_prob[:, 1])
+                precision, recall, thresholds = precision_recall_curve(
+                    y_test, y_prob[:, 1]
+                )
 
                 classes_precision["1"] = precision.tolist()
                 classes_recall["1"] = recall.tolist()
@@ -327,8 +362,7 @@ class ClassificationUtility:
             thresholds_values.append(classes_thresholds)
 
     def _calculate_precision_recall_tradeoff(
-            self,
-            tradeoff_values: List[Any]
+        self, tradeoff_values: List[Any]
     ) -> Dict[str, Any]:
         """
         Calculate precision recall tradeoff.
@@ -343,21 +377,27 @@ class ClassificationUtility:
         Dict[str, Any]
             Dictionary of precision recall tradeoff.
         """
-        tradeoff_dict = {
-            key: [tradeoff_value[key] for tradeoff_value in tradeoff_values]
-            for key in tradeoff_values[0].keys()
-        }
+        ordered_keys = list(tradeoff_values[0].keys())
+        seen = set(ordered_keys)
+
+        for d in tradeoff_values[1:]:
+            for k in d.keys():
+                if k not in seen:
+                    ordered_keys.append(k)
+                    seen.add(k)
 
         tradeoff_mean_dict = {}
-        for key, tradeoffs in tradeoff_dict.items():
+        for key in ordered_keys:
+
+            tradeoffs = [d[key] for d in tradeoff_values if key in d]
+
+            if not tradeoffs:
+                continue
+
             if len(tradeoffs) > 1:
-                max_length = max([len(tradeoff) for tradeoff in tradeoffs])
-
-                for tradeoff in tradeoffs:
-                    tradeoff += [0.0] * (max_length - len(tradeoff))
-
-                avg_tradeoff = np.mean(tradeoffs, axis=0)
-
+                max_length = max(len(tradeoff) for tradeoff in tradeoffs)
+                padded = [t + [0.0] * (max_length - len(t)) for t in tradeoffs]
+                avg_tradeoff = np.mean(padded, axis=0)
                 tradeoff_mean_dict[key] = avg_tradeoff.tolist()
             else:
                 tradeoff_mean_dict[key] = tradeoffs[0]

@@ -6,23 +6,23 @@ while maintaining statistical properties of the original data and supporting
 consistent mapping.
 """
 
-import logging
 import time
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List
 import numpy as np
 import pandas as pd
-from pamola_core.fake_data.commons import metrics
-from pamola_core.fake_data.commons.operations import GeneratorOperation
+from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.phone import PhoneGenerator
+from pamola_core.fake_data.schemas.phone_op_schema import FakePhoneOperationConfig
 from pamola_core.utils import io
+from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
+from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
 
-
-@register()
+@register(version="1.0.0")
 class FakePhoneOperation(GeneratorOperation):
     """
     Operation for generating synthetic phone numbers.
@@ -31,111 +31,88 @@ class FakePhoneOperation(GeneratorOperation):
     synthetic alternatives while preserving country and operator characteristics.
     """
 
-    name = "phone_generator"
-    description = "Generates synthetic phone numbers with configurable formats and regions"
-    category = "fake_data"
-
-    def __init__(self, field_name: str,
-                 mode: str = "ENRICH",
-                 output_field_name: Optional[str] = None,
-                 country_codes: Optional[Union[List, Dict]] = None,
-                 operator_codes_dict: Optional[str] = None,
-                 format: Optional[str] = None,
-                 validate_source: bool = True,
-                 handle_invalid_phone: str = "generate_new",
-                 default_country: str = "us",
-                 preserve_country_code: bool = True,
-                 preserve_operator_code: bool = False,
-                 region: Optional[str] = None,
-                 chunk_size: int = 10000,
-                 null_strategy: str = "PRESERVE",
-                 consistency_mechanism: str = "prgn",
-                 mapping_store_path: Optional[str] = None,
-                 id_field: Optional[str] = None,
-                 key: Optional[str] = None,
-                 context_salt: Optional[str] = None,
-                 save_mapping: bool = False,
-                 column_prefix: str = "_",
-                 # New parameters
-                 international_format: bool = True,
-                 local_formatting: bool = False,
-                 country_code_field: Optional[str] = None,
-                 detailed_metrics: bool = False,
-                 error_logging_level: str = "WARNING",
-                 max_retries: int = 3,
-                 use_cache: bool = True,
-                 force_recalculation: bool = False,
-                 use_dask: bool = False,
-                 npartitions: int = 1,
-                 use_vectorization: bool = False,
-                 parallel_processes: int = 1,
-                 visualization_backend: Optional[str] = "plotly",
-                 visualization_theme: Optional[str] = None,
-                 visualization_strict: bool = False,
-                 visualization_timeout: int = 120,
-                 use_encryption: bool = False,
-                 encryption_key: Optional[Union[str, Path]] = None,
-                 encryption_mode: Optional[str] = None):
+    def __init__(
+        self,
+        field_name: str,
+        country_codes: Optional[Union[List, Dict]] = None,
+        operator_codes_dict: Optional[str] = None,
+        format: Optional[str] = None,
+        validate_source: bool = True,
+        handle_invalid_phone: str = "generate_new",
+        default_country: str = "us",
+        preserve_country_code: bool = True,
+        preserve_operator_code: bool = False,
+        region: Optional[str] = None,
+        detailed_metrics: bool = False,
+        max_retries: int = 3,
+        key: Optional[str] = None,
+        context_salt: Optional[str] = None,
+        country_code_field: Optional[str] = None,
+        **kwargs,
+    ):
         """
-        Initialize phone number generation operation.
+        Initialize FakePhoneOperation.
 
-        Args:
-            field_name: Field to process (containing phone numbers)
-            mode: Operation mode (REPLACE or ENRICH)
-            output_field_name: Name for the output field (if mode=ENRICH)
-            country_codes: Country codes to use (list or dict with weights)
-            operator_codes_dict: Path to dictionary of operator codes
-            format: Format for phone number generation
-            validate_source: Whether to validate source phone numbers
-            handle_invalid_phone: How to handle invalid numbers
-            default_country: Default country for generation
-            preserve_country_code: Whether to preserve country code from original
-            preserve_operator_code: Whether to preserve operator code from original
-            region: Region/country for formatting
-            chunk_size: Number of records to process in one batch
-            null_strategy: Strategy for handling NULL values
-            consistency_mechanism: Method for ensuring consistency (mapping or prgn)
-            mapping_store_path: Path to store mappings
-            id_field: Field for record identification
-            key: Key for encryption/PRGN
-            context_salt: Salt for PRGN
-            save_mapping: Whether to save mapping to file
-            column_prefix: Prefix for new column (if mode=ENRICH)
-            international_format: Whether to use international format (with country code)
-            local_formatting: Whether to apply local country formatting
-            country_code_field: Field containing country codes
-            detailed_metrics: Whether to collect detailed metrics
-            error_logging_level: Level for error logging (ERROR, WARNING, INFO)
-            max_retries: Maximum number of retries for generation on error
-            use_dask: Whether to use Dask for large datasets
-            npartitions: Number of partitions for Dask processing (if use_dask=True)
+        Parameters
+        ----------
+        field_name : str
+            Column containing phone numbers.
+        country_codes : list or dict, optional
+            Country codes for generation or weighting.
+        operator_codes_dict : str, optional
+            Path to operator code dictionary.
+        format : str, optional
+            Formatting style for generated phone numbers.
+        validate_source : bool, optional
+            Whether to validate input phone numbers.
+        handle_invalid_phone : str, optional
+            Strategy for invalid numbers ('generate_new', etc.).
+        default_country : str, optional
+            Default country to use for generation.
+        preserve_country_code : bool, optional
+            Preserve original country code.
+        preserve_operator_code : bool, optional
+            Preserve operator prefix.
+        region : str, optional
+            Regional formatting specifier.
+        detailed_metrics : bool, optional
+            Collect detailed generation statistics.
+        max_retries : int, optional
+            Max retries for generation.
+        key : str, optional
+            Encryption or PRGN key.
+        context_salt : str, optional
+            PRGN salt for uniqueness.
+        **kwargs : dict
+            Forwarded to BaseOperation / GeneratorOperation.
         """
-        # Save new parameters
-        self.detailed_metrics = detailed_metrics
-        self.error_logging_level = error_logging_level.upper()
-        self.max_retries = max_retries
-        self.international_format = international_format
-        self.local_formatting = local_formatting
-        self.country_code_field = country_code_field
-        self.chunk_size = chunk_size
-        self.use_cache = use_cache
-        self.force_recalculation = force_recalculation
-        self.use_dask = use_dask
-        self.npartitions = npartitions
-        self.use_vectorization = use_vectorization
-        self.parallel_processes = parallel_processes
+        # Default description
+        kwargs.setdefault(
+            "description",
+            f"Synthetic phone number generation for '{field_name}' with configurable country/operator formats",
+        )
 
-        # Store attributes locally that we need to access directly
-        self.column_prefix = column_prefix
-        self.id_field = id_field
-        self.key = key
-        self.context_salt = context_salt
-        self.save_mapping = save_mapping
-        self.mapping_store_path = mapping_store_path
-        self.default_country = default_country
-        self.region = region or default_country
+        #  Configuration object
+        config = FakePhoneOperationConfig(
+            field_name=field_name,
+            country_codes=country_codes,
+            operator_codes_dict=operator_codes_dict,
+            format=format,
+            validate_source=validate_source,
+            handle_invalid_phone=handle_invalid_phone,
+            default_country=default_country,
+            preserve_country_code=preserve_country_code,
+            preserve_operator_code=preserve_operator_code,
+            region=region,
+            detailed_metrics=detailed_metrics,
+            max_retries=max_retries,
+            key=key,
+            context_salt=context_salt,
+            country_code_field=country_code_field,
+            **kwargs,
+        )
 
-        # Set up phone generator configuration
+        # Generator parameters
         generator_params = {
             "country_codes": country_codes,
             "operator_codes_dict": operator_codes_dict,
@@ -145,112 +122,83 @@ class FakePhoneOperation(GeneratorOperation):
             "default_country": default_country,
             "preserve_country_code": preserve_country_code,
             "preserve_operator_code": preserve_operator_code,
-            "region": self.region,
+            "region": region,
             "key": key,
-            "context_salt": context_salt
+            "context_salt": context_salt,
+            "country_code_field": country_code_field,
         }
 
-        # Create a temporary BaseGenerator to pass to parent constructor
-        # We'll replace it with the real PhoneGenerator after initialization
-        base_generator = PhoneGenerator(config=generator_params)
+        # Initialize generator
+        phone_generator = PhoneGenerator(config=generator_params)
 
-        # Initialize parent class first with the base generator
+        # Pass config to parent
+        kwargs["config"] = config
+
         super().__init__(
             field_name=field_name,
-            generator=base_generator,
-            mode=mode,
-            output_field_name=output_field_name,
-            chunk_size=chunk_size,
-            null_strategy=null_strategy,
-            consistency_mechanism=consistency_mechanism,
-            use_cache=use_cache,
-            force_recalculation=force_recalculation,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
-            visualization_backend=visualization_backend,
-            visualization_theme=visualization_theme,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout
+            generator=phone_generator,
+            generator_params=generator_params,
+            **kwargs,
         )
 
-        # Set up performance metrics
-        self.start_time = None
-        self.process_count = 0
+        # Expose config attributes
+        for k, v in config.to_dict().items():
+            setattr(self, k, v)
+
+        # Runtime stats
+        self.operation_name = self.__class__.__name__
+        self._original_df = None
         self.error_count = 0
         self.retry_count = 0
 
-        # Ensure we have a reference to the original DataFrame for metrics collection
-        self._original_df = None
-
-        # Initialize mapping store if path is provided
-        if mapping_store_path:
-            self._initialize_mapping_store(mapping_store_path)
-
-        # For detailed metrics
+        # Optional metrics
         if self.detailed_metrics:
             self._country_stats = Counter()
             self._format_stats = Counter()
             self._generation_times = []
 
-    def _initialize_mapping_store(self, path: Union[str, Path]) -> None:
+    def execute(
+        self,
+        data_source: DataSource,
+        task_dir: Path,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker] = None,
+        **kwargs,
+    ) -> OperationResult:
         """
-        Initialize the mapping store if needed.
+        Execute the operation with timing and error handling.
 
-        Args:
-            path: Path to mapping store file
-        """
-        try:
-            from pamola_core.fake_data.commons.mapping_store import MappingStore
-
-            self.mapping_store = MappingStore()
-
-            # Load existing mappings if the file exists
-            path_obj = Path(path)
-            if path_obj.exists():
-                self.mapping_store.load(path_obj)
-                self.logger.info(f"Loaded mapping store from {path_obj.name}")
-        except Exception as e:
-            self.logger.warning(f"Failed to initialize mapping store: {str(e)}")
-            self.mapping_store = None
-
-    def execute(self, data_source, task_dir, reporter, progress_tracker: Optional[HierarchicalProgressTracker] = None, **kwargs):
-        """
-        Execute the phone number generation operation.
-
-        Args:
-            data_source: Source of data (DataFrame or path to file)
-            task_dir: Directory for storing operation artifacts
-            reporter: Reporter for progress updates
-            **kwargs: Additional parameters
+        Parameters:
+        -----------
+        data_source : DataSource
+            Source of data for the operation
+        task_dir : Path
+            Directory where task artifacts should be saved
+        reporter : Any
+            Reporter object for tracking progress and artifacts
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Progress tracker for the operation
+        **kwargs : dict
+            Additional parameters for the operation
 
         Returns:
-            Operation result with processed data and metrics
+        --------
+        OperationResult
+            Results of the operation
         """
-        # Config logger task for operatiions
-        self.logger = kwargs.get('logger', self.logger)
-        
+        # Config logger task for operation
+        self.logger = kwargs.get("logger", self.logger)
+
         # Start timing for performance metrics
         self.start_time = time.time()
-        self.process_count = 0
-
-        # Load data if needed
-        if isinstance(data_source, pd.DataFrame):
-            self._original_df = data_source.copy()
-        else:
-            # If data_source is a path, it will be loaded by the parent class
-            pass
+        self.logger.info(
+            f"Starting {self.operation_name} operation at {self.start_time}"
+        )
 
         # Call parent execute method
-        result = super().execute(data_source, task_dir, reporter, progress_tracker, **kwargs)
-
-        # If we didn't set _original_df earlier and the parent loaded it, get it now
-        if self._original_df is None and hasattr(self, "_df"):
-            self._original_df = self._df.copy()
+        result = super().execute(
+            data_source, task_dir, reporter, progress_tracker, **kwargs
+        )
 
         # Save mapping if requested
         if self.save_mapping and hasattr(self, "mapping_store") and self.mapping_store:
@@ -262,12 +210,13 @@ class FakePhoneOperation(GeneratorOperation):
 
         return result
 
-    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """
         Process a batch of data to generate synthetic phone numbers.
 
         Args:
             batch: DataFrame batch to process
+            kwargs: Additional parameters
 
         Returns:
             Processed DataFrame batch
@@ -283,30 +232,11 @@ class FakePhoneOperation(GeneratorOperation):
         if self.country_code_field and self.country_code_field in batch.columns:
             country_codes = batch[self.country_code_field]
 
-        # Determine output field based on mode
-        if self.mode == "REPLACE":
-            output_field = self.field_name
-        else:  # ENRICH
-            output_field = self.output_field_name or f"{self.column_prefix}{self.field_name}"
-
         # Prepare a list to store generated values
         generated_values = []
 
         # Process each value according to null strategy
         for idx, value in enumerate(field_values):
-            # Handle null values according to strategy
-            if pd.isna(value):
-                if self.null_strategy == "PRESERVE":
-                    generated_values.append(np.nan)
-                    continue
-                elif self.null_strategy == "EXCLUDE":
-                    # Skip this value but keep in result with NaN
-                    generated_values.append(np.nan)
-                    continue
-                elif self.null_strategy == "ERROR":
-                    raise ValueError(f"Null value found in {self.field_name} at position {idx}")
-                # If strategy is REPLACE, we'll generate a value for the null
-
             # Get country code for this record if available
             country_code = None
             if country_codes is not None:
@@ -326,23 +256,22 @@ class FakePhoneOperation(GeneratorOperation):
             gen_params = {
                 "country_code": country_code,
                 "region": self.region,
-                "international_format": self.international_format,
-                "local_formatting": self.local_formatting,
                 "context_salt": self.context_salt or "phone-generation",
-                "record_id": record_id
+                "record_id": record_id,
             }
 
             # Process the value
             try:
                 synthetic_value = self.process_value(value, **gen_params)
                 generated_values.append(synthetic_value)
-                self.process_count += 1
             except Exception as e:
-                self.logger.error(f"Error generating phone number for value '{value}': {str(e)}")
+                self.logger.error(
+                    f"Error generating phone number for value '{value}': {str(e)}"
+                )
                 generated_values.append(value if pd.notna(value) else np.nan)
 
         # Update the dataframe with generated values
-        result[output_field] = generated_values
+        result[self.output_field_name] = generated_values
 
         return result
 
@@ -361,7 +290,11 @@ class FakePhoneOperation(GeneratorOperation):
         start_time = time.time() if self.detailed_metrics else None
 
         # If using mapping store, check for existing mapping
-        if self.consistency_mechanism == "mapping" and hasattr(self, "mapping_store") and self.mapping_store:
+        if (
+            self.consistency_mechanism == "mapping"
+            and hasattr(self, "mapping_store")
+            and self.mapping_store
+        ):
             # Check if we already have a mapping for this value
             synthetic_value = self.mapping_store.get_mapping(self.field_name, value)
 
@@ -373,7 +306,9 @@ class FakePhoneOperation(GeneratorOperation):
 
                     # Try to collect country code statistics
                     if isinstance(synthetic_value, str):
-                        country_code = self.generator.extract_country_code(synthetic_value)
+                        country_code = self.generator.extract_country_code(
+                            synthetic_value
+                        )
                         if country_code:
                             self._country_stats[country_code] += 1
 
@@ -388,11 +323,17 @@ class FakePhoneOperation(GeneratorOperation):
                 # Generate new value based on consistency mechanism
                 if self.consistency_mechanism == "prgn":
                     # Ensure the generator has PRGN capabilities
-                    if not hasattr(self.generator, "prgn_generator") or self.generator.prgn_generator is None:
+                    if (
+                        not hasattr(self.generator, "prgn_generator")
+                        or self.generator.prgn_generator is None
+                    ):
                         # Set up PRGN generator if not already done
                         if not hasattr(self, "_prgn_generator"):
                             from pamola_core.fake_data.commons.prgn import PRNGenerator
-                            self._prgn_generator = PRNGenerator(global_seed=self.key or "phone-generation")
+
+                            self._prgn_generator = PRNGenerator(
+                                global_seed=self.key or "phone-generation"
+                            )
                         self.generator.prgn_generator = self._prgn_generator
 
                     # Generate using PRGN
@@ -402,8 +343,14 @@ class FakePhoneOperation(GeneratorOperation):
                     synthetic_value = self.generator.generate_like(value, **params)
 
                 # If using mapping store, store the mapping
-                if self.consistency_mechanism == "mapping" and hasattr(self, "mapping_store") and self.mapping_store:
-                    self.mapping_store.add_mapping(self.field_name, value, synthetic_value)
+                if (
+                    self.consistency_mechanism == "mapping"
+                    and hasattr(self, "mapping_store")
+                    and self.mapping_store
+                ):
+                    self.mapping_store.add_mapping(
+                        self.field_name, value, synthetic_value
+                    )
 
                 # Collect metrics if needed
                 if self.detailed_metrics and start_time:
@@ -411,13 +358,17 @@ class FakePhoneOperation(GeneratorOperation):
 
                     # Collect country code statistics
                     if isinstance(synthetic_value, str):
-                        country_code = self.generator.extract_country_code(synthetic_value)
+                        country_code = self.generator.extract_country_code(
+                            synthetic_value
+                        )
                         if country_code:
                             self._country_stats[country_code] += 1
 
                     # Try to collect format statistics
                     if isinstance(synthetic_value, str):
-                        has_parentheses = "(" in synthetic_value and ")" in synthetic_value
+                        has_parentheses = (
+                            "(" in synthetic_value and ")" in synthetic_value
+                        )
                         has_dashes = "-" in synthetic_value
                         has_spaces = " " in synthetic_value
                         has_plus = synthetic_value.startswith("+")
@@ -443,10 +394,13 @@ class FakePhoneOperation(GeneratorOperation):
 
                 # Log error with appropriate level
                 if retries <= self.max_retries:
-                    self.logger.debug(f"Retry {retries}/{self.max_retries} generating phone for value '{value}': {str(e)}")
+                    self.logger.debug(
+                        f"Retry {retries}/{self.max_retries} generating phone for value '{value}': {str(e)}"
+                    )
                 else:
                     self.logger.error(
-                        f"Failed to generate phone for value '{value}' after {self.max_retries} retries: {str(e)}")
+                        f"Failed to generate phone for value '{value}' after {self.max_retries} retries: {str(e)}"
+                    )
                     self.error_count += 1
 
         # If all attempts failed, return original value or None
@@ -474,10 +428,16 @@ class FakePhoneOperation(GeneratorOperation):
             return {}
 
         # If we have detailed metrics and they're already collected, use them
-        if self.detailed_metrics and hasattr(self, "_country_stats") and self._country_stats:
+        if (
+            self.detailed_metrics
+            and hasattr(self, "_country_stats")
+            and self._country_stats
+        ):
             top_countries = self._country_stats.most_common(10)
             total = sum(self._country_stats.values())
-            country_distribution = {country: count / total for country, count in top_countries}
+            country_distribution = {
+                country: count / total for country, count in top_countries
+            }
 
             # Calculate diversity metrics
             unique_countries = len(self._country_stats)
@@ -487,7 +447,7 @@ class FakePhoneOperation(GeneratorOperation):
                 "total_phones": total,
                 "unique_country_codes": unique_countries,
                 "diversity_ratio": diversity_ratio,
-                "top_country_codes": country_distribution
+                "top_country_codes": country_distribution,
             }
 
         # Otherwise extract country codes from phone numbers
@@ -507,7 +467,9 @@ class FakePhoneOperation(GeneratorOperation):
 
         # Get top country codes (max 10)
         top_countries = country_counts.most_common(10)
-        country_distribution = {country: count / total for country, count in top_countries}
+        country_distribution = {
+            country: count / total for country, count in top_countries
+        }
 
         # Calculate diversity metrics
         unique_countries = len(country_counts)
@@ -517,7 +479,7 @@ class FakePhoneOperation(GeneratorOperation):
             "total_phones": total,
             "unique_country_codes": unique_countries,
             "diversity_ratio": diversity_ratio,
-            "top_country_codes": country_distribution
+            "top_country_codes": country_distribution,
         }
 
     def _analyze_formats(self, df: pd.DataFrame) -> Dict[str, Any]:
@@ -540,14 +502,18 @@ class FakePhoneOperation(GeneratorOperation):
             return {}
 
         # If we have detailed metrics and they're already collected, use them
-        if self.detailed_metrics and hasattr(self, "_format_stats") and self._format_stats:
+        if (
+            self.detailed_metrics
+            and hasattr(self, "_format_stats")
+            and self._format_stats
+        ):
             total = sum(self._format_stats.values())
-            format_distribution = {format_type: count / total for format_type, count in
-                                   self._format_stats.most_common()}
-
-            return {
-                "format_distribution": format_distribution
+            format_distribution = {
+                format_type: count / total
+                for format_type, count in self._format_stats.most_common()
             }
+
+            return {"format_distribution": format_distribution}
 
         # Otherwise analyze formats from phone numbers
         formats = {
@@ -555,7 +521,7 @@ class FakePhoneOperation(GeneratorOperation):
             "international_spaces": 0,
             "e164": 0,
             "local_parentheses_dashes": 0,
-            "unknown": 0
+            "unknown": 0,
         }
 
         total = 0
@@ -583,83 +549,60 @@ class FakePhoneOperation(GeneratorOperation):
             return {}
 
         # Calculate distribution
-        format_distribution = {format_type: count / total for format_type, count in formats.items() if count > 0}
-
-        return {
-            "format_distribution": format_distribution
+        format_distribution = {
+            format_type: count / total
+            for format_type, count in formats.items()
+            if count > 0
         }
 
-    def _collect_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:
+        return {"format_distribution": format_distribution}
+
+    def _collect_specific_metrics(self, df: pd.DataFrame) -> Dict[str, Any]:
         """
-        Collect metrics for the phone generation operation.
+        Collect metrics specific to the phone number generation operation.
 
-        Args:
-            df: Processed DataFrame
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Processed DataFrame
 
-        Returns:
-            Dictionary with metrics
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary containing phone-specific metrics.
         """
-        # Get basic metrics from parent
-        metrics_data = super()._collect_metrics(df)
+        metrics_data = {}
 
-        # Add phone-specific metrics
+        gen = self.generator
+
+        # --- 1. Phone generator info ---
         metrics_data["phone_generator"] = {
-            "format": getattr(self.generator, "format", None),
-            "default_country": self.default_country,
-            "region": self.region,
-            "international_format": self.international_format,
-            "local_formatting": self.local_formatting,
-            "preserve_country_code": getattr(self.generator, "preserve_country_code", True),
-            "preserve_operator_code": getattr(self.generator, "preserve_operator_code", False),
-            "validate_source": getattr(self.generator, "validate_source", True),
-            "handle_invalid_phone": getattr(self.generator, "handle_invalid_phone", "generate_new")
+            "format": getattr(gen, "format", None),
+            "default_country": getattr(self, "default_country", None),
+            "region": getattr(self, "region", None),
+            "preserve_country_code": getattr(gen, "preserve_country_code", True),
+            "preserve_operator_code": getattr(gen, "preserve_operator_code", False),
+            "validate_source": getattr(gen, "validate_source", True),
+            "handle_invalid_phone": getattr(
+                gen, "handle_invalid_phone", "generate_new"
+            ),
         }
 
-        # Add performance metrics
-        if self.start_time is not None:
-            execution_time = time.time() - self.start_time
-            metrics_data["performance"] = {
-                "generation_time": execution_time,
-                "records_per_second": int(self.process_count / execution_time) if execution_time > 0 else 0,
-                "error_count": self.error_count,
-                "retry_count": self.retry_count
-            }
+        # --- 2. Distribution metrics ---
+        distributions = self._collect_phone_distributions(df)
+        if distributions:
+            metrics_data["phone_generator"].update(distributions)
 
-            # Add extended performance metrics if collected
-            if self.detailed_metrics and hasattr(self, "_generation_times") and self._generation_times:
-                metrics_data["performance"]["avg_record_generation_time"] = sum(self._generation_times) / len(
-                    self._generation_times)
-                metrics_data["performance"]["min_record_generation_time"] = min(self._generation_times)
-                metrics_data["performance"]["max_record_generation_time"] = max(self._generation_times)
-
-        # Add country distribution
-        try:
-            # Get country distribution
-            country_metrics = self._analyze_country_distribution(df)
-            if country_metrics:
-                metrics_data["phone_generator"]["country_distribution"] = country_metrics
-        except Exception as e:
-            self.logger.warning(f"Error collecting country distribution: {str(e)}")
-
-        # Add format distribution
-        try:
-            # Get format distribution
-            format_metrics = self._analyze_formats(df)
-            if format_metrics:
-                metrics_data["phone_generator"]["format_distribution"] = format_metrics
-        except Exception as e:
-            self.logger.warning(f"Error collecting format distribution: {str(e)}")
-
-        # Add quality metrics if we can collect them
-        if self.mode == "ENRICH" and hasattr(self, "_original_df") and self._original_df is not None:
+        # --- 3. Quality metrics (for ENRICH mode only) ---
+        if self.mode == "ENRICH" and getattr(self, "_original_df", None) is not None:
             try:
-                # Output field name
-                output_field = self.output_field_name or f"{self.column_prefix}{self.field_name}"
-
+                output_field = (
+                    self.output_field_name or f"{self.column_prefix}{self.field_name}"
+                )
                 if output_field in self._original_df.columns:
                     quality_metrics = self._calculate_quality_metrics(
                         self._original_df[self.field_name],
-                        self._original_df[output_field]
+                        self._original_df[output_field],
                     )
                     metrics_data["quality_metrics"] = quality_metrics
             except Exception as e:
@@ -667,7 +610,43 @@ class FakePhoneOperation(GeneratorOperation):
 
         return metrics_data
 
-    def _calculate_quality_metrics(self, original_series: pd.Series, generated_series: pd.Series) -> Dict[str, Any]:
+    def _collect_phone_distributions(self, df: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Collects country and format distributions for phone numbers.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Processed DataFrame
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary of phone-related distribution metrics.
+        """
+        distributions = {}
+
+        # --- Country distribution ---
+        try:
+            country_metrics = self._analyze_country_distribution(df)
+            if country_metrics:
+                distributions["country_distribution"] = country_metrics
+        except Exception as e:
+            self.logger.warning(f"Error collecting country distribution: {str(e)}")
+
+        # --- Format distribution ---
+        try:
+            format_metrics = self._analyze_formats(df)
+            if format_metrics:
+                distributions["format_distribution"] = format_metrics
+        except Exception as e:
+            self.logger.warning(f"Error collecting format distribution: {str(e)}")
+
+        return distributions
+
+    def _calculate_quality_metrics(
+        self, original_series: pd.Series, generated_series: pd.Series
+    ) -> Dict[str, Any]:
         """
         Calculate quality metrics comparing original and generated phone numbers.
 
@@ -690,7 +669,9 @@ class FakePhoneOperation(GeneratorOperation):
             gen_mean_len = generated_lengths.mean()
 
             # Length similarity (1.0 = perfect match)
-            length_similarity = 1.0 - min(1.0, abs(orig_mean_len - gen_mean_len) / orig_mean_len)
+            length_similarity = 1.0 - min(
+                1.0, abs(orig_mean_len - gen_mean_len) / orig_mean_len
+            )
             metrics["length_similarity"] = length_similarity
 
         # Analyze country code preservation
@@ -708,14 +689,20 @@ class FakePhoneOperation(GeneratorOperation):
 
         if orig_countries and gen_countries:
             # Calculate percentage of preserved country codes
-            country_preservation_count = sum(1 for o, g in zip(orig_countries, gen_countries) if o == g)
-            country_preservation_ratio = country_preservation_count / len(orig_countries)
+            country_preservation_count = sum(
+                1 for o, g in zip(orig_countries, gen_countries) if o == g
+            )
+            country_preservation_ratio = country_preservation_count / len(
+                orig_countries
+            )
             metrics["country_code_preservation_ratio"] = country_preservation_ratio
 
             # Calculate country code diversity
             orig_country_count = len(set(orig_countries))
             gen_country_count = len(set(gen_countries))
-            country_diversity_ratio = gen_country_count / orig_country_count if orig_country_count > 0 else 0
+            country_diversity_ratio = (
+                gen_country_count / orig_country_count if orig_country_count > 0 else 0
+            )
             metrics["country_code_diversity_ratio"] = country_diversity_ratio
 
         # Analyze formatting similarity
@@ -733,7 +720,9 @@ class FakePhoneOperation(GeneratorOperation):
 
         if orig_formats and gen_formats:
             # Calculate format preservation
-            format_preservation_count = sum(1 for o, g in zip(orig_formats, gen_formats) if o == g)
+            format_preservation_count = sum(
+                1 for o, g in zip(orig_formats, gen_formats) if o == g
+            )
             format_preservation_ratio = format_preservation_count / len(orig_formats)
             metrics["format_preservation_ratio"] = format_preservation_ratio
 
@@ -769,65 +758,28 @@ class FakePhoneOperation(GeneratorOperation):
         else:
             return "numeric"
 
-    def _save_metrics(self, metrics_data: Dict[str, Any], task_dir: Path, **kwargs) -> Path:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
-        Save metrics to a file and generate visualizations.
-
-        Args:
-            metrics_data: Metrics data
-            task_dir: Directory for storing artifacts
+        Get operation-specific parameters for cache key generation.
 
         Returns:
-            Path to the saved metrics file
+        --------
+        Dict[str, Any]
+            Strategy-specific parameters for numeric generalization
         """
-        # Create directories
-        metrics_dir = task_dir / "metrics"
-        vis_dir = task_dir / "visualizations"
-        io.ensure_directory(metrics_dir)
-        io.ensure_directory(vis_dir)
-
-        # Create output path
-        metrics_path = metrics_dir / f"{self.name}_{self.field_name}_metrics.json"
-
-        # Create metrics collector
-        collector = metrics.create_metrics_collector()
-
-        # Generate visualizations if we have both original and generated data
-        if self.mode == "ENRICH" and "original_data" in metrics_data and "generated_data" in metrics_data:
-            try:
-                # Get output field name
-                output_field = self.output_field_name or f"{self.column_prefix}{self.field_name}"
-
-                # Get DataFrame for visualization
-                if hasattr(self,
-                           "_original_df") and self._original_df is not None and output_field in self._original_df.columns:
-                    # Get original data series
-                    orig_series = self._original_df[self.field_name]
-                    gen_series = self._original_df[output_field]
-
-                    kwargs_encryption = {
-                        "use_encryption": kwargs.get('use_encryption', False),
-                        "encryption_key": kwargs.get('encryption_key', None)
-                    }
-                    # Create visualizations
-                    visualizations = collector.visualize_metrics(
-                        metrics_data,
-                        self.field_name,
-                        vis_dir,
-                        self.name,
-                        **kwargs_encryption
-                    )
-
-                    # Add visualization paths to metrics
-                    metrics_data["visualizations"] = {
-                        name: str(path) for name, path in visualizations.items()
-                    }
-            except Exception as e:
-                self.logger.warning(f"Error generating visualizations: {str(e)}")
-
-        # Save metrics to file
-        use_encryption = kwargs.get('use_encryption', False)
-        encryption_key= kwargs.get('encryption_key', None) if use_encryption else None
-        io.write_json(metrics_data, metrics_path, encryption_key=encryption_key)
-        
-        return metrics_path
+        return {
+            "format": self.format,
+            "country": self.country,
+            "region": self.region,
+            "area_codes": self.area_codes,
+            "preserve_area_code": self.preserve_area_code,
+            "handle_invalid_phone": self.handle_invalid_phone,
+            "consistency_mechanism": self.consistency_mechanism,
+            "mapping_store_path": self.mapping_store_path,
+            "id_field": self.id_field,
+            "key": self.key,
+            "context_salt": self.context_salt,
+            "save_mapping": self.save_mapping,
+            "column_prefix": self.column_prefix,
+            "detailed_metrics": self.detailed_metrics,
+        }

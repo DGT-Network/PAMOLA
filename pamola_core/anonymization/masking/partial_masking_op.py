@@ -46,6 +46,7 @@ from pamola_core.anonymization.commons.validation.exceptions import (
     FieldTypeError,
     InvalidDataFormatError,
 )
+from pamola_core.anonymization.schemas.partial_masking_op_schema import PartialMaskingConfig
 from pamola_core.common.constants import Constants
 from pamola_core.anonymization.commons.metric_utils import (
     collect_operation_metrics,
@@ -56,7 +57,6 @@ from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 from pamola_core.anonymization.commons.text_processing_utils import (
@@ -93,98 +93,6 @@ DEFAULT_SAMPLE_SIZE = 10000
 DEFAULT_TOP_CATEGORIES_FOR_ANALYSIS = 20
 
 
-class PartialMaskingConfig(OperationConfig):
-    """Configuration for PartialMaskingOperation."""
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "field_name": {"type": "string"},
-            "mask_char": {"type": "string", "default": "*"},
-            "unmasked_prefix": {"type": "integer", "minimum": 0, "default": 0},
-            "unmasked_suffix": {"type": "integer", "minimum": 0, "default": 0},
-            "unmasked_positions": {
-                "type": ["array", "null"],
-                "items": {"type": "integer", "minimum": 0},
-            },
-            "preset_type": {"type": ["string", "null"]},
-            "preset_name": {"type": ["string", "null"]},
-            "pattern_type": {
-                "type": ["string", "null"],
-            },
-            "mask_pattern": {"type": ["string", "null"]},
-            "preserve_pattern": {"type": ["string", "null"]},
-            "preserve_separators": {"type": "boolean", "default": True},
-            "mask_percentage": {
-                "type": ["number", "null"],
-                "minimum": 0,
-                "maximum": 100,
-            },
-            "mask_strategy": {
-                "type": "string",
-                "enum": [
-                    MaskStrategyEnum.FIXED.value,
-                    MaskStrategyEnum.PATTERN.value,
-                    MaskStrategyEnum.RANDOM.value,
-                    MaskStrategyEnum.WORDS.value,
-                ],
-                "default": "fixed",
-            },
-            "consistency_fields": {
-                "type": ["array", "null"],
-                "items": {"type": "string"},
-            },
-            "case_sensitive": {"type": "boolean", "default": True},
-            "preserve_word_boundaries": {"type": "boolean", "default": False},
-            "random_mask": {"type": "boolean", "default": False},
-            "mask_char_pool": {"type": ["string", "null"]},
-            "condition_field": {"type": ["string", "null"]},
-            "condition_values": {"type": ["array", "null"]},
-            "condition_operator": {"type": "string"},
-            "ka_risk_field": {"type": ["string", "null"]},
-            "risk_threshold": {"type": "number"},
-            "vulnerable_record_strategy": {"type": "string"},
-            "mode": {"type": "string", "enum": ["REPLACE", "ENRICH"]},
-            "output_field_name": {"type": ["string", "null"]},
-            "column_prefix": {"type": "string"},
-            "null_strategy": {
-                "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
-            },
-            "description": {"type": "string", "default": ""},
-            "optimize_memory": {"type": "boolean"},
-            "adaptive_chunk_size": {"type": "boolean"},
-            "chunk_size": {"type": "integer", "minimum": 1},
-            "use_dask": {"type": "boolean"},
-            "npartitions": {"type": ["integer", "null"], "minimum": 1},
-            "dask_partition_size": {"type": ["string", "null"], "default": "100MB"},
-            "use_vectorization": {"type": "boolean"},
-            "parallel_processes": {"type": ["integer", "null"], "minimum": 1},
-            "use_cache": {"type": "boolean"},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]},
-            "encryption_mode": {
-                "type": ["string", "null"],
-                "enum": ["age", "simple", "none"],
-                "default": "none",
-            },
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {
-                "type": ["string", "null"],
-                "enum": ["plotly", "matplotlib", None],
-            },
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
-            "output_format": {
-                "type": "string",
-                "enum": ["csv", "parquet", "json"],
-                "default": "csv",
-            },
-        },
-        "required": ["field_name"],
-    }
-
-
 @register(version="1.0.0")
 class PartialMaskingOperation(AnonymizationOperation):
     """
@@ -198,12 +106,6 @@ class PartialMaskingOperation(AnonymizationOperation):
         self,
         # ==== Required ====
         field_name: str,
-        # ==== Output & Replacement ====
-        mode: str = "REPLACE",
-        output_field_name: Optional[str] = None,
-        column_prefix: str = "masked_",
-        null_strategy: str = "PRESERVE",
-        description: str = "",
         # ==== Masking Basics ====
         mask_char: str = "*",
         mask_strategy: str = MaskStrategyEnum.FIXED.value,  # fixed, pattern, random, words
@@ -228,86 +130,68 @@ class PartialMaskingOperation(AnonymizationOperation):
         preset_name: Optional[str] = None,
         # ==== Multi-field Consistency ====
         consistency_fields: Optional[List[str]] = None,
-        # ==== Conditional Masking ====
-        condition_field: Optional[str] = None,
-        condition_values: Optional[List] = None,
-        condition_operator: str = "in",
-        # ==== K-anonymity Integration ====
-        ka_risk_field: Optional[str] = None,
-        risk_threshold: float = 5.0,
-        vulnerable_record_strategy: str = "mask",  # or "full_mask"
-        # ==== System Settings ====
-        optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        dask_partition_size: Optional[str] = None,
-        use_vectorization: bool = False,
-        parallel_processes: Optional[int] = None,
-        use_cache: bool = True,
-        # ==== Security ====
-        use_encryption: bool = False,
-        encryption_mode: Optional[str] = "none",
-        encryption_key: Optional[Union[str, Path]] = None,
-        # ==== Visualization ====
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        output_format: str = "csv",
+        **kwargs,
     ):
         """
-        Initialize Partial masking operation.
+        Initialize Partial Masking Operation.
 
         Parameters:
         -----------
-        field_name: str
-            Name of the field to mask
-        mask_char: str
-            Character used for masking (default: '*')
-        unmasked_prefix: int
-            Number of characters to leave unmasked at the start
-        unmasked_suffix: int
-            Number of characters to leave unmasked at the end
-        unmasked_positions: Optional[List[int]]
-            Specific positions to leave unmasked (default: None)
-        pattern_type: Optional[str]
-            Type of masking pattern to use (e.g., 'email', 'phone')
-        mask_pattern: Optional[str]
-            Custom regex pattern for masking
-        preserve_pattern: Optional[str]
-            Regex pattern to preserve (mask everything else)
-        preserve_separators: bool
-            Whether to preserve separators (e.g., '-', '_', '.')
-        mask_percentage: Optional[float]
-            Percentage of characters to mask randomly (0-100)
-        mask_strategy: str
-            Strategy for masking ('fixed', 'pattern', 'random', 'words')
-        consistency_fields: Optional[List[str]]
-            Additional fields to mask consistently with the main field
-        case_sensitive: bool
-            Whether masking is case-sensitive (default: True)
-        preserve_word_boundaries: bool
-            Whether to preserve word boundaries during masking
-        random_mask: bool
-            Whether to use random characters from a pool for masking
-        mask_char_pool: Optional[str]
-            Pool of characters to use for random masking (default: alphanumeric)
-        Other parameters follow base class convention
+        field_name : str
+            Name of the field to be masked.
+        mask_char : str, optional
+            Character used to mask sensitive content (default: '*').
+        mask_strategy : str, optional
+            Masking strategy to apply. Supported values:
+            - ``fixed``: Replace masked characters with a fixed mask_char.
+            - ``pattern``: Apply regex or predefined patterns (e.g., email, phone).
+            - ``random``: Replace with random characters.
+            - ``words``: Mask entire words or tokens.
+        mask_percentage : float, optional
+            Percentage (0–100) of characters to mask randomly.
+        unmasked_prefix : int, optional
+            Number of characters at the start of the string to remain visible.
+        unmasked_suffix : int, optional
+            Number of characters at the end of the string to remain visible.
+        unmasked_positions : list[int], optional
+            Specific index positions to remain unmasked.
+        pattern_type : str, optional
+            Predefined pattern type (e.g., 'email', 'phone', 'ipv4').
+        mask_pattern : str, optional
+            Custom regex pattern used for masking if pattern-based strategy is selected.
+        preserve_pattern : str, optional
+            Regex pattern to preserve (everything else will be masked).
+        preserve_separators : bool, optional
+            Whether to keep separators (e.g., '-', '_', '.') unchanged (default: True).
+        preserve_word_boundaries : bool, optional
+            Whether to avoid masking across word boundaries (default: False).
+        case_sensitive : bool, optional
+            Whether matching is case-sensitive (default: True).
+        random_mask : bool, optional
+            Whether to use random characters from a pool instead of a fixed mask_char.
+        mask_char_pool : str, optional
+            Pool of characters used when random masking is enabled (e.g., "ABC123").
+        preset_type : str, optional
+            Preset category for reusable masking templates.
+        preset_name : str, optional
+            Name of the specific preset configuration to apply.
+        consistency_fields : list[str], optional
+            Other fields to mask consistently with the main field.
+        **kwargs
+            Additional keyword arguments passed to AnonymizationOperation.
         """
-        # Set default description if missing
-        description = (
-            description
-            or f"Partial masking operation for '{field_name}' with mask character '{mask_char}'"
+        # Description fallback
+        kwargs.setdefault(
+            "description",
+            f"Partial masking operation for '{field_name}' using strategy '{mask_strategy}'",
         )
 
-        # Group parameters into a config dict
-        config_params = dict(
+        # Build configuration dict
+        config = PartialMaskingConfig(
             field_name=field_name,
             mask_char=mask_char,
-            preset_type=preset_type,
-            preset_name=preset_name,
+            mask_strategy=mask_strategy,
+            mask_percentage=mask_percentage,
             unmasked_prefix=unmasked_prefix,
             unmasked_suffix=unmasked_suffix,
             unmasked_positions=unmasked_positions,
@@ -315,89 +199,31 @@ class PartialMaskingOperation(AnonymizationOperation):
             mask_pattern=mask_pattern,
             preserve_pattern=preserve_pattern,
             preserve_separators=preserve_separators,
-            mask_percentage=mask_percentage,
-            mask_strategy=mask_strategy,
-            consistency_fields=consistency_fields or [],
-            case_sensitive=case_sensitive,
             preserve_word_boundaries=preserve_word_boundaries,
+            case_sensitive=case_sensitive,
             random_mask=random_mask,
             mask_char_pool=mask_char_pool,
-            mode=mode,
-            output_field_name=output_field_name,
-            column_prefix=column_prefix,
-            null_strategy=null_strategy,
-            description=description,
-            condition_field=condition_field,
-            condition_values=condition_values,
-            condition_operator=condition_operator,
-            ka_risk_field=ka_risk_field,
-            risk_threshold=risk_threshold,
-            vulnerable_record_strategy=vulnerable_record_strategy,
-            optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            chunk_size=chunk_size,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            use_cache=use_cache,
-            use_encryption=use_encryption,
-            encryption_mode=encryption_mode,
-            encryption_key=encryption_key,
-            visualization_theme=visualization_theme,
-            visualization_backend=visualization_backend,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            output_format=output_format,
+            preset_type=preset_type,
+            preset_name=preset_name,
+            consistency_fields=consistency_fields or [],
+            **kwargs,
         )
 
-        # Create config object (you can keep this if needed for validation)
-        config = PartialMaskingConfig(**config_params)
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
 
-        # Initialize parent class
+        # Initialize base AnonymizationOperation
         super().__init__(
-            **{
-                k: config_params[k]
-                for k in [
-                    "field_name",
-                    "mode",
-                    "output_field_name",
-                    "column_prefix",
-                    "null_strategy",
-                    "description",
-                    "condition_field",
-                    "condition_values",
-                    "condition_operator",
-                    "ka_risk_field",
-                    "risk_threshold",
-                    "vulnerable_record_strategy",
-                    "optimize_memory",
-                    "adaptive_chunk_size",
-                    "chunk_size",
-                    "use_dask",
-                    "npartitions",
-                    "dask_partition_size",
-                    "use_vectorization",
-                    "parallel_processes",
-                    "use_cache",
-                    "use_encryption",
-                    "encryption_mode",
-                    "encryption_key",
-                    "visualization_theme",
-                    "visualization_backend",
-                    "visualization_strict",
-                    "visualization_timeout",
-                    "output_format",
-                ]
-            }
+            field_name=field_name,
+            **kwargs,
         )
 
         # Save config attributes to self
-        for k, v in config_params.items():
+        for k, v in config.to_dict().items():
             setattr(self, k, v)
             self.process_kwargs[k] = v
 
+        # Extra setup
         if mask_strategy == MaskStrategyEnum.PATTERN.value and pattern_type:
             self._pattern_config = MaskingPatterns.get_pattern(pattern_type)
             self.process_kwargs["pattern_config"] = self._pattern_config
@@ -405,14 +231,8 @@ class PartialMaskingOperation(AnonymizationOperation):
         if preset_type and preset_name:
             self.process_kwargs["manager"] = MaskingPresetManager()
 
-        # Initialize additional attributes
-        self.config = config
-        self.version = "4.0.0"
+        # Operation metadata
         self.operation_name = self.__class__.__name__
-        self.operation_cache = None
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
 
     def execute(
         self,
@@ -436,14 +256,7 @@ class PartialMaskingOperation(AnonymizationOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation including:
-            - force_recalculation: bool - Skip cache check
-            - generate_visualization: bool - Create visualizations
-            - save_output: bool - Save processed data to output directory
-            - visualization_theme: str - Override theme for visualizations
-            - visualization_backend: str - Override backend for visualizations
-            - visualization_strict: bool - Override strict mode for visualizations
-            - visualization_timeout: int - Override timeout for visualizations
+            Additional parameters for the operation
 
         Returns:
         --------
@@ -457,7 +270,7 @@ class PartialMaskingOperation(AnonymizationOperation):
             self.logger.info(
                 f"Starting {self.operation_name} operation at {self.start_time}"
             )
-            self.process_count = 0
+
             df = None
             result = OperationResult(status=OperationStatus.PENDING)
 
@@ -481,25 +294,8 @@ class PartialMaskingOperation(AnonymizationOperation):
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Decompose kwargs and introduce variables for clarity
-            self.generate_visualization = kwargs.get("generate_visualization", True)
-            self.save_output = kwargs.get("save_output", True)
-            self.force_recalculation = kwargs.get("force_recalculation", False)
+            # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
-
-            # Extract visualization parameters
-            self.visualization_theme = kwargs.get(
-                "visualization_theme", self.visualization_theme
-            )
-            self.visualization_backend = kwargs.get(
-                "visualization_backend", self.visualization_backend
-            )
-            self.visualization_strict = kwargs.get(
-                "visualization_strict", self.visualization_strict
-            )
-            self.visualization_timeout = kwargs.get(
-                "visualization_timeout", self.visualization_timeout
-            )
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -659,17 +455,24 @@ class PartialMaskingOperation(AnonymizationOperation):
                 # Apply conditional filtering
                 self.filter_mask, filtered_df = self._apply_conditional_filtering(df)
 
+                # Process the filtered data only if not empty
+                if not filtered_df.empty:
+                    processed_df = self._process_data_with_config(
+                        df=filtered_df,
+                        progress_tracker=data_tracker,
+                    )
+                else:
+                    self.logger.warning(
+                        "Filtered DataFrame is empty. Skipping _process_data_with_config."
+                    )
+                    processed_df = df.copy(deep=True)
+                    processed_df[self.output_field_name] = original_data
+
                 # Handle vulnerable records if k-anonymity is enabled
                 if self.ka_risk_field and self.ka_risk_field in df.columns:
-                    filtered_df = self._handle_vulnerable_records(
-                        filtered_df, self.output_field_name
+                    processed_df = self._handle_vulnerable_records(
+                        processed_df, self.output_field_name
                     )
-
-                # Process the filtered data
-                processed_df = self._process_data_with_config(
-                    df=filtered_df,
-                    progress_tracker=data_tracker,
-                )
 
                 # Get the anonymized data
                 anonymized_data = processed_df[self.output_field_name]
@@ -893,6 +696,22 @@ class PartialMaskingOperation(AnonymizationOperation):
         if not self.mask_char or len(self.mask_char) != 1:
             raise ValueError("mask_char must be a single character")
 
+        # --- Masking strategy ---
+        valid_strategies = [
+            MaskStrategyEnum.FIXED.value,
+            MaskStrategyEnum.PATTERN.value,
+            MaskStrategyEnum.RANDOM.value,
+            MaskStrategyEnum.WORDS.value,
+        ]
+        if self.mask_strategy not in valid_strategies:
+            raise ValueError(f"mask_strategy must be one of {valid_strategies}")
+
+        if self.mask_pattern:
+            self._validate_pattern(self.mask_pattern, "mask_pattern")
+
+        if self.preserve_pattern:
+            self._validate_pattern(self.preserve_pattern, "preserve_pattern")
+
         # --- Prefix/suffix: validate non-negative numeric ---
         if self.unmasked_prefix is not None:
             if not isinstance(self.unmasked_prefix, int) or self.unmasked_prefix < 0:
@@ -910,29 +729,24 @@ class PartialMaskingOperation(AnonymizationOperation):
                     actual_type=type(self.unmasked_suffix).__name__,
                 )
 
-        if self.mask_pattern:
-            self._validate_pattern(self.mask_pattern, "mask_pattern")
+        # --- Pattern type / custom patterns ---
+        if self.mask_strategy == MaskStrategyEnum.PATTERN.value:
+            if not self.pattern_type and not (
+                self.mask_pattern or self.preserve_pattern
+            ):
+                raise ValueError(
+                    "The 'pattern' strategy requires either a valid pattern_type "
+                    "or a custom mask_pattern/preserve_pattern."
+                )
+            if self.pattern_type and not self._pattern_config:
+                raise ValueError(f"Unknown pattern type: {self.pattern_type}")
 
-        if self.preserve_pattern:
-            self._validate_pattern(self.preserve_pattern, "preserve_pattern")
-
-        # --- Pattern type ---
-        if (
-            self.mask_strategy == MaskStrategyEnum.PATTERN.value
-            and self.pattern_type
-            and not self._pattern_config
-        ):
-            raise ValueError(f"Unknown pattern type: {self.pattern_type}")
-
-        # --- Masking strategy ---
-        valid_strategies = [
-            MaskStrategyEnum.FIXED.value,
-            MaskStrategyEnum.PATTERN.value,
-            MaskStrategyEnum.RANDOM.value,
-            MaskStrategyEnum.WORDS.value,
-        ]
-        if self.mask_strategy not in valid_strategies:
-            raise ValueError(f"mask_strategy must be one of {valid_strategies}")
+        # --- Random strategy requires mask_percentage ---
+        if self.mask_strategy == MaskStrategyEnum.RANDOM.value:
+            if self.mask_percentage is None:
+                raise ValueError(
+                    "The 'random' strategy requires the mask_percentage parameter to be set"
+                )
 
         # --- Consistency fields ---
         if self.consistency_fields is not None and not isinstance(
@@ -1165,6 +979,9 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         if not value or not mask_percentage:
             return value
+
+        # --- Normalize mask_percentage ---
+        mask_percentage = mask_percentage / 100.0
 
         value_len = len(value)
         num_to_mask = max(0, min(int(value_len * mask_percentage), value_len))

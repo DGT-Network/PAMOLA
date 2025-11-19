@@ -25,9 +25,9 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
 import numpy as np
+import pandas as pd
 from scipy.spatial import KDTree, distance
 from pamola_core.attacks.preprocess_data import PreprocessData
-
 
 
 class DistanceToClosestRecord(PreprocessData):
@@ -39,62 +39,54 @@ class DistanceToClosestRecord(PreprocessData):
     def __init__(self):
         pass
 
-
-    def calculate_dcr_kdtree(self, data1, data2):
+    def calculate_dcr(
+        self,
+        data1: pd.DataFrame,
+        data2: pd.DataFrame,
+        method: str = "kdtree",
+        metric: str = "euclidean",
+    ) -> np.ndarray:
         """
-        Distance to Closest Record (DCR): The distance from a data point of dataset to the nearest data point in another dataset
-        Using library scipy.spatial.KDTree
+        Distance to Closest Record (DCR): The distance from each record in data2
+        to its nearest record in data1. Measures how similar two datasets are.
 
-        Parameters:
-        -----------
-        data1: First dataset
-        data2: Second dataset
+        Parameters
+        ----------
+        data1 : pd.DataFrame
+            First dataset (reference set)
+        data2 : pd.DataFrame
+            Second dataset (query set)
+        method : {"kdtree", "cdist"}, default="kdtree"
+            - "kdtree": use scipy.spatial.KDTree (fast for large datasets)
+            - "cdist": use scipy.spatial.distance.cdist (good for custom metrics)
+        metric : str, default="euclidean"
+            Distance metric used when method="cdist".
 
-        Returns:
-        -----------
-        dcr_values: Array of distances from a data point of dataset data2 to the nearest data point in dataset data1
-        The larger the values of dcr, the greater the difference between two datasets
+        Returns
+        -------
+        dcr_values : np.ndarray
+            Array of distances from each point in data2 to its nearest neighbor in data1.
+            Larger values indicate greater dissimilarity between the datasets.
         """
-
-        # Check that the datasets are valid
+        # --- 1. Input validation ---
         if data1 is None or data2 is None:
             raise ValueError("Input datasets cannot be None.")
-        
-        data1_transform, data2_transform = self.preprocess_data(data1, data2)
+        if data1.empty or data2.empty:
+            return np.array([])
 
-        tree = KDTree(data1_transform)
-        # For each data point in data2 find the nearest neighbors in data1
-        dcr_values, indices = tree.query(data2_transform, k=1)
+        # --- 2. Preprocess to numeric arrays ---
+        data1_vec, data2_vec = self.preprocess_data(data1, data2)
 
-        return dcr_values
-
-
-    def calculate_dcr_distance(self, data1, data2):
-        """
-        Distance to Closest Record (DCR): The distance from a data point of dataset to the nearest data point in another dataset
-        Using library scipy.spatial.distance
-
-        Parameters:
-        -----------
-        data1: First data set
-        data2: Second data set
-
-        Returns:
-        -----------
-        dcr_values: Array of distances from a data point of dataset data2 to the nearest data point in dataset data1
-        The larger the values of dcr, the greater the difference between two data sets
-        """
-
-        # Check that the datasets are valid
-        if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
-        
-        data1_transform, data2_transform = self.preprocess_data(data1, data2)
-
-        # Calculate the Euclidean distance between each data point in data2_transform and all data points in data1_transform
-        distances = distance.cdist(data2_transform, data1_transform, metric='euclidean')
-
-        # Filter to get the smallest distance corresponding to each data point of data2_transform
-        dcr_values = np.min(distances, axis=1)
+        # --- 3. Compute DCR ---
+        if method == "kdtree":
+            tree = KDTree(data1_vec)
+            dcr_values, _ = tree.query(data2_vec, k=1)
+        elif method == "cdist":
+            distances = distance.cdist(data2_vec, data1_vec, metric=metric)
+            dcr_values = np.min(distances, axis=1)
+        else:
+            raise ValueError(
+                f"Unknown DCR method: {method}. Must be 'kdtree' or 'cdist'."
+            )
 
         return dcr_values

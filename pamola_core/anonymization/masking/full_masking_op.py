@@ -59,12 +59,12 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_comparison_visualization,
     sample_large_dataset,
 )
+from pamola_core.anonymization.schemas.full_masking_op_schema import FullMaskingConfig
 from pamola_core.common.constants import Constants
 from pamola_core.io.base import DataWriter
 from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -74,76 +74,6 @@ from pamola_core.utils.ops.op_data_writer import DataWriter
 # Default values
 DEFAULT_SAMPLE_SIZE = 10000
 DEFAULT_TOP_CATEGORIES_FOR_ANALYSIS = 20
-
-
-class FullMaskingConfig(OperationConfig):
-    """Configuration for FullMaskingOperation."""
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "field_name": {"type": "string"},
-            "mask_char": {"type": "string", "default": "*"},
-            "preserve_length": {"type": "boolean", "default": True},
-            "fixed_length": {"type": ["integer", "null"], "minimum": 0},
-            "random_mask": {"type": "boolean", "default": False},
-            "mask_char_pool": {"type": ["string", "null"]},
-            "preserve_format": {"type": "boolean", "default": False},
-            "format_patterns": {
-                "type": ["object", "null"],
-            },
-            "numeric_output": {
-                "type": "string",
-                "enum": ["string", "numeric", "preserve"],
-                "default": "string",
-            },
-            "date_format": {"type": ["string", "null"]},
-            "condition_field": {"type": ["string", "null"]},
-            "condition_values": {"type": ["array", "null"]},
-            "condition_operator": {"type": "string"},
-            "ka_risk_field": {"type": ["string", "null"]},
-            "risk_threshold": {"type": "number"},
-            "vulnerable_record_strategy": {"type": "string"},
-            "mode": {"type": "string", "enum": ["REPLACE", "ENRICH"]},
-            "output_field_name": {"type": ["string", "null"]},
-            "column_prefix": {"type": "string"},
-            "null_strategy": {
-                "type": "string",
-                "enum": ["PRESERVE", "EXCLUDE", "ANONYMIZE", "ERROR"],
-            },
-            "description": {"type": "string", "default": ""},
-            "optimize_memory": {"type": "boolean"},
-            "adaptive_chunk_size": {"type": "boolean"},
-            "chunk_size": {"type": "integer", "minimum": 1},
-            "use_dask": {"type": "boolean"},
-            "npartitions": {"type": ["integer", "null"], "minimum": 1},
-            "dask_partition_size": {"type": ["string", "null"], "default": "100MB"},
-            "use_vectorization": {"type": "boolean"},
-            "parallel_processes": {"type": ["integer", "null"], "minimum": 1},
-            "use_cache": {"type": "boolean"},
-            "use_encryption": {"type": "boolean"},
-            "encryption_key": {"type": ["string", "null"]},
-            "encryption_mode": {
-                "type": ["string", "null"],
-                "enum": ["age", "simple", "none"],
-                "default": "none",
-            },
-            "visualization_theme": {"type": ["string", "null"]},
-            "visualization_backend": {
-                "type": ["string", "null"],
-                "enum": ["plotly", "matplotlib", None],
-            },
-            "visualization_strict": {"type": "boolean"},
-            "visualization_timeout": {"type": "integer", "minimum": 1, "default": 120},
-            "output_format": {
-                "type": "string",
-                "enum": ["csv", "parquet", "json"],
-                "default": "csv",
-            },
-        },
-        "required": ["field_name", "mask_char"],
-    }
-
 
 @register(version="1.0.0")
 class FullMaskingOperation(AnonymizationOperation):
@@ -158,12 +88,6 @@ class FullMaskingOperation(AnonymizationOperation):
     def __init__(
         self,
         field_name: str,
-        # ==== Output & Replacement ====
-        mode: str = "REPLACE",
-        output_field_name: Optional[str] = None,
-        column_prefix: str = "masked_",
-        null_strategy: str = "PRESERVE",
-        description: str = "",
         # ==== Masking configuration ====
         mask_char: str = "*",
         preserve_length: bool = True,
@@ -176,126 +100,45 @@ class FullMaskingOperation(AnonymizationOperation):
         # Type-specific handling
         numeric_output: str = "string",  # string, numeric, preserve
         date_format: Optional[str] = None,
-        # Conditional masking
-        condition_field: Optional[str] = None,
-        condition_values: Optional[List] = None,
-        condition_operator: str = "in",
-        # K-anonymity integration
-        ka_risk_field: Optional[str] = None,
-        risk_threshold: float = 5.0,
-        vulnerable_record_strategy: str = "mask",
-        # Memory optimization
-        optimize_memory: bool = True,
-        adaptive_chunk_size: bool = True,
-        # Specific parameters
-        chunk_size: int = 10000,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        dask_partition_size: Optional[str] = None,
-        use_vectorization: bool = False,
-        parallel_processes: Optional[int] = None,
-        use_cache: bool = True,
-        use_encryption: bool = False,
-        encryption_mode: Optional[str] = "none",
-        encryption_key: Optional[Union[str, Path]] = None,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
-        output_format: str = "csv",
+        **kwargs,
     ):
         """
-        Initialize full masking operation.
+        Initialize the FullMaskingOperation.
 
-        Parameters:
-        -----------
-        field_name: str
-            Name of the field to mask
-        mode: str
-            Operation mode, e.g. 'REPLACE' or 'ENRICH' (default: 'REPLACE')
-        output_field_name: Optional[str]
-            Name of the output field (default: None)
-        column_prefix: str
-            Prefix for output column if enriching (default: 'masked_')
-        null_strategy: str
-            Strategy for handling null values (default: 'PRESERVE')
-        description: str
-            Description of the operation (default: '')
-        mask_char: str
-            Character used for masking (default: '*')
-        preserve_length: bool
-            Whether to preserve the original length of the field (default: True)
-        fixed_length: Optional[int]
-            Fixed length for masking (if None, uses original length)
-        random_mask: bool
-            Whether to use random characters from a pool for masking (default: False)
-        mask_char_pool: Optional[str]
-            Pool of characters to use for random masking (default: None, uses alphanumeric + symbols if random_mask is True)
-        preserve_format: bool
-            Whether to preserve the format of the original field (default: False)
-        format_patterns: Dict[str, str]
-            Custom regex patterns for format preservation (default: {}, uses common patterns)
-        numeric_output: str
-            Output type for numeric fields ('string', 'numeric', or 'preserve') (default: 'string')
-        date_format: Optional[str]
-            Format for date fields (default: None, uses ISO format)
-        condition_field: Optional[str]
-            Field to apply conditional masking (default: None)
-        condition_values: Optional[List]
-            Values for conditional masking (default: None)
-        condition_operator: str
-            Operator for conditional masking (default: 'in')
-        ka_risk_field: Optional[str]
-            Field for k-anonymity risk calculation (default: None)
-        risk_threshold: float
-            Risk threshold for k-anonymity (default: 5.0)
-        vulnerable_record_strategy: str
-            Strategy for vulnerable records (default: 'mask')
-        optimize_memory: bool
-            Whether to optimize memory usage (default: True)
-        adaptive_chunk_size: bool
-            Whether to use adaptive chunk size (default: True)
-        chunk_size: int
-            Size of data chunks for processing (default: 10000)
-        use_dask: bool
-            Whether to use Dask for distributed processing (default: False)
-        npartitions: Optional[int]
-            Number of Dask partitions (default: None)
-        dask_partition_size: Optional[str]
-            Dask partition size (default: None)
-        use_vectorization: bool
-            Whether to use vectorized operations (default: False)
-        parallel_processes: Optional[int]
-            Number of parallel processes (default: None)
-        use_cache: bool
-            Whether to use cache for results (default: True)
-        use_encryption: bool
-            Whether to encrypt output files (default: False)
-        encryption_mode: Optional[str]
-            Encryption mode (default: 'none')
-        encryption_key: Optional[Union[str, Path]]
-            Encryption key or path (default: None)
-        visualization_theme: Optional[str]
-            Theme for visualizations (default: None)
-        visualization_backend: Optional[str]
-            Backend for visualizations (default: 'plotly')
-        visualization_strict: bool
-            Whether to use strict mode for visualizations (default: False)
-        visualization_timeout: int
-            Timeout for visualizations in seconds (default: 120)
-        output_format: str
-            Output file format (default: 'csv')
-        Other parameters follow base class convention
+        Parameters
+        ----------
+        field_name : str
+            Name of the field to apply masking.
+        mask_char : str, default="*"
+            Character used for masking the field values.
+        preserve_length : bool, default=True
+            Whether to preserve the original string length of masked values.
+        fixed_length : Optional[int], default=None
+            Fixed output length for all masked values. If None, uses input length.
+        random_mask : bool, default=False
+            Whether to use random characters from a pool instead of a fixed mask_char.
+        mask_char_pool : Optional[str], default=None
+            Pool of characters to randomly sample from if `random_mask=True`.
+        preserve_format : bool, default=False
+            Whether to preserve data format or structure (e.g., keep dashes or parentheses).
+        format_patterns : Optional[Dict[str, str]], default=None
+            Custom regex patterns for identifying and preserving data formats.
+        numeric_output : str, default="string"
+            Defines the output type for numeric fields.
+            One of {"string", "numeric", "preserve"}.
+        date_format : Optional[str], default=None
+            Date format string to use when masking datetime fields.
+        **kwargs
+            Additional keyword arguments passed to AnonymizationOperation.
         """
-
-        # Set default description if missing
-        description = (
-            description
-            or f"Full masking operation for '{field_name}' with mask character '{mask_char}'"
+        # Description fallback
+        kwargs.setdefault(
+            "description",
+            f"Full masking operation for '{field_name}' with mask character '{mask_char}'",
         )
 
-        # Group parameters into a config dict
-        config_params = dict(
+        # Build config object
+        config = FullMaskingConfig(
             field_name=field_name,
             mask_char=mask_char,
             preserve_length=preserve_length,
@@ -306,82 +149,24 @@ class FullMaskingOperation(AnonymizationOperation):
             format_patterns=format_patterns or {},
             numeric_output=numeric_output,
             date_format=date_format,
-            mode=mode,
-            output_field_name=output_field_name,
-            column_prefix=column_prefix,
-            null_strategy=null_strategy,
-            description=description,
-            condition_field=condition_field,
-            condition_values=condition_values,
-            condition_operator=condition_operator,
-            ka_risk_field=ka_risk_field,
-            risk_threshold=risk_threshold,
-            vulnerable_record_strategy=vulnerable_record_strategy,
-            optimize_memory=optimize_memory,
-            adaptive_chunk_size=adaptive_chunk_size,
-            chunk_size=chunk_size,
-            use_dask=use_dask,
-            npartitions=npartitions,
-            dask_partition_size=dask_partition_size,
-            use_vectorization=use_vectorization,
-            parallel_processes=parallel_processes,
-            use_cache=use_cache,
-            use_encryption=use_encryption,
-            encryption_mode=encryption_mode,
-            encryption_key=encryption_key,
-            visualization_theme=visualization_theme,
-            visualization_backend=visualization_backend,
-            visualization_strict=visualization_strict,
-            visualization_timeout=visualization_timeout,
-            output_format=output_format,
+            **kwargs,
         )
 
-        # Create config object (you can keep this if needed for validation)
-        config = FullMaskingConfig(**config_params)
+        # Pass config into kwargs for parent constructor
+        kwargs["config"] = config
 
-        # Initialize parent class
+        # Initialize base AnonymizationOperation
         super().__init__(
-            **{
-                k: config_params[k]
-                for k in [
-                    "field_name",
-                    "mode",
-                    "output_field_name",
-                    "column_prefix",
-                    "null_strategy",
-                    "description",
-                    "condition_field",
-                    "condition_values",
-                    "condition_operator",
-                    "ka_risk_field",
-                    "risk_threshold",
-                    "vulnerable_record_strategy",
-                    "optimize_memory",
-                    "adaptive_chunk_size",
-                    "chunk_size",
-                    "use_dask",
-                    "npartitions",
-                    "dask_partition_size",
-                    "use_vectorization",
-                    "parallel_processes",
-                    "use_cache",
-                    "use_encryption",
-                    "encryption_mode",
-                    "encryption_key",
-                    "visualization_theme",
-                    "visualization_backend",
-                    "visualization_strict",
-                    "visualization_timeout",
-                    "output_format",
-                ]
-            }
+            field_name=field_name,
+            **kwargs,
         )
 
         # Save config attributes to self
-        for k, v in config_params.items():
+        for k, v in config.to_dict().items():
             setattr(self, k, v)
             self.process_kwargs[k] = v
 
+        # Additional logic for FullMaskingOperation
         if not self.format_patterns:
             self._setup_format_patterns()
 
@@ -390,14 +175,10 @@ class FullMaskingOperation(AnonymizationOperation):
         # Setup random mask pool if needed
         if self.random_mask and not self.mask_char_pool:
             self.mask_char_pool = string.ascii_letters + string.digits + "!@#$%^&*"
+            self.process_kwargs["mask_char_pool"] = self.mask_char_pool
 
-        self.config = config
-        self.version = "4.0.0"
+        # Operation metadata
         self.operation_name = self.__class__.__name__
-        self.operation_cache = None
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
 
     def execute(
         self,
@@ -421,14 +202,7 @@ class FullMaskingOperation(AnonymizationOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Progress tracker for the operation
         **kwargs : dict
-            Additional parameters for the operation including:
-            - force_recalculation: bool - Skip cache check
-            - generate_visualization: bool - Create visualizations
-            - save_output: bool - Save processed data to output directory
-            - visualization_theme: str - Override theme for visualizations
-            - visualization_backend: str - Override backend for visualizations
-            - visualization_strict: bool - Override strict mode for visualizations
-            - visualization_timeout: int - Override timeout for visualizations
+            Additional parameters for the operation
 
         Returns:
         --------
@@ -442,9 +216,8 @@ class FullMaskingOperation(AnonymizationOperation):
             self.logger.info(
                 f"Starting {self.operation_name} operation at {self.start_time}"
             )
-            self.process_count = 0
-            df = None
 
+            df = None
             # Initialize result object
             result = OperationResult(status=OperationStatus.PENDING)
 
@@ -468,25 +241,8 @@ class FullMaskingOperation(AnonymizationOperation):
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Decompose kwargs and introduce variables for clarity
-            self.generate_visualization = kwargs.get("generate_visualization", True)
-            self.save_output = kwargs.get("save_output", True)
-            self.force_recalculation = kwargs.get("force_recalculation", False)
+            # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
-
-            # Extract visualization parameters
-            self.visualization_theme = kwargs.get(
-                "visualization_theme", self.visualization_theme
-            )
-            self.visualization_backend = kwargs.get(
-                "visualization_backend", self.visualization_backend
-            )
-            self.visualization_strict = kwargs.get(
-                "visualization_strict", self.visualization_strict
-            )
-            self.visualization_timeout = kwargs.get(
-                "visualization_timeout", self.visualization_timeout
-            )
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -647,17 +403,24 @@ class FullMaskingOperation(AnonymizationOperation):
                 # Apply conditional filtering
                 self.filter_mask, filtered_df = self._apply_conditional_filtering(df)
 
+                # Process the filtered data only if not empty
+                if not filtered_df.empty:
+                    processed_df = self._process_data_with_config(
+                        df=filtered_df,
+                        progress_tracker=data_tracker,
+                    )
+                else:
+                    self.logger.warning(
+                        "Filtered DataFrame is empty. Skipping _process_data_with_config."
+                    )
+                    processed_df = df.copy(deep=True)
+                    processed_df[self.output_field_name] = original_data
+
                 # Handle vulnerable records if k-anonymity is enabled
                 if self.ka_risk_field and self.ka_risk_field in df.columns:
-                    filtered_df = self._handle_vulnerable_records(
-                        filtered_df, self.output_field_name
+                    processed_df = self._handle_vulnerable_records(
+                        processed_df, self.output_field_name
                     )
-
-                # Process the filtered data
-                processed_df = self._process_data_with_config(
-                    df=filtered_df,
-                    progress_tracker=data_tracker,
-                )
 
                 # Get the anonymized data
                 anonymized_data = processed_df[self.output_field_name]
@@ -1280,7 +1043,7 @@ class FullMaskingOperation(AnonymizationOperation):
 
             if is_numeric:
                 if numeric_output == "numeric":
-                    return cls._mask_to_numeric(masked, str_value)
+                    return cls._mask_to_numeric(masked, str_value, **kwargs)
                 elif numeric_output == "preserve":
                     return value
         except:

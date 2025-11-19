@@ -502,7 +502,7 @@ def ensure_enum_consistency():
         )
 
     # Alternative: Check that critical values exist (more useful)
-    required_core_values = {"valid", "service", "error", "empty", "invalid"}
+    required_core_values = {"valid", "service", "error", "empty", "invalid", "pii_detected"}
     if not required_core_values.issubset(actual_response_types):
         missing_core = required_core_values - actual_response_types
         raise ValueError(

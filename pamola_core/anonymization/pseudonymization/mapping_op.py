@@ -131,7 +131,7 @@ from pamola_core.utils.ops.op_field_utils import (
     create_composite_key,
     generate_output_field_name,
 )
-from pamola_core.utils.ops.op_registry import register_operation
+from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
@@ -198,6 +198,7 @@ class ConsistentMappingPseudonymizationConfig(OperationConfig):
     }
 
 
+@register(version="1.0.0")
 class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
     """
     Consistent mapping pseudonymization with encrypted storage.
@@ -1266,10 +1267,6 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 backup_on_update=False,
             )
             temp_storage.save(export_data)
-
-
-# Register the operation
-register_operation(ConsistentMappingPseudonymizationOperation)
 
 
 # Factory function

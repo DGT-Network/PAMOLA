@@ -20,8 +20,6 @@ Description:
 
 Key Features:
     - Standardized operation lifecycle: validation, execution, and result handling
-    - In-place (REPLACE) and enrichment (ENRICH) processing modes
-    - Configurable null value handling: PRESERVE, EXCLUDE, ERROR
     - Memory-efficient processing for large datasets
     - Comprehensive metrics collection and visualization support
     - Robust caching for operation results and artifacts
@@ -38,7 +36,6 @@ Framework:
     metrics operations.
 """
 
-import logging
 import time
 from datetime import datetime
 from pathlib import Path
@@ -80,122 +77,52 @@ class MetricsOperation(BaseOperation):
     def __init__(
         self,
         name: str = "base_metrics",
-        mode: str = "comparison",  # comparison, standalone
-        columns: Optional[List[str]] = None,
-        column_mapping: Optional[Dict[str, str]] = None,
         normalize: bool = True,
         confidence_level: float = 0.95,
-        description: str = "",
-        # Memory optimization
-        optimize_memory: bool = True,
-        # Specific parameters
         sample_size: Optional[int] = None,
-        use_dask: bool = False,
-        npartitions: Optional[int] = None,
-        dask_partition_size: Optional[str] = None,
-        use_cache: bool = True,
-        use_encryption: bool = False,
-        encryption_mode: Optional[str] = None,
-        encryption_key: Optional[Union[str, Path]] = None,
-        visualization_theme: Optional[str] = None,
-        visualization_backend: Optional[str] = "plotly",
-        visualization_strict: bool = False,
-        visualization_timeout: int = 120,
+        column_mapping: Optional[Dict[str, str]] = None,
+        columns: Optional[List[str]] = None,
+        **kwargs,
     ):
         """
-        Initialize the metrics operation.
+        Initialize a metrics operation.
 
         Parameters:
         -----------
-        name : str
-            Name of the operation (default: "base_metrics")
-        mode : str, optional
-            "comparison" for comparing original vs transformed data or "standalone" for independent analysis
-        columns : List[str], optional
-            List of columns to include in the operation
-        column_mapping : Dict[str, str], optional
-            Mapping of original columns to new names (if applicable)
+        name : str, optional
+            Name of the operation (default: "base_metrics").
         normalize : bool, optional
-            Whether to normalize the data (default: True)
+            Whether to normalize the data before metric computation (default: True).
         confidence_level : float, optional
-            Confidence level for statistical metrics (default: 0.95)
-        sample_size : Optional[int], optional
-            Size of the sample to use for metrics calculation (default: None, uses full dataset)
-        description : str, optional
-            Operation description
-        optimize_memory : bool, optional
-            Whether to optimize DataFrame memory usage
-        use_dask : bool, optional
-            Whether to use Dask for parallel processing (default: False)
-        npartitions : Optional[int], optional
-            Number of partitions to use with Dask (default: None)
-        dask_partition_size : Optional[str], optional
-            Size of Dask partitions (default: None, auto-determined)
-        use_cache : bool, optional
-            Whether to use operation caching (default: True)
-        use_encryption : bool, optional
-            Whether to encrypt output files (default: False)
-        encryption_key : str or Path, optional
-            The encryption key or path to a key file (default: None)
-        encryption_mode : Optional[str], optional
-            The encryption mode to use (default: None)
-        visualization_theme : Optional[str], optional
-            Theme for visualizations (default: None)
-        visualization_backend : Optional[str], optional
-            Backend for visualizations ("plotly" or "matplotlib", default: None)
-        visualization_strict : bool, optional
-            If True, raise exceptions for visualization config errors (default: False)
-        visualization_timeout : int, optional
-            Timeout for visualization generation in seconds (default: 120)
+            Confidence level for statistical metrics (default: 0.95).
+        sample_size : int, optional
+            Size of the dataset sample used for metric calculation
+            (default: None → use full dataset).
+        column_mapping : Dict[str, str], optional
+            Mapping of original column names to renamed versions.
+        columns : List[str], optional
+            List of columns to include in the operation.
+        **kwargs : dict
+            Additional parameters passed to the parent :class:`BaseOperation`
+            (e.g., description, use_dask, encryption_key, visualization options, etc.).
         """
-        # Use a default description if none provided
-        if not description:
-            description = f"{name} metrics operation for field"
 
-        # Initialize base class
-        super().__init__(
-            name=name,
-            description=description,
-            use_encryption=use_encryption,
-            encryption_key=encryption_key,
-            encryption_mode=encryption_mode,
-        )
+        # Ensure metadata consistency
+        kwargs.setdefault("name", name)
+        kwargs.setdefault("description", f"Metrics operation: {name}")
 
-        # Store basic parameters
-        self.mode = mode.upper()
+        # Initialize parent BaseOperation
+        super().__init__(**kwargs)
+
+        # Operation-specific parameters
         self.columns = columns or []
         self.column_mapping = column_mapping or {}
         self.normalize = normalize
         self.confidence_level = confidence_level
         self.sample_size = sample_size
-        self.use_cache = use_cache
-        self.use_dask = use_dask
-        self.npartitions = npartitions
-        self.dask_partition_size = dask_partition_size
-        self.use_encryption = use_encryption
-        self.encryption_key = encryption_key
-        self.encryption_mode = encryption_mode
-        self.visualization_theme = visualization_theme
-        self.visualization_backend = visualization_backend
-        self.visualization_strict = visualization_strict
-        self.visualization_timeout = visualization_timeout
-        self.version = getattr(self, "version", "4.0.0")
 
-        # Memory optimization parameters
-        self.optimize_memory = optimize_memory
-
-        # Performance tracking
-        self.start_time = None
-        self.end_time = None
-        self.process_count = 0
-
-        # Set up common variables
-        self.force_recalculation = False  # Skip cache check
-        self.generate_visualization = True  # Create visualizations
-        self.process_kwargs = {}
-
-        # Initialize logger
-        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        # Internal processing context
+        self.process_kwargs: Dict[str, Any] = {}
 
     def execute(
         self,
@@ -231,7 +158,6 @@ class MetricsOperation(BaseOperation):
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
             self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-            self.process_count = 0
             original_df = None
             transformed_df = None
 
@@ -254,26 +180,10 @@ class MetricsOperation(BaseOperation):
             # Save operation configuration
             self.save_config(task_dir)
 
-            # Decompose kwargs and introduce variables for clarity
-            self.generate_visualization = kwargs.get("generate_visualization", True)
-            self.force_recalculation = kwargs.get("force_recalculation", False)
+            # Extract original and transformed dataset name from kwargs (default to "main")
             self.original_dataset_name = kwargs.get("original_dataset_name", "main")
             self.transformed_dataset_name = kwargs.get(
                 "transformed_dataset_name", "main"
-            )
-
-            # Extract visualization parameters
-            self.visualization_theme = kwargs.get(
-                "visualization_theme", self.visualization_theme
-            )
-            self.visualization_backend = kwargs.get(
-                "visualization_backend", self.visualization_backend
-            )
-            self.visualization_strict = kwargs.get(
-                "visualization_strict", self.visualization_strict
-            )
-            self.visualization_timeout = kwargs.get(
-                "visualization_timeout", self.visualization_timeout
             )
 
             self.logger.info(
@@ -1239,7 +1149,7 @@ class MetricsOperation(BaseOperation):
             self.logger.debug(f"Checking cache for key: {cache_key}")
 
             cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             if not cached_result:
@@ -1458,7 +1368,7 @@ class MetricsOperation(BaseOperation):
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -1498,7 +1408,7 @@ class MetricsOperation(BaseOperation):
 
         # Use the operation_cache utility to generate a consistent cache key
         return self.operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
+            operation_name=self.operation_name,
             parameters=parameters,
             data_hash=data_hash,
         )

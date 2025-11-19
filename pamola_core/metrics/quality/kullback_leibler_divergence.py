@@ -25,30 +25,52 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 from scipy.stats import entropy
 from typing import List, Dict
-from pamola_core.metrics.base import QualityMetric
 
 # Configure logging
 import logging
+
 logger = logging.getLogger(__name__)
 
-class KullbackLeiblerDivergence(QualityMetric):
-    def __init__(self, name: str = "Kullback-Leibler Divergence", description: str = "Evaluate information loss"):
-        super().__init__(name, description)
 
-    def calculate(self, real_data: pd.DataFrame, synthetic_data: pd.DataFrame, target_columns: List[str] = None) -> Dict[str, float]:
+class KullbackLeiblerDivergence:
+    def __init__(
+        self,
+        name: str = "Kullback-Leibler Divergence",
+        description: str = "Evaluate information loss",
+    ):
+        """Initialize the Kullback-Leibler Divergence metric."""
+        self.name = name
+        self.description = description
+
+    def calculate_metric(
+        self,
+        real_data: pd.DataFrame,
+        synthetic_data: pd.DataFrame,
+        target_columns: List[str] = None,
+    ) -> Dict[str, float]:
         logger.info("Calculating Kullback-Leibler Divergence metrics")
         results = {}
-        columns_to_evaluate = target_columns if target_columns else real_data.select_dtypes(include=["number"]).columns.tolist()
+        columns_to_evaluate = (
+            target_columns
+            if target_columns
+            else real_data.select_dtypes(include=["number"]).columns.tolist()
+        )
 
         try:
             for col in columns_to_evaluate:
                 if col in real_data.columns and col in synthetic_data.columns:
-                    real_dist = real_data[col].value_counts(normalize=True, bins=10, sort=False)
-                    synth_dist = synthetic_data[col].value_counts(normalize=True, bins=10, sort=False)
+                    real_dist = real_data[col].value_counts(
+                        normalize=True, bins=10, sort=False
+                    )
+                    synth_dist = synthetic_data[col].value_counts(
+                        normalize=True, bins=10, sort=False
+                    )
                     kld_score = entropy(real_dist + 1e-9, synth_dist + 1e-9)
                     results[col] = kld_score
 
-            logger.info("Kullback-Leibler Divergence calculation completed successfully")
+            logger.info(
+                "Kullback-Leibler Divergence calculation completed successfully"
+            )
             return results
         except Exception as e:
             logger.error(f"Error during Kullback-Leibler Divergence calculation: {e}")
