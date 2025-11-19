@@ -20,6 +20,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of record suppression config file
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -67,16 +68,16 @@ class RecordSuppressionConfig(OperationConfig):
                         "x-component": "Select",
                         "description": "Condition for suppressing records: 'null', 'value', 'range', 'risk', or 'custom'.",
                         "x-group": GroupName.CORE_SUPPRESSION_RULE,
+                        "x-toggle-groups": {
+                            "custom": [GroupName.ADVANCED_CONDITIONAL_RULES],
+                            "risk": [GroupName.RISK_BASED_FILTERING],
+                        },
                     },
                     "suppression_values": {
                         "type": ["array", "null"],
                         "title": "Suppression Values",
                         "description": "List of values to match for suppression (used with 'value' condition).",
-                        "items": {
-                            "type": "string",
-                            "x-component": "Input",
-                        },
-                        "x-component": "ArrayItems",
+                        "x-component": CustomComponents.STRING_ARRAY,
                         "x-group": GroupName.CORE_SUPPRESSION_RULE,
                         "x-depend-on": {"suppression_condition": "value"},
                         "x-required-on": {"suppression_condition": "value"},
@@ -85,13 +86,7 @@ class RecordSuppressionConfig(OperationConfig):
                         "type": ["array", "null"],
                         "title": "Suppression Range",
                         "description": "Range [min, max] for suppression (used with 'range' condition).",
-                        "items": {
-                            "type": "number",
-                            "x-component": "NumberPicker",
-                        },
-                        "minItems": 2,
-                        "maxItems": 2,
-                        "x-component": "ArrayItems",
+                        "x-component": CustomComponents.RANGE_NUMBER,
                         "x-group": GroupName.CORE_SUPPRESSION_RULE,
                         "x-depend-on": {"suppression_condition": "range"},
                         "x-required-on": {"suppression_condition": "range"},
@@ -100,7 +95,7 @@ class RecordSuppressionConfig(OperationConfig):
                     "multi_conditions": {
                         "type": ["array", "null"],
                         "x-component": "ArrayItems",
-                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-group": GroupName.ADVANCED_CONDITIONAL_RULES,
                         "x-depend-on": {"suppression_condition": "custom"},
                         "items": {
                             "type": "object",
@@ -212,7 +207,7 @@ class RecordSuppressionConfig(OperationConfig):
                             },
                         ],
                         "x-component": "Select",
-                        "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-group": GroupName.ADVANCED_CONDITIONAL_RULES,
                         "x-depend-on": {"multi_conditions": "not_null"},
                     },
                     # === Risk-Based Filtering ===
@@ -222,7 +217,9 @@ class RecordSuppressionConfig(OperationConfig):
                         "description": "Field containing k-anonymity risk scores for suppression based on risk.",
                         "x-component": "Select",
                         "x-group": GroupName.RISK_BASED_FILTERING,
-                        "x-custom-function": [CustomFunctions.UPDATE_INT64_FIELD_OPTIONS],
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_INT64_FIELD_OPTIONS
+                        ],
                         "x-depend-on": {"suppression_condition": "risk"},
                         "x-required-on": {"suppression_condition": "risk"},
                     },

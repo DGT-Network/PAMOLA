@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake name config file
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -89,7 +90,7 @@ class FakeNameOperationConfig(OperationConfig):
                     "dictionaries": {
                         "type": ["object", "null"],
                         "title": "Custom Dictionaries",
-                        "x-component": "Upload",  # TODO: Use custom component when available
+                        "x-component": CustomComponents.UPLOAD,
                         "description": "Custom dictionaries for localized name generation (advanced usage).",
                         "x-group": GroupName.NAME_GENERATION_STYLE,
                     },
@@ -163,7 +164,7 @@ class FakeNameOperationConfig(OperationConfig):
                     "mapping_store_path": {
                         "type": ["string", "null"],
                         "title": "Mapping Store Path",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "x-depend-on": {"consistency_mechanism": "mapping"},
                         "description": "Path to store or load mapping file for consistent name replacement.",
                         "x-group": GroupName.CONSISTENCY_STRATEGY,

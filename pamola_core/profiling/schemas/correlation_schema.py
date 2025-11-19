@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of correlation config file
 """
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -38,11 +39,17 @@ class CorrelationOperationConfig(OperationConfig):
                         "type": "string",
                         "title": "First Field Name",
                         "description": "Name of the first field (column) to analyze for correlation. Must exist in the input DataFrame.",
+                        "x-component": "Select",
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
+                        "x-group": GroupName.FIELD_SETTINGS,
                     },
                     "field2": {
                         "type": "string",
                         "title": "Second Field Name",
                         "description": "Name of the second field (column) to analyze for correlation. Must exist in the input DataFrame.",
+                        "x-component": "Select",
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
+                        "x-group": GroupName.FIELD_SETTINGS,
                     },
                     "method": {
                         "type": ["string", "null"],
@@ -95,7 +102,7 @@ class CorrelationOperationConfig(OperationConfig):
                         "default": None,
                     },
                 },
-                "required": ["method", "null_handling"],
+                "required": ["method", "field1", "field2", "null_handling"],
             },
         ],
     }

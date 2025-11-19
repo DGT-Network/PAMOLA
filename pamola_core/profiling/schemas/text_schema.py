@@ -20,6 +20,7 @@ Changelog:
 1.1.0 - 2025-11-11 - Updated with x-component, x-group, and x-custom-function attributes
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
@@ -81,7 +82,7 @@ class TextSemanticCategorizerOperationConfig(OperationConfig):
                     "dictionary_path": {
                         "type": ["string", "null"],
                         "title": "Dictionary Path",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "default": None,
                         "description": (
                             "Path to a file containing semantic category definitions and patterns.\n"
@@ -92,6 +93,7 @@ class TextSemanticCategorizerOperationConfig(OperationConfig):
                     "min_word_length": {
                         "type": "integer",
                         "minimum": 1,
+                        "maximum": 10,
                         "default": 3,
                         "title": "Minimum Word Length",
                         "x-component": "NumberPicker",
@@ -128,7 +130,7 @@ class TextSemanticCategorizerOperationConfig(OperationConfig):
                         "maximum": 1,
                         "default": 0.7,
                         "title": "Clustering Threshold",
-                        "x-component": "NumberPicker",
+                        "x-component": "FloatPicker",
                         "description": "Minimum similarity score (0-1) required for clustering unmatched text entries into groups.",
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                     },
@@ -156,9 +158,16 @@ class TextSemanticCategorizerOperationConfig(OperationConfig):
                         "x-component": "Checkbox",
                         "description": "Activates similarity-based clustering for text entries not matched by dictionary or NER.",
                         "x-group": GroupName.CONDITIONAL_LOGIC,
+                        "x-disabled-on": {"perform_categorization": False},
                     },
                 },
-                "required": ["field_name", "entity_type"],
+                "required": [
+                    "field_name",
+                    "entity_type",
+                    "min_word_length",
+                    "match_strategy",
+                    "clustering_threshold",
+                ],
             },
         ],
     }

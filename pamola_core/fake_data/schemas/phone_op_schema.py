@@ -18,6 +18,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of fake phone config file
 """
 from click import Group
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
@@ -56,6 +57,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Fallback Country",
                         "x-component": "Select",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_DEFAULT_COUNTRY_OPTIONS],
                         "description": "Sets the default region to determine the country code and phone number formatting rules."
                     },
                     "country_codes": {
@@ -64,6 +66,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "title": "Country Codes List",
                         "x-component": "Select",
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_DEFAULT_COUNTRY_OPTIONS],
                         "description": "Country codes to use for phone number generation (e.g., '+84', 'US')."
                     },
                     "country_code_field": {
@@ -78,7 +81,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "type": ["object", "null"],
                         "default": None,
                         "title": "Operator Codes Dictionary",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "x-group": GroupName.REGIONAL_CONFIGURATION,
                         "description": "Dictionary mapping country codes to lists of operator codes for phone number generation."
                     },
@@ -88,6 +91,7 @@ class FakePhoneOperationConfig(OperationConfig):
                         "x-component": "Select",
                         "title": "Output Format",
                         "x-group": GroupName.FORMATTING_RULES,
+                        "x-custom-function": [CustomFunctions.UPDATE_FAKE_PHONE_FORMAT],
                         "description": "Phone number format template to use for generation."
                     },
                     "preserve_country_code": {
@@ -149,7 +153,7 @@ class FakePhoneOperationConfig(OperationConfig):
                     "mapping_store_path": {
                         "type": ["string", "null"],
                         "title": "Mapping Store Path",
-                        "x-component": "Upload",
+                        "x-component": CustomComponents.UPLOAD,
                         "x-group": GroupName.CONSISTENCY_STRATEGY,
                         "x-depend-on": { "consistency_mechanism": "mapping" },
                         "description": "File path to persistently store mapping for consistent pseudonymization."

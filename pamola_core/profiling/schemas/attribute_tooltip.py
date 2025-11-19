@@ -40,14 +40,6 @@ class DataAttributeProfilerOperationTooltip:
         "Example: Max columns=50 on a 200-column dataset analyzes only columns 1-50; leaving empty analyzes all 200 columns"
     )
 
-    id_column = (
-        "What it does: Specifies the name of the column that uniquely identifies each record/entity in the dataset for record-level analysis.\n"
-        "Specifying ID column improves accuracy of quasi-identifier detection by ~15-20%. Without it, the operation relies only on statistical "
-        "uniqueness which may miss semantic relationships.\n"
-        "Example: Id column='user_id' tells the operation that 'user_id' uniquely identifies each person, helping detect if other columns like "
-        "'email' are also unique per user"
-    )
-
     dictionary_path = (
         "What it does: Path to a custom attribute dictionary file for role detection.\n"
         "• Leave empty to use the default built-in dictionary\n"
@@ -70,7 +62,6 @@ class DataAttributeProfilerOperationTooltip:
             "language": cls.language,
             "sample_size": cls.sample_size,
             "max_columns": cls.max_columns,
-            "id_column": cls.id_column,
             "dictionary_path": cls.dictionary_path,
             "generate_visualization": cls.generate_visualization,
             "force_recalculation": cls.force_recalculation,

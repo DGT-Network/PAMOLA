@@ -61,8 +61,7 @@ class UniformNumericNoiseConfig(OperationConfig):
                     "noise_range": {
                         "type": ["number", "array"],
                         "title": "Noise Range",
-                        "x-component": "Input",
-                        "x-custom-function": CustomComponents.NUMERIC_RANGE_MODE,
+                        "x-component": CustomComponents.NUMERIC_RANGE_MODE,
                         "x-group": GroupName.CORE_NOISE_STRATEGY,
                         "name": "noise_range",
                         "default": 0.1,

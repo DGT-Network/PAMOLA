@@ -76,6 +76,7 @@ class GroupName(str, Enum):
     INVALID_VALUES_CONFIGURATION = "invalid_values_configuration"
     FIELD_OPERATIONS_CONFIGURATION = "field_operations_configuration"
     LOOKUP_TABLE_CONFIGURATION = "lookup_table_configuration"
+    FIELD_SETTINGS = "field_settings"
 
 
 GROUP_TITLES: Dict[GroupName, str] = {
@@ -143,6 +144,7 @@ GROUP_TITLES: Dict[GroupName, str] = {
     GroupName.INVALID_VALUES_CONFIGURATION: "Invalid Values Configuration",
     GroupName.FIELD_OPERATIONS_CONFIGURATION: "Field Operations Configuration",
     GroupName.LOOKUP_TABLE_CONFIGURATION: "Lookup Table Configuration",
+    GroupName.FIELD_SETTINGS: "Field Settings",
 }
 
 
@@ -265,6 +267,7 @@ OPERATION_CONFIG_GROUPS: Dict[str, List[GroupName]] = {
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     "CorrelationOperationConfig": [
+        GroupName.FIELD_SETTINGS,
         GroupName.OPERATION_BEHAVIOR_OUTPUT,
     ],
     "CorrelationMatrixOperationConfig": [

@@ -18,3 +18,10 @@ class CustomComponents:
     """Custom component names for x-component attributes in schemas."""
 
     NUMERIC_RANGE_MODE = "NumericRangeMode"
+    DATE_FORMAT_ARRAY = "DateFormatArray"
+    DATE_PICKER_ARRAY = "DatePickerArray"
+    NUMBER_ARRAY = "NumberArray"
+    RANGE_NUMBER = "RangeNumber"
+    STRING_ARRAY = "StringArray"
+    UPLOAD = "Upload"
+    DEPEND_SELECT = "DependSelect"

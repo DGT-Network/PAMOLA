@@ -22,8 +22,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                  dictionary_path: Optional[Union[str, Path]] = None,
                  language: str = "en",
                  sample_size: int = 10,
-                 max_columns: Optional[int] = None,
-                 id_column: Optional[str] = None):
+                 max_columns: Optional[int] = None):
         # Initialization parameters
 ```
 
@@ -35,7 +34,6 @@ class DataAttributeProfilerOperation(BaseOperation):
 - **language**: Language for keyword matching
 - **sample_size**: Number of sample values to return per column
 - **max_columns**: Maximum number of columns to analyze
-- **id_column**: Name of ID column for record-level analysis
 
 ### 2.2 Attribute Categorization
 

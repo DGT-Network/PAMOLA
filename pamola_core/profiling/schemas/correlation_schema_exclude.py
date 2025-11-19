@@ -52,7 +52,5 @@ CORRELATION_EXCLUDE_FIELDS = [
     "profile_type",
     "output_field_name",
     "mvf_parser",
-    "field1",
-    "field2",
     "force_recalculation",
 ]

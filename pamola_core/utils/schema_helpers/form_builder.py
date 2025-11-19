@@ -17,15 +17,14 @@ Usage:
     Import and use convert_json_schema_to_formily, and related helpers.
 """
 
-import json
 import copy
 from typing import Any, Dict, List, Optional, Union
 
 from pamola_core.common.enum.custom_components import CustomComponents
-from pamola_core.common.enum.custom_functions import CustomFunctions
 
 from tomlkit import item
 
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import (
     get_groups_with_titles,
 )
@@ -389,18 +388,112 @@ def convert_property(
     elif field["x-component"] == "DateFormatArray":
         field["x-decorator"] = "FormItem"
 
-    elif field.get("x-component") == "Depend-Select":
+    elif field.get("x-component") in [
+        CustomComponents.NUMERIC_RANGE_MODE,
+        CustomComponents.DEPEND_SELECT,
+    ]:
+        field = _handle_custom_component(field)
+
+    # Add this NEW section before the existing x-reactions handling
+    if "x-toggle-groups" in field:
+        toggle_groups = field.pop("x-toggle-groups")
+        group_reactions = []
+
+        for value, groups in toggle_groups.items():
+            for group_name in groups:
+                # Get the actual string value from GroupName enum
+                group_value = (
+                    group_name.value
+                    if hasattr(group_name, "value")
+                    else str(group_name)
+                )
+                group_reactions.append(
+                    {
+                        "target": f"*({group_value})",
+                        "fulfill": {
+                            "state": {
+                                "display": f"{{{{$self.value === '{value}' ? 'visible' : 'none'}}}}"
+                            }
+                        },
+                    }
+                )
+
+        # Merge with existing x-reactions
+        existing_reactions = field.get("x-reactions", [])
+        field["x-reactions"] = group_reactions + existing_reactions
+
+    # Handle x-depend-on, x-required-on, and x-custom-function
+    if (
+        "x-depend-on" in field
+        or "x-required-on" in field
+        or "x-disabled-on" in field
+        or "x-custom-function" in field
+    ):
+        field = _add_x_reactions(field, formily_schema, is_nested)
+
+    # Add Upload component initialization (AFTER dependencies)
+    if field.get("x-component") == CustomComponents.UPLOAD:
+        field = _add_upload_reaction(field)
+
+    # Nested object - mark as nested when calling recursively
+    if field.get("type") == "object" and "properties" in field:
+        nested_required = field.get("required", [])
+        field["properties"] = {
+            k: convert_property(
+                k, v, nested_required, field["properties"], True, tooltip
+            )  # is_nested=True
+            for k, v in field["properties"].items()
+        }
+    return field
+
+
+def _handle_custom_component(field: dict) -> dict:
+    """
+    Transform custom component fields into standard Formily components.
+
+    Parameters:
+    -----------
+    field : dict
+        Field configuration dictionary
+
+    Returns:
+    --------
+    dict
+        Transformed field configuration
+    """
+    component = field.get("x-component")
+
+    if component == CustomComponents.NUMERIC_RANGE_MODE:
+        # Handle NUMERIC_RANGE_MODE: allows symmetric (number) or asymmetric (array) noise
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {"step": 0.1, "precision": 1}
+        field["enum"] = [
+            {
+                "label": "Symetric",
+                "value": "Symetric",
+                "dataType": "number",
+            },
+            {
+                "label": "Asymmetric",
+                "value": "Asymmetric",
+                "dataType": "array",
+            },
+        ]
+
+    elif component == CustomComponents.DEPEND_SELECT:
+        # Handle DependentSelect: options change based on another field
         depend_map = field.get("x-depend-map", {})
         depend_on = depend_map.get("depend_on")
         options_map = depend_map.get("options_map", {})
 
-        # Convert to Select
+        # Convert to Select with reactions
         field["x-decorator"] = "FormItem"
         field["x-component"] = "Select"
         field["x-component-props"] = {
             "placeholder": f"Select {field.get('title', '').lower() or 'option'}"
         }
 
+        # Add reactions to update options based on dependency
         field["x-reactions"] = [
             {
                 "dependencies": [f".{depend_on}"],
@@ -424,69 +517,35 @@ def convert_property(
             },
         ]
 
+        # Clean up custom properties
         field.pop("x-depend-map", None)
 
-    if field.get("x-custom-function") == CustomComponents.NUMERIC_RANGE_MODE:
-        field["x-component"] = CustomComponents.NUMERIC_RANGE_MODE
-        field["x-decorator"] = "FormItem"
-        field["x-component-props"] = {"step": 0.1, "precision": 1}
-        field["enum"] = [
+    return field
+
+
+def _add_upload_reaction(field: dict) -> dict:
+    """
+    Add initialization reaction for Upload component.
+    Overwrites existing run script in the first reaction instead of appending.
+    """
+    reactions = field.get("x-reactions", [])
+
+    if reactions:
+        # Overwrite run in first existing reaction
+        if "fulfill" not in reactions[0]:
+            reactions[0]["fulfill"] = {}
+        reactions[0]["fulfill"]["run"] = "{{ init_upload($self) }}"
+    else:
+        # Create new reaction if none exist
+        reactions.append(
             {
-                "label": "Symetric",
-                "value": "Symetric",
-                "dataType": "number",
-            },
-            {
-                "label": "Asymmetric",
-                "value": "Asymmetric",
-                "dataType": "array",
-            },
-        ]
+                "fulfill": {
+                    "run": "{{ init_upload($self) }}",
+                },
+            }
+        )
 
-    if (
-        "x-depend-on" in field
-        or "x-required-on" in field
-        or field.get("x-component") == "Upload"
-    ):
-        field = _add_x_reactions(field, formily_schema, is_nested)
-
-    if (
-        "x-custom-function" in field
-        and field.get("x-custom-function") != CustomComponents.NUMERIC_RANGE_MODE
-        and "x-required-on" not in field
-        and "x-depend-on" not in field
-    ):
-        fn = field["x-custom-function"][0]
-
-        # Map function -> (dependencies, run_template)
-        configs = {
-            CustomFunctions.QUASI_IDENTIFIER_OPTIONS: (
-                ["id_fields"],
-                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0])",
-            ),
-            CustomFunctions.ID_FIELD_OPTIONS: (
-                ["quasi_identifiers", "quasi_identifier_sets"],
-                f"{CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS}($self, $deps[0], $deps[1])",
-            ),
-        }
-
-        deps, run = configs.get(fn, (None, f"{fn}($self)"))
-
-        reaction = {"fulfill": {"run": f"{{{{ {run} }}}}"}}
-        if deps:
-            reaction["dependencies"] = deps
-
-        field["x-reactions"] = field.get("x-reactions", [reaction])
-
-    # Nested object - mark as nested when calling recursively
-    if field.get("type") == "object" and "properties" in field:
-        nested_required = field.get("required", [])
-        field["properties"] = {
-            k: convert_property(
-                k, v, nested_required, field["properties"], True, tooltip
-            )  # is_nested=True
-            for k, v in field["properties"].items()
-        }
+    field["x-reactions"] = reactions
     return field
 
 
@@ -556,7 +615,14 @@ def _add_x_reactions(
     # Add reactions to field
     x_depend_on = field.get("x-depend-on", {})
     x_required_on = field.get("x-required-on", {})
-    keys = list(x_depend_on.keys()) + list(x_required_on.keys())
+    x_disabled_on = field.get("x-disabled-on", {})
+    existing_reactions = field.get("x-reactions", [])
+
+    keys = (
+        list(x_depend_on.keys())
+        + list(x_required_on.keys())
+        + list(x_disabled_on.keys())
+    )
     depend_fields = _get_ordered_unique_keys(keys)
 
     # Handle visibility conditions
@@ -575,46 +641,75 @@ def _add_x_reactions(
         if required_state:
             state["required"] = f"{{{{ {required_state} }}}}"
 
+    # Handle disabled conditions
+    if x_disabled_on:
+        disabled_state = _process_field_conditions(
+            x_disabled_on, formily_schema, depend_fields
+        )
+        if disabled_state:
+            state["disabled"] = f"{{{{ {disabled_state} }}}}"
+
     # Add a dot prefix if this is a nested field
     if is_nested:
         depend_fields = [f".{field_name}" for field_name in depend_fields]
 
     # Determine if reactions should be added
     is_ignore_depend_fields = field.get("x-ignore-depend-fields", False)
-    is_upload_component = field.get("x-component") == "Upload"
-    should_add_reactions = (
-        depend_fields and not is_ignore_depend_fields
-    ) or is_upload_component
+    has_dependencies = depend_fields and not is_ignore_depend_fields
+    has_custom_function = "x-custom-function" in field
+    custom_functions = field.get("x-custom-function", [])
+    function_name = (
+        custom_functions[0] if custom_functions else None
+    )
 
-    if should_add_reactions:
-        reactions = field.get("x-reactions", [])
+    # Case 1: Has dependencies (x-depend-on or x-required-on or x-disabled-on)
+    if has_dependencies:
+        reaction = {
+            "dependencies": depend_fields,
+            "fulfill": {
+                "state": state,
+            },
+        }
 
-        # Determine the run script
-        if "x-custom-function" in field:
-            deps_expr = ", ".join([f"$deps[{i}]" for i in range(len(depend_fields))])
-            run = f"{field['x-custom-function'][0]}({deps_expr}, $self)"
-        elif is_upload_component:
-            run = "init_upload($self)"
-        else:
-            run = f"$self.setValue({default_value_str})"
+        # Only add run if NOT x-disabled-on only case
+        has_visible_or_required = bool(x_depend_on or x_required_on)
 
-        # Build reaction config
-        reaction = {"fulfill": {"run": f"{{{{ {run} }}}}"}}
+        if has_visible_or_required or has_custom_function:
+            # Determine run script
+            if has_custom_function:
+                if (
+                    function_name == CustomFunctions.UPDATE_INT64_FIELD_OPTIONS
+                ):
+                    run = f"{function_name}($self); $self.setValue({default_value_str})"
+                else:
+                    deps_expr = ", ".join(
+                        [f"$deps[{i}]" for i in range(len(depend_fields))]
+                    )
+                    run = f"{function_name}($self, {deps_expr})"
+            else:
+                run = f"$self.setValue({default_value_str})"
 
-        # Add state if present
-        if state:
-            reaction["fulfill"]["state"] = state
+            reaction["fulfill"]["run"] = f"{{{{ {run} }}}}"
 
-        # Add dependencies if present
-        if depend_fields and not is_ignore_depend_fields:
-            reaction["dependencies"] = depend_fields
+        existing_reactions.append(reaction)
+        field["x-reactions"] = existing_reactions
 
-        reactions.append(reaction)
-        field["x-reactions"] = reactions
+    # Case 2: Has custom function but NO dependencies
+    elif has_custom_function:
+        # Build run template
+        run_template = f"{function_name}($self); $self.setValue({default_value_str})"
+
+        # Only add if no non-toggle reaction exists
+        if not any(r for r in existing_reactions if "target" not in r):
+            new_reaction = {"fulfill": {"run": f"{{{{ {run_template} }}}}"}}
+            existing_reactions.append(new_reaction)
+
+        field["x-reactions"] = existing_reactions
 
     # Clean up temporary properties
     field.pop("x-depend-on", None)
     field.pop("x-required-on", None)
+    field.pop("x-disabled-on", None)
 
     return field
 
