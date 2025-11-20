@@ -50,7 +50,7 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_numeric_field,
 )
 from pamola_core.anonymization.commons.visualization_utils import create_bar_plot
-from pamola_core.anonymization.schemas.record_op_schema import RecordSuppressionConfig
+from pamola_core.anonymization.schemas.record_op_core_schema import RecordSuppressionConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,

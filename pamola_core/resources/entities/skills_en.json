@@ -1,0 +1,1625 @@
+{
+  "categories_hierarchy": {
+    "Skill": {
+      "alias": "skill",
+      "domain": "General",
+      "level": 0,
+      "children": [
+        "Technical_Skills", 
+        "Soft_Skills", 
+        "Language_Skills", 
+        "Domain_Knowledge",
+        "Creative_Skills",
+        "Management_Skills",
+        "Data_Skills",
+        "Digital_Marketing_Skills",
+        "Research_Skills"
+      ],
+      "language": ["en", "es", "fr", "de", "ja", "zh"]
+    },
+    "Technical_Skills": {
+      "alias": "technical_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Programming_Languages", 
+        "Databases", 
+        "Frameworks", 
+        "Tools", 
+        "Cloud_Services",
+        "DevOps",
+        "Cybersecurity",
+        "Networking",
+        "Mobile_Development",
+        "Frontend_Development",
+        "Backend_Development",
+        "Testing_Skills",
+        "Data_Engineering",
+        "Game_Development",
+        "Embedded_Systems"
+      ],
+      "keywords": ["technical skills", "tech skills", "technical competencies", "technical expertise", "tech expertise", "hard skills", "technical abilities"],
+      "language": ["en"]
+    },
+    "Soft_Skills": {
+      "alias": "soft_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Communication_Skills", 
+        "Teamwork_Skills", 
+        "Leadership_Skills", 
+        "Problem_Solving_Skills",
+        "Interpersonal_Skills"
+      ],
+      "keywords": ["soft skills", "interpersonal skills", "people skills", "social skills", "emotional intelligence", "personal attributes", "character traits"],
+      "language": ["en"]
+    },
+    "Language_Skills": {
+      "alias": "language_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "English_Language", 
+        "Asian_Languages", 
+        "European_Languages", 
+        "Middle_Eastern_Languages"
+      ],
+      "keywords": ["language skills", "linguistic abilities", "language proficiency", "multilingual", "foreign languages", "language knowledge"],
+      "language": ["en"]
+    },    "Domain_Knowledge": {
+      "alias": "domain_knowledge",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Finance_Knowledge", 
+        "Healthcare_Knowledge", 
+        "Legal_Knowledge", 
+        "Engineering_Knowledge",
+        "Marketing_Knowledge",
+        "Education_Knowledge",
+        "Environmental_Knowledge",
+        "Agriculture_Knowledge"
+      ],
+      "keywords": ["domain knowledge", "industry knowledge", "sector expertise", "specialized knowledge", "field expertise", "subject matter expertise"],
+      "language": ["en"]
+    },
+    "Programming_Languages": {
+      "alias": "programming_languages",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": [
+        "Web_Programming_Languages",
+        "Systems_Programming_Languages",
+        "Data_Science_Languages",
+        "Mobile_Programming_Languages"
+      ],
+      "keywords": ["programming language", "coding language", "development language", "programming", "coding", "computer language"],
+      "language": ["en"]
+    },
+    "Web_Programming_Languages": {
+      "alias": "web_programming_languages",
+      "domain": "Programming_Languages",
+      "level": 3,
+      "parent_category": "Programming_Languages",
+      "children": [],
+      "keywords": ["javascript", "typescript", "php", "ruby", "html", "css", "webassembly", "coffeescript", "elm", "purescript", "reason", "dart", "haml", "pug", "jsx", "tsx"],
+      "language": ["en"]
+    },
+    "Systems_Programming_Languages": {
+      "alias": "systems_programming_languages",
+      "domain": "Programming_Languages",
+      "level": 3,
+      "parent_category": "Programming_Languages",
+      "children": [],
+      "keywords": ["c", "c++", "rust", "go", "java", "c#", "assembly", "fortran", "ada", "cobol", "pascal", "d", "zig", "nim", "crystal", "haskell", "erlang", "elixir"],
+      "language": ["en"]
+    },
+    "Data_Science_Languages": {
+      "alias": "data_science_languages",
+      "domain": "Programming_Languages",
+      "level": 3,
+      "parent_category": "Programming_Languages",
+      "children": [],
+      "keywords": ["python", "r", "julia", "scala", "matlab", "sas"],
+      "language": ["en"]
+    },
+    "Mobile_Programming_Languages": {
+      "alias": "mobile_programming_languages",
+      "domain": "Programming_Languages",
+      "level": 3,
+      "parent_category": "Programming_Languages",
+      "children": [],
+      "keywords": ["swift", "kotlin", "objective-c", "java", "react native", "flutter", "dart"],
+      "language": ["en"]
+    },
+    "Databases": {
+      "alias": "databases",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": [
+        "Relational_Databases",
+        "NoSQL_Databases",
+        "NewSQL_Databases"
+      ],
+      "keywords": ["database", "data storage", "data management", "dbms", "data store"],
+      "language": ["en"]
+    },
+    "Relational_Databases": {
+      "alias": "relational_databases",
+      "domain": "Databases",
+      "level": 3,
+      "parent_category": "Databases",
+      "children": [],
+      "keywords": ["sql", "mysql", "postgresql", "oracle", "sql server", "sqlite", "mariadb", "aurora", "db2", "informix", "teradata", "sybase", "access", "firebird", "sap hana", "h2", "derby"],
+      "language": ["en"]
+    },
+    "NoSQL_Databases": {
+      "alias": "nosql_databases",
+      "domain": "Databases",
+      "level": 3,
+      "parent_category": "Databases",
+      "children": [],
+      "keywords": ["mongodb", "cassandra", "redis", "dynamodb", "couchdb", "firebase", "neo4j", "elasticsearch", "rethinkdb", "hbase", "accumulo", "aerospike", "arangodb", "orientdb", "ravendb", "marklogic", "cosmosdb", "fauna"],
+      "language": ["en"]
+    },
+    "NewSQL_Databases": {
+      "alias": "newsql_databases",
+      "domain": "Databases",
+      "level": 3,
+      "parent_category": "Databases",
+      "children": [],
+      "keywords": ["cockroachdb", "tidb", "voltdb", "memsql", "nuo db"],
+      "language": ["en"]
+    },
+    "Frameworks": {
+      "alias": "frameworks",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": [
+        "Web_Frameworks",
+        "Mobile_Frameworks",
+        "AI_ML_Frameworks"
+      ],
+      "keywords": ["framework", "library", "sdk", "toolkit", "development framework"],
+      "language": ["en"]
+    },
+    "Web_Frameworks": {
+      "alias": "web_frameworks",
+      "domain": "Frameworks",
+      "level": 3,
+      "parent_category": "Frameworks",
+      "children": [],
+      "keywords": ["react", "angular", "vue", "django", "flask", "spring", "laravel", "express", "next.js", "nuxt", "ruby on rails", "asp.net", "symfony", "phoenix", "ember", "svelte", "gatsby", "meteor", "nest.js", "fastapi", "koa", "hapi", "sails", "adonis", "strapi", "remix", "qwik", "blazor", "vaadin"],
+      "language": ["en"]
+    },
+    "Mobile_Frameworks": {
+      "alias": "mobile_frameworks",
+      "domain": "Frameworks",
+      "level": 3,
+      "parent_category": "Frameworks",
+      "children": [],
+      "keywords": ["react native", "flutter", "ionic", "xamarin", "android sdk", "ios sdk", "cordova", "capacitor", "nativescript", "kotlin multiplatform", "swiftui", "jetpack compose", "unity mobile", "unreal mobile", "framework7", "titanium", "phonegap"],
+      "language": ["en"]
+    },
+    "AI_ML_Frameworks": {
+      "alias": "ai_ml_frameworks",
+      "domain": "Frameworks",
+      "level": 3,
+      "parent_category": "Frameworks",
+      "children": [],
+      "keywords": ["tensorflow", "pytorch", "keras", "scikit-learn", "mxnet", "theano", "caffe", "hugging face", "fastai", "jax", "pandas", "numpy", "transformers", "spacy", "gensim", "ray", "spark ml", "mlflow", "onnx", "allennlp", "cntk", "deeplearning4j", "xgboost", "lightgbm", "catboost", "pycaret", "h2o", "dask", "detectron2", "langchain", "llama index"],
+      "language": ["en"]
+    },
+    "Tools": {
+      "alias": "tools",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": [
+        "Version_Control_Tools",
+        "CI_CD_Tools",
+        "IDE_Tools",
+        "Project_Management_Tools"
+      ],
+      "keywords": ["tools", "software tools", "development tools", "utilities"],
+      "language": ["en"]
+    },
+    "Version_Control_Tools": {
+      "alias": "version_control_tools",
+      "domain": "Tools",
+      "level": 3,
+      "parent_category": "Tools",
+      "children": [],
+      "keywords": ["git", "svn", "mercurial", "perforce", "github", "gitlab", "bitbucket"],
+      "language": ["en"]
+    },
+    "CI_CD_Tools": {
+      "alias": "ci_cd_tools",
+      "domain": "Tools",
+      "level": 3,
+      "parent_category": "Tools",
+      "children": [],
+      "keywords": ["jenkins", "travis ci", "circle ci", "github actions", "gitlab ci", "azure pipelines", "teamcity"],
+      "language": ["en"]
+    },
+    "IDE_Tools": {
+      "alias": "ide_tools",
+      "domain": "Tools",
+      "level": 3,
+      "parent_category": "Tools",
+      "children": [],
+      "keywords": ["visual studio code", "intellij idea", "eclipse", "pycharm", "webstorm", "android studio", "xcode", "sublime text", "vim", "emacs", "atom"],
+      "language": ["en"]
+    },
+    "Project_Management_Tools": {
+      "alias": "project_management_tools",
+      "domain": "Tools",
+      "level": 3,
+      "parent_category": "Tools",
+      "children": [],
+      "keywords": ["jira", "confluence", "trello", "asana", "basecamp", "monday", "notion", "clickup"],
+      "language": ["en"]
+    },
+    "Cloud_Services": {
+      "alias": "cloud_services",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": [
+        "AWS_Services",
+        "Azure_Services",
+        "GCP_Services",
+        "Other_Cloud_Services"
+      ],
+      "keywords": ["cloud", "cloud computing", "cloud service", "cloud platform", "iaas", "paas", "saas"],
+      "language": ["en"]
+    },
+    "AWS_Services": {
+      "alias": "aws_services",
+      "domain": "Cloud_Services",
+      "level": 3,
+      "parent_category": "Cloud_Services",
+      "children": [],
+      "keywords": ["aws", "amazon web services", "ec2", "s3", "lambda", "dynamodb", "rds", "cloudfront", "route53", "sqs", "sns", "cloudformation", "ecs", "eks", "fargate", "kinesis", "elasticache", "redshift", "comprehend", "sagemaker", "cognito", "iam", "vpc", "cloudwatch", "athena", "glue", "step functions", "api gateway", "appflow", "eventbridge", "aurora", "elastic beanstalk", "cloudtrail"],
+      "language": ["en"]
+    },
+    "Azure_Services": {
+      "alias": "azure_services",
+      "domain": "Cloud_Services",
+      "level": 3,
+      "parent_category": "Cloud_Services",
+      "children": [],
+      "keywords": ["azure", "microsoft azure", "azure functions", "azure sql", "blob storage", "cosmos db", "app service", "logic apps", "azure devops", "azure kubernetes service", "azure container instances", "azure virtual machines", "azure active directory", "azure monitor", "azure cognitive services", "azure databricks", "azure data factory", "azure service bus", "azure key vault", "azure event hubs", "azure machine learning", "azure synapse analytics", "azure openai service", "azure virtual network", "azure load balancer", "azure cdn", "azure storage accounts", "azure app configuration", "azure api management"],
+      "language": ["en"]
+    },
+    "GCP_Services": {
+      "alias": "gcp_services",
+      "domain": "Cloud_Services",
+      "level": 3,
+      "parent_category": "Cloud_Services",
+      "children": [],
+      "keywords": ["gcp", "google cloud platform", "compute engine", "cloud storage", "bigquery", "cloud functions", "app engine", "cloud run", "firestore", "dataflow", "dataproc", "cloud spanner", "bigtable", "kubernetes engine", "cloud sql", "pub/sub", "vertex ai", "cloud vision", "cloud natural language", "cloud speech", "cloud translation", "cloud ai", "vpc network", "cloud cdn", "cloud load balancing", "cloud dns", "cloud armor", "cloud identity", "datastore", "operations suite", "cloud composer", "cloud build", "artifact registry"],
+      "language": ["en"]
+    },
+    "Other_Cloud_Services": {
+      "alias": "other_cloud_services",
+      "domain": "Cloud_Services",
+      "level": 3,
+      "parent_category": "Cloud_Services",
+      "children": [],
+      "keywords": ["heroku", "digital ocean", "ibm cloud", "oracle cloud", "alibaba cloud", "linode", "netlify", "vercel"],
+      "language": ["en"]
+    },
+    "DevOps": {
+      "alias": "devops",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": [
+        "Containerization",
+        "Orchestration",
+        "IaC",
+        "Monitoring"
+      ],
+      "keywords": ["devops", "dev ops", "development operations", "devsecops"],
+      "language": ["en"]
+    },
+    "Containerization": {
+      "alias": "containerization",
+      "domain": "DevOps",
+      "level": 3,
+      "parent_category": "DevOps",
+      "children": [],
+      "keywords": ["docker", "containers", "podman", "containerd", "lxc", "buildah"],
+      "language": ["en"]
+    },
+    "Orchestration": {
+      "alias": "orchestration",
+      "domain": "DevOps",
+      "level": 3,
+      "parent_category": "DevOps",
+      "children": [],
+      "keywords": ["kubernetes", "k8s", "docker swarm", "mesos", "nomad", "openshift", "rancher", "ecs"],
+      "language": ["en"]
+    },
+    "IaC": {
+      "alias": "iac",
+      "domain": "DevOps",
+      "level": 3,
+      "parent_category": "DevOps",
+      "children": [],
+      "keywords": ["terraform", "ansible", "chef", "puppet", "cloudformation", "arm templates", "pulumi", "bicep", "crossplane", "cdk", "serverless framework", "heat templates", "packer", "vagrant", "salt stack", "inframap", "terragrunt", "atlantis", "helmfile", "kustomize", "skaffold", "jsonnet", "cue", "opentofu"],
+      "language": ["en"]
+    },
+    "Monitoring": {
+      "alias": "monitoring",
+      "domain": "DevOps",
+      "level": 3,
+      "parent_category": "DevOps",
+      "children": [],
+      "keywords": ["prometheus", "grafana", "nagios", "datadog", "new relic", "splunk", "elasticsearch", "kibana", "logstash"],
+      "language": ["en"]
+    },
+    "Cybersecurity": {
+      "alias": "cybersecurity",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": [
+        "Security_Testing",
+        "Security_Tools",
+        "Security_Methodologies"
+      ],
+      "keywords": ["cybersecurity", "security", "infosec", "information security", "network security", "data security"],
+      "language": ["en"]
+    },
+    "Security_Testing": {
+      "alias": "security_testing",
+      "domain": "Cybersecurity",
+      "level": 3,
+      "parent_category": "Cybersecurity",
+      "children": [],
+      "keywords": ["penetration testing", "vulnerability scanning", "security auditing", "ethical hacking", "bug bounty"],
+      "language": ["en"]
+    },
+    "Security_Tools": {
+      "alias": "security_tools",
+      "domain": "Cybersecurity",
+      "level": 3,
+      "parent_category": "Cybersecurity",
+      "children": [],
+      "keywords": ["wireshark", "metasploit", "burp suite", "nmap", "owasp zap", "kali linux", "snort", "ids", "ips"],
+      "language": ["en"]
+    },
+    "Security_Methodologies": {
+      "alias": "security_methodologies",
+      "domain": "Cybersecurity",
+      "level": 3,
+      "parent_category": "Cybersecurity",
+      "children": [],
+      "keywords": ["owasp", "iso 27001", "nist", "pci dss", "gdpr compliance", "soc 2", "threat modeling"],
+      "language": ["en"]
+    },
+    "Networking": {
+      "alias": "networking",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": [
+        "Network_Protocols",
+        "Network_Infrastructure",
+        "Network_Security"
+      ],
+      "keywords": ["networking", "computer networks", "network administration", "network architecture"],
+      "language": ["en"]
+    },
+    "Network_Protocols": {
+      "alias": "network_protocols",
+      "domain": "Networking",
+      "level": 3,
+      "parent_category": "Networking",
+      "children": [],
+      "keywords": ["tcp/ip", "http", "https", "dns", "dhcp", "ftp", "smtp", "ssh", "vpn", "ipv4", "ipv6"],
+      "language": ["en"]
+    },
+    "Network_Infrastructure": {
+      "alias": "network_infrastructure",
+      "domain": "Networking",
+      "level": 3,
+      "parent_category": "Networking",
+      "children": [],
+      "keywords": ["router", "switch", "firewall", "load balancer", "proxy", "cdn", "wan", "lan", "cisco", "juniper"],
+      "language": ["en"]
+    },
+    "Network_Security": {
+      "alias": "network_security",
+      "domain": "Networking",
+      "level": 3,
+      "parent_category": "Networking",
+      "children": [],
+      "keywords": ["firewall", "vpn", "network monitoring", "ids/ips", "ssl/tls", "security groups", "access control lists"],
+      "language": ["en"]
+    },
+    "Communication_Skills": {
+      "alias": "communication_skills",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": [
+        "Verbal_Communication",
+        "Written_Communication",
+        "Presentation_Skills"
+      ],
+      "keywords": ["communication", "articulation", "expressing", "conveying information", "communicating"],
+      "language": ["en"]
+    },
+    "Verbal_Communication": {
+      "alias": "verbal_communication",
+      "domain": "Communication_Skills",
+      "level": 3,
+      "parent_category": "Communication_Skills",
+      "children": [],
+      "keywords": ["speaking", "verbal skills", "oral communication", "public speaking", "speech", "conversation skills", "articulation"],
+      "language": ["en"]
+    },
+    "Written_Communication": {
+      "alias": "written_communication",
+      "domain": "Communication_Skills",
+      "level": 3,
+      "parent_category": "Communication_Skills",
+      "children": [],
+      "keywords": ["writing", "written skills", "documentation", "report writing", "content creation", "technical writing", "business writing"],
+      "language": ["en"]
+    },
+    "Presentation_Skills": {
+      "alias": "presentation_skills",
+      "domain": "Communication_Skills",
+      "level": 3,
+      "parent_category": "Communication_Skills",
+      "children": [],
+      "keywords": ["presenting", "public speaking", "slide decks", "powerpoint", "demonstration", "pitching", "visual presentations"],
+      "language": ["en"]
+    },
+    "Teamwork_Skills": {
+      "alias": "teamwork_skills",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": [
+        "Collaboration",
+        "Conflict_Resolution",
+        "Consensus_Building"
+      ],
+      "keywords": ["teamwork", "collaboration", "working together", "cooperative work", "group work"],
+      "language": ["en"]
+    },
+    "Collaboration": {
+      "alias": "collaboration",
+      "domain": "Teamwork_Skills",
+      "level": 3,
+      "parent_category": "Teamwork_Skills",
+      "children": [],
+      "keywords": ["collaborating", "joint work", "cooperation", "partnership", "team player", "contributing"],
+      "language": ["en"]
+    },
+    "Conflict_Resolution": {
+      "alias": "conflict_resolution",
+      "domain": "Teamwork_Skills",
+      "level": 3,
+      "parent_category": "Teamwork_Skills",
+      "children": [],
+      "keywords": ["conflict management", "dispute resolution", "mediation", "resolving disagreements", "negotiation", "peacekeeping"],
+      "language": ["en"]
+    },
+    "English_Language": {
+      "alias": "english_language",
+      "domain": "Language_Skills",
+      "level": 2,
+      "parent_category": "Language_Skills",
+      "children": [],
+      "keywords": ["english", "english language", "english proficiency", "business english", "technical english", "english writing", "english speaking"],
+      "language": ["en"]
+    },
+    "Asian_Languages": {
+      "alias": "asian_languages",
+      "domain": "Language_Skills",
+      "level": 2,
+      "parent_category": "Language_Skills",
+      "children": ["East_Asian_Languages", "South_Asian_Languages", "Southeast_Asian_Languages"],
+      "keywords": ["asian languages", "eastern languages", "oriental languages"],
+      "language": ["en"]
+    },
+    "East_Asian_Languages": {
+      "alias": "east_asian_languages",
+      "domain": "Asian_Languages",
+      "level": 3,
+      "parent_category": "Asian_Languages",
+      "children": [],
+      "keywords": ["chinese", "mandarin", "cantonese", "japanese", "korean", "taiwanese", "hakka", "shanghainese", "wu chinese", "hokkien"],
+      "language": ["en"]
+    },
+    "South_Asian_Languages": {
+      "alias": "south_asian_languages",
+      "domain": "Asian_Languages",
+      "level": 3,
+      "parent_category": "Asian_Languages",
+      "children": [],
+      "keywords": ["hindi", "urdu", "bengali", "punjabi", "tamil", "telugu", "marathi", "gujarati", "kannada", "malayalam", "sinhala", "nepali", "pashto"],
+      "language": ["en"]
+    },
+    "Southeast_Asian_Languages": {
+      "alias": "southeast_asian_languages",
+      "domain": "Asian_Languages",
+      "level": 3,
+      "parent_category": "Asian_Languages",
+      "children": [],
+      "keywords": ["vietnamese", "thai", "indonesian", "malay", "tagalog", "filipino", "khmer", "burmese", "lao", "javanese"],
+      "language": ["en"]
+    },
+    "European_Languages": {
+      "alias": "european_languages",
+      "domain": "Language_Skills",
+      "level": 2,
+      "parent_category": "Language_Skills",
+      "children": ["Romance_Languages", "Germanic_Languages", "Slavic_Languages", "Other_European_Languages"],
+      "keywords": ["european languages", "western languages", "continental languages"],
+      "language": ["en"]
+    },
+    "Romance_Languages": {
+      "alias": "romance_languages",
+      "domain": "European_Languages",
+      "level": 3,
+      "parent_category": "European_Languages",
+      "children": [],
+      "keywords": ["spanish", "french", "italian", "portuguese", "romanian", "catalan", "occitan", "galician", "corsican", "sicilian", "sardinian"],
+      "language": ["en"]
+    },
+    "Germanic_Languages": {
+      "alias": "germanic_languages",
+      "domain": "European_Languages",
+      "level": 3,
+      "parent_category": "European_Languages",
+      "children": [],
+      "keywords": ["german", "dutch", "swedish", "norwegian", "danish", "icelandic", "afrikaans", "frisian", "luxembourgish", "faroese"],
+      "language": ["en"]
+    },
+    "Slavic_Languages": {
+      "alias": "slavic_languages",
+      "domain": "European_Languages",
+      "level": 3,
+      "parent_category": "European_Languages",
+      "children": [],
+      "keywords": ["russian", "polish", "ukrainian", "czech", "slovak", "bulgarian", "serbian", "croatian", "slovenian", "macedonian", "belarusian"],
+      "language": ["en"]
+    },
+    "Other_European_Languages": {
+      "alias": "other_european_languages",
+      "domain": "European_Languages",
+      "level": 3,
+      "parent_category": "European_Languages",
+      "children": [],
+      "keywords": ["greek", "finnish", "hungarian", "estonian", "latvian", "lithuanian", "albanian", "basque", "irish", "welsh", "gaelic", "maltese"],
+      "language": ["en"]
+    },
+    "Middle_Eastern_Languages": {
+      "alias": "middle_eastern_languages",
+      "domain": "Language_Skills",
+      "level": 2,
+      "parent_category": "Language_Skills",
+      "children": [],
+      "keywords": ["arabic", "hebrew", "persian", "farsi", "turkish", "urdu", "kurdish"],
+      "language": ["en"]
+    },
+    "Data_Skills": {
+      "alias": "data_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Data_Analysis",
+        "Data_Science",
+        "Machine_Learning",
+        "Big_Data",
+        "Business_Intelligence"
+      ],
+      "keywords": ["data skills", "analytical skills", "quantitative skills", "data competencies"],
+      "language": ["en"]
+    },
+    "Data_Analysis": {
+      "alias": "data_analysis",
+      "domain": "Data_Skills",
+      "level": 2,
+      "parent_category": "Data_Skills",
+      "children": [],
+      "keywords": ["data analysis", "statistical analysis", "analytics", "data processing", "data interpretation", "excel", "tableau", "power bi", "data visualization"],
+      "language": ["en"]
+    },
+    "Data_Science": {
+      "alias": "data_science",
+      "domain": "Data_Skills",
+      "level": 2,
+      "parent_category": "Data_Skills",
+      "children": [],
+      "keywords": ["data science", "data mining", "feature engineering", "statistical modeling", "data preprocessing", "jupyter", "jupyter notebooks"],
+      "language": ["en"]
+    },
+    "Machine_Learning": {
+      "alias": "machine_learning",
+      "domain": "Data_Skills",
+      "level": 2,
+      "parent_category": "Data_Skills",
+      "children": ["Supervised_Learning", "Unsupervised_Learning", "Deep_Learning", "Reinforcement_Learning"],
+      "keywords": ["machine learning", "ml", "artificial intelligence", "ai", "deep learning", "neural networks", "nlp", "computer vision", "reinforcement learning"],
+      "language": ["en"]
+    },
+    "Supervised_Learning": {
+      "alias": "supervised_learning",
+      "domain": "Machine_Learning",
+      "level": 3,
+      "parent_category": "Machine_Learning",
+      "children": [],
+      "keywords": ["classification", "regression", "decision trees", "random forests", "gradient boosting", "svm", "knn", "logistic regression", "linear regression", "naive bayes", "ensemble methods"],
+      "language": ["en"]
+    },
+    "Unsupervised_Learning": {
+      "alias": "unsupervised_learning",
+      "domain": "Machine_Learning",
+      "level": 3,
+      "parent_category": "Machine_Learning",
+      "children": [],
+      "keywords": ["clustering", "k-means", "hierarchical clustering", "dbscan", "dimensionality reduction", "pca", "t-sne", "umap", "autoencoders", "anomaly detection", "association rules", "topic modeling"],
+      "language": ["en"]
+    },
+    "Deep_Learning": {
+      "alias": "deep_learning",
+      "domain": "Machine_Learning",
+      "level": 3,
+      "parent_category": "Machine_Learning",
+      "children": [],
+      "keywords": ["neural networks", "cnn", "rnn", "lstm", "gru", "transformers", "attention mechanisms", "bert", "gpt", "vae", "gan", "diffusion models", "transfer learning", "fine-tuning", "embeddings"],
+      "language": ["en"]
+    },
+    "Reinforcement_Learning": {
+      "alias": "reinforcement_learning",
+      "domain": "Machine_Learning",
+      "level": 3,
+      "parent_category": "Machine_Learning",
+      "children": [],
+      "keywords": ["reinforcement learning", "q-learning", "dqn", "policy gradients", "a3c", "ppo", "td learning", "monte carlo methods", "markov decision processes", "reward functions", "multi-agent systems"],
+      "language": ["en"]
+    },
+    "Big_Data": {
+      "alias": "big_data",
+      "domain": "Data_Skills",
+      "level": 2,
+      "parent_category": "Data_Skills",
+      "children": [],
+      "keywords": ["big data", "hadoop", "spark", "data lake", "data warehouse", "distributed computing", "mapreduce", "hive", "pig", "nosql"],
+      "language": ["en"]
+    },
+    "Business_Intelligence": {
+      "alias": "business_intelligence",
+      "domain": "Data_Skills",
+      "level": 2,
+      "parent_category": "Data_Skills",
+      "children": [],
+      "keywords": ["business intelligence", "bi", "data warehousing", "data modeling", "olap", "data mart", "etl", "reporting", "dashboards", "kpis", "metrics"],
+      "language": ["en"]
+    },
+    "Creative_Skills": {
+      "alias": "creative_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Design_Skills",
+        "Content_Creation",
+        "Artistic_Skills",
+        "Innovation_Skills"
+      ],
+      "keywords": ["creative", "creativity", "artistic", "innovative", "original", "imaginative", "inventive"],
+      "language": ["en"]
+    },
+    "Design_Skills": {
+      "alias": "design_skills",
+      "domain": "Creative_Skills",
+      "level": 2,
+      "parent_category": "Creative_Skills",
+      "children": [
+        "UI_UX_Design",
+        "Graphic_Design",
+        "Web_Design",
+        "Product_Design"
+      ],
+      "keywords": ["design", "designing", "visual design", "digital design", "interface design", "creative design"],
+      "language": ["en"]
+    },
+    "UI_UX_Design": {
+      "alias": "ui_ux_design",
+      "domain": "Design_Skills",
+      "level": 3,
+      "parent_category": "Design_Skills",
+      "children": [],
+      "keywords": ["ui design", "ux design", "user interface", "user experience", "interaction design", "usability", "wireframing", "prototyping", "figma", "sketch", "adobe xd"],
+      "language": ["en"]
+    },
+    "Graphic_Design": {
+      "alias": "graphic_design",
+      "domain": "Design_Skills",
+      "level": 3,
+      "parent_category": "Design_Skills",
+      "children": [],
+      "keywords": ["graphic design", "visual design", "illustration", "typography", "adobe photoshop", "adobe illustrator", "indesign", "print design", "logo design"],
+      "language": ["en"]
+    },
+    "Web_Design": {
+      "alias": "web_design",
+      "domain": "Design_Skills",
+      "level": 3,
+      "parent_category": "Design_Skills",
+      "children": [],
+      "keywords": ["web design", "website design", "responsive design", "css", "sass", "less", "bootstrap", "tailwind", "material design"],
+      "language": ["en"]
+    },
+    "Content_Creation": {
+      "alias": "content_creation",
+      "domain": "Creative_Skills",
+      "level": 2,
+      "parent_category": "Creative_Skills",
+      "children": [
+        "Copywriting",
+        "Video_Production",
+        "Social_Media_Content"
+      ],
+      "keywords": ["content creation", "content development", "media production", "digital content", "creative content"],
+      "language": ["en"]
+    },
+    "Copywriting": {
+      "alias": "copywriting",
+      "domain": "Content_Creation",
+      "level": 3,
+      "parent_category": "Content_Creation",
+      "children": [],
+      "keywords": ["copywriting", "content writing", "blog writing", "article writing", "seo writing", "marketing copy", "technical writing", "creative writing"],
+      "language": ["en"]
+    },
+    "Video_Production": {
+      "alias": "video_production",
+      "domain": "Content_Creation",
+      "level": 3,
+      "parent_category": "Content_Creation",
+      "children": [],
+      "keywords": ["video production", "video editing", "filmmaking", "cinematography", "adobe premiere", "final cut pro", "after effects", "davinci resolve"],
+      "language": ["en"]
+    },
+    "Social_Media_Content": {
+      "alias": "social_media_content",
+      "domain": "Content_Creation",
+      "level": 3,
+      "parent_category": "Content_Creation",
+      "children": [],
+      "keywords": ["social media content", "instagram content", "facebook content", "twitter content", "tiktok content", "linkedin content", "pinterest content", "youtube content", "reels", "shorts", "social posts", "social media strategy", "community management", "hashtag strategy", "social media analytics"],
+      "language": ["en"]
+    },
+    "Artistic_Skills": {
+      "alias": "artistic_skills",
+      "domain": "Creative_Skills",
+      "level": 2,
+      "parent_category": "Creative_Skills",
+      "children": ["Drawing", "Painting", "Photography", "Digital_Art"],
+      "keywords": ["artistic skills", "art", "creative expression", "visual arts", "fine arts"],
+      "language": ["en"]
+    },
+    "Drawing": {
+      "alias": "drawing",
+      "domain": "Artistic_Skills",
+      "level": 3,
+      "parent_category": "Artistic_Skills",
+      "children": [],
+      "keywords": ["drawing", "sketching", "illustration", "pencil drawing", "charcoal drawing", "digital drawing", "concept art", "character design", "storyboarding", "technical drawing", "architectural drawing"],
+      "language": ["en"]
+    },
+    "Painting": {
+      "alias": "painting",
+      "domain": "Artistic_Skills",
+      "level": 3,
+      "parent_category": "Artistic_Skills",
+      "children": [],
+      "keywords": ["painting", "oil painting", "acrylic painting", "watercolor", "gouache", "digital painting", "mixed media", "abstract painting", "portrait painting", "landscape painting"],
+      "language": ["en"]
+    },
+    "Photography": {
+      "alias": "photography",
+      "domain": "Artistic_Skills",
+      "level": 3,
+      "parent_category": "Artistic_Skills",
+      "children": [],
+      "keywords": ["photography", "portrait photography", "landscape photography", "product photography", "fashion photography", "architectural photography", "street photography", "photojournalism", "studio photography", "photo editing", "lightroom", "photoshop", "composition"],
+      "language": ["en"]
+    },
+    "Innovation_Skills": {
+      "alias": "innovation_skills",
+      "domain": "Creative_Skills",
+      "level": 2,
+      "parent_category": "Creative_Skills",
+      "children": ["Design_Thinking", "Creative_Problem_Solving", "Ideation"],
+      "keywords": ["innovation skills", "innovative thinking", "creativity", "idea generation", "novel solutions"],
+      "language": ["en"]
+    },
+    "Design_Thinking": {
+      "alias": "design_thinking",
+      "domain": "Innovation_Skills",
+      "level": 3,
+      "parent_category": "Innovation_Skills",
+      "children": [],
+      "keywords": ["design thinking", "human-centered design", "user-centered design", "empathy mapping", "journey mapping", "prototyping", "ideation", "user research", "personas", "service design", "ideo methodology"],
+      "language": ["en"]
+    },
+    "Management_Skills": {
+      "alias": "management_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Project_Management",
+        "Team_Management",
+        "Strategic_Management",
+        "Financial_Management",
+        "Risk_Management"
+      ],
+      "keywords": ["management", "leadership", "supervising", "directing", "administering", "overseeing", "coordinating"],
+      "language": ["en"]
+    },
+    "Project_Management": {
+      "alias": "project_management",
+      "domain": "Management_Skills",
+      "level": 2,
+      "parent_category": "Management_Skills",
+      "children": [
+        "Agile_Management",
+        "Traditional_Project_Management",
+        "Product_Management"
+      ],
+      "keywords": ["project management", "project coordination", "project planning", "project delivery", "project execution", "scrum", "kanban"],
+      "language": ["en"]
+    },
+    "Agile_Management": {
+      "alias": "agile_management",
+      "domain": "Project_Management",
+      "level": 3,
+      "parent_category": "Project_Management",
+      "children": [],
+      "keywords": ["agile", "scrum", "kanban", "sprint planning", "backlog grooming", "agile ceremonies", "product owner", "scrum master", "agile coach", "jira"],
+      "language": ["en"]
+    },
+    "Traditional_Project_Management": {
+      "alias": "traditional_project_management",
+      "domain": "Project_Management",
+      "level": 3,
+      "parent_category": "Project_Management",
+      "children": [],
+      "keywords": ["waterfall", "pmi", "pmbok", "prince2", "gantt charts", "critical path", "project lifecycle", "pmp", "project charter"],
+      "language": ["en"]
+    },
+    "Team_Management": {
+      "alias": "team_management",
+      "domain": "Management_Skills",
+      "level": 2,
+      "parent_category": "Management_Skills",
+      "children": [
+        "Performance_Management",
+        "Team_Building",
+        "Delegation"
+      ],
+      "keywords": ["team management", "team leadership", "supervising", "people management", "staff coordination", "team coordination"],
+      "language": ["en"]
+    },
+    "Leadership_Skills": {
+      "alias": "leadership_skills",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": [
+        "Strategic_Leadership",
+        "Team_Leadership",
+        "Change_Leadership"
+      ],
+      "keywords": ["leadership", "leading", "guiding", "directing", "inspiring", "motivating", "visionary"],
+      "language": ["en"]
+    },
+    "Strategic_Leadership": {
+      "alias": "strategic_leadership",
+      "domain": "Leadership_Skills",
+      "level": 3,
+      "parent_category": "Leadership_Skills",
+      "children": [],
+      "keywords": ["strategic leadership", "vision setting", "strategic planning", "organizational strategy", "executive leadership", "business acumen", "strategic thinking", "strategic decision making", "corporate strategy"],
+      "language": ["en"]
+    },
+    "Team_Leadership": {
+      "alias": "team_leadership",
+      "domain": "Leadership_Skills",
+      "level": 3,
+      "parent_category": "Leadership_Skills",
+      "children": [],
+      "keywords": ["team leadership", "people leadership", "team motivation", "team development", "mentoring", "coaching", "talent development", "team building", "leadership presence", "influence", "delegation"],
+      "language": ["en"]
+    },
+    "Change_Leadership": {
+      "alias": "change_leadership",
+      "domain": "Leadership_Skills",
+      "level": 3,
+      "parent_category": "Leadership_Skills",
+      "children": [],
+      "keywords": ["change leadership", "change management", "organizational change", "transformation leadership", "change adoption", "resistance management", "change communication", "change strategy", "cultural change", "digital transformation"],
+      "language": ["en"]
+    },
+    "Problem_Solving_Skills": {
+      "alias": "problem_solving_skills",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": [
+        "Critical_Thinking",
+        "Analytical_Thinking",
+        "Creative_Problem_Solving"
+      ],
+      "keywords": ["problem solving", "troubleshooting", "solution finding", "resolving issues", "analytical reasoning"],
+      "language": ["en"]
+    },
+    "Critical_Thinking": {
+      "alias": "critical_thinking",
+      "domain": "Problem_Solving_Skills",
+      "level": 3,
+      "parent_category": "Problem_Solving_Skills",
+      "children": [],
+      "keywords": ["critical thinking", "logical reasoning", "analytical thinking", "rationality", "inference", "evaluation", "deductive reasoning", "inductive reasoning", "objectivity", "questioning", "judgment"],
+      "language": ["en"]
+    },
+    "Analytical_Thinking": {
+      "alias": "analytical_thinking",
+      "domain": "Problem_Solving_Skills",
+      "level": 3,
+      "parent_category": "Problem_Solving_Skills",
+      "children": [],
+      "keywords": ["analytical thinking", "analysis", "data analysis", "systematic thinking", "logical analysis", "problem dissection", "root cause analysis", "comparative analysis", "systems thinking", "pattern recognition", "structured thinking"],
+      "language": ["en"]
+    },
+    "Creative_Problem_Solving": {
+      "alias": "creative_problem_solving",
+      "domain": "Problem_Solving_Skills",
+      "level": 3,
+      "parent_category": "Problem_Solving_Skills",
+      "children": [],
+      "keywords": ["creative problem solving", "lateral thinking", "out of the box thinking", "brainstorming", "ideation", "innovative solutions", "divergent thinking", "convergent thinking", "reframing problems", "design thinking", "solution finding"],
+      "language": ["en"]
+    },
+    "Interpersonal_Skills": {
+      "alias": "interpersonal_skills",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": [
+        "Empathy",
+        "Negotiation",
+        "Active_Listening"
+      ],
+      "keywords": ["interpersonal", "people skills", "social skills", "relating to others", "interaction skills", "social intelligence"],
+      "language": ["en"]
+    },
+    "Empathy": {
+      "alias": "empathy",
+      "domain": "Interpersonal_Skills",
+      "level": 3,
+      "parent_category": "Interpersonal_Skills",
+      "children": [],
+      "keywords": ["empathy", "empathetic listening", "compassion", "understanding others", "emotional intelligence", "perspective taking", "emotional awareness", "sensitivity", "caring", "human-centered"],
+      "language": ["en"]
+    },
+    "Negotiation": {
+      "alias": "negotiation",
+      "domain": "Interpersonal_Skills",
+      "level": 3,
+      "parent_category": "Interpersonal_Skills",
+      "children": [],
+      "keywords": ["negotiation", "bargaining", "conflict resolution", "mediation", "deal making", "consensus building", "win-win solutions", "persuasion", "diplomacy", "contract negotiation", "sales negotiation"],
+      "language": ["en"]
+    },
+    "Active_Listening": {
+      "alias": "active_listening",
+      "domain": "Interpersonal_Skills",
+      "level": 3,
+      "parent_category": "Interpersonal_Skills",
+      "children": [],
+      "keywords": ["active listening", "attentive listening", "reflective listening", "comprehensive listening", "empathetic listening", "effective listening", "listening skills", "focused attention", "feedback", "paraphrasing", "clarifying"],
+      "language": ["en"]
+    },
+    "Finance_Knowledge": {
+      "alias": "finance_knowledge",
+      "domain": "Domain_Knowledge",
+      "level": 2,
+      "parent_category": "Domain_Knowledge",
+      "children": [
+        "Banking_Knowledge",
+        "Investment_Knowledge",
+        "Accounting_Knowledge"
+      ],
+      "keywords": ["finance", "financial", "banking", "investment", "accounting", "financial analysis", "financial reporting"],
+      "language": ["en"]
+    },
+    "Banking_Knowledge": {
+      "alias": "banking_knowledge",
+      "domain": "Finance_Knowledge",
+      "level": 3,
+      "parent_category": "Finance_Knowledge",
+      "children": [],
+      "keywords": ["banking", "retail banking", "commercial banking", "investment banking", "private banking", "corporate banking", "credit analysis", "loan processing", "mortgage banking", "banking operations", "financial services", "fintech", "payment systems", "banking regulations"],
+      "language": ["en"]
+    },
+    "Investment_Knowledge": {
+      "alias": "investment_knowledge",
+      "domain": "Finance_Knowledge",
+      "level": 3,
+      "parent_category": "Finance_Knowledge",
+      "children": [],
+      "keywords": ["investment", "portfolio management", "asset management", "wealth management", "securities", "stocks", "bonds", "mutual funds", "etfs", "derivatives", "options", "futures", "financial analysis", "equity research", "valuation", "risk management", "alternative investments", "hedge funds", "private equity", "venture capital"],
+      "language": ["en"]
+    },
+    "Accounting_Knowledge": {
+      "alias": "accounting_knowledge",
+      "domain": "Finance_Knowledge",
+      "level": 3,
+      "parent_category": "Finance_Knowledge",
+      "children": [],
+      "keywords": ["accounting", "financial accounting", "managerial accounting", "bookkeeping", "general ledger", "financial statements", "balance sheet", "income statement", "cash flow statement", "audit", "tax accounting", "cost accounting", "gaap", "ifrs", "reconciliation", "accounts payable", "accounts receivable", "financial reporting"],
+      "language": ["en"]
+    },
+    "Healthcare_Knowledge": {
+      "alias": "healthcare_knowledge",
+      "domain": "Domain_Knowledge",
+      "level": 2,
+      "parent_category": "Domain_Knowledge",
+      "children": [
+        "Medical_Knowledge",
+        "Pharmaceutical_Knowledge",
+        "Healthcare_IT"
+      ],
+      "keywords": ["healthcare", "medical", "health", "clinical", "pharmaceutical", "patient care", "hospital", "health informatics"],
+      "language": ["en"]
+    },
+    "Medical_Knowledge": {
+      "alias": "medical_knowledge",
+      "domain": "Healthcare_Knowledge",
+      "level": 3,
+      "parent_category": "Healthcare_Knowledge",
+      "children": [],
+      "keywords": ["medical knowledge", "clinical knowledge", "patient care", "diagnosis", "treatment", "anatomy", "physiology", "pathology", "pharmacology", "medical procedures", "medical terminology", "patient assessment", "medical specialties", "medical ethics"],
+      "language": ["en"]
+    },
+    "Pharmaceutical_Knowledge": {
+      "alias": "pharmaceutical_knowledge",
+      "domain": "Healthcare_Knowledge",
+      "level": 3,
+      "parent_category": "Healthcare_Knowledge",
+      "children": [],
+      "keywords": ["pharmaceutical", "pharmacy", "drug development", "clinical trials", "pharmacology", "medicinal chemistry", "pharmacokinetics", "pharmacodynamics", "drug safety", "regulatory affairs", "pharmaceutical manufacturing", "quality control", "biopharmaceuticals", "drug formulation", "pharmaceutics"],
+      "language": ["en"]
+    },
+    "Healthcare_IT": {
+      "alias": "healthcare_it",
+      "domain": "Healthcare_Knowledge",
+      "level": 3,
+      "parent_category": "Healthcare_Knowledge",
+      "children": [],
+      "keywords": ["healthcare it", "health informatics", "electronic health records", "ehr", "emr", "health information systems", "medical software", "telehealth", "telemedicine", "healthcare analytics", "clinical decision support", "health information exchange", "health data standards", "hipaa", "healthcare data management", "medical imaging systems", "pacs", "healthcare cybersecurity"],
+      "language": ["en"]
+    },
+    "Legal_Knowledge": {
+      "alias": "legal_knowledge",
+      "domain": "Domain_Knowledge",
+      "level": 2,
+      "parent_category": "Domain_Knowledge",
+      "children": ["Corporate_Law", "Intellectual_Property", "Regulatory_Compliance"],
+      "keywords": ["legal knowledge", "law", "legal expertise", "jurisprudence", "legal practice", "legal theory", "legal principles", "legal systems"],
+      "language": ["en"]
+    },
+    "Corporate_Law": {
+      "alias": "corporate_law",
+      "domain": "Legal_Knowledge",
+      "level": 3,
+      "parent_category": "Legal_Knowledge",
+      "children": [],
+      "keywords": ["corporate law", "business law", "company law", "commercial law", "mergers and acquisitions", "corporate governance", "securities law", "corporate transactions", "corporate compliance", "corporate contracts", "corporate structuring", "corporate finance", "corporate legal"],
+      "language": ["en"]
+    },
+    "Intellectual_Property": {
+      "alias": "intellectual_property",
+      "domain": "Legal_Knowledge",
+      "level": 3,
+      "parent_category": "Legal_Knowledge",
+      "children": [],
+      "keywords": ["intellectual property", "ip law", "patents", "trademarks", "copyrights", "trade secrets", "ip litigation", "ip licensing", "ip portfolio", "ip strategy", "patent prosecution", "trademark registration", "copyright protection", "ip rights", "intellectual property management"],
+      "language": ["en"]
+    },
+    "Regulatory_Compliance": {
+      "alias": "regulatory_compliance",
+      "domain": "Legal_Knowledge",
+      "level": 3,
+      "parent_category": "Legal_Knowledge",
+      "children": [],
+      "keywords": ["regulatory compliance", "compliance", "regulations", "regulatory requirements", "regulatory frameworks", "compliance management", "regulatory reporting", "risk and compliance", "regulatory affairs", "regulatory strategy", "compliance audits", "compliance programs", "regulatory filings", "regulatory inspections"],
+      "language": ["en"]
+    },
+    "Engineering_Knowledge": {
+      "alias": "engineering_knowledge",
+      "domain": "Domain_Knowledge",
+      "level": 2,
+      "parent_category": "Domain_Knowledge",
+      "children": ["Mechanical_Engineering_Knowledge", "Electrical_Engineering_Knowledge", "Civil_Engineering_Knowledge"],
+      "keywords": ["engineering knowledge", "engineering principles", "engineering concepts", "engineering practice", "engineering theory", "engineering methods", "technical engineering"],
+      "language": ["en"]
+    },
+    "Mechanical_Engineering_Knowledge": {
+      "alias": "mechanical_engineering_knowledge",
+      "domain": "Engineering_Knowledge",
+      "level": 3,
+      "parent_category": "Engineering_Knowledge",
+      "children": [],
+      "keywords": ["mechanical engineering", "thermodynamics", "fluid mechanics", "solid mechanics", "machine design", "manufacturing processes", "heat transfer", "material science", "kinematics", "dynamics", "robotics", "cad", "product design", "finite element analysis", "cfd", "mechanical systems"],
+      "language": ["en"]
+    },
+    "Electrical_Engineering_Knowledge": {
+      "alias": "electrical_engineering_knowledge",
+      "domain": "Engineering_Knowledge",
+      "level": 3,
+      "parent_category": "Engineering_Knowledge",
+      "children": [],
+      "keywords": ["electrical engineering", "electronics", "circuit design", "pcb design", "power systems", "electrical machines", "control systems", "signal processing", "telecommunications", "embedded systems", "microcontrollers", "fpga", "asic design", "vlsi", "analog electronics", "digital electronics", "power electronics", "high voltage", "electrical safety", "electromagnetic compatibility", "semiconductor devices", "antenna design", "rf engineering"],
+      "language": ["en"]
+    },
+    "Civil_Engineering_Knowledge": {
+      "alias": "civil_engineering_knowledge",
+      "domain": "Engineering_Knowledge",
+      "level": 3,
+      "parent_category": "Engineering_Knowledge",
+      "children": [],
+      "keywords": ["civil engineering", "structural engineering", "geotechnical engineering", "transportation engineering", "water resources", "environmental engineering", "construction engineering", "surveying", "building materials", "concrete design", "steel design", "timber design", "foundation design", "soil mechanics", "hydraulics", "hydrology", "bridge design", "highway design", "urban planning", "construction management", "bim", "building codes", "autocad civil 3d", "revit structure", "etabs", "staad", "sap2000", "structural analysis", "seismic design"],
+      "language": ["en"]
+    },
+    "Chemical_Engineering_Knowledge": {
+      "alias": "chemical_engineering_knowledge",
+      "domain": "Engineering_Knowledge",
+      "level": 3,
+      "parent_category": "Engineering_Knowledge",
+      "children": [],
+      "keywords": ["chemical engineering", "process engineering", "reaction engineering", "unit operations", "thermodynamics", "fluid mechanics", "heat transfer", "mass transfer", "separation processes", "reactor design", "process control", "process simulation", "plant design", "aspen", "hysys", "chemcad", "pipe flow", "batch processing", "continuous processing", "distillation", "extraction", "filtration", "crystallization", "drying", "process safety", "hazop", "chemical plant operations", "pilot plant"],
+      "language": ["en"]
+    },
+    "Data_Engineering": {
+      "alias": "data_engineering",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": ["ETL", "Data_Pipelines", "Data_Modeling"],
+      "keywords": ["data engineering", "data infrastructure", "data architecture", "data pipeline", "etl", "data integration", "data processing", "data platform", "data ops"],
+      "language": ["en"]
+    },
+    "ETL": {
+      "alias": "etl",
+      "domain": "Data_Engineering",
+      "level": 3,
+      "parent_category": "Data_Engineering",
+      "children": [],
+      "keywords": ["etl", "extract transform load", "data extraction", "data transformation", "data loading", "informatica", "talend", "ssis", "datastage", "pentaho", "apache nifi", "matillion", "fivetran", "stitch", "dbt", "airflow", "luigi", "prefect"],
+      "language": ["en"]
+    },
+    "Data_Pipelines": {
+      "alias": "data_pipelines",
+      "domain": "Data_Engineering",
+      "level": 3,
+      "parent_category": "Data_Engineering",
+      "children": [],
+      "keywords": ["data pipeline", "data flow", "streaming data", "batch processing", "real-time processing", "data ingestion", "kafka", "spark streaming", "flink", "beam", "data lake", "data warehouse", "lambda architecture", "kappa architecture", "kinesis", "pubsub", "event streaming", "change data capture", "cdc"],
+      "language": ["en"]
+    },
+    "Game_Development": {
+      "alias": "game_development",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": ["Game_Engines", "Game_Programming", "Game_Design"],
+      "keywords": ["game development", "game dev", "game programming", "game creation", "video game development", "gaming industry", "game maker"],
+      "language": ["en"]
+    },
+    "Game_Engines": {
+      "alias": "game_engines",
+      "domain": "Game_Development",
+      "level": 3,
+      "parent_category": "Game_Development",
+      "children": [],
+      "keywords": ["unity", "unreal engine", "godot", "cryengine", "gamemaker studio", "rpg maker", "construct", "phaser", "cocos2d", "panda3d", "libgdx", "monogame", "amazon lumberyard", "game engine", "3d engine", "rendering engine", "physics engine"],
+      "language": ["en"]
+    },
+    "Game_Programming": {
+      "alias": "game_programming",
+      "domain": "Game_Development",
+      "level": 3,
+      "parent_category": "Game_Development",
+      "children": [],
+      "keywords": ["game programming", "game code", "gameplay programming", "c++ games", "c# games", "game scripting", "game ai", "game physics", "game networking", "graphics programming", "shader programming", "game audio programming", "multiplayer programming", "game optimization", "game development patterns"],
+      "language": ["en"]
+    },
+    "Product_Design": {
+      "alias": "product_design",
+      "domain": "Design_Skills",
+      "level": 3,
+      "parent_category": "Design_Skills",
+      "children": [],
+      "keywords": ["product design", "industrial design", "product development", "physical product design", "consumer product design", "hardware design", "product prototyping", "product usability", "ergonomics", "human factors", "cad design", "product aesthetics", "product experience", "product innovation"],
+      "language": ["en"]
+    },
+    "Product_Management": {
+      "alias": "product_management",
+      "domain": "Project_Management",
+      "level": 3,
+      "parent_category": "Project_Management",
+      "children": [],
+      "keywords": ["product management", "product owner", "product development", "product strategy", "product roadmap", "product backlog", "user stories", "product requirements", "market research", "customer development", "product analytics", "feature prioritization", "product metrics", "product lifecycle", "product-market fit", "value proposition", "go-to-market", "pricing strategy"],
+      "language": ["en"]
+    },
+    "Digital_Marketing_Skills": {
+      "alias": "digital_marketing_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "SEO_Skills",
+        "SEM_Skills",
+        "Social_Media_Marketing",
+        "Content_Marketing",
+        "Email_Marketing",
+        "Analytics_Marketing"
+      ],
+      "keywords": ["digital marketing", "online marketing", "internet marketing", "digital advertising", "marketing digital", "marketing en línea", "marketing numérique", "digitales marketing", "デジタルマーケティング", "数字营销"],
+      "language": ["en", "es", "fr", "de", "ja", "zh"]
+    },
+    "SEO_Skills": {
+      "alias": "seo_skills",
+      "domain": "Digital_Marketing_Skills",
+      "level": 2,
+      "parent_category": "Digital_Marketing_Skills",
+      "children": ["On_Page_SEO", "Off_Page_SEO", "Technical_SEO"],
+      "keywords": ["seo", "search engine optimization", "search engine marketing", "keyword research", "posicionamiento web", "référencement naturel", "suchmaschinenoptimierung", "検索エンジン最適化", "搜索引擎优化"],
+      "language": ["en", "es", "fr", "de", "ja", "zh"]
+    },
+    "On_Page_SEO": {
+      "alias": "on_page_seo",
+      "domain": "SEO_Skills",
+      "level": 3,
+      "parent_category": "SEO_Skills",
+      "children": [],
+      "keywords": ["on page seo", "on-page seo", "meta tags", "title tags", "content optimization", "heading optimization", "url optimization", "keyword optimization", "semantic seo", "internal linking", "seo copywriting", "image optimization", "alt text", "page speed optimization", "schema markup", "structured data"],
+      "language": ["en"]
+    },
+    "Off_Page_SEO": {
+      "alias": "off_page_seo",
+      "domain": "SEO_Skills",
+      "level": 3,
+      "parent_category": "SEO_Skills",
+      "children": [],
+      "keywords": ["off page seo", "off-page seo", "link building", "backlink strategy", "guest posting", "influencer outreach", "digital pr", "social bookmarking", "forum marketing", "blog commenting", "resource link building", "broken link building", "skyscraper technique", "competitor backlink analysis"],
+      "language": ["en"]
+    },
+    "Technical_SEO": {
+      "alias": "technical_seo",
+      "domain": "SEO_Skills",
+      "level": 3,
+      "parent_category": "SEO_Skills",
+      "children": [],
+      "keywords": ["technical seo", "site speed optimization", "mobile optimization", "responsive design", "site architecture", "crawl budget", "indexing", "robots.txt", "xml sitemap", "canonical tags", "site migration", "http status codes", "hreflang", "pagination", "accelerated mobile pages", "amp", "javascript seo", "progressive web apps", "core web vitals"],
+      "language": ["en"]
+    },
+    "SEM_Skills": {
+      "alias": "sem_skills",
+      "domain": "Digital_Marketing_Skills",
+      "level": 2,
+      "parent_category": "Digital_Marketing_Skills",
+      "children": [],
+      "keywords": ["sem", "search engine marketing", "ppc", "pay per click", "google ads", "microsoft advertising", "bing ads", "search ads", "display ads", "remarketing", "retargeting", "ad copywriting", "landing page optimization", "bid management", "ad scheduling", "campaign management", "quality score optimization", "conversion tracking", "target cpa", "target roas"],
+      "language": ["en"]
+    },
+    "Social_Media_Marketing": {
+      "alias": "social_media_marketing",
+      "domain": "Digital_Marketing_Skills",
+      "level": 2,
+      "parent_category": "Digital_Marketing_Skills",
+      "children": ["Facebook_Marketing", "Instagram_Marketing", "Twitter_Marketing", "LinkedIn_Marketing", "TikTok_Marketing"],
+      "keywords": ["social media marketing", "social marketing", "social media strategy", "social media campaigns", "social media advertising", "community management", "social engagement", "social listening", "social monitoring", "hashtag strategy", "marketing de redes sociales", "marketing des médias sociaux", "social-media-marketing", "ソーシャルメディアマーケティング", "社交媒体营销"],
+      "language": ["en", "es", "fr", "de", "ja", "zh"]
+    },
+    "Facebook_Marketing": {
+      "alias": "facebook_marketing",
+      "domain": "Social_Media_Marketing",
+      "level": 3,
+      "parent_category": "Social_Media_Marketing",
+      "children": [],
+      "keywords": ["facebook marketing", "facebook ads", "facebook business manager", "facebook pixel", "facebook audiences", "facebook lead generation", "facebook groups", "facebook pages", "facebook insights", "facebook advertising", "facebook campaign optimization", "facebook dynamic ads", "facebook catalog", "facebook conversions api", "facebook shops", "facebook creator studio", "facebook video marketing"],
+      "language": ["en"]
+    },
+    "Instagram_Marketing": {
+      "alias": "instagram_marketing",
+      "domain": "Social_Media_Marketing",
+      "level": 3,
+      "parent_category": "Social_Media_Marketing",
+      "children": [],
+      "keywords": ["instagram marketing", "instagram advertising", "instagram stories", "instagram reels", "instagram shop", "instagram insights", "instagram influencer marketing", "instagram content strategy", "instagram hashtags", "instagram organic growth", "instagram shopping", "instagram live", "instagram filters", "instagram guides", "instagram carousel posts", "instagram engagement"],
+      "language": ["en"]
+    },
+    "Content_Marketing": {
+      "alias": "content_marketing",
+      "domain": "Digital_Marketing_Skills",
+      "level": 2,
+      "parent_category": "Digital_Marketing_Skills",
+      "children": [],
+      "keywords": ["content marketing", "content strategy", "content creation", "content distribution", "content planning", "content calendar", "blog strategy", "video marketing", "infographic marketing", "ebook marketing", "white paper marketing", "case study creation", "content repurposing", "editorial calendar", "content analysis", "content performance", "content optimization", "content audit", "content gap analysis", "storytelling", "narrative marketing"],
+      "language": ["en"]
+    },
+    "Email_Marketing": {
+      "alias": "email_marketing",
+      "domain": "Digital_Marketing_Skills",
+      "level": 2,
+      "parent_category": "Digital_Marketing_Skills",
+      "children": [],
+      "keywords": ["email marketing", "newsletter marketing", "email automation", "email segmentation", "email personalization", "email templates", "email testing", "email deliverability", "subject line optimization", "email copywriting", "email list building", "email analytics", "email campaigns", "drip campaigns", "email sequence", "mailchimp", "klaviyo", "constant contact", "active campaign", "hubspot email marketing", "convertkit", "aweber", "email a/b testing"],
+      "language": ["en"]
+    },
+    "Analytics_Marketing": {
+      "alias": "analytics_marketing",
+      "domain": "Digital_Marketing_Skills",
+      "level": 2,
+      "parent_category": "Digital_Marketing_Skills",
+      "children": [],
+      "keywords": ["marketing analytics", "web analytics", "google analytics", "adobe analytics", "marketing attribution", "conversion tracking", "customer journey analytics", "marketing dashboards", "marketing reporting", "data visualization", "kpi tracking", "customer acquisition cost", "lifetime value", "traffic analysis", "funnel analysis", "cohort analysis", "segment analysis", "marketing mix modeling", "multi-touch attribution", "utm parameters", "event tracking", "goal tracking", "ecommerce tracking", "heat maps", "session recordings", "a/b testing", "user behavior analysis", "google tag manager", "google data studio", "looker", "tableau", "power bi"],
+      "language": ["en"]
+    },
+    "Research_Skills": {
+      "alias": "research_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": ["Academic_Research", "Market_Research", "User_Research"],
+      "keywords": ["research", "investigation", "study", "analysis", "exploration", "inquiry", "investigación", "recherche", "forschung", "研究", "研究"],
+      "language": ["en", "es", "fr", "de", "ja", "zh"]
+    },
+    "Academic_Research": {
+      "alias": "academic_research",
+      "domain": "Research_Skills",
+      "level": 2,
+      "parent_category": "Research_Skills",
+      "children": [],
+      "keywords": ["academic research", "scientific research", "literature review", "systematic review", "meta-analysis", "research methodology", "quantitative research", "qualitative research", "mixed methods research", "experimental design", "hypothesis testing", "research ethics", "data collection", "sampling methods", "research validity", "research reliability", "peer review", "journal publication", "scholarly writing", "citation", "referencing", "research proposal", "grant writing", "dissertation", "thesis"],
+      "language": ["en"]
+    },
+    "Market_Research": {
+      "alias": "market_research",
+      "domain": "Research_Skills",
+      "level": 2,
+      "parent_category": "Research_Skills",
+      "children": [],
+      "keywords": ["market research", "competitive analysis", "consumer research", "customer insights", "market analysis", "industry analysis", "customer segmentation", "market segmentation", "focus groups", "surveys", "interviews", "ethnographic research", "trend analysis", "market sizing", "market forecasting", "pricing research", "conjoint analysis", "brand research", "product research", "market entry strategy", "competitor benchmarking"],
+      "language": ["en"]
+    },
+    "User_Research": {
+      "alias": "user_research",
+      "domain": "Research_Skills",
+      "level": 2,
+      "parent_category": "Research_Skills",
+      "children": [],
+      "keywords": ["user research", "usability testing", "user interviews", "user surveys", "card sorting", "tree testing", "a/b testing", "eye tracking", "heatmaps", "user journey mapping", "persona development", "contextual inquiry", "task analysis", "cognitive walkthrough", "diary studies", "remote user testing", "moderated testing", "unmoderated testing", "guerrilla testing", "accessibility testing", "multivariate testing", "preference testing", "benchmark testing", "five-second testing", "first-click testing"],
+      "language": ["en"]
+    },
+    "Electrical_Engineering_Knowledge": {
+      "alias": "electrical_engineering_knowledge",
+      "domain": "Engineering_Knowledge",
+      "level": 3,
+      "parent_category": "Engineering_Knowledge",
+      "children": [],
+      "keywords": ["electrical engineering", "electronics", "circuit design", "pcb design", "power systems", "electrical machines", "control systems", "signal processing", "telecommunications", "embedded systems", "microcontrollers", "fpga", "asic design", "vlsi", "analog electronics", "digital electronics", "power electronics", "high voltage", "electrical safety", "electromagnetic compatibility", "semiconductor devices", "antenna design", "rf engineering"],
+      "language": ["en"]
+    },
+    "Civil_Engineering_Knowledge": {
+      "alias": "civil_engineering_knowledge",
+      "domain": "Engineering_Knowledge",
+      "level": 3,
+      "parent_category": "Engineering_Knowledge",
+      "children": [],
+      "keywords": ["civil engineering", "structural engineering", "geotechnical engineering", "transportation engineering", "water resources", "environmental engineering", "construction engineering", "surveying", "building materials", "concrete design", "steel design", "timber design", "foundation design", "soil mechanics", "hydraulics", "hydrology", "bridge design", "highway design", "urban planning", "construction management", "bim", "building codes", "autocad civil 3d", "revit structure", "etabs", "staad", "sap2000", "structural analysis", "seismic design"],
+      "language": ["en"]
+    },
+    "Chemical_Engineering_Knowledge": {
+      "alias": "chemical_engineering_knowledge",
+      "domain": "Engineering_Knowledge",
+      "level": 3,
+      "parent_category": "Engineering_Knowledge",
+      "children": [],
+      "keywords": ["chemical engineering", "process engineering", "reaction engineering", "unit operations", "thermodynamics", "fluid mechanics", "heat transfer", "mass transfer", "separation processes", "reactor design", "process control", "process simulation", "plant design", "aspen", "hysys", "chemcad", "pipe flow", "batch processing", "continuous processing", "distillation", "extraction", "filtration", "crystallization", "drying", "process safety", "hazop", "chemical plant operations", "pilot plant"],
+      "language": ["en"]
+    },
+    "Data_Modeling": {
+      "alias": "data_modeling",
+      "domain": "Data_Engineering",
+      "level": 3,
+      "parent_category": "Data_Engineering",
+      "children": [],
+      "keywords": ["data modeling", "database design", "entity-relationship modeling", "er diagrams", "dimensional modeling", "star schema", "snowflake schema", "data vault", "normalization", "denormalization", "data architecture", "logical data model", "physical data model", "conceptual data model", "schema design", "data structures", "relational modeling", "nosql modeling", "graph database modeling", "time series modeling", "document database design"],
+      "language": ["en"]
+    },
+    "Marketing_Knowledge": {
+      "alias": "marketing_knowledge",
+      "domain": "Domain_Knowledge",
+      "level": 2,
+      "parent_category": "Domain_Knowledge",
+      "children": ["Digital_Marketing_Knowledge", "Traditional_Marketing_Knowledge", "Marketing_Strategy"],
+      "keywords": ["marketing", "marketing knowledge", "marketing expertise", "marketing principles", "marketing concepts", "marketing theory", "marketing practice"],
+      "language": ["en"]
+    },
+    "Digital_Marketing_Knowledge": {
+      "alias": "digital_marketing_knowledge",
+      "domain": "Marketing_Knowledge",
+      "level": 3,
+      "parent_category": "Marketing_Knowledge",
+      "children": [],
+      "keywords": ["digital marketing", "online marketing", "web marketing", "internet marketing", "ecommerce marketing", "mobile marketing", "app marketing", "search marketing", "display advertising", "programmatic advertising", "affiliate marketing", "digital analytics", "conversion rate optimization", "cro", "landing page optimization", "digital marketing strategy", "multichannel marketing", "omnichannel marketing", "digital transformation", "marketing technology", "martech stack"],
+      "language": ["en"]
+    },
+    "Traditional_Marketing_Knowledge": {
+      "alias": "traditional_marketing_knowledge",
+      "domain": "Marketing_Knowledge",
+      "level": 3,
+      "parent_category": "Marketing_Knowledge",
+      "children": [],
+      "keywords": ["traditional marketing", "print advertising", "direct mail", "broadcast media", "television advertising", "radio advertising", "outdoor advertising", "billboard advertising", "magazine advertising", "newspaper advertising", "trade shows", "event marketing", "sponsorships", "promotional marketing", "point of purchase", "brand activation", "merchandise marketing"],
+      "language": ["en"]
+    },
+    "Marketing_Strategy": {
+      "alias": "marketing_strategy",
+      "domain": "Marketing_Knowledge",
+      "level": 3,
+      "parent_category": "Marketing_Knowledge",
+      "children": [],
+      "keywords": ["marketing strategy", "marketing planning", "brand strategy", "brand positioning", "value proposition", "market segmentation", "target marketing", "product marketing", "pricing strategy", "distribution strategy", "channel strategy", "integrated marketing", "marketing mix", "product life cycle", "go-to-market strategy", "competitive analysis", "customer journey", "customer experience", "customer persona", "growth marketing", "inbound marketing", "outbound marketing"],
+      "language": ["en"]
+    },
+    "Education_Knowledge": {
+      "alias": "education_knowledge",
+      "domain": "Domain_Knowledge",
+      "level": 2,
+      "parent_category": "Domain_Knowledge",
+      "children": ["K12_Education", "Higher_Education", "Educational_Technology"],
+      "keywords": ["education", "educational knowledge", "pedagogy", "teaching", "learning", "curriculum", "instruction", "educational theory", "educational practice", "school", "academic", "didactics"],
+      "language": ["en"]
+    },
+    "K12_Education": {
+      "alias": "k12_education",
+      "domain": "Education_Knowledge",
+      "level": 3,
+      "parent_category": "Education_Knowledge",
+      "children": [],
+      "keywords": ["k-12 education", "k12", "primary education", "secondary education", "elementary education", "middle school", "high school", "classroom management", "differentiated instruction", "common core", "state standards", "student assessment", "formative assessment", "summative assessment", "iep", "special education", "inclusion", "stem education", "steam education", "project-based learning", "inquiry-based learning", "social-emotional learning", "sel"],
+      "language": ["en"]
+    },
+    "Higher_Education": {
+      "alias": "higher_education",
+      "domain": "Education_Knowledge",
+      "level": 3,
+      "parent_category": "Education_Knowledge",
+      "children": [],
+      "keywords": ["higher education", "university", "college", "post-secondary education", "tertiary education", "academic administration", "curriculum development", "academic advising", "student affairs", "enrollment management", "academic research", "faculty development", "accreditation", "institutional assessment", "student success", "retention strategies", "graduate education", "undergraduate education", "adult education", "continuing education", "distance education", "online learning", "academic governance"],
+      "language": ["en"]
+    },
+    "Educational_Technology": {
+      "alias": "educational_technology",
+      "domain": "Education_Knowledge",
+      "level": 3,
+      "parent_category": "Education_Knowledge",
+      "children": [],
+      "keywords": ["educational technology", "edtech", "e-learning", "online learning", "learning management system", "lms", "virtual classroom", "digital learning", "blended learning", "flipped classroom", "gamification", "adaptive learning", "personalized learning", "mobile learning", "1:1 computing", "digital literacy", "instructional design", "learning analytics", "competency-based education", "open educational resources", "oer", "mooc", "virtual reality in education", "augmented reality in education", "artificial intelligence in education"],
+      "language": ["en"]
+    },
+    "Environmental_Knowledge": {
+      "alias": "environmental_knowledge",
+      "domain": "Domain_Knowledge",
+      "level": 2,
+      "parent_category": "Domain_Knowledge",
+      "children": ["Environmental_Science", "Sustainability", "Climate_Change"],
+      "keywords": ["environmental knowledge", "environmental expertise", "ecology", "environmental studies", "environmental management", "natural resources", "biodiversity", "conservation"],
+      "language": ["en"]
+    },
+    "Environmental_Science": {
+      "alias": "environmental_science",
+      "domain": "Environmental_Knowledge",
+      "level": 3,
+      "parent_category": "Environmental_Knowledge",
+      "children": [],
+      "keywords": ["environmental science", "ecology", "ecosystem analysis", "environmental monitoring", "environmental sampling", "environmental impact assessment", "eia", "environmental modeling", "environmental chemistry", "environmental biology", "soil science", "hydrology", "atmospheric science", "marine biology", "conservation biology", "pollution control", "remediation", "environmental restoration", "gis for environment", "remote sensing", "environmental data analysis"],
+      "language": ["en"]
+    },
+    "Sustainability": {
+      "alias": "sustainability",
+      "domain": "Environmental_Knowledge",
+      "level": 3,
+      "parent_category": "Environmental_Knowledge",
+      "children": [],
+      "keywords": ["sustainability", "sustainable development", "corporate sustainability", "environmental sustainability", "social sustainability", "economic sustainability", "triple bottom line", "circular economy", "renewable energy", "green building", "leed", "carbon footprint", "life cycle assessment", "lca", "esg", "sustainable supply chain", "sustainable design", "sustainable materials", "zero waste", "corporate social responsibility", "csr", "sdg", "sustainable development goals", "green procurement", "sustainable business", "net zero", "carbon neutral"],
+      "language": ["en"]
+    },
+    "Climate_Change": {
+      "alias": "climate_change",
+      "domain": "Environmental_Knowledge",
+      "level": 3,
+      "parent_category": "Environmental_Knowledge",
+      "children": [],
+      "keywords": ["climate change", "global warming", "greenhouse gas emissions", "carbon emissions", "climate science", "climate modeling", "climate adaptation", "climate mitigation", "climate policy", "carbon management", "carbon markets", "carbon trading", "carbon tax", "climate resilience", "climate vulnerability", "climate risk assessment", "paris agreement", "ipcc", "unfccc", "climate finance", "decarbonization", "climate action", "climate justice", "climate literacy"],
+      "language": ["en"]
+    },
+    "Agriculture_Knowledge": {
+      "alias": "agriculture_knowledge",
+      "domain": "Domain_Knowledge",
+      "level": 2,
+      "parent_category": "Domain_Knowledge",
+      "children": ["Crop_Production", "Animal_Husbandry", "Agribusiness", "Agricultural_Technology"],
+      "keywords": ["agriculture", "agricultural knowledge", "farming", "agronomy", "agricultural science", "agricultural production", "agricultural systems", "agricultural management"],
+      "language": ["en"]
+    },
+    "Agricultural_Technology": {
+      "alias": "agricultural_technology",
+      "domain": "Agriculture_Knowledge",
+      "level": 3,
+      "parent_category": "Agriculture_Knowledge",
+      "children": [],
+      "keywords": ["agtech", "agricultural technology", "precision agriculture", "smart farming", "digital agriculture", "agricultural automation", "agricultural robotics", "drones in agriculture", "gps guidance", "variable rate technology", "field monitoring", "crop monitoring", "remote sensing in agriculture", "agricultural iot", "farm management software", "livestock monitoring", "irrigation technology", "agricultural biotechnology", "vertical farming", "controlled environment agriculture", "hydroponics", "aquaponics", "aeroponics", "artificial intelligence in agriculture", "blockchain in agriculture", "agricultural data analytics"],
+      "language": ["en"]
+    }
+  },
+  "Unclassified": {
+    "alias": "unclassified_skill",
+    "domain": "General",
+    "level": 0,
+    "parent_category": null,
+    "fallback_strategy": "uniform_distribution",
+    "generic_substitutes": [
+      "Skill",
+      "Ability",
+      "Competency",
+      "Expertise",
+      "Proficiency",
+      "Capability",
+      "Knowledge",
+      "Talent"
+    ],
+    "language": ["en", "es", "fr", "de", "ja", "zh"],
+    "usage_rules": {
+      "apply_when": "no_confidence_or_unknown",
+      "selection_method": "random_uniform",
+      "min_confidence_threshold": 0.2
+    }
+  },
+  "fallback_rules": {
+    "min_occurrences_threshold": 3,
+    "fallback_order": ["level_3", "level_2", "level_1", "level_0"],
+    "default_category": "Unclassified",
+    "confidence_thresholds": {
+      "high": 0.8,
+      "medium": 0.5,
+      "low": 0.2
+    }
+  }
+}

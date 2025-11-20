@@ -51,7 +51,7 @@ import pandas as pd
 from dask import dataframe as dd
 
 # PAMOLA imports
-from pamola_core import config
+from pamola_core import configs
 # Import reporting modules
 from pamola_core.privacy_models.k_anonymity.ka_reporting import (
     generate_compliance_report
@@ -123,7 +123,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             Dictionary with configuration values to override defaults.
         """
         # Merge configuration: defaults from config, overridden by explicit parameters
-        self.config = getattr(config, "K_ANONYMITY_DEFAULTS", {
+        self.config = getattr(configs, "K_ANONYMITY_DEFAULTS", {
             "k": 5,
             "use_dask": False,
             "mask_value": "MASKED",

@@ -1,0 +1,579 @@
+{
+  "categories_hierarchy": {
+    "Skill": {
+      "alias": "skill",
+      "domain": "General",
+      "level": 0,
+      "children": [
+        "Technical_Skills", 
+        "Soft_Skills", 
+        "Language_Skills", 
+        "Domain_Knowledge",
+        "Creative_Skills",
+        "Management_Skills",
+        "Data_Skills",
+        "Digital_Marketing_Skills",
+        "Research_Skills",
+        "Education_Skills",
+        "Entrepreneurial_Skills",
+        "Physical_Skills",
+        "Analytical_Skills"
+      ],
+      "keywords": ["skill", "competency", "capability", "expertise", "proficiency", "aptitude", "ability", "talent", "kỹ năng", "năng lực", "khả năng", "chuyên môn", "专长", "기술", "compétence", "Fähigkeit", "habilidad", "スキル"],
+      "language": ["en", "es", "fr", "de", "ja", "zh", "ko", "vi"]
+    },
+    "Technical_Skills": {
+      "alias": "technical_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Programming_Languages", 
+        "Databases", 
+        "Frameworks", 
+        "Tools", 
+        "Cloud_Services",
+        "DevOps",
+        "Cybersecurity",
+        "Networking",
+        "Mobile_Development",
+        "Frontend_Development",
+        "Backend_Development",
+        "Testing_Skills",
+        "Data_Engineering",
+        "Game_Development",
+        "Embedded_Systems",
+        "Blockchain_Development",
+        "IoT_Development",
+        "AR_VR_Development",
+        "Quantum_Computing"
+      ],
+      "keywords": ["technical skills", "tech skills", "technical competencies", "technical expertise", "tech expertise", "hard skills", "technical abilities", "kỹ năng kỹ thuật", "技術スキル", "技术技能", "기술 능력", "compétences techniques", "technische Fähigkeiten", "habilidades técnicas"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Soft_Skills": {
+      "alias": "soft_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Communication_Skills", 
+        "Teamwork_Skills", 
+        "Leadership_Skills", 
+        "Problem_Solving_Skills",
+        "Interpersonal_Skills",
+        "Adaptability_Skills",
+        "Time_Management_Skills",
+        "Emotional_Intelligence",
+        "Cultural_Awareness"
+      ],
+      "keywords": ["soft skills", "interpersonal skills", "people skills", "social skills", "emotional intelligence", "personal attributes", "character traits", "kỹ năng mềm", "ソフトスキル", "软技能", "소프트 스킬", "compétences générales", "Soft Skills", "habilidades blandas"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Adaptability_Skills": {
+      "alias": "adaptability_skills",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": ["Flexibility", "Change_Management", "Resilience"],
+      "keywords": ["adaptability", "adaptive", "adjustment", "flexibility", "versatility", "agile mindset", "khả năng thích ứng", "適応能力", "适应能力", "적응력", "adaptabilité", "Anpassungsfähigkeit", "adaptabilidad"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Flexibility": {
+      "alias": "flexibility",
+      "domain": "Adaptability_Skills",
+      "level": 3,
+      "parent_category": "Adaptability_Skills",
+      "children": [],
+      "keywords": ["flexible", "versatile", "adjustable", "accommodating", "open to change", "willing to adapt", "responsive", "situational adaptation", "linh hoạt", "柔軟性", "灵活性", "유연성", "flexibilité", "Flexibilität", "flexibilidad"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Resilience": {
+      "alias": "resilience",
+      "domain": "Adaptability_Skills",
+      "level": 3,
+      "parent_category": "Adaptability_Skills",
+      "children": [],
+      "keywords": ["resilient", "bouncing back", "overcoming adversity", "mental toughness", "grit", "perseverance", "stress management", "coping skills", "khả năng phục hồi", "回復力", "恢复力", "회복력", "résilience", "Belastbarkeit", "resiliencia"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Time_Management_Skills": {
+      "alias": "time_management_skills",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": ["Prioritization", "Scheduling", "Work_Life_Balance"],
+      "keywords": ["time management", "time organization", "schedule management", "deadline management", "quản lý thời gian", "時間管理", "时间管理", "시간 관리", "gestion du temps", "Zeitmanagement", "gestión del tiempo"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Prioritization": {
+      "alias": "prioritization",
+      "domain": "Time_Management_Skills",
+      "level": 3,
+      "parent_category": "Time_Management_Skills",
+      "children": [],
+      "keywords": ["prioritizing", "task prioritization", "importance assessment", "urgent vs important", "eisenhower matrix", "abc analysis", "focus management", "sự ưu tiên", "優先順位付け", "优先级排序", "우선순위 지정", "priorisation", "Prioritätensetzung", "priorización"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Emotional_Intelligence": {
+      "alias": "emotional_intelligence",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": ["Self_Awareness", "Social_Awareness", "Relationship_Management"],
+      "keywords": ["emotional intelligence", "EQ", "emotional quotient", "emotional competence", "trí thông minh cảm xúc", "感情知能", "情商", "감성 지능", "intelligence émotionnelle", "emotionale Intelligenz", "inteligencia emocional"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Self_Awareness": {
+      "alias": "self_awareness",
+      "domain": "Emotional_Intelligence",
+      "level": 3,
+      "parent_category": "Emotional_Intelligence",
+      "children": [],
+      "keywords": ["self-awareness", "emotional awareness", "recognizing emotions", "understanding oneself", "introspection", "self-reflection", "emotional literacy", "tự nhận thức", "自己認識", "自我意识", "자기 인식", "conscience de soi", "Selbstwahrnehmung", "autoconciencia"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Cultural_Awareness": {
+      "alias": "cultural_awareness",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": ["Cross_Cultural_Communication", "Diversity_Inclusion", "Global_Mindset"],
+      "keywords": ["cultural awareness", "cultural sensitivity", "cross-cultural understanding", "multicultural competence", "nhận thức văn hóa", "文化的認識", "文化意识", "문화적 인식", "sensibilité culturelle", "kulturelles Bewusstsein", "conciencia cultural"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Diversity_Inclusion": {
+      "alias": "diversity_inclusion",
+      "domain": "Cultural_Awareness",
+      "level": 3,
+      "parent_category": "Cultural_Awareness",
+      "children": [],
+      "keywords": ["diversity", "inclusion", "dei", "equity", "inclusive leadership", "inclusive workplace", "diverse perspectives", "accessibility", "đa dạng và hòa nhập", "多様性と包括性", "多元化与包容性", "다양성과 포용성", "diversité et inclusion", "Vielfalt und Inklusion", "diversidad e inclusión"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Global_Mindset": {
+      "alias": "global_mindset",
+      "domain": "Cultural_Awareness",
+      "level": 3,
+      "parent_category": "Cultural_Awareness",
+      "children": [],
+      "keywords": ["global perspective", "international mindset", "global thinking", "worldview", "cultural intelligence", "global awareness", "global citizenship", "tư duy toàn cầu", "グローバルな考え方", "全球思维", "글로벌 사고방식", "esprit global", "globales Denken", "mentalidad global"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Blockchain_Development": {
+      "alias": "blockchain_development",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": ["Smart_Contracts", "DeFi_Development", "Blockchain_Architecture"],
+      "keywords": ["blockchain development", "blockchain programming", "distributed ledger technology", "phát triển blockchain", "ブロックチェーン開発", "区块链开发", "블록체인 개발", "développement blockchain", "Blockchain-Entwicklung", "desarrollo de blockchain"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Smart_Contracts": {
+      "alias": "smart_contracts",
+      "domain": "Blockchain_Development",
+      "level": 3,
+      "parent_category": "Blockchain_Development",
+      "children": [],
+      "keywords": ["smart contract", "solidity", "ethereum", "smart contract auditing", "smart contract security", "solana", "vyper", "rust smart contracts", "hợp đồng thông minh", "スマートコントラクト", "智能合约", "스마트 컨트랙트", "contrats intelligents", "Smart Contracts", "contratos inteligentes"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Blockchain_Architecture": {
+      "alias": "blockchain_architecture",
+      "domain": "Blockchain_Development",
+      "level": 3,
+      "parent_category": "Blockchain_Development",
+      "children": [],
+      "keywords": ["blockchain architecture", "consensus mechanisms", "proof of work", "proof of stake", "distributed systems", "decentralized applications", "blockchain protocols", "kiến trúc blockchain", "ブロックチェーンアーキテクチャ", "区块链架构", "블록체인 아키텍처", "architecture blockchain", "Blockchain-Architektur", "arquitectura blockchain"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "IoT_Development": {
+      "alias": "iot_development",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": ["IoT_Hardware", "IoT_Protocols", "Edge_Computing"],
+      "keywords": ["iot development", "internet of things", "connected devices", "smart devices", "phát triển iot", "IoT開発", "物联网开发", "IoT 개발", "développement IoT", "IoT-Entwicklung", "desarrollo IoT"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Edge_Computing": {
+      "alias": "edge_computing",
+      "domain": "IoT_Development",
+      "level": 3,
+      "parent_category": "IoT_Development",
+      "children": [],
+      "keywords": ["edge computing", "fog computing", "edge devices", "edge analytics", "distributed computing", "real-time processing", "edge ai", "điện toán biên", "エッジコンピューティング", "边缘计算", "엣지 컴퓨팅", "informatique de périphérie", "Edge-Computing", "computación de borde"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "AR_VR_Development": {
+      "alias": "ar_vr_development",
+      "domain": "Technical_Skills",
+      "level": 2,
+      "parent_category": "Technical_Skills",
+      "children": ["Augmented_Reality", "Virtual_Reality", "Mixed_Reality"],
+      "keywords": ["ar vr development", "xr development", "augmented reality", "virtual reality", "mixed reality", "phát triển ar vr", "AR・VR開発", "AR VR开发", "AR VR 개발", "développement AR VR", "AR-VR-Entwicklung", "desarrollo AR VR"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Augmented_Reality": {
+      "alias": "augmented_reality",
+      "domain": "AR_VR_Development",
+      "level": 3,
+      "parent_category": "AR_VR_Development",
+      "children": [],
+      "keywords": ["augmented reality", "ar", "ar apps", "ar development", "arkit", "arcore", "ar glasses", "spatial computing", "thực tế tăng cường", "拡張現実", "增强现实", "증강 현실", "réalité augmentée", "erweiterte Realität", "realidad aumentada"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Virtual_Reality": {
+      "alias": "virtual_reality",
+      "domain": "AR_VR_Development",
+      "level": 3,
+      "parent_category": "AR_VR_Development",
+      "children": [],
+      "keywords": ["virtual reality", "vr", "vr headsets", "vr development", "oculus", "vive", "steamvr", "webxr", "thực tế ảo", "バーチャルリアリティ", "虚拟现实", "가상 현실", "réalité virtuelle", "virtuelle Realität", "realidad virtual"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Entrepreneurial_Skills": {
+      "alias": "entrepreneurial_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Business_Planning", 
+        "Venture_Capital", 
+        "Startup_Operations", 
+        "Business_Development",
+        "Scaling_Growth"
+      ],
+      "keywords": ["entrepreneurship", "entrepreneurial", "startup skills", "business creation", "kỹ năng khởi nghiệp", "起業スキル", "创业技能", "기업가 정신", "compétences entrepreneuriales", "unternehmerische Fähigkeiten", "habilidades empresariales"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Business_Planning": {
+      "alias": "business_planning",
+      "domain": "Entrepreneurial_Skills",
+      "level": 2,
+      "parent_category": "Entrepreneurial_Skills",
+      "children": ["Business_Model_Design", "Strategic_Planning", "Market_Research"],
+      "keywords": ["business planning", "business strategy", "business model", "strategic planning", "lập kế hoạch kinh doanh", "事業計画", "商业规划", "비즈니스 계획", "planification d'entreprise", "Geschäftsplanung", "planificación de negocios"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Scaling_Growth": {
+      "alias": "scaling_growth",
+      "domain": "Entrepreneurial_Skills",
+      "level": 2,
+      "parent_category": "Entrepreneurial_Skills",
+      "children": ["Growth_Hacking", "Market_Expansion", "Organizational_Scaling"],
+      "keywords": ["scaling", "business growth", "expansion strategy", "growth management", "phát triển quy mô", "スケーリング", "规模扩张", "규모 확장", "mise à l'échelle", "Skalierung", "escalamiento"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Growth_Hacking": {
+      "alias": "growth_hacking",
+      "domain": "Scaling_Growth",
+      "level": 3,
+      "parent_category": "Scaling_Growth",
+      "children": [],
+      "keywords": ["growth hacking", "growth marketing", "viral growth", "user acquisition", "retention strategies", "conversion optimization", "growth experiments", "tăng trưởng đột phá", "グロースハッキング", "增长黑客", "그로스 해킹", "growth hacking", "Growth Hacking", "growth hacking"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Physical_Skills": {
+      "alias": "physical_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Sports_Skills", 
+        "Manual_Dexterity", 
+        "Physical_Fitness", 
+        "Movement_Skills"
+      ],
+      "keywords": ["physical skills", "physical abilities", "motor skills", "bodily skills", "kỹ năng thể chất", "身体的スキル", "身体技能", "신체적 기술", "compétences physiques", "körperliche Fähigkeiten", "habilidades físicas"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Sports_Skills": {
+      "alias": "sports_skills",
+      "domain": "Physical_Skills",
+      "level": 2,
+      "parent_category": "Physical_Skills",
+      "children": ["Team_Sports", "Individual_Sports", "Combat_Sports"],
+      "keywords": ["sports skills", "athletic abilities", "sports performance", "athletic skills", "kỹ năng thể thao", "スポーツスキル", "体育技能", "스포츠 기술", "compétences sportives", "sportliche Fähigkeiten", "habilidades deportivas"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Manual_Dexterity": {
+      "alias": "manual_dexterity",
+      "domain": "Physical_Skills",
+      "level": 2,
+      "parent_category": "Physical_Skills",
+      "children": ["Craftsmanship", "Fine_Motor_Skills", "Tool_Usage"],
+      "keywords": ["manual dexterity", "hand skills", "fine motor control", "handcraft skills", "khéo léo", "手先の器用さ", "手工灵巧性", "손재주", "dextérité manuelle", "manuelle Geschicklichkeit", "destreza manual"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Analytical_Skills": {
+      "alias": "analytical_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Quantitative_Analysis", 
+        "Qualitative_Analysis", 
+        "Decision_Making", 
+        "Systems_Thinking",
+        "Statistical_Analysis"
+      ],
+      "keywords": ["analytical skills", "analytical thinking", "analytical abilities", "kỹ năng phân tích", "分析スキル", "分析技能", "분석적 사고력", "compétences analytiques", "Analysefähigkeiten", "habilidades analíticas"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Systems_Thinking": {
+      "alias": "systems_thinking",
+      "domain": "Analytical_Skills",
+      "level": 2,
+      "parent_category": "Analytical_Skills",
+      "children": ["Complex_Systems_Analysis", "Systems_Modeling", "Interdisciplinary_Analysis"],
+      "keywords": ["systems thinking", "systems approach", "holistic thinking", "interconnected thinking", "tư duy hệ thống", "システム思考", "系统思维", "시스템 사고", "pensée systémique", "systemisches Denken", "pensamiento sistémico"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Statistical_Analysis": {
+      "alias": "statistical_analysis",
+      "domain": "Analytical_Skills",
+      "level": 2,
+      "parent_category": "Analytical_Skills",
+      "children": ["Statistical_Modeling", "Statistical_Testing", "Statistical_Programming"],
+      "keywords": ["statistical analysis", "statistics", "statistical methods", "data statistics", "phân tích thống kê", "統計分析", "统计分析", "통계 분석", "analyse statistique", "statistische Analyse", "análisis estadístico"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Statistical_Programming": {
+      "alias": "statistical_programming",
+      "domain": "Statistical_Analysis",
+      "level": 3,
+      "parent_category": "Statistical_Analysis",
+      "children": [],
+      "keywords": ["r programming", "sas", "spss", "stata", "statistical computing", "statistical software", "r markdown", "statistical packages", "lập trình thống kê", "統計プログラミング", "统计编程", "통계 프로그래밍", "programmation statistique", "statistische Programmierung", "programación estadística"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Education_Skills": {
+      "alias": "education_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Teaching_Skills", 
+        "Curriculum_Development", 
+        "Educational_Assessment", 
+        "Instructional_Design"
+      ],
+      "keywords": ["education skills", "teaching abilities", "pedagogical skills", "kỹ năng giáo dục", "教育スキル", "教育技能", "교육 기술", "compétences en éducation", "pädagogische Fähigkeiten", "habilidades educativas"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Teaching_Skills": {
+      "alias": "teaching_skills",
+      "domain": "Education_Skills",
+      "level": 2,
+      "parent_category": "Education_Skills",
+      "children": ["Classroom_Management", "Student_Engagement", "Teaching_Methods"],
+      "keywords": ["teaching skills", "instruction skills", "pedagogical techniques", "teaching strategies", "kỹ năng giảng dạy", "教授スキル", "教学技能", "교수 기술", "compétences d'enseignement", "Unterrichtsfähigkeiten", "habilidades docentes"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Instructional_Design": {
+      "alias": "instructional_design",
+      "domain": "Education_Skills",
+      "level": 2,
+      "parent_category": "Education_Skills",
+      "children": ["Learning_Experience_Design", "Course_Development", "Training_Materials_Creation"],
+      "keywords": ["instructional design", "learning design", "educational design", "curriculum design", "thiết kế giảng dạy", "インストラクショナルデザイン", "教学设计", "교수 설계", "conception pédagogique", "Instructionsdesign", "diseño instruccional"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Data_Skills": {
+      "alias": "data_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Data_Analysis", 
+        "Data_Science", 
+        "Big_Data",
+        "Data_Visualization",
+        "Data_Mining"
+      ],
+      "keywords": ["data skills", "data capabilities", "information handling", "kỹ năng dữ liệu", "データスキル", "数据技能", "데이터 기술", "compétences en données", "Datenkompetenz", "habilidades de datos"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Data_Visualization": {
+      "alias": "data_visualization",
+      "domain": "Data_Skills",
+      "level": 2,
+      "parent_category": "Data_Skills",
+      "children": ["Dashboarding", "Visual_Analytics", "Information_Design"],
+      "keywords": ["data visualization", "data viz", "visualizing data", "data graphs", "charts", "visual data representation", "trực quan hóa dữ liệu", "データ可視化", "数据可视化", "데이터 시각화", "visualisation des données", "Datenvisualisierung", "visualización de datos"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Data_Mining": {
+      "alias": "data_mining",
+      "domain": "Data_Skills",
+      "level": 2,
+      "parent_category": "Data_Skills",
+      "children": ["Pattern_Recognition", "Association_Mining", "Sequence_Analysis"],
+      "keywords": ["data mining", "knowledge discovery", "data extraction", "pattern mining", "khai thác dữ liệu", "データマイニング", "数据挖掘", "데이터 마이닝", "exploration de données", "Data-Mining", "minería de datos"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Communication_Skills": {
+      "alias": "communication_skills",
+      "domain": "Soft_Skills",
+      "level": 2,
+      "parent_category": "Soft_Skills",
+      "children": [
+        "Verbal_Communication",
+        "Written_Communication",
+        "Presentation_Skills",
+        "Visual_Communication",
+        "Nonverbal_Communication"
+      ],
+      "keywords": ["communication skills", "expressing ideas", "information exchange", "kỹ năng giao tiếp", "コミュニケーションスキル", "沟通技巧", "커뮤니케이션 기술", "compétences en communication", "Kommunikationsfähigkeiten", "habilidades de comunicación"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Visual_Communication": {
+      "alias": "visual_communication",
+      "domain": "Communication_Skills",
+      "level": 3,
+      "parent_category": "Communication_Skills",
+      "children": [],
+      "keywords": ["visual communication", "visual messaging", "visual storytelling", "infographics", "data visualization", "graphic communication", "visual rhetoric", "giao tiếp trực quan", "視覚的コミュニケーション", "视觉沟通", "시각적 커뮤니케이션", "communication visuelle", "visuelle Kommunikation", "comunicación visual"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Nonverbal_Communication": {
+      "alias": "nonverbal_communication",
+      "domain": "Communication_Skills",
+      "level": 3,
+      "parent_category": "Communication_Skills",
+      "children": [],
+      "keywords": ["nonverbal communication", "body language", "facial expressions", "gestures", "posture", "eye contact", "paralanguage", "giao tiếp phi ngôn ngữ", "非言語コミュニケーション", "非语言沟通", "비언어적 커뮤니케이션", "communication non verbale", "nonverbale Kommunikation", "comunicación no verbal"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Research_Skills": {
+      "alias": "research_skills",
+      "domain": "Skill",
+      "level": 1,
+      "parent_category": "Skill",
+      "children": [
+        "Academic_Research",
+        "Market_Research",
+        "Scientific_Research",
+        "User_Research",
+        "Competitive_Research"
+      ],
+      "keywords": ["research skills", "investigation skills", "inquiry abilities", "research methodology", "kỹ năng nghiên cứu", "研究スキル", "研究技能", "연구 기술", "compétences de recherche", "Forschungsfähigkeiten", "habilidades de investigación"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Scientific_Research": {
+      "alias": "scientific_research",
+      "domain": "Research_Skills",
+      "level": 2,
+      "parent_category": "Research_Skills",
+      "children": ["Experimental_Design", "Lab_Techniques", "Research_Publication"],
+      "keywords": ["scientific research", "science investigation", "empirical research", "scientific inquiry", "nghiên cứu khoa học", "科学的研究", "科学研究", "과학적 연구", "recherche scientifique", "wissenschaftliche Forschung", "investigación científica"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "User_Research": {
+      "alias": "user_research",
+      "domain": "Research_Skills",
+      "level": 2,
+      "parent_category": "Research_Skills",
+      "children": ["Usability_Testing", "User_Interviews", "Ethnographic_Research"],
+      "keywords": ["user research", "UX research", "user experience research", "user studies", "nghiên cứu người dùng", "ユーザーリサーチ", "用户研究", "사용자 연구", "recherche utilisateur", "Nutzerforschung", "investigación de usuarios"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Competitive_Research": {
+      "alias": "competitive_research",
+      "domain": "Research_Skills",
+      "level": 2,
+      "parent_category": "Research_Skills",
+      "children": ["Competitor_Analysis", "Benchmarking", "Market_Intelligence"],
+      "keywords": ["competitive research", "competitor research", "competitor intelligence", "competitive analysis", "nghiên cứu cạnh tranh", "競合調査", "竞争对手研究", "경쟁사 연구", "recherche concurrentielle", "Wettbewerbsforschung", "investigación competitiva"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Email_Marketing": {
+      "alias": "email_marketing",
+      "domain": "Digital_Marketing_Skills",
+      "level": 2,
+      "parent_category": "Digital_Marketing_Skills",
+      "children": ["Email_Campaign_Management", "Email_Automation", "Email_Analytics"],
+      "keywords": ["email marketing", "email campaigns", "newsletter marketing", "email strategy", "tiếp thị email", "メールマーケティング", "电子邮件营销", "이메일 마케팅", "marketing par e-mail", "E-Mail-Marketing", "marketing por correo electrónico"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Analytics_Marketing": {
+      "alias": "analytics_marketing",
+      "domain": "Digital_Marketing_Skills",
+      "level": 2,
+      "parent_category": "Digital_Marketing_Skills",
+      "children": ["Web_Analytics", "Marketing_Attribution", "Conversion_Optimization"],
+      "keywords": ["marketing analytics", "digital analytics", "marketing data analysis", "phân tích tiếp thị", "マーケティング分析", "营销分析", "마케팅 분석", "analyse marketing", "Marketing-Analytik", "análisis de marketing"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Web_Analytics": {
+      "alias": "web_analytics",
+      "domain": "Analytics_Marketing",
+      "level": 3,
+      "parent_category": "Analytics_Marketing",
+      "children": [],
+      "keywords": ["web analytics", "website analytics", "traffic analysis", "user behavior analysis", "google analytics", "adobe analytics", "matomo", "session recording", "heatmaps", "funnel analysis", "phân tích web", "ウェブ解析", "网站分析", "웹 분석", "analyse web", "Web-Analyse", "análisis web"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Conversion_Optimization": {
+      "alias": "conversion_optimization",
+      "domain": "Analytics_Marketing",
+      "level": 3,
+      "parent_category": "Analytics_Marketing",
+      "children": [],
+      "keywords": ["conversion rate optimization", "cro", "a/b testing", "split testing", "landing page optimization", "funnel optimization", "user experience optimization", "persuasive design", "tối ưu hóa chuyển đổi", "コンバージョン最適化", "转化率优化", "전환율 최적화", "optimisation de conversion", "Konversionsoptimierung", "optimización de conversiones"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Academic_Research": {
+      "alias": "academic_research",
+      "domain": "Research_Skills",
+      "level": 2,
+      "parent_category": "Research_Skills",
+      "children": ["Literature_Review", "Research_Methodology", "Academic_Writing"],
+      "keywords": ["academic research", "scholarly research", "research papers", "academic studies", "nghiên cứu học thuật", "学術研究", "学术研究", "학술 연구", "recherche académique", "akademische Forschung", "investigación académica"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    },
+    "Market_Research": {
+      "alias": "market_research",
+      "domain": "Research_Skills",
+      "level": 2,
+      "parent_category": "Research_Skills",
+      "children": ["Consumer_Research", "Industry_Analysis", "Market_Trend_Analysis"],
+      "keywords": ["market research", "marketing research", "consumer research", "industry research", "nghiên cứu thị trường", "市場調査", "市场研究", "시장 조사", "étude de marché", "Marktforschung", "investigación de mercado"],
+      "language": ["en", "vi", "ja", "zh", "ko", "fr", "de", "es"]
+    }
+  },
+  "Unclassified": {
+    "alias": "unclassified_skill",
+    "domain": "General",
+    "level": 0,
+    "parent_category": null,
+    "fallback_strategy": "uniform_distribution",
+    "generic_substitutes": [
+      "Skill",
+      "Ability",
+      "Competency",
+      "Expertise",
+      "Proficiency",
+      "Capability",
+      "Knowledge",
+      "Talent"
+    ],
+    "language": ["en", "es", "fr", "de", "ja", "zh", "ko", "vi"],
+    "usage_rules": {
+      "apply_when": "no_confidence_or_unknown",
+      "selection_method": "random_uniform",
+      "min_confidence_threshold": 0.2
+    }
+  },
+  "fallback_rules": {
+    "min_occurrences_threshold": 3,
+    "fallback_order": ["level_3", "level_2", "level_1", "level_0"],
+    "default_category": "Unclassified",
+    "confidence_thresholds": {
+      "high": 0.8,
+      "medium": 0.5,
+      "low": 0.2
+    }
+  }
+}

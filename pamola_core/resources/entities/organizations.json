@@ -1,0 +1,648 @@
+{
+  "categories_hierarchy": {
+    "Organization": {
+      "alias": "organization",
+      "domain": "General",
+      "level": 0,
+      "children": ["Enterprise", "Government", "Education", "Non_Profit", "Healthcare", "Media", "Professional_Services", "International_Organizations", "Religious_Organization", "Sports_Organization", "Cultural_Institution", "Tech_Community"],
+      "keywords": ["organization", "entity", "institution", "group", "association", "tổ chức", "cơ quan", "hiệp hội", "tập đoàn", "organización", "entidad", "institución", "groupe", "organisation", "association", "Organisation", "Einrichtung", "組織", "機関", "団体", "组织", "机构", "集团"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Enterprise": {
+      "alias": "enterprise",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Technology_Company", "Financial_Institution", "Manufacturing", "Retail", "Energy_Company", "Transportation_Company", "Telecommunications", "Agriculture_Business", "Construction_Company", "Hospitality", "E_Commerce"],
+      "keywords": ["company", "business", "corporation", "enterprise", "firm", "corporate", "компания", "предприятие", "корпорация", "фирма", "công ty", "doanh nghiệp", "tập đoàn", "xí nghiệp", "kinh doanh", "empresa", "negocio", "corporación", "entreprise", "société", "affaires", "Unternehmen", "Firma", "Gesellschaft", "会社", "企業", "法人", "公司", "企业", "集团公司"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Government": {
+      "alias": "government",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Federal_Agency", "Local_Government", "Military", "Regulatory_Body", "Public_Service_Institution"],
+      "keywords": ["government", "agency", "ministry", "department", "authority", "правительство", "агентство", "министерство", "департамент", "chính phủ", "cơ quan nhà nước", "bộ", "sở", "cục", "ban ngành", "gobierno", "agencia", "ministerio", "gouvernement", "agence", "ministère", "Regierung", "Behörde", "Ministerium", "政府", "機関", "省庁", "政府", "机构", "部门"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Education": {
+      "alias": "education",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["University", "School", "Research_Institution", "Vocational_Training", "Online_Learning_Platform", "Educational_Publisher"],
+      "keywords": ["education", "academic", "institute", "образование", "академический", "институт", "giáo dục", "học thuật", "học viện", "trường học", "educación", "académico", "instituto", "éducation", "académique", "institut", "Bildung", "akademisch", "Institut", "教育", "学術", "研究所", "教育", "学术", "学院"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Non_Profit": {
+      "alias": "non_profit",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["NGO", "Charity", "Foundation"],
+      "keywords": ["non-profit", "nonprofit", "not-for-profit", "некоммерческий", "благотворительный", "tổ chức phi lợi nhuận", "sin fines de lucro", "organización benéfica", "association à but non lucratif", "sans but lucratif", "gemeinnützig", "Nonprofit", "非営利", "公益法人", "非营利", "公益组织"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Healthcare": {
+      "alias": "healthcare",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Hospital", "Clinic", "Pharmaceutical", "Medical_Research", "Health_Insurance", "Telemedicine"],
+      "keywords": ["healthcare", "medical", "health", "здравоохранение", "медицинский", "здоровье", "y tế", "chăm sóc sức khỏe", "y khoa", "sức khỏe", "atención médica", "salud", "sanitario", "santé", "médical", "soins de santé", "Gesundheitswesen", "medizinisch", "Gesundheit", "医療", "健康", "医学", "医疗保健", "卫生", "健康护理"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Technology_Company": {
+      "alias": "tech_company",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "children": ["Software_Company", "Hardware_Manufacturer", "AI_Company", "Cybersecurity_Firm", "Cloud_Provider"],
+      "keywords": ["tech company", "IT company", "software company", "technology corporation", "digital business", "технологическая компания", "ИТ-компания", "công ty công nghệ", "công ty IT", "công ty phần mềm", "doanh nghiệp công nghệ số", "empresa tecnológica", "compañía de IT", "entreprise technologique", "société informatique", "Technologieunternehmen", "IT-Firma", "テクノロジー企業", "ITカンパニー", "技术公司", "信息技术公司"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Software_Company": {
+      "alias": "software_company",
+      "domain": "Technology_Company",
+      "level": 3,
+      "parent_category": "Technology_Company",
+      "keywords": ["software company", "app developer", "development firm", "công ty phần mềm", "nhà phát triển ứng dụng"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Hardware_Manufacturer": {
+      "alias": "hardware_manufacturer",
+      "domain": "Technology_Company",
+      "level": 3,
+      "parent_category": "Technology_Company",
+      "keywords": ["hardware manufacturer", "computer hardware", "electronics manufacturer", "nhà sản xuất phần cứng", "sản xuất thiết bị điện tử"],
+      "language": ["en", "ru", "vi"]
+    },
+    "AI_Company": {
+      "alias": "ai_company",
+      "domain": "Technology_Company",
+      "level": 3,
+      "parent_category": "Technology_Company",
+      "keywords": ["artificial intelligence", "AI startup", "machine learning company", "công ty trí tuệ nhân tạo", "AI", "học máy", "công nghệ AI"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Cybersecurity_Firm": {
+      "alias": "cybersecurity_firm",
+      "domain": "Technology_Company",
+      "level": 3,
+      "parent_category": "Technology_Company",
+      "keywords": ["cybersecurity", "information security", "network security", "an ninh mạng", "bảo mật thông tin", "công ty an ninh mạng"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Cloud_Provider": {
+      "alias": "cloud_provider",
+      "domain": "Technology_Company",
+      "level": 3,
+      "parent_category": "Technology_Company",
+      "keywords": ["cloud provider", "cloud services", "cloud computing", "nhà cung cấp đám mây", "điện toán đám mây", "dịch vụ đám mây"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Financial_Institution": {
+      "alias": "financial_institution",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["bank", "financial", "investment", "insurance", "finance", "банк", "финансовый", "страхование", "инвестиция"],
+      "language": ["en", "ru"]
+    },
+    "Manufacturing": {
+      "alias": "manufacturing",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["manufacturing", "factory", "industrial", "production", "производство", "фабрика", "промышленный"],
+      "language": ["en", "ru"]
+    },
+    "Retail": {
+      "alias": "retail",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["retail", "store", "shop", "розничная торговля", "магазин", "торговая сеть"],
+      "language": ["en", "ru"]
+    },
+    "Federal_Agency": {
+      "alias": "federal_agency",
+      "domain": "Government",
+      "level": 2,
+      "parent_category": "Government",
+      "keywords": ["federal agency", "national authority", "state department", "федеральное агентство", "государственный орган"],
+      "language": ["en", "ru"]
+    },
+    "Local_Government": {
+      "alias": "local_government",
+      "domain": "Government",
+      "level": 2,
+      "parent_category": "Government",
+      "keywords": ["local government", "municipal", "city council", "county", "местное самоуправление", "муниципалитет", "городской совет"],
+      "language": ["en", "ru"]
+    },
+    "Military": {
+      "alias": "military",
+      "domain": "Government",
+      "level": 2,
+      "parent_category": "Government",
+      "keywords": ["military", "defense", "armed forces", "army", "navy", "air force", "военный", "оборона", "вооруженные силы", "quân đội", "lực lượng vũ trang", "quốc phòng", "hải quân", "không quân"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Regulatory_Body": {
+      "alias": "regulatory_body",
+      "domain": "Government",
+      "level": 2,
+      "parent_category": "Government",
+      "keywords": ["regulatory body", "oversight committee", "commission", "regulatory authority", "cơ quan quản lý", "ủy ban giám sát", "hội đồng quản lý"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Public_Service_Institution": {
+      "alias": "public_service_institution",
+      "domain": "Government",
+      "level": 2,
+      "parent_category": "Government",
+      "keywords": ["public service", "civil service", "government service", "dịch vụ công", "hành chính công", "cơ quan công vụ"],
+      "language": ["en", "ru", "vi"]
+    },
+    "University": {
+      "alias": "university",
+      "domain": "Education",
+      "level": 2,
+      "parent_category": "Education",
+      "keywords": ["university", "college", "higher education", "университет", "колледж", "высшее образование"],
+      "language": ["en", "ru"]
+    },
+    "School": {
+      "alias": "school",
+      "domain": "Education",
+      "level": 2,
+      "parent_category": "Education",
+      "keywords": ["school", "academy", "elementary", "high school", "школа", "академия", "начальная школа", "средняя школа"],
+      "language": ["en", "ru"]
+    },
+    "Research_Institution": {
+      "alias": "research_institution",
+      "domain": "Education",
+      "level": 2,
+      "parent_category": "Education",
+      "keywords": ["research institute", "laboratory", "scientific center", "научно-исследовательский институт", "лаборатория", "научный центр", "viện nghiên cứu", "trung tâm khoa học", "phòng thí nghiệm"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Vocational_Training": {
+      "alias": "vocational_training",
+      "domain": "Education",
+      "level": 2,
+      "parent_category": "Education",
+      "keywords": ["vocational training", "trade school", "technical college", "apprenticeship", "trường nghề", "đào tạo nghề", "trung tâm dạy nghề", "trường kỹ thuật"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Online_Learning_Platform": {
+      "alias": "online_learning_platform",
+      "domain": "Education",
+      "level": 2,
+      "parent_category": "Education",
+      "keywords": ["online learning", "e-learning platform", "MOOC", "edtech", "học trực tuyến", "nền tảng học trực tuyến", "giáo dục trực tuyến"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Educational_Publisher": {
+      "alias": "educational_publisher",
+      "domain": "Education",
+      "level": 2,
+      "parent_category": "Education",
+      "keywords": ["educational publisher", "textbook publisher", "academic press", "nhà xuất bản giáo dục", "xuất bản giáo trình", "nhà xuất bản học thuật"],
+      "language": ["en", "ru", "vi"]
+    },
+    "NGO": {
+      "alias": "ngo",
+      "domain": "Non_Profit",
+      "level": 2,
+      "parent_category": "Non_Profit",
+      "keywords": ["NGO", "non-governmental organization", "НПО", "неправительственная организация"],
+      "language": ["en", "ru"]
+    },
+    "Charity": {
+      "alias": "charity",
+      "domain": "Non_Profit",
+      "level": 2,
+      "parent_category": "Non_Profit",
+      "keywords": ["charity", "charitable organization", "благотворительная организация", "благотворительность"],
+      "language": ["en", "ru"]
+    },
+    "Foundation": {
+      "alias": "foundation",
+      "domain": "Non_Profit",
+      "level": 2,
+      "parent_category": "Non_Profit",
+      "keywords": ["foundation", "endowment", "fund", "фонд", "эндаумент"],
+      "language": ["en", "ru"]
+    },
+    "Hospital": {
+      "alias": "hospital",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "keywords": ["hospital", "medical center", "больница", "медицинский центр"],
+      "language": ["en", "ru"]
+    },
+    "Clinic": {
+      "alias": "clinic",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "keywords": ["clinic", "health center", "клиника", "медицинское учреждение", "поликлиника"],
+      "language": ["en", "ru"]
+    },
+    "Pharmaceutical": {
+      "alias": "pharmaceutical",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "keywords": ["pharmaceutical", "drug company", "pharmacy", "фармацевтическая компания", "аптека", "công ty dược phẩm", "nhà thuốc", "dược phẩm"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Medical_Research": {
+      "alias": "medical_research",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "keywords": ["medical research", "biomedical", "clinical research", "health science", "nghiên cứu y học", "y sinh học", "nghiên cứu lâm sàng", "khoa học y tế"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Health_Insurance": {
+      "alias": "health_insurance",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "keywords": ["health insurance", "medical insurance", "healthcare payer", "bảo hiểm y tế", "bảo hiểm sức khỏe", "bảo hiểm y tế tư nhân"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Telemedicine": {
+      "alias": "telemedicine",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "keywords": ["telemedicine", "telehealth", "virtual care", "digital health", "y tế từ xa", "chăm sóc sức khỏe trực tuyến", "y tế số"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Media": {
+      "alias": "media",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["News_Organization", "Entertainment_Company", "Social_Media"],
+      "keywords": ["media", "press", "broadcasting", "медиа", "пресса", "вещание", "truyền thông", "báo chí", "phát thanh", "medios", "prensa", "radiodifusión", "médias", "presse", "diffusion", "Medien", "Presse", "Rundfunk", "メディア", "報道", "放送", "媒体", "新闻", "广播"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "News_Organization": {
+      "alias": "news_organization",
+      "domain": "Media",
+      "level": 2,
+      "parent_category": "Media",
+      "keywords": ["news agency", "newspaper", "magazine", "publisher", "новостное агентство", "газета", "журнал", "издатель"],
+      "language": ["en", "ru"]
+    },
+    "Entertainment_Company": {
+      "alias": "entertainment_company",
+      "domain": "Media",
+      "level": 2,
+      "parent_category": "Media",
+      "keywords": ["entertainment", "studio", "production", "развлечения", "студия", "продакшн"],
+      "language": ["en", "ru"]
+    },
+    "Social_Media": {
+      "alias": "social_media",
+      "domain": "Media",
+      "level": 2,
+      "parent_category": "Media",
+      "keywords": ["social media", "platform", "network", "социальные сети", "платформа"],
+      "language": ["en", "ru"]
+    },
+    "Professional_Services": {
+      "alias": "professional_services",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Law_Firm", "Consulting", "Accounting_Firm"],
+      "keywords": ["professional services", "services firm", "профессиональные услуги", "сервисная компания", "dịch vụ chuyên nghiệp", "công ty dịch vụ", "servicios profesionales", "empresa de servicios", "services professionnels", "cabinet de services", "professionelle Dienstleistungen", "Dienstleistungsunternehmen", "専門サービス", "サービス企業", "专业服务", "服务公司"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Law_Firm": {
+      "alias": "law_firm",
+      "domain": "Professional_Services",
+      "level": 2,
+      "parent_category": "Professional_Services",
+      "keywords": ["law firm", "legal", "attorneys", "юридическая фирма", "адвокаты", "правовая компания"],
+      "language": ["en", "ru"]
+    },
+    "Consulting": {
+      "alias": "consulting",
+      "domain": "Professional_Services",
+      "level": 2,
+      "parent_category": "Professional_Services",
+      "keywords": ["consulting", "consultancy", "advisory", "консалтинг", "консультационные услуги"],
+      "language": ["en", "ru"]
+    },
+    "Accounting_Firm": {
+      "alias": "accounting_firm",
+      "domain": "Professional_Services",
+      "level": 2,
+      "parent_category": "Professional_Services",
+      "keywords": ["accounting", "audit", "tax", "бухгалтерия", "аудит", "налоги"],
+      "language": ["en", "ru"]
+    },
+    "International_Organizations": {
+      "alias": "international_organizations",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["UN_Organizations", "Regional_Organizations", "International_Financial_Institutions"],
+      "keywords": ["international organization", "global institution", "международная организация", "глобальный институт", "tổ chức quốc tế", "tổ chức toàn cầu", "organización internacional", "institución global", "organisation internationale", "institution mondiale", "internationale Organisation", "globale Institution", "国際機関", "グローバル組織", "国际组织", "全球机构"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "UN_Organizations": {
+      "alias": "un_organizations",
+      "domain": "International_Organizations",
+      "level": 2,
+      "parent_category": "International_Organizations",
+      "keywords": ["United Nations", "UN agency", "ООН", "агентство ООН"],
+      "language": ["en", "ru"]
+    },
+    "Regional_Organizations": {
+      "alias": "regional_organizations",
+      "domain": "International_Organizations",
+      "level": 2,
+      "parent_category": "International_Organizations",
+      "keywords": ["regional organization", "regional body", "regional union", "региональная организация", "региональный союз"],
+      "language": ["en", "ru"]
+    },
+    "International_Financial_Institutions": {
+      "alias": "international_financial_institutions",
+      "domain": "International_Organizations",
+      "level": 2,
+      "parent_category": "International_Organizations",
+      "keywords": ["world bank", "IMF", "development bank", "всемирный банк", "МВФ", "банк развития"],
+      "language": ["en", "ru"]
+    },
+    "Energy_Company": {
+      "alias": "energy_company",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["energy company", "oil company", "gas company", "utility company", "power company", "энергетическая компания", "нефтяная компания", "газовая компания"],
+      "language": ["en", "ru"]
+    },
+    "Transportation_Company": {
+      "alias": "transportation_company",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["airline", "railway", "shipping company", "logistics company", "transportation", "авиакомпания", "железнодорожная компания", "транспортная компания", "логистика"],
+      "language": ["en", "ru"]
+    },
+    "Telecommunications": {
+      "alias": "telecommunications",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["telecom", "telecommunications", "mobile operator", "internet provider", "телекоммуникации", "мобильный оператор", "интернет-провайдер"],
+      "language": ["en", "ru"]
+    },
+    "Agriculture_Business": {
+      "alias": "agriculture_business",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["agricultural company", "farm", "agribusiness", "сельскохозяйственная компания", "ферма", "агробизнес"],
+      "language": ["en", "ru"]
+    },
+    "Religious_Organization": {
+      "alias": "religious_organization",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Church", "Mosque", "Temple"],
+      "keywords": ["religious organization", "religious institution", "faith-based organization", "религиозная организация", "религиозное учреждение", "tổ chức tôn giáo", "cơ sở tôn giáo", "organización religiosa", "institución religiosa", "organisation religieuse", "institution confessionnelle", "religiöse Organisation", "Glaubensgemeinschaft", "宗教団体", "宗教機関", "宗教组织", "宗教机构"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Church": {
+      "alias": "church",
+      "domain": "Religious_Organization",
+      "level": 2,
+      "parent_category": "Religious_Organization",
+      "keywords": ["church", "christian", "cathedral", "chapel", "церковь", "христианский", "собор", "часовня"],
+      "language": ["en", "ru"]
+    },
+    "Mosque": {
+      "alias": "mosque",
+      "domain": "Religious_Organization",
+      "level": 2,
+      "parent_category": "Religious_Organization",
+      "keywords": ["mosque", "islamic center", "мечеть", "исламский центр"],
+      "language": ["en", "ru"]
+    },
+    "Temple": {
+      "alias": "temple",
+      "domain": "Religious_Organization",
+      "level": 2,
+      "parent_category": "Religious_Organization",
+      "keywords": ["temple", "synagogue", "buddhist temple", "hindu temple", "храм", "синагога", "буддийский храм"],
+      "language": ["en", "ru"]
+    },
+    "Sports_Organization": {
+      "alias": "sports_organization",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Sports_Team", "Sports_Federation", "Sports_Club"],
+      "keywords": ["sports organization", "спортивная организация", "tổ chức thể thao", "organización deportiva", "organisation sportive", "Sportorganisation", "スポーツ組織", "体育组织"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Sports_Team": {
+      "alias": "sports_team",
+      "domain": "Sports_Organization",
+      "level": 2,
+      "parent_category": "Sports_Organization",
+      "keywords": ["sports team", "football team", "basketball team", "hockey team", "спортивная команда", "футбольная команда", "баскетбольная команда", "хоккейная команда"],
+      "language": ["en", "ru"]
+    },
+    "Sports_Federation": {
+      "alias": "sports_federation",
+      "domain": "Sports_Organization",
+      "level": 2,
+      "parent_category": "Sports_Organization",
+      "keywords": ["sports federation", "sports association", "olympic committee", "спортивная федерация", "спортивная ассоциация", "олимпийский комитет"],
+      "language": ["en", "ru"]
+    },
+    "Sports_Club": {
+      "alias": "sports_club",
+      "domain": "Sports_Organization",
+      "level": 2,
+      "parent_category": "Sports_Organization",
+      "keywords": ["sports club", "athletic club", "fitness club", "спортивный клуб", "атлетический клуб", "фитнес-клуб"],
+      "language": ["en", "ru"]
+    },
+    "Cultural_Institution": {
+      "alias": "cultural_institution",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Museum", "Theater", "Library", "Art_Gallery"],
+      "keywords": ["cultural institution", "cultural center", "культурное учреждение", "культурный центр", "tổ chức văn hóa", "trung tâm văn hóa", "institución cultural", "centro cultural", "institution culturelle", "centre culturel", "Kulturinstitution", "Kulturzentrum", "文化施設", "文化センター", "文化机构", "文化中心"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Museum": {
+      "alias": "museum",
+      "domain": "Cultural_Institution",
+      "level": 2,
+      "parent_category": "Cultural_Institution",
+      "keywords": ["museum", "exhibition center", "музей", "выставочный центр"],
+      "language": ["en", "ru"]
+    },
+    "Theater": {
+      "alias": "theater",
+      "domain": "Cultural_Institution",
+      "level": 2,
+      "parent_category": "Cultural_Institution",
+      "keywords": ["theater", "theatre", "concert hall", "opera house", "театр", "концертный зал", "оперный театр"],
+      "language": ["en", "ru"]
+    },
+    "Library": {
+      "alias": "library",
+      "domain": "Cultural_Institution",
+      "level": 2,
+      "parent_category": "Cultural_Institution",
+      "keywords": ["library", "archive", "информационный центр", "библиотека", "архив"],
+      "language": ["en", "ru"]
+    },
+    "Art_Gallery": {
+      "alias": "art_gallery",
+      "domain": "Cultural_Institution",
+      "level": 2,
+      "parent_category": "Cultural_Institution",
+      "keywords": ["art gallery", "exhibition hall", "художественная галерея", "выставочный зал", "phòng trưng bày", "triển lãm nghệ thuật"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Tech_Community": {
+      "alias": "tech_community",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Open_Source_Organization", "Tech_Incubator", "Maker_Space", "Tech_Conference"],
+      "keywords": ["tech community", "technology group", "developer community", "cộng đồng công nghệ", "nhóm công nghệ", "cộng đồng lập trình viên", "comunidad tecnológica", "grupo de tecnología", "communauté technologique", "groupe technologique", "Tech-Community", "Technologiegruppe", "テクノロジーコミュニティ", "開発者コミュニティ", "技术社区", "开发者社区"],
+      "language": ["en", "ru", "vi", "es", "fr", "de", "ja", "zh"]
+    },
+    "Open_Source_Organization": {
+      "alias": "open_source_organization",
+      "domain": "Tech_Community",
+      "level": 2,
+      "parent_category": "Tech_Community",
+      "keywords": ["open source", "FOSS", "free software", "open source foundation", "mã nguồn mở", "phần mềm tự do"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Tech_Incubator": {
+      "alias": "tech_incubator",
+      "domain": "Tech_Community",
+      "level": 2,
+      "parent_category": "Tech_Community",
+      "keywords": ["incubator", "startup accelerator", "innovation hub", "vườn ươm khởi nghiệp", "trung tâm đổi mới sáng tạo"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Maker_Space": {
+      "alias": "maker_space",
+      "domain": "Tech_Community",
+      "level": 2,
+      "parent_category": "Tech_Community",
+      "keywords": ["maker space", "hackerspace", "fab lab", "makerspace", "không gian sáng tạo", "phòng thí nghiệm sáng tạo"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Tech_Conference": {
+      "alias": "tech_conference",
+      "domain": "Tech_Community",
+      "level": 2,
+      "parent_category": "Tech_Community", 
+      "keywords": ["tech conference", "developer conference", "technology summit", "hackathon", "hội nghị công nghệ", "hội thảo lập trình", "hackathon"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Construction_Company": {
+      "alias": "construction_company",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["construction", "building company", "contractor", "real estate developer", "xây dựng", "nhà thầu", "công ty xây dựng"],
+      "language": ["en", "ru", "vi"]
+    },
+    "Hospitality": {
+      "alias": "hospitality",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["hotel", "resort", "restaurant", "hospitality group", "khách sạn", "khu nghỉ dưỡng", "nhà hàng", "dịch vụ khách sạn"],
+      "language": ["en", "ru", "vi"]
+    },
+    "E_Commerce": {
+      "alias": "e_commerce",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["e-commerce", "online store", "internet retailer", "marketplace", "thương mại điện tử", "cửa hàng trực tuyến", "sàn thương mại điện tử"],
+      "language": ["en", "ru", "vi"]
+    }
+  },
+  "Unclassified": {
+    "alias": "unclassified",
+    "domain": "General",
+    "level": 0,
+    "parent_category": null,
+    "fallback_strategy": "uniform_distribution",
+    "generic_substitutes": [
+      "Organization",
+      "Institution",
+      "Entity",
+      "Establishment",
+      "Group",
+      "Association",
+      "Agency",
+      "Body",
+      "Enterprise",
+      "Firm",
+      "Организация",
+      "Учреждение",
+      "Структура",
+      "Объединение",
+      "Группа",
+      "Ассоциация",
+      "Агентство",
+      "Предприятие",
+      "Компания",
+      "Фирма",
+      "Tổ chức",
+      "Cơ quan",
+      "Đơn vị",
+      "Hiệp hội",
+      "Nhóm",
+      "Đoàn thể",
+      "Cơ sở",
+      "Doanh nghiệp",
+      "Công ty",
+      "Xí nghiệp"
+    ],
+    "language": ["en", "ru", "vi"],
+    "usage_rules": {
+      "apply_when": "no_confidence_or_unknown",
+      "selection_method": "random_uniform",
+      "min_confidence_threshold": 0.2
+    }
+  },
+  "fallback_rules": {
+    "min_occurrences_threshold": 3,
+    "fallback_order": ["level_2", "level_1", "level_0"],
+    "default_category": "Unclassified",
+    "confidence_thresholds": {
+      "high": 0.8,
+      "medium": 0.5,
+      "low": 0.2
+    }
+  }
+}

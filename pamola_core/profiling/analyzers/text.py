@@ -42,7 +42,7 @@ from pamola_core.profiling.commons.text_utils import (
     extract_text_and_ids,
     find_dictionary_file,
 )
-from pamola_core.profiling.schemas.text_schema import (
+from pamola_core.profiling.schemas.text_core_schema import (
     TextSemanticCategorizerOperationConfig,
 )
 from pamola_core.utils.io import (

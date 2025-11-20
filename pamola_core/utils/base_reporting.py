@@ -34,7 +34,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Dict, List, Any
 
-from pamola_core import config
+from pamola_core import configs
 from pamola_core.utils.io import write_json
 
 # Configure logging
@@ -65,7 +65,7 @@ class PrivacyReport(ABC):
         self.report_type = report_type
         self.metadata = {
             "creation_time": datetime.now().isoformat(),
-            "pamola_version": getattr(config, "PAMOLA_VERSION", "unknown"),
+            "pamola_version": getattr(configs, "PAMOLA_VERSION", "unknown"),
             "report_type": report_type
         }
 
@@ -345,7 +345,7 @@ def merge_reports(reports: List[Dict[str, Any]], title: str = "Merged Privacy Re
     merged = {
         "report_metadata": {
             "creation_time": datetime.now().isoformat(),
-            "pamola_version": getattr(config, "PAMOLA_VERSION", "unknown"),
+            "pamola_version": getattr(configs, "PAMOLA_VERSION", "unknown"),
             "report_type": title,
             "merged_from": len(reports)
         }

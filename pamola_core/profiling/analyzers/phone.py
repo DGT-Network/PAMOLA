@@ -31,7 +31,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import pandas as pd
-from pamola_core.profiling.schemas.phone_schema import PhoneOperationConfig
+from pamola_core.profiling.schemas.phone_core_schema import PhoneOperationConfig
 from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.profiling.commons.phone_utils import (
     analyze_phone_field,
@@ -51,7 +51,6 @@ from pamola_core.utils.io import (
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource

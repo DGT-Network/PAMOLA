@@ -56,7 +56,7 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_datetime_field,
 )
 import dask.dataframe as dd
-from pamola_core.anonymization.schemas.datetime_op_schema import DateTimeGeneralizationConfig
+from pamola_core.anonymization.schemas.datetime_op_core_schema import DateTimeGeneralizationConfig
 from pamola_core.common.constants import Constants
 from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation

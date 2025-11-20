@@ -1,0 +1,331 @@
+{
+  "categories_hierarchy": {
+    "Profession": {
+      "alias": "profession",
+      "domain": "General",
+      "level": 0,
+      "children": [
+        "Information_Technology",
+        "Healthcare",
+        "Media",
+        "Education",
+        "Finance",
+        "Legal",
+        "Design",
+        "Engineering",
+        "Trades",
+        "Culinary_Arts",
+        "Sales",
+        "Management",
+        "Human_Resources",
+        "Architecture",
+        "Aviation",
+        "Science",
+        "Social_Services",
+        "Language_Services",
+        "Real_Estate",
+        "Public_Service",
+        "Data_Science",
+        "Marketing"
+      ],
+      "language": ["en"]
+    },
+    "Information_Technology": {
+      "alias": "information_technology",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Software_Engineer", "Web_Developer", "Cybersecurity_Analyst", "Data_Engineer"],
+      "keywords": ["IT", "information technology", "tech", "digital", "computer", "computing", "software", "programming", "technical", "systems"],
+      "language": ["en"]
+    },
+    "Healthcare": {
+      "alias": "healthcare",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Doctor", "Nurse", "Pharmacist", "Dentist", "Psychologist", "Physical_Therapist", "Nutritionist", "Paramedic", "Veterinarian"],
+      "keywords": ["healthcare", "medical", "health", "clinical", "patient care", "medicine", "therapeutic", "treatment", "diagnosis", "wellness"],
+      "language": ["en"]
+    },
+    "Media": {
+      "alias": "media",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Editor", "Journalist", "Photographer", "Content_Creator"],
+      "keywords": ["media", "press", "communications", "publishing", "broadcast", "reporting", "journalism", "multimedia", "digital media", "production"],
+      "language": ["en"]
+    },
+    "Science": {
+      "alias": "science",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Scientist", "Physicist", "Environmental_Scientist", "Agricultural_Scientist"],
+      "keywords": ["science", "research", "laboratory", "scientific", "experimentation", "analysis", "discovery", "investigation", "empirical", "theoretical"],
+      "language": ["en"]
+    },
+    "Education": {
+      "alias": "education",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Teacher", "Librarian"],
+      "keywords": ["education", "teaching", "academic", "school", "learning", "instruction", "tutoring", "educational", "pedagogy", "curriculum"],
+      "language": ["en"]
+    },
+    "Finance": {
+      "alias": "finance",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Accountant", "Financial_Analyst", "Economist"],
+      "keywords": ["finance", "financial", "accounting", "monetary", "economics", "banking", "investment", "fiscal", "budgeting", "economic"],
+      "language": ["en"]
+    },
+    "Legal": {
+      "alias": "legal",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Lawyer"],
+      "keywords": ["legal", "law", "judicial", "attorney", "counsel", "jurisprudence", "legislation", "regulatory", "compliance", "statutory"],
+      "language": ["en"]
+    },
+    "Design": {
+      "alias": "design",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Graphic_Designer", "Interior_Designer", "Fashion_Designer", "UI_UX_Designer"],
+      "keywords": ["design", "creative", "artistic", "visual", "aesthetic", "conceptual", "styling", "decorative", "layout", "composition"],
+      "language": ["en"]
+    },
+    "Engineering": {
+      "alias": "engineering",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Civil_Engineer", "Mechanical_Engineer"],
+      "keywords": ["engineering", "technical", "development", "structural", "mechanical", "industrial", "technological", "construction", "manufacturing", "infrastructure"],
+      "language": ["en"]
+    },
+    "Trades": {
+      "alias": "trades",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Electrician", "Plumber", "Carpenter"],
+      "keywords": ["trades", "skilled trades", "craft", "manual work", "technical trade", "construction trade", "service trade", "vocational", "skilled labor", "handcraft"],
+      "language": ["en"]
+    },
+    "Culinary_Arts": {
+      "alias": "culinary_arts",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Chef", "Baker"],
+      "keywords": ["culinary", "cooking", "food preparation", "gastronomy", "kitchen", "food service", "catering", "baking", "cuisine", "food"],
+      "language": ["en"]
+    },
+    "Sales": {
+      "alias": "sales",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Sales_Representative", "Account_Manager", "Business_Development", "Sales_Engineer", "Sales_Manager"],
+      "keywords": ["sales", "selling", "retail", "business development", "account management", "customer acquisition", "revenue generation", "commercial", "merchandising", "trade"],
+      "language": ["en"]
+    },
+    "Management": {
+      "alias": "management",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Project_Manager", "Operations_Manager", "General_Manager", "Product_Manager", "Executive"],
+      "keywords": ["management", "leadership", "administration", "director", "executive", "supervisor", "coordinator", "lead", "head", "chief"],
+      "language": ["en"]
+    },
+    "Human_Resources": {
+      "alias": "human_resources",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["HR_Manager", "Recruiter", "Talent_Acquisition", "HR_Business_Partner", "Compensation_Specialist"],
+      "keywords": ["HR", "human resources", "personnel", "talent", "recruitment", "staffing", "hiring", "employee relations", "workplace", "workforce"],
+      "language": ["en"]
+    },
+    "Architecture": {
+      "alias": "architecture",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Architect", "Landscape_Architect", "Urban_Planner", "Architectural_Designer"],
+      "keywords": ["architecture", "architectural", "building design", "structural design", "construction design", "space planning", "architectural drafting", "blueprint", "CAD", "BIM"],
+      "language": ["en"]
+    },
+    "Aviation": {
+      "alias": "aviation",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Pilot", "Air_Traffic_Controller", "Aircraft_Mechanic", "Flight_Attendant"],
+      "keywords": ["aviation", "aerospace", "flight", "aircraft", "airline", "aeronautical", "airplane", "airport", "aerial", "airway"],
+      "language": ["en"]
+    },
+    "Social_Services": {
+      "alias": "social_services",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Social_Worker", "Counselor", "Community_Manager", "Case_Manager"],
+      "keywords": ["social services", "welfare", "community services", "human services", "counseling", "social care", "support services", "aid services", "social assistance", "social work"],
+      "language": ["en"]
+    },
+    "Language_Services": {
+      "alias": "language_services",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Translator", "Interpreter", "Language_Teacher", "Linguist"],
+      "keywords": ["language services", "translation", "interpretation", "localization", "language teaching", "linguistics", "multilingual", "foreign language", "language consulting", "language instruction"],
+      "language": ["en"]
+    },
+    "Real_Estate": {
+      "alias": "real_estate",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Real_Estate_Agent", "Property_Manager", "Broker", "Real_Estate_Appraiser"],
+      "keywords": ["real estate", "property", "housing", "realty", "commercial property", "residential property", "property sales", "property management", "real estate investment", "leasing"],
+      "language": ["en"]
+    },
+    "Public_Service": {
+      "alias": "public_service",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Government_Official", "Public_Administrator", "Policy_Analyst", "Diplomat"],
+      "keywords": ["public service", "government", "civil service", "public administration", "public affairs", "public policy", "civic", "municipal", "public sector", "government administration"],
+      "language": ["en"]
+    },
+    "Data_Science": {
+      "alias": "data_science",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Data_Scientist", "Machine_Learning_Engineer", "Data_Analyst", "Business_Intelligence_Analyst"],
+      "keywords": ["data science", "big data", "analytics", "statistical analysis", "machine learning", "data mining", "predictive modeling", "business intelligence", "data visualization", "AI"],
+      "language": ["en"]
+    },
+    "Marketing": {
+      "alias": "marketing",
+      "domain": "Profession",
+      "level": 1,
+      "parent_category": "Profession",
+      "children": ["Marketing_Manager", "Digital_Marketer", "Market_Researcher", "Brand_Specialist"],
+      "keywords": ["marketing", "advertising", "promotion", "market research", "brand management", "public relations", "market analysis", "consumer research", "marketing strategy", "campaign management"],
+      "language": ["en"]
+    },
+    "Web_Developer": {
+      "alias": "web_developer",
+      "domain": "Information_Technology",
+      "level": 2,
+      "parent_category": "Information_Technology",
+      "children": ["Frontend_Web_Developer", "Backend_Web_Developer", "Full_Stack_Web_Developer", "WordPress_Developer", "Shopify_Developer"],
+      "keywords": ["web developer", "website developer", "web programmer", "frontend developer", "backend developer", "full stack developer", "web application developer", "WordPress developer", "Shopify developer", "web coder"],
+      "language": ["en"]
+    },
+    "Cybersecurity_Analyst": {
+      "alias": "cybersecurity_analyst",
+      "domain": "Information_Technology",
+      "level": 2,
+      "parent_category": "Information_Technology",
+      "children": ["Security_Engineer", "Penetration_Tester", "Security_Architect", "CISO", "Threat_Analyst"],
+      "keywords": ["cybersecurity analyst", "information security analyst", "security specialist", "IT security analyst", "network security analyst", "cyber defense analyst", "security operations analyst", "security consultant", "cybersecurity expert", "infosec analyst"],
+      "language": ["en"]
+    },
+    "Data_Engineer": {
+      "alias": "data_engineer",
+      "domain": "Information_Technology",
+      "level": 2,
+      "parent_category": "Information_Technology",
+      "children": ["ETL_Developer", "Data_Architect", "Database_Administrator", "Data_Infrastructure_Engineer", "Big_Data_Engineer"],
+      "keywords": ["data engineer", "data pipeline engineer", "database engineer", "ETL developer", "data integration engineer", "big data engineer", "data infrastructure engineer", "data warehouse engineer", "database developer", "SQL developer"],
+      "language": ["en"]
+    },
+    "Nurse": {
+      "alias": "nurse",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "children": ["Registered_Nurse", "Nurse_Practitioner", "Clinical_Nurse", "ICU_Nurse", "ER_Nurse", "Pediatric_Nurse"],
+      "keywords": ["nurse", "RN", "nursing", "registered nurse", "nurse practitioner", "clinical nurse", "healthcare nurse", "medical nurse", "patient care nurse", "hospital nurse"],
+      "language": ["en"]
+    },
+    "Mechanical_Engineer": {
+      "alias": "mechanical_engineer",
+      "domain": "Engineering",
+      "level": 2,
+      "parent_category": "Engineering",
+      "children": ["HVAC_Engineer", "Automotive_Engineer", "Aerospace_Engineer", "Robotics_Engineer", "Manufacturing_Engineer"],
+      "keywords": ["mechanical engineer", "mechanical design engineer", "HVAC engineer", "automotive engineer", "aerospace engineer", "robotics engineer", "manufacturing engineer", "product design engineer", "thermal engineer", "fluid dynamics engineer"],
+      "language": ["en"]
+    },
+    "Data_Scientist": {
+      "alias": "data_scientist",
+      "domain": "Data_Science",
+      "level": 2,
+      "parent_category": "Data_Science",
+      "children": ["Machine_Learning_Scientist", "AI_Researcher", "Statistical_Analyst", "NLP_Scientist", "Computer_Vision_Engineer"],
+      "keywords": ["data scientist", "analytics scientist", "machine learning scientist", "AI researcher", "statistical analyst", "quantitative analyst", "computational scientist", "data modeling expert", "predictive analytics specialist", "NLP scientist"],
+      "language": ["en"]
+    },
+    "Backend_Developer": {
+      "alias": "backend_developer",
+      "domain": "Information_Technology",
+      "level": 3,
+      "parent_category": "Software_Engineer",
+      "children": [],
+      "keywords": ["backend developer", "server-side developer", "API developer", "backend engineer", "database programmer", "backend programmer", "server engineer", "back-end coder", "backend software developer", "backend specialist"],
+      "language": ["en"]
+    },
+    "Frontend_Developer": {
+      "alias": "frontend_developer",
+      "domain": "Information_Technology",
+      "level": 3,
+      "parent_category": "Software_Engineer",
+      "children": [],
+      "keywords": ["frontend developer", "UI developer", "client-side developer", "front-end engineer", "JavaScript developer", "CSS developer", "HTML developer", "UI engineer", "frontend coder", "web interface developer"],
+      "language": ["en"]
+    },
+    "Full_Stack_Developer": {
+      "alias": "full_stack_developer",
+      "domain": "Information_Technology",
+      "level": 3,
+      "parent_category": "Software_Engineer",
+      "children": [],
+      "keywords": ["full stack developer", "full stack engineer", "end-to-end developer", "frontend backend developer", "all-around developer", "comprehensive developer", "versatile developer", "frontend and backend developer", "full-spectrum developer", "complete stack developer"],
+      "language": ["en"]
+    },
+    "General_Practitioner": {
+      "alias": "general_practitioner",
+      "domain": "Healthcare",
+      "level": 3,
+      "parent_category": "Doctor",
+      "children": [],
+      "keywords": ["general practitioner", "GP", "family doctor", "primary care physician", "family physician", "general physician", "primary healthcare provider", "family medicine doctor", "community doctor", "primary doctor"],
+      "language": ["en"]
+    },
+    "Corporate_Lawyer": {
+      "alias": "corporate_lawyer",
+      "domain": "Legal",
+      "level": 3,
+      "parent_category": "Lawyer",
+      "children": [],
+      "keywords": ["corporate lawyer", "business attorney", "company lawyer", "commercial lawyer", "corporate counsel", "business lawyer", "in-house counsel", "corporate legal advisor", "business law attorney", "corporate legal counsel"],
+      "language": ["en"]
+    }
+  }
+}

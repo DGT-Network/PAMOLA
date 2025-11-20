@@ -37,6 +37,7 @@ from pamola_core.profiling.commons.email_utils_dask import (
     create_domain_dictionary,
     estimate_resources,
 )
+from pamola_core.profiling.schemas.email_core_schema import EmailOperationConfig
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
@@ -45,7 +46,6 @@ from pamola_core.utils.io import (
     load_settings_operation,
 )
 from pamola_core.utils.io_helpers.dask_utils import get_computed_df
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -163,33 +163,6 @@ class EmailAnalyzer:
             Estimated resource requirements
         """
         return estimate_resources(df, field_name)
-
-
-class EmailOperationConfig(OperationConfig):
-    """Configuration for EmailOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common operation fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- Email-specific parameters ---
-                    "field_name": {"type": "string"},
-                    "top_n": {"type": "integer", "minimum": 1, "default": 20},
-                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-                    "profile_type": {
-                        "type": "string",
-                        "enum": ["email"],
-                        "default": "email",
-                    },
-                    "analyze_privacy_risk": {"type": "boolean", "default": True},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
 
 
 @register(version="1.0.0")

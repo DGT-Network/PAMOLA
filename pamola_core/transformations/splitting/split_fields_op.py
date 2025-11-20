@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Optional, Dict, List, Any, Union, Tuple
 import pandas as pd
 from pamola_core.transformations.commons.enum import OutputFormat
-from pamola_core.transformations.schemas.split_fields_op_schema import SplitFieldsOperationConfig
+from pamola_core.transformations.schemas.split_fields_op_core_schema import SplitFieldsOperationConfig
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import (
     load_data_operation,

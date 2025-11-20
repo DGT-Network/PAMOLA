@@ -40,10 +40,9 @@ from pamola_core.profiling.commons.group_utils import (
     analyze_group,
     calculate_field_metrics,
 )
-from pamola_core.profiling.schemas.group_schema import GroupAnalyzerOperationConfig
+from pamola_core.profiling.schemas.group_core_schema import GroupAnalyzerOperationConfig
 from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.utils.ops.op_base import FieldOperation
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register

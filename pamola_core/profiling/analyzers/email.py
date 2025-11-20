@@ -31,12 +31,12 @@ from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional
 import pandas as pd
-from pamola_core.profiling.analyzers.email_dask import EmailOperationConfig
 from pamola_core.profiling.commons.email_utils import (
     analyze_email_field,
     create_domain_dictionary,
     estimate_resources,
 )
+from pamola_core.profiling.schemas.email_core_schema import EmailOperationConfig
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
@@ -44,7 +44,6 @@ from pamola_core.utils.io import (
     write_dataframe_to_csv,
     load_settings_operation,
 )
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource

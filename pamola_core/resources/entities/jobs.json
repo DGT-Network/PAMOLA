@@ -1,0 +1,1070 @@
+{
+  "categories_hierarchy": {
+    "IT": {
+      "alias": "it",
+      "domain": "General",
+      "level": 0,
+      "children": ["Development", "Software_Engineering", "Data", "DevOps", "Design", "Management", "QA", "IT_Infrastructure", "Cloud_Computing", "Cybersecurity"]
+    },
+    "Healthcare": {
+      "alias": "healthcare",
+      "domain": "General",
+      "level": 0,
+      "children": ["Medical", "Nursing", "Pharmacy", "Laboratory", "Therapy", "Mental_Health"]
+    },
+    "Education": {
+      "alias": "education",
+      "domain": "General",
+      "level": 0,
+      "children": ["Teaching", "Research", "Administration_Education", "Counseling"]
+    },
+    "Engineering": {
+      "alias": "engineering",
+      "domain": "General",
+      "level": 0,
+      "children": ["Civil_Engineering", "Mechanical_Engineering", "Electrical_Engineering", "Chemical_Engineering", "Industrial_Engineering"]
+    },
+    "Science": {
+      "alias": "science",
+      "domain": "General",
+      "level": 0,
+      "children": ["Physics", "Chemistry", "Biology", "Mathematics", "Environmental_Science"]
+    },
+    "Creative": {
+      "alias": "creative",
+      "domain": "General",
+      "level": 0,
+      "children": ["Arts", "Writing", "Music", "Performing_Arts", "Digital_Arts"]
+    },
+    "Development": {
+      "alias": "разработка",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["Frontend", "Backend", "Mobile", "Game_Development", "Embedded"],
+      "keywords": ["разработка", "development", "программирование", "developer", "разработчик"],
+      "language": ["en", "ru"]
+    },
+    "Data": {
+      "alias": "данные",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["Data_Science", "Data_Engineering", "Data_Analysis", "Database"],
+      "keywords": ["data", "данные", "информация"],
+      "language": ["en", "ru"]
+    },
+    "Python Ecosystem Specialist": {
+      "alias": "python_ecosystem",
+      "domain": "Backend",
+      "level": 2,
+      "parent_category": "Backend",
+      "seniority": "Any",
+      "keywords": ["python", "django", "flask", "numpy", "pandas", "scipy", "fastapi"],
+      "language": ["en"]
+    },
+    "JavaScript Ecosystem Specialist": {
+      "alias": "javascript_ecosystem",
+      "domain": "Frontend",
+      "level": 2,
+      "parent_category": "Frontend",
+      "seniority": "Any",
+      "keywords": ["javascript", "js", "typescript", "node.js", "react", "angular"],
+      "language": ["en"]
+    },
+    "Frontend": {
+      "alias": "фронтенд",
+      "domain": "Development",
+      "level": 2,
+      "parent_category": "Development",
+      "keywords": ["frontend", "front-end", "клиентская часть", "браузер"],
+      "language": ["en", "ru"]
+    },
+    "Backend": {
+      "alias": "бэкенд",
+      "domain": "Development",
+      "level": 2,
+      "parent_category": "Development",
+      "keywords": ["backend", "back-end", "серверная часть", "api"],
+      "language": ["en", "ru"]
+    },
+    "Data_Science": {
+      "alias": "data_science",
+      "domain": "Data",
+      "level": 2,
+      "parent_category": "Data",
+      "keywords": ["data science", "machine learning", "ai", "ml"],
+      "language": ["en"]
+    },
+    "Data_Engineering": {
+      "alias": "data_engineering",
+      "domain": "Data",
+      "level": 2,
+      "parent_category": "Data",
+      "keywords": ["data engineer", "etl", "data pipeline", "big data"],
+      "language": ["en"]
+    },
+    "QA": {
+      "alias": "quality_assurance",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["Manual_QA", "Automation_QA"],
+      "keywords": ["qa", "quality assurance", "тестирование"],
+      "language": ["en", "ru"]
+    },
+    "Manual_QA": {
+      "alias": "manual_qa",
+      "domain": "QA",
+      "level": 2,
+      "parent_category": "QA",
+      "keywords": ["manual testing", "ручное тестирование", "test cases"],
+      "language": ["en", "ru"]
+    },
+    "Automation_QA": {
+      "alias": "automation_qa",
+      "domain": "QA",
+      "level": 2,
+      "parent_category": "QA",
+      "keywords": ["test automation", "автотесты", "selenium", "cypress"],
+      "language": ["en", "ru"]
+    },
+    "Non-IT": {
+      "alias": "non_it",
+      "domain": "General",
+      "level": 0,
+      "children": ["Marketing", "HR", "Finance", "Administration", "Legal", "Sales", "Customer_Service", "Media_Communications"]
+    },
+    "Marketing": {
+      "alias": "marketing",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "children": ["Digital_Marketing", "Content_Marketing", "Brand_Management"],
+      "keywords": ["marketing", "маркетинг", "smm", "seo"],
+      "language": ["en", "ru"]
+    },
+    "HR": {
+      "alias": "hr",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "keywords": ["hr", "human resources", "рекрутер"],
+      "language": ["en", "ru"]
+    },
+    "Finance": {
+      "alias": "finance",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "children": ["Accounting", "Financial_Analysis", "Investment"],
+      "keywords": ["finance", "financial", "финансы", "финансовый"],
+      "language": ["en", "ru"]
+    },
+    "Administration": {
+      "alias": "administration",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "keywords": ["administration", "administrative", "office manager", "secretary", "администрирование", "офис-менеджер", "секретарь"],
+      "language": ["en", "ru"]
+    },
+    "DevOps": {
+      "alias": "devops",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["DevOps_Engineer", "SRE", "Cloud_Engineer"],
+      "keywords": ["devops", "deployment", "infrastructure", "ci/cd", "инфраструктура"],
+      "language": ["en", "ru"]
+    },
+    "Design": {
+      "alias": "design",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["UI_UX_Design", "Graphic_Design", "Web_Design"],
+      "keywords": ["design", "designer", "дизайн", "дизайнер"],
+      "language": ["en", "ru"]
+    },
+    "Management": {
+      "alias": "management",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["Project_Management", "Product_Management", "Team_Lead"],
+      "keywords": ["manager", "management", "менеджер", "управление"],
+      "language": ["en", "ru"]
+    },
+    "Mobile": {
+      "alias": "mobile",
+      "domain": "Development",
+      "level": 2,
+      "parent_category": "Development",
+      "keywords": ["mobile", "ios", "android", "app development", "мобильная разработка"],
+      "language": ["en", "ru"]
+    },
+    "Game_Development": {
+      "alias": "game_dev",
+      "domain": "Development",
+      "level": 2,
+      "parent_category": "Development",
+      "keywords": ["game development", "game engine", "unity", "unreal", "разработка игр", "игровой движок"],
+      "language": ["en", "ru"]
+    },
+    "Embedded": {
+      "alias": "embedded",
+      "domain": "Development",
+      "level": 2,
+      "parent_category": "Development",
+      "keywords": ["embedded", "firmware", "microcontroller", "встраиваемые системы", "прошивка", "микроконтроллер"],
+      "language": ["en", "ru"]
+    },
+    "Data_Analysis": {
+      "alias": "data_analysis",
+      "domain": "Data",
+      "level": 2,
+      "parent_category": "Data",
+      "keywords": ["data analysis", "analyst", "analytics", "анализ данных", "аналитик", "аналитика"],
+      "language": ["en", "ru"]
+    },
+    "Database": {
+      "alias": "database",
+      "domain": "Data",
+      "level": 2,
+      "parent_category": "Data",
+      "keywords": ["database", "sql", "nosql", "dba", "база данных", "администратор баз данных"],
+      "language": ["en", "ru"]
+    },
+    "IT_Infrastructure": {
+      "alias": "infrastructure",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["System_Administration", "Network_Administration"],
+      "keywords": ["infrastructure", "systems", "инфраструктура", "системы"],
+      "language": ["en", "ru"]
+    },
+    "Cloud_Computing": {
+      "alias": "cloud",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["AWS", "Azure", "GCP"],
+      "keywords": ["cloud", "cloud computing", "облако", "облачные вычисления"],
+      "language": ["en", "ru"]
+    },
+    "Cybersecurity": {
+      "alias": "security",
+      "domain": "IT",
+      "level": 1,
+      "parent_category": "IT",
+      "children": ["Security_Engineer", "Penetration_Tester", "Security_Analyst"],
+      "keywords": ["security", "cybersecurity", "information security", "безопасность", "кибербезопасность", "информационная безопасность"],
+      "language": ["en", "ru"]
+    },
+    "DevOps_Engineer": {
+      "alias": "devops_engineer",
+      "domain": "DevOps",
+      "level": 2,
+      "parent_category": "DevOps",
+      "keywords": ["devops engineer", "ci/cd engineer", "инженер devops", "инженер непрерывной интеграции"],
+      "language": ["en", "ru"]
+    },
+    "SRE": {
+      "alias": "sre",
+      "domain": "DevOps",
+      "level": 2,
+      "parent_category": "DevOps",
+      "keywords": ["site reliability engineer", "sre", "reliability", "инженер надежности сайта", "надежность"],
+      "language": ["en", "ru"]
+    },
+    "Cloud_Engineer": {
+      "alias": "cloud_engineer",
+      "domain": "DevOps",
+      "level": 2,
+      "parent_category": "DevOps",
+      "keywords": ["cloud engineer", "cloud architect", "облачный инженер", "архитектор облачных решений"],
+      "language": ["en", "ru"]
+    },
+    "UI_UX_Design": {
+      "alias": "ui_ux",
+      "domain": "Design",
+      "level": 2,
+      "parent_category": "Design",
+      "keywords": ["ui/ux", "user interface", "user experience", "интерфейс пользователя", "опыт пользователя"],
+      "language": ["en", "ru"]
+    },
+    "Graphic_Design": {
+      "alias": "graphic_design",
+      "domain": "Design",
+      "level": 2,
+      "parent_category": "Design",
+      "keywords": ["graphic design", "graphic designer", "графический дизайн", "графический дизайнер"],
+      "language": ["en", "ru"]
+    },
+    "Web_Design": {
+      "alias": "web_design",
+      "domain": "Design",
+      "level": 2,
+      "parent_category": "Design",
+      "keywords": ["web design", "web designer", "веб-дизайн", "веб-дизайнер"],
+      "language": ["en", "ru"]
+    },
+    "Project_Management": {
+      "alias": "project_management",
+      "domain": "Management",
+      "level": 2,
+      "parent_category": "Management",
+      "keywords": ["project manager", "project management", "менеджер проектов", "управление проектами"],
+      "language": ["en", "ru"]
+    },
+    "Product_Management": {
+      "alias": "product_management",
+      "domain": "Management",
+      "level": 2,
+      "parent_category": "Management",
+      "keywords": ["product manager", "product owner", "менеджер продукта", "владелец продукта"],
+      "language": ["en", "ru"]
+    },
+    "Team_Lead": {
+      "alias": "team_lead",
+      "domain": "Management",
+      "level": 2,
+      "parent_category": "Management",
+      "keywords": ["team lead", "tech lead", "тимлид", "технический лидер"],
+      "language": ["en", "ru"]
+    },
+    "System_Administration": {
+      "alias": "system_admin",
+      "domain": "IT_Infrastructure",
+      "level": 2,
+      "parent_category": "IT_Infrastructure",
+      "keywords": ["system administrator", "sysadmin", "системный администратор", "сисадмин"],
+      "language": ["en", "ru"]
+    },
+    "Network_Administration": {
+      "alias": "network_admin",
+      "domain": "IT_Infrastructure",
+      "level": 2,
+      "parent_category": "IT_Infrastructure",
+      "keywords": ["network administrator", "network engineer", "сетевой администратор", "сетевой инженер"],
+      "language": ["en", "ru"]
+    },
+    "AWS": {
+      "alias": "aws",
+      "domain": "Cloud_Computing",
+      "level": 2,
+      "parent_category": "Cloud_Computing",
+      "keywords": ["aws", "amazon web services", "amazon cloud", "амазон веб сервисы"],
+      "language": ["en", "ru"]
+    },
+    "Azure": {
+      "alias": "azure",
+      "domain": "Cloud_Computing",
+      "level": 2,
+      "parent_category": "Cloud_Computing",
+      "keywords": ["azure", "microsoft azure", "azure cloud", "микрософт азур"],
+      "language": ["en", "ru"]
+    },
+    "GCP": {
+      "alias": "gcp",
+      "domain": "Cloud_Computing",
+      "level": 2,
+      "parent_category": "Cloud_Computing",
+      "keywords": ["gcp", "google cloud", "google cloud platform", "гугл клауд"],
+      "language": ["en", "ru"]
+    },
+    "Security_Engineer": {
+      "alias": "security_engineer",
+      "domain": "Cybersecurity",
+      "level": 2,
+      "parent_category": "Cybersecurity",
+      "keywords": ["security engineer", "security specialist", "инженер по безопасности", "специалист по безопасности"],
+      "language": ["en", "ru"]
+    },
+    "Penetration_Tester": {
+      "alias": "pentester",
+      "domain": "Cybersecurity",
+      "level": 2,
+      "parent_category": "Cybersecurity",
+      "keywords": ["penetration tester", "pentester", "ethical hacker", "пентестер", "этичный хакер"],
+      "language": ["en", "ru"]
+    },
+    "Security_Analyst": {
+      "alias": "security_analyst",
+      "domain": "Cybersecurity",
+      "level": 2,
+      "parent_category": "Cybersecurity",
+      "keywords": ["security analyst", "information security analyst", "аналитик безопасности", "аналитик информационной безопасности"],
+      "language": ["en", "ru"]
+    },
+    "Accounting": {
+      "alias": "accounting",
+      "domain": "Finance",
+      "level": 2,
+      "parent_category": "Finance",
+      "keywords": ["accountant", "bookkeeping", "бухгалтер", "бухгалтерский учет"],
+      "language": ["en", "ru"]
+    },
+    "Financial_Analysis": {
+      "alias": "financial_analysis",
+      "domain": "Finance",
+      "level": 2,
+      "parent_category": "Finance",
+      "keywords": ["financial analyst", "financial analysis", "финансовый аналитик", "финансовый анализ"],
+      "language": ["en", "ru"]
+    },
+    "Investment": {
+      "alias": "investment",
+      "domain": "Finance",
+      "level": 2,
+      "parent_category": "Finance",
+      "keywords": ["investment", "investor", "investment analyst", "инвестиции", "инвестор", "инвестиционный аналитик"],
+      "language": ["en", "ru"]
+    },
+    "Medical": {
+      "alias": "medical",
+      "domain": "Healthcare",
+      "level": 1,
+      "parent_category": "Healthcare",
+      "children": ["Physician", "Surgeon", "Medical_Specialist"],
+      "keywords": ["doctor", "physician", "medical practitioner", "врач", "доктор", "медик"],
+      "language": ["en", "ru"]
+    },
+    "Nursing": {
+      "alias": "nursing",
+      "domain": "Healthcare",
+      "level": 1,
+      "parent_category": "Healthcare",
+      "children": ["Registered_Nurse", "Nurse_Practitioner", "Nursing_Assistant"],
+      "keywords": ["nurse", "nursing", "медсестра", "медбрат", "сестринское дело"],
+      "language": ["en", "ru"]
+    },
+    "Pharmacy": {
+      "alias": "pharmacy",
+      "domain": "Healthcare",
+      "level": 1,
+      "parent_category": "Healthcare",
+      "keywords": ["pharmacist", "pharmacy", "фармацевт", "аптека", "фармация"],
+      "language": ["en", "ru"]
+    },
+    "Laboratory": {
+      "alias": "laboratory",
+      "domain": "Healthcare",
+      "level": 1,
+      "parent_category": "Healthcare",
+      "keywords": ["lab technician", "laboratory", "лаборант", "лаборатория"],
+      "language": ["en", "ru"]
+    },
+    "Therapy": {
+      "alias": "therapy",
+      "domain": "Healthcare",
+      "level": 1,
+      "parent_category": "Healthcare",
+      "children": ["Physical_Therapy", "Occupational_Therapy", "Speech_Therapy"],
+      "keywords": ["therapist", "therapy", "терапевт", "терапия"],
+      "language": ["en", "ru"]
+    },
+    "Mental_Health": {
+      "alias": "mental_health",
+      "domain": "Healthcare",
+      "level": 1,
+      "parent_category": "Healthcare",
+      "children": ["Psychiatrist", "Psychologist", "Counselor"],
+      "keywords": ["mental health", "психическое здоровье", "mental wellbeing", "психологическое благополучие"],
+      "language": ["en", "ru"]
+    },
+    "Physician": {
+      "alias": "physician",
+      "domain": "Medical",
+      "level": 2,
+      "parent_category": "Medical",
+      "keywords": ["general practitioner", "family doctor", "терапевт", "семейный врач"],
+      "language": ["en", "ru"]
+    },
+    "Surgeon": {
+      "alias": "surgeon",
+      "domain": "Medical",
+      "level": 2,
+      "parent_category": "Medical",
+      "keywords": ["surgeon", "surgical doctor", "хирург", "хирургический врач"],
+      "language": ["en", "ru"]
+    },
+    "Medical_Specialist": {
+      "alias": "medical_specialist",
+      "domain": "Medical",
+      "level": 2,
+      "parent_category": "Medical",
+      "keywords": ["specialist", "cardiologist", "neurologist", "специалист", "кардиолог", "невролог"],
+      "language": ["en", "ru"]
+    },
+    "Registered_Nurse": {
+      "alias": "rn",
+      "domain": "Nursing",
+      "level": 2,
+      "parent_category": "Nursing",
+      "keywords": ["registered nurse", "RN", "дипломированная медсестра", "медсестра"],
+      "language": ["en", "ru"]
+    },
+    "Nurse_Practitioner": {
+      "alias": "np",
+      "domain": "Nursing",
+      "level": 2,
+      "parent_category": "Nursing",
+      "keywords": ["nurse practitioner", "NP", "фельдшер", "практикующая медсестра"],
+      "language": ["en", "ru"]
+    },
+    "Nursing_Assistant": {
+      "alias": "nursing_assistant",
+      "domain": "Nursing",
+      "level": 2,
+      "parent_category": "Nursing",
+      "keywords": ["nursing assistant", "nurse aide", "младшая медсестра", "помощник медсестры"],
+      "language": ["en", "ru"]
+    },
+    "Physical_Therapy": {
+      "alias": "pt",
+      "domain": "Therapy",
+      "level": 2,
+      "parent_category": "Therapy",
+      "keywords": ["physical therapist", "PT", "physiotherapy", "физиотерапевт", "физиотерапия"],
+      "language": ["en", "ru"]
+    },
+    "Occupational_Therapy": {
+      "alias": "ot",
+      "domain": "Therapy",
+      "level": 2,
+      "parent_category": "Therapy",
+      "keywords": ["occupational therapist", "OT", "эрготерапевт", "трудотерапия"],
+      "language": ["en", "ru"]
+    },
+    "Speech_Therapy": {
+      "alias": "speech_therapy",
+      "domain": "Therapy",
+      "level": 2,
+      "parent_category": "Therapy",
+      "keywords": ["speech therapist", "speech-language pathologist", "логопед", "речевой терапевт"],
+      "language": ["en", "ru"]
+    },
+    "Psychiatrist": {
+      "alias": "psychiatrist",
+      "domain": "Mental_Health",
+      "level": 2,
+      "parent_category": "Mental_Health",
+      "keywords": ["psychiatrist", "psychiatric doctor", "психиатр", "врач-психиатр"],
+      "language": ["en", "ru"]
+    },
+    "Psychologist": {
+      "alias": "psychologist",
+      "domain": "Mental_Health",
+      "level": 2,
+      "parent_category": "Mental_Health",
+      "keywords": ["psychologist", "clinical psychologist", "психолог", "клинический психолог"],
+      "language": ["en", "ru"]
+    },
+    "Counselor": {
+      "alias": "counselor",
+      "domain": "Mental_Health",
+      "level": 2,
+      "parent_category": "Mental_Health",
+      "keywords": ["counselor", "therapist", "психотерапевт", "консультант"],
+      "language": ["en", "ru"]
+    },
+    "Teaching": {
+      "alias": "teaching",
+      "domain": "Education",
+      "level": 1,
+      "parent_category": "Education",
+      "children": ["School_Teacher", "University_Professor", "Tutor"],
+      "keywords": ["teacher", "teaching", "учитель", "преподаватель", "обучение"],
+      "language": ["en", "ru"]
+    },
+    "Research": {
+      "alias": "research",
+      "domain": "Education",
+      "level": 1,
+      "parent_category": "Education",
+      "keywords": ["researcher", "research", "научный сотрудник", "исследование"],
+      "language": ["en", "ru"]
+    },
+    "Administration_Education": {
+      "alias": "admin_education",
+      "domain": "Education",
+      "level": 1,
+      "parent_category": "Education",
+      "keywords": ["school administrator", "dean", "principal", "директор школы", "декан", "директор"],
+      "language": ["en", "ru"]
+    },
+    "Counseling": {
+      "alias": "counseling",
+      "domain": "Education",
+      "level": 1,
+      "parent_category": "Education",
+      "keywords": ["school counselor", "educational psychologist", "школьный психолог", "педагог-психолог"],
+      "language": ["en", "ru"]
+    },
+    "School_Teacher": {
+      "alias": "school_teacher",
+      "domain": "Teaching",
+      "level": 2,
+      "parent_category": "Teaching",
+      "keywords": ["school teacher", "elementary teacher", "high school teacher", "школьный учитель", "учитель начальных классов"],
+      "language": ["en", "ru"]
+    },      "University_Professor": {
+      "alias": "professor",
+      "domain": "Teaching",
+      "level": 2,
+      "parent_category": "Teaching",
+      "keywords": ["professor", "lecturer", "профессор", "преподаватель университета", "лектор"],
+      "language": ["en", "ru"]
+    },
+    "Tutor": {
+      "alias": "tutor",
+      "domain": "Teaching",
+      "level": 2,
+      "parent_category": "Teaching",
+      "keywords": ["tutor", "private teacher", "репетитор", "частный учитель"],
+      "language": ["en", "ru"]
+    },
+    "Legal": {
+      "alias": "legal",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "children": ["Lawyer", "Paralegal", "Legal_Consultant"],
+      "keywords": ["legal", "law", "юридический", "право"],
+      "language": ["en", "ru"]
+    },
+    "Sales": {
+      "alias": "sales",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "children": ["Sales_Representative", "Account_Manager", "Business_Development"],
+      "keywords": ["sales", "selling", "продажи"],
+      "language": ["en", "ru"]
+    },
+    "Customer_Service": {
+      "alias": "customer_service",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "keywords": ["customer service", "client support", "обслуживание клиентов", "поддержка клиентов"],
+      "language": ["en", "ru"]
+    },
+    "Media_Communications": {
+      "alias": "media",
+      "domain": "Non-IT",
+      "level": 1,
+      "parent_category": "Non-IT",
+      "children": ["Journalism", "Public_Relations", "Content_Creation"],
+      "keywords": ["media", "communications", "медиа", "коммуникации"],
+      "language": ["en", "ru"]
+    },
+    "Digital_Marketing": {
+      "alias": "digital_marketing",
+      "domain": "Marketing",
+      "level": 2,
+      "parent_category": "Marketing",
+      "keywords": ["digital marketing", "online marketing", "цифровой маркетинг", "онлайн-маркетинг"],
+      "language": ["en", "ru"]
+    },
+    "Content_Marketing": {
+      "alias": "content_marketing",
+      "domain": "Marketing",
+      "level": 2,
+      "parent_category": "Marketing",
+      "keywords": ["content marketing", "content strategy", "контент-маркетинг", "стратегия контента"],
+      "language": ["en", "ru"]
+    },
+    "Brand_Management": {
+      "alias": "brand_management",
+      "domain": "Marketing",
+      "level": 2,
+      "parent_category": "Marketing",
+      "keywords": ["brand manager", "brand management", "бренд-менеджер", "управление брендом"],
+      "language": ["en", "ru"]
+    },
+    "Lawyer": {
+      "alias": "lawyer",
+      "domain": "Legal",
+      "level": 2,
+      "parent_category": "Legal",
+      "keywords": ["lawyer", "attorney", "юрист", "адвокат"],
+      "language": ["en", "ru"]
+    },
+    "Paralegal": {
+      "alias": "paralegal",
+      "domain": "Legal",
+      "level": 2,
+      "parent_category": "Legal",
+      "keywords": ["paralegal", "legal assistant", "помощник юриста", "юридический ассистент"],
+      "language": ["en", "ru"]
+    },
+    "Legal_Consultant": {
+      "alias": "legal_consultant",
+      "domain": "Legal",
+      "level": 2,
+      "parent_category": "Legal",
+      "keywords": ["legal consultant", "legal advisor", "юридический консультант", "юрисконсульт"],
+      "language": ["en", "ru"]
+    },
+    "Sales_Representative": {
+      "alias": "sales_rep",
+      "domain": "Sales",
+      "level": 2,
+      "parent_category": "Sales",
+      "keywords": ["sales representative", "sales rep", "представитель по продажам", "менеджер по продажам"],
+      "language": ["en", "ru"]
+    },
+    "Account_Manager": {
+      "alias": "account_manager",
+      "domain": "Sales",
+      "level": 2,
+      "parent_category": "Sales",
+      "keywords": ["account manager", "client manager", "менеджер по работе с клиентами", "аккаунт-менеджер"],
+      "language": ["en", "ru"]
+    },
+    "Business_Development": {
+      "alias": "biz_dev",
+      "domain": "Sales",
+      "level": 2,
+      "parent_category": "Sales",
+      "keywords": ["business development", "BD", "развитие бизнеса", "бизнес-девелопмент"],
+      "language": ["en", "ru"]
+    },
+    "Journalism": {
+      "alias": "journalism",
+      "domain": "Media_Communications",
+      "level": 2,
+      "parent_category": "Media_Communications",
+      "keywords": ["journalist", "reporter", "журналист", "репортер"],
+      "language": ["en", "ru"]
+    },
+    "Public_Relations": {
+      "alias": "pr",
+      "domain": "Media_Communications",
+      "level": 2,
+      "parent_category": "Media_Communications",
+      "keywords": ["PR", "public relations", "PR-специалист", "связи с общественностью"],
+      "language": ["en", "ru"]
+    },
+    "Content_Creation": {
+      "alias": "content_creation",
+      "domain": "Media_Communications",
+      "level": 2,
+      "parent_category": "Media_Communications",
+      "keywords": ["content creator", "copywriter", "контент-мейкер", "копирайтер"],
+      "language": ["en", "ru"]
+    },
+    "Civil_Engineering": {
+      "alias": "civil_engineering",
+      "domain": "Engineering",
+      "level": 1,
+      "parent_category": "Engineering",
+      "keywords": ["civil engineer", "structural engineer", "гражданский инженер", "инженер-строитель"],
+      "language": ["en", "ru"]
+    },
+    "Mechanical_Engineering": {
+      "alias": "mechanical_engineering",
+      "domain": "Engineering",
+      "level": 1,
+      "parent_category": "Engineering",
+      "keywords": ["mechanical engineer", "machinery engineer", "инженер-механик", "машиностроитель"],
+      "language": ["en", "ru"]
+    },
+    "Electrical_Engineering": {
+      "alias": "electrical_engineering",
+      "domain": "Engineering",
+      "level": 1,
+      "parent_category": "Engineering",
+      "keywords": ["electrical engineer", "electronics engineer", "инженер-электрик", "электротехник"],
+      "language": ["en", "ru"]
+    },
+    "Chemical_Engineering": {
+      "alias": "chemical_engineering",
+      "domain": "Engineering",
+      "level": 1,
+      "parent_category": "Engineering",
+      "keywords": ["chemical engineer", "process engineer", "инженер-химик", "технолог химического производства"],
+      "language": ["en", "ru"]
+    },
+    "Industrial_Engineering": {
+      "alias": "industrial_engineering",
+      "domain": "Engineering",
+      "level": 1,
+      "parent_category": "Engineering",
+      "keywords": ["industrial engineer", "manufacturing engineer", "инженер-технолог", "инженер по организации производства"],
+      "language": ["en", "ru"]
+    },
+    
+    "Structural_Engineer": {
+      "alias": "structural_engineer",
+      "domain": "Civil_Engineering",
+      "level": 2,
+      "parent_category": "Civil_Engineering",
+      "keywords": ["structural engineer", "construction engineer", "инженер-конструктор", "строительный инженер"],
+      "language": ["en", "ru"]
+    },
+    "Environmental_Engineer": {
+      "alias": "environmental_engineer",
+      "domain": "Civil_Engineering",
+      "level": 2,
+      "parent_category": "Civil_Engineering",
+      "keywords": ["environmental engineer", "ecological engineer", "инженер-эколог", "инженер по охране окружающей среды"],
+      "language": ["en", "ru"]
+    },
+    "HVAC_Engineer": {
+      "alias": "hvac_engineer",
+      "domain": "Mechanical_Engineering",
+      "level": 2,
+      "parent_category": "Mechanical_Engineering",
+      "keywords": ["HVAC engineer", "heating engineer", "ventilation engineer", "инженер по отоплению и вентиляции", "инженер ОВК"],
+      "language": ["en", "ru"]
+    },
+    "Automotive_Engineer": {
+      "alias": "automotive_engineer",
+      "domain": "Mechanical_Engineering",
+      "level": 2,
+      "parent_category": "Mechanical_Engineering",
+      "keywords": ["automotive engineer", "car engineer", "инженер-автомобилестроитель", "инженер по автотранспорту"],
+      "language": ["en", "ru"]
+    },
+    "Power_Systems_Engineer": {
+      "alias": "power_engineer",
+      "domain": "Electrical_Engineering",
+      "level": 2,
+      "parent_category": "Electrical_Engineering",
+      "keywords": ["power systems engineer", "electricity engineer", "инженер-энергетик", "инженер по электроснабжению"],
+      "language": ["en", "ru"]
+    },
+    "Process_Engineer": {
+      "alias": "process_engineer",
+      "domain": "Chemical_Engineering",
+      "level": 2,
+      "parent_category": "Chemical_Engineering",
+      "keywords": ["process engineer", "chemical process engineer", "инженер-технолог", "инженер по химическим процессам"],
+      "language": ["en", "ru"]
+    },
+    
+    "Physics": {
+      "alias": "physics",
+      "domain": "Science",
+      "level": 1,
+      "parent_category": "Science",
+      "keywords": ["physicist", "physics scientist", "физик", "научный сотрудник по физике"],
+      "language": ["en", "ru"]
+    },
+    "Chemistry": {
+      "alias": "chemistry",
+      "domain": "Science",
+      "level": 1,
+      "parent_category": "Science",
+      "keywords": ["chemist", "chemistry scientist", "химик", "научный сотрудник по химии"],
+      "language": ["en", "ru"]
+    },
+    "Biology": {
+      "alias": "biology",
+      "domain": "Science",
+      "level": 1,
+      "parent_category": "Science",
+      "keywords": ["biologist", "biology scientist", "биолог", "научный сотрудник по биологии"],
+      "language": ["en", "ru"]
+    },
+    "Mathematics": {
+      "alias": "mathematics",
+      "domain": "Science",
+      "level": 1,
+      "parent_category": "Science",
+      "keywords": ["mathematician", "math scientist", "математик", "научный сотрудник по математике"],
+      "language": ["en", "ru"]
+    },
+    "Environmental_Science": {
+      "alias": "environmental_science",
+      "domain": "Science",
+      "level": 1,
+      "parent_category": "Science",
+      "keywords": ["environmental scientist", "ecologist", "эколог", "специалист по охране окружающей среды"],
+      "language": ["en", "ru"]
+    },
+    
+    "Quantum_Physicist": {
+      "alias": "quantum_physicist",
+      "domain": "Physics",
+      "level": 2,
+      "parent_category": "Physics",
+      "keywords": ["quantum physicist", "quantum mechanics", "квантовый физик", "специалист по квантовой механике"],
+      "language": ["en", "ru"]
+    },
+    "Analytical_Chemist": {
+      "alias": "analytical_chemist",
+      "domain": "Chemistry",
+      "level": 2,
+      "parent_category": "Chemistry",
+      "keywords": ["analytical chemist", "chemical analyst", "аналитический химик", "химик-аналитик"],
+      "language": ["en", "ru"]
+    },
+    "Molecular_Biologist": {
+      "alias": "molecular_biologist",
+      "domain": "Biology",
+      "level": 2,
+      "parent_category": "Biology",
+      "keywords": ["molecular biologist", "geneticist", "молекулярный биолог", "генетик"],
+      "language": ["en", "ru"]
+    },
+    "Data_Scientist": {
+      "alias": "data_scientist_math",
+      "domain": "Mathematics",
+      "level": 2,
+      "parent_category": "Mathematics",
+      "keywords": ["mathematical data scientist", "statistician", "математик-аналитик данных", "статистик"],
+      "language": ["en", "ru"]
+    },
+    
+    "Arts": {
+      "alias": "arts",
+      "domain": "Creative",
+      "level": 1,
+      "parent_category": "Creative",
+      "keywords": ["artist", "visual artist", "художник", "деятель искусств"],
+      "language": ["en", "ru"]
+    },
+    "Writing": {
+      "alias": "writing",
+      "domain": "Creative",
+      "level": 1,
+      "parent_category": "Creative",
+      "keywords": ["writer", "author", "писатель", "автор"],
+      "language": ["en", "ru"]
+    },
+    "Music": {
+      "alias": "music",
+      "domain": "Creative",
+      "level": 1,
+      "parent_category": "Creative",
+      "keywords": ["musician", "composer", "музыкант", "композитор"],
+      "language": ["en", "ru"]
+    },
+    "Performing_Arts": {
+      "alias": "performing_arts",
+      "domain": "Creative",
+      "level": 1,
+      "parent_category": "Creative",
+      "keywords": ["performer", "actor", "артист", "актер"],
+      "language": ["en", "ru"]
+    },
+    "Digital_Arts": {
+      "alias": "digital_arts",
+      "domain": "Creative",
+      "level": 1,
+      "parent_category": "Creative",
+      "keywords": ["digital artist", "digital designer", "цифровой художник", "digital-дизайнер"],
+      "language": ["en", "ru"]
+    },
+    
+    "Graphic_Designer": {
+      "alias": "graphic_designer",
+      "domain": "Digital_Arts",
+      "level": 2,
+      "parent_category": "Digital_Arts",
+      "keywords": ["graphic designer", "visual designer", "графический дизайнер", "дизайнер-график"],
+      "language": ["en", "ru"]
+    },
+    "3D_Artist": {
+      "alias": "3d_artist",
+      "domain": "Digital_Arts",
+      "level": 2,
+      "parent_category": "Digital_Arts",
+      "keywords": ["3D artist", "3D modeler", "3D-художник", "3D-моделист"],
+      "language": ["en", "ru"]
+    },
+    "Author": {
+      "alias": "author",
+      "domain": "Writing",
+      "level": 2,
+      "parent_category": "Writing",
+      "keywords": ["author", "novelist", "писатель", "романист"],
+      "language": ["en", "ru"]
+    },
+    "Screenwriter": {
+      "alias": "screenwriter",
+      "domain": "Writing",
+      "level": 2,
+      "parent_category": "Writing",
+      "keywords": ["screenwriter", "script writer", "сценарист", "драматург"],
+      "language": ["en", "ru"]
+    },
+    "Music_Composer": {
+      "alias": "composer",
+      "domain": "Music",
+      "level": 2,
+      "parent_category": "Music",
+      "keywords": ["composer", "songwriter", "композитор", "автор песен"],
+      "language": ["en", "ru"]
+    },
+    "Actor": {
+      "alias": "actor",
+      "domain": "Performing_Arts",
+      "level": 2,
+      "parent_category": "Performing_Arts",
+      "keywords": ["actor", "actress", "актер", "актриса"],
+      "language": ["en", "ru"]
+    }
+  },
+  "Unclassified": {
+    "alias": "unclassified",
+    "domain": "General",
+    "level": 0,
+    "parent_category": null,
+    "fallback_strategy": "uniform_distribution",
+    "generic_substitutes": [
+      "IT Specialist",
+      "Technical Specialist",
+      "Engineering Professional",
+      "Digital Specialist",
+      "Technology Expert",
+      "Systems Professional",
+      "Solutions Developer",
+      "Technical Consultant",
+      "Digital Professional",
+      "IT Consultant",
+      "Software Professional",
+      "Technical Expert",
+      "IT Engineer",
+      "Digital Engineer",
+      "Systems Specialist",
+      "Solutions Specialist",
+      "Technical Coordinator",
+      "IT Coordinator",
+      "Digital Solutions Expert",
+      "Technology Specialist",
+      "Инженер",
+      "IT-специалист",
+      "Технический специалист",
+      "Разработчик",
+      "Программист",
+      "Технолог",
+      "Аналитик",
+      "Консультант",
+      "Специалист по цифровым технологиям",
+      "Эксперт по техническим вопросам"
+    ],
+    "language": ["en", "ru"],
+    "usage_rules": {
+      "apply_when": "no_confidence_or_unknown",
+      "selection_method": "random_uniform",
+      "min_confidence_threshold": 0.2
+    }
+  },
+  "fallback_rules": {
+    "min_occurrences_threshold": 5,
+    "fallback_order": ["level_2", "level_1", "level_0"],
+    "default_category": "Unclassified",
+    "confidence_thresholds": {
+      "high": 0.8,
+      "medium": 0.5,
+      "low": 0.2
+    }
+  }
+}

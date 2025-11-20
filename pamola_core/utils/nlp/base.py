@@ -66,9 +66,12 @@ TOKENIZATION_DIR = os.environ.get(
 DICTIONARIES_DIR = os.environ.get(
     "PAMOLA_DICTIONARIES_DIR", os.path.join(RESOURCES_DIR, "dictionaries")
 )
+ENTITIES_DIR = os.environ.get(
+    "PAMOLA_ENTITIES_DIR", os.path.join(RESOURCES_DIR, "entities")
+)
 
 # Ensure resource directories exist
-for directory in [RESOURCES_DIR, STOPWORDS_DIR, TOKENIZATION_DIR, DICTIONARIES_DIR]:
+for directory in [RESOURCES_DIR, STOPWORDS_DIR, TOKENIZATION_DIR, DICTIONARIES_DIR, ENTITIES_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 

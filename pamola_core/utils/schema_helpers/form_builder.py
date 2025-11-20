@@ -658,9 +658,7 @@ def _add_x_reactions(
     has_dependencies = depend_fields and not is_ignore_depend_fields
     has_custom_function = "x-custom-function" in field
     custom_functions = field.get("x-custom-function", [])
-    function_name = (
-        custom_functions[0] if custom_functions else None
-    )
+    function_name = custom_functions[0] if custom_functions else None
 
     # Case 1: Has dependencies (x-depend-on or x-required-on or x-disabled-on)
     if has_dependencies:
@@ -677,9 +675,7 @@ def _add_x_reactions(
         if has_visible_or_required or has_custom_function:
             # Determine run script
             if has_custom_function:
-                if (
-                    function_name == CustomFunctions.UPDATE_INT64_FIELD_OPTIONS
-                ):
+                if function_name == CustomFunctions.UPDATE_INT64_FIELD_OPTIONS:
                     run = f"{function_name}($self); $self.setValue({default_value_str})"
                 else:
                     deps_expr = ", ".join(

@@ -1,0 +1,591 @@
+{
+  "categories_hierarchy": {    "Finance": {
+      "alias": "finance",
+      "domain": "Finance",
+      "level": 0,
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "children": ["Payment", "Transfer", "Withdrawal", "Deposit", "Refund", "Salary", "Subscription", "Utility", "Investment", "Insurance", "Loan", "Tax", "Fee", "Shopping", "Travel", "Entertainment", "Food", "Healthcare", "Education", "Charity", "Transportation", "Housing", "Pets", "Gifts", "Personal Care", "Business", "Savings", "Gambling"]
+    },    "Payment": {
+      "alias": "payment",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "payment", "платеж", "оплата", "pay", "invoice", "счет", "purchase",
+        "покупка", "fee", "комиссия", "pago", "factura", "compra", "paiement", 
+        "facture", "achat", "zahlung", "rechnung", "kauf", "支払い", "請求書", "購入", 
+        "支付", "发票", "购买", "bill", "charge", "settle", "tarifa", "cargo", "frais"
+      ]
+    },    "Transfer": {
+      "alias": "transfer",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "transfer", "перевод", "переброска", "remittance", "wire", "перевести",
+        "moved", "send", "отправка", "перечисление", "transferencia", "envío", 
+        "transfert", "virement", "envoyer", "überweisung", "senden", "振込", "送金", 
+        "転送", "转账", "汇款", "发送", "swift", "ach", "p2p", "zelle", "venmo"
+      ]
+    },    "Withdrawal": {
+      "alias": "withdrawal",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "withdrawal", "снятие", "cash", "наличные", "atm", "банкомат", "terminal",
+        "терминал", "касса", "retiro", "efectivo", "cajero", "retrait", "espèces", "guichet",
+        "abhebung", "bargeld", "geldautomat", "出金", "現金", "ATM", "取款", "现金", 
+        "自动取款机", "cashback", "money", "dinero", "argent", "geld", "お金", "钱"
+      ]
+    },    "Deposit": {
+      "alias": "deposit",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "deposit", "взнос", "внесение", "вложение", "депозит", "savings",
+        "сбережения", "investment", "инвестиция", "depósito", "ahorro", "inversión", 
+        "dépôt", "épargne", "investissement", "einzahlung", "einlage", "spareinlage", 
+        "預金", "貯金", "投資", "存款", "储蓄", "投资", "down payment", "funds", "credit"
+      ]
+    },    "Refund": {
+      "alias": "refund",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "refund", "возврат", "cashback", "reimbursement", "repayment", "return",
+        "возмещение", "компенсация", "reembolso", "devolución", "retorno", 
+        "remboursement", "retour", "compensation", "rückerstattung", "rückzahlung", 
+        "erstattung", "返金", "払い戻し", "還付", "退款", "返还", "补偿", "chargeback", 
+        "credit back", "money back"
+      ]
+    },    "Salary": {
+      "alias": "salary",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "salary", "зарплата", "wage", "payroll", "compensation", "comp",
+        "заработная плата", "аванс", "расчет", "вознаграждение", "sueldo", "salario", 
+        "nómina", "compensación", "salaire", "paie", "rémunération", "gehalt", "lohn", 
+        "vergütung", "給料", "賃金", "報酬", "薪水", "工资", "薪酬", "bonus", "income", 
+        "earnings", "stipend", "commission", "direct deposit"
+      ]
+    },    "Subscription": {
+      "alias": "subscription",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "subscription", "подписка", "recurring", "periodic", "ежемесячно",
+        "monthly", "годовой", "annual", "service", "сервис", "suscripción", "recurrente", 
+        "periódico", "mensual", "anual", "servicio", "abonnement", "récurrent", "périodique", 
+        "mensuel", "annuel", "abonnement", "wiederkehrend", "periodisch", "monatlich", "jährlich", 
+        "サブスクリプション", "定期", "毎月", "年間", "サービス", "订阅", "定期", "每月", "年度", "服务", 
+        "membership", "automatic payment", "auto-pay", "renewal"
+      ]
+    },    "Utility": {
+      "alias": "utility",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "utility", "жкх", "utilities", "electric", "water", "газ", "электричество",
+        "water", "вода", "utility bill", "счет за коммунальные услуги", "phone bill", 
+        "internet", "интернет", "телефон", "счет за телефон", "heating", "отопление",
+        "servicio", "luz", "agua", "gas", "electricidad", "factura", "teléfono", "calefacción",
+        "service public", "électricité", "eau", "gaz", "facture", "téléphone", "chauffage",
+        "versorgung", "strom", "wasser", "gas", "rechnung", "telefon", "heizung",
+        "公共料金", "電気", "水道", "ガス", "電話", "暖房", "インターネット",
+        "水电费", "电费", "水费", "煤气费", "电话费", "暖气费", "网费",
+        "power", "energy", "sewer", "garbage", "waste", "broadband", "fiber"
+      ]
+    },    "Investment": {
+      "alias": "investment",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "investment", "инвестиция", "stock", "акция", "bond", "облигация", "mutual fund", 
+        "паевой фонд", "dividend", "дивиденд", "securities", "ценные бумаги", "portfolio", 
+        "портфель", "shares", "акции", "crypto", "криптовалюта", "bitcoin", "биткоин", 
+        "ethereum", "эфириум", "trading", "трейдинг", "broker", "брокер", "interest", "процент",
+        "inversión", "acción", "bono", "fondo mutuo", "dividendo", "valores", "cartera", 
+        "acciones", "criptomoneda", "comercio", "corredor", "interés",
+        "investissement", "action", "obligation", "fonds commun", "dividende", "titres", 
+        "portefeuille", "cryptomonnaie", "courtier", "intérêt",
+        "investition", "aktie", "anleihe", "investmentfonds", "dividende", "wertpapiere", 
+        "portfolio", "aktien", "kryptowährung", "handel", "makler", "zinsen",
+        "投資", "株式", "債券", "投資信託", "配当", "証券", "ポートフォリオ", "暗号通貨", 
+        "取引", "ブローカー", "利子",
+        "投资", "股票", "债券", "共同基金", "股息", "证券", "投资组合", "股份", "加密货币", 
+        "交易", "经纪人", "利息",
+        "nft", "dao", "staking", "defi", "yield", "etf", "ira", "401k", "roth", "index"
+      ]
+    },    "Insurance": {
+      "alias": "insurance",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "insurance", "страхование", "policy", "полис", "premium", "премия", "coverage", 
+        "покрытие", "claim", "претензия", "health insurance", "медицинская страховка", 
+        "life insurance", "страхование жизни", "car insurance", "автостраховка", 
+        "property insurance", "страхование имущества", "liability", "ответственность",
+        "seguro", "póliza", "prima", "cobertura", "reclamación", "seguro de salud",
+        "seguro de vida", "seguro de auto", "seguro de propiedad", "responsabilidad",
+        "assurance", "police", "prime", "couverture", "réclamation", "assurance santé",
+        "assurance vie", "assurance auto", "assurance habitation", "responsabilité",
+        "versicherung", "police", "prämie", "deckung", "anspruch", "krankenversicherung",
+        "lebensversicherung", "autoversicherung", "eigentumsversicherung", "haftpflicht",
+        "保険", "保険契約", "保険料", "補償", "請求", "健康保険", "生命保険", "自動車保険", 
+        "財産保険", "賠償責任",
+        "保险", "保单", "保费", "保障", "索赔", "健康保险", "人寿保险", "车险", "财产保险", "责任",
+        "homeowners", "renters", "dental", "vision", "disability", "term", "whole"
+      ]
+    },    "Loan": {
+      "alias": "loan",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "loan", "кредит", "mortgage", "ипотека", "credit", "кредитный", "debt", "долг", 
+        "repayment", "выплата", "interest", "проценты", "principal", "основная сумма", 
+        "borrowing", "заём", "financing", "финансирование", "installment", "рассрочка", 
+        "student loan", "студенческий кредит", "car loan", "автокредит", "consolidation", 
+        "консолидация",
+        "préstamo", "hipoteca", "crédito", "deuda", "reembolso", "interés", "principal", 
+        "préstamo estudiantil", "préstamo de auto", "consolidación",
+        "prêt", "hypothèque", "crédit", "dette", "remboursement", "intérêt", "principal", 
+        "emprunt", "financement", "versement", "prêt étudiant", "prêt auto", "consolidation",
+        "darlehen", "hypothek", "kredit", "schulden", "rückzahlung", "zinsen", "hauptsumme", 
+        "finanzierung", "rate", "studentendarlehen", "autodarlehen", "konsolidierung",
+        "ローン", "住宅ローン", "クレジット", "借金", "返済", "利息", "元本", "借入", "融資", 
+        "分割払い", "学生ローン", "自動車ローン", "統合",
+        "贷款", "抵押贷款", "信贷", "债务", "还款", "利息", "本金", "借款", "融资", "分期付款", 
+        "学生贷款", "汽车贷款", "整合",
+        "heloc", "line of credit", "payday loan", "advance", "refinance", "lease"
+      ]
+    },    "Tax": {
+      "alias": "tax",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "tax", "налог", "taxes", "налоги", "income tax", "подоходный налог", "VAT", "НДС", 
+        "property tax", "налог на имущество", "tax return", "налоговая декларация", 
+        "tax refund", "возврат налога", "taxation", "налогообложение", "withholding", 
+        "удержание", "tax payment", "налоговый платеж", "duty", "пошлина",
+        "impuesto", "impuestos", "impuesto sobre la renta", "IVA", "impuesto a la propiedad", 
+        "declaración de impuestos", "devolución de impuestos", "tributación", "retención",
+        "impôt", "impôts", "impôt sur le revenu", "TVA", "impôt foncier", "déclaration d'impôts", 
+        "remboursement d'impôts", "fiscalité", "retenue",
+        "steuer", "steuern", "einkommensteuer", "mehrwertsteuer", "grundsteuer", 
+        "steuererklärung", "steuerrückerstattung", "besteuerung", "quellensteuer",
+        "税金", "税", "所得税", "消費税", "固定資産税", "確定申告", "税金還付", "課税", "源泉徴収",
+        "税", "税款", "所得税", "增值税", "财产税", "纳税申报", "退税", "征税", "预扣税",
+        "irs", "hmrc", "cra", "estate tax", "capital gains", "tariff", "tax deduction", "customs"
+      ]
+    },    "Fee": {
+      "alias": "fee",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "fee", "сбор", "service fee", "плата за обслуживание", "membership fee", 
+        "членский взнос", "processing fee", "комиссия за обработку", "late fee", 
+        "штраф за просрочку", "annual fee", "ежегодный сбор", "account fee", 
+        "плата за счет", "transaction fee", "комиссия за транзакцию", "ATM fee", 
+        "комиссия банкомата", "penalty", "штраф",
+        "tarifa", "cargo", "cuota de servicio", "cuota de membresía", "cargo por procesamiento", 
+        "cargo por retraso", "cuota anual", "cargo por cuenta", "comisión por transacción", 
+        "comisión de cajero", "multa",
+        "frais", "frais de service", "frais d'adhésion", "frais de traitement", "frais de retard", 
+        "frais annuels", "frais de compte", "frais de transaction", "frais de guichet", "pénalité",
+        "gebühr", "servicegebühr", "mitgliedsbeitrag", "bearbeitungsgebühr", "säumnisgebühr", 
+        "jahresgebühr", "kontogebühr", "transaktionsgebühr", "geldautomatengebühr", "strafe",
+        "手数料", "サービス料", "会員費", "処理手数料", "延滞料", "年会費", "口座手数料", 
+        "取引手数料", "ATM手数料", "ペナルティ",
+        "费用", "服务费", "会员费", "处理费", "滞纳金", "年费", "账户费", "交易费", "取款费", "罚款",
+        "surcharge", "charge", "assessment", "dues", "fine", "toll", "bank fee", "overdraft fee"
+      ]
+    },    "Shopping": {
+      "alias": "shopping",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "shopping", "шоппинг", "purchase", "покупка", "retail", "розничная торговля", 
+        "online shopping", "онлайн-покупки", "store", "магазин", "supermarket", 
+        "супермаркет", "mall", "торговый центр", "grocery", "продукты", "clothes", 
+        "одежда", "electronics", "электроника", "furniture", "мебель", "cosmetics", 
+        "косметика", "department store", "универмаг",
+        "compras", "compra", "venta minorista", "compras en línea", "tienda", "supermercado", 
+        "centro comercial", "comestibles", "ropa", "electrónica", "muebles", "cosméticos", 
+        "grandes almacenes",
+        "achats", "achat", "commerce de détail", "achats en ligne", "magasin", "supermarché", 
+        "centre commercial", "épicerie", "vêtements", "électronique", "meubles", "cosmétiques", 
+        "grand magasin",
+        "einkaufen", "einkauf", "einzelhandel", "online-shopping", "geschäft", "supermarkt", 
+        "einkaufszentrum", "lebensmittel", "kleidung", "elektronik", "möbel", "kosmetik", "kaufhaus",
+        "ショッピング", "購入", "小売り", "ネットショッピング", "店", "スーパーマーケット", "ショッピングモール", 
+        "食料品", "衣服", "電子機器", "家具", "化粧品", "デパート",
+        "购物", "购买", "零售", "网上购物", "商店", "超市", "商场", "杂货", "服装", "电子产品", 
+        "家具", "化妆品", "百货商店",
+        "amazon", "walmart", "target", "ebay", "alibaba", "taobao", "ikea", "zara", "apparel", "accessory"
+      ]
+    },    "Travel": {
+      "alias": "travel",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "travel", "путешествие", "flight", "полет", "airline", "авиакомпания", "hotel", 
+        "отель", "booking", "бронирование", "vacation", "отпуск", "accommodation", 
+        "проживание", "tourism", "туризм", "ticket", "билет", "reservation", "резервирование", 
+        "car rental", "аренда автомобиля", "cruise", "круиз", "tour", "тур",
+        "viaje", "vuelo", "aerolínea", "hotel", "reserva", "vacaciones", "alojamiento", 
+        "turismo", "billete", "alquiler de coches", "crucero", "tour",
+        "voyage", "vol", "compagnie aérienne", "hôtel", "réservation", "vacances", "hébergement", 
+        "tourisme", "billet", "location de voiture", "croisière", "circuit",
+        "reise", "flug", "fluggesellschaft", "hotel", "buchung", "urlaub", "unterkunft", 
+        "tourismus", "ticket", "autovermietung", "kreuzfahrt", "rundreise",
+        "旅行", "飛行", "航空会社", "ホテル", "予約", "休暇", "宿泊", "観光", "チケット", 
+        "レンタカー", "クルーズ", "ツアー",
+        "旅游", "航班", "航空公司", "酒店", "预订", "假期", "住宿", "旅游业", "票", 
+        "汽车租赁", "邮轮", "旅游",
+        "airbnb", "expedia", "trip", "airport", "resort", "motel", "backpacking", "hostel", "kayak"
+      ]
+    },    "Entertainment": {
+      "alias": "entertainment",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "entertainment", "развлечения", "movie", "кино", "concert", "концерт", "theater", 
+        "театр", "show", "шоу", "ticket", "билет", "amusement", "аттракцион", "streaming", 
+        "стриминг", "Netflix", "Нетфликс", "Spotify", "gaming", "игры", "event", "событие", 
+        "festival", "фестиваль", "party", "вечеринка",
+        "entretenimiento", "película", "concierto", "teatro", "espectáculo", "boleto", "diversión", 
+        "transmisión", "juegos", "evento", "festival", "fiesta",
+        "divertissement", "film", "concert", "théâtre", "spectacle", "billet", "amusement", 
+        "streaming", "jeux", "événement", "festival", "fête",
+        "unterhaltung", "film", "konzert", "theater", "show", "ticket", "vergnügen", "streaming", 
+        "spiele", "veranstaltung", "festival", "party",
+        "エンターテイメント", "映画", "コンサート", "劇場", "ショー", "チケット", "アミューズメント", 
+        "ストリーミング", "ゲーム", "イベント", "フェスティバル", "パーティー",
+        "娱乐", "电影", "音乐会", "剧院", "表演", "票", "游乐", "流媒体", "游戏", "活动", "节日", "派对",
+        "disney+", "hulu", "hbo", "cinema", "youtube", "twitch", "steam", "playstation", "xbox", "nintendo"
+      ]
+    },    "Food": {
+      "alias": "food",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "food", "еда", "restaurant", "ресторан", "cafe", "кафе", "dining", "обед", 
+        "takeout", "еда на вынос", "delivery", "доставка", "fastfood", "фастфуд", 
+        "meal", "питание", "grocery", "продукты", "coffee", "кофе", "lunch", "обед", 
+        "dinner", "ужин", "breakfast", "завтрак", "bar", "бар",
+        "comida", "restaurante", "cafetería", "cena", "comida para llevar", "entrega", 
+        "comida rápida", "comestibles", "café", "almuerzo", "cena", "desayuno", "barra",
+        "nourriture", "restaurant", "café", "dîner", "plats à emporter", "livraison", 
+        "fast-food", "repas", "épicerie", "café", "déjeuner", "dîner", "petit déjeuner", "bar",
+        "essen", "restaurant", "café", "essen", "essen zum mitnehmen", "lieferung", "fastfood", 
+        "mahlzeit", "lebensmittel", "kaffee", "mittagessen", "abendessen", "frühstück", "bar",
+        "食べ物", "レストラン", "カフェ", "食事", "テイクアウト", "配達", "ファーストフード", "食事", 
+        "食料品", "コーヒー", "昼食", "夕食", "朝食", "バー",
+        "食物", "餐厅", "咖啡馆", "用餐", "外卖", "送餐", "快餐", "餐点", "杂货", "咖啡", 
+        "午餐", "晚餐", "早餐", "酒吧",
+        "doordash", "grubhub", "ubereats", "mcdonald's", "starbucks", "pizza", "sushi", "burger", "taco"
+      ]
+    },    "Healthcare": {
+      "alias": "healthcare",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "healthcare", "здравоохранение", "medical", "медицинский", "doctor", "врач", 
+        "hospital", "больница", "clinic", "клиника", "pharmacy", "аптека", "medicine", 
+        "лекарство", "dental", "стоматология", "therapy", "терапия", "specialist", 
+        "специалист", "emergency", "неотложка", "insurance", "страховка", "treatment", 
+        "лечение", "examination", "обследование",
+        "salud", "médico", "doctor", "hospital", "clínica", "farmacia", "medicina", "dental", 
+        "terapia", "especialista", "emergencia", "seguro", "tratamiento", "examen",
+        "santé", "médical", "médecin", "hôpital", "clinique", "pharmacie", "médicament", 
+        "dentaire", "thérapie", "spécialiste", "urgence", "assurance", "traitement", "examen",
+        "gesundheit", "medizinisch", "arzt", "krankenhaus", "klinik", "apotheke", "medizin", 
+        "dental", "therapie", "spezialist", "notfall", "versicherung", "behandlung", "untersuchung",
+        "ヘルスケア", "医療", "医師", "病院", "クリニック", "薬局", "薬", "歯科", "セラピー", 
+        "専門医", "緊急", "保険", "治療", "検査",
+        "医疗保健", "医疗", "医生", "医院", "诊所", "药店", "药物", "牙科", "治疗", "专家", 
+        "急诊", "保险", "治疗", "检查",
+        "physician", "prescription", "wellness", "laboratory", "lab", "x-ray", "scan", "mri", "checkup"
+      ]
+    },    "Education": {
+      "alias": "education",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "education", "образование", "tuition", "обучение", "school", "школа", "university", 
+        "университет", "college", "колледж", "course", "курс", "training", "тренинг", 
+        "textbook", "учебник", "supplies", "принадлежности", "student", "студент", "class", 
+        "класс", "lesson", "урок", "degree", "степень", "certification", "сертификация", 
+        "examination", "экзамен",
+        "educación", "matrícula", "escuela", "universidad", "colegio", "curso", "formación", 
+        "libro de texto", "suministros", "estudiante", "clase", "lección", "título", "certificación", 
+        "examen",
+        "éducation", "frais de scolarité", "école", "université", "collège", "cours", "formation", 
+        "manuel", "fournitures", "étudiant", "classe", "leçon", "diplôme", "certification", 
+        "examen",
+        "bildung", "studiengebühren", "schule", "universität", "hochschule", "kurs", "ausbildung", 
+        "lehrbuch", "zubehör", "student", "klasse", "unterricht", "abschluss", "zertifizierung", 
+        "prüfung",
+        "教育", "授業料", "学校", "大学", "カレッジ", "コース", "トレーニング", "教科書", 
+        "用品", "学生", "クラス", "レッスン", "学位", "認証", "試験",
+        "教育", "学费", "学校", "大学", "学院", "课程", "培训", "教科书", "用品", "学生", 
+        "班级", "课", "学位", "认证", "考试",
+        "lecture", "seminar", "workshop", "scholarship", "academy", "instructor", "professor", "coursera"
+      ]
+    },    "Charity": {
+      "alias": "charity",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "charity", "благотворительность", "donation", "пожертвование", "nonprofit", 
+        "некоммерческий", "foundation", "фонд", "fundraiser", "сбор средств", "support", 
+        "поддержка", "contribution", "взнос", "humanitarian", "гуманитарный", "volunteer", 
+        "волонтер", "giving", "дарение", "community", "сообщество", "aid", "помощь",
+        "caridad", "donación", "sin fines de lucro", "fundación", "recaudación de fondos", 
+        "apoyo", "contribución", "humanitario", "voluntario", "donación", "comunidad", "ayuda",
+        "charité", "don", "sans but lucratif", "fondation", "collecte de fonds", "soutien", 
+        "contribution", "humanitaire", "bénévole", "don", "communauté", "aide",
+        "wohltätigkeit", "spende", "gemeinnützig", "stiftung", "spendensammler", "unterstützung", 
+        "beitrag", "humanitär", "freiwilliger", "geben", "gemeinschaft", "hilfe",
+        "慈善", "寄付", "非営利", "財団", "募金活動", "支援", "貢献", "人道的", "ボランティア", 
+        "寄付", "コミュニティ", "援助",
+        "慈善", "捐款", "非营利", "基金会", "筹款", "支持", "贡献", "人道主义", "志愿者", 
+        "捐赠", "社区", "援助",
+        "red cross", "unicef", "fundraising", "cause", "donate", "salvation army", "philanthropy"
+      ]
+    },
+    "Transportation": {
+      "alias": "transportation",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "transportation", "транспорт", "bus", "автобус", "train", "поезд", "subway", "метро", 
+        "taxi", "такси", "rideshare", "райдшеринг", "uber", "lyft", "commute", "поездка на работу", 
+        "public transport", "общественный транспорт", "fare", "плата за проезд", "transit", 
+        "транзит", "gas", "бензин", "fuel", "топливо", "parking", "парковка",
+        "transporte", "autobús", "tren", "metro", "taxi", "compartir viaje", "transporte público", 
+        "tarifa", "tránsito", "gasolina", "combustible", "estacionamiento",
+        "transport", "bus", "train", "métro", "taxi", "covoiturage", "transport en commun", 
+        "tarif", "transit", "essence", "carburant", "stationnement",
+        "transport", "bus", "zug", "u-bahn", "taxi", "fahrgemeinschaft", "öffentlicher verkehr", 
+        "fahrpreis", "transit", "benzin", "kraftstoff", "parken",
+        "交通", "バス", "電車", "地下鉄", "タクシー", "ライドシェア", "通勤", "公共交通機関", 
+        "運賃", "トランジット", "ガソリン", "燃料", "駐車場",
+        "交通", "公交车", "火车", "地铁", "出租车", "共享出行", "通勤", "公共交通", 
+        "票价", "过境", "汽油", "燃料", "停车",
+        "car service", "shuttle", "ferry", "toll", "highway", "e-scooter", "bike share", "rental"
+      ]
+    },
+    "Housing": {
+      "alias": "housing",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "housing", "жилье", "rent", "аренда", "mortgage", "ипотека", "property", "недвижимость", 
+        "apartment", "квартира", "house", "дом", "condominium", "кондоминиум", "lease", "аренда", 
+        "landlord", "домовладелец", "tenant", "арендатор", "real estate", "недвижимость", 
+        "security deposit", "залог", "maintenance", "обслуживание",
+        "vivienda", "alquiler", "hipoteca", "propiedad", "apartamento", "casa", "condominio", 
+        "arrendamiento", "propietario", "inquilino", "bienes raíces", "depósito de seguridad", 
+        "mantenimiento",
+        "logement", "loyer", "hypothèque", "propriété", "appartement", "maison", "copropriété", 
+        "bail", "propriétaire", "locataire", "immobilier", "caution", "entretien",
+        "wohnung", "miete", "hypothek", "eigentum", "wohnung", "haus", "eigentumswohnung", 
+        "pacht", "vermieter", "mieter", "immobilien", "kaution", "wartung",
+        "住宅", "家賃", "住宅ローン", "不動産", "アパート", "家", "分譲マンション", "リース", 
+        "家主", "借家人", "不動産", "敷金", "メンテナンス",
+        "住房", "租金", "抵押贷款", "房产", "公寓", "房子", "共管公寓", "租约", "房东", 
+        "租户", "房地产", "保证金", "维护",
+        "utilities", "amenities", "homeowner", "renovation", "hoa", "condo", "townhouse", "realtor"
+      ]
+    },
+    "Pets": {
+      "alias": "pets",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "pet", "питомец", "veterinary", "ветеринарный", "vet", "ветеринар", "dog", "собака", 
+        "cat", "кошка", "animal", "животное", "pet food", "корм для животных", "grooming", 
+        "груминг", "pet supplies", "товары для животных", "boarding", "передержка", 
+        "pet care", "уход за животными", "pet insurance", "страхование животных",
+        "mascota", "veterinario", "perro", "gato", "animal", "alimentos para mascotas", "aseo", 
+        "suministros para mascotas", "embarque", "cuidado de mascotas", "seguro para mascotas",
+        "animal domestique", "vétérinaire", "chien", "chat", "animal", "nourriture pour animaux", 
+        "toilettage", "fournitures pour animaux", "pension", "soins des animaux", 
+        "assurance pour animaux",
+        "haustier", "tierarzt", "hund", "katze", "tier", "tierfutter", "pflege", 
+        "haustierbedarf", "unterbringung", "tierpflege", "tierversicherung",
+        "ペット", "獣医", "犬", "猫", "動物", "ペットフード", "グルーミング", "ペット用品", 
+        "ボーディング", "ペットケア", "ペット保険",
+        "宠物", "兽医", "狗", "猫", "动物", "宠物食品", "美容", "宠物用品", "寄养", 
+        "宠物护理", "宠物保险",
+        "animal hospital", "pet store", "aquarium", "birdfood", "reptile", "adoption", "rescue"
+      ]
+    },
+    "Gifts": {
+      "alias": "gifts",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "gift", "подарок", "present", "презент", "birthday", "день рождения", "anniversary", 
+        "годовщина", "holiday", "праздник", "christmas", "рождество", "wedding", "свадьба", 
+        "celebration", "празднование", "card", "открытка", "flower", "цветы", "souvenir", 
+        "сувенир", "gift card", "подарочная карта", "wrapping", "упаковка",
+        "regalo", "presente", "cumpleaños", "aniversario", "vacaciones", "navidad", "boda", 
+        "celebración", "tarjeta", "flor", "souvenir", "tarjeta de regalo", "envoltorio",
+        "cadeau", "présent", "anniversaire", "anniversaire", "vacances", "noël", "mariage", 
+        "célébration", "carte", "fleur", "souvenir", "carte-cadeau", "emballage",
+        "geschenk", "präsent", "geburtstag", "jubiläum", "feiertag", "weihnachten", "hochzeit", 
+        "feier", "karte", "blume", "souvenir", "geschenkkarte", "verpackung",
+        "ギフト", "プレゼント", "誕生日", "記念日", "休日", "クリスマス", "結婚式", "お祝い", 
+        "カード", "花", "お土産", "ギフトカード", "包装",
+        "礼物", "礼品", "生日", "周年纪念", "假日", "圣诞节", "婚礼", "庆祝", "卡片", 
+        "花", "纪念品", "礼品卡", "包装",
+        "donation", "charity", "greeting card", "basket", "balloon", "valentine", "thanksgiving"
+      ]
+    },
+    "Personal Care": {
+      "alias": "personal_care",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "personal care", "личная гигиена", "beauty", "красота", "haircut", "стрижка", 
+        "salon", "салон", "spa", "спа", "cosmetics", "косметика", "makeup", "макияж", 
+        "skincare", "уход за кожей", "barber", "парикмахер", "hygiene", "гигиена", 
+        "toiletries", "туалетные принадлежности", "grooming", "уход", "massage", "массаж",
+        "cuidado personal", "belleza", "corte de pelo", "salón", "spa", "cosméticos", "maquillaje", 
+        "cuidado de la piel", "barbero", "higiene", "artículos de tocador", "aseo", "masaje",
+        "soins personnels", "beauté", "coupe de cheveux", "salon", "spa", "cosmétiques", "maquillage", 
+        "soins de la peau", "barbier", "hygiène", "articles de toilette", "toilettage", "massage",
+        "körperpflege", "schönheit", "haarschnitt", "salon", "spa", "kosmetik", "make-up", 
+        "hautpflege", "friseur", "hygiene", "toilettenartikel", "pflege", "massage",
+        "個人的なケア", "美容", "散髪", "サロン", "スパ", "化粧品", "メイクアップ", "スキンケア", 
+        "理容師", "衛生", "トイレタリー", "グルーミング", "マッサージ",
+        "个人护理", "美容", "理发", "沙龙", "水疗", "化妆品", "化妆", "护肤", "理发师", 
+        "卫生", "洗漱用品", "修饰", "按摩",
+        "nail salon", "facial", "waxing", "perfume", "cologne", "soap", "shampoo", "razor", "lotion"
+      ]
+    },
+    "Business": {
+      "alias": "business",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "business", "бизнес", "office", "офис", "supplies", "расходные материалы", 
+        "equipment", "оборудование", "software", "программное обеспечение", "service", "услуга", 
+        "consulting", "консалтинг", "professional", "профессиональный", "contractor", "подрядчик", 
+        "client", "клиент", "meeting", "встреча", "marketing", "маркетинг", "advertising", "реклама",
+        "negocio", "oficina", "suministros", "equipo", "software", "servicio", "consultoría", 
+        "profesional", "contratista", "cliente", "reunión", "marketing", "publicidad",
+        "entreprise", "bureau", "fournitures", "équipement", "logiciel", "service", "conseil", 
+        "professionnel", "entrepreneur", "client", "réunion", "marketing", "publicité",
+        "geschäft", "büro", "vorräte", "ausrüstung", "software", "dienstleistung", "beratung", 
+        "professionell", "auftragnehmer", "kunde", "besprechung", "marketing", "werbung",
+        "ビジネス", "オフィス", "備品", "機器", "ソフトウェア", "サービス", "コンサルティング", 
+        "プロフェッショナル", "請負業者", "クライアント", "会議", "マーケティング", "広告",
+        "商业", "办公室", "用品", "设备", "软件", "服务", "咨询", "专业", "承包商", 
+        "客户", "会议", "营销", "广告",
+        "conference", "seminar", "trade show", "networking", "incorporation", "llc", "startup", "b2b"
+      ]
+    },
+    "Savings": {
+      "alias": "savings",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "savings", "сбережения", "emergency fund", "резервный фонд", "rainy day", "черный день", 
+        "retirement", "пенсия", "401k", "ira", "pension", "пенсионный фонд", "nest egg", "подушка безопасности", 
+        "future", "будущее", "financial goal", "финансовая цель", "reserve", "резерв", 
+        "piggy bank", "копилка", "set aside", "отложить", "budget", "бюджет",
+        "ahorros", "fondo de emergencia", "día lluvioso", "jubilación", "pensión", "futuro", 
+        "meta financiera", "reserva", "alcancía", "reservar", "presupuesto",
+        "économies", "fonds d'urgence", "jour de pluie", "retraite", "pension", "avenir", 
+        "objectif financier", "réserve", "tirelire", "mettre de côté", "budget",
+        "ersparnisse", "notfallfonds", "regentag", "ruhestand", "rente", "zukunft", 
+        "finanzielles ziel", "reserve", "sparschwein", "beiseite legen", "budget",
+        "貯蓄", "緊急資金", "雨の日", "退職", "年金", "将来", "財務目標", "準備金", 
+        "貯金箱", "取っておく", "予算",
+        "储蓄", "应急基金", "雨天", "退休", "养老金", "未来", "财务目标", "储备", 
+        "储蓄罐", "留出", "预算",
+        "wealth", "financial independence", "investment", "compound interest", "dividend", "yield"
+      ]
+    },
+    "Gambling": {
+      "alias": "gambling",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en", "ru", "es", "fr", "de", "ja", "zh"],
+      "keywords": [
+        "gambling", "азартные игры", "casino", "казино", "bet", "ставка", "lottery", "лотерея", 
+        "poker", "покер", "slots", "игровые автоматы", "betting", "ставки", "roulette", "рулетка", 
+        "blackjack", "блэкджек", "wager", "пари", "jackpot", "джекпот", "sports betting", "спортивные ставки", 
+        "raffle", "розыгрыш", "scratch card", "скретч-карта",
+        "juego", "casino", "apuesta", "lotería", "póquer", "tragamonedas", "apuestas", 
+        "ruleta", "blackjack", "apuesta", "bote", "apuestas deportivas", "rifa", "tarjeta de raspar",
+        "jeu", "casino", "pari", "loterie", "poker", "machines à sous", "paris", 
+        "roulette", "blackjack", "pari", "jackpot", "paris sportifs", "tombola", "carte à gratter",
+        "glücksspiel", "kasino", "wette", "lotterie", "poker", "spielautomaten", "wetten", 
+        "roulette", "blackjack", "einsatz", "jackpot", "sportwetten", "tombola", "rubbelkarte",
+        "ギャンブル", "カジノ", "賭け", "宝くじ", "ポーカー", "スロット", "賭博", 
+        "ルーレット", "ブラックジャック", "賭け金", "ジャックポット", "スポーツ賭博", "抽選", "スクラッチカード",
+        "赌博", "赌场", "赌注", "彩票", "扑克", "老虎机", "投注", "轮盘赌", "二十一点", 
+        "赌注", "头奖", "体育博彩", "抽奖", "刮刮卡",
+        "powerball", "mega millions", "bingo", "horse racing", "fantasy sports", "keno", "draftkings"
+      ]
+    }
+  }
+}

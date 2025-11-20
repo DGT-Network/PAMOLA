@@ -131,7 +131,7 @@ from pamola_core.anonymization.commons.visualization_utils import (
 )
 
 # Framework utilities
-from pamola_core.anonymization.schemas.categorical_op_schema import CategoricalGeneralizationConfig
+from pamola_core.anonymization.schemas.categorical_op_core_schema import CategoricalGeneralizationConfig
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
@@ -168,7 +168,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         dictionary_format: str = "auto",
         hierarchy_level: int = 1,
         # Frequency-based parameters
-        merge_low_freq: bool = False,
         min_group_size: int = DEFAULT_MIN_GROUP_SIZE,
         freq_threshold: float = DEFAULT_FREQ_THRESHOLD,
         max_categories: int = MAX_CATEGORIES,
@@ -204,8 +203,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             Dictionary file format (auto|json|csv)
         hierarchy_level : int, default=1
             Target hierarchy level (1 to MAX_HIERARCHY_LEVELS)
-        merge_low_freq : bool, default=False
-            Enable low-frequency category merging
         min_group_size : int, default=DEFAULT_MIN_GROUP_SIZE
             Minimum group size for privacy
         freq_threshold : float, default=DEFAULT_FREQ_THRESHOLD
@@ -252,7 +249,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             external_dictionary_path=external_dictionary_path,
             dictionary_format=dictionary_format,
             hierarchy_level=hierarchy_level,
-            merge_low_freq=merge_low_freq,
             min_group_size=min_group_size,
             freq_threshold=freq_threshold,
             max_categories=max_categories,
@@ -1543,7 +1539,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             dictionary_format=self.dictionary_format,
             hierarchy_level=self.hierarchy_level,
             # Frequency-based parameters
-            merge_low_freq=self.merge_low_freq,
             min_group_size=self.min_group_size,
             freq_threshold=self.freq_threshold,
             max_categories=self.max_categories,

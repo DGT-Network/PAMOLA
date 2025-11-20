@@ -21,9 +21,9 @@ from unittest.mock import Mock, patch, MagicMock
 
 from pamola_core.anonymization.noise.uniform_numeric_op import (
     UniformNumericNoiseOperation,
-    UniformNumericNoiseConfig,
 )
 from pamola_core.anonymization.commons.validation.exceptions import InvalidParameterError
+from pamola_core.anonymization.schemas.uniform_numeric_op_core_schema import UniformNumericNoiseConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.ops.op_config import ConfigError

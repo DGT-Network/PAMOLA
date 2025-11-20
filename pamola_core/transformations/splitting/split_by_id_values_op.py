@@ -69,7 +69,7 @@ from pamola_core.utils.io_helpers import crypto_utils, directory_utils
 import dask.dataframe as dd
 from joblib import Parallel, delayed
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.transformations.schemas.split_by_id_values_op_schema import SplitByIDValuesOperationConfig
+from pamola_core.transformations.schemas.split_by_id_values_op_core_schema import SplitByIDValuesOperationConfig
 
 
 @register(version="1.0.0")

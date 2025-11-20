@@ -41,14 +41,13 @@ from pamola_core.profiling.commons.identity_utils import (
     generate_field_distribution_vis,
     generate_identifier_statistics_vis,
 )
-from pamola_core.profiling.schemas.identity_schema import IdentityAnalysisOperationConfig
+from pamola_core.profiling.schemas.identity_core_schema import IdentityAnalysisOperationConfig
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register

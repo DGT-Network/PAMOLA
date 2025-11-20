@@ -40,10 +40,8 @@ warnings.filterwarnings(
 )
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning:kaleido.*")
 
-from pamola_core.anonymization.generalization.numeric_op import (
-    NumericGeneralizationOperation,
-    NumericGeneralizationConfig,
-)
+from pamola_core.anonymization.generalization.numeric_op import NumericGeneralizationOperation
+from pamola_core.anonymization.schemas.numeric_op_core_schema import NumericGeneralizationConfig
 from pamola_core.utils.ops.op_result import OperationStatus
 from pamola_core.utils.ops.op_data_source import DataSource
 

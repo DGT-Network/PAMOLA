@@ -46,6 +46,7 @@ MVF_EXCLUDE_FIELDS = [
     "encryption_key",
     "save_output",
     "field_name",
+    "parse_kwargs",
     "ka_risk_field",
     "risk_threshold",
     "vulnerable_record_strategy",

@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional
 import numpy as np
 import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
-from pamola_core.fake_data.schemas.name_op_schema import FakeNameOperationConfig
+from pamola_core.fake_data.schemas.name_op_core_schema import FakeNameOperationConfig
 from pamola_core.fake_data.commons.prgn import PRNGenerator
 from pamola_core.fake_data.generators.name import NameGenerator
 from pamola_core.utils import io

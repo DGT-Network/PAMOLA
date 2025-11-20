@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Import pamola modules
 from pamola_core.profiling.categorical.pattern import PatternProfiler
-from pamola_core.config import config
+from pamola_core import configs
 from pamola_core.utils.logging import configure_logging
 
 

@@ -47,7 +47,7 @@ from pamola_core.transformations.commons.aggregation_utils import (
     generate_record_count_per_group_vis,
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.schemas.aggregate_records_op_schema import AggregateRecordsOperationConfig
+from pamola_core.transformations.schemas.aggregate_records_op_core_schema import AggregateRecordsOperationConfig
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter

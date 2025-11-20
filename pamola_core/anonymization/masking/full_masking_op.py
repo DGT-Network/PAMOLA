@@ -59,7 +59,7 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_comparison_visualization,
     sample_large_dataset,
 )
-from pamola_core.anonymization.schemas.full_masking_op_schema import FullMaskingConfig
+from pamola_core.anonymization.schemas.full_masking_op_core_schema import FullMaskingConfig
 from pamola_core.common.constants import Constants
 from pamola_core.io.base import DataWriter
 from pamola_core.utils.helpers import filter_used_kwargs

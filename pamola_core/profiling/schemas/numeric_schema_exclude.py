@@ -46,6 +46,7 @@ NUMERIC_EXCLUDE_FIELDS = [
     "encryption_key",
     "save_output",
     "field_name",
+    "profile_type",
     "ka_risk_field",
     "risk_threshold",
     "vulnerable_record_strategy",

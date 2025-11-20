@@ -23,7 +23,6 @@ configuration framework.
 
 Features
 --------
-- **Schema Validation**: JSON Schema-based validation extending BaseOperationConfig
 - **Strategy Support**: Multiple generalization strategies (hierarchy, frequency-based, merge)
 - **NULL Handling**: Configurable strategies for NULL value processing
 - **Privacy Controls**: Built-in privacy threshold validation and k-anonymity checks
@@ -36,21 +35,6 @@ Supported Strategies
 1. **HIERARCHY**: Dictionary-based hierarchical generalization
 2. **MERGE_LOW_FREQ**: Merge low-frequency categories into groups
 3. **FREQUENCY_BASED**: Frequency-threshold based category preservation
-
-Usage Example
--------------
-```python
-from pamola_core.anonymization.generalization import CategoricalGeneralizationConfig
-
-# Create configuration
-config = CategoricalGeneralizationConfig(
-    field_name="occupation",
-    strategy="hierarchy",
-    hierarchy_level=2,
-    external_dictionary_path="/path/to/hierarchy.json",
-    allow_unknown=True,
-    unknown_value="OTHER"
-)
 
 # Get strategy-specific parameters
 params = get_strategy_params(config.params)
@@ -68,12 +52,9 @@ Dependencies
 ------------
 - enum: Strategy and option enumerations
 - typing: Type annotations and hints
-- pamola_core.utils.ops.op_config: Base configuration classes
 
 See Also
 --------
-- BaseOperationConfig: Base configuration class
-- OperationConfig: Parent operation configuration
 - Generalization operations documentation
 
 Notes
@@ -96,7 +77,6 @@ Changelog
 
 from enum import Enum
 from typing import Any, Dict
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 
 
 # =============================================================================
@@ -327,8 +307,6 @@ def get_strategy_params(config_params: Dict[str, Any]) -> Dict[str, Any]:
 # =============================================================================
 
 __all__ = [
-    # Main configuration class
-    "CategoricalGeneralizationConfig",
     # Helper functions
     "get_strategy_params",
     # Enumerations
