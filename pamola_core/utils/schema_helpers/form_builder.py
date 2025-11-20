@@ -391,6 +391,8 @@ def convert_property(
     elif field.get("x-component") in [
         CustomComponents.NUMERIC_RANGE_MODE,
         CustomComponents.DEPEND_SELECT,
+        CustomComponents.DATE_FORMAT,
+        CustomComponents.FORMAT_PATTERNS,
     ]:
         field = _handle_custom_component(field)
 
@@ -519,6 +521,36 @@ def _handle_custom_component(field: dict) -> dict:
 
         # Clean up custom properties
         field.pop("x-depend-map", None)
+
+    elif component == CustomComponents.DATE_FORMAT:
+
+        # Convert to Select with reactions
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "DateFormat"
+        field["x-component-props"] = {
+            "formatActions": "{{ supportedFormatActions }}",
+            "placeholder": "e.g., %Y-%m-%d",
+        }
+        field["x-component-props"] = {
+            "formatActions": "{{ supportedFormatActions }}",
+            "placeholder": "e.g., %Y-%m-%d",
+        }
+
+    elif component == CustomComponents.FORMAT_PATTERNS:
+
+        # Convert to Select with reactions
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "FormatPatterns"
+        field["x-component-props"] = {
+            "placeholder": "Value (e.g., r(\\d{3})-(\\d{3})-(\\d{4}))",
+        }
+        field["enum"] = [
+            {"value": "phone", "label": "Phone Number"},
+            {"value": "ssn", "label": "SSN"},
+            {"value": "credit_card", "label": "Credit Card"},
+            {"value": "email", "label": "Email"},
+            {"value": "date", "label": "Date"},
+        ]
 
     return field
 
