@@ -626,35 +626,6 @@ class EmailOperation(FieldOperation):
                 exception=e,
             )
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare required directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary of directory paths
-        """
-        # Create required directories
-        output_dir = task_dir / "output"
-        visualizations_dir = task_dir / "visualizations"
-        dictionaries_dir = task_dir / "dictionaries"
-
-        ensure_directory(output_dir)
-        ensure_directory(visualizations_dir)
-        ensure_directory(dictionaries_dir)
-
-        return {
-            "output": output_dir,
-            "visualizations": visualizations_dir,
-            "dictionaries": dictionaries_dir,
-        }
-
     def _assess_privacy_risk(
         self, df: Union[dd.DataFrame, pd.DataFrame], field_name: str
     ) -> Optional[Dict[str, Any]]:
@@ -975,36 +946,7 @@ class EmailOperation(FieldOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1019,54 +961,9 @@ class EmailOperation(FieldOperation):
             "min_frequency": self.min_frequency,
             "profile_type": self.profile_type,
             "analyze_privacy_risk": self.analyze_privacy_risk,
-            "encryption_key": self.encryption_key,
-            "use_encryption": self.use_encryption,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "chunk_size": self.chunk_size,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_mode": self.encryption_mode,
-            "encryption_key": self.encryption_key,
         }
 
         return parameters
-
-    def _generate_data_hash(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
         self,

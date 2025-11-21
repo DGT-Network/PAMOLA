@@ -47,7 +47,9 @@ from pamola_core.transformations.commons.aggregation_utils import (
     generate_record_count_per_group_vis,
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.schemas.aggregate_records_op_core_schema import AggregateRecordsOperationConfig
+from pamola_core.transformations.schemas.aggregate_records_op_core_schema import (
+    AggregateRecordsOperationConfig,
+)
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -168,7 +170,7 @@ class AggregateRecordsOperation(TransformationOperation):
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=directories["cache"],
             )
 
             # Create DataWriter for consistent file operations
@@ -679,20 +681,6 @@ class AggregateRecordsOperation(TransformationOperation):
             "group_by_fields": self.group_by_fields,
             "aggregations": self.aggregations,
             "custom_aggregations": self.custom_aggregations,
-            "chunk_size": self.chunk_size,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "output_format": self.output_format,
-            "force_recalculation": self.force_recalculation,
-            "generate_visualization": self.generate_visualization,
-            "save_output": self.save_output,
         }
 
         return params
@@ -1120,36 +1108,6 @@ class AggregateRecordsOperation(TransformationOperation):
 
         return str(output_result.path)
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts following PAMOLA.CORE conventions.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories following PAMOLA.CORE conventions
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["visualizations"] = task_dir / "visualizations"
-        directories["logs"] = task_dir / "logs"
-        directories["cache"] = task_dir / "cache"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
-
     def _cleanup_memory(
         self,
         processed_df: Optional[pd.DataFrame] = None,
@@ -1481,8 +1439,7 @@ class AggregateRecordsOperation(TransformationOperation):
                 cache_key = self._generate_cache_key(original_data)
 
             # Prepare metadata for cache
-            operation_params = self._get_basic_parameters()
-            operation_params.update(self._get_cache_parameters())
+            operation_params = self._get_operation_parameters()
 
             # Prepare cache data
             cache_data = {

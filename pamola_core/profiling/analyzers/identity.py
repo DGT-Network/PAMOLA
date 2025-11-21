@@ -41,7 +41,9 @@ from pamola_core.profiling.commons.identity_utils import (
     generate_field_distribution_vis,
     generate_identifier_statistics_vis,
 )
-from pamola_core.profiling.schemas.identity_core_schema import IdentityAnalysisOperationConfig
+from pamola_core.profiling.schemas.identity_core_schema import (
+    IdentityAnalysisOperationConfig,
+)
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
@@ -868,44 +870,6 @@ class IdentityAnalysisOperation(FieldOperation):
                 error_message=f"Error analyzing identity field {self.field_name}: {str(e)}",
             )
 
-    def _generate_cache_key(self, data: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        data : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        # Get basic operation parameters
-        parameters = self._get_basic_parameters()
-
-        # Add operation-specific parameters (could be overridden by subclasses)
-        parameters.update(self._get_cache_parameters())
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(data)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return self.operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_basic_parameters(self) -> Dict[str, str]:
-        """Get the basic parameters for the cache key generation."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "version": self.version,
-        }
-
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for cache key generation.
@@ -927,49 +891,9 @@ class IdentityAnalysisOperation(FieldOperation):
             "check_cross_matches": self.check_cross_matches,
             "min_similarity": self.min_similarity,
             "fuzzy_matching": self.fuzzy_matching,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "force_recalculation": self.force_recalculation,
-            "generate_visualization": self.generate_visualization,
         }
 
         return params
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the DataFrame.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns
-        -------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-        import json
-
-        try:
-            # Generate summary statistics for all columns (numeric and non-numeric)
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string with consistent formatting (ISO for dates)
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback: use length and column data types
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _save_to_cache(
         self,
@@ -1005,8 +929,7 @@ class IdentityAnalysisOperation(FieldOperation):
             cache_key = self._generate_cache_key(original_data[self.field_name])
 
             # Prepare metadata for cache
-            operation_params = self._get_basic_parameters()
-            operation_params.update(self._get_cache_parameters())
+            operation_params = self._get_operation_parameters()
 
             self.logger.debug(f"Operation parameters for cache: {operation_params}")
 
@@ -1698,35 +1621,6 @@ class IdentityAnalysisOperation(FieldOperation):
         # Uncomment if memory pressure is an issue
         # import gc
         # gc.collect()
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts following PAMOLA.CORE conventions.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories following PAMOLA.CORE conventions
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["logs"] = task_dir / "logs"
-        directories["cache"] = task_dir / "cache"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
 
 
 def analyze_identities(

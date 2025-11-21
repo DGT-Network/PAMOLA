@@ -38,7 +38,9 @@ from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.transformations.schemas.add_modify_fields_core_schema import AddOrModifyFieldsOperationConfig
+from pamola_core.transformations.schemas.add_modify_fields_core_schema import (
+    AddOrModifyFieldsOperationConfig,
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -563,37 +565,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         raise NotImplementedError("Not implement")
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["cache"] = task_dir / "cache"
-        directories["logs"] = task_dir / "logs"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["visualizations"] = task_dir / "visualizations"
-        directories["metrics"] = task_dir / "metrics"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
-
     def _check_cache(
         self, df: Union[pd.DataFrame, dd.DataFrame], task_dir: Path, reporter: Any
     ) -> Optional[OperationResult]:
@@ -684,36 +655,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
-    def _generate_cache_key(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -723,102 +665,12 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             Operation parameters
         """
         # Get basic operation parameters
-        basic_parameters = {
-            "mode": self.mode,
-            "column_prefix": self.column_prefix,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "output_format": self.output_format,
-            "use_encryption": self.use_encryption,
-            "encryption_mode": self.encryption_mode,
-            "encryption_key": self.encryption_key,
-            "version": self.version,
-        }
-
-        # Get operation-specific parameters
-        parameters = self._get_operation_specific_parameters()
-
-        # Add basic parameters
-        parameters.update(basic_parameters)
-
-        return parameters
-
-    def _get_operation_specific_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Operation-specific parameters
-        """
-        return {
+        parameters = {
             "field_operations": self.field_operations,
             "lookup_tables": self.lookup_tables,
         }
 
-    def _generate_data_hash(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        describe_order = [
-            "count",
-            "unique",
-            "top",
-            "freq",
-            "mean",
-            "std",
-            "min",
-            "25%",
-            "50%",
-            "75%",
-            "max",
-        ]
-        desired_order = ["count", "unique", "mean", "std", "min", "max"]
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # If df is a Dask DataFrame, you need to compute the result first
-            if isinstance(df, dd.DataFrame):
-                characteristics = characteristics.compute()
-
-            # Sort
-            characteristics = characteristics.loc[desired_order]
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            df_len = (
-                int(df.map_partitions(len).sum().compute())
-                if isinstance(df, dd.DataFrame)
-                else len(df)
-            )
-            dtypes_dict = df.dtypes.apply(str).to_dict()
-            if isinstance(df, dd.DataFrame):
-                dtypes_dict = dtypes_dict.compute()
-
-            json_str = f"{df_len}_{json.dumps(dtypes_dict)}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
+        return parameters
 
     def _process_dataframe(
         self,

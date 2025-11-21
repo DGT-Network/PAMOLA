@@ -1233,36 +1233,6 @@ class TransformationOperation(BaseOperation):
 
         return str(output_result.path)
 
-    def _generate_cache_key(self, data: Union[pd.Series, pd.DataFrame]) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        data : pd.Series or pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        # Get basic operation parameters
-        parameters = self._get_basic_parameters()
-
-        # Add operation-specific parameters (could be overridden by subclasses)
-        parameters.update(self._get_cache_parameters())
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(data)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return self.operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
     def _check_cache(
         self, df: pd.DataFrame, reporter: Any
     ) -> Optional[OperationResult]:
@@ -1494,8 +1464,7 @@ class TransformationOperation(BaseOperation):
             cache_key = self._generate_cache_key(original_data)
 
             # Prepare metadata for cache
-            operation_params = self._get_basic_parameters()
-            operation_params.update(self._get_cache_parameters())
+            operation_params = self._get_operation_parameters()
 
             self.logger.debug(f"Operation parameters for cache: {operation_params}")
 
@@ -1592,151 +1561,20 @@ class TransformationOperation(BaseOperation):
         # import gc
         # gc.collect()
 
-    def _generate_data_hash(self, data: Union[pd.Series, pd.DataFrame]) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters
-        ----------
-        data : Union[pd.Series, pd.DataFrame]
-            Input data for the operation. Can be a pandas Series or DataFrame.
-
-        Returns
-        -------
-        str
-            Hash string representing the data's key characteristics.
-        """
-        try:
-            if isinstance(data, pd.Series):
-                characteristics = self._series_characteristics(data)
-            elif isinstance(data, pd.DataFrame):
-                characteristics = self._df_characteristics(data)
-            else:
-                raise TypeError("Input must be a pandas Series or DataFrame")
-
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode("utf-8")).hexdigest()
-
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {e}")
-            fallback_str = f"{len(data)}_{type(data)}"
-            return hashlib.md5(fallback_str.encode("utf-8")).hexdigest()
-
-    def _series_characteristics(self, s: pd.Series) -> dict:
-        """
-        Extract key characteristics from a pandas Series for hashing.
-
-        Parameters
-        ----------
-        s : pd.Series
-            The pandas Series to extract characteristics from.
-
-        Returns
-        -------
-        dict
-            Dictionary of characteristics (length, null count, unique count, dtype, and summary stats).
-        """
-        char = {
-            "length": len(s),
-            "null_count": int(s.isna().sum()),
-            "unique_count": int(s.nunique()),
-            "dtype": str(s.dtype),
-        }
-        if pd.api.types.is_numeric_dtype(s):
-            non_null = s.dropna()
-            if not non_null.empty:
-                char.update(
-                    {
-                        "min": float(non_null.min()),
-                        "max": float(non_null.max()),
-                        "mean": float(non_null.mean()),
-                        "median": float(non_null.median()),
-                        "std": float(non_null.std()),
-                    }
-                )
-        elif pd.api.types.is_object_dtype(s) or isinstance(
-            s.dtype, pd.CategoricalDtype
-        ):
-            top_values = s.value_counts().head(10)
-            char["top_values"] = {str(k): int(v) for k, v in top_values.items()}
-        return char
-
-    def _df_characteristics(self, df: pd.DataFrame) -> dict:
-        """
-        Extract key characteristics from a pandas DataFrame for hashing.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The pandas DataFrame to extract characteristics from.
-
-        Returns
-        -------
-        dict
-            Dictionary of characteristics (shape, null count, unique count, dtypes, columns, and numeric summary).
-        """
-        char = {
-            "shape": df.shape,
-            "null_count": int(df.isna().sum().sum()),
-            "unique_count": int(df.nunique().sum()),
-            "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
-            "columns": list(df.columns),
-        }
-        # Numeric summary
-        numeric_cols = df.select_dtypes(include="number")
-        if not numeric_cols.empty:
-            char["numeric_summary"] = {
-                col: {
-                    "min": float(numeric_cols[col].min()),
-                    "max": float(numeric_cols[col].max()),
-                    "mean": float(numeric_cols[col].mean()),
-                    "median": float(numeric_cols[col].median()),
-                    "std": float(numeric_cols[col].std()),
-                }
-                for col in numeric_cols.columns
-            }
-        # Object/Categorical summary
-        object_cols = [
-            col
-            for col in df.columns
-            if pd.api.types.is_object_dtype(df[col])
-            or isinstance(df[col].dtype, pd.CategoricalDtype)
-        ]
-        if object_cols:
-            char["object_summary"] = {
-                col: {
-                    "top_values": {
-                        str(k): int(v)
-                        for k, v in df[col].value_counts().head(10).items()
-                    }
-                }
-                for col in object_cols
-            }
-        return char
-
-    def _get_basic_parameters(self) -> Dict[str, str]:
+    def _get_operation_parameters(self) -> Dict[str, str]:
         """Get the basic parameters for the cache key generation."""
-        return {
-            "name": self.name,
-            "field_label": self.field_label,
-            "description": self.description,
-            "version": self.version,
-        }
+        # Get basic operation parameters
 
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
+        parameters = super()._get_operation_parameters()
 
-        This method should be overridden by subclasses to provide
-        operation-specific parameters for caching.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        # Base implementation returns minimal parameters
-        return {}
+        # Add operation-specific parameters
+        parameters.update(
+            {
+                "field_label": self.field_label,
+                "field_name": self.field_name,
+            }
+        )
+        return parameters
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
@@ -1842,36 +1680,6 @@ class TransformationOperation(BaseOperation):
         """
         # This method should be overridden by subclasses to add specific metrics
         return {}
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts following PAMOLA.CORE conventions.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories following PAMOLA.CORE conventions
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["visualizations"] = task_dir / "visualizations"
-        directories["logs"] = task_dir / "logs"
-        directories["cache"] = task_dir / "cache"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
 
     def _get_custom_kwargs(self, df, **kwargs):
         custom_kwargs = {

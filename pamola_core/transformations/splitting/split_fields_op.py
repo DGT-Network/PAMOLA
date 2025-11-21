@@ -34,7 +34,9 @@ from pathlib import Path
 from typing import Optional, Dict, List, Any, Union, Tuple
 import pandas as pd
 from pamola_core.transformations.commons.enum import OutputFormat
-from pamola_core.transformations.schemas.split_fields_op_core_schema import SplitFieldsOperationConfig
+from pamola_core.transformations.schemas.split_fields_op_core_schema import (
+    SplitFieldsOperationConfig,
+)
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import (
     load_data_operation,
@@ -891,12 +893,12 @@ class SplitFieldsOperation(TransformationOperation):
 
             cache_data = {
                 "result": result_data,
-                "parameters": self._get_cache_parameters(**kwargs),
+                "parameters": self._get_operation_parameters(),
             }
 
             cache_key = operation_cache.generate_cache_key(
                 operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
+                parameters=self._get_operation_parameters(),
                 data_hash=self._generate_data_hash(self._original_df.copy()),
             )
 
@@ -928,7 +930,7 @@ class SplitFieldsOperation(TransformationOperation):
         try:
             cache_key = operation_cache.generate_cache_key(
                 operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
+                parameters=self._get_operation_parameters(),
                 data_hash=self._generate_data_hash(df),
             )
 
@@ -979,7 +981,7 @@ class SplitFieldsOperation(TransformationOperation):
             self.logger.warning(f"Failed to load cache: {e}")
             return None
 
-    def _get_cache_parameters(self, **kwargs) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for SplitFieldsOperation using external kwargs.
 
@@ -995,87 +997,10 @@ class SplitFieldsOperation(TransformationOperation):
         """
 
         return {
-            "operation": self.operation_name,
-            "version": self.version,
             "id_field": self.id_field,
             "field_groups": self.field_groups,
             "include_id_field": self.include_id_field,
-            "output_format": self.output_format,
-            "save_output": self.save_output,
-            "use_cache": self.use_cache,
-            "force_recalculation": self.force_recalculation,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "visualization_backend": self.visualization_backend,
-            "visualization_theme": self.visualization_theme,
-            "visualization_strict": self.visualization_strict,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
         }
-
-    def _generate_data_hash(self, data: pd.DataFrame) -> str:
-        """
-        Generate a hash that represents key characteristics of the input DataFrame.
-
-        The hash is based on structure and summary statistics to detect changes
-        for caching purposes.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Input DataFrame to generate a representative hash from.
-
-        Returns
-        -------
-        str
-            A hash string representing the structure and key properties of the data.
-        """
-        try:
-            characteristics = {
-                "columns": list(data.columns),
-                "shape": data.shape,
-                "summary": {},
-            }
-
-            for col in data.columns:
-                col_data = data[col]
-                col_info = {
-                    "dtype": str(col_data.dtype),
-                    "null_count": int(col_data.isna().sum()),
-                    "unique_count": int(col_data.nunique()),
-                }
-
-                if pd.api.types.is_numeric_dtype(col_data):
-                    non_null = col_data.dropna()
-                    if not non_null.empty:
-                        col_info.update(
-                            {
-                                "min": float(non_null.min()),
-                                "max": float(non_null.max()),
-                                "mean": float(non_null.mean()),
-                                "median": float(non_null.median()),
-                                "std": float(non_null.std()),
-                            }
-                        )
-                elif pd.api.types.is_object_dtype(col_data) or isinstance(
-                    col_data.dtype, pd.CategoricalDtype
-                ):
-                    top_values = col_data.value_counts(dropna=True).head(5)
-                    col_info["top_values"] = {
-                        str(k): int(v) for k, v in top_values.items()
-                    }
-
-                characteristics["summary"][col] = col_info
-
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode()).hexdigest()
-
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-            fallback = f"{data.shape}_{list(data.dtypes)}"
-            return hashlib.md5(fallback.encode()).hexdigest()
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """
