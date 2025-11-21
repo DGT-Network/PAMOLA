@@ -251,28 +251,21 @@ class BaseOperationConfig(OperationConfig):
             {
                 "if": {"properties": {"mode": {"const": "ENRICH"}}},
                 "then": {
-                    "oneOf": [
+                    "anyOf": [
                         {
                             "properties": {
                                 "output_field_name": {"type": "string", "minLength": 1}
-                            },
-                            "required": ["output_field_name"],
+                            }
                         },
-                        {"properties": {"output_field_name": {"type": "null"}}},
+                        {
+                            "properties": {
+                                "output_field_name": {"type": "null"},
+                                "column_prefix": {"type": "string", "minLength": 1},
+                            },
+                            "required": ["column_prefix"],
+                        },
                     ]
                 },
-            },
-            {
-                "if": {
-                    "properties": {
-                        "mode": {"const": "ENRICH"},
-                        "output_field_name": {"type": "null"},
-                    }
-                },
-                "then": {
-                    "properties": {"column_prefix": {"type": "string", "minLength": 1}},
-                    "required": ["column_prefix"],
-                },
-            },
+            }
         ],
     }

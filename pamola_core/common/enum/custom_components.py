@@ -25,3 +25,7 @@ class CustomComponents:
     STRING_ARRAY = "StringArray"
     UPLOAD = "Upload"
     DEPEND_SELECT = "DependSelect"
+    DATE_FORMAT = "DateFormat"
+    FORMAT_PATTERNS = "FormatPatterns"
+    VALUE_GROUP_ARRAY = "ValueGroupArray"
+    CUSTOM_VALUE_GROUP_ARRAY = "CustomValueGroupArray"
