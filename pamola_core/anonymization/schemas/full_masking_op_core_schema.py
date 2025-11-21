@@ -90,46 +90,9 @@ class FullMaskingConfig(OperationConfig):
                         "description": "Whether to preserve data format or structure (e.g., keep dashes or parentheses).",
                     },
                     "format_patterns": {
-                        "type": ["array", "null"],
+                        "type": ["object", "null"],
                         "title": "Format Patterns",
                         "description": "Custom regex patterns for identifying and preserving data formats.",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "select_type": {
-                                    "title": "Select Type",
-                                    "description": "Select Type",
-                                    "type": "string",
-                                    "oneOf": [
-                                        {
-                                            "const": "phone",
-                                            "description": "Phone Number",
-                                        },
-                                        {
-                                            "const": "ssn",
-                                            "description": "SSN",
-                                        },
-                                        {
-                                            "const": "credit_card",
-                                            "description": "Credit Card",
-                                        },
-                                        {
-                                            "const": "email",
-                                            "description": "Email",
-                                        },
-                                        {
-                                            "const": "date",
-                                            "description": "Date",
-                                        },
-                                    ],
-                                },
-                                "pattern": {
-                                    "title": "Pattern",
-                                    "description": "Value (e.g., r'(\d{3})-(\d{3})-(\d{4})')",
-                                    "type": "string",
-                                },
-                            },
-                        },
                     },
                     "numeric_output": {
                         "type": "string",
@@ -208,42 +171,21 @@ class FullMaskingConfig(OperationConfig):
             {
                 "if": {
                     "properties": {
-                        "condition_field": {
-                            "type": "string",
-                            "minLength": 1
-                        }
+                        "condition_field": {"type": "string", "minLength": 1}
                     },
-                    "required": ["condition_field"]
+                    "required": ["condition_field"],
                 },
-                "then": {
-                    "properties": {
-                        "condition_operator": {
-                            "type": "string"
-                        }
-                    }
-                }
+                "then": {"properties": {"condition_operator": {"type": "string"}}},
             },
             {
                 "if": {
                     "properties": {
-                        "condition_field": {
-                            "type": "string",
-                            "minLength": 1
-                        },
-                        "condition_operator": {
-                            "type": "string",
-                            "minLength": 1
-                        }
+                        "condition_field": {"type": "string", "minLength": 1},
+                        "condition_operator": {"type": "string", "minLength": 1},
                     },
-                    "required": ["condition_field", "condition_operator"]
+                    "required": ["condition_field", "condition_operator"],
                 },
-                "then": {
-                    "properties": {
-                        "condition_values": {
-                            "type": "array"
-                        }
-                    }
-                }
+                "then": {"properties": {"condition_values": {"type": "array"}}},
             },
         ],
     }

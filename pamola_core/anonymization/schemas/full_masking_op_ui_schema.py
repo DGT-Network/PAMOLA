@@ -33,6 +33,7 @@ Changelog:
 1.0.0 - 2025-11-18 - Initial creation of full masking UI schema
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import OperationConfig
@@ -82,31 +83,25 @@ class FullMaskingUIConfig(OperationConfig):
                     "mask_char_pool": {
                         "x-component": "Input",
                         "x-group": GroupName.CORE_MASKING_RULES,
-                        "x-depend-on": {"preserve_length": True},
-                        "x-required-on": {"preserve_length": True},
+                        "x-depend-on": {"random_mask": True},
+                        "x-required-on": {"random_mask": True},
                     },
                     "preserve_format": {
                         "x-component": "Checkbox",
                         "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                     },
                     "format_patterns": {
-                        "x-component": "ArrayItems",
+                        "x-component": CustomComponents.FORMAT_PATTERNS,
                         "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                         "x-depend-on": {"preserve_format": True},
                         "x-required-on": {"preserve_format": True},
-                        "x-items": {
-                            "properties": {
-                                "select_type": {"x-component": "Select"},
-                                "pattern": {"x-component": "Input"},
-                            }
-                        },
                     },
                     "numeric_output": {
                         "x-component": "Select",
                         "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                     },
                     "date_format": {
-                        "x-component": "Input",
+                        "x-component": CustomComponents.DATE_FORMAT,
                         "x-group": GroupName.FORMATTING_AND_STRUCTURE,
                     },
                     "condition_field": {
@@ -140,7 +135,7 @@ class FullMaskingUIConfig(OperationConfig):
                     "vulnerable_record_strategy": {
                         "x-component": "Input",
                     },
-                }
+                },
             },
         ],
     }

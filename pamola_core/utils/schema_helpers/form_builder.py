@@ -391,6 +391,10 @@ def convert_property(
     elif field.get("x-component") in [
         CustomComponents.NUMERIC_RANGE_MODE,
         CustomComponents.DEPEND_SELECT,
+        CustomComponents.DATE_FORMAT,
+        CustomComponents.FORMAT_PATTERNS,
+        CustomComponents.VALUE_GROUP_ARRAY,
+        CustomComponents.CUSTOM_VALUE_GROUP_ARRAY,
     ]:
         field = _handle_custom_component(field)
 
@@ -520,6 +524,50 @@ def _handle_custom_component(field: dict) -> dict:
         # Clean up custom properties
         field.pop("x-depend-map", None)
 
+    elif component == CustomComponents.DATE_FORMAT:
+
+        # Handle Date Format
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "DateFormat"
+        field["x-component-props"] = {
+            "formatActions": "{{ supportedFormatActions }}",
+            "placeholder": "e.g., %Y-%m-%d",
+        }
+
+    elif component == CustomComponents.FORMAT_PATTERNS:
+
+        # Handle Format Patterns
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "FormatPatterns"
+        field["x-component-props"] = {
+            "placeholder": "Value (e.g., r(\\d{3})-(\\d{3})-(\\d{4}))",
+        }
+        field["enum"] = [
+            {"value": "phone", "label": "Phone Number"},
+            {"value": "ssn", "label": "SSN"},
+            {"value": "credit_card", "label": "Credit Card"},
+            {"value": "email", "label": "Email"},
+            {"value": "date", "label": "Date"},
+        ]
+
+    elif component == CustomComponents.VALUE_GROUP_ARRAY:
+
+        # Handle Value Group Array
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "ValueGroupArray"
+        field["x-component-props"] = {
+            "getValueOptions": "{{(fieldName) => update_aggregation_options(fieldName)}}",
+            "editable": False,
+        }
+    elif component == CustomComponents.CUSTOM_VALUE_GROUP_ARRAY:
+
+        # Handle Custom Value Group Array
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "ValueGroupArray"
+        field["x-component-props"] = {
+            "getValueOptions": "{{(fieldName) => update_custom_aggregation_options(fieldName)}}",
+            "editable": True,
+        }
     return field
 
 

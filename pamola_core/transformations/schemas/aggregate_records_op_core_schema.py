@@ -59,22 +59,11 @@ class AggregateRecordsOperationConfig(OperationConfig):
                         "type": "object",
                         "title": "Aggregations",
                         "description": "Dictionary mapping field names to a list of aggregation functions (e.g., sum, mean, count).",
-                        "items": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "title": "Aggregation Functions",
-                            "description": "List of aggregation functions to apply to the field.",
-                        },
                     },
                     "custom_aggregations": {
                         "type": "object",
                         "title": "Custom Aggregations",
                         "description": "Dictionary mapping field names to custom aggregation function names or expressions.",
-                        "items": {
-                            "type": "string",
-                            "title": "Custom Aggregation Function",
-                            "description": "Custom aggregation function or expression for the field.",
-                        },
                     },
                 },
                 "required": ["group_by_fields", "aggregations"],
