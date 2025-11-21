@@ -60,12 +60,12 @@ class AggregateRecordsOperationUIConfig(OperationConfig):
                         "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "aggregations": {
-                        "x-component": CustomComponents.FIELD_GROUP_ARRAY,
+                        "x-component": CustomComponents.VALUE_GROUP_ARRAY,
                         "x-group": GroupName.AGGREGATION_SETUP,
                         "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "custom_aggregations": {
-                        "x-component": CustomComponents.FIELD_GROUP_ARRAY,
+                        "x-component": CustomComponents.CUSTOM_VALUE_GROUP_ARRAY,
                         "x-group": GroupName.CUSTOM_AGGREGATIONS,
                         "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },

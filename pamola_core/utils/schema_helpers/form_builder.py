@@ -393,6 +393,8 @@ def convert_property(
         CustomComponents.DEPEND_SELECT,
         CustomComponents.DATE_FORMAT,
         CustomComponents.FORMAT_PATTERNS,
+        CustomComponents.VALUE_GROUP_ARRAY,
+        CustomComponents.CUSTOM_VALUE_GROUP_ARRAY,
     ]:
         field = _handle_custom_component(field)
 
@@ -524,7 +526,7 @@ def _handle_custom_component(field: dict) -> dict:
 
     elif component == CustomComponents.DATE_FORMAT:
 
-        # Convert to Select with reactions
+        # Handle Date Format
         field["x-decorator"] = "FormItem"
         field["x-component"] = "DateFormat"
         field["x-component-props"] = {
@@ -534,7 +536,7 @@ def _handle_custom_component(field: dict) -> dict:
 
     elif component == CustomComponents.FORMAT_PATTERNS:
 
-        # Convert to Select with reactions
+        # Handle Format Patterns
         field["x-decorator"] = "FormItem"
         field["x-component"] = "FormatPatterns"
         field["x-component-props"] = {
@@ -548,6 +550,24 @@ def _handle_custom_component(field: dict) -> dict:
             {"value": "date", "label": "Date"},
         ]
 
+    elif component == CustomComponents.VALUE_GROUP_ARRAY:
+
+        # Handle Value Group Array
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "ValueGroupArray"
+        field["x-component-props"] = {
+            "getValueOptions": "{{(fieldName) => update_aggregation_options(fieldName)}}",
+            "editable": False,
+        }
+    elif component == CustomComponents.CUSTOM_VALUE_GROUP_ARRAY:
+
+        # Handle Custom Value Group Array
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "ValueGroupArray"
+        field["x-component-props"] = {
+            "getValueOptions": "{{(fieldName) => update_custom_aggregation_options(fieldName)}}",
+            "editable": True,
+        }
     return field
 
 
