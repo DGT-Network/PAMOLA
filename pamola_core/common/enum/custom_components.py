@@ -27,4 +27,5 @@ class CustomComponents:
     DEPEND_SELECT = "DependSelect"
     DATE_FORMAT = "DateFormat"
     FORMAT_PATTERNS = "FormatPatterns"
-    FIELD_GROUP_ARRAY = "FieldGroupArray"
+    VALUE_GROUP_ARRAY = "ValueGroupArray"
+    CUSTOM_VALUE_GROUP_ARRAY = "CustomValueGroupArray"
