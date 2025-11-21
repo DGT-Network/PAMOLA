@@ -531,10 +531,6 @@ def _handle_custom_component(field: dict) -> dict:
             "formatActions": "{{ supportedFormatActions }}",
             "placeholder": "e.g., %Y-%m-%d",
         }
-        field["x-component-props"] = {
-            "formatActions": "{{ supportedFormatActions }}",
-            "placeholder": "e.g., %Y-%m-%d",
-        }
 
     elif component == CustomComponents.FORMAT_PATTERNS:
 
