@@ -1188,36 +1188,7 @@ class NumericOperation(FieldOperation):
             logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1233,55 +1204,9 @@ class NumericOperation(FieldOperation):
             "detect_outliers": self.detect_outliers,
             "test_normality": self.test_normality,
             "near_zero_threshold": self.near_zero_threshold,
-            "version": self.version,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import json
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
         self,
@@ -1496,36 +1421,6 @@ class NumericOperation(FieldOperation):
                 )
 
         return visualization_paths
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare standard directories for storing operation artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with standard directory paths
-        """
-        from pamola_core.utils.io import ensure_directory
-
-        # Create standard directories
-        directories = {
-            "output": task_dir / "output",
-            "dictionaries": task_dir / "dictionaries",
-            "visualizations": task_dir / "visualizations",
-            "cache": task_dir / "cache",
-        }
-
-        # Ensure directories exist
-        for dir_path in directories.values():
-            ensure_directory(dir_path)
-
-        return directories
 
 
 def analyze_numeric_fields(

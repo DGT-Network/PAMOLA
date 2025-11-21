@@ -25,6 +25,9 @@ import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Union, Optional
+import pandas as pd
+import hashlib
+import dask.dataframe as dd
 
 from pamola_core.common.type_aliases import DataFrameType
 from pamola_core.utils.ops.op_config import OperationConfig
@@ -33,6 +36,7 @@ from pamola_core.utils.ops.op_registry import register_operation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils import logging
+from pamola_core.utils.io import ensure_directory
 
 # Configure module logger
 logger = logging.get_logger(__name__)
@@ -138,11 +142,9 @@ class BaseOperation(ABC):
         description: str = "",
         scope: Optional[OperationScope] = None,
         config: Optional[OperationConfig] = None,
-
         # Pre-processing & Performance
         optimize_memory: bool = True,
         adaptive_chunk_size: bool = True,
-
         # Processing control
         mode: str = "REPLACE",
         column_prefix: str = "_",
@@ -155,7 +157,6 @@ class BaseOperation(ABC):
         use_vectorization: bool = False,
         parallel_processes: Optional[int] = None,
         chunk_size: int = 10000,
-
         # Output & Result
         use_cache: bool = False,
         output_format: str = "csv",
@@ -163,12 +164,10 @@ class BaseOperation(ABC):
         visualization_backend: Optional[str] = "plotly",
         visualization_strict: bool = False,
         visualization_timeout: int = 120,
-
         # Security & Encryption
         use_encryption: bool = False,
         encryption_mode: Optional[str] = None,
         encryption_key: Optional[Union[str, Path]] = None,
-
         # Runtime control flags
         force_recalculation: bool = False,
         generate_visualization: bool = True,
@@ -458,7 +457,7 @@ class BaseOperation(ABC):
 
         # Ensure all directories exist
         for dir_path in directories.values():
-            dir_path.mkdir(parents=True, exist_ok=True)
+            ensure_directory(dir_path)
 
         return directories
 
@@ -759,6 +758,219 @@ class BaseOperation(ABC):
         # Nothing to clean up in the base class
         return False  # Don't suppress exceptions
 
+    def _generate_data_hash(self, data: Union[pd.Series, pd.DataFrame]) -> str:
+        """
+        Generate a hash representing the key characteristics of the data.
+
+        Parameters
+        ----------
+        data : Union[pd.Series, pd.DataFrame]
+            Input data for the operation. Can be a pandas Series or DataFrame.
+
+        Returns
+        -------
+        str
+            Hash string representing the data's key characteristics.
+        """
+        try:
+            if isinstance(data, pd.Series):
+                characteristics = self._series_characteristics(data)
+            elif isinstance(data, pd.DataFrame):
+                characteristics = self._df_characteristics(data)
+            else:
+                raise TypeError("Input must be a pandas Series or DataFrame")
+
+            json_str = json.dumps(characteristics, sort_keys=True)
+            return hashlib.md5(json_str.encode("utf-8")).hexdigest()
+
+        except Exception as e:
+            self.logger.warning(f"Error generating data hash: {e}")
+            fallback_str = f"{len(data)}_{type(data)}"
+            return hashlib.md5(fallback_str.encode("utf-8")).hexdigest()
+
+    def _series_characteristics(self, s: pd.Series) -> dict:
+        """
+        Extract key characteristics from a pandas Series for hashing.
+
+        Parameters
+        ----------
+        s : pd.Series
+            The pandas Series to extract characteristics from.
+
+        Returns
+        -------
+        dict
+            Dictionary of characteristics (length, null count, unique count, dtype, and summary stats).
+        """
+        char = {
+            "length": len(s),
+            "null_count": int(s.isna().sum()),
+            "unique_count": int(s.nunique()),
+            "dtype": str(s.dtype),
+        }
+        if pd.api.types.is_numeric_dtype(s):
+            non_null = s.dropna()
+            if not non_null.empty:
+                char.update(
+                    {
+                        "min": float(non_null.min()),
+                        "max": float(non_null.max()),
+                        "mean": float(non_null.mean()),
+                        "median": float(non_null.median()),
+                        "std": float(non_null.std()),
+                    }
+                )
+        elif pd.api.types.is_object_dtype(s) or isinstance(
+            s.dtype, pd.CategoricalDtype
+        ):
+            top_values = s.value_counts().head(10)
+            char["top_values"] = {str(k): int(v) for k, v in top_values.items()}
+        return char
+
+    def _df_characteristics(self, df: pd.DataFrame) -> dict:
+        """
+        Extract key characteristics from a pandas DataFrame for hashing.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The pandas DataFrame to extract characteristics from.
+
+        Returns
+        -------
+        dict
+            Dictionary of characteristics (shape, null count, unique count, dtypes, columns, and numeric summary).
+        """
+        char = {
+            "shape": df.shape,
+            "null_count": int(df.isna().sum().sum()),
+            "unique_count": int(df.nunique().sum()),
+            "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+            "columns": list(df.columns),
+        }
+        # Numeric summary
+        numeric_cols = df.select_dtypes(include="number")
+        if not numeric_cols.empty:
+            char["numeric_summary"] = {
+                col: {
+                    "min": float(numeric_cols[col].min()),
+                    "max": float(numeric_cols[col].max()),
+                    "mean": float(numeric_cols[col].mean()),
+                    "median": float(numeric_cols[col].median()),
+                    "std": float(numeric_cols[col].std()),
+                }
+                for col in numeric_cols.columns
+            }
+        # Object/Categorical summary
+        object_cols = [
+            col
+            for col in df.columns
+            if pd.api.types.is_object_dtype(df[col])
+            or isinstance(df[col].dtype, pd.CategoricalDtype)
+        ]
+        if object_cols:
+            char["object_summary"] = {
+                col: {
+                    "top_values": {
+                        str(k): int(v)
+                        for k, v in df[col].value_counts().head(10).items()
+                    }
+                }
+                for col in object_cols
+            }
+        return char
+
+    def _get_operation_parameters(self) -> Dict[str, str]:
+        """Get the basic parameters for the cache key generation."""
+        # Get basic operation parameters
+        parameters = {
+            # Identification & meta
+            "name": self.name,
+            "description": self.description,
+            "version": self.version,
+            "operation_name": self.operation_name,
+            # Pre-processing & performance
+            "optimize_memory": self.optimize_memory,
+            "adaptive_chunk_size": self.adaptive_chunk_size,
+            "original_chunk_size": self.original_chunk_size,
+            # Processing control
+            "mode": self.mode,
+            "column_prefix": self.column_prefix,
+            "output_field_name": self.output_field_name,
+            "null_strategy": self.null_strategy,
+            "engine": self.engine,
+            "use_dask": self.use_dask,
+            "npartitions": self.npartitions,
+            "dask_partition_size": self.dask_partition_size,
+            "use_vectorization": self.use_vectorization,
+            "parallel_processes": self.parallel_processes,
+            "chunk_size": self.chunk_size,
+            # Output & visualization
+            "use_cache": self.use_cache,
+            "output_format": self.output_format,
+            "visualization_theme": self.visualization_theme,
+            "visualization_backend": self.visualization_backend,
+            "visualization_strict": self.visualization_strict,
+            "visualization_timeout": self.visualization_timeout,
+            # Security & encryption
+            "use_encryption": self.use_encryption,
+            "encryption_mode": self.encryption_mode,
+            "encryption_key": self.encryption_key,
+            # Runtime control
+            "force_recalculation": self.force_recalculation,
+            "generate_visualization": self.generate_visualization,
+            "save_output": self.save_output,
+        }
+
+        # Add operation-specific parameters
+        parameters.update(self._get_cache_parameters())
+
+        return parameters
+
+    def _get_cache_parameters(self) -> Dict[str, Any]:
+        """
+        Get operation-specific parameters for cache key generation.
+
+        This method should be overridden by subclasses to provide
+        operation-specific parameters for caching.
+
+        Returns:
+        --------
+        Dict[str, Any]
+            Parameters for cache key generation
+        """
+        # Base implementation returns minimal parameters
+        return {}
+
+    def _generate_cache_key(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
+        """
+        Generate a deterministic cache key based on operation parameters and data characteristics.
+
+        Parameters:
+        -----------
+        df : Union[pd.DataFrame, dd.DataFrame]
+            DataFrame for the operation
+
+        Returns:
+        --------
+        str
+            Unique cache key
+        """
+        from pamola_core.utils.ops.op_cache import operation_cache
+
+        # Get operation parameters
+        parameters = self._get_operation_parameters()
+
+        # Generate data hash based on key characteristics
+        data_hash = self._generate_data_hash(df)
+
+        # Use the operation_cache utility to generate a consistent cache key
+        return operation_cache.generate_cache_key(
+            operation_name=self.operation_name,
+            parameters=parameters,
+            data_hash=data_hash,
+        )
+
 
 class FieldOperation(BaseOperation, ABC):
     """
@@ -768,11 +980,7 @@ class FieldOperation(BaseOperation, ABC):
     configuration, performance, and output settings from the base class.
     """
 
-    def __init__(
-        self,
-        field_name: str,
-        **kwargs
-    ):
+    def __init__(self, field_name: str, **kwargs):
         """
         Initialize a field-specific operation.
 

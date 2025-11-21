@@ -1330,8 +1330,7 @@ class MetricsOperation(BaseOperation):
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_params = self._get_basic_parameters()
-            operation_params.update(self._get_cache_parameters())
+            operation_params = self._get_operation_parameters()
             self.logger.debug(f"Operation parameters for cache: {operation_params}")
 
             # Prepare cache data
@@ -1383,89 +1382,23 @@ class MetricsOperation(BaseOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, data: pd.Series) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        data : pd.Series
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        # Get basic operation parameters
-        parameters = self._get_basic_parameters()
-
-        # Add operation-specific parameters through method that subclasses can override
-        parameters.update(self._get_cache_parameters())
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(data)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return self.operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the DataFrame.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns
-        -------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-        import json
-
-        try:
-            # Generate summary statistics for all columns (numeric and non-numeric)
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string with consistent formatting (ISO for dates)
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback: use length and column data types
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
-
-    def _get_basic_parameters(self) -> Dict[str, str]:
+    def _get_operation_parameters(self) -> Dict[str, str]:
         """Get the basic parameters for the cache key generation."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "version": self.version,
-        }
+        # Get basic operation parameters
 
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
+        parameters = super()._get_operation_parameters()
 
-        This method should be overridden by subclasses to provide
-        operation-specific parameters for caching.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        # Base implementation returns minimal parameters
-        return {}
+        # Add operation-specific parameters
+        parameters.update(
+            {
+                "columns": self.columns,
+                "column_mapping": self.column_mapping,
+                "normalize": self.normalize,
+                "confidence_level": self.confidence_level,
+                "optimize_memory": self.optimize_memory,
+            }
+        )
+        return parameters
 
     def _normalize_metric(
         self, value: float, min_value: float = 0.0, max_value: float = 1.0

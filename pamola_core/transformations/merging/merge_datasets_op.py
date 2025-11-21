@@ -47,7 +47,9 @@ from pamola_core.transformations.commons.merging_utils import (
     generate_record_overlap_vis,
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.schemas.merge_datasets_op_core_schema import MergeDatasetsOperationConfig
+from pamola_core.transformations.schemas.merge_datasets_op_core_schema import (
+    MergeDatasetsOperationConfig,
+)
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -190,12 +192,14 @@ class MergeDatasetsOperation(TransformationOperation):
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=directories["cache"],
             )
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
-                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+                task_dir=directories["output"],
+                logger=self.logger,
+                progress_tracker=progress_tracker,
             )
 
             # Save configuration to task directory
@@ -740,20 +744,6 @@ class MergeDatasetsOperation(TransformationOperation):
             "join_type": self.join_type,
             "relationship_type": self.relationship_type,
             "suffixes": self.suffixes,
-            "chunk_size": self.chunk_size,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "output_format": self.output_format,
-            "force_recalculation": self.force_recalculation,
-            "generate_visualization": self.generate_visualization,
-            "save_output": self.save_output,
         }
 
         return params
@@ -1224,37 +1214,6 @@ class MergeDatasetsOperation(TransformationOperation):
 
         return str(output_result.path)
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts following PAMOLA.CORE conventions.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories following PAMOLA.CORE conventions
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["visualizations"] = task_dir / "visualizations"
-        directories["logs"] = task_dir / "logs"
-        directories["cache"] = task_dir / "cache"
-        directories["metrics"] = task_dir / "metrics"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
-
     def _cleanup_memory(
         self,
         processed_df: Optional[pd.DataFrame] = None,
@@ -1628,8 +1587,7 @@ class MergeDatasetsOperation(TransformationOperation):
                 cache_key = self._generate_cache_key(left_df)
 
             # Prepare metadata for cache
-            operation_params = self._get_basic_parameters()
-            operation_params.update(self._get_cache_parameters())
+            operation_params = self._get_operation_parameters()
 
             # Prepare cache data
             cache_data = {

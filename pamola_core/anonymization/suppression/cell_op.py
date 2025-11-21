@@ -1187,7 +1187,11 @@ class CellSuppressionOperation(AnonymizationOperation):
             raise
 
     def _save_metrics(
-        self, metrics: Dict[str, Any], task_dir: Path, result: OperationResult, operation_timestamp: Optional[str] = None
+        self,
+        metrics: Dict[str, Any],
+        task_dir: Path,
+        result: OperationResult,
+        operation_timestamp: Optional[str] = None,
     ) -> None:
         """
         Save the collected metrics as a JSON file and register it as an artifact.
@@ -1687,12 +1691,12 @@ class CellSuppressionOperation(AnonymizationOperation):
 
             cache_data = {
                 "result": result_data,
-                "parameters": self._get_cache_parameters(),
+                "parameters": self._get_operation_parameters(),
             }
 
             cache_key = self.operation_cache.generate_cache_key(
                 operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(),
+                parameters=self._get_operation_parameters(),
                 data_hash=self._generate_data_hash(self._original_df.copy()),
             )
 
@@ -1756,7 +1760,7 @@ class CellSuppressionOperation(AnonymizationOperation):
         try:
             cache_key = self.operation_cache.generate_cache_key(
                 operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(),
+                parameters=self._get_operation_parameters(),
                 data_hash=self._generate_data_hash(df),
             )
 
@@ -1836,10 +1840,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             Dict[str, Any]: Dictionary of relevant parameters for cache identity.
         """
         return {
-            "operation": self.operation_name,
-            "version": self.version,
             "field_name": self.field_name,
-            "mode": self.mode,
             "output_field_name": self.output_field_name,
             "save_suppressed_schema": getattr(self, "save_suppressed_schema", True),
             # Suppression-specific configuration
@@ -1857,92 +1858,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             "condition_operator": self.condition_operator,
             "ka_risk_field": getattr(self, "ka_risk_field", None),
             "risk_threshold": getattr(self, "risk_threshold", 5.0),
-            # Execution and system parameters
-            "optimize_memory": self.optimize_memory,
-            "adaptive_chunk_size": self.adaptive_chunk_size,
-            "generate_visualization": self.generate_visualization,
-            "save_output": self.save_output,
-            "output_format": self.output_format,
-            "use_cache": self.use_cache,
-            "force_recalculation": self.force_recalculation,
-            # Parallelization and performance
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "dask_partition_size": self.dask_partition_size,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "chunk_size": self.chunk_size,
-            # Visualization
-            "visualization_backend": self.visualization_backend,
-            "visualization_theme": self.visualization_theme,
-            "visualization_strict": self.visualization_strict,
-            # Encryption
-            "use_encryption": self.use_encryption,
-            "encryption_key": str(self.encryption_key) if self.encryption_key else None,
-            "encryption_mode": self.encryption_mode,
         }
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash that represents key characteristics of the input DataFrame.
-
-        The hash is based on structure and summary statistics to detect changes
-        for caching purposes.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Input DataFrame to generate a representative hash from.
-
-        Returns
-        -------
-        str
-            A hash string representing the structure and key properties of the data.
-        """
-        try:
-            characteristics = {
-                "columns": list(df.columns),
-                "shape": df.shape,
-                "summary": {},
-            }
-
-            for col in df.columns:
-                col_data = df[col]
-                col_info = {
-                    "dtype": str(col_data.dtype),
-                    "null_count": int(col_data.isna().sum()),
-                    "unique_count": int(col_data.nunique()),
-                }
-
-                if pd.api.types.is_numeric_dtype(col_data):
-                    non_null = col_data.dropna()
-                    if not non_null.empty:
-                        col_info.update(
-                            {
-                                "min": float(non_null.min()),
-                                "max": float(non_null.max()),
-                                "mean": float(non_null.mean()),
-                                "median": float(non_null.median()),
-                                "std": float(non_null.std()),
-                            }
-                        )
-                elif pd.api.types.is_object_dtype(col_data) or isinstance(
-                    col_data.dtype, pd.CategoricalDtype
-                ):
-                    top_values = col_data.value_counts(dropna=True).head(5)
-                    col_info["top_values"] = {
-                        str(k): int(v) for k, v in top_values.items()
-                    }
-
-                characteristics["summary"][col] = col_info
-
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode()).hexdigest()
-
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-            fallback = f"{df.shape}_{list(df.dtypes)}"
-            return hashlib.md5(fallback.encode()).hexdigest()
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """

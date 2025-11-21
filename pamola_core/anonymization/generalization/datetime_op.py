@@ -56,7 +56,9 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_datetime_field,
 )
 import dask.dataframe as dd
-from pamola_core.anonymization.schemas.datetime_op_core_schema import DateTimeGeneralizationConfig
+from pamola_core.anonymization.schemas.datetime_op_core_schema import (
+    DateTimeGeneralizationConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation
@@ -125,7 +127,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         # Binning parameters
         bin_type: str = "day_range",
         interval_size: int = 7,
-        interval_unit: str = "days",
         reference_date: Optional[Union[str, datetime]] = None,
         custom_bins: Optional[List[Union[str, datetime]]] = None,
         # Component parameters
@@ -153,8 +154,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             Type of binning ('day_range', 'month_range', etc.).
         interval_size : int
             Size of each binning interval.
-        interval_unit : str
-            Unit for interval ('days', 'weeks', etc.).
         reference_date : Optional[Union[str, datetime]]
             Reference date for binning alignment.
         custom_bins : Optional[List[Union[str, datetime]]]
@@ -190,7 +189,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             rounding_unit=rounding_unit,
             bin_type=bin_type,
             interval_size=interval_size,
-            interval_unit=interval_unit,
             reference_date=reference_date,
             custom_bins=custom_bins,
             keep_components=keep_components,
@@ -1399,7 +1397,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             rounding_unit=self.rounding_unit,
             bin_type=self.bin_type,
             interval_size=self.interval_size,
-            interval_unit=self.interval_unit,
             reference_date=self.reference_date,
             custom_bins=self.custom_bins,
             keep_components=self.keep_components,
