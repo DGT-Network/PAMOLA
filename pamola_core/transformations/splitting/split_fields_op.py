@@ -246,8 +246,8 @@ class SplitFieldsOperation(TransformationOperation):
                     )
 
                 try:
-                    # _get_cache now returns OperationResult or None
-                    cached_result = self._get_cache(df.copy(), **kwargs)
+                    # _check_cache now returns OperationResult or None
+                    cached_result = self._check_cache(df.copy())
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -450,7 +450,7 @@ class SplitFieldsOperation(TransformationOperation):
                     )
 
                 try:
-                    self._save_cache(task_dir, result, **kwargs)
+                    self._save_to_cache(task_dir, result)
                 except Exception as e:
                     error_message = f"Failed to cache results: {str(e)}"
                     self.logger.error(error_message)
@@ -866,7 +866,7 @@ class SplitFieldsOperation(TransformationOperation):
                 f"[VIZ] Error setting up visualization thread: {e}", exc_info=True
             )
 
-    def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
+    def _save_to_cache(self, task_dir: Path, result: OperationResult) -> None:
         """
         Save the operation result to cache.
 
@@ -896,11 +896,7 @@ class SplitFieldsOperation(TransformationOperation):
                 "parameters": self._get_operation_parameters(),
             }
 
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_operation_parameters(),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
-            )
+            cache_key = self._generate_cache_key(self._original_df.copy())
 
             operation_cache.save_cache(
                 data=cache_data,
@@ -913,7 +909,7 @@ class SplitFieldsOperation(TransformationOperation):
         except Exception as e:
             self.logger.warning(f"Failed to save cache: {e}")
 
-    def _get_cache(self, df: pd.DataFrame, **kwargs) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Retrieve cached result if available and valid.
 
@@ -928,11 +924,7 @@ class SplitFieldsOperation(TransformationOperation):
             The cached OperationResult if available, otherwise None.
         """
         try:
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_operation_parameters(),
-                data_hash=self._generate_data_hash(df),
-            )
+            cache_key = self._generate_cache_key(df)
 
             cached = operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name

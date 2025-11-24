@@ -34,7 +34,9 @@ from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.categorical_core_schema import CategoricalOperationConfig
+from pamola_core.profiling.schemas.categorical_core_schema import (
+    CategoricalOperationConfig,
+)
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
@@ -318,9 +320,9 @@ class CategoricalOperation(FieldOperation):
                         },
                     )
 
-                cached_result = self._get_cache(
-                    df.copy(), **kwargs
-                )  # _get_cache now returns OperationResult or None
+                # _check_cache now returns OperationResult or None
+                cached_result = self._check_cache(df.copy())
+
                 if cached_result is not None and isinstance(
                     cached_result, OperationResult
                 ):
@@ -509,7 +511,7 @@ class CategoricalOperation(FieldOperation):
                         1, {"step": "Save cache", "operation": self.operation_name}
                     )
 
-                self._save_cache(task_dir, result, **kwargs)
+                self._save_to_cache(task_dir, result)
 
                 if reporter:
                     reporter.add_operation(
@@ -891,7 +893,7 @@ class CategoricalOperation(FieldOperation):
                     details={"warning": str(e)},
                 )
 
-    def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
+    def _save_to_cache(self, task_dir: Path, result: OperationResult) -> None:
         """
         Save the operation result to cache.
 
@@ -938,7 +940,7 @@ class CategoricalOperation(FieldOperation):
         except Exception as e:
             self.logger.warning(f"Failed to save cache: {e}")
 
-    def _get_cache(self, df: pd.DataFrame, **kwargs) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Retrieve cached result if available and valid.
 
@@ -953,11 +955,7 @@ class CategoricalOperation(FieldOperation):
             The cached OperationResult if available, otherwise None.
         """
         try:
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_operation_parameters(),
-                data_hash=self._generate_data_hash(df),
-            )
+            cache_key = self._generate_cache_key(df)
 
             cached = operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name

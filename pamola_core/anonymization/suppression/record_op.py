@@ -50,7 +50,9 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_numeric_field,
 )
 from pamola_core.anonymization.commons.visualization_utils import create_bar_plot
-from pamola_core.anonymization.schemas.record_op_core_schema import RecordSuppressionConfig
+from pamola_core.anonymization.schemas.record_op_core_schema import (
+    RecordSuppressionConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
@@ -263,7 +265,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     self.logger.info(
                         f"Operation: {self.operation_name}, Load result from cache"
                     )
-                    cached_result = self._get_cache(
+                    cached_result = self._check_cache(
                         df.copy(), progress_tracker=progress_tracker, reporter=reporter
                     )
                     if cached_result is not None and isinstance(
@@ -360,7 +362,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             if self.use_cache:
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save cache")
-                    self._save_cache(
+                    self._save_to_cache(
                         task_dir,
                         result,
                         progress_tracker=progress_tracker,
@@ -1548,7 +1550,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     },
                 )
 
-    def _save_cache(
+    def _save_to_cache(
         self,
         task_dir: Path,
         result: OperationResult,
@@ -1591,11 +1593,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 "parameters": self._get_operation_parameters(),
             }
 
-            cache_key = self.operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_operation_parameters(),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
-            )
+            cache_key = self._generate_cache_key(self._original_df.copy())
 
             self.operation_cache.save_cache(
                 data=cache_data,
@@ -1624,7 +1622,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         except Exception as e:
             self.logger.warning(f"Failed to save cache: {e}", exc_info=True)
 
-    def _get_cache(
+    def _check_cache(
         self,
         df: pd.DataFrame,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
@@ -1657,11 +1655,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             )
 
         try:
-            cache_key = self.operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_operation_parameters(),
-                data_hash=self._generate_data_hash(df),
-            )
+            cache_key = self._generate_cache_key(df)
 
             cached = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
