@@ -85,7 +85,6 @@ class SplitByIDValuesOperation(TransformationOperation):
         value_groups: Optional[Dict[str, List[Any]]] = None,
         number_of_partitions: int = 0,
         partition_method: str = PartitionMethod.EQUAL_SIZE.value,
-        invalid_values: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         """
@@ -103,8 +102,6 @@ class SplitByIDValuesOperation(TransformationOperation):
             Number of partitions for automatic splitting if no value_groups provided.
         partition_method : str, optional
             Method for splitting when using automatic partitioning.
-        invalid_values : dict, optional
-            Invalid ID values to exclude.
         **kwargs : dict
             Additional keyword arguments for TransformationOperation.
         """
@@ -118,7 +115,6 @@ class SplitByIDValuesOperation(TransformationOperation):
             value_groups=value_groups,
             number_of_partitions=number_of_partitions,
             partition_method=partition_method,
-            invalid_values=invalid_values,
             **kwargs,
         )
 
