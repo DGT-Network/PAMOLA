@@ -31,6 +31,8 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of split by ID values UI schema
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.schemas.base_op_ui_schema import BaseOperationUIConfig
@@ -56,6 +58,7 @@ class SplitByIDValuesOperationUIConfig(OperationConfig):
                     "id_field": {
                         "x-component": "Select",
                         "x-group": GroupName.ID_FIELD,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "partition_method": {
                         "x-component": "Select",
@@ -67,7 +70,7 @@ class SplitByIDValuesOperationUIConfig(OperationConfig):
                         "x-depend-on": {"partition_method": "not_null"},
                     },
                     "value_groups": {
-                        "x-component": "Object",
+                        "x-component": CustomComponents.VALUE_GROUP_ARRAY,
                         "x-group": GroupName.VALUE_GROUPS,
                     },
                     "invalid_values": {

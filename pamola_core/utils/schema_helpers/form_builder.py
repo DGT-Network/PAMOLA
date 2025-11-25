@@ -566,7 +566,7 @@ def _handle_custom_component(field: dict) -> dict:
         field["x-component"] = "ValueGroupArray"
         field["x-component-props"] = {
             "getValueOptions": "{{(fieldName) => update_custom_aggregation_options(fieldName)}}",
-            "editable": True,
+            "editable": False,
         }
     return field
 
