@@ -28,5 +28,7 @@ class CustomComponents:
     DATE_FORMAT = "DateFormat"
     FORMAT_PATTERNS = "FormatPatterns"
     VALUE_GROUP_ARRAY = "ValueGroupArray"
-    CUSTOM_VALUE_GROUP_ARRAY = "CustomValueGroupArray"
+    VALUE_GROUP_ARRAY_AGGREGATIONS = "ValueGroupArrayAggregations"
+    CUSTOM_VALUE_GROUP_ARRAY_AGGREGATIONS = "CustomValueGroupArrayAggregations"
     DATA_SET_CONFIG = "DataSetConfig"
+    FIELD_SELECT_UPLOAD_FILE_INPUT = "FieldSelectUploadFileInput"

@@ -393,8 +393,9 @@ def convert_property(
         CustomComponents.DEPEND_SELECT,
         CustomComponents.DATE_FORMAT,
         CustomComponents.FORMAT_PATTERNS,
-        CustomComponents.VALUE_GROUP_ARRAY,
-        CustomComponents.CUSTOM_VALUE_GROUP_ARRAY,
+        CustomComponents.VALUE_GROUP_ARRAY_AGGREGATIONS,
+        CustomComponents.CUSTOM_VALUE_GROUP_ARRAY_AGGREGATIONS,
+        CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
     ]:
         field = _handle_custom_component(field)
 
@@ -550,7 +551,7 @@ def _handle_custom_component(field: dict) -> dict:
             {"value": "date", "label": "Date"},
         ]
 
-    elif component == CustomComponents.VALUE_GROUP_ARRAY:
+    elif component == CustomComponents.VALUE_GROUP_ARRAY_AGGREGATIONS:
 
         # Handle Value Group Array
         field["x-decorator"] = "FormItem"
@@ -559,7 +560,7 @@ def _handle_custom_component(field: dict) -> dict:
             "getValueOptions": "{{(fieldName) => update_aggregation_options(fieldName)}}",
             "editable": False,
         }
-    elif component == CustomComponents.CUSTOM_VALUE_GROUP_ARRAY:
+    elif component == CustomComponents.CUSTOM_VALUE_GROUP_ARRAY_AGGREGATIONS:
 
         # Handle Custom Value Group Array
         field["x-decorator"] = "FormItem"
@@ -568,6 +569,22 @@ def _handle_custom_component(field: dict) -> dict:
             "getValueOptions": "{{(fieldName) => update_custom_aggregation_options(fieldName)}}",
             "editable": False,
         }
+    elif component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT:
+
+        # Handle Field Select Upload File Input
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "keyFieldLabel": "Organization type",
+            "enableAddOption": True,
+            "keyFieldOptions": [
+                {"value": "general", "label": "General"},
+                {"value": "educational", "label": "Educational"},
+                {"value": "manufacturing", "label": "Manufacturing"},
+                {"value": "government", "label": "Government"},
+                {"value": "industry", "label": "Industry"},
+            ],
+        }
+        field["x-reactions"] = [{"fulfill": {"run": "{{ init_upload($self) }}"}}]
     return field
 
 
