@@ -29,3 +29,4 @@ class CustomComponents:
     FORMAT_PATTERNS = "FormatPatterns"
     VALUE_GROUP_ARRAY = "ValueGroupArray"
     CUSTOM_VALUE_GROUP_ARRAY = "CustomValueGroupArray"
+    DATA_SET_CONFIG = "DataSetConfig"
