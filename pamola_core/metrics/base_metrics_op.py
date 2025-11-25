@@ -57,12 +57,12 @@ from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_processing import (
     optimize_dataframe_dtypes,
     get_memory_usage,
-    force_garbage_collection,
 )
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.utils import helpers
 
 
 class MetricsOperation(BaseOperation):
@@ -1107,21 +1107,8 @@ class MetricsOperation(BaseOperation):
         if transformed_df is not None:
             del transformed_df
 
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Clear process kwargs
-        if hasattr(self, "process_kwargs"):
-            self.process_kwargs = {}
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Force garbage collection
-        force_garbage_collection()
+        # cleanup memory from instance
+        helpers.cleanup_memory(instance=self)
 
     def _check_cache(
         self, df: pd.DataFrame, reporter: Any

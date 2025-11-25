@@ -52,7 +52,6 @@ Changelog:
       - Standardized artifact generation through framework utilities
 """
 
-import logging
 import time
 import dask.dataframe as dd
 from datetime import datetime
@@ -94,7 +93,6 @@ from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_processing import (
     optimize_dataframe_dtypes,
     get_memory_usage,
-    force_garbage_collection,
 )
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -106,7 +104,7 @@ from pamola_core.utils.ops.op_field_utils import (
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.helpers import filter_used_kwargs
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.utils import helpers
 
 
 class AnonymizationOperation(FieldOperation):
@@ -1567,25 +1565,8 @@ class AnonymizationOperation(FieldOperation):
         if anonymized_data is not None:
             del anonymized_data
 
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Clear process kwargs
-        if hasattr(self, "process_kwargs"):
-            self.process_kwargs = {}
-
-        # Clear filter mask
-        if hasattr(self, "filter_mask"):
-            self.filter_mask = None
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Force garbage collection
-        force_garbage_collection()
+        # cleanup memory from instance
+        helpers.cleanup_memory(instance=self)
 
     def _should_process_record(self, record: pd.Series) -> bool:
         """
