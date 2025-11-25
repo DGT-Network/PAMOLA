@@ -597,12 +597,10 @@ def save_profiling_results(result: Dict[str, Any],
 
 def cleanup_memory(
         df: Optional[pd.DataFrame] = None,
-        analysis_results: Optional[Dict[str, Any]] = None,
-        enriched_df: Optional[pd.DataFrame] = None,
-        entropy_df: Optional[pd.DataFrame] = None,
+        analyzed_df: Optional[pd.DataFrame] = None,
         values_dict: Optional[pd.DataFrame] = None,
         combinations_dict: Optional[pd.DataFrame] = None,
-        matrix_df: Optional[pd.DataFrame] = None,
+        analysis_results: Optional[Dict[str, Any]] = None,
         instance: Optional[Any] = None,
         **kwargs,
     ) -> None:
@@ -629,16 +627,12 @@ def cleanup_memory(
             del df
         if analysis_results is not None:
             del analysis_results
-        if enriched_df is not None:
-            del enriched_df
-        if entropy_df is not None:
-            del entropy_df
+        if analyzed_df is not None:
+            del analyzed_df
         if values_dict is not None:
             del values_dict
         if combinations_dict is not None:
             del combinations_dict
-        if matrix_df is not None:
-            del matrix_df
     
         # cleanup memory from instance
         helpers.cleanup_memory(instance=instance)

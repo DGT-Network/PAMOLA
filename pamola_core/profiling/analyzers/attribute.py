@@ -562,7 +562,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             helpers.cleanup_memory(
                 df=df,
                 analysis_results=analysis_results,
-                entropy_df=entropy_df,
+                analyzed_df=entropy_df,
                 instance=self,
             )
 

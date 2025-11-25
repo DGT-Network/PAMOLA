@@ -1669,7 +1669,7 @@ class CorrelationMatrixOperation(BaseOperation):
             helpers.cleanup_memory(
                 df=df,
                 analysis_results=analysis_results,
-                matrix_df=matrix_df,
+                analyzed_df=matrix_df,
                 instance=self,
             )
 

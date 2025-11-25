@@ -408,7 +408,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             helpers.cleanup_memory(
                 df=df,
                 analysis_results=analysis_results,
-                enriched_df=enriched_df,
+                analyzed_df=enriched_df,
                 instance=self,
             )
 
