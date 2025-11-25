@@ -876,7 +876,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
     @staticmethod
     def _apply_rounding(series: pd.Series, **kwargs) -> pd.Series:
         """Apply rounding generalization using vectorized operations."""
-        result = series.copy()
+        result = series.copy(deep=True)
         non_null_mask = ~series.isna()
 
         # Extract rounding unit from kwargs
@@ -887,7 +887,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             return result
 
         # Store rounded timestamps first
-        rounded_values = series.copy()
+        rounded_values = series.copy(deep=True)
 
         # Use vectorized operations for better performance
         if rounding_unit == "year":

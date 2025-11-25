@@ -414,7 +414,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                         f"Operation: {self.operation_name}, Load result from cache"
                     )
                     cached_result = self._check_cache(
-                        df.copy(), progress_tracker=progress_tracker, reporter=reporter
+                        df.copy(deep=True), progress_tracker=progress_tracker, reporter=reporter
                     )
                     if cached_result is not None and isinstance(
                         cached_result, OperationResult
@@ -708,7 +708,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             # Step 2: Process each chunk
             for start in range(0, total_rows, chunk_size):
                 end = min(start + chunk_size, total_rows)
-                batch = input_data.iloc[start:end].copy()
+                batch = input_data.iloc[start:end].copy(deep=True)
                 batch_mask = global_suppression_mask.iloc[start:end]
 
                 working_field = (
@@ -720,7 +720,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 if self.mode == "ENRICH" and self.output_field_name:
                     batch[self.output_field_name] = batch[self.field_name]
 
-                original = batch[working_field].copy()
+                original = batch[working_field].copy(deep=True)
 
                 batch = apply_suppression_strategy(
                     batch=batch,
@@ -816,7 +816,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 suppression_counter=suppression_counter,
             )
 
-            input_data = input_data.copy()
+            input_data = input_data.copy(deep=True)
             input_data["_suppression_mask_"] = global_suppression_mask
 
             ddf = dd.from_pandas(input_data, npartitions=self.npartitions or 1)
@@ -926,7 +926,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             total_rows = len(input_data)
             chunk_size = max(1, min(self.chunk_size or total_rows, total_rows))
             chunks = [
-                input_data.iloc[i : i + chunk_size].copy()
+                input_data.iloc[i : i + chunk_size].copy(deep=True)
                 for i in range(0, total_rows, chunk_size)
             ]
 
@@ -1694,7 +1694,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 "parameters": self._get_operation_parameters(),
             }
 
-            cache_key = self._generate_cache_key(self._original_df.copy())
+            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
             self.operation_cache.save_cache(
                 data=cache_data,
@@ -2035,7 +2035,7 @@ def suppression_partition_dask(
     if mode == "ENRICH" and working_field:
         batch[working_field] = batch[field_name]
 
-    original = batch[working_field].copy()
+    original = batch[working_field].copy(deep=True)
 
     result = apply_suppression_strategy(
         batch=batch,
@@ -2072,7 +2072,7 @@ def suppression_partition_joblib(
     if mode == "ENRICH" and working_field:
         batch[working_field] = batch[field_name]
 
-    original = batch[working_field].copy()
+    original = batch[working_field].copy(deep=True)
 
     batch = apply_suppression_strategy(
         batch=batch,
@@ -2238,7 +2238,7 @@ def apply_group_mean(
     Returns:
         Series with suppressed values
     """
-    result_series = df[field_name].copy()
+    result_series = df[field_name].copy(deep=True)
     result_series = result_series.astype("float64")
     group_stats = df.groupby(group_by_field)[field_name].agg(["mean", "count"])
 
@@ -2286,7 +2286,7 @@ def apply_group_mode(
     Returns:
         Series with updated suppressed values
     """
-    result_series = df[field_name].copy()
+    result_series = df[field_name].copy(deep=True)
     grouped = df.groupby(group_by_field)[field_name]
 
     for group_val, group_series in grouped:

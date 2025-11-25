@@ -77,15 +77,12 @@ from pamola_core.utils.ops.op_base import FieldOperation
 
 # Import framework utilities
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_data_processing import (
-    force_garbage_collection,
-)
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.helpers import filter_used_kwargs
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.utils import helpers
 
 
 class GeneratorOperation(FieldOperation):
@@ -1430,18 +1427,9 @@ class GeneratorOperation(FieldOperation):
             del original_data
         if generated_data is not None:
             del generated_data
-
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Force garbage collection
-        force_garbage_collection()
+            
+        # cleanup memory from instance
+        helpers.cleanup_memory(instance=self)
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """

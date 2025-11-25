@@ -57,6 +57,7 @@ from pamola_core.utils.ops.op_result import (
 from pamola_core.utils.visualization import plot_value_distribution
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 
 class CategoricalAnalyzer:
@@ -225,6 +226,10 @@ class CategoricalOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+  
             # Set logger if provided in kwargs
             self.logger = kwargs.get("logger", self.logger)
 
@@ -321,7 +326,7 @@ class CategoricalOperation(FieldOperation):
                     )
 
                 # _check_cache now returns OperationResult or None
-                cached_result = self._check_cache(df.copy())
+                cached_result = self._check_cache(df.copy(deep=True))
 
                 if cached_result is not None and isinstance(
                     cached_result, OperationResult
@@ -536,6 +541,13 @@ class CategoricalOperation(FieldOperation):
                         "message": "Operation completed successfully",
                     },
                 )
+
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
 
             return result
 
@@ -926,7 +938,7 @@ class CategoricalOperation(FieldOperation):
             cache_key = operation_cache.generate_cache_key(
                 operation_name=self.operation_name,
                 parameters=self._get_operation_parameters(),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
+                data_hash=self._generate_data_hash(self._original_df.copy(deep=True)),
             )
 
             operation_cache.save_cache(

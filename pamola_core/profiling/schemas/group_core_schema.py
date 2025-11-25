@@ -108,10 +108,6 @@ class GroupAnalyzerOperationConfig(OperationConfig):
                         "type": "object",
                         "title": "Fields Configuration",
                         "description": "Dictionary mapping field names to integer configuration values (e.g., weights or thresholds) for group analysis.",
-                        "items": {
-                            "type": "integer",
-                            "minimum": 0,
-                        },
                     },
                 },
                 "required": ["field_name", "fields_config"],

@@ -247,7 +247,7 @@ class SplitFieldsOperation(TransformationOperation):
 
                 try:
                     # _check_cache now returns OperationResult or None
-                    cached_result = self._check_cache(df.copy())
+                    cached_result = self._check_cache(df.copy(deep=True))
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -538,7 +538,7 @@ class SplitFieldsOperation(TransformationOperation):
                 selected_columns.insert(0, self.id_field)
 
             # Subset the DataFrame
-            subset_df = df[selected_columns].copy()
+            subset_df = df[selected_columns].copy(deep=True)
             result_subsets[group_name] = subset_df
 
         return result_subsets
@@ -896,7 +896,7 @@ class SplitFieldsOperation(TransformationOperation):
                 "parameters": self._get_operation_parameters(),
             }
 
-            cache_key = self._generate_cache_key(self._original_df.copy())
+            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
             operation_cache.save_cache(
                 data=cache_data,

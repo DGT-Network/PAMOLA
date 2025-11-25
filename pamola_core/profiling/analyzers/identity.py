@@ -56,6 +56,7 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -292,6 +293,10 @@ class IdentityAnalysisOperation(FieldOperation):
             consistency_analysis = {}
             distribution_analysis = {}
             cross_match_analysis = {}
+            
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            metrics = None
 
             # Initialize timing and result
             self.start_time = time.time()
@@ -829,9 +834,6 @@ class IdentityAnalysisOperation(FieldOperation):
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            # Cleanup memory
-            self._cleanup_memory(df)
-
             # Record end time
             self.end_time = time.time()
 
@@ -855,6 +857,13 @@ class IdentityAnalysisOperation(FieldOperation):
 
             self.logger.info(
                 f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
+            
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=metrics,
+                instance=self,
             )
 
             # Set success status
@@ -1589,38 +1598,6 @@ class IdentityAnalysisOperation(FieldOperation):
             context, status="warning", details={"missing_fields": field_list}
         )
 
-    def _cleanup_memory(
-        self,
-        original_df: Optional[pd.DataFrame] = None,
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        references and optionally calling garbage collection.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame, optional
-            Original DataFrame to clear from memory
-        """
-        # Delete references
-        if original_df is not None:
-            del original_df
-
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Optional: Force garbage collection for large datasets
-        # Uncomment if memory pressure is an issue
-        # import gc
-        # gc.collect()
 
 
 def analyze_identities(

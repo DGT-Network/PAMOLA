@@ -64,6 +64,7 @@ from pamola_core.utils.visualization import (
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -549,6 +550,10 @@ class NumericOperation(FieldOperation):
             global logger
             if kwargs.get("logger"):
                 logger = kwargs.get("logger")
+            
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -794,6 +799,13 @@ class NumericOperation(FieldOperation):
             if self.end_time and self.start_time:
                 self.execution_time = self.end_time - self.start_time
 
+            # Clean up memory AFTER all file operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
+            
             return result
         except Exception as e:
             logger.exception(f"Error in numeric operation for {self.field_name}: {e}")

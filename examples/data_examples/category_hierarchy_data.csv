@@ -1,0 +1,11 @@
+id,category,region,risk_score,gender,location,group
+1,Fruit > Apple > Fuji,North,3.2,Male,City A1,Group A
+2,Fruit > Apple > Gala,North,4.8,Female,City A2,Group B
+3,Fruit > Banana > Cavendish,South,6.1,Male,City A3,Group C
+4,Fruit > Apple > Fuji,North,2.5,Male,City A4,Group D
+5,Fruit > Banana > Plantain,South,7.2,Female,City A5,Group E
+6,Fruit > Apple > Gala,East,1.9,Female,City A6,Group F
+7,Fruit > Pear > Asian,West,8,Female,City A7,Group G
+8,Fruit > Apple > Granny Smith,North,5.5,Male,City A8,Group H
+9,Fruit > Banana > Red,South,5.8,Female,City A9,Group T
+10,Fruit > Durian > Monthong,South,9.3,Male,City A10,Group K

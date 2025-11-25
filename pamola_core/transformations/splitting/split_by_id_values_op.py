@@ -260,7 +260,7 @@ class SplitByIDValuesOperation(TransformationOperation):
 
                 try:
                     # _check_cache now returns OperationResult or None
-                    cached_result = self._check_cache(df.copy())
+                    cached_result = self._check_cache(df.copy(deep=True))
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -624,7 +624,7 @@ class SplitByIDValuesOperation(TransformationOperation):
 
         def filter_group(group_name, values):
             mask = df[self.id_field].isin(values)
-            return group_name, df[mask].copy()
+            return group_name, df[mask].copy(deep=True)
 
         results = Parallel(n_jobs=self.parallel_processes)(
             delayed(filter_group)(group_name, values)
@@ -636,7 +636,7 @@ class SplitByIDValuesOperation(TransformationOperation):
         all_values = [v for vals in self.value_groups.values() for v in vals]
         others_mask = ~df[self.id_field].isin(all_values)
         if others_mask.any():
-            subsets["others"] = df[others_mask].copy()
+            subsets["others"] = df[others_mask].copy(deep=True)
 
         return subsets
 
@@ -663,12 +663,12 @@ class SplitByIDValuesOperation(TransformationOperation):
         if self.value_groups:
             for group_name, values in self.value_groups.items():
                 mask = df[self.id_field].isin(values)
-                subsets[group_name] = df[mask].copy()
+                subsets[group_name] = df[mask].copy(deep=True)
 
             all_values = [v for vals in self.value_groups.values() for v in vals]
             others_mask = ~df[self.id_field].isin(all_values)
             if others_mask.any():
-                subsets["others"] = df[others_mask].copy()
+                subsets["others"] = df[others_mask].copy(deep=True)
 
         elif self.number_of_partitions > 0:
             if self.partition_method == PartitionMethod.EQUAL_SIZE.value:
@@ -682,24 +682,24 @@ class SplitByIDValuesOperation(TransformationOperation):
                 start_idx = 0
                 for i, size in enumerate(partition_sizes):
                     end_idx = start_idx + size
-                    subsets[f"partition_{i}"] = sorted_df.iloc[start_idx:end_idx].copy()
+                    subsets[f"partition_{i}"] = sorted_df.iloc[start_idx:end_idx].copy(deep=True)
                     start_idx = end_idx
 
             elif self.partition_method == PartitionMethod.RANDOM.value:
                 np.random.seed(42)
                 partitions = np.random.choice(self.number_of_partitions, size=len(df))
                 for i in range(self.number_of_partitions):
-                    subsets[f"partition_{i}"] = df[partitions == i].copy()
+                    subsets[f"partition_{i}"] = df[partitions == i].copy(deep=True)
 
             elif self.partition_method == PartitionMethod.MODULO.value:
                 partitions = df[self.id_field].apply(
                     lambda x: hash(x) % self.number_of_partitions
                 )
                 for i in range(self.number_of_partitions):
-                    subsets[f"partition_{i}"] = df[partitions == i].copy()
+                    subsets[f"partition_{i}"] = df[partitions == i].copy(deep=True)
 
         else:
-            subsets["all_data"] = df.copy()
+            subsets["all_data"] = df.copy(deep=True)
 
         return subsets
 
@@ -1068,7 +1068,7 @@ class SplitByIDValuesOperation(TransformationOperation):
             cache_key = operation_cache.generate_cache_key(
                 operation_name=self.operation_name,
                 parameters=self._get_operation_parameters(),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
+                data_hash=self._generate_data_hash(self._original_df.copy(deep=True)),
             )
 
             operation_cache.save_cache(

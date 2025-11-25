@@ -32,6 +32,8 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of group analyzer UI schema
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.schemas.base_op_ui_schema import BaseOperationUIConfig
@@ -84,13 +86,11 @@ class GroupAnalyzerOperationUIConfig(OperationConfig):
                         "x-required-on": {"hash_algorithm": "minhash"},
                     },
                     "fields_config": {
-                        "x-component": "Object",
+                        "x-component": CustomComponents.DATA_SET_CONFIG,
                         "x-group": GroupName.FIELD_WEIGHTS_CONFIGURATION,
-                        "x-items": {
-                            "x-component": "NumberPicker",
-                        },
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
-                }
+                },
             },
         ],
     }
