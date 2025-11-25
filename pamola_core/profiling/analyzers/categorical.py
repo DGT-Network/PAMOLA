@@ -229,7 +229,7 @@ class CategoricalOperation(FieldOperation):
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
-  
+
             # Set logger if provided in kwargs
             self.logger = kwargs.get("logger", self.logger)
 
@@ -935,11 +935,7 @@ class CategoricalOperation(FieldOperation):
                 "parameters": self._get_operation_parameters(),
             }
 
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_operation_parameters(),
-                data_hash=self._generate_data_hash(self._original_df.copy(deep=True)),
-            )
+            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
             operation_cache.save_cache(
                 data=cache_data,

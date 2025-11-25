@@ -682,7 +682,9 @@ class SplitByIDValuesOperation(TransformationOperation):
                 start_idx = 0
                 for i, size in enumerate(partition_sizes):
                     end_idx = start_idx + size
-                    subsets[f"partition_{i}"] = sorted_df.iloc[start_idx:end_idx].copy(deep=True)
+                    subsets[f"partition_{i}"] = sorted_df.iloc[start_idx:end_idx].copy(
+                        deep=True
+                    )
                     start_idx = end_idx
 
             elif self.partition_method == PartitionMethod.RANDOM.value:
@@ -1065,11 +1067,7 @@ class SplitByIDValuesOperation(TransformationOperation):
                 "parameters": self._get_operation_parameters(),
             }
 
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_operation_parameters(),
-                data_hash=self._generate_data_hash(self._original_df.copy(deep=True)),
-            )
+            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
             operation_cache.save_cache(
                 data=cache_data,
