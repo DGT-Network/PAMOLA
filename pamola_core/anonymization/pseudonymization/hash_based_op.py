@@ -517,7 +517,7 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
                     df, all_fields, self.compound_separator, self.compound_null_handling
                 )
             else:
-                original_series = df[self.field_name].copy()
+                original_series = df[self.field_name].copy(deep=True)
 
             # Update progress: Data loaded
             progress_tracker.update(
@@ -602,9 +602,9 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
                         self.compound_null_handling,
                     )
                 else:
-                    processed_series = df[self.field_name].copy()
+                    processed_series = df[self.field_name].copy(deep=True)
             else:
-                processed_series = df[self._output_field].copy()
+                processed_series = df[self._output_field].copy(deep=True)
 
             # Update progress: Processing complete
             progress_tracker.update(
@@ -824,7 +824,7 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
                 batch, all_fields, self.compound_separator, self.compound_null_handling
             )
         else:
-            working_series = batch[self.field_name].copy()
+            working_series = batch[self.field_name].copy(deep=True)
 
         # Handle null values
         processed_series = process_nulls(

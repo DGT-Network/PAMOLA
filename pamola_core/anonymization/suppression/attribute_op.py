@@ -234,7 +234,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                         f"Operation: {self.operation_name}, Load result from cache"
                     )
                     cached_result = self._get_cache(
-                        df.copy(), progress_tracker=progress_tracker, reporter=reporter
+                        df.copy(deep=True), progress_tracker=progress_tracker, reporter=reporter
                     )
                     if cached_result is not None and isinstance(
                         cached_result, OperationResult
@@ -555,7 +555,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
         try:
             mask = self._build_suppression_mask(input_data)
-            filtered_df = input_data[mask].copy()
+            filtered_df = input_data[mask].copy(deep=True)
             self._original_column_count = len(filtered_df.columns)
 
             fields_to_drop = [self.field_name] + (self.additional_fields or [])
@@ -1359,7 +1359,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             cache_key = self.operation_cache.generate_cache_key(
                 operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
+                data_hash=self._generate_data_hash(self._original_df.copy(deep=True)),
             )
 
             self.operation_cache.save_cache(

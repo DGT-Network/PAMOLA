@@ -60,6 +60,7 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -162,6 +163,11 @@ class DataAttributeProfilerOperation(BaseOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+            entropy_df = None
+
             if kwargs.get("logger"):
                 self.logger = kwargs["logger"]
 
@@ -551,6 +557,14 @@ class DataAttributeProfilerOperation(BaseOperation):
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                analyzed_df=entropy_df,
+                instance=self,
+            )
 
             return result
 

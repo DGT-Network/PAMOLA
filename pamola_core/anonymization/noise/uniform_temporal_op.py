@@ -475,7 +475,7 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
             return noisy
 
         # Adjust mismatched dates
-        adjusted = noisy.copy()
+        adjusted = noisy.copy(deep=True)
 
         # For each mismatched date, find nearest matching day type
         for idx in noisy[mismatch].index:
@@ -579,12 +579,12 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
             if mode == "REPLACE":
                 result.loc[non_null_mask, field_name] = noisy_values
             else:  # ENRICH
-                result[output_field_name] = datetime_series.copy()
+                result[output_field_name] = datetime_series.copy(deep=True)
                 result.loc[non_null_mask, output_field_name] = noisy_values
         else:
             # No non-null values to process
             if mode == "ENRICH":
-                result[output_field_name] = datetime_series.copy()
+                result[output_field_name] = datetime_series.copy(deep=True)
 
         return result
 

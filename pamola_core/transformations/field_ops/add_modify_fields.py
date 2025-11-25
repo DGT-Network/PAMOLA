@@ -217,7 +217,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 # Validation
                 # Get a copy of the original data for metrics calculation
                 original_df = (
-                    df.map_partitions(lambda partition: partition.copy())
+                    df.map_partitions(lambda partition: partition.copy(deep=True))
                     if isinstance(df, dd.DataFrame)
                     else df.copy(deep=True)
                 )
