@@ -849,7 +849,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             if min_val == max_val:
                 # Single-value edge case
                 label = f"{int(min_val)}" if is_int else f"{min_val:.2f}"
-                result = series.copy().astype("object")
+                result = series.copy(deep=True).astype("object")
                 result[non_null_mask] = label
                 return result
 
@@ -879,7 +879,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             labels = [f"{bins[i]:.2f}-{bins[i + 1]:.2f}" for i in range(len(bins) - 1)]
 
         # Apply pd.cut
-        result = series.copy().astype("object")
+        result = series.copy(deep=True).astype("object")
         binned_values = pd.cut(
             non_null_values,
             bins=bins,

@@ -868,7 +868,7 @@ class FullMaskingOperation(AnonymizationOperation):
         if field_name not in batch.columns:
             raise ValueError(f"Field {field_name} not found in DataFrame")
 
-        result = batch.copy()
+        result = batch.copy(deep=True)
 
         # Determine output column
         output_col = field_name if mode == "REPLACE" else output_field_name

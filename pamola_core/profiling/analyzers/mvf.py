@@ -280,7 +280,7 @@ class MVFAnalyzer:
             return df
 
         # Create a copy of the DataFrame to avoid modifying the original
-        result_df = df.copy()
+        result_df = df.copy(deep=True)
 
         # Create the new column name
         parsed_column = f"parsed_{field_name}"

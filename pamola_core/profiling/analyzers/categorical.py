@@ -324,7 +324,7 @@ class CategoricalOperation(FieldOperation):
                     )
 
                 cached_result = self._get_cache(
-                    df.copy(), **kwargs
+                    df.copy(deep=True), **kwargs
                 )  # _get_cache now returns OperationResult or None
                 if cached_result is not None and isinstance(
                     cached_result, OperationResult
@@ -965,7 +965,7 @@ class CategoricalOperation(FieldOperation):
             cache_key = operation_cache.generate_cache_key(
                 operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
+                data_hash=self._generate_data_hash(self._original_df.copy(deep=True)),
             )
 
             operation_cache.save_cache(

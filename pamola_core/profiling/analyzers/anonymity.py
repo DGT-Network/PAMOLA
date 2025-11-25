@@ -593,7 +593,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             k_values = self._calculate_k_values(df, qi_fields)
 
             # Add to DataFrame
-            enriched_df = df.copy()
+            enriched_df = df.copy(deep=True)
             enriched_df[output_field] = k_values
 
             # Save enriched data
@@ -762,7 +762,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         is_large_df = total_rows > chunk_size
 
         # Step 1: Normalize columns used for grouping
-        df = df.copy()
+        df = df.copy(deep=True)
         for field in fields:
             if field in df.columns:  # Safety check
                 df[field] = df[field].astype("object")
@@ -1024,7 +1024,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         total_vulnerable_records = int(vulnerable_groups["k"].sum())
 
         # Join back to get vulnerable record IDs for sampling
-        join_fields = fields.copy()
+        join_fields = fields.copy(deep=True)
         df_subset = df[[id_field] + join_fields]
         vulnerable_df = pd.merge(
             df_subset, vulnerable_groups[join_fields], on=join_fields, how="inner"

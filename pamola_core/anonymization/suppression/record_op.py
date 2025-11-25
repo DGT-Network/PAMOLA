@@ -264,7 +264,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
                         f"Operation: {self.operation_name}, Load result from cache"
                     )
                     cached_result = self._get_cache(
-                        df.copy(), progress_tracker=progress_tracker, reporter=reporter
+                        df.copy(deep=True), progress_tracker=progress_tracker, reporter=reporter
                     )
                     if cached_result is not None and isinstance(
                         cached_result, OperationResult
@@ -570,13 +570,13 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     )
 
                     if self.save_suppressed_records:
-                        suppressed_chunks.append(batch[mask].copy())
+                        suppressed_chunks.append(batch[mask].copy(deep=True))
 
                 # Mark suppressed positions in the global mask
                 global_mask.iloc[start:end] = mask.values
 
                 # Keep non-suppressed rows
-                result_batch = batch[~mask].copy()
+                result_batch = batch[~mask].copy(deep=True)
                 processed_chunks.append(result_batch)
                 self._batch_number += 1
 
@@ -669,7 +669,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             mask = dask_mask_ddf.compute()
 
             # Apply mask to get result
-            output_data = input_data[~mask].copy()
+            output_data = input_data[~mask].copy(deep=True)
 
             # Track suppression count
             self._original_record_count = len(input_data)
@@ -680,7 +680,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             )
 
             if self.save_suppressed_records and self._suppressed_records_count > 0:
-                suppressed_df = input_data[mask].copy()
+                suppressed_df = input_data[mask].copy(deep=True)
                 if not suppressed_df.empty:
                     self._save_suppressed_records(
                         suppressed_df, record_num=self._suppressed_records_count
@@ -877,7 +877,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             return
 
         try:
-            suppressed_df = suppressed_df.copy()
+            suppressed_df = suppressed_df.copy(deep=True)
             self.suppression_reason_field = (
                 self.suppression_reason_field or "ReasonForRemoval"
             )
@@ -1588,7 +1588,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
             cache_key = self.operation_cache.generate_cache_key(
                 operation_name=self.operation_name,
                 parameters=self._get_cache_parameters(),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
+                data_hash=self._generate_data_hash(self._original_df.copy(deep=True)),
             )
 
             self.operation_cache.save_cache(
@@ -2048,5 +2048,5 @@ def process_batch_for_suppression(
 ) -> Tuple[pd.DataFrame, pd.Series, Optional[pd.DataFrame]]:
     mask = build_suppression_mask_for_joblib(batch, **suppression_config)
     suppressed = batch[mask] if save_suppressed_records else None
-    result = batch[~mask].copy()
+    result = batch[~mask].copy(deep=True)
     return result, mask.astype(bool), suppressed

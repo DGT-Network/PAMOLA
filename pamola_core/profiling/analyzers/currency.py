@@ -1986,7 +1986,7 @@ class CurrencyOperation(FieldOperation):
             else:
                 id_field = "index"
 
-            sample_df = df.loc[indices, [self.field_name]].copy()
+            sample_df = df.loc[indices, [self.field_name]].copy(deep=True)
             sample_df = sample_df.reset_index()
 
             # Save to CSV
