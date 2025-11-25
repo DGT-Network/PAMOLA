@@ -30,6 +30,11 @@ import hashlib
 import dask.dataframe as dd
 
 from pamola_core.common.type_aliases import DataFrameType
+from pamola_core.utils.helpers import (
+    get_df_signature,
+    get_dask_df_signature,
+    get_series_signature,
+)
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register_operation
@@ -758,127 +763,44 @@ class BaseOperation(ABC):
         # Nothing to clean up in the base class
         return False  # Don't suppress exceptions
 
-    def _generate_data_hash(self, data: Union[pd.Series, pd.DataFrame]) -> str:
+    def _generate_data_hash(
+        self, data: Union[pd.Series, pd.DataFrame, dd.DataFrame]
+    ) -> str:
         """
-        Generate a hash representing the key characteristics of the data.
-
+        Generate a hash representing the data for caching purposes.
+        Uses direct sample hashing for accuracy and performance.
+        
         Parameters
         ----------
-        data : Union[pd.Series, pd.DataFrame]
-            Input data for the operation. Can be a pandas Series or DataFrame.
-
+        data : Union[pd.Series, pd.DataFrame, dd.DataFrame]
+            Input data for the operation. Can be a pandas Series, DataFrame, or Dask DataFrame.
+        
         Returns
         -------
         str
-            Hash string representing the data's key characteristics.
+            Hash string representing the data.
         """
         try:
             if isinstance(data, pd.Series):
-                characteristics = self._series_characteristics(data)
+                combined = get_series_signature(data)
+            elif isinstance(data, dd.DataFrame):
+                combined = get_dask_df_signature(data)
             elif isinstance(data, pd.DataFrame):
-                characteristics = self._df_characteristics(data)
+                combined = get_df_signature(data)
             else:
-                raise TypeError("Input must be a pandas Series or DataFrame")
-
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode("utf-8")).hexdigest()
-
+                raise TypeError(
+                    "Input must be a pandas Series, DataFrame, or Dask DataFrame"
+                )
+            
+            # Single place for hashing
+            return hashlib.md5(combined.encode()).hexdigest()
+            
         except Exception as e:
             self.logger.warning(f"Error generating data hash: {e}")
-            fallback_str = f"{len(data)}_{type(data)}"
-            return hashlib.md5(fallback_str.encode("utf-8")).hexdigest()
-
-    def _series_characteristics(self, s: pd.Series) -> dict:
-        """
-        Extract key characteristics from a pandas Series for hashing.
-
-        Parameters
-        ----------
-        s : pd.Series
-            The pandas Series to extract characteristics from.
-
-        Returns
-        -------
-        dict
-            Dictionary of characteristics (length, null count, unique count, dtype, and summary stats).
-        """
-        char = {
-            "length": len(s),
-            "null_count": int(s.isna().sum()),
-            "unique_count": int(s.nunique()),
-            "dtype": str(s.dtype),
-        }
-        if pd.api.types.is_numeric_dtype(s):
-            non_null = s.dropna()
-            if not non_null.empty:
-                char.update(
-                    {
-                        "min": float(non_null.min()),
-                        "max": float(non_null.max()),
-                        "mean": float(non_null.mean()),
-                        "median": float(non_null.median()),
-                        "std": float(non_null.std()),
-                    }
-                )
-        elif pd.api.types.is_object_dtype(s) or isinstance(
-            s.dtype, pd.CategoricalDtype
-        ):
-            top_values = s.value_counts().head(10)
-            char["top_values"] = {str(k): int(v) for k, v in top_values.items()}
-        return char
-
-    def _df_characteristics(self, df: pd.DataFrame) -> dict:
-        """
-        Extract key characteristics from a pandas DataFrame for hashing.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The pandas DataFrame to extract characteristics from.
-
-        Returns
-        -------
-        dict
-            Dictionary of characteristics (shape, null count, unique count, dtypes, columns, and numeric summary).
-        """
-        char = {
-            "shape": df.shape,
-            "null_count": int(df.isna().sum().sum()),
-            "unique_count": int(df.nunique().sum()),
-            "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
-            "columns": list(df.columns),
-        }
-        # Numeric summary
-        numeric_cols = df.select_dtypes(include="number")
-        if not numeric_cols.empty:
-            char["numeric_summary"] = {
-                col: {
-                    "min": float(numeric_cols[col].min()),
-                    "max": float(numeric_cols[col].max()),
-                    "mean": float(numeric_cols[col].mean()),
-                    "median": float(numeric_cols[col].median()),
-                    "std": float(numeric_cols[col].std()),
-                }
-                for col in numeric_cols.columns
-            }
-        # Object/Categorical summary
-        object_cols = [
-            col
-            for col in df.columns
-            if pd.api.types.is_object_dtype(df[col])
-            or isinstance(df[col].dtype, pd.CategoricalDtype)
-        ]
-        if object_cols:
-            char["object_summary"] = {
-                col: {
-                    "top_values": {
-                        str(k): int(v)
-                        for k, v in df[col].value_counts().head(10).items()
-                    }
-                }
-                for col in object_cols
-            }
-        return char
+            # Fallback to basic metadata
+            fallback_str = f"{type(data).__name__}_{len(data)}"
+            return hashlib.md5(fallback_str.encode()).hexdigest()
+        
 
     def _get_operation_parameters(self) -> Dict[str, str]:
         """Get the basic parameters for the cache key generation."""
@@ -942,13 +864,13 @@ class BaseOperation(ABC):
         # Base implementation returns minimal parameters
         return {}
 
-    def _generate_cache_key(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
+    def _generate_cache_key(self, df: Union[pd.Series, pd.DataFrame, dd.DataFrame]) -> str:
         """
         Generate a deterministic cache key based on operation parameters and data characteristics.
 
         Parameters:
         -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
+        df : Union[pd.Series, pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
 
         Returns:
