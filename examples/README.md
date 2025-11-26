@@ -345,10 +345,7 @@ examples/data_examples/
 │   ├── strategy1_hierarchy/
 │   ├── strategy2_frequency/
 │   └── strategy3_merge/
-└── final_exports/             # Final processed data
-    ├── strategy1_hierarchy/
-    ├── strategy2_frequency/
-    └── strategy3_merge/
+└── simple_output/             # Simple output
 ```
 
 ---
@@ -475,8 +472,8 @@ PAMOLA/
 │       ├── category_hierarchy_data.csv
 │       ├── category_hierarchy.json
 │       ├── sample.csv
-│       ├── advanced_output/
-│       └── final_exports/
+│       ├── simple_output/
+│       └── advanced_output/
 ├── pamola_core/                     # Core library
 ├── docs/                            # Documentation
 ├── tests/                           # Unit tests
