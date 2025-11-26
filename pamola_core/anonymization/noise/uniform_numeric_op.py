@@ -441,12 +441,12 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
             if mode == "REPLACE":
                 result.loc[non_null_mask, field_name] = noisy_values
             else:  # ENRICH
-                result[output_field_name] = values.copy()
+                result[output_field_name] = values.copy(deep=True)
                 result.loc[non_null_mask, output_field_name] = noisy_values
         else:
             # No non-null values to process
             if mode == "ENRICH":
-                result[output_field_name] = values.copy()
+                result[output_field_name] = values.copy(deep=True)
 
         return result
 

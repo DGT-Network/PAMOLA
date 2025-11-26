@@ -12,7 +12,6 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
-import inspect
 
 import numpy as np
 import pandas as pd
@@ -23,6 +22,7 @@ from pamola_core.profiling.commons.dtype_helpers import (
     is_numeric_dtype, is_bool_dtype, is_object_dtype, is_string_dtype,
     is_datetime64_dtype, is_categorical_dtype
 )
+from pamola_core.utils import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -594,3 +594,47 @@ def save_profiling_results(result: Dict[str, Any],
 
     # Return path as string for compatibility
     return str(file_path)
+
+def cleanup_memory(
+        df: Optional[pd.DataFrame] = None,
+        analyzed_df: Optional[pd.DataFrame] = None,
+        values_dict: Optional[pd.DataFrame] = None,
+        combinations_dict: Optional[pd.DataFrame] = None,
+        analysis_results: Optional[Dict[str, Any]] = None,
+        instance: Optional[Any] = None,
+        **kwargs,
+    ) -> None:
+    """
+    Clean up memory after operation completes.
+
+    For large datasets, explicitly free memory by deleting
+    references and optionally calling garbage collection.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame, optional
+        Input DataFrame to clear from memory
+    analysis_results : Dict[str, Any], optional
+        Analysis results dictionary to clear from memory
+    instance : Any, optional
+        Class instance to clean up attributes from
+    force_gc : bool, optional
+        Whether to force garbage collection (default is False)
+    """
+    try:
+        # Delete DataFrame references
+        if df is not None:
+            del df
+        if analysis_results is not None:
+            del analysis_results
+        if analyzed_df is not None:
+            del analyzed_df
+        if values_dict is not None:
+            del values_dict
+        if combinations_dict is not None:
+            del combinations_dict
+    
+        # cleanup memory from instance
+        helpers.cleanup_memory(instance=instance)
+    except Exception as e:
+            logger.warning(f"Error cleanup_memory: {e}")

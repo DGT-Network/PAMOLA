@@ -87,6 +87,7 @@ from pamola_core.utils.io import (
 )
 from pamola_core.utils.visualization import create_bar_plot, create_spider_chart
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -205,6 +206,11 @@ class KAnonymityProfilerOperation(BaseOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+            enriched_df = None
+            
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -398,6 +404,14 @@ class KAnonymityProfilerOperation(BaseOperation):
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
+            # Clean up memory AFTER all file operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                analyzed_df=enriched_df,
+                instance=self,
+            )
+
             return result
 
         except Exception as e:
@@ -579,7 +593,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             k_values = self._calculate_k_values(df, qi_fields)
 
             # Add to DataFrame
-            enriched_df = df.copy()
+            enriched_df = df.copy(deep=True)
             enriched_df[output_field] = k_values
 
             # Save enriched data
@@ -748,7 +762,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         is_large_df = total_rows > chunk_size
 
         # Step 1: Normalize columns used for grouping
-        df = df.copy()
+        df = df.copy(deep=True)
         for field in fields:
             if field in df.columns:  # Safety check
                 df[field] = df[field].astype("object")
@@ -1010,7 +1024,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         total_vulnerable_records = int(vulnerable_groups["k"].sum())
 
         # Join back to get vulnerable record IDs for sampling
-        join_fields = fields.copy()
+        join_fields = fields.copy(deep=True)
         df_subset = df[[id_field] + join_fields]
         vulnerable_df = pd.merge(
             df_subset, vulnerable_groups[join_fields], on=join_fields, how="inner"

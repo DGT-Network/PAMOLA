@@ -55,6 +55,7 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import create_histogram, create_heatmap
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.common.constants import Constants
+from pamola_core.profiling.commons import helpers
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -352,6 +353,10 @@ class GroupAnalyzerOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            metrics = None
+
             if kwargs.get("logger"):
                 self.logger = kwargs["logger"]
 
@@ -563,6 +568,13 @@ class GroupAnalyzerOperation(FieldOperation):
                     str(metrics_result.path),
                     f"{self.__class__.__name__} {self.field_name} group analysis metrics",
                 )
+
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=metrics,
+                instance=self,
+            )
 
             return result
 

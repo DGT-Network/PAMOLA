@@ -72,6 +72,7 @@ from pamola_core.utils.visualization import (
     plot_text_length_distribution,
 )
 from pamola_core.common.constants import Constants
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = get_logger(__name__)
@@ -196,6 +197,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+
             # Initialize timing and result
             self.start_time = time.time()
 
@@ -433,6 +438,13 @@ class TextSemanticCategorizerOperation(FieldOperation):
             if self.end_time and self.start_time:
                 self.execution_time = self.end_time - self.start_time
 
+            # Clean up memory AFTER all file operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
+            
             return result
         except Exception as e:
             logger.exception(

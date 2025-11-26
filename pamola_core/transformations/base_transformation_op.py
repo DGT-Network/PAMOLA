@@ -29,7 +29,6 @@ import numpy as np
 import pandas as pd
 import hashlib
 import json
-import gc
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
@@ -49,6 +48,7 @@ from pamola_core.transformations.commons.visualization_utils import (
     sample_large_dataset,
 )
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.utils import helpers
 
 
 class TransformationOperation(BaseOperation):
@@ -1582,15 +1582,8 @@ class TransformationOperation(BaseOperation):
         if transformed_data is not None:
             del transformed_data
 
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Optional: Force garbage collection for large datasets
-        # Uncomment if memory pressure is an issue
-        # import gc
-        # gc.collect()
+        # cleanup memory from instance
+        helpers.cleanup_memory(instance=self)
 
     def _generate_data_hash(self, data: Union[pd.Series, pd.DataFrame]) -> str:
         """
