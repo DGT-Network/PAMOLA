@@ -96,15 +96,15 @@ class FakeOrganizationOperationUIConfig(OperationConfig):
                         "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "dictionaries": {
-                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
+                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
                     },
                     "prefixes": {
-                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
+                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
                     },
                     "suffixes": {
-                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
+                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
                     },
                     "consistency_mechanism": {
