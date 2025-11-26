@@ -36,7 +36,9 @@ from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation_matrix,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.correlation_core_schema import CorrelationOperationConfig
+from pamola_core.profiling.schemas.correlation_core_schema import (
+    CorrelationOperationConfig,
+)
 from pamola_core.profiling.schemas.correlation_matrix_core_schema import (
     CorrelationMatrixOperationConfig,
 )
@@ -268,15 +270,12 @@ class CorrelationOperation(FieldOperation):
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
-   
+
             # Set logger if provided in kwargs
             self.logger = kwargs.get("logger", self.logger)
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            # Initialize operation cache
-            self.operation_cache = OperationCache(cache_dir=task_dir / "cache")
 
             # Save configuration
             self.save_config(task_dir)
@@ -295,6 +294,12 @@ class CorrelationOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             visualizations_dir = dirs["visualizations"]
             output_dir = dirs["output"]
 

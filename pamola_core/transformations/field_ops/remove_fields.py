@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import List, Dict, Union, Optional, Any
 import json
 import pandas as pd
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
 from pamola_core.utils.ops.op_registry import register
@@ -146,10 +147,15 @@ class RemoveFieldsOperation(TransformationOperation):
             )
 
             # Prepare directories for artifacts
-            directories = self._prepare_directories(task_dir)
-            output_dir = directories["output"]
-            visualizations_dir = directories["visualizations"]
-            metrics_dir = directories["metrics"]
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
+            output_dir = dirs["output"]
+            metrics_dir = dirs["metrics"]
 
             # Save configuration to task directory
             self.save_config(task_dir)
@@ -480,8 +486,6 @@ class RemoveFieldsOperation(TransformationOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
             # Load data
@@ -500,7 +504,7 @@ class RemoveFieldsOperation(TransformationOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
+            cached_data = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
@@ -1416,8 +1420,6 @@ class RemoveFieldsOperation(TransformationOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
 
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
@@ -1440,7 +1442,7 @@ class RemoveFieldsOperation(TransformationOperation):
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,

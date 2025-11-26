@@ -446,7 +446,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         # Initialize operation cache
         self.operation_cache = OperationCache(
-            cache_dir=task_dir / "cache",
+            cache_dir=dirs["cache"],
         )
 
         # Save configuration to task directory

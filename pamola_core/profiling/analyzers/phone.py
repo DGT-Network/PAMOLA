@@ -410,10 +410,6 @@ class PhoneOperation(FieldOperation):
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
-            )
-
             # Save configuration
             self.save_config(task_dir)
 
@@ -428,6 +424,12 @@ class PhoneOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]

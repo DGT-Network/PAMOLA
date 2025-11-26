@@ -52,6 +52,7 @@ from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
 )
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -550,7 +551,7 @@ class NumericOperation(FieldOperation):
             global logger
             if kwargs.get("logger"):
                 logger = kwargs.get("logger")
-            
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
@@ -572,6 +573,12 @@ class NumericOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
@@ -805,7 +812,7 @@ class NumericOperation(FieldOperation):
                 analysis_results=analysis_results,
                 instance=self,
             )
-            
+
             return result
         except Exception as e:
             logger.exception(f"Error in numeric operation for {self.field_name}: {e}")
@@ -1026,17 +1033,13 @@ class NumericOperation(FieldOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
 
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
             logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache_dir.get_cache(
+            cached_data = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.__class__.__name__
             )
 
@@ -1161,12 +1164,6 @@ class NumericOperation(FieldOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            # Generate operation cache
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
@@ -1183,7 +1180,7 @@ class NumericOperation(FieldOperation):
 
             # Save to cache
             logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache_dir.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,

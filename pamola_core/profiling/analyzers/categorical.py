@@ -44,7 +44,7 @@ from pamola_core.utils.io import (
     write_dataframe_to_csv,
     load_settings_operation,
 )
-from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -253,6 +253,12 @@ class CategoricalOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
             output_dir = dirs["output"]
@@ -937,7 +943,7 @@ class CategoricalOperation(FieldOperation):
 
             cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
-            operation_cache.save_cache(
+            self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,

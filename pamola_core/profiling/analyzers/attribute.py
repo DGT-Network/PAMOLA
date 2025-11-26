@@ -63,6 +63,7 @@ from pamola_core.utils.visualization import (
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.profiling.commons import helpers
+from pamola_core.utils.ops.op_cache import OperationCache
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -181,6 +182,12 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             # Prepare output directories for artifacts
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
@@ -784,9 +791,6 @@ class DataAttributeProfilerOperation(BaseOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             # Get DataFrame from data source
             settings_operation = load_settings_operation(
                 data_source, data_source_name, **kwargs
@@ -803,7 +807,7 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
+            cached_data = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.__class__.__name__
             )
 
@@ -881,9 +885,6 @@ class DataAttributeProfilerOperation(BaseOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
@@ -899,7 +900,7 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,

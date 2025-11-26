@@ -45,7 +45,7 @@ from pamola_core.utils.io import (
     write_json,
     write_dataframe_to_csv,
 )
-from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import (
     OperationResult,
@@ -176,6 +176,11 @@ class SplitFieldsOperation(TransformationOperation):
                 )
 
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
 
             if reporter:
                 reporter.add_operation(
@@ -898,7 +903,7 @@ class SplitFieldsOperation(TransformationOperation):
 
             cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
-            operation_cache.save_cache(
+            self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,
@@ -926,7 +931,7 @@ class SplitFieldsOperation(TransformationOperation):
         try:
             cache_key = self._generate_cache_key(df)
 
-            cached = operation_cache.get_cache(
+            cached = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 

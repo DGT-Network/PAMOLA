@@ -188,16 +188,16 @@ class MergeDatasetsOperation(TransformationOperation):
             result = OperationResult(status=OperationStatus.PENDING)
 
             # Prepare directories for artifacts
-            directories = self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=directories["cache"],
+                cache_dir=dirs["cache"],
             )
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
-                task_dir=directories["output"],
+                task_dir=dirs["output"],
                 logger=self.logger,
                 progress_tracker=progress_tracker,
             )

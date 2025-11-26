@@ -66,6 +66,7 @@ from pamola_core.profiling.schemas.anonymity_core_schema import (
     KAnonymityProfilerOperationConfig,
 )
 from pamola_core.utils.ops.op_base import BaseOperation
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
@@ -208,6 +209,14 @@ class KAnonymityProfilerOperation(BaseOperation):
             Results of the operation
         """
         try:
+            # Prepare directories
+            dirs = self._prepare_directories(task_dir)
+            
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
@@ -1195,9 +1204,6 @@ class KAnonymityProfilerOperation(BaseOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             # Get DataFrame from data source
             settings_operation = load_settings_operation(
                 data_source, data_source_name, **kwargs
@@ -1214,7 +1220,7 @@ class KAnonymityProfilerOperation(BaseOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
+            cached_data = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
@@ -1289,9 +1295,6 @@ class KAnonymityProfilerOperation(BaseOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
@@ -1309,7 +1312,7 @@ class KAnonymityProfilerOperation(BaseOperation):
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,

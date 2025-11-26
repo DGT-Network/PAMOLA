@@ -37,6 +37,7 @@ from pandas.api.types import (
     is_datetime64_any_dtype,
 )
 
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
 from pamola_core.utils.ops.op_registry import register
@@ -165,7 +166,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
             )
 
             # Prepare directories for artifacts
-            directories = self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
 
             # Save configuration to task directory
             self.save_config(task_dir)
@@ -772,8 +778,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
             # Load data
@@ -792,7 +796,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
+            cached_data = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
@@ -1763,8 +1767,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
 
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
@@ -1787,7 +1789,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,
