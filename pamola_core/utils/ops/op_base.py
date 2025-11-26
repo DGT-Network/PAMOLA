@@ -30,11 +30,7 @@ import hashlib
 import dask.dataframe as dd
 
 from pamola_core.common.type_aliases import DataFrameType
-from pamola_core.utils.helpers import (
-    get_df_signature,
-    get_dask_df_signature,
-    get_series_signature,
-)
+from pamola_core.utils.helpers import generate_data_hash
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register_operation
@@ -762,44 +758,6 @@ class BaseOperation(ABC):
         """Clean up resources when exiting context."""
         # Nothing to clean up in the base class
         return False  # Don't suppress exceptions
-
-    def _generate_data_hash(
-        self, data: Union[pd.Series, pd.DataFrame, dd.DataFrame]
-    ) -> str:
-        """
-        Generate a hash representing the data for caching purposes.
-        Uses direct sample hashing for accuracy and performance.
-        
-        Parameters
-        ----------
-        data : Union[pd.Series, pd.DataFrame, dd.DataFrame]
-            Input data for the operation. Can be a pandas Series, DataFrame, or Dask DataFrame.
-        
-        Returns
-        -------
-        str
-            Hash string representing the data.
-        """
-        try:
-            if isinstance(data, pd.Series):
-                combined = get_series_signature(data)
-            elif isinstance(data, dd.DataFrame):
-                combined = get_dask_df_signature(data)
-            elif isinstance(data, pd.DataFrame):
-                combined = get_df_signature(data)
-            else:
-                raise TypeError(
-                    "Input must be a pandas Series, DataFrame, or Dask DataFrame"
-                )
-            
-            # Single place for hashing
-            return hashlib.md5(combined.encode()).hexdigest()
-            
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {e}")
-            # Fallback to basic metadata
-            fallback_str = f"{type(data).__name__}_{len(data)}"
-            return hashlib.md5(fallback_str.encode()).hexdigest()
         
 
     def _get_operation_parameters(self) -> Dict[str, str]:
@@ -884,7 +842,7 @@ class BaseOperation(ABC):
         parameters = self._get_operation_parameters()
 
         # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
+        data_hash = generate_data_hash(df)
 
         # Use the operation_cache utility to generate a consistent cache key
         return operation_cache.generate_cache_key(
