@@ -77,7 +77,7 @@ class FakeNameOperationUIConfig(OperationConfig):
                         "x-group": GroupName.NAME_GENERATION_STYLE,
                     },
                     "dictionaries": {
-                        "x-component": CustomComponents.UPLOAD,
+                        "x-component": CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD,
                         "x-group": GroupName.NAME_GENERATION_STYLE,
                     },
                     "gender_from_name": {

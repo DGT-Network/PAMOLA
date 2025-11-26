@@ -396,6 +396,7 @@ def convert_property(
         CustomComponents.VALUE_GROUP_ARRAY_AGGREGATIONS,
         CustomComponents.CUSTOM_VALUE_GROUP_ARRAY_AGGREGATIONS,
         CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
+        CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD,
     ]:
         field = _handle_custom_component(field)
 
@@ -583,6 +584,38 @@ def _handle_custom_component(field: dict) -> dict:
                 {"value": "government", "label": "Government"},
                 {"value": "industry", "label": "Industry"},
             ],
+        }
+        field["x-reactions"] = [{"fulfill": {"run": "{{ init_upload($self) }}"}}]
+
+    elif component == CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD:
+
+        # Handle Field Multiple Select Upload File Input
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "languageOptions": [
+                {"value": "vi", "label": "Vietnamese"},
+                {"value": "en", "label": "English"},
+                {"value": "ru", "label": "Russian"},
+            ],
+            "dictionaryParamsByLanguage": {
+                "en": [
+                    {"label": "Female first names", "value": "femaleFirstNames"},
+                    {"label": "Last names", "value": "lastNames"},
+                    {"label": "Male first names", "value": "maleFirstNames"},
+                ],
+                "vi": [
+                    {"label": "Female first names", "value": "femaleFirstNames"},
+                    {"label": "Last names", "value": "lastNames"},
+                    {"label": "Male first names", "value": "maleFirstNames"},
+                ],
+                "ru": [
+                    {"label": "Female first names", "value": "femaleFirstNames"},
+                    {"label": "Female middle names", "value": "femaleMiddleNames"},
+                    {"label": "Last names", "value": "lastNames"},
+                    {"label": "Male middle names", "value": "maleMiddleNames"},
+                    {"label": "Male first names", "value": "maleFirstNames"},
+                ],
+            },
         }
         field["x-reactions"] = [{"fulfill": {"run": "{{ init_upload($self) }}"}}]
     return field

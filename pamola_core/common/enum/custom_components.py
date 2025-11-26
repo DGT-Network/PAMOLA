@@ -32,3 +32,4 @@ class CustomComponents:
     CUSTOM_VALUE_GROUP_ARRAY_AGGREGATIONS = "CustomValueGroupArrayAggregations"
     DATA_SET_CONFIG = "DataSetConfig"
     FIELD_SELECT_UPLOAD_FILE_INPUT = "FieldSelectUploadFileInput"
+    FIELD_MULTIPLE_SELECT_UPLOAD = "FieldMultipleSelectUpload"
