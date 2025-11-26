@@ -1364,12 +1364,15 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
             cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
-            self.operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
+            
+            if not success:
+                raise Exception("Cache save operation results failure")
 
             self.logger.info(f"Saved result to cache with key: {cache_key}")
 
