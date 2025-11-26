@@ -61,7 +61,6 @@ import matplotlib
 
 # Set the backend to 'Agg' to avoid GUI issues
 matplotlib.use("Agg")
-import hashlib
 from pamola_core.utils.ops.op_registry import register
 
 

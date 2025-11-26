@@ -36,8 +36,6 @@ Changelog:
 """
 
 from datetime import datetime
-import hashlib
-import json
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple, Union
@@ -266,7 +264,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
                         f"Operation: {self.operation_name}, Load result from cache"
                     )
                     cached_result = self._check_cache(
-                        df.copy(deep=True), progress_tracker=progress_tracker, reporter=reporter
+                        df.copy(deep=True),
+                        progress_tracker=progress_tracker,
+                        reporter=reporter,
                     )
                     if cached_result is not None and isinstance(
                         cached_result, OperationResult

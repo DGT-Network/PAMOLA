@@ -27,7 +27,6 @@ Key Features:
 """
 
 import hashlib
-import json
 import logging
 from pathlib import Path
 import time
@@ -354,14 +353,14 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         try:
             dirs = self._prepare_directories(task_dir)
-            
+
             # Initialize operation cache
             self.operation_cache = OperationCache(
                 cache_dir=dirs["cache"],
             )
             visualizations_dir = dirs["visualizations"]
             output_dir = dirs["output"]
-        
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             metrics = None
