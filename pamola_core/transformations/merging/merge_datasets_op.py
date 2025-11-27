@@ -197,7 +197,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
-                task_dir=dirs["output"],
+                task_dir=task_dir,
                 logger=self.logger,
                 progress_tracker=progress_tracker,
             )
