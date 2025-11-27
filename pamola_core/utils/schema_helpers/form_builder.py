@@ -322,15 +322,32 @@ def convert_property(
             if (
                 "items" in field
                 and isinstance(field["items"], dict)
-                and "enum" in field["items"]
             ):
-                field["enum"] = [
-                    {
-                        "value": value,
-                        "label": str(value),
-                    }
-                    for value in field["items"]["enum"]
-                ]
+                # Handling cases with direct enums
+                if "enum" in field["items"]:
+                    field["enum"] = [
+                        {
+                            "value": value,
+                            "label": str(value),
+                        }
+                        for value in field["items"]["enum"]
+                    ]
+                    field["items"].pop("enum", None)  # ← Thêm cleanup
+                    
+                # Handle the case of oneOf
+                elif "oneOf" in field["items"]:
+                    field["enum"] = [
+                        {
+                            "value": opt["const"],
+                            "label": opt.get("description", str(opt["const"])),
+                        }
+                        for opt in field["items"]["oneOf"]
+                        if "const" in opt  
+                    ]
+                    
+                # Cleanup
+                field["items"].pop("oneOf", None)
+                field["items"].pop("enum", None)
 
     elif field["x-component"] == "Switch":
         field["x-content"] = f"Enable {field['title']}"
