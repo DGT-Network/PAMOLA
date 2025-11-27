@@ -444,7 +444,7 @@ class TransformationOperation(BaseOperation):
                     self._save_to_cache(
                         original_data=original_data,
                         transformed_data=transformed_data,
-                        metrics=metrics,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:

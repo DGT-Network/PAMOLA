@@ -368,7 +368,7 @@ class RemoveFieldsOperation(TransformationOperation):
                     self._save_to_cache(
                         original_df=original_df,
                         processed_df=processed_df,
-                        metrics=metrics,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:

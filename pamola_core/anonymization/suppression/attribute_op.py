@@ -331,8 +331,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save cache")
                     self._save_to_cache(
-                        task_dir,
-                        result,
+                        task_dir=task_dir,
+                        result=result,
                         progress_tracker=progress_tracker,
                         reporter=reporter,
                     )
