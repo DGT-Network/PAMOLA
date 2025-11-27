@@ -25,3 +25,4 @@ class CustomFunctions:
     UPDATE_INT64_FIELD_OPTIONS = "update_int64_field_options"
     UPDATE_DEFAULT_COUNTRY_OPTIONS = "update_default_country_options"
     UPDATE_FAKE_PHONE_FORMAT = "update_fake_phone_format"
+    INIT_FIELD_DOUBLE_SELECT = "init_field_double_select"

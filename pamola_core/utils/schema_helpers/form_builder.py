@@ -772,10 +772,6 @@ def _handle_custom_component(field: dict) -> dict:
                 },
             ],
         }
-
-        field["x-reactions"] = [
-            {"fulfill": {"run": "{{ init_field_double_select($self) }}"}}
-        ]
     return field
 
 

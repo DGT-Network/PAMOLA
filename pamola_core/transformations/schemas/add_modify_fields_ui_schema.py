@@ -30,6 +30,7 @@ Changelog:
 """
 
 from pamola_core.common.enum.custom_components import CustomComponents
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.schemas.base_op_ui_schema import BaseOperationUIConfig
@@ -55,12 +56,13 @@ class AddOrModifyFieldsOperationUIConfig(OperationConfig):
                     "field_operations": {
                         "x-component": CustomComponents.FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY,
                         "x-group": GroupName.FIELD_OPERATIONS_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.INIT_FIELD_DOUBLE_SELECT],
                     },
                     "lookup_tables": {
                         "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
                         "x-group": GroupName.LOOKUP_TABLE_CONFIGURATION,
                     },
-                }
+                },
             },
         ],
     }
