@@ -109,18 +109,6 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "title": "Interval Size",
                         "description": "Size of each binning interval.",
                     },
-                    "interval_unit": {
-                        "type": "string",
-                        "default": "days",
-                        "title": "Interval Unit",
-                        "description": "Unit for binning interval (e.g., days, weeks, months).",
-                        "oneOf": [
-                            {"const": "hours", "description": "Hours"},
-                            {"const": "days", "description": "Days"},
-                            {"const": "weeks", "description": "Weeks"},
-                            {"const": "months", "description": "Months"},
-                        ],
-                    },
                     "reference_date": {
                         "type": ["string", "null"],
                         "title": "Reference Date",
@@ -210,7 +198,7 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         }
                     }
                 },
-                "then": {"required": ["interval_size", "interval_unit"]},
+                "then": {"required": ["interval_size"]},
             },
             {
                 "if": {"properties": {"bin_type": {"const": "custom"}}},

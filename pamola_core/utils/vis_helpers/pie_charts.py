@@ -407,40 +407,55 @@ class PlotlySunburstChart(PlotlyFigure):
         """
         Process hierarchical dictionary data for sunburst chart.
 
+        Converts nested dictionary structure into flat lists of labels, parents, and values
+        suitable for Plotly Sunburst visualization.
+
         Parameters:
         -----------
         data : Dict
-            Hierarchical dictionary where leaf nodes have values
+            Hierarchical dictionary where leaf nodes have numeric values.
+            Example: {'Fruit': {'Apple': {'Gala': 1, 'Fuji': 2}}}
         parent : str
-            Parent node name
+            Parent node name (used for recursion)
 
         Returns:
         --------
         Tuple[List[str], List[str], List[float]]
-            Tuple of (labels, parents, values) for the sunburst chart
+            Tuple of (labels, parents, values) where:
+            - labels: List of all node names
+            - parents: List of parent names for each node
+            - values: List of values for each node (sum of immediate children for non-leaf nodes)
         """
         labels = []
         parents = []
         values = []
 
         for key, value in data.items():
-            # Add this node
+            # Add this node's label and parent
             labels.append(key)
             parents.append(parent)
 
             if isinstance(value, dict):
-                # Recursive case: child is another dictionary
+                # Recursive case: node has children
                 child_labels, child_parents, child_values = (
                     self._process_hierarchical_dict(value, key)
                 )
+                
+                # Calculate sum of IMMEDIATE children only
+                # immediate children are those whose parent equals current key
+                immediate_children_sum = sum(
+                    child_values[i] 
+                    for i, p in enumerate(child_parents) 
+                    if p == key
+                )
+                values.append(immediate_children_sum)
+                
+                # Now extend with all descendant data
                 labels.extend(child_labels)
                 parents.extend(child_parents)
                 values.extend(child_values)
-
-                # Set the parent node's value to the sum of its children
-                values.append(sum(child_values))
             else:
-                # Base case: child is a value
+                # Base case: leaf node with numeric value
                 values.append(value)
 
         return labels, parents, values

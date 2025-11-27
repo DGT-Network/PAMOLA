@@ -37,6 +37,7 @@ from pandas.api.types import (
     is_datetime64_any_dtype,
 )
 
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
 from pamola_core.utils.ops.op_registry import register
@@ -45,7 +46,9 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.schemas.clean_invalid_values_core_schema import CleanInvalidValuesOperationConfig
+from pamola_core.transformations.schemas.clean_invalid_values_core_schema import (
+    CleanInvalidValuesOperationConfig,
+)
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure module logger
@@ -163,7 +166,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
             )
 
             # Prepare directories for artifacts
-            directories = self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
 
             # Save configuration to task directory
             self.save_config(task_dir)
@@ -744,35 +752,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         raise NotImplementedError("Not implement")
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["cache"] = task_dir / "cache"
-        directories["logs"] = task_dir / "logs"
-        directories["dictionaries"] = task_dir / "dictionaries"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
-
     def _check_cache(
         self, data_source: DataSource, reporter: Any, **kwargs
     ) -> Optional[OperationResult]:
@@ -799,8 +778,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
             # Load data
@@ -819,7 +796,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
+            cached_data = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
@@ -923,36 +900,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -967,54 +915,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
             "whitelist_path": self.whitelist_path,
             "blacklist_path": self.blacklist_path,
             "null_replacement": self.null_replacement,
-            "version": self.version,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _process_dataframe(
         self, df: pd.DataFrame, progress_tracker: Optional[HierarchicalProgressTracker]
@@ -1864,14 +1767,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
 
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
+            operation_parameters = self._get_base_parameters()
 
             cache_data = {
                 "timestamp": datetime.now().isoformat(),
@@ -1888,7 +1789,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,

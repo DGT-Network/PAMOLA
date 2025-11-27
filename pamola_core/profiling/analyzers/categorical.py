@@ -24,8 +24,6 @@ Key Features:
   - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
 
-import hashlib
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Union, Tuple
@@ -34,7 +32,9 @@ from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.categorical_core_schema import CategoricalOperationConfig
+from pamola_core.profiling.schemas.categorical_core_schema import (
+    CategoricalOperationConfig,
+)
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
@@ -42,7 +42,7 @@ from pamola_core.utils.io import (
     write_dataframe_to_csv,
     load_settings_operation,
 )
-from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -227,7 +227,7 @@ class CategoricalOperation(FieldOperation):
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
-  
+
             # Set logger if provided in kwargs
             self.logger = kwargs.get("logger", self.logger)
 
@@ -251,6 +251,12 @@ class CategoricalOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
             output_dir = dirs["output"]
@@ -323,9 +329,9 @@ class CategoricalOperation(FieldOperation):
                         },
                     )
 
-                cached_result = self._get_cache(
-                    df.copy(deep=True), **kwargs
-                )  # _get_cache now returns OperationResult or None
+                # _check_cache now returns OperationResult or None
+                cached_result = self._check_cache(df.copy(deep=True))
+
                 if cached_result is not None and isinstance(
                     cached_result, OperationResult
                 ):
@@ -514,7 +520,7 @@ class CategoricalOperation(FieldOperation):
                         1, {"step": "Save cache", "operation": self.operation_name}
                     )
 
-                self._save_cache(task_dir, result, **kwargs)
+                self._save_to_cache(task_dir, result)
 
                 if reporter:
                     reporter.add_operation(
@@ -566,35 +572,6 @@ class CategoricalOperation(FieldOperation):
             return OperationResult(
                 status=OperationStatus.ERROR, error_message=str(e), exception=e
             )
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare required directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary of directory paths
-        """
-        # Create required directories
-        output_dir = task_dir / "output"
-        visualizations_dir = task_dir / "visualizations"
-        dictionaries_dir = task_dir / "dictionaries"
-
-        ensure_directory(output_dir)
-        ensure_directory(visualizations_dir)
-        ensure_directory(dictionaries_dir)
-
-        return {
-            "output": output_dir,
-            "visualizations": visualizations_dir,
-            "dictionaries": dictionaries_dir,
-        }
 
     def _collect_metrics(self, analysis_results: dict, result: OperationResult) -> None:
         """
@@ -932,7 +909,7 @@ class CategoricalOperation(FieldOperation):
                     details={"warning": str(e)},
                 )
 
-    def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
+    def _save_to_cache(self, task_dir: Path, result: OperationResult) -> None:
         """
         Save the operation result to cache.
 
@@ -959,27 +936,26 @@ class CategoricalOperation(FieldOperation):
 
             cache_data = {
                 "result": result_data,
-                "parameters": self._get_cache_parameters(**kwargs),
+                "parameters": self._get_base_parameters(),
             }
 
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(self._original_df.copy(deep=True)),
-            )
+            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
-            operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
+            if not success:
+                raise Exception("Cache save operation results failure")
+
             self.logger.info(f"Saved result to cache with key: {cache_key}")
         except Exception as e:
             self.logger.warning(f"Failed to save cache: {e}")
 
-    def _get_cache(self, df: pd.DataFrame, **kwargs) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Retrieve cached result if available and valid.
 
@@ -994,11 +970,7 @@ class CategoricalOperation(FieldOperation):
             The cached OperationResult if available, otherwise None.
         """
         try:
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(df),
-            )
+            cache_key = self._generate_cache_key(df)
 
             cached = operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
@@ -1047,7 +1019,7 @@ class CategoricalOperation(FieldOperation):
             self.logger.warning(f"Failed to load cache: {e}")
             return None
 
-    def _get_cache_parameters(self, **kwargs) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters required for generating a cache key.
 
@@ -1061,84 +1033,12 @@ class CategoricalOperation(FieldOperation):
         """
 
         return {
-            "operation": self.operation_name,
-            "version": self.version,
             "field_name": self.field_name,
             "top_n": self.top_n,
             "min_frequency": self.min_frequency,
-            "generate_visualization": self.generate_visualization,
             "profile_type": self.profile_type,
             "analyze_anomalies": self.analyze_anomalies,
-            "use_cache": self.use_cache,
-            "force_recalculation": self.force_recalculation,
-            "visualization_backend": self.visualization_backend,
-            "visualization_theme": self.visualization_theme,
-            "visualization_strict": self.visualization_strict,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
         }
-
-    def _generate_data_hash(self, data: pd.DataFrame) -> str:
-        """
-        Generate a hash that represents key characteristics of the input DataFrame.
-
-        The hash is based on structure and summary statistics to detect changes
-        for caching purposes.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Input DataFrame to generate a representative hash from.
-
-        Returns
-        -------
-        str
-            A hash string representing the structure and key properties of the data.
-        """
-        try:
-            characteristics = {
-                "columns": list(data.columns),
-                "shape": data.shape,
-                "summary": {},
-            }
-
-            for col in data.columns:
-                col_data = data[col]
-                col_info = {
-                    "dtype": str(col_data.dtype),
-                    "null_count": int(col_data.isna().sum()),
-                    "unique_count": int(col_data.nunique()),
-                }
-
-                if pd.api.types.is_numeric_dtype(col_data):
-                    non_null = col_data.dropna()
-                    if not non_null.empty:
-                        col_info.update(
-                            {
-                                "min": float(non_null.min()),
-                                "max": float(non_null.max()),
-                                "mean": float(non_null.mean()),
-                                "median": float(non_null.median()),
-                                "std": float(non_null.std()),
-                            }
-                        )
-                elif pd.api.types.is_object_dtype(col_data) or isinstance(
-                    col_data.dtype, pd.CategoricalDtype
-                ):
-                    top_values = col_data.value_counts(dropna=True).head(5)
-                    col_info["top_values"] = {
-                        str(k): int(v) for k, v in top_values.items()
-                    }
-
-                characteristics["summary"][col] = col_info
-
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode()).hexdigest()
-
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-            fallback = f"{data.shape}_{list(data.dtypes)}"
-            return hashlib.md5(fallback.encode()).hexdigest()
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """

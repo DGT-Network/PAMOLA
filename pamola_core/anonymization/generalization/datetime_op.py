@@ -56,7 +56,9 @@ from pamola_core.anonymization.commons.validation_utils import (
     validate_datetime_field,
 )
 import dask.dataframe as dd
-from pamola_core.anonymization.schemas.datetime_op_core_schema import DateTimeGeneralizationConfig
+from pamola_core.anonymization.schemas.datetime_op_core_schema import (
+    DateTimeGeneralizationConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation
@@ -125,7 +127,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         # Binning parameters
         bin_type: str = "day_range",
         interval_size: int = 7,
-        interval_unit: str = "days",
         reference_date: Optional[Union[str, datetime]] = None,
         custom_bins: Optional[List[Union[str, datetime]]] = None,
         # Component parameters
@@ -153,8 +154,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             Type of binning ('day_range', 'month_range', etc.).
         interval_size : int
             Size of each binning interval.
-        interval_unit : str
-            Unit for interval ('days', 'weeks', etc.).
         reference_date : Optional[Union[str, datetime]]
             Reference date for binning alignment.
         custom_bins : Optional[List[Union[str, datetime]]]
@@ -190,7 +189,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             rounding_unit=rounding_unit,
             bin_type=bin_type,
             interval_size=interval_size,
-            interval_unit=interval_unit,
             reference_date=reference_date,
             custom_bins=custom_bins,
             keep_components=keep_components,
@@ -277,11 +275,11 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             )
 
             # Prepare directories for artifacts
-            self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Save configuration to task directory
@@ -1394,12 +1392,10 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             Strategy-specific parameters for date time generalization
         """
         params = dict(
-            field_name=self.field_name,
             strategy=self.strategy,
             rounding_unit=self.rounding_unit,
             bin_type=self.bin_type,
             interval_size=self.interval_size,
-            interval_unit=self.interval_unit,
             reference_date=self.reference_date,
             custom_bins=self.custom_bins,
             keep_components=self.keep_components,
@@ -1408,29 +1404,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             default_timezone=self.default_timezone,
             input_formats=self.input_formats,
             min_privacy_threshold=self.min_privacy_threshold,
-            mode=self.mode,
-            output_field_name=self.output_field_name,
-            column_prefix=self.column_prefix,
-            optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_vectorization=self.use_vectorization,
-            parallel_processes=self.parallel_processes,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            output_format=self.output_format,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
-            save_output=self.save_output,
         )
 
         return params

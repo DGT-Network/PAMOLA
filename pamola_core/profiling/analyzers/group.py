@@ -27,7 +27,6 @@ Key Features:
 """
 
 import hashlib
-import json
 import logging
 from pathlib import Path
 import time
@@ -43,6 +42,7 @@ from pamola_core.profiling.commons.group_utils import (
 from pamola_core.profiling.schemas.group_core_schema import GroupAnalyzerOperationConfig
 from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.utils.ops.op_base import FieldOperation
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
@@ -235,7 +235,6 @@ class GroupAnalyzer:
         return metrics
 
 
-
 @register(version="1.0.0")
 class GroupAnalyzerOperation(FieldOperation):
     """
@@ -353,6 +352,15 @@ class GroupAnalyzerOperation(FieldOperation):
             Results of the operation
         """
         try:
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+            visualizations_dir = dirs["visualizations"]
+            output_dir = dirs["output"]
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             metrics = None
@@ -418,10 +426,6 @@ class GroupAnalyzerOperation(FieldOperation):
                             details={"cached": True},
                         )
                     return cache_result
-
-            dirs = self._prepare_directories(task_dir)
-            visualizations_dir = dirs["visualizations"]
-            output_dir = dirs["output"]
 
             # Step 3: Load data
             if progress_tracker:
@@ -496,7 +500,9 @@ class GroupAnalyzerOperation(FieldOperation):
 
                 encryption_kwargs = {
                     "use_encryption": self.use_encryption,
-                    "encryption_key": self.encryption_key if self.use_encryption else None,
+                    "encryption_key": (
+                        self.encryption_key if self.use_encryption else None
+                    ),
                 }
                 self._handle_visualizations(
                     threshold_metrics=metrics["threshold_metrics"],
@@ -1063,8 +1069,6 @@ class GroupAnalyzerOperation(FieldOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
 
             # Get DataFrame from data source
             df = load_data_operation(data_source, data_source_name)
@@ -1077,7 +1081,7 @@ class GroupAnalyzerOperation(FieldOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
+            cached_data = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.__class__.__name__
             )
 
@@ -1153,14 +1157,11 @@ class GroupAnalyzerOperation(FieldOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
+            operation_parameters = self._get_base_parameters()
 
             artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
 
@@ -1174,7 +1175,7 @@ class GroupAnalyzerOperation(FieldOperation):
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.__class__.__name__,
@@ -1191,36 +1192,7 @@ class GroupAnalyzerOperation(FieldOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1239,54 +1211,9 @@ class GroupAnalyzerOperation(FieldOperation):
             "large_group_variance_threshold": self.large_group_variance_threshold,
             "hash_algorithm": self.hash_algorithm,
             "minhash_similarity_threshold": self.minhash_similarity_threshold,
-            "encryption_key": self.encryption_key,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
         self,

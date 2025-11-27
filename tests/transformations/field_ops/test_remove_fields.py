@@ -144,8 +144,8 @@ def test_generate_data_hash_fallback(sample_df):
     assert isinstance(h, str)
     assert len(h) == 32
 
-def test_get_operation_parameters(op):
-    params = op._get_operation_parameters()
+def test_get_base_parameters(op):
+    params = op._get_base_parameters()
     assert params["fields_to_remove"] == ["a"]
     assert params["pattern"] == "foo"
     assert "version" in params

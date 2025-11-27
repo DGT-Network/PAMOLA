@@ -36,7 +36,9 @@ from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation_matrix,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.correlation_core_schema import CorrelationOperationConfig
+from pamola_core.profiling.schemas.correlation_core_schema import (
+    CorrelationOperationConfig,
+)
 from pamola_core.profiling.schemas.correlation_matrix_core_schema import (
     CorrelationMatrixOperationConfig,
 )
@@ -268,15 +270,12 @@ class CorrelationOperation(FieldOperation):
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
-   
+
             # Set logger if provided in kwargs
             self.logger = kwargs.get("logger", self.logger)
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            # Initialize operation cache
-            self.operation_cache = OperationCache(cache_dir=task_dir / "cache")
 
             # Save configuration
             self.save_config(task_dir)
@@ -295,6 +294,12 @@ class CorrelationOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             visualizations_dir = dirs["visualizations"]
             output_dir = dirs["output"]
 
@@ -617,29 +622,6 @@ class CorrelationOperation(FieldOperation):
             return OperationResult(
                 status=OperationStatus.ERROR, error_message=str(e), exception=e
             )
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare required directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary of directory paths
-        """
-        # Create required directories
-        output_dir = task_dir / "output"
-        visualizations_dir = task_dir / "visualizations"
-
-        ensure_directory(output_dir)
-        ensure_directory(visualizations_dir)
-
-        return {"output": output_dir, "visualizations": visualizations_dir}
 
     def _collect_metrics(self, analysis_results: dict, result: OperationResult) -> None:
         """
@@ -1123,7 +1105,7 @@ class CorrelationOperation(FieldOperation):
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
+            operation_parameters = self._get_base_parameters()
 
             artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
 
@@ -1251,67 +1233,7 @@ class CorrelationOperation(FieldOperation):
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import json
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
-
-    def _get_operation_parameters(self, **kwargs) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters required for generating a cache key.
 
@@ -1325,22 +1247,11 @@ class CorrelationOperation(FieldOperation):
         """
 
         return {
-            "operation": self.operation_name,
-            "version": self.version,
             "field1": self.field1,
             "field2": self.field2,
             "method": self.method,
-            "description": self.description,
             "null_handling": self.null_handling,
             "mvf_parser": self.mvf_parser,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_mode": self.encryption_mode,
-            "encryption_key": self.encryption_key,
         }
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
