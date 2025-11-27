@@ -1385,25 +1385,8 @@ class MergeDatasetsOperation(TransformationOperation):
                 return None
 
             target_df = df[self.left_key] if self.left_key else df
-            cache_key = self._generate_cache_key(target_df)
 
-            # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
-                return None
-
-            result = get_cache_result(cached_result)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Merge datasets transformation of {self.left_key} (cached)",
-                    details={"left_key": self.left_key, "cached": True},
-                )
+            result = super()._check_cache(target_df, reporter)
 
             return result
 

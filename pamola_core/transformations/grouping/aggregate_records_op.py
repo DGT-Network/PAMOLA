@@ -1195,63 +1195,6 @@ class AggregateRecordsOperation(TransformationOperation):
                             f"Allowed: {sorted(allowed_aggs)}"
                         )
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for this operation.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame to check in the cache
-        reporter : Any
-            Reporter to log cache hits/misses
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-            # Create cache key from entire dataframe or from group_by_fields if present
-            if self.group_by_fields and not all(
-                field in df.columns for field in self.group_by_fields
-            ):
-                missing = [f for f in self.group_by_fields if f not in df.columns]
-                self.logger.warning(f"Missing fields for cache key: {missing}")
-                return None
-
-            cache_df = df[self.group_by_fields] if self.group_by_fields else df
-            cache_key = self._generate_cache_key(cache_df)
-
-            # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
-                return None
-
-            result = get_cache_result(cached_result)
-
-            # Report cache hit to reporter
-            if reporter:
-                reporter.add_operation(
-                    f"Aggregate records transformation of {self.group_by_fields} (cached)",
-                    details={"cached": True, "group_by_fields": self.group_by_fields},
-                )
-            return result
-
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
-
     def _save_to_cache(
         self,
         original_data: Union[pd.Series, pd.DataFrame],

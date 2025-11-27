@@ -183,33 +183,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                 progress_tracker.total = total_steps
                 progress_tracker.update(current_steps, {"step": "Preparation"})
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(data_source, reporter, **kwargs)
-
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if progress_tracker:
-                        progress_tracker.update(
-                            total_steps, {"step": "Complete (cached)"}
-                        )
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Impute missing values (from cache)",
-                            details={"cached": True},
-                        )
-                    return cache_result
-
-            # Step 2: Data Loading
+            # Step 1: Data Loading
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Data Loading"})
@@ -237,6 +211,32 @@ class ImputeMissingValuesOperation(TransformationOperation):
                     error_message=error_message,
                     exception=e,
                 )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df=df, reporter=reporter)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Impute missing values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
 
             # Step 3: Validation
             if progress_tracker:
@@ -702,65 +702,6 @@ class ImputeMissingValuesOperation(TransformationOperation):
             Processed value
         """
         raise NotImplementedError("Not implement")
-
-    def _check_cache(
-        self, data_source: DataSource, reporter: Any, **kwargs
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for operation.
-
-        Parameters:
-        -----------
-        data_source : DataSource
-            Data source for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
-        dataset_name: str
-            Dataset name
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-
-            # Get DataFrame from data source
-            # Load data
-            dataset_name = kwargs.get("dataset_name", "main")
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                error_message = "Failed to load input data"
-                self.logger.warning(f"Cannot check cache: {error_message}")
-                return None
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(df)
-
-            # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
-                return None
-
-            result = get_cache_result(cached_result)
-
-            return result
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """

@@ -245,9 +245,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     progress_tracker.update(1, {"step": "Checking Cache"})
 
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(
-                    df=df, task_dir=task_dir, reporter=reporter
-                )
+                cache_result = self._check_cache(df, reporter)
 
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
@@ -571,51 +569,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             Processed value
         """
         raise NotImplementedError("Not implement")
-
-    def _check_cache(
-        self, df: Union[pd.DataFrame, dd.DataFrame], task_dir: Path, reporter: Any
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for operation.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-        task_dir : Path
-            Task directory
-        reporter : Any
-            The reporter to log artifacts to
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(df)
-
-            # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
-                return None
-
-            result = get_cache_result(cached_result)
-
-            return result
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """

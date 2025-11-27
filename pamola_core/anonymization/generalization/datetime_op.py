@@ -632,11 +632,8 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                     self._save_to_cache(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
-                        metrics=metrics,
+                        result=result,
                         task_dir=task_dir,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical

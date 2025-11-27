@@ -1250,14 +1250,8 @@ class TransformationOperation(BaseOperation):
             return None
 
         try:
-            cache_key_df = df if not self.field_name else df.get(self.field_name)
-            if cache_key_df is None:
-                self.logger.warning(
-                    f"Field '{self.field_name}' not found in DataFrame columns."
-                )
-                return None
 
-            cache_key = self._generate_cache_key(cache_key_df)
+            cache_key = self._generate_cache_key(df)
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
             cached_result = self.operation_cache.get_cache(

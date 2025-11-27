@@ -234,11 +234,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                     self.logger.info(
                         f"Operation: {self.operation_name}, Load result from cache"
                     )
-                    cached_result = self._check_cache(
-                        df.copy(deep=True),
-                        progress_tracker=progress_tracker,
-                        reporter=reporter,
-                    )
+                    cached_result = self._check_cache(df, reporter)
+
                     if cached_result is not None and isinstance(
                         cached_result, OperationResult
                     ):
@@ -1381,77 +1378,6 @@ class AttributeSuppressionOperation(AnonymizationOperation):
 
         except Exception as e:
             self.logger.warning(f"Failed to save cache: {e}", exc_info=True)
-
-    def _check_cache(
-        self,
-        df: pd.DataFrame,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-    ) -> Optional[OperationResult]:
-        """
-        Retrieve cached result if available and valid.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The input DataFrame used to generate the cache key.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to log cache step.
-        reporter : Optional[Any]
-            Operation reporter for logging.
-        **kwargs : dict
-            Additional parameters for cache key generation.
-
-        Returns
-        -------
-        Optional[OperationResult]
-            The cached OperationResult if available, otherwise None.
-        """
-        step = "Load result from cache"
-
-        if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
-
-        try:
-            cache_key = self._generate_cache_key(df)
-
-            cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
-                return None
-
-            result = get_cache_result(cached_result)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Loaded result from cache successfully",
-                    },
-                )
-
-            return result
-
-        except Exception as e:
-            self.logger.info(f"{self.operation_name} - {step} failed: {e}")
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Load result from cache failed - proceeding with execution",
-                        "error": str(e),
-                    },
-                )
-
-            return None
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """

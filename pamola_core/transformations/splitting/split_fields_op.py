@@ -252,7 +252,7 @@ class SplitFieldsOperation(TransformationOperation):
 
                 try:
                     # _check_cache now returns OperationResult or None
-                    cached_result = self._check_cache(df.copy(deep=True))
+                    cached_result = self._check_cache(df=df, reporter=reporter)
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -903,41 +903,6 @@ class SplitFieldsOperation(TransformationOperation):
             self.logger.info(f"Saved result to cache with key: {cache_key}")
         except Exception as e:
             self.logger.warning(f"Failed to save cache: {e}")
-
-    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
-        """
-        Retrieve cached result if available and valid.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The input DataFrame used to generate the cache key.
-
-        Returns
-        -------
-        Optional[OperationResult]
-            The cached OperationResult if available, otherwise None.
-        """
-        try:
-            cache_key = self._generate_cache_key(df)
-
-            # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
-                return None
-
-            result = get_cache_result(cached_result)
-
-            return result
-
-        except Exception as e:
-            self.logger.warning(f"Failed to load cache: {e}")
-            return None
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
