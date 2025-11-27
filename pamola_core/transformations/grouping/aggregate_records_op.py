@@ -1439,7 +1439,7 @@ class AggregateRecordsOperation(TransformationOperation):
                 cache_key = self._generate_cache_key(original_data)
 
             # Prepare metadata for cache
-            operation_params = self._get_operation_parameters()
+            operation_params = self._get_base_parameters()
 
             # Prepare cache data
             cache_data = {

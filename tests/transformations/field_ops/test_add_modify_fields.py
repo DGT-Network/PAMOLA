@@ -139,8 +139,8 @@ def test__generate_data_hash(op, sample_df):
     assert isinstance(h, str)
     assert len(h) == 32  # md5
 
-def test__get_operation_parameters(op):
-    params = op._get_operation_parameters()
+def test__get_base_parameters(op):
+    params = op._get_base_parameters()
     assert "field_operations" in params
     assert "lookup_tables" in params
     assert "version" in params

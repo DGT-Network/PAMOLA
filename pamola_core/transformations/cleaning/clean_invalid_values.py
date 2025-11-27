@@ -1772,7 +1772,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
+            operation_parameters = self._get_base_parameters()
 
             cache_data = {
                 "timestamp": datetime.now().isoformat(),

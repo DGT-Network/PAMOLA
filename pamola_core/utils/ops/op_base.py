@@ -759,7 +759,7 @@ class BaseOperation(ABC):
         return False  # Don't suppress exceptions
         
 
-    def _get_operation_parameters(self) -> Dict[str, str]:
+    def _get_base_parameters(self) -> Dict[str, str]:
         """Get the basic parameters for the cache key generation."""
         # Get basic operation parameters
         parameters = {
@@ -838,7 +838,7 @@ class BaseOperation(ABC):
         from pamola_core.utils.ops.op_cache import operation_cache
 
         # Get operation parameters
-        parameters = self._get_operation_parameters()
+        parameters = self._get_base_parameters()
 
         # Generate data hash based on key characteristics
         data_hash = generate_data_hash(df)

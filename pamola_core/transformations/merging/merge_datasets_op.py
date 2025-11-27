@@ -1587,7 +1587,7 @@ class MergeDatasetsOperation(TransformationOperation):
                 cache_key = self._generate_cache_key(left_df)
 
             # Prepare metadata for cache
-            operation_params = self._get_operation_parameters()
+            operation_params = self._get_base_parameters()
 
             # Prepare cache data
             cache_data = {

@@ -249,9 +249,9 @@ def test_generate_cache_key(sample_df):
     key = op._generate_cache_key(sample_df)
     assert isinstance(key, str)
 
-def test_get_operation_parameters():
+def test_get_base_parameters():
     op = CleanInvalidValuesOperation()
-    params = op._get_operation_parameters()
+    params = op._get_base_parameters()
     assert isinstance(params, dict)
 
 def test_get_cache_parameters():

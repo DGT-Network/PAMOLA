@@ -1590,7 +1590,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
             cache_data = {
                 "result": result_data,
-                "parameters": self._get_operation_parameters(),
+                "parameters": self._get_base_parameters(),
             }
 
             cache_key = self._generate_cache_key(self._original_df.copy(deep=True))

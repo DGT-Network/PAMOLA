@@ -2233,7 +2233,7 @@ class CurrencyOperation(FieldOperation):
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
+            operation_parameters = self._get_base_parameters()
 
             artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
 

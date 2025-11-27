@@ -938,7 +938,7 @@ class IdentityAnalysisOperation(FieldOperation):
             cache_key = self._generate_cache_key(original_data[self.field_name])
 
             # Prepare metadata for cache
-            operation_params = self._get_operation_parameters()
+            operation_params = self._get_base_parameters()
 
             self.logger.debug(f"Operation parameters for cache: {operation_params}")
 

@@ -2155,7 +2155,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
+            operation_parameters = self._get_base_parameters()
 
             original_df_len = (
                 int(original_df.map_partitions(len).sum().compute())

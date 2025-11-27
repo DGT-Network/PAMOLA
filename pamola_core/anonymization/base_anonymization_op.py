@@ -1678,11 +1678,11 @@ class AnonymizationOperation(FieldOperation):
         """
         return {}
 
-    def _get_operation_parameters(self) -> Dict[str, str]:
+    def _get_base_parameters(self) -> Dict[str, str]:
         """Get the basic parameters for the cache key generation."""
         # Get basic operation parameters
 
-        parameters = super()._get_operation_parameters()
+        parameters = super()._get_base_parameters()
 
         # Add operation-specific parameters
         parameters.update(
@@ -1938,7 +1938,7 @@ class AnonymizationOperation(FieldOperation):
             cache_key = self._generate_cache_key(original_data)
 
             # Prepare metadata for cache
-            operation_params = self._get_operation_parameters()
+            operation_params = self._get_base_parameters()
             self.logger.debug(f"Operation parameters for cache: {operation_params}")
 
             # Prepare cache data
