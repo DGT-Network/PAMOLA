@@ -52,6 +52,7 @@ from pamola_core.profiling.commons.numeric_utils import (
     calculate_histogram,
 )
 from pamola_core.profiling.schemas.currency_core_schema import CurrencyOperationConfig
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_dataframe_to_csv,
     write_json,
@@ -1622,9 +1623,8 @@ class CurrencyOperation(FieldOperation):
             if self.use_cache:
                 try:
                     self._save_to_cache(
-                        artifacts=result.artifacts,
                         original_df=df,
-                        metrics=result.metrics,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
@@ -2155,57 +2155,25 @@ class CurrencyOperation(FieldOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                self.logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        cached_result.add_metric(key, value)
-
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        artifact_type = artifact.get("artifact_type", "")
-                        artifact_path = artifact.get("path", "")
-                        artifact_name = artifact.get("description", "")
-                        artifact_category = artifact.get("category", "output")
-                        cached_result.add_artifact(
-                            artifact_type,
-                            artifact_path,
-                            artifact_name,
-                            artifact_category,
-                        )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
     def _save_to_cache(
         self,
-        original_df: Union[pd.DataFrame, dd.DataFrame],
-        artifacts: List[OperationArtifact],
-        metrics: Dict[str, Any],
+        original_df: pd.DataFrame,
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -2213,10 +2181,10 @@ class CurrencyOperation(FieldOperation):
 
         Parameters:
         -----------
-        original_df : Union[pd.DataFrame, dd.DataFrame]
+        original_df : pd.DataFrame
             Original input data
-        metrics : dict
-            The metrics of operation
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
 
@@ -2225,7 +2193,7 @@ class CurrencyOperation(FieldOperation):
         bool
             True if successfully saved to cache, False otherwise
         """
-        if not self.use_cache or (not artifacts and not metrics):
+        if not self.use_cache:
             return False
 
         try:
@@ -2233,16 +2201,9 @@ class CurrencyOperation(FieldOperation):
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_base_parameters()
-
-            artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "artifacts": artifacts_for_cache,
-                "metrics": metrics,
-            }
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")

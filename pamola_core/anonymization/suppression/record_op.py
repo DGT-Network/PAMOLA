@@ -52,6 +52,7 @@ from pamola_core.anonymization.schemas.record_op_core_schema import (
     RecordSuppressionConfig,
 )
 from pamola_core.common.constants import Constants
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     load_settings_operation,
     load_data_operation,
@@ -1575,23 +1576,10 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
 
         try:
-            result_data = {
-                "status": (
-                    result.status.name
-                    if isinstance(result.status, OperationStatus)
-                    else str(result.status)
-                ),
-                "metrics": result.metrics,
-                "error_message": result.error_message,
-                "execution_time": result.execution_time,
-                "error_trace": result.error_trace,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
-            }
-
-            cache_data = {
-                "result": result_data,
-                "parameters": self._get_base_parameters(),
-            }
+            # Prepare cache data
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
 
             cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
@@ -1657,44 +1645,15 @@ class RecordSuppressionOperation(AnonymizationOperation):
         try:
             cache_key = self._generate_cache_key(df)
 
-            cached = self.operation_cache.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            result_data = cached.get("result")
-            if not isinstance(result_data, dict):
-                raise ValueError("Cached result is not a valid dictionary")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-            status_str = result_data.get("status", OperationStatus.ERROR.name)
-            status = (
-                OperationStatus[status_str]
-                if status_str in OperationStatus.__members__
-                else OperationStatus.ERROR
-            )
-
-            artifacts = []
-            for art_dict in result_data.get("artifacts", []):
-                try:
-                    artifacts.append(
-                        OperationArtifact(
-                            artifact_type=art_dict.get("type"),
-                            path=art_dict.get("path"),
-                            description=art_dict.get("description", ""),
-                            category=art_dict.get("category", "output"),
-                            tags=art_dict.get("tags", []),
-                        )
-                    )
-                except Exception as e:
-                    self.logger.warning(f"Failed to deserialize artifact: {e}")
-
-            result = OperationResult(
-                status=status,
-                artifacts=artifacts,
-                metrics=result_data.get("metrics", {}),
-                error_message=result_data.get("error_message"),
-                execution_time=result_data.get("execution_time"),
-                error_trace=result_data.get("error_trace"),
-            )
+            result = get_cache_result(cached_result)
 
             if reporter:
                 reporter.add_operation(

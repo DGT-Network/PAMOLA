@@ -47,6 +47,7 @@ from pamola_core.profiling.commons.numeric_utils import (
     process_with_joblib,
 )
 from pamola_core.profiling.schemas.numeric_core_schema import NumericOperationConfig
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
     load_data_operation,
@@ -769,8 +770,7 @@ class NumericOperation(FieldOperation):
             if self.use_cache:
                 self._save_to_cache(
                     df=df,
-                    analysis_results=analysis_results,
-                    artifacts=artifacts,
+                    result=result,
                     task_dir=task_dir,
                 )
 
@@ -1038,98 +1038,18 @@ class NumericOperation(FieldOperation):
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
-            logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+            self.logger.debug(f"Checking cache for key: {cache_key}")
+            cached_result = self.operation_cache.get_cache(
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Restore artifacts from cache
-                artifacts_restored = 0
-
-                # Add artifacts
-                artifacts = cached_data.get("artifacts", [])
-                for artifact in artifacts:
-                    if artifact and isinstance(artifact, dict):
-                        if Path(artifact.get("path")).exists():
-                            artifacts_restored += 1
-                            cached_result.add_artifact(
-                                artifact.get("artifact_type"),
-                                artifact.get("path"),
-                                artifact.get("description"),
-                                category=artifact.get("category"),
-                            )
-                            reporter.add_artifact(
-                                artifact.get("artifact_type"),
-                                artifact.get("path"),
-                                artifact.get("description"),
-                            )
-
-                # Add cached metrics to result
-                analysis_results = cached_data.get("analysis_results", {})
-                stats_dict = analysis_results.get("stats", {})
-
-                cached_result.add_metric(
-                    "total_rows", analysis_results.get("total_rows", 0)
-                )
-                cached_result.add_metric(
-                    "null_count", analysis_results.get("null_count", 0)
-                )
-                cached_result.add_metric(
-                    "null_percentage", analysis_results.get("null_percentage", 0)
-                )
-                cached_result.add_metric("min", stats_dict.get("min"))
-                cached_result.add_metric("max", stats_dict.get("max"))
-                cached_result.add_metric("mean", stats_dict.get("mean"))
-                cached_result.add_metric("median", stats_dict.get("median"))
-
-                if "outliers" in stats_dict:
-                    cached_result.add_metric(
-                        "outliers_count", stats_dict["outliers"].get("count", 0)
-                    )
-                    cached_result.add_metric(
-                        "outliers_percentage",
-                        stats_dict["outliers"].get("percentage", 0),
-                    )
-
-                if "normality" in stats_dict:
-                    cached_result.add_metric(
-                        "is_normal", stats_dict["normality"].get("is_normal", False)
-                    )
-
-                # Add final operation status to reporter
-                outliers = stats_dict.get("outliers", {})
-                normality = stats_dict.get("normality", {})
-                reporter.add_operation(
-                    f"Analysis of {self.field_name} completed",
-                    details={
-                        "valid_values": analysis_results.get("valid_count", 0),
-                        "null_percentage": analysis_results.get("null_percentage", 0),
-                        "min": stats_dict.get("min"),
-                        "max": stats_dict.get("max"),
-                        "mean": stats_dict.get("mean"),
-                        "outliers": outliers.get("count", 0),
-                        "is_normal": normality.get("is_normal", False),
-                    },
-                )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-                cached_result.add_metric("artifacts_restored", artifacts_restored)
-
-                return cached_result
-
-            logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             logger.warning(f"Error checking cache: {str(e)}")
             return None
@@ -1137,8 +1057,7 @@ class NumericOperation(FieldOperation):
     def _save_to_cache(
         self,
         df: pd.DataFrame,
-        analysis_results: Dict[str, Any],
-        artifacts: List[Dict[str, str]],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -1150,8 +1069,8 @@ class NumericOperation(FieldOperation):
             Input data for the operation
         analysis_results : dict
             Analysis results to cache
-        artifacts : list of dict
-            Artifacts
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
 
@@ -1167,23 +1086,23 @@ class NumericOperation(FieldOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
-            # Prepare metadata for cache
-            operation_parameters = self._get_base_parameters()
+            # Prepare cache data
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
 
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "analysis_results": analysis_results,
-                "artifacts": artifacts,
-                "data_info": {"df_length": len(df)},
-            }
+            cache_data.update(
+                {
+                    "data_info": {"df_length": len(df)},
+                }
+            )
 
             # Save to cache
             logger.debug(f"Saving to cache with key: {cache_key}")
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 

@@ -35,6 +35,7 @@ from pamola_core.profiling.commons.categorical_utils import (
 from pamola_core.profiling.schemas.categorical_core_schema import (
     CategoricalOperationConfig,
 )
+from pamola_core.utils.helpers import build_base_cache
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
@@ -909,7 +910,7 @@ class CategoricalOperation(FieldOperation):
                     details={"warning": str(e)},
                 )
 
-    def _save_to_cache(self, task_dir: Path, result: OperationResult) -> None:
+    def _save_to_cache(self, task_dir: Path, result: OperationResult) -> bool:
         """
         Save the operation result to cache.
 
@@ -919,28 +920,25 @@ class CategoricalOperation(FieldOperation):
             Root directory for the task.
         result : OperationResult
             The result object to be cached.
+        Returns:
+        --------
+        bool
+            True if successfully saved to cache, False otherwise
         """
+        if not self.use_cache:
+            return False
+
         try:
-            result_data = {
-                "status": (
-                    result.status.name
-                    if isinstance(result.status, OperationStatus)
-                    else str(result.status)
-                ),
-                "metrics": result.metrics,
-                "error_message": result.error_message,
-                "execution_time": result.execution_time,
-                "error_trace": result.error_trace,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
-            }
-
-            cache_data = {
-                "result": result_data,
-                "parameters": self._get_base_parameters(),
-            }
-
+            # Generate cache key
             cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
+            # Prepare metadata for cache
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+
+            # Save to cache
+            self.logger.debug(f"Saving to cache with key: {cache_key}")
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
@@ -948,12 +946,15 @@ class CategoricalOperation(FieldOperation):
                 metadata={"task_dir": str(task_dir)},
             )
 
-            if not success:
-                raise Exception("Cache save operation results failure")
+            if success:
+                self.logger.info(f"Successfully saved results to cache")
+            else:
+                self.logger.warning(f"Failed to save results to cache")
 
-            self.logger.info(f"Saved result to cache with key: {cache_key}")
+            return success
         except Exception as e:
-            self.logger.warning(f"Failed to save cache: {e}")
+            self.logger.warning(f"Error saving to cache: {str(e)}")
+            return False
 
     def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """

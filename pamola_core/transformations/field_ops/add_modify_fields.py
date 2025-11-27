@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Tuple, Callable, Iterable, Iterator, Union, 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
@@ -601,58 +602,17 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                self.logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for name, value in metrics.items():
-                        cached_result.add_metric(name, value)
-
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        if isinstance(artifact, dict):
-                            artifact_type = artifact.get("artifact_type", "")
-                            path = artifact.get("path", "")
-                            description = artifact.get("description", "")
-                            category = artifact.get("category", "output")
-                            cached_result.add_artifact(
-                                artifact_type=artifact_type,
-                                path=path,
-                                description=description,
-                                category=category,
-                            )
-
-                            if reporter:
-                                reporter.add_operation(
-                                    name=description,
-                                    details={
-                                        "artifact_type": artifact_type,
-                                        "path": str(path),
-                                    },
-                                )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
@@ -2154,9 +2114,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
-            # Prepare metadata for cache
-            operation_parameters = self._get_base_parameters()
-
             original_df_len = (
                 int(original_df.map_partitions(len).sum().compute())
                 if isinstance(original_df, dd.DataFrame)
@@ -2167,16 +2124,18 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 if isinstance(processed_df, dd.DataFrame)
                 else len(processed_df)
             )
-            cache_data = {
-                "metrics": result.metrics,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "data_info": {
-                    "original_df_length": original_df_len,
-                    "processed_df_length": processed_df_len,
-                },
-            }
+            # Prepare cache data
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+            cache_data.update(
+                {
+                    "data_info": {
+                        "original_df_length": original_df_len,
+                        "processed_df_length": processed_df_len,
+                    },
+                }
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")

@@ -37,6 +37,7 @@ from pandas.api.types import (
     is_datetime64_any_dtype,
 )
 
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
@@ -386,10 +387,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     self._save_to_cache(
                         original_df=original_df,
                         processed_df=processed_df,
-                        metrics=metrics,
-                        metrics_result=metrics_result,
-                        output_result=output_result,
-                        visualizations=visualizations,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
@@ -796,106 +794,17 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                self.logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        if isinstance(value, (int, float, str, bool)):
-                            cached_result.add_metric(key, value)
-
-                # Restore artifacts from cache
-                artifacts_restored = 0
-
-                # Add metrics artifact if exists
-                metrics_result_path = cached_data.get("metrics_result_path")
-                if metrics_result_path:
-                    metrics_path = Path(metrics_result_path)
-                    if metrics_path.exists():
-                        cached_result.add_artifact(
-                            artifact_type="json",
-                            path=metrics_path,
-                            description=f"Generalization metrics (cached)",
-                            category=Constants.Artifact_Category_Metrics,
-                        )
-                        artifacts_restored += 1
-
-                        if reporter:
-                            reporter.add_operation(
-                                f"Generalization metrics (cached)",
-                                details={
-                                    "artifact_type": "json",
-                                    "path": str(metrics_path),
-                                },
-                            )
-
-                # Add output artifact if file exists
-                output_result_path = cached_data.get("output_result_path")
-                if output_result_path:
-                    output_path = Path(output_result_path)
-                    if output_path.exists():
-                        cached_result.add_artifact(
-                            artifact_type=self.output_format,
-                            path=output_path,
-                            description=f"Generalized data (cached)",
-                            category=Constants.Artifact_Category_Output,
-                        )
-                        artifacts_restored += 1
-
-                        # Also report to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Generalized data (cached)",
-                                details={
-                                    "artifact_type": self.output_format,
-                                    "path": str(output_path),
-                                },
-                            )
-                    else:
-                        self.logger.warning(
-                            f"Cached output file not found: {output_path}"
-                        )
-
-                # Add visualization artifacts
-                visualizations = cached_data.get("visualizations", {})
-                for viz_type, viz_path in visualizations.items():
-                    path = Path(viz_path)
-                    if path.exists():
-                        cached_result.add_artifact(
-                            artifact_type="png",
-                            path=path,
-                            description=f"{viz_type} visualization (cached)",
-                            category=Constants.Artifact_Category_Visualization,
-                        )
-                        artifacts_restored += 1
-
-                        if reporter:
-                            reporter.add_operation(
-                                f"{viz_type} visualization (cached)",
-                                details={"artifact_type": "png", "path": str(path)},
-                            )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-                cached_result.add_metric("artifacts_restored", artifacts_restored)
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
@@ -1732,10 +1641,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         self,
         original_df: pd.DataFrame,
         processed_df: pd.DataFrame,
-        metrics: Dict[str, Any],
-        metrics_result: WriterResult,
-        output_result: WriterResult,
-        visualizations: Dict[str, Any],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -1747,14 +1653,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
             Original input data
         processed_df : pd.DataFrame
             Processed DataFrame
-        metrics : dict
-            The metrics of operation
-        metrics_result : WriterResult
-            The result of metrics
-        output_result : WriterResult
-            The result of output
-        visualizations : dict
-            The visualizations of operation
+        result : OperationResult
+            The result object to be cached.
         task_dir : Path
             Task directory
 
@@ -1771,21 +1671,17 @@ class CleanInvalidValuesOperation(TransformationOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
-            # Prepare metadata for cache
-            operation_parameters = self._get_base_parameters()
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "metrics": metrics,
-                "metrics_result_path": str(metrics_result.path),
-                "output_result_path": str(output_result.path),
-                "visualizations": visualizations,
-                "data_info": {
-                    "original_df_length": len(original_df),
-                    "processed_df_length": len(processed_df),
-                },
-            }
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+            cache_data.update(
+                {
+                    "data_info": {
+                        "original_df_length": len(original_df),
+                        "processed_df_length": len(processed_df),
+                    },
+                }
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
