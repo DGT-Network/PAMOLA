@@ -322,15 +322,32 @@ def convert_property(
             if (
                 "items" in field
                 and isinstance(field["items"], dict)
-                and "enum" in field["items"]
             ):
-                field["enum"] = [
-                    {
-                        "value": value,
-                        "label": str(value),
-                    }
-                    for value in field["items"]["enum"]
-                ]
+                # Handling cases with direct enums
+                if "enum" in field["items"]:
+                    field["enum"] = [
+                        {
+                            "value": value,
+                            "label": str(value),
+                        }
+                        for value in field["items"]["enum"]
+                    ]
+                    field["items"].pop("enum", None)  # ← Thêm cleanup
+                    
+                # Handle the case of oneOf
+                elif "oneOf" in field["items"]:
+                    field["enum"] = [
+                        {
+                            "value": opt["const"],
+                            "label": opt.get("description", str(opt["const"])),
+                        }
+                        for opt in field["items"]["oneOf"]
+                        if "const" in opt  
+                    ]
+                    
+                # Cleanup
+                field["items"].pop("oneOf", None)
+                field["items"].pop("enum", None)
 
     elif field["x-component"] == "Switch":
         field["x-content"] = f"Enable {field['title']}"
@@ -400,6 +417,7 @@ def convert_property(
         CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
         CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD_FAKE_NAME,
         CustomComponents.FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY,
+        CustomComponents.FORMAT_RATIO_SLIDER,
     ]:
         field = _handle_custom_component(field)
 
@@ -772,6 +790,26 @@ def _handle_custom_component(field: dict) -> dict:
                 },
             ],
         }
+    if component == CustomComponents.FORMAT_RATIO_SLIDER:
+        # Handle Format Ratio Slider
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "description": "Set the probability ratio for each selected format. Total must equal 1.0",
+            "lockDescription": "You can lock values to prevent them from being adjusted when other values change.",
+            "totalLabel": "Total:",
+            "options": [
+                {"key": "_name _surname", "label": "Name Surname"},
+                {"key": "_surname _name", "label": "Surname Name"},
+                {"key": "_nickname", "label": "Nickname"},
+            ],
+            "totalMustBeOne": True,
+            "min": 0,
+            "max": 1,
+            "step": 0.01,
+            "showPercentage": True,
+            "lockable": True,
+        }
+
     return field
 
 

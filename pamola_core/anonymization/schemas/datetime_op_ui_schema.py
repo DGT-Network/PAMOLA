@@ -105,6 +105,9 @@ class DateTimeGeneralizationUIConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": {"strategy": "component"},
+                        "x-items": {
+                            "x-component": "Select",
+                        }
                     },
                     "strftime_output_format": {
                         "x-component": "Input",

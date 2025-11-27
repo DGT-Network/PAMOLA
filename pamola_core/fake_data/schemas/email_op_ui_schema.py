@@ -66,7 +66,7 @@ class FakeEmailOperationUIConfig(OperationConfig):
                     },
                     "format_ratio": {
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
-                        "x-component": "Input",
+                        "x-component": CustomComponents.FORMAT_RATIO_SLIDER,
                         "x-depend-on": {"format": "null"},
                     },
                     "separator_options": {

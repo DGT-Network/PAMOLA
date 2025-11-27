@@ -123,15 +123,18 @@ class DateTimeGeneralizationConfig(OperationConfig):
                         "type": ["array", "null"],
                         "title": "Components to Keep",
                         "description": "List of datetime components to keep (e.g., year, month, day, hour, minute, weekday).",
-                        "oneOf": [
-                            {"type": "null"},
-                            {"const": "year", "description": "Years"},
-                            {"const": "month", "description": "Month"},
-                            {"const": "day", "description": "Day"},
-                            {"const": "hour", "description": "Hour"},
-                            {"const": "minute", "description": "Minute"},
-                            {"const": "weekday", "description": "Weekday"},
-                        ],
+                        "items": {
+                            "type": "string",
+                            "oneOf": [
+                                {"type": "null"},
+                                {"const": "year", "description": "Years"},
+                                {"const": "month", "description": "Month"},
+                                {"const": "day", "description": "Day"},
+                                {"const": "hour", "description": "Hour"},
+                                {"const": "minute", "description": "Minute"},
+                                {"const": "weekday", "description": "Weekday"}
+                            ]
+                        },
                     },
                     "strftime_output_format": {
                         "type": ["string", "null"],
