@@ -901,10 +901,7 @@ class MVFOperation(FieldOperation):
                     self._save_to_cache(
                         original_data=df,
                         result=result,
-                        visualization_paths=visualization_paths,
                         task_dir=task_dir,
-                        values_str_path=values_str_path,
-                        combinations_str_path=combinations_str_path,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -992,10 +989,7 @@ class MVFOperation(FieldOperation):
         self,
         original_data: pd.DataFrame,
         result: OperationResult,
-        visualization_paths: Dict[str, Path],
         task_dir: Path,
-        values_str_path: Optional[str] = None,
-        combinations_str_path: Optional[str] = None,
     ) -> bool:
         """
         Save operation results to cache.
@@ -1006,12 +1000,8 @@ class MVFOperation(FieldOperation):
             Original input data
         result: OperationResult
             Result object OperationResult
-        visualization_paths : Dict[str, Path]
-            Paths to generated visualizations
         task_dir : Path
             Task directory
-        values_str_path : Optional[str] = None
-        combinations_str_path : Optional[str] = None
 
         Returns:
         --------
@@ -1035,12 +1025,7 @@ class MVFOperation(FieldOperation):
                     "data_info": {
                         "original_length": len(original_data),
                         "original_null_count": int(original_data.isna().sum().sum()),
-                    },
-                    "visualizations": {
-                        k: str(v) for k, v in visualization_paths.items()
-                    },  # Paths to visualizations
-                    "values_str_path": values_str_path,
-                    "combinations_str_path": combinations_str_path,
+                    }
                 }
             )
 

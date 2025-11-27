@@ -523,9 +523,6 @@ class MergeDatasetsOperation(TransformationOperation):
                         left_df=left_df,
                         transformed_data=processed_df,
                         result=result,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
                         task_dir=task_dir,
                     )
                 except Exception as e:
