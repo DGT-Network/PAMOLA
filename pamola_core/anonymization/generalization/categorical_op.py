@@ -1560,21 +1560,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             quasi_identifiers=self.quasi_identifiers,
         )
 
-        # Add strategy-specific parameters
-        if self.strategy == GeneralizationStrategy.HIERARCHY.value:
-            # Include dictionary hash if configured
-            if self.use_cache and self._hierarchy_cache.get("current"):
-                try:
-                    file_hash = self._calculate_dictionary_hash()
-                    if file_hash:
-                        params["dictionary_hash"] = file_hash
-                    else:
-                        self.logger.warning(
-                            "Dictionary file hash not available for cache key"
-                        )
-                except Exception as e:
-                    self.logger.warning(f"Failed to calculate dictionary hash: {e}")
-
         return params
 
     def reset_state(self):
