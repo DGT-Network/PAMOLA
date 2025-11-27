@@ -1510,17 +1510,9 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         """
 
         return {
-            "field_name": self.field_name,
             "additional_fields": self.additional_fields,
             "suppression_mode": self.suppression_mode,
             "save_suppressed_schema": self.save_suppressed_schema,
-            "condition_field": self.condition_field,
-            "condition_values": self.condition_values,
-            "condition_operator": self.condition_operator,
-            "condition_logic": self.condition_logic,
-            "multi_conditions": self.multi_conditions,
-            "ka_risk_field": self.ka_risk_field,
-            "risk_threshold": self.risk_threshold,
         }
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:

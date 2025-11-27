@@ -131,7 +131,9 @@ from pamola_core.anonymization.commons.visualization_utils import (
 )
 
 # Framework utilities
-from pamola_core.anonymization.schemas.categorical_op_core_schema import CategoricalGeneralizationConfig
+from pamola_core.anonymization.schemas.categorical_op_core_schema import (
+    CategoricalGeneralizationConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
@@ -1533,7 +1535,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             Strategy-specific parameters for numeric generalization
         """
         params = dict(
-            field_name=self.field_name,
             strategy=self.strategy,
             external_dictionary_path=self.external_dictionary_path,
             dictionary_format=self.dictionary_format,
@@ -1556,36 +1557,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             privacy_check_enabled=self.privacy_check_enabled,
             min_acceptable_k=self.min_acceptable_k,
             max_acceptable_disclosure_risk=self.max_acceptable_disclosure_risk,
-            mode=self.mode,
-            output_field_name=self.output_field_name,
-            column_prefix=self.column_prefix,
             quasi_identifiers=self.quasi_identifiers,
-            condition_field=self.condition_field,
-            condition_values=self.condition_values,
-            condition_operator=self.condition_operator,
-            ka_risk_field=self.ka_risk_field,
-            risk_threshold=self.risk_threshold,
-            vulnerable_record_strategy=self.vulnerable_record_strategy,
-            optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_vectorization=self.use_vectorization,
-            parallel_processes=self.parallel_processes,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            output_format=self.output_format,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
-            save_output=self.save_output,
         )
 
         # Add strategy-specific parameters

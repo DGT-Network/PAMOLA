@@ -1678,6 +1678,30 @@ class AnonymizationOperation(FieldOperation):
         """
         return {}
 
+    def _get_operation_parameters(self) -> Dict[str, str]:
+        """Get the basic parameters for the cache key generation."""
+        # Get basic operation parameters
+
+        parameters = super()._get_operation_parameters()
+
+        # Add operation-specific parameters
+        parameters.update(
+            {
+                "field_name": self.field_name,
+                # Conditional parameters
+                "condition_field": self.condition_field,
+                "condition_values": self.condition_values,
+                "condition_operator": self.condition_operator,
+                "multi_conditions": self.multi_conditions,
+                "condition_logic": self.condition_logic,
+                # Risk-based anonymization
+                "ka_risk_field": self.ka_risk_field,
+                "risk_threshold": self.risk_threshold,
+                "vulnerable_record_strategy": self.vulnerable_record_strategy,
+            }
+        )
+        return parameters
+
     def _check_cache(
         self, df: pd.DataFrame, reporter: Any
     ) -> Optional[OperationResult]:

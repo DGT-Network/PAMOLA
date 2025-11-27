@@ -1740,16 +1740,11 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
 
         return {
-            "field_name": self.field_name,
             "save_suppressed_records": self.save_suppressed_records,
             "suppression_condition": self.suppression_condition,
             "suppression_values": self.suppression_values,
             "suppression_range": self.suppression_range,
             "suppression_reason_field": self.suppression_reason_field,
-            "condition_logic": self.condition_logic,
-            "multi_conditions": self.multi_conditions,
-            "ka_risk_field": self.ka_risk_field,
-            "risk_threshold": self.risk_threshold,
         }
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:

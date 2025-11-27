@@ -77,7 +77,9 @@ from pamola_core.anonymization.commons.validation import (
 
 # Import framework utilities
 from pamola_core.anonymization.commons.validation_utils import validate_numeric_field
-from pamola_core.anonymization.schemas.uniform_numeric_op_core_schema import UniformNumericNoiseConfig
+from pamola_core.anonymization.schemas.uniform_numeric_op_core_schema import (
+    UniformNumericNoiseConfig,
+)
 from pamola_core.utils.ops.op_registry import register
 
 # Constants
@@ -548,55 +550,19 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         Returns:
             Dictionary of parameters affecting the operation output
         """
-        params = super()._get_cache_parameters()
-
         # Add noise-specific parameters
-        params.update(
-            {
-                "field_name": self.field_name,
-                "noise_range": self.noise_range,
-                "noise_type": self.noise_type,
-                "output_min": self.output_min,
-                "output_max": self.output_max,
-                "preserve_zero": self.preserve_zero,
-                "round_to_integer": self.round_to_integer,
-                "scale_by_std": self.scale_by_std,
-                "scale_factor": self.scale_factor,
-                "random_seed": self.random_seed if not self.use_secure_random else None,
-                "use_secure_random": self.use_secure_random,
-                "condition_field": self.condition_field,
-                "condition_values": self.condition_values,
-                "condition_operator": self.condition_operator,
-                "multi_conditions": self.multi_conditions,
-                "condition_logic": self.condition_logic,
-                "ka_risk_field": self.ka_risk_field,
-                "risk_threshold": self.risk_threshold,
-                "vulnerable_record_strategy": self.vulnerable_record_strategy,
-                "optimize_memory": self.optimize_memory,
-                "adaptive_chunk_size": self.adaptive_chunk_size,
-                "mode": self.mode,
-                "column_prefix": self.column_prefix,
-                "output_field_name": self.output_field_name,
-                "null_strategy": self.null_strategy,
-                "chunk_size": self.chunk_size,
-                "use_dask": self.use_dask,
-                "npartitions": self.npartitions,
-                "dask_partition_size": self.dask_partition_size,
-                "use_vectorization": self.use_vectorization,
-                "parallel_processes": self.parallel_processes,
-                "use_cache": self.use_cache,
-                "output_format": self.output_format,
-                "visualization_theme": self.visualization_theme,
-                "visualization_backend": self.visualization_backend,
-                "visualization_strict": self.visualization_strict,
-                "visualization_timeout": self.visualization_timeout,
-                "use_encryption": self.use_encryption,
-                "encryption_mode": self.encryption_mode,
-                "encryption_key": self.encryption_key,
-            }
-        )
-
-        return params
+        return {
+            "noise_range": self.noise_range,
+            "noise_type": self.noise_type,
+            "output_min": self.output_min,
+            "output_max": self.output_max,
+            "preserve_zero": self.preserve_zero,
+            "round_to_integer": self.round_to_integer,
+            "scale_by_std": self.scale_by_std,
+            "scale_factor": self.scale_factor,
+            "random_seed": self.random_seed if not self.use_secure_random else None,
+            "use_secure_random": self.use_secure_random,
+        }
 
     def __repr__(self) -> str:
         """String representation of the operation."""

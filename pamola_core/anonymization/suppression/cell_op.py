@@ -1835,8 +1835,6 @@ class CellSuppressionOperation(AnonymizationOperation):
             Dict[str, Any]: Dictionary of relevant parameters for cache identity.
         """
         return {
-            "field_name": self.field_name,
-            "output_field_name": self.output_field_name,
             "save_suppressed_schema": getattr(self, "save_suppressed_schema", True),
             # Suppression-specific configuration
             "suppression_strategy": self.suppression_strategy,
@@ -1847,12 +1845,6 @@ class CellSuppressionOperation(AnonymizationOperation):
             "outlier_method": self.outlier_method,
             "outlier_threshold": self.outlier_threshold,
             "rare_threshold": self.rare_threshold,
-            # Conditional logic
-            "condition_field": self.condition_field,
-            "condition_values": self.condition_values,
-            "condition_operator": self.condition_operator,
-            "ka_risk_field": getattr(self, "ka_risk_field", None),
-            "risk_threshold": getattr(self, "risk_threshold", 5.0),
         }
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:

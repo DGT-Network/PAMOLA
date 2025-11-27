@@ -124,7 +124,9 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_metrics_overview_visualization,
     sample_large_dataset,
 )
-from pamola_core.anonymization.schemas.numeric_op_core_schema import NumericGeneralizationConfig
+from pamola_core.anonymization.schemas.numeric_op_core_schema import (
+    NumericGeneralizationConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation
@@ -135,6 +137,7 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.helpers import filter_used_kwargs
+
 
 @register(version="1.0.0")
 class NumericGeneralizationOperation(AnonymizationOperation):
@@ -1523,42 +1526,12 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             Strategy-specific parameters for numeric generalization
         """
         params = dict(
-            field_name=self.field_name,
             strategy=self.strategy,
             bin_count=self.bin_count,
             binning_method=self.binning_method,
             precision=self.precision,
             range_limits=self.range_limits,
-            mode=self.mode,
-            output_field_name=self.output_field_name,
-            column_prefix=self.column_prefix,
             quasi_identifiers=self.quasi_identifiers,
-            condition_field=self.condition_field,
-            condition_values=self.condition_values,
-            condition_operator=self.condition_operator,
-            ka_risk_field=self.ka_risk_field,
-            risk_threshold=self.risk_threshold,
-            vulnerable_record_strategy=self.vulnerable_record_strategy,
-            optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_vectorization=self.use_vectorization,
-            parallel_processes=self.parallel_processes,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            output_format=self.output_format,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
-            save_output=self.save_output,
         )
 
         return params

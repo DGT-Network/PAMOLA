@@ -46,7 +46,9 @@ from pamola_core.anonymization.commons.validation.exceptions import (
     FieldTypeError,
     InvalidDataFormatError,
 )
-from pamola_core.anonymization.schemas.partial_masking_op_core_schema import PartialMaskingConfig
+from pamola_core.anonymization.schemas.partial_masking_op_core_schema import (
+    PartialMaskingConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.anonymization.commons.metric_utils import (
     collect_operation_metrics,
@@ -1442,12 +1444,6 @@ class PartialMaskingOperation(AnonymizationOperation):
             Strategy-specific parameters for partial masking operation
         """
         params = dict(
-            field_name=self.field_name,
-            mode=self.mode,
-            output_field_name=self.output_field_name,
-            column_prefix=self.column_prefix,
-            null_strategy=self.null_strategy,
-            description=self.description,
             mask_char=self.mask_char,
             mask_strategy=self.mask_strategy,  # fixed, pattern, random, words
             mask_percentage=self.mask_percentage,  # Random % to mask
@@ -1465,32 +1461,6 @@ class PartialMaskingOperation(AnonymizationOperation):
             preset_type=self.preset_type,
             preset_name=self.preset_name,
             consistency_fields=self.consistency_fields,
-            condition_field=self.condition_field,
-            condition_values=self.condition_values,
-            condition_operator=self.condition_operator,
-            ka_risk_field=self.ka_risk_field,
-            risk_threshold=self.risk_threshold,
-            vulnerable_record_strategy=self.vulnerable_record_strategy,
-            optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_vectorization=self.use_vectorization,
-            parallel_processes=self.parallel_processes,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            output_format=self.output_format,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
-            save_output=self.save_output,
         )
 
         return params
