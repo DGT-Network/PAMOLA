@@ -47,8 +47,6 @@ class DateTimeOpTooltip:
         "Example: `7` with `days` creates weekly blocks."
     )
 
-    interval_unit = "What it does: Sets the unit of measurement for the Interval Size."
-
     custom_bins = (
         "How it works: Provide a list of timestamps to serve as boundaries.\n"
         'Example: `["2023-01-01", "2023-07-01", "2024-01-01"]` creates two bins for the first and second half of 2023.'
@@ -119,7 +117,6 @@ class DateTimeOpTooltip:
             "rounding_unit": cls.rounding_unit,
             "bin_type": cls.bin_type,
             "interval_size": cls.interval_size,
-            "interval_unit": cls.interval_unit,
             "custom_bins": cls.custom_bins,
             "reference_date": cls.reference_date,
             "keep_components": cls.keep_components,

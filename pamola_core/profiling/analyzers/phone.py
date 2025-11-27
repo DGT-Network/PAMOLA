@@ -417,7 +417,7 @@ class PhoneOperation(FieldOperation):
             self.start_time = time.time()
             result = OperationResult(status=OperationStatus.SUCCESS)
 
-            self.logger.info(
+            logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
                 f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
             )
@@ -457,7 +457,7 @@ class PhoneOperation(FieldOperation):
                     )
             except Exception as e:
                 error_message = f"Data loading error: {str(e)}"
-                self.logger.error(error_message)
+                logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
                     error_message=error_message,
@@ -487,7 +487,7 @@ class PhoneOperation(FieldOperation):
                     cached_result = self._check_cache(df, reporter, task_dir, **kwargs)
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
-                    self.logger.error(error_message)
+                    logger.error(error_message)
                     return OperationResult(
                         status=OperationStatus.ERROR,
                         error_message=error_message,
@@ -495,7 +495,7 @@ class PhoneOperation(FieldOperation):
                     )
 
                 if cached_result:
-                    self.logger.info(f"Using cached results for {self.field_name}")
+                    logger.info(f"Using cached results for {self.field_name}")
 
                     # Update progress if tracker provided
                     if progress_tracker:
@@ -530,7 +530,7 @@ class PhoneOperation(FieldOperation):
                 )
             except Exception as e:
                 error_message = f"Attribute analysis error: {str(e)}"
-                self.logger.error(error_message)
+                logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
                     error_message=error_message,
@@ -613,7 +613,7 @@ class PhoneOperation(FieldOperation):
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
-                    self.logger.error(error_message)
+                    logger.error(error_message)
                     # Continue execution - visualization failure is not critical
                 artifacts.extend(visualization_paths)
 
@@ -867,7 +867,7 @@ class PhoneOperation(FieldOperation):
                     )
                 except Exception as e:
                     error_message = f"Failed to cache results: {str(e)}"
-                    self.logger.error(error_message)
+                    logger.error(error_message)
                     # Continue execution - cache failure is not critical
 
             # Update progress
@@ -928,7 +928,7 @@ class PhoneOperation(FieldOperation):
             
             return result
         except Exception as e:
-            self.logger.exception(
+            logger.exception(
                 f"Error in phone operation for {self.field_name}: {e}"
             )
 
@@ -1068,10 +1068,10 @@ class PhoneOperation(FieldOperation):
 
                 return cached_result
 
-            self.logger.debug(f"No cache found for key: {cache_key}")
+            logger.debug(f"No cache found for key: {cache_key}")
             return None
         except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
+            logger.warning(f"Error checking cache: {str(e)}")
             return None
 
     def _save_to_cache(
@@ -1119,7 +1119,7 @@ class PhoneOperation(FieldOperation):
             }
 
             # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
+            logger.debug(f"Saving to cache with key: {cache_key}")
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
@@ -1128,13 +1128,13 @@ class PhoneOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                logger.info(f"Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                logger.warning(f"Failed to save results to cache")
 
             return success
         except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
+            logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
@@ -1215,7 +1215,7 @@ class PhoneOperation(FieldOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        self.logger.info(
+        logger.info(
             f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
         )
 
@@ -1234,10 +1234,10 @@ class PhoneOperation(FieldOperation):
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                self.logger.info(
+                logger.info(
                     f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
                 )
-                self.logger.info(
+                logger.info(
                     f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
                 )
 
@@ -1245,19 +1245,19 @@ class PhoneOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    logger.info(f"[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        self.logger.info(
+                        logger.info(
                             f"[DIAG] Context vars count: {len(list(current_context))}"
                         )
                     except Exception as ctx_e:
-                        self.logger.warning(
+                        logger.warning(
                             f"[DIAG] Could not inspect context: {ctx_e}"
                         )
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    logger.info(f"[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1269,7 +1269,7 @@ class PhoneOperation(FieldOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            self.logger.debug(
+                            logger.debug(
                                 f"Could not create child progress tracker: {e}"
                             )
 
@@ -1312,7 +1312,7 @@ class PhoneOperation(FieldOperation):
                                 }
                             )
                         else:
-                            self.logger.warning(
+                            logger.warning(
                                 f"Error creating country code visualization: {viz_result}"
                             )
 
@@ -1353,7 +1353,7 @@ class PhoneOperation(FieldOperation):
                                 }
                             )
                         else:
-                            self.logger.warning(
+                            logger.warning(
                                 f"Error creating operator code visualization: {viz_result}"
                             )
 
@@ -1393,7 +1393,7 @@ class PhoneOperation(FieldOperation):
                                 }
                             )
                         else:
-                            self.logger.warning(
+                            logger.warning(
                                 f"Error creating messenger mentions visualization: {viz_result}"
                             )
 
@@ -1405,19 +1405,19 @@ class PhoneOperation(FieldOperation):
                             pass
 
                     elapsed = time.time() - start_time
-                    self.logger.info(
+                    logger.info(
                         f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
                     )
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    self.logger.error(
+                    logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            logger.info(f"[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -1428,7 +1428,7 @@ class PhoneOperation(FieldOperation):
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            self.logger.info(
+            logger.info(
                 f"[DIAG] Starting visualization thread with timeout={vis_timeout}s"
             )
             thread_start_time = time.time()
@@ -1441,36 +1441,36 @@ class PhoneOperation(FieldOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    self.logger.info(
+                    logger.info(
                         f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
                     )
 
             if viz_thread.is_alive():
-                self.logger.error(
+                logger.error(
                     f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
                 )
-                self.logger.error(
+                logger.error(
                     f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
                 )
                 visualization_paths = []
             elif visualization_error:
-                self.logger.error(
+                logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
                 visualization_paths = []
             else:
                 total_time = time.time() - thread_start_time
-                self.logger.info(
+                logger.info(
                     f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s"
                 )
-                self.logger.info(
+                logger.info(
                     f"[DIAG] Generated visualizations: {[viz['path'] for viz in visualization_paths]}"
                 )
         except Exception as e:
-            self.logger.error(
+            logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = []
 
         # Register visualization artifacts
