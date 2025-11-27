@@ -972,7 +972,7 @@ class CategoricalOperation(FieldOperation):
         try:
             cache_key = self._generate_cache_key(df)
 
-            cached = operation_cache.get_cache(
+            cached = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 

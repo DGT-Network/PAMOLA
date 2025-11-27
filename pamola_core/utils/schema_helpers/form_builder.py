@@ -393,8 +393,13 @@ def convert_property(
         CustomComponents.DEPEND_SELECT,
         CustomComponents.DATE_FORMAT,
         CustomComponents.FORMAT_PATTERNS,
-        CustomComponents.VALUE_GROUP_ARRAY,
-        CustomComponents.CUSTOM_VALUE_GROUP_ARRAY,
+        CustomComponents.VALUE_GROUP_ARRAY_AGGREGATIONS,
+        CustomComponents.CUSTOM_VALUE_GROUP_ARRAY_AGGREGATIONS,
+        CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
+        CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD,
+        CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
+        CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD_FAKE_NAME,
+        CustomComponents.FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY,
     ]:
         field = _handle_custom_component(field)
 
@@ -550,7 +555,7 @@ def _handle_custom_component(field: dict) -> dict:
             {"value": "date", "label": "Date"},
         ]
 
-    elif component == CustomComponents.VALUE_GROUP_ARRAY:
+    elif component == CustomComponents.VALUE_GROUP_ARRAY_AGGREGATIONS:
 
         # Handle Value Group Array
         field["x-decorator"] = "FormItem"
@@ -559,7 +564,7 @@ def _handle_custom_component(field: dict) -> dict:
             "getValueOptions": "{{(fieldName) => update_aggregation_options(fieldName)}}",
             "editable": False,
         }
-    elif component == CustomComponents.CUSTOM_VALUE_GROUP_ARRAY:
+    elif component == CustomComponents.CUSTOM_VALUE_GROUP_ARRAY_AGGREGATIONS:
 
         # Handle Custom Value Group Array
         field["x-decorator"] = "FormItem"
@@ -567,6 +572,205 @@ def _handle_custom_component(field: dict) -> dict:
         field["x-component-props"] = {
             "getValueOptions": "{{(fieldName) => update_custom_aggregation_options(fieldName)}}",
             "editable": False,
+        }
+    elif component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT:
+
+        field["x-component"] = CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT
+        field["x-decorator"] = "FormItem"
+        field = _add_upload_reaction(field)
+
+    elif component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG:
+
+        # Handle Field Select Upload File Input
+        field["x-component"] = CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "keyFieldLabel": "Organization type",
+            "enableAddOption": True,
+            "keyFieldOptions": [
+                {"value": "general", "label": "General"},
+                {"value": "educational", "label": "Educational"},
+                {"value": "manufacturing", "label": "Manufacturing"},
+                {"value": "government", "label": "Government"},
+                {"value": "industry", "label": "Industry"},
+            ],
+        }
+        field = _add_upload_reaction(field)
+
+    elif component == CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD_FAKE_NAME:
+
+        # Handle Field Multiple Select Upload File Input
+        field["x-component"] = CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "languageOptions": [
+                {"value": "vi", "label": "Vietnamese"},
+                {"value": "en", "label": "English"},
+                {"value": "ru", "label": "Russian"},
+            ],
+            "dictionaryParamsByLanguage": {
+                "en": [
+                    {"label": "Female first names", "value": "femaleFirstNames"},
+                    {"label": "Last names", "value": "lastNames"},
+                    {"label": "Male first names", "value": "maleFirstNames"},
+                ],
+                "vi": [
+                    {"label": "Female first names", "value": "femaleFirstNames"},
+                    {"label": "Last names", "value": "lastNames"},
+                    {"label": "Male first names", "value": "maleFirstNames"},
+                ],
+                "ru": [
+                    {"label": "Female first names", "value": "femaleFirstNames"},
+                    {"label": "Female middle names", "value": "femaleMiddleNames"},
+                    {"label": "Last names", "value": "lastNames"},
+                    {"label": "Male middle names", "value": "maleMiddleNames"},
+                    {"label": "Male first names", "value": "maleFirstNames"},
+                ],
+            },
+        }
+        field = _add_upload_reaction(field)
+
+    elif component == CustomComponents.FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY:
+
+        # Handle field double select input add or modify
+        field["x-component"] = CustomComponents.FIELD_DOUBLE_SELECT_INPUT
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "targetFieldName": "operation_type",
+            "label": "Field operations",
+            "targetLabel": "Type",
+            "useConstraintFilter": True,
+            "targetOptions": [
+                {"value": "add_constant", "label": "Add constant"},
+                {"value": "add_from_lookup", "label": "Add from lookup"},
+                {"value": "add_conditional", "label": "Add conditional"},
+                {"value": "modify_constant", "label": "Modify constant"},
+                {"value": "modify_from_lookup", "label": "Modify from lookup"},
+                {"value": "modify_conditional", "label": "Modify conditional"},
+                {"value": "modify_expression", "label": "Modify expression"},
+            ],
+            "additionalParams": [
+                {
+                    "keyMappingTarget": "add_constant",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "constant_value",
+                            "inputType": "text",
+                            "placeholder": "Constant value",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "add_from_lookup",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "lookup_table_name",
+                            "inputType": "lookup_table",
+                            "placeholder": "Select lookup table",
+                            "sourceField": "lookup_tables",
+                        },
+                        {
+                            "additionalKeyValue": "base_on_column",
+                            "inputType": "field",
+                            "placeholder": "Select column",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "add_conditional",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "condition",
+                            "inputType": "textarea",
+                            "placeholder": "Condition",
+                            "fullWidth": True,
+                        },
+                        {
+                            "additionalKeyValue": "value_if_true",
+                            "inputType": "text",
+                            "placeholder": "Value if true",
+                        },
+                        {
+                            "additionalKeyValue": "value_if_false",
+                            "inputType": "text",
+                            "placeholder": "Value if false",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "modify_constant",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "constant_value",
+                            "inputType": "text",
+                            "placeholder": "Constant value",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "modify_from_lookup",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "lookup_table_name",
+                            "inputType": "lookup_table",
+                            "placeholder": "Select lookup table",
+                            "sourceField": "lookup_tables",
+                        },
+                        {
+                            "additionalKeyValue": "base_on_column",
+                            "inputType": "field",
+                            "placeholder": "Select column",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "modify_conditional",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "condition",
+                            "inputType": "textarea",
+                            "placeholder": "Condition",
+                            "fullWidth": True,
+                        },
+                        {
+                            "additionalKeyValue": "value_if_true",
+                            "inputType": "text",
+                            "placeholder": "Value if true",
+                        },
+                        {
+                            "additionalKeyValue": "value_if_false",
+                            "inputType": "text",
+                            "placeholder": "Value if false",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "modify_expression",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "base_on_column",
+                            "inputType": "field",
+                            "placeholder": "Base on column",
+                        },
+                        {
+                            "additionalKeyValue": "expression_character",
+                            "inputType": "text",
+                            "placeholder": "Expression character",
+                        },
+                        {
+                            "additionalKeyValue": "expression",
+                            "inputType": "textarea",
+                            "placeholder": "Expression",
+                            "fullWidth": True,
+                        },
+                    ],
+                },
+            ],
         }
     return field
 

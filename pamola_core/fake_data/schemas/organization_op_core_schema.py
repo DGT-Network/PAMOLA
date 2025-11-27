@@ -111,7 +111,7 @@ class FakeOrganizationOperationConfig(OperationConfig):
                     },
                     "dictionaries": {
                         "type": ["object", "null"],
-                        "title": "Dictionaries",
+                        "title": "Custom names",
                         "description": "Custom dictionaries for organization name generation.",
                     },
                     "prefixes": {

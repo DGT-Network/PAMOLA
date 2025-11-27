@@ -86,7 +86,7 @@ class FakeOrganizationOperationUIConfig(OperationConfig):
                         "x-group": GroupName.ORGANIZATION_GENERATION_STYLE,
                     },
                     "type_field": {
-                        "x-component": "Input",
+                        "x-component": "Select",
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
                         "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
@@ -96,15 +96,15 @@ class FakeOrganizationOperationUIConfig(OperationConfig):
                         "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                     "dictionaries": {
+                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
-                        "x-component": CustomComponents.UPLOAD,
                     },
                     "prefixes": {
-                        "x-component": CustomComponents.UPLOAD,
+                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
                     },
                     "suffixes": {
-                        "x-component": CustomComponents.UPLOAD,
+                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
                         "x-group": GroupName.CONTEXT_AND_DATA_SOURCES,
                     },
                     "consistency_mechanism": {
@@ -148,7 +148,7 @@ class FakeOrganizationOperationUIConfig(OperationConfig):
                         "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
-                }
+                },
             },
         ],
     }
