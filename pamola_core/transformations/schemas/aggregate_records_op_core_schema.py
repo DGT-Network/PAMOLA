@@ -61,7 +61,7 @@ class AggregateRecordsOperationConfig(OperationConfig):
                         "description": "Dictionary mapping field names to a list of aggregation functions (e.g., sum, mean, count).",
                     },
                     "custom_aggregations": {
-                        "type": "object",
+                        "type": ["object", "null"],
                         "title": "Custom Aggregations",
                         "description": "Dictionary mapping field names to custom aggregation function names or expressions.",
                     },
