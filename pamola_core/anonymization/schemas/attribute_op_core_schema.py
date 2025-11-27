@@ -169,18 +169,6 @@ class AttributeSuppressionConfig(OperationConfig):
             },
             {
                 "if": {
-                    "properties": {"condition_operator": {"type": "string"}},
-                    "required": ["condition_operator"],
-                },
-                "then": {
-                    "properties": {
-                        "condition_field": {"type": "string", "minLength": 1}
-                    },
-                    "required": ["condition_field"],
-                },
-            },
-            {
-                "if": {
                     "properties": {"condition_values": {"type": "array"}},
                     "required": ["condition_values"],
                 },
@@ -193,14 +181,16 @@ class AttributeSuppressionConfig(OperationConfig):
             },
             {
                 "if": {
-                    "properties": {"condition_logic": {"type": "string"}},
-                    "required": ["condition_logic"],
-                },
-                "then": {
                     "properties": {
                         "multi_conditions": {"type": "array", "minItems": 1}
                     },
                     "required": ["multi_conditions"],
+                },
+                "then": {
+                    "properties": {
+                        "condition_logic": {"type": "string", "minLength": 1}
+                    },
+                    "required": ["condition_logic"],
                 },
             },
             {

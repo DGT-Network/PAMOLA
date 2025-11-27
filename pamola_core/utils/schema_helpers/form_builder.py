@@ -417,6 +417,7 @@ def convert_property(
         CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
         CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD_FAKE_NAME,
         CustomComponents.FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY,
+        CustomComponents.FORMAT_RATIO_SLIDER,
     ]:
         field = _handle_custom_component(field)
 
@@ -789,6 +790,26 @@ def _handle_custom_component(field: dict) -> dict:
                 },
             ],
         }
+    if component == CustomComponents.FORMAT_RATIO_SLIDER:
+        # Handle Format Ratio Slider
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "description": "Set the probability ratio for each selected format. Total must equal 1.0",
+            "lockDescription": "You can lock values to prevent them from being adjusted when other values change.",
+            "totalLabel": "Total:",
+            "options": [
+                {"key": "_name _surname", "label": "Name Surname"},
+                {"key": "_surname _name", "label": "Surname Name"},
+                {"key": "_nickname", "label": "Nickname"},
+            ],
+            "totalMustBeOne": True,
+            "min": 0,
+            "max": 1,
+            "step": 0.01,
+            "showPercentage": True,
+            "lockable": True,
+        }
+
     return field
 
 
