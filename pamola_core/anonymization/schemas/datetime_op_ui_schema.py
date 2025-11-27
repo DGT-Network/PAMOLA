@@ -82,12 +82,6 @@ class DateTimeGeneralizationUIConfig(OperationConfig):
                         "x-depend-on": {"bin_type": ["hour_range", "day_range"]},
                         "x-required-on": {"bin_type": ["hour_range", "day_range"]},
                     },
-                    "interval_unit": {
-                        "x-component": "Select",
-                        "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
-                        "x-depend-on": {"bin_type": ["hour_range", "day_range"]},
-                        "x-required-on": {"bin_type": ["hour_range", "day_range"]},
-                    },
                     "reference_date": {
                         "x-component": "DatePicker",
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,

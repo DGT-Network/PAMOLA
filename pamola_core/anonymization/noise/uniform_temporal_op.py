@@ -74,7 +74,9 @@ from pamola_core.anonymization.commons.validation import (
     InvalidParameterError,
     DateTimeFieldValidator,
 )
-from pamola_core.anonymization.schemas.uniform_temporal_op_core_schema import UniformTemporalNoiseConfig
+from pamola_core.anonymization.schemas.uniform_temporal_op_core_schema import (
+    UniformTemporalNoiseConfig,
+)
 from pamola_core.common.helpers.data_helper import DataHelper
 
 # Import framework utilities
@@ -678,63 +680,28 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         Returns:
             Dictionary of parameters affecting the operation output
         """
-        params = super()._get_cache_parameters()
 
         # Add temporal-specific parameters
-        params.update(
-            {
-                "field_name": self.field_name,
-                "noise_range_days": self.noise_range_days,
-                "noise_range_hours": self.noise_range_hours,
-                "noise_range_minutes": self.noise_range_minutes,
-                "noise_range_seconds": self.noise_range_seconds,
-                "direction": self.direction,
-                "min_datetime": str(self.min_datetime) if self.min_datetime else None,
-                "max_datetime": str(self.max_datetime) if self.max_datetime else None,
-                "preserve_special_dates": self.preserve_special_dates,
-                "special_dates": (
-                    [str(d) for d in self.special_dates]
-                    if self.special_dates is not None
-                    else None
-                ),
-                "preserve_weekends": self.preserve_weekends,
-                "preserve_time_of_day": self.preserve_time_of_day,
-                "output_granularity": self.output_granularity,
-                "random_seed": self.random_seed if not self.use_secure_random else None,
-                "use_secure_random": self.use_secure_random,
-                "condition_field": self.condition_field,
-                "condition_values": self.condition_values,
-                "condition_operator": self.condition_operator,
-                "multi_conditions": self.multi_conditions,
-                "condition_logic": self.condition_logic,
-                "ka_risk_field": self.ka_risk_field,
-                "risk_threshold": self.risk_threshold,
-                "vulnerable_record_strategy": self.vulnerable_record_strategy,
-                "optimize_memory": self.optimize_memory,
-                "adaptive_chunk_size": self.adaptive_chunk_size,
-                "mode": self.mode,
-                "column_prefix": self.column_prefix,
-                "output_field_name": self.output_field_name,
-                "null_strategy": self.null_strategy,
-                "chunk_size": self.chunk_size,
-                "use_dask": self.use_dask,
-                "npartitions": self.npartitions,
-                "dask_partition_size": self.dask_partition_size,
-                "use_vectorization": self.use_vectorization,
-                "parallel_processes": self.parallel_processes,
-                "use_cache": self.use_cache,
-                "output_format": self.output_format,
-                "visualization_theme": self.visualization_theme,
-                "visualization_backend": self.visualization_backend,
-                "visualization_strict": self.visualization_strict,
-                "visualization_timeout": self.visualization_timeout,
-                "use_encryption": self.use_encryption,
-                "encryption_mode": self.encryption_mode,
-                "encryption_key": self.encryption_key,
-            }
-        )
-
-        return params
+        return {
+            "noise_range_days": self.noise_range_days,
+            "noise_range_hours": self.noise_range_hours,
+            "noise_range_minutes": self.noise_range_minutes,
+            "noise_range_seconds": self.noise_range_seconds,
+            "direction": self.direction,
+            "min_datetime": str(self.min_datetime) if self.min_datetime else None,
+            "max_datetime": str(self.max_datetime) if self.max_datetime else None,
+            "preserve_special_dates": self.preserve_special_dates,
+            "special_dates": (
+                [str(d) for d in self.special_dates]
+                if self.special_dates is not None
+                else None
+            ),
+            "preserve_weekends": self.preserve_weekends,
+            "preserve_time_of_day": self.preserve_time_of_day,
+            "output_granularity": self.output_granularity,
+            "random_seed": self.random_seed if not self.use_secure_random else None,
+            "use_secure_random": self.use_secure_random,
+        }
 
     def __repr__(self) -> str:
         """String representation of the operation."""

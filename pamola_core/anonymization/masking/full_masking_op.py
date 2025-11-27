@@ -59,7 +59,9 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_comparison_visualization,
     sample_large_dataset,
 )
-from pamola_core.anonymization.schemas.full_masking_op_core_schema import FullMaskingConfig
+from pamola_core.anonymization.schemas.full_masking_op_core_schema import (
+    FullMaskingConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.io.base import DataWriter
 from pamola_core.utils.helpers import filter_used_kwargs
@@ -74,6 +76,7 @@ from pamola_core.utils.ops.op_data_writer import DataWriter
 # Default values
 DEFAULT_SAMPLE_SIZE = 10000
 DEFAULT_TOP_CATEGORIES_FOR_ANALYSIS = 20
+
 
 @register(version="1.0.0")
 class FullMaskingOperation(AnonymizationOperation):
@@ -226,11 +229,11 @@ class FullMaskingOperation(AnonymizationOperation):
             )
 
             # Prepare directories for artifacts
-            self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Save configuration to task directory
@@ -1106,7 +1109,6 @@ class FullMaskingOperation(AnonymizationOperation):
         """
 
         params = dict(
-            field_name=self.field_name,
             mask_char=self.mask_char,
             preserve_length=self.preserve_length,
             fixed_length=self.fixed_length,
@@ -1116,37 +1118,6 @@ class FullMaskingOperation(AnonymizationOperation):
             format_patterns=self.format_patterns,
             numeric_output=self.numeric_output,
             date_format=self.date_format,
-            mode=self.mode,
-            output_field_name=self.output_field_name,
-            column_prefix=self.column_prefix,
-            null_strategy=self.null_strategy,
-            description=self.description,
-            condition_field=self.condition_field,
-            condition_values=self.condition_values,
-            condition_operator=self.condition_operator,
-            ka_risk_field=self.ka_risk_field,
-            risk_threshold=self.risk_threshold,
-            vulnerable_record_strategy=self.vulnerable_record_strategy,
-            optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_vectorization=self.use_vectorization,
-            parallel_processes=self.parallel_processes,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            output_format=self.output_format,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
-            save_output=self.save_output,
         )
 
         return params

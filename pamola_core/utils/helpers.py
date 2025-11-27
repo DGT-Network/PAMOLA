@@ -2,18 +2,23 @@
 PAMOLA.CORE - Utility Functions
 ----------------------------------------------------
 Module: Helpers
-Description: Utility functions for various operations used in modules.
+Description:
+    Collection of utility functions for common operations such as:
+    - Filtering keyword arguments based on function signatures
+    - Extracting characteristics from pandas and Dask data structures
 Author: PAMOLA Core Team
 Created: 2025
 License: BSD 3-Clause
-
-Key features:
-- Filtering keyword arguments based on function signatures
-- General utility operations for data preparation and processing
 """
-from typing import Any, Optional
+
+import hashlib
+from typing import Any, Optional, Union
+import dask.dataframe as dd
+import numpy as np
+import pandas as pd
 import inspect
 import logging
+import json
 from pamola_core.utils.ops.op_data_processing import force_garbage_collection
 
 # Configure logger
@@ -31,30 +36,28 @@ def filter_used_kwargs(kwargs: dict, func) -> dict:
     used_keys = set(inspect.signature(func).parameters)
     return {k: v for k, v in kwargs.items() if k not in used_keys}
 
-def cleanup_memory(
-        instance: Optional[Any] = None,
-        force_gc: bool = True
-    ) -> None:
+
+def cleanup_memory(instance: Optional[Any] = None, force_gc: bool = True) -> None:
     """
-        Cleans up memory by clearing specific attributes of the provided instance.
-        This function performs the following actions:
-        - Clears the `operation_cache` attribute if it exists.
-        - Resets the `process_kwargs` attribute to an empty dictionary if it exists.
-        - Clears the `filter_mask` attribute if it exists.
-        - Additionally, it removes any attributes that start with `_temp_` from the instance.
-        - If `force_gc` is set to True, it triggers garbage collection.
-        Args:
-            instance (Optional[Any]): The instance from which to clear attributes. 
-                                       If None, only class-level attributes will be cleared.
-            force_gc (bool): A flag indicating whether to force garbage collection.
-                             Defaults to True.
-        Returns:
-            None: This function does not return any value.
+    Cleans up memory by clearing specific attributes of the provided instance.
+    This function performs the following actions:
+    - Clears the `operation_cache` attribute if it exists.
+    - Resets the `process_kwargs` attribute to an empty dictionary if it exists.
+    - Clears the `filter_mask` attribute if it exists.
+    - Additionally, it removes any attributes that start with `_temp_` from the instance.
+    - If `force_gc` is set to True, it triggers garbage collection.
+    Args:
+        instance (Optional[Any]): The instance from which to clear attributes.
+                                   If None, only class-level attributes will be cleared.
+        force_gc (bool): A flag indicating whether to force garbage collection.
+                         Defaults to True.
+    Returns:
+        None: This function does not return any value.
     """
     try:
         if instance is None:
             return
-        
+
         # Clear operation cache
         if hasattr(instance, "operation_cache"):
             instance.operation_cache = None
@@ -75,9 +78,225 @@ def cleanup_memory(
         for attr_name in list(vars(instance).keys()):
             if attr_name.startswith("_temp_"):
                 delattr(instance, attr_name)
-        
+
         # Force GC if explicitly requested
         if force_gc:
             force_garbage_collection()
     except Exception as e:
         logger.warning(f"Error cleanup_memory: {e}")
+
+
+def stable_json(obj) -> str:
+    """
+    Convert object to stable sorted JSON.
+    Deterministic serialization for hashing.
+    """
+    return json.dumps(obj, sort_keys=True, ensure_ascii=False)
+
+
+def blake(data: bytes) -> str:
+    """
+    Fast, modern hashing using BLAKE2b.
+    """
+    return hashlib.blake2b(data, digest_size=32).hexdigest()
+
+
+def safe_numpy_bytes(arr: np.ndarray) -> bytes:
+    """
+    Convert numpy array to deterministic bytes for hashing.
+    """
+    if arr.dtype == object:
+        return pd.util.hash_pandas_object(pd.Series(arr), index=False).values.tobytes()
+    return arr.tobytes()
+
+
+def smart_sample_indices(n: int, sample_size: int) -> np.ndarray:
+    """
+    Generate evenly-spaced sample indices using linspace.
+    Ensures representative sampling across entire dataset.
+    """
+    if n <= sample_size:
+        return np.arange(n)
+    return np.linspace(0, n - 1, sample_size, dtype=int)
+
+
+def get_series_signature(s: pd.Series, sample_size: int = 5000) -> str:
+    """
+    Generate deterministic signature for pandas Series.
+    """
+    metadata = {
+        "type": "series",
+        "length": len(s),
+        "dtype": str(s.dtype),
+    }
+
+    if s.empty:
+        return stable_json(metadata)
+
+    # Smart sampling - evenly distributed across entire series
+    indices = smart_sample_indices(len(s), sample_size)
+    sample_vals = s.iloc[indices].to_numpy()
+    sample_hash = blake(safe_numpy_bytes(sample_vals))
+
+    # Global checksums
+    checksums = {"nulls": int(s.isna().sum())}
+
+    # Numeric stats - single pass optimization
+    if pd.api.types.is_numeric_dtype(s):
+        try:
+            stats = s.agg(["sum", "min", "max"])
+            _sum = stats["sum"]
+
+            checksums["sum"] = (
+                str(_sum) if pd.isna(_sum) or np.isinf(_sum) else round(float(_sum), 8)
+            )
+            checksums["min"] = str(stats["min"])
+            checksums["max"] = str(stats["max"])
+        except Exception:
+            # Fallback if agg fails
+            pass
+
+    return stable_json(
+        {"metadata": metadata, "sample_hash": sample_hash, "checksums": checksums}
+    )
+
+
+def get_df_signature(df: pd.DataFrame, sample_size: int = 5000) -> str:
+    """
+    Generate deterministic signature for pandas DataFrame.
+
+    """
+    metadata = {
+        "type": "pandas_df",
+        "shape": df.shape,
+        "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
+        "columns": df.columns.tolist(),
+    }
+
+    if df.empty:
+        return stable_json(metadata)
+
+    indices = smart_sample_indices(len(df), sample_size)
+    sample_df = df.iloc[indices]
+
+    # Concatenate bytes from all columns for comprehensive hash
+    sample_bytes = []
+    for col in sample_df.columns:
+        arr = sample_df[col].to_numpy()
+        sample_bytes.append(safe_numpy_bytes(arr))
+
+    sample_hash = blake(b"".join(sample_bytes))
+
+    checksums = {
+        "rows": df.shape[0],
+    }
+
+    # Null counts - O(rows * cols), but vectorized and fast
+    checksums["nulls"] = {col: int(df[col].isna().sum()) for col in df.columns}
+
+    # Numeric stats - OPTIMIZED: single pass for all stats
+    numeric_cols = df.select_dtypes(include="number").columns
+    if len(numeric_cols) > 0:
+        try:
+            stats = df[numeric_cols].agg(["sum", "min", "max"]).to_dict()
+
+            checksums["numeric"] = {}
+            for col in numeric_cols:
+                _sum = stats[col]["sum"]
+                checksums["numeric"][col] = {
+                    "sum": (
+                        str(_sum)
+                        if pd.isna(_sum) or np.isinf(_sum)
+                        else round(float(_sum), 8)
+                    ),
+                    "min": str(stats[col]["min"]),
+                    "max": str(stats[col]["max"]),
+                }
+        except Exception:
+            # Fallback: skip numeric checksums if agg fails
+            pass
+
+    return stable_json(
+        {"metadata": metadata, "sample_hash": sample_hash, "checksums": checksums}
+    )
+
+
+def get_dask_df_signature(df: dd.DataFrame, sample_size: int = 5000) -> str:
+    """
+    Generate deterministic signature for Dask DataFrame.
+
+    Note: Dask doesn't support iloc with array indices efficiently.
+    Falls back to head() for sampling to avoid expensive compute.
+    This is acceptable since we have global checksums to catch changes.
+    """
+    metadata = {
+        "type": "dask_df",
+        "npartitions": df.npartitions,
+        "columns": df.columns.tolist(),
+        "dtypes": {c: str(df.dtypes[c]) for c in df.columns},
+    }
+
+    try:
+        sample_df = df.head(sample_size, npartitions=2)
+    except Exception:
+        return stable_json({"metadata": metadata, "sample_hash": None})
+
+    if len(sample_df) == 0:
+        return stable_json({"metadata": metadata})
+
+    # Hash sample (same as pandas)
+    sample_bytes = []
+    for col in sample_df.columns:
+        sample_bytes.append(safe_numpy_bytes(sample_df[col].to_numpy()))
+    sample_hash = blake(b"".join(sample_bytes))
+
+    return stable_json(
+        {
+            "metadata": metadata,
+            "sample_hash": sample_hash,
+            "checksums": {"npartitions": df.npartitions},
+        }
+    )
+
+
+def generate_data_hash(
+    data: Union[pd.DataFrame, pd.Series, dd.DataFrame], sample_size: int = 5000
+) -> str:
+    """
+    Generate a deterministic hash for pandas/dask data structures.
+
+    The hash represents:
+    - Data structure (shape, dtypes, columns)
+    - Sample of actual values (evenly distributed across dataset)
+    - Global statistics (null counts, numeric sum/min/max)
+
+    Parameters
+    ----------
+    data : Union[pd.DataFrame, pd.Series, dd.DataFrame]
+        Input data to hash
+    sample_size : int, default=5000
+        Number of rows to include in sample hash.
+        Rows are selected using linspace for even distribution.
+    Returns
+    -------
+    str
+        32-character hex hash string (BLAKE2b)
+    """
+    try:
+        if isinstance(data, pd.Series):
+            sig = get_series_signature(data, sample_size)
+        elif isinstance(data, pd.DataFrame):
+            sig = get_df_signature(data, sample_size)
+        elif isinstance(data, dd.DataFrame):
+            sig = get_dask_df_signature(data, sample_size)
+        else:
+            raise TypeError(
+                f"Unsupported data type: {type(data).__name__}. "
+                "Expected pandas.Series, pandas.DataFrame, or dask.dataframe.DataFrame"
+            )
+
+        return blake(sig.encode())
+
+    except Exception as e:
+        fallback = f"{type(data).__name__}_{getattr(data, '__len__', lambda: 0)()}"
+        return blake(fallback.encode())

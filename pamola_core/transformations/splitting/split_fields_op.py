@@ -34,7 +34,9 @@ from pathlib import Path
 from typing import Optional, Dict, List, Any, Union, Tuple
 import pandas as pd
 from pamola_core.transformations.commons.enum import OutputFormat
-from pamola_core.transformations.schemas.split_fields_op_core_schema import SplitFieldsOperationConfig
+from pamola_core.transformations.schemas.split_fields_op_core_schema import (
+    SplitFieldsOperationConfig,
+)
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import (
     load_data_operation,
@@ -43,7 +45,7 @@ from pamola_core.utils.io import (
     write_json,
     write_dataframe_to_csv,
 )
-from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import (
     OperationResult,
@@ -59,7 +61,6 @@ import matplotlib
 
 # Set the backend to 'Agg' to avoid GUI issues
 matplotlib.use("Agg")
-import hashlib
 from pamola_core.utils.ops.op_registry import register
 
 
@@ -175,6 +176,11 @@ class SplitFieldsOperation(TransformationOperation):
 
             dirs = self._prepare_directories(task_dir)
 
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             if reporter:
                 reporter.add_operation(
                     f"Operation {self.operation_name}",
@@ -244,8 +250,8 @@ class SplitFieldsOperation(TransformationOperation):
                     )
 
                 try:
-                    # _get_cache now returns OperationResult or None
-                    cached_result = self._get_cache(df.copy(deep=True), **kwargs)
+                    # _check_cache now returns OperationResult or None
+                    cached_result = self._check_cache(df.copy(deep=True))
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -448,7 +454,7 @@ class SplitFieldsOperation(TransformationOperation):
                     )
 
                 try:
-                    self._save_cache(task_dir, result, **kwargs)
+                    self._save_to_cache(task_dir, result)
                 except Exception as e:
                     error_message = f"Failed to cache results: {str(e)}"
                     self.logger.error(error_message)
@@ -864,7 +870,7 @@ class SplitFieldsOperation(TransformationOperation):
                 f"[VIZ] Error setting up visualization thread: {e}", exc_info=True
             )
 
-    def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
+    def _save_to_cache(self, task_dir: Path, result: OperationResult) -> None:
         """
         Save the operation result to cache.
 
@@ -891,27 +897,26 @@ class SplitFieldsOperation(TransformationOperation):
 
             cache_data = {
                 "result": result_data,
-                "parameters": self._get_cache_parameters(**kwargs),
+                "parameters": self._get_base_parameters(),
             }
 
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(self._original_df.copy(deep=True)),
-            )
+            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
 
-            operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
+            if not success:
+                raise Exception("Cache save operation results failure")
+
             self.logger.info(f"Saved result to cache with key: {cache_key}")
         except Exception as e:
             self.logger.warning(f"Failed to save cache: {e}")
 
-    def _get_cache(self, df: pd.DataFrame, **kwargs) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Retrieve cached result if available and valid.
 
@@ -926,13 +931,9 @@ class SplitFieldsOperation(TransformationOperation):
             The cached OperationResult if available, otherwise None.
         """
         try:
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(df),
-            )
+            cache_key = self._generate_cache_key(df)
 
-            cached = operation_cache.get_cache(
+            cached = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
@@ -979,7 +980,7 @@ class SplitFieldsOperation(TransformationOperation):
             self.logger.warning(f"Failed to load cache: {e}")
             return None
 
-    def _get_cache_parameters(self, **kwargs) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for SplitFieldsOperation using external kwargs.
 
@@ -995,87 +996,10 @@ class SplitFieldsOperation(TransformationOperation):
         """
 
         return {
-            "operation": self.operation_name,
-            "version": self.version,
             "id_field": self.id_field,
             "field_groups": self.field_groups,
             "include_id_field": self.include_id_field,
-            "output_format": self.output_format,
-            "save_output": self.save_output,
-            "use_cache": self.use_cache,
-            "force_recalculation": self.force_recalculation,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "visualization_backend": self.visualization_backend,
-            "visualization_theme": self.visualization_theme,
-            "visualization_strict": self.visualization_strict,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
         }
-
-    def _generate_data_hash(self, data: pd.DataFrame) -> str:
-        """
-        Generate a hash that represents key characteristics of the input DataFrame.
-
-        The hash is based on structure and summary statistics to detect changes
-        for caching purposes.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Input DataFrame to generate a representative hash from.
-
-        Returns
-        -------
-        str
-            A hash string representing the structure and key properties of the data.
-        """
-        try:
-            characteristics = {
-                "columns": list(data.columns),
-                "shape": data.shape,
-                "summary": {},
-            }
-
-            for col in data.columns:
-                col_data = data[col]
-                col_info = {
-                    "dtype": str(col_data.dtype),
-                    "null_count": int(col_data.isna().sum()),
-                    "unique_count": int(col_data.nunique()),
-                }
-
-                if pd.api.types.is_numeric_dtype(col_data):
-                    non_null = col_data.dropna()
-                    if not non_null.empty:
-                        col_info.update(
-                            {
-                                "min": float(non_null.min()),
-                                "max": float(non_null.max()),
-                                "mean": float(non_null.mean()),
-                                "median": float(non_null.median()),
-                                "std": float(non_null.std()),
-                            }
-                        )
-                elif pd.api.types.is_object_dtype(col_data) or isinstance(
-                    col_data.dtype, pd.CategoricalDtype
-                ):
-                    top_values = col_data.value_counts(dropna=True).head(5)
-                    col_info["top_values"] = {
-                        str(k): int(v) for k, v in top_values.items()
-                    }
-
-                characteristics["summary"][col] = col_info
-
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode()).hexdigest()
-
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-            fallback = f"{data.shape}_{list(data.dtypes)}"
-            return hashlib.md5(fallback.encode()).hexdigest()
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """

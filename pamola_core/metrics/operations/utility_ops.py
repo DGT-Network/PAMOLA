@@ -469,25 +469,6 @@ class UtilityMetricOperation(MetricsOperation):
         params = dict(
             utility_metrics=self.utility_metrics,
             metric_params=self.metric_params,
-            columns=self.columns,
-            column_mapping=self.column_mapping,
-            normalize=self.normalize,
-            confidence_level=self.confidence_level,
-            optimize_memory=self.optimize_memory,
-            sample_size=self.sample_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_cache=self.use_cache,
-            visualization_backend=self.visualization_backend,
-            visualization_theme=self.visualization_theme,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
         )
 
         return params

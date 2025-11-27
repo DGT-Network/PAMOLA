@@ -969,65 +969,255 @@ def _count_leaves(hierarchy: Dict[str, Any]) -> int:
 
 def _convert_flat_to_nested_hierarchy(
     flat_data: Dict[str, Any], max_categories: int, max_depth: int
-) -> Dict[str, Dict[str, int]]:
+) -> Dict[str, Any]:
     """
-    Convert flat or tree-based hierarchy data to nested {parent: {child: count}} format.
+    Convert flat or tree-based hierarchy data to proper nested dictionary format.
+
+    Handles three input formats:
+    1. Tree format with simple names: {"name": "root", "children": [...]}
+    2. Tree format with path strings: {"name": "Fruit > Apple > Gala", ...}
+    3. Flat format: {"child": {"parent": "parent_name", "count": 10}}
 
     Parameters:
     -----------
     flat_data : Dict[str, Any]
-        Either:
-        - Flat format: {"child": {"parent": "parent_name", "count": 10}}
-        - Tree format: {"name": ..., "children": [...]}
+        Input hierarchy data in one of the supported formats
     max_categories : int
-        Limit number of top entries
+        Maximum number of top-level entries to include (for flat format)
     max_depth : int
-        Not used directly (reserved for future depth limiting)
+        Maximum depth to traverse (currently enforced in tree format)
+
+    Returns:
+    --------
+    Dict[str, Any]
+        Properly nested dictionary suitable for sunburst visualization.
+        Format: nested dicts where leaf nodes have integer values.
+        Example: {"Fruit": {"Apple": {"Gala": 1, "Fuji": 2}}}
+
+    Raises:
+    -------
+    ValueError
+        If input data is not a valid dictionary format
+    """
+    # Validate input
+    if not isinstance(flat_data, dict):
+        raise ValueError("Input hierarchy data must be a dictionary.")
+
+    # Detect and handle tree format
+    if "name" in flat_data and "children" in flat_data:
+        return _convert_tree_to_nested(flat_data, max_depth)
+
+    # Handle flat format
+    return _convert_flat_to_nested(flat_data, max_categories)
+
+
+def _convert_tree_to_nested(
+    tree_data: Dict[str, Any], max_depth: int
+) -> Dict[str, Any]:
+    """
+    Convert tree format (with 'name' and 'children') to nested dictionary.
+
+    Handles path strings in 'name' fields by parsing and rebuilding hierarchy.
+
+    Parameters:
+    -----------
+    tree_data : Dict[str, Any]
+        Tree structure with 'name' and 'children' keys
+    max_depth : int
+        Maximum depth to traverse
+
+    Returns:
+    --------
+    Dict[str, Any]
+        Nested dictionary with proper hierarchical structure
+    """
+
+    def parse_path_segments(path: str, parent_name: str = "") -> List[str]:
+        """
+        Parse a path string into segments, removing parent prefix if present.
+
+        Parameters:
+        -----------
+        path : str
+            Path string like "Fruit > Apple > Gala"
+        parent_name : str
+            Parent node name to strip from beginning
+
+        Returns:
+        --------
+        List[str]
+            List of path segments
+        """
+        if ' > ' not in path:
+            return [path]
+
+        segments = [s.strip() for s in path.split(' > ')]
+
+        # Remove parent prefix if it matches
+        if parent_name and segments and segments[0] == parent_name:
+            segments = segments[1:]
+
+        return segments
+
+    def build_nested_dict(segments: List[str], value: Any) -> Dict[str, Any]:
+        """
+        Build a nested dictionary from path segments and a leaf value.
+
+        Parameters:
+        -----------
+        segments : List[str]
+            Path segments like ["Apple", "Gala"]
+        value : Any
+            Value for the leaf node
+
+        Returns:
+        --------
+        Dict[str, Any]
+            Nested dictionary
+        """
+        if not segments:
+            return value
+
+        if len(segments) == 1:
+            return {segments[0]: value}
+
+        # Recursively build nested structure
+        return {segments[0]: build_nested_dict(segments[1:], value)}
+
+    def merge_nested_dicts(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+        """
+        Deep merge source dict into target dict.
+
+        Parameters:
+        -----------
+        target : Dict[str, Any]
+            Target dictionary to merge into (modified in place)
+        source : Dict[str, Any]
+            Source dictionary to merge from
+        """
+        for key, value in source.items():
+            if key in target:
+                if isinstance(target[key], dict) and isinstance(value, dict):
+                    # Recursively merge nested dicts
+                    merge_nested_dicts(target[key], value)
+                else:
+                    # Overwrite with new value (shouldn't happen with clean data)
+                    target[key] = value
+            else:
+                target[key] = value
+
+    def traverse_tree(
+        node: Dict[str, Any], current_depth: int = 0
+    ) -> Dict[str, Any]:
+        """
+        Recursively traverse tree structure and build nested dict.
+
+        Parameters:
+        -----------
+        node : Dict[str, Any]
+            Current node with 'name' and optional 'children'
+        current_depth : int
+            Current depth in the tree
+
+        Returns:
+        --------
+        Dict[str, Any]
+            Nested dictionary representation of this subtree
+        """
+        # Check depth limit
+        if max_depth > 0 and current_depth >= max_depth:
+            return {}
+
+        node_name = node.get("name", "")
+        children = node.get("children", [])
+        value = node.get("value")
+
+        # Base case: leaf node with value
+        if not children and value is not None:
+            return value
+
+        # No children: return empty dict
+        if not children:
+            return {}
+
+        result = {}
+
+        for child in children:
+            child_name = child.get("name", "")
+
+            # Parse path if present
+            segments = parse_path_segments(child_name, node_name)
+
+            # Get child value
+            if "children" in child and child["children"]:
+                # Recursive case: child has children
+                child_value = traverse_tree(child, current_depth + 1)
+            else:
+                # Leaf case: use value
+                child_value = child.get("value", 1)
+
+            # Build nested structure for this path
+            nested_child = build_nested_dict(segments, child_value)
+
+            # Merge into result
+            merge_nested_dicts(result, nested_child)
+
+        return result
+
+    # Build nested structure from root
+    nested = traverse_tree(tree_data)
+
+    # If root name is 'root', return content directly; otherwise wrap it
+    root_name = tree_data.get("name", "")
+    if root_name.lower() == "root":
+        return nested
+    else:
+        return {root_name: nested}
+
+
+def _convert_flat_to_nested(
+    flat_data: Dict[str, Any], max_categories: int
+) -> Dict[str, Dict[str, int]]:
+    """
+    Convert flat format to nested {parent: {child: count}} structure.
+
+    Parameters:
+    -----------
+    flat_data : Dict[str, Any]
+        Flat format like {"child": {"parent": "parent_name", "count": 10}}
+    max_categories : int
+        Maximum number of entries to include (top entries by count)
 
     Returns:
     --------
     Dict[str, Dict[str, int]]
-        Nested dictionary suitable for visualization input
+        Nested dictionary with two levels: parent -> child -> count
     """
     nested = {}
 
-    # Case 1: Handle tree-like input with 'name' + 'children'
-    if isinstance(flat_data, dict) and "name" in flat_data and "children" in flat_data:
+    # Filter and sort by count
+    valid_items = (
+        (child, info)
+        for child, info in flat_data.items()
+        if isinstance(info, dict) and "parent" in info
+    )
 
-        def traverse(node: Dict[str, Any]):
-            parent_name = node.get("name")
-            children = node.get("children", [])
-            if not children:
-                return
-            for child in children:
-                child_name = child.get("name")
-                count = child.get("value", 1)
-                if parent_name not in nested:
-                    nested[parent_name] = {}
-                nested[parent_name][child_name] = count
-                # Recurse if deeper
-                if "children" in child:
-                    traverse(child)
-
-        traverse(flat_data)
-        return nested
-
-    # Case 2: Flat input
-    if not isinstance(flat_data, dict):
-        raise ValueError("Input hierarchy data must be a dictionary.")
-
-    # Sanitize and sort flat data
     sorted_items = sorted(
-        ((k, v) for k, v in flat_data.items() if isinstance(v, dict) and "parent" in v),
+        valid_items,
         key=lambda x: x[1].get("count", 0),
         reverse=True,
     )[:max_categories]
 
+    # Build nested structure
     for child, info in sorted_items:
         parent = info.get("parent", "Root")
         count = info.get("count", 1)
+
+        # Initialize parent dict if needed
         if parent not in nested:
             nested[parent] = {}
+
+        # Add child with count
         nested[parent][child] = count
 
     return nested
