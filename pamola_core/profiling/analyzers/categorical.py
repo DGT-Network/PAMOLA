@@ -330,7 +330,7 @@ class CategoricalOperation(FieldOperation):
                         },
                     )
 
-                # _check_cache now returns OperationResult or None
+                self.logger.info("Checking operation cache...")
                 cached_result = self._check_cache(df.copy(deep=True))
 
                 if cached_result is not None and isinstance(
@@ -513,25 +513,18 @@ class CategoricalOperation(FieldOperation):
                             },
                         )
 
-            # Save cache if required
+            # Cache the result if caching is enabled
             if self.use_cache:
-                self.logger.info(f"Operation: {self.operation_name}, Save cache")
-                if progress_tracker:
-                    progress_tracker.update(
-                        1, {"step": "Save cache", "operation": self.operation_name}
+                try:
+                    self.logger.info(f"Operation: {self.operation_name}, Save cache")
+                    self._save_to_cache(
+                        original_df=self._original_df,
+                        result=result,
+                        task_dir=task_dir,
                     )
-
-                self._save_to_cache(task_dir, result)
-
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Save cache",
-                            "message": "Save cache successfully",
-                        },
-                    )
+                except Exception as e:
+                    # Failure to cache is non-critical
+                    self.logger.warning(f"Failed to cache results: {str(e)}")
 
             # Operation completed successfully
             self.logger.info(
@@ -910,16 +903,24 @@ class CategoricalOperation(FieldOperation):
                     details={"warning": str(e)},
                 )
 
-    def _save_to_cache(self, task_dir: Path, result: OperationResult) -> bool:
+    def _save_to_cache(
+        self,
+        original_df: pd.DataFrame,
+        result: OperationResult,
+        task_dir: Path,
+    ) -> bool:
         """
-        Save the operation result to cache.
+        Save operation results to cache.
 
-        Parameters
-        ----------
+        Parameters:
+        -----------
+        original_df : pd.DataFrame
+            Original input data
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
-            Root directory for the task.
-        result : OperationResult
-            The result object to be cached.
+            Task directory
+
         Returns:
         --------
         bool
@@ -930,7 +931,7 @@ class CategoricalOperation(FieldOperation):
 
         try:
             # Generate cache key
-            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
+            cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
             cache_data = build_base_cache(

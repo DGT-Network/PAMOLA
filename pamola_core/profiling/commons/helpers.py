@@ -16,11 +16,20 @@ from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from pamola_core.profiling.commons.data_types import DataType, DataTypeDetection, ProfilerConfig
+from pamola_core.profiling.commons.data_types import (
+    DataType,
+    DataTypeDetection,
+    ProfilerConfig,
+)
+
 # Import our custom dtype helpers instead of using pd.api.types directly
 from pamola_core.profiling.commons.dtype_helpers import (
-    is_numeric_dtype, is_bool_dtype, is_object_dtype, is_string_dtype,
-    is_datetime64_dtype, is_categorical_dtype
+    is_numeric_dtype,
+    is_bool_dtype,
+    is_object_dtype,
+    is_string_dtype,
+    is_datetime64_dtype,
+    is_categorical_dtype,
 )
 from pamola_core.utils import helpers
 
@@ -57,23 +66,29 @@ def ensure_directory(directory_path):
 
 def get_profiling_directory(profile_type=None):
     """Get the directory path for storing profiling results."""
-    base_dir = Path(os.environ.get('PROFILING_OUTPUT_DIR', 'profiling_output'))
+    base_dir = Path(os.environ.get("PROFILING_OUTPUT_DIR", "profiling_output"))
     if profile_type:
         return base_dir / profile_type
     return base_dir
 
 
-def save_profiling_result(result, field_name, output_name, format="json", include_timestamp=True):
+def save_profiling_result(
+    result, field_name, output_name, format="json", include_timestamp=True
+):
     """Save profiling results to a file."""
     directory = get_profiling_directory(field_name)
     ensure_directory(directory)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") if include_timestamp else ""
-    filename = f"{output_name}_{timestamp}.{format}" if timestamp else f"{output_name}.{format}"
+    filename = (
+        f"{output_name}_{timestamp}.{format}"
+        if timestamp
+        else f"{output_name}.{format}"
+    )
     file_path = directory / filename
 
     if format.lower() == "json":
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(result, f, indent=2)
     elif format.lower() == "csv":
         # Convert result to DataFrame and save as CSV
@@ -123,29 +138,47 @@ def infer_data_type(series: pd.Series) -> DataType:
 
         # Use a sample for faster detection
         sample_size = min(len(non_null_values), 100)
-        sample = non_null_values.sample(sample_size) if len(non_null_values) > sample_size else non_null_values
+        sample = (
+            non_null_values.sample(sample_size)
+            if len(non_null_values) > sample_size
+            else non_null_values
+        )
 
         # Check if it's email
-        if series.name == 'email' or 'email' in str(series.name).lower():
+        if series.name == "email" or "email" in str(series.name).lower():
             # Check if it matches email pattern
             email_pattern = re.compile(DataTypeDetection.EMAIL_REGEX)
-            email_matches = sum(1 for val in sample if isinstance(val, str) and email_pattern.match(val.strip()))
+            email_matches = sum(
+                1
+                for val in sample
+                if isinstance(val, str) and email_pattern.match(val.strip())
+            )
             if email_matches / len(sample) >= 0.8:  # 80% match threshold
                 return DataType.EMAIL
 
         # Check if it's phone (HH specific format)
-        if 'phone' in str(series.name).lower():
+        if "phone" in str(series.name).lower():
             # Check if it matches phone pattern
             phone_pattern = re.compile(DataTypeDetection.PHONE_BASIC_REGEX)
-            phone_matches = sum(1 for val in sample if isinstance(val, str) and phone_pattern.match(val.strip()))
+            phone_matches = sum(
+                1
+                for val in sample
+                if isinstance(val, str) and phone_pattern.match(val.strip())
+            )
             if phone_matches / len(sample) >= 0.8:  # 80% match threshold
                 return DataType.PHONE
 
         # Check if it might be a boolean in string form
-        lowercase_sample = sample.str.lower() if hasattr(sample, 'str') else sample
-        boolean_matches = sum(1 for val in lowercase_sample if isinstance(val, str) and
-                              val.lower() in DataTypeDetection.BOOLEAN_TRUE_VALUES.union(
-            DataTypeDetection.BOOLEAN_FALSE_VALUES))
+        lowercase_sample = sample.str.lower() if hasattr(sample, "str") else sample
+        boolean_matches = sum(
+            1
+            for val in lowercase_sample
+            if isinstance(val, str)
+            and val.lower()
+            in DataTypeDetection.BOOLEAN_TRUE_VALUES.union(
+                DataTypeDetection.BOOLEAN_FALSE_VALUES
+            )
+        )
         if boolean_matches / len(sample) >= 0.8:  # 80% match threshold
             return DataType.BOOLEAN
 
@@ -153,7 +186,7 @@ def infer_data_type(series: pd.Series) -> DataType:
         date_matches = 0
         for pattern in DataTypeDetection.DATE_PATTERNS:
             try:
-                pd.to_datetime(sample, format=pattern, errors='raise')
+                pd.to_datetime(sample, format=pattern, errors="raise")
                 date_matches = len(sample)
                 break
             except (ValueError, TypeError):
@@ -169,8 +202,9 @@ def infer_data_type(series: pd.Series) -> DataType:
                 continue
             val_stripped = val.strip()
             try:
-                if ((val_stripped.startswith('{') and val_stripped.endswith('}')) or
-                        (val_stripped.startswith('[') and val_stripped.endswith(']'))):
+                if (val_stripped.startswith("{") and val_stripped.endswith("}")) or (
+                    val_stripped.startswith("[") and val_stripped.endswith("]")
+                ):
                     json.loads(val_stripped)
                     json_matches += 1
             except (json.JSONDecodeError, TypeError):
@@ -180,14 +214,24 @@ def infer_data_type(series: pd.Series) -> DataType:
             return DataType.JSON
 
         # Check if multi-valued field
-        separator_counts = {sep: sum(1 for val in sample if isinstance(val, str) and sep in val)
-                            for sep in DataTypeDetection.MVF_INDICATORS}
-        if any(count / len(sample) >= DataTypeDetection.MVF_THRESHOLD for count in separator_counts.values()):
+        separator_counts = {
+            sep: sum(1 for val in sample if isinstance(val, str) and sep in val)
+            for sep in DataTypeDetection.MVF_INDICATORS
+        }
+        if any(
+            count / len(sample) >= DataTypeDetection.MVF_THRESHOLD
+            for count in separator_counts.values()
+        ):
             return DataType.MULTI_VALUED
 
         # Check if array (simplified check)
-        array_matches = sum(1 for val in sample if isinstance(val, str) and
-                            val.strip().startswith('[') and val.strip().endswith(']'))
+        array_matches = sum(
+            1
+            for val in sample
+            if isinstance(val, str)
+            and val.strip().startswith("[")
+            and val.strip().endswith("]")
+        )
         if array_matches / len(sample) >= 0.8:  # 80% match threshold
             return DataType.ARRAY
 
@@ -196,8 +240,9 @@ def infer_data_type(series: pd.Series) -> DataType:
             return DataType.CATEGORICAL
 
         # Check if long text
-        if (hasattr(sample, 'str') and
-                (sample.str.len().mean() > ProfilerConfig.LONGTEXT_MIN_LENGTH)):
+        if hasattr(sample, "str") and (
+            sample.str.len().mean() > ProfilerConfig.LONGTEXT_MIN_LENGTH
+        ):
             return DataType.LONGTEXT
 
         # If not any of the above, assume text
@@ -215,7 +260,9 @@ def infer_data_type(series: pd.Series) -> DataType:
     return DataType.UNKNOWN
 
 
-def prepare_field_for_analysis(df: pd.DataFrame, field_name: str) -> Tuple[pd.Series, DataType]:
+def prepare_field_for_analysis(
+    df: pd.DataFrame, field_name: str
+) -> Tuple[pd.Series, DataType]:
     """
     Prepare a field for analysis, handling missing values and type conversion.
 
@@ -244,24 +291,31 @@ def prepare_field_for_analysis(df: pd.DataFrame, field_name: str) -> Tuple[pd.Se
     elif data_type == DataType.CATEGORICAL:
         # Convert to category if not already
         if not is_categorical_dtype(series):
-            series = series.astype('category')
+            series = series.astype("category")
     elif data_type == DataType.DATE or data_type == DataType.DATETIME:
         # Try to convert to datetime
         try:
-            series = pd.to_datetime(series, errors='coerce')
+            series = pd.to_datetime(series, errors="coerce")
         except Exception as e:
             logger.warning(f"Error converting {field_name} to datetime: {e}")
     elif data_type == DataType.BOOLEAN:
         # Try to convert to boolean
         try:
-            series = series.map(lambda x: str(x).lower() in DataTypeDetection.BOOLEAN_TRUE_VALUES
-            if pd.notna(x) else np.nan)
+            series = series.map(
+                lambda x: (
+                    str(x).lower() in DataTypeDetection.BOOLEAN_TRUE_VALUES
+                    if pd.notna(x)
+                    else np.nan
+                )
+            )
         except Exception as e:
             logger.warning(f"Error converting {field_name} to boolean: {e}")
     elif data_type == DataType.EMAIL:
         # Clean email addresses
         try:
-            series = series.str.strip().str.lower() if hasattr(series, 'str') else series
+            series = (
+                series.str.strip().str.lower() if hasattr(series, "str") else series
+            )
         except Exception as e:
             logger.warning(f"Error cleaning email addresses in {field_name}: {e}")
     elif data_type == DataType.PHONE:
@@ -346,7 +400,9 @@ def detect_json_field(series: pd.Series) -> bool:
             continue
 
         value = value.strip()
-        if (value.startswith('{') and value.endswith('}')) or (value.startswith('[') and value.endswith(']')):
+        if (value.startswith("{") and value.endswith("}")) or (
+            value.startswith("[") and value.endswith("]")
+        ):
             try:
                 json.loads(value)
                 valid_count += 1
@@ -404,13 +460,15 @@ def detect_array_field(series: pd.Series) -> bool:
     sample = series.dropna().sample(min(100, len(series.dropna())))
 
     array_pattern = re.compile(DataTypeDetection.ARRAY_REGEX)
-    array_count = sum(1 for val in sample if isinstance(val, str) and array_pattern.match(val.strip()))
+    array_count = sum(
+        1 for val in sample if isinstance(val, str) and array_pattern.match(val.strip())
+    )
 
     # Consider it an array if at least 80% of the sample matches the array pattern
     return array_count >= 0.8 * len(sample)
 
 
-def parse_array_field(value: Any, separator: str = ',') -> List[Any]:
+def parse_array_field(value: Any, separator: str = ",") -> List[Any]:
     """
     Parse an array field value.
 
@@ -433,7 +491,7 @@ def parse_array_field(value: Any, separator: str = ',') -> List[Any]:
         return []
 
     value = value.strip()
-    if not (value.startswith('[') and value.endswith(']')):
+    if not (value.startswith("[") and value.endswith("]")):
         return []
 
     # Remove brackets and split
@@ -487,7 +545,7 @@ def extract_email_domain(email: str) -> Optional[str]:
     if not is_valid_email(email):
         return None
 
-    return email.split('@')[1].lower()
+    return email.split("@")[1].lower()
 
 
 def is_phone_number_format(phone: str) -> bool:
@@ -533,11 +591,7 @@ def parse_phone_number(phone: str) -> Optional[Dict[str, Any]]:
     match = pattern.match(phone)
 
     if not match:
-        return {
-            'is_valid': False,
-            'original': phone,
-            'error': 'Invalid format'
-        }
+        return {"is_valid": False, "original": phone, "error": "Invalid format"}
 
     country_code = match.group(1)
     operator_code = match.group(2)
@@ -545,20 +599,22 @@ def parse_phone_number(phone: str) -> Optional[Dict[str, Any]]:
     comment = match.group(5) if len(match.groups()) >= 5 and match.group(5) else ""
 
     return {
-        'is_valid': True,
-        'original': phone,
-        'country_code': country_code,
-        'operator_code': operator_code,
-        'number': number,
-        'comment': comment
+        "is_valid": True,
+        "original": phone,
+        "country_code": country_code,
+        "operator_code": operator_code,
+        "number": number,
+        "comment": comment,
     }
 
 
-def save_profiling_results(result: Dict[str, Any],
-                           profile_type: str,
-                           output_name: str,
-                           format: str = "json",
-                           include_timestamp: bool = True) -> str:
+def save_profiling_results(
+    result: Dict[str, Any],
+    profile_type: str,
+    output_name: str,
+    format: str = "json",
+    include_timestamp: bool = True,
+) -> str:
     """
     Saves profiling results for a specific profile type.
 
@@ -589,21 +645,22 @@ def save_profiling_results(result: Dict[str, Any],
         field_name=profile_type,
         output_name=output_name,
         format=format,
-        include_timestamp=include_timestamp
+        include_timestamp=include_timestamp,
     )
 
     # Return path as string for compatibility
     return str(file_path)
 
+
 def cleanup_memory(
-        df: Optional[pd.DataFrame] = None,
-        analyzed_df: Optional[pd.DataFrame] = None,
-        values_dict: Optional[pd.DataFrame] = None,
-        combinations_dict: Optional[pd.DataFrame] = None,
-        analysis_results: Optional[Dict[str, Any]] = None,
-        instance: Optional[Any] = None,
-        **kwargs,
-    ) -> None:
+    df: Optional[pd.DataFrame] = None,
+    analyzed_df: Optional[pd.DataFrame] = None,
+    values_dict: Optional[pd.DataFrame] = None,
+    combinations_dict: Optional[pd.DataFrame] = None,
+    analysis_results: Optional[Dict[str, Any]] = None,
+    instance: Optional[Any] = None,
+    **kwargs,
+) -> None:
     """
     Clean up memory after operation completes.
 
@@ -633,8 +690,8 @@ def cleanup_memory(
             del values_dict
         if combinations_dict is not None:
             del combinations_dict
-    
+
         # cleanup memory from instance
         helpers.cleanup_memory(instance=instance)
     except Exception as e:
-            logger.warning(f"Error cleanup_memory: {e}")
+        logger.warning(f"Error cleanup_memory: {e}")

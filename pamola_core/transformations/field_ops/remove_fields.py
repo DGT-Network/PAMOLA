@@ -367,7 +367,7 @@ class RemoveFieldsOperation(TransformationOperation):
                 try:
                     self._save_to_cache(
                         original_df=original_df,
-                        processed_df=processed_df,
+                        transformed_data=processed_df,
                         result=result,
                         task_dir=task_dir,
                     )
@@ -397,8 +397,13 @@ class RemoveFieldsOperation(TransformationOperation):
                 # Add the operation to the reporter
                 reporter.add_operation(f"Remove fields completed", details=details)
 
-            # Cleanup memory
-            self._cleanup_memory(original_df, processed_df)
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=original_df,
+                transformed_data=None,
+            )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
@@ -1230,112 +1235,6 @@ class RemoveFieldsOperation(TransformationOperation):
             )
 
         return output_result
-
-    def _save_to_cache(
-        self,
-        original_df: pd.DataFrame,
-        processed_df: pd.DataFrame,
-        result: OperationResult,
-        task_dir: Path,
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame
-            Original input data
-        processed_df : pd.DataFrame
-            Processed DataFrame
-        result : OperationResult
-            The result object to be cached.
-        metrics_result : WriterResult
-            The result of metrics
-        output_result : WriterResult
-            The result of output
-        visualizations : dict
-            The visualizations of operation
-        task_dir : Path
-            Task directory
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        try:
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(original_df)
-
-            # Prepare cache data
-            cache_data = build_base_cache(
-                parameters=self._get_base_parameters(), result=result
-            )
-
-            cache_data.update(
-                {
-                    "data_info": {
-                        "original_df_length": len(original_df),
-                        "processed_df_length": len(processed_df),
-                    },
-                }
-            )
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(f"Successfully saved results to cache")
-            else:
-                self.logger.warning(f"Failed to save results to cache")
-
-            return success
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
-
-    def _cleanup_memory(
-        self, original_df: Optional[pd.DataFrame], processed_df: Optional[pd.DataFrame]
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame, optional
-            Original data before processing
-        processed_df : pd.DataFrame, optional
-            Anonymized data after processing
-        """
-        # Clear argument references
-        if original_df is not None:
-            del original_df
-
-        if processed_df is not None:
-            del processed_df
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Force garbage collection
-        import gc
-
-        gc.collect()
 
 
 # Helper function to create the operation easily

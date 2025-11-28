@@ -252,7 +252,7 @@ class AggregateRecordsOperation(TransformationOperation):
                     )
 
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df=df, reporter=reporter)
+                cache_result = self._check_cache(df, reporter)
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
 
@@ -475,8 +475,13 @@ class AggregateRecordsOperation(TransformationOperation):
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            # Cleanup memory
-            self._cleanup_memory(processed_df, df)
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=df,
+                transformed_data=None,
+            )
 
             # Report completion
             if reporter:
@@ -1105,51 +1110,6 @@ class AggregateRecordsOperation(TransformationOperation):
 
         return str(output_result.path)
 
-    def _cleanup_memory(
-        self,
-        processed_df: Optional[pd.DataFrame] = None,
-        df: Optional[pd.DataFrame] = None,
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        processed_df : pd.DataFrame, optional
-            Processed DataFrame to clear from memory
-        df : pd.DataFrame, optional
-            Original DataFrame to clear from memory
-        """
-        # Clear argument references
-        if processed_df is not None:
-            try:
-                del processed_df
-            except Exception:
-                pass
-
-        if df is not None:
-            try:
-                del df
-            except Exception:
-                pass
-
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Remove any temporary attributes starting with _temp_
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                setattr(self, attr_name, None)
-
-        # Optional: Force garbage collection for large datasets
-        # Uncomment if memory pressure is an issue
-        # import gc
-        # gc.collect()
-
     def _validate_input_params(
         self,
         group_by_fields: List[str],
@@ -1194,108 +1154,6 @@ class AggregateRecordsOperation(TransformationOperation):
                             f"Unsupported custom aggregation function: {cus_agg_func} for field '{field}'. "
                             f"Allowed: {sorted(allowed_aggs)}"
                         )
-
-    def _save_to_cache(
-        self,
-        original_data: Union[pd.Series, pd.DataFrame],
-        transformed_data: Union[pd.Series, pd.DataFrame],
-        result: OperationResult,
-        task_dir: Path,
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        original_data : pd.Series or pd.DataFrame
-            Original input data
-        transformed_data : pd.Series or pd.DataFrame
-            Transformed output data
-        result : OperationResult
-            The result object to be cached.
-        visualization_paths : Dict[str, Path]
-            Paths to generated visualizations
-        task_dir : Path
-            Task directory
-        metrics_result_path : Optional[str]
-            Path to the metrics result file
-            If not provided, a default path will be used.
-        output_result_path : Optional[str]
-            Path to the output result file
-            If not provided, a default path will be used.
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        if metrics is None:
-            metrics = {}
-
-        try:
-            # Generate cache key (same logic as _check_cache)
-            if isinstance(original_data, pd.DataFrame) and self.group_by_fields:
-                if all(
-                    field in original_data.columns for field in self.group_by_fields
-                ):
-                    cache_key = self._generate_cache_key(
-                        original_data[self.group_by_fields]
-                    )
-                else:
-                    cache_key = self._generate_cache_key(original_data)
-            else:
-                cache_key = self._generate_cache_key(original_data)
-
-            # Prepare cache data
-            cache_data = build_base_cache(
-                parameters=self._get_base_parameters(), result=result
-            )
-
-            cache_data.update(
-                {
-                    "data_info": {
-                        "original_length": len(original_data),
-                        "transformed_length": len(transformed_data),
-                        "original_null_count": int(
-                            original_data.isna().sum().sum()
-                            if isinstance(original_data, pd.DataFrame)
-                            else original_data.isna().sum()
-                        ),
-                        "transformed_null_count": int(
-                            transformed_data.isna().sum().sum()
-                            if isinstance(transformed_data, pd.DataFrame)
-                            else transformed_data.isna().sum()
-                        ),
-                    }
-                }
-            )
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(
-                    f"Successfully saved {self.name} operation results to cache"
-                )
-            else:
-                self.logger.warning(
-                    f"Failed to save {self.name} operation results to cache"
-                )
-
-            return success
-
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
 
     def _update_progress_tracker(
         self,

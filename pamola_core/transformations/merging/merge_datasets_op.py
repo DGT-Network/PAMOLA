@@ -273,6 +273,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
                 self.logger.info("Checking operation cache...")
                 cache_result = self._check_cache(df=left_df, reporter=reporter)
+
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
 
@@ -520,7 +521,7 @@ class MergeDatasetsOperation(TransformationOperation):
             if self.use_cache:
                 try:
                     self._save_to_cache(
-                        left_df=left_df,
+                        original_data=left_df,
                         transformed_data=processed_df,
                         result=result,
                         task_dir=task_dir,
@@ -529,8 +530,13 @@ class MergeDatasetsOperation(TransformationOperation):
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            # Cleanup memory
-            self._cleanup_memory(processed_df, left_df, self.right_df)
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=left_df,
+                transformed_data=None,
+            )
 
             # Report completion
             if reporter:
@@ -1215,64 +1221,6 @@ class MergeDatasetsOperation(TransformationOperation):
 
         return str(output_result.path)
 
-    def _cleanup_memory(
-        self,
-        processed_df: Optional[pd.DataFrame] = None,
-        left_df: Optional[pd.DataFrame] = None,
-        right_df: Optional[pd.DataFrame] = None,
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        processed_df : pd.DataFrame, optional
-            Processed DataFrame to clear from memory
-        left_df : pd.DataFrame, optional
-            Left DataFrame to clear from memory
-        right_df : pd.DataFrame, optional
-            Right DataFrame to clear from memory
-        """
-        # Clear argument references
-        if processed_df is not None:
-            try:
-                del processed_df
-            except Exception:
-                pass
-
-        if left_df is not None:
-            try:
-                del left_df
-            except Exception:
-                pass
-
-        if right_df is not None:
-            try:
-                del right_df
-            except Exception:
-                pass
-
-        # Clear right DataFrame
-        if hasattr(self, "right_df"):
-            self.right_df = None
-
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Remove any temporary attributes starting with _temp_
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                setattr(self, attr_name, None)
-
-        # Optional: Force garbage collection for large datasets
-        # Uncomment if memory pressure is an issue
-        # import gc
-        # gc.collect()
-
     def _get_dataset(
         self, source: Any, dataset_name_or_path: Optional[str], **kwargs
     ) -> Optional[pd.DataFrame]:
@@ -1352,130 +1300,6 @@ class MergeDatasetsOperation(TransformationOperation):
             raise ValueError(
                 "Either right_dataset_name or right_dataset_path must be provided"
             )
-
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for this operation.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame to check in the cache
-        reporter : Any
-            Reporter to log cache hits/misses
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-            if self.left_key and self.left_key not in df.columns:
-                self.logger.warning(
-                    f"Field '{self.left_key}' not found in DataFrame columns."
-                )
-                return None
-
-            target_df = df[self.left_key] if self.left_key else df
-
-            result = super()._check_cache(target_df, reporter)
-
-            return result
-
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
-
-    def _save_to_cache(
-        self,
-        left_df: Union[pd.Series, pd.DataFrame],
-        transformed_data: Union[pd.Series, pd.DataFrame],
-        result: OperationResult,
-        task_dir: Path,
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        left_df : pd.Series or pd.DataFrame
-            Original input data
-        transformed_data : pd.Series or pd.DataFrame
-            Transformed output data
-        result: OperationResult
-            Result object OperationResult
-        task_dir : Path
-            Task directory
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        try:
-            # Generate cache key (same logic as _check_cache)
-            if isinstance(left_df, pd.DataFrame) and self.left_key:
-                if self.left_key in left_df.columns:
-                    cache_key = self._generate_cache_key(left_df[self.left_key])
-                else:
-                    cache_key = self._generate_cache_key(left_df)
-            else:
-                cache_key = self._generate_cache_key(left_df)
-
-            # Prepare cache data
-            cache_data = build_base_cache(
-                parameters=self._get_base_parameters(), result=result
-            )
-
-            cache_data.update(
-                {
-                    "data_info": {
-                        "original_length": len(left_df),
-                        "transformed_length": len(transformed_data),
-                        "original_null_count": int(
-                            left_df.isna().sum().sum()
-                            if isinstance(left_df, pd.DataFrame)
-                            else left_df.isna().sum()
-                        ),
-                        "transformed_null_count": int(
-                            transformed_data.isna().sum().sum()
-                            if isinstance(transformed_data, pd.DataFrame)
-                            else transformed_data.isna().sum()
-                        ),
-                    }
-                }
-            )
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(
-                    f"Successfully saved {self.name} operation results to cache"
-                )
-            else:
-                self.logger.warning(
-                    f"Failed to save {self.name} operation results to cache"
-                )
-
-            return success
-
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
 
     def _detect_relationship_type_auto(
         self,

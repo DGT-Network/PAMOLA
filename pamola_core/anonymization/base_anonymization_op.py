@@ -1761,8 +1761,8 @@ class AnonymizationOperation(FieldOperation):
 
     def _save_to_cache(
         self,
-        original_data: pd.Series,
-        anonymized_data: pd.Series,
+        original_data: Union[pd.Series, pd.DataFrame],
+        anonymized_data: Union[pd.Series, pd.DataFrame],
         result: OperationResult,
         task_dir: Path,
     ) -> bool:
@@ -1771,9 +1771,9 @@ class AnonymizationOperation(FieldOperation):
 
         Parameters:
         -----------
-        original_data : pd.Series
+        original_data : pd.Series or pd.DataFrame
             Original input data
-        anonymized_data : pd.Series
+        anonymized_data : pd.Series or pd.DataFrame
             Anonymized output data
         result: OperationResult
             Result object OperationResult
@@ -1797,14 +1797,23 @@ class AnonymizationOperation(FieldOperation):
                 parameters=self._get_base_parameters(), result=result
             )
 
+            # Add data info
             cache_data.update(
                 {
                     "data_info": {
                         "original_length": len(original_data),
                         "anonymized_length": len(anonymized_data),
-                        "original_null_count": int(original_data.isna().sum()),
-                        "anonymized_null_count": int(anonymized_data.isna().sum()),
-                    },
+                        "original_null_count": int(
+                            original_data.isna().sum().sum()
+                            if isinstance(original_data, pd.DataFrame)
+                            else original_data.isna().sum()
+                        ),
+                        "anonymized_null_count": int(
+                            anonymized_data.isna().sum().sum()
+                            if isinstance(anonymized_data, pd.DataFrame)
+                            else anonymized_data.isna().sum()
+                        ),
+                    }
                 }
             )
 

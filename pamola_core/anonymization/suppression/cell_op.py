@@ -244,7 +244,6 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
-        self._original_df = None
 
     def _cache_group_statistics(self, group_val: Any, stats: Dict[str, Any]) -> None:
         """
@@ -406,12 +405,25 @@ class CellSuppressionOperation(AnonymizationOperation):
                 **kwargs,
             )
 
+            # Store original data for caching
+            original_data = df[self.field_name].copy(deep=True)
+
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
                 try:
+                    if progress_tracker:
+                        progress_tracker.update(
+                            1,
+                            {
+                                "step": "Load result from cache",
+                                "operation": self.operation_name,
+                            },
+                        )
+
                     self.logger.info(
                         f"Operation: {self.operation_name}, Load result from cache"
                     )
+
                     cached_result = self._check_cache(df, reporter)
 
                     if cached_result is not None and isinstance(
@@ -509,14 +521,22 @@ class CellSuppressionOperation(AnonymizationOperation):
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save cache")
                     self._save_to_cache(
-                        task_dir=task_dir,
+                        original_data=original_data,
+                        anonymized_data=output_data,
                         result=result,
-                        progress_tracker=progress_tracker,
-                        reporter=reporter,
+                        task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                processed_df=output_data,
+                original_data=original_data,
+                anonymized_data=None,
+            )
 
             # Finalize timing
             self.end_time = time.time()
@@ -1648,69 +1668,6 @@ class CellSuppressionOperation(AnonymizationOperation):
                     },
                 )
 
-    def _save_to_cache(
-        self,
-        task_dir: Path,
-        result: OperationResult,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-    ) -> None:
-        """
-        Save the operation result to cache and update progress or reporter if available.
-
-        Parameters
-        ----------
-        task_dir : Path
-            Root directory for the task.
-        result : OperationResult
-            The result object to be cached.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to update UI or logs.
-        reporter : Optional[Any]
-            Reporter object to log external updates.
-        **kwargs : dict
-            Additional keyword arguments, used to compute the cache key.
-        """
-        step = "Save cache"
-
-        try:
-            # Prepare cache data
-            cache_data = build_base_cache(
-                parameters=self._get_base_parameters(), result=result
-            )
-
-            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
-
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if not success:
-                raise Exception("Cache save operation results failure")
-
-            self.logger.info(f"Saved result to cache with key: {cache_key}")
-
-            if progress_tracker:
-                progress_tracker.update(
-                    1, {"step": step, "operation": self.operation_name}
-                )
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": "Save cache",
-                        "message": "Save cache successfully",
-                    },
-                )
-
-        except Exception as e:
-            self.logger.warning(f"Failed to save cache: {e}", exc_info=True)
-
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get cache-relevant parameters for CellSuppressionOperation to uniquely
@@ -1841,8 +1798,6 @@ class CellSuppressionOperation(AnonymizationOperation):
                     },
                 )
             return None, False
-
-        self._original_df = df.copy(deep=True)
 
         is_valid = self._validate_input_parameters(df)
 

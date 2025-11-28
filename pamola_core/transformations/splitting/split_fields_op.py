@@ -251,8 +251,8 @@ class SplitFieldsOperation(TransformationOperation):
                     )
 
                 try:
-                    # _check_cache now returns OperationResult or None
-                    cached_result = self._check_cache(df=df, reporter=reporter)
+                    self.logger.info("Checking operation cache...")
+                    cached_result = self._check_cache(df, reporter)
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -297,7 +297,7 @@ class SplitFieldsOperation(TransformationOperation):
                 )
 
             try:
-                transformed_df = self._process_data(df, **kwargs)
+                processed_df = self._process_data(df, **kwargs)
             except Exception as e:
                 error_message = f"Processing error: {str(e)}"
                 self.logger.error(error_message)
@@ -314,7 +314,7 @@ class SplitFieldsOperation(TransformationOperation):
                     details={
                         "step": "Process data",
                         "message": "Process data successfully",
-                        "num_subsets": len(transformed_df),
+                        "num_subsets": len(processed_df),
                     },
                 )
 
@@ -338,7 +338,7 @@ class SplitFieldsOperation(TransformationOperation):
                 )
 
             try:
-                metrics = self._collect_metrics(df, transformed_df)
+                metrics = self._collect_metrics(df, processed_df)
                 result.metrics = metrics
                 self._save_metrics(
                     metrics, task_dir, result, operation_timestamp, **kwargs
@@ -380,7 +380,7 @@ class SplitFieldsOperation(TransformationOperation):
 
                 try:
                     self._save_output(
-                        transformed_df, task_dir, result, operation_timestamp, **kwargs
+                        processed_df, task_dir, result, operation_timestamp, **kwargs
                     )
                 except Exception as e:
                     error_message = f"Error saving output data: {str(e)}"
@@ -419,7 +419,7 @@ class SplitFieldsOperation(TransformationOperation):
                 try:
                     self._handle_visualizations(
                         input_data=df,
-                        output_data=transformed_df,
+                        output_data=processed_df,
                         task_dir=task_dir,
                         result=result,
                         operation_timestamp=operation_timestamp,
@@ -446,31 +446,27 @@ class SplitFieldsOperation(TransformationOperation):
                         },
                     )
 
-            # Save cache if required
+            # Cache the result if caching is enabled
             if self.use_cache:
-                self.logger.info(f"Operation: {self.operation_name}, Save cache")
-                if progress_tracker:
-                    progress_tracker.update(
-                        1, {"step": "Save cache", "operation": self.operation_name}
-                    )
-
                 try:
-                    self._save_to_cache(task_dir, result)
-                except Exception as e:
-                    error_message = f"Failed to cache results: {str(e)}"
-                    self.logger.error(error_message)
-                    # Continue execution - cache failure is not critical
-
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Save cache",
-                            "message": "Save cache successfully",
-                        },
+                    self._save_to_cache(
+                        original_data=self._original_df,
+                        transformed_data=processed_df,
+                        result=result,
+                        task_dir=task_dir,
                     )
+                except Exception as e:
+                    # Failure to cache is non-critical
+                    self.logger.warning(f"Failed to cache results: {str(e)}")
 
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=df,
+                transformed_data=None,
+            )
+            
             # Operation completed successfully
             self.logger.info(
                 f"Operation: {self.operation_name}, Operation completed successfully."
@@ -870,39 +866,6 @@ class SplitFieldsOperation(TransformationOperation):
             self.logger.error(
                 f"[VIZ] Error setting up visualization thread: {e}", exc_info=True
             )
-
-    def _save_to_cache(self, task_dir: Path, result: OperationResult) -> bool:
-        """
-        Save the operation result to cache.
-
-        Parameters
-        ----------
-        task_dir : Path
-            Root directory for the task.
-        result : OperationResult
-            The result object to be cached.
-        """
-        try:
-            # Prepare cache data
-            cache_data = build_base_cache(
-                parameters=self._get_base_parameters(), result=result
-            )
-
-            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
-
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if not success:
-                raise Exception("Cache save operation results failure")
-
-            self.logger.info(f"Saved result to cache with key: {cache_key}")
-        except Exception as e:
-            self.logger.warning(f"Failed to save cache: {e}")
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """

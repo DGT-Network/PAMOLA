@@ -451,7 +451,7 @@ class TransformationOperation(BaseOperation):
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            ## Clean up memory AFTER all write operations are complete
+            # Clean up memory AFTER all write operations are complete
             self.logger.info("Cleaning up memory after all file operations")
             self._cleanup_memory(
                 result_df=result_df,
@@ -1267,10 +1267,7 @@ class TransformationOperation(BaseOperation):
             if reporter:
                 reporter.add_operation(
                     f"Transformation of {self.field_label} (cached)",
-                    details={
-                        "field_label": self.field_label,
-                        "cached": True
-                    },
+                    details={"field_label": self.field_label, "cached": True},
                 )
 
             return result
@@ -1282,70 +1279,67 @@ class TransformationOperation(BaseOperation):
     def _save_to_cache(
         self,
         original_data: Union[pd.Series, pd.DataFrame],
-        transformed_data: Union[pd.Series, pd.DataFrame],
+        transformed_data: Union[pd.Series, pd.DataFrame, Dict[str, pd.DataFrame]],
         result: OperationResult,
         task_dir: Path,
     ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        original_data : pd.Series or pd.DataFrame
-            Original input data
-        transformed_data : pd.Series or pd.DataFrame
-            Transformed output data
-        result : OperationResult
-            The result object to be cached.
-        task_dir : Path
-            Task directory
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
+        """Save operation results to cache."""
         if not self.use_cache:
             return False
 
-        # If no metrics are provided, initialize as an empty dictionary
-        if metrics is None:
-            metrics = {}
-
         try:
-            # Generate cache key
             cache_key = self._generate_cache_key(original_data)
-
-            # Prepare metadata for cache
             operation_params = self._get_base_parameters()
 
             self.logger.debug(f"Operation parameters for cache: {operation_params}")
 
-            # Prepare cache data
             cache_data = helpers.build_base_cache(
                 parameters=self._get_base_parameters(), result=result
             )
-            cache_data.update(
-                {
-                    "data_info": {
-                        "original_length": len(original_data),
-                        "transformed_length": len(transformed_data),
-                        "original_null_count": int(
-                            original_data.isna().sum().sum()
-                            if isinstance(original_data, pd.DataFrame)
-                            else original_data.isna().sum()
-                        ),
-                        "transformed_null_count": int(
-                            transformed_data.isna().sum().sum()
-                            if isinstance(transformed_data, pd.DataFrame)
-                            else transformed_data.isna().sum()
-                        ),
-                    }
-                }
-            )
 
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
+            # Handle dict case
+            if isinstance(transformed_data, dict):
+                # Aggregate info from all DataFrames in dict
+                total_length = sum(len(df) for df in transformed_data.values())
+                total_null_count = sum(
+                    df.isna().sum().sum() for df in transformed_data.values()
+                )
+
+                cache_data.update(
+                    {
+                        "data_info": {
+                            "original_length": len(original_data),
+                            "transformed_length": total_length,
+                            "original_null_count": int(
+                                original_data.isna().sum().sum()
+                                if isinstance(original_data, pd.DataFrame)
+                                else original_data.isna().sum()
+                            ),
+                            "transformed_null_count": int(total_null_count),
+                            "num_dataframes": len(transformed_data),  # Extra info
+                        }
+                    }
+                )
+            else:
+                # Original logic for Series/DataFrame
+                cache_data.update(
+                    {
+                        "data_info": {
+                            "original_length": len(original_data),
+                            "transformed_length": len(transformed_data),
+                            "original_null_count": int(
+                                original_data.isna().sum().sum()
+                                if isinstance(original_data, pd.DataFrame)
+                                else original_data.isna().sum()
+                            ),
+                            "transformed_null_count": int(
+                                transformed_data.isna().sum().sum()
+                                if isinstance(transformed_data, pd.DataFrame)
+                                else transformed_data.isna().sum()
+                            ),
+                        }
+                    }
+                )
 
             success = self.operation_cache.save_cache(
                 data=cache_data,
@@ -1371,7 +1365,7 @@ class TransformationOperation(BaseOperation):
 
     def _cleanup_memory(
         self,
-        result_df: Optional[Union[pd.Series, pd.DataFrame]] = None,
+        result_df: Union[pd.Series, pd.DataFrame, Dict[str, pd.DataFrame]],
         original_data: Optional[Union[pd.Series, pd.DataFrame]] = None,
         transformed_data: Optional[Union[pd.Series, pd.DataFrame]] = None,
     ) -> None:
@@ -1397,6 +1391,10 @@ class TransformationOperation(BaseOperation):
             del original_data
         if transformed_data is not None:
             del transformed_data
+
+        # Clear right_df if exists
+        if hasattr(self, "right_df"):
+            self.right_df = None
 
         # cleanup memory from instance
         helpers.cleanup_memory(instance=self)
