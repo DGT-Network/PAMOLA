@@ -12,14 +12,20 @@ License: BSD 3-Clause
 """
 
 import hashlib
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Dict
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import inspect
 import logging
 import json
+from datetime import datetime
 from pamola_core.utils.ops.op_data_processing import force_garbage_collection
+from pamola_core.utils.ops.op_result import (
+    OperationArtifact,
+    OperationResult,
+    OperationStatus,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -300,3 +306,100 @@ def generate_data_hash(
     except Exception as e:
         fallback = f"{type(data).__name__}_{getattr(data, '__len__', lambda: 0)()}"
         return blake(fallback.encode())
+
+
+def build_base_cache(
+    parameters: Dict[str, str], result: OperationResult
+) -> Dict[str, Any]:
+    """
+    Build the base cache structure with timestamp, parameters, metrics, and artifacts.
+    All artifacts must implement `.to_dict()`. NumPy numeric types in metrics are
+    converted to Python floats for JSON compatibility.
+    """
+
+    serialized_metrics = {
+        k: float(v) if isinstance(v, (np.integer, np.floating)) else v
+        for k, v in result.metrics.items()
+    }
+
+    artifacts_for_cache = [artifact.to_dict() for artifact in result.artifacts]
+
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "parameters": parameters,
+        "status": (
+            result.status.name
+            if isinstance(result.status, OperationStatus)
+            else str(result.status)
+        ),
+        "metrics": serialized_metrics,
+        "error_message": result.error_message,
+        "execution_time": result.execution_time,
+        "error_trace": result.error_trace,
+        "artifacts": artifacts_for_cache,
+    }
+
+
+def get_cache_result(result_data: Optional[Dict[str, Any]]) -> Optional[OperationResult]:
+    """
+    Retrieve cached result if available and valid.
+
+    Parameters
+    ----------
+    result_data : Optional[Dict[str, Any]]
+        The cached result data dictionary.
+
+    Returns
+    -------
+    Optional[OperationResult]
+        The cached OperationResult if available, otherwise None.
+    """
+    try:
+        if not isinstance(result_data, dict):
+            return None
+
+        # Parse status enum safely
+        status_str = result_data.get("status", OperationStatus.ERROR.name)
+        status = (
+            OperationStatus[status_str]
+            if isinstance(status_str, str) and status_str in OperationStatus.__members__
+            else OperationStatus.ERROR
+        )
+
+        # Rebuild artifacts
+        artifacts = []
+        for art_dict in result_data.get("artifacts", []):
+            if isinstance(art_dict, dict):
+                try:
+                    artifacts.append(
+                        OperationArtifact(
+                            artifact_type=art_dict.get("type"),
+                            path=art_dict.get("path"),
+                            description=art_dict.get("description", ""),
+                            category=art_dict.get("category", "output"),
+                            tags=art_dict.get("tags", []),
+                        )
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to deserialize artifact: {e}")
+
+        # Determine how many artifacts were restored
+        artifacts_restored = len(artifacts)
+
+        # Build result
+        result = OperationResult(
+            status=status,
+            artifacts=artifacts,
+            metrics=result_data.get("metrics", {}),
+            error_message=result_data.get("error_message"),
+            execution_time=result_data.get("execution_time"),
+            error_trace=result_data.get("error_trace"),
+        )
+        result.add_metric("cached", True)
+        result.add_metric("artifacts_restored", artifacts_restored)
+
+        return result
+
+    except Exception as e:
+        logger.warning(f"Failed to load cache: {e}")
+        return None

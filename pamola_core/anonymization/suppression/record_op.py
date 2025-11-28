@@ -52,6 +52,7 @@ from pamola_core.anonymization.schemas.record_op_core_schema import (
     RecordSuppressionConfig,
 )
 from pamola_core.common.constants import Constants
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     load_settings_operation,
     load_data_operation,
@@ -183,7 +184,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
         # --- Metadata ---
         self.operation_name = self.__class__.__name__
-        self._original_df = None
 
     def execute(
         self,
@@ -257,17 +257,27 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 **kwargs,
             )
 
+            # Store original data for caching
+            original_data = df[self.field_name].copy(deep=True)
+
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
                 try:
+                    if progress_tracker:
+                        progress_tracker.update(
+                            1,
+                            {
+                                "step": "Load result from cache",
+                                "operation": self.operation_name,
+                            },
+                        )
+
                     self.logger.info(
                         f"Operation: {self.operation_name}, Load result from cache"
                     )
-                    cached_result = self._check_cache(
-                        df.copy(deep=True),
-                        progress_tracker=progress_tracker,
-                        reporter=reporter,
-                    )
+
+                    cached_result = self._check_cache(df, reporter)
+
                     if cached_result is not None and isinstance(
                         cached_result, OperationResult
                     ):
@@ -363,14 +373,22 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save cache")
                     self._save_to_cache(
-                        task_dir,
-                        result,
-                        progress_tracker=progress_tracker,
-                        reporter=reporter,
+                        original_data=original_data,
+                        anonymized_data=output_data,
+                        result=result,
+                        task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                processed_df=output_data,
+                original_data=original_data,
+                anonymized_data=None,
+            )
 
             # Finalize timing
             self.end_time = time.time()
@@ -1550,180 +1568,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     },
                 )
 
-    def _save_to_cache(
-        self,
-        task_dir: Path,
-        result: OperationResult,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-    ) -> None:
-        """
-        Save the operation result to cache and update progress or reporter if available.
-
-        Parameters
-        ----------
-        task_dir : Path
-            Root directory for the task.
-        result : OperationResult
-            The result object to be cached.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to update UI or logs.
-        reporter : Optional[Any]
-            Reporter object to log external updates.
-        **kwargs : dict
-            Additional keyword arguments, used to compute the cache key.
-        """
-
-        try:
-            result_data = {
-                "status": (
-                    result.status.name
-                    if isinstance(result.status, OperationStatus)
-                    else str(result.status)
-                ),
-                "metrics": result.metrics,
-                "error_message": result.error_message,
-                "execution_time": result.execution_time,
-                "error_trace": result.error_trace,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
-            }
-
-            cache_data = {
-                "result": result_data,
-                "parameters": self._get_base_parameters(),
-            }
-
-            cache_key = self._generate_cache_key(self._original_df.copy(deep=True))
-
-            self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            self.logger.info(f"Saved result to cache with key: {cache_key}")
-
-            if progress_tracker:
-                progress_tracker.update(
-                    1, {"step": "Save cache", "operation": self.operation_name}
-                )
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": "Save cache",
-                        "message": "Save cache successfully",
-                    },
-                )
-
-        except Exception as e:
-            self.logger.warning(f"Failed to save cache: {e}", exc_info=True)
-
-    def _check_cache(
-        self,
-        df: pd.DataFrame,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-    ) -> Optional[OperationResult]:
-        """
-        Retrieve cached result if available and valid.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The input DataFrame used to generate the cache key.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to log cache step.
-        reporter : Optional[Any]
-            Operation reporter for logging.
-        **kwargs : dict
-            Additional parameters for cache key generation.
-
-        Returns
-        -------
-        Optional[OperationResult]
-            The cached OperationResult if available, otherwise None.
-        """
-        step_name = "Load result from cache"
-
-        if progress_tracker:
-            progress_tracker.update(
-                1, {"step": step_name, "operation": self.operation_name}
-            )
-
-        try:
-            cache_key = self._generate_cache_key(df)
-
-            cached = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            result_data = cached.get("result")
-            if not isinstance(result_data, dict):
-                raise ValueError("Cached result is not a valid dictionary")
-
-            status_str = result_data.get("status", OperationStatus.ERROR.name)
-            status = (
-                OperationStatus[status_str]
-                if status_str in OperationStatus.__members__
-                else OperationStatus.ERROR
-            )
-
-            artifacts = []
-            for art_dict in result_data.get("artifacts", []):
-                try:
-                    artifacts.append(
-                        OperationArtifact(
-                            artifact_type=art_dict.get("type"),
-                            path=art_dict.get("path"),
-                            description=art_dict.get("description", ""),
-                            category=art_dict.get("category", "output"),
-                            tags=art_dict.get("tags", []),
-                        )
-                    )
-                except Exception as e:
-                    self.logger.warning(f"Failed to deserialize artifact: {e}")
-
-            result = OperationResult(
-                status=status,
-                artifacts=artifacts,
-                metrics=result_data.get("metrics", {}),
-                error_message=result_data.get("error_message"),
-                execution_time=result_data.get("execution_time"),
-                error_trace=result_data.get("error_trace"),
-            )
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step_name,
-                        "message": "Loaded result from cache successfully",
-                    },
-                )
-
-            return result
-
-        except Exception as e:
-            self.logger.info(f"{self.operation_name} - {step_name} failed: {e}")
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step_name,
-                        "message": "Load result from cache failed - proceeding with execution",
-                        "error": str(e),
-                    },
-                )
-
-            return None
-
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for SplitByIDValuesOperation using external kwargs.
@@ -1829,8 +1673,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
                     },
                 )
             return None, False
-
-        self._original_df = df.copy(deep=True)
 
         is_valid = self._validate_input_parameters(df)
 

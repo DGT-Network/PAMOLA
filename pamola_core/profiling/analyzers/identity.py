@@ -44,6 +44,7 @@ from pamola_core.profiling.commons.identity_utils import (
 from pamola_core.profiling.schemas.identity_core_schema import (
     IdentityAnalysisOperationConfig,
 )
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
@@ -293,7 +294,7 @@ class IdentityAnalysisOperation(FieldOperation):
             consistency_analysis = {}
             distribution_analysis = {}
             cross_match_analysis = {}
-            
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             metrics = None
@@ -826,8 +827,7 @@ class IdentityAnalysisOperation(FieldOperation):
                 try:
                     self._save_to_cache(
                         original_data=df,
-                        metrics=metrics,
-                        visualization_paths=visualization_paths,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
@@ -858,7 +858,7 @@ class IdentityAnalysisOperation(FieldOperation):
             self.logger.info(
                 f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
             )
-            
+
             # Clean up memory AFTER all write operations are complete
             helpers.cleanup_memory(
                 df=df,
@@ -907,8 +907,7 @@ class IdentityAnalysisOperation(FieldOperation):
     def _save_to_cache(
         self,
         original_data: pd.DataFrame,
-        metrics: Dict[str, Any],
-        visualization_paths: Dict[str, Path],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -918,8 +917,8 @@ class IdentityAnalysisOperation(FieldOperation):
         -----------
         original_data : pd.DataFrame
             Original input data
-        metrics : Dict[str, Any]
-            Metrics collected during the operation
+        result: OperationResult
+            Result object OperationResult
         visualization_paths : Dict[str, Path]
             Paths to generated visualizations
         task_dir : Path
@@ -943,18 +942,18 @@ class IdentityAnalysisOperation(FieldOperation):
             self.logger.debug(f"Operation parameters for cache: {operation_params}")
 
             # Prepare cache data
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "metrics": metrics,
-                "parameters": operation_params,
-                "data_info": {
-                    "original_length": len(original_data),
-                    "original_null_count": int(original_data.isna().sum().sum()),
-                },
-                "visualizations": {
-                    k: str(v) for k, v in visualization_paths.items()
-                },  # Paths to visualizations
-            }
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+
+            cache_data.update(
+                {
+                    "data_info": {
+                        "original_length": len(original_data),
+                        "original_null_count": int(original_data.isna().sum().sum()),
+                    }
+                }
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
@@ -962,7 +961,7 @@ class IdentityAnalysisOperation(FieldOperation):
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -1012,141 +1011,27 @@ class IdentityAnalysisOperation(FieldOperation):
             cache_key = self._generate_cache_key(df[self.field_name])
             self.logger.debug(f"Checking cache for key: {cache_key}")
 
+            self.logger.info(
+                f"Using cached result for {self.field_name} of {self.name} profiling"
+            )
+
+            # Check for cached result
+            self.logger.debug(f"Checking cache for key: {cache_key}")
             cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             if not cached_result:
                 self.logger.info("No cached result found, proceeding with operation")
                 return None
 
-            self.logger.info(
-                f"Using cached result for {self.field_name} of {self.name} profiling"
-            )
+            result = get_cache_result(cached_result)
 
-            result = OperationResult(status=OperationStatus.SUCCESS)
-            # Restore cached data
-            self._add_cached_metrics(result, cached_result)
-            artifacts_restored = self._restore_cached_artifacts(
-                result, cached_result, reporter
-            )
-
-            # Add cache metadata
-            result.add_metric("cached", True)
-            result.add_metric("cache_key", cache_key)
-            result.add_metric(
-                "cache_timestamp", cached_result.get("timestamp", "unknown")
-            )
-            result.add_metric("artifacts_restored", artifacts_restored)
-
-            if reporter:
-                reporter.add_operation(
-                    f"{self.name} profiling of {self.field_name} (cached)",
-                    details={
-                        "field_name": self.field_name,
-                        "cached": True,
-                        "artifacts_restored": artifacts_restored,
-                    },
-                )
-
-            self.logger.info(
-                f"Cache hit successful: restored {artifacts_restored} artifacts"
-            )
             return result
 
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
-
-    def _add_cached_metrics(self, result: OperationResult, cached: dict):
-        """
-        Add cached scalar metrics (int, float, str, bool) to the OperationResult.
-
-        Parameters
-        ----------
-        result : OperationResult
-            The result object to update.
-        cached : dict
-            Cached result dictionary from cache manager.
-        """
-        for key, value in cached.get("metrics", {}).items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-    def _restore_cached_artifacts(
-        self, result: OperationResult, cached: dict, reporter: Optional[Any]
-    ) -> int:
-        """
-        Restore artifacts (output, metrics, visualizations) from cached result if files exist.
-
-        Parameters
-        ----------
-        result : OperationResult
-            OperationResult object to update with restored artifacts.
-        cached : dict
-            Cached result dictionary from cache manager.
-        reporter : Optional[Any]
-            Optional reporter object for tracking operation-level artifacts.
-
-        Returns
-        -------
-        int
-            Number of artifacts successfully restored.
-        """
-        artifacts_restored = 0
-
-        def restore_file_artifact(
-            path: Union[str, Path], artifact_type: str, desc_suffix: str, category: str
-        ):
-            """
-            Restore a single artifact from a file path if it exists.
-
-            Parameters
-            ----------
-            path : Union[str, Path]
-                Path to the artifact file.
-            artifact_type : str
-                Type of the artifact (e.g., 'json', 'csv', 'png').
-            desc_suffix : str
-                Description suffix (e.g., 'visualization', 'metrics').
-            category : str
-                Artifact category (e.g., output, metrics, visualization).
-            """
-            nonlocal artifacts_restored
-            if not path:
-                return
-
-            artifact_path = Path(path)
-            if artifact_path.exists():
-                result.add_artifact(
-                    artifact_type=artifact_type,
-                    path=artifact_path,
-                    description=f"{self.field_name} {desc_suffix} (cached)",
-                    category=category,
-                )
-                artifacts_restored += 1
-
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} {desc_suffix} (cached)",
-                        details={
-                            "artifact_type": artifact_type,
-                            "path": str(artifact_path),
-                        },
-                    )
-            else:
-                self.logger.warning(f"Cached file not found: {artifact_path}")
-
-        # Restore visualizations
-        for viz_type, path_str in cached.get("visualizations", {}).items():
-            restore_file_artifact(
-                path_str,
-                "png",
-                f"{viz_type} visualization",
-                Constants.Artifact_Category_Visualization,
-            )
-
-        return artifacts_restored
 
     def _handle_visualizations(
         self,
@@ -1597,7 +1482,6 @@ class IdentityAnalysisOperation(FieldOperation):
         reporter.add_operation(
             context, status="warning", details={"missing_fields": field_list}
         )
-
 
 
 def analyze_identities(

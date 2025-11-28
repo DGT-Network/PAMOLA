@@ -37,6 +37,7 @@ from pandas.api.types import (
     is_datetime64_any_dtype,
 )
 
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
@@ -193,33 +194,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 progress_tracker.total = total_steps
                 progress_tracker.update(current_steps, {"step": "Preparation"})
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(data_source, reporter, **kwargs)
-
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if progress_tracker:
-                        progress_tracker.update(
-                            total_steps, {"step": "Complete (cached)"}
-                        )
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Clean invalid values (from cache)",
-                            details={"cached": True},
-                        )
-                    return cache_result
-
-            # Step 2: Data Loading
+            # Step 1: Data Loading
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Data Loading"})
@@ -247,6 +222,32 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     error_message=error_message,
                     exception=e,
                 )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
 
             # Step 3: Validation
             if progress_tracker:
@@ -385,11 +386,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 try:
                     self._save_to_cache(
                         original_df=original_df,
-                        processed_df=processed_df,
-                        metrics=metrics,
-                        metrics_result=metrics_result,
-                        output_result=output_result,
-                        visualizations=visualizations,
+                        transformed_data=processed_df,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
@@ -420,8 +418,13 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     f"Clean invalid values completed", details=details
                 )
 
-            # Cleanup memory
-            self._cleanup_memory(original_df, processed_df)
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=original_df,
+                transformed_data=None,
+            )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
@@ -751,154 +754,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
             Processed value
         """
         raise NotImplementedError("Not implement")
-
-    def _check_cache(
-        self, data_source: DataSource, reporter: Any, **kwargs
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for operation.
-
-        Parameters:
-        -----------
-        data_source : DataSource
-            Data source for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
-        dataset_name: str
-            Dataset name
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-
-            # Get DataFrame from data source
-            # Load data
-            dataset_name = kwargs.get("dataset_name", "main")
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                error_message = "Failed to load input data"
-                self.logger.warning(f"Cannot check cache: {error_message}")
-                return None
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(df)
-
-            # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if cached_data:
-                self.logger.info(f"Using cached result.")
-
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
-
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        if isinstance(value, (int, float, str, bool)):
-                            cached_result.add_metric(key, value)
-
-                # Restore artifacts from cache
-                artifacts_restored = 0
-
-                # Add metrics artifact if exists
-                metrics_result_path = cached_data.get("metrics_result_path")
-                if metrics_result_path:
-                    metrics_path = Path(metrics_result_path)
-                    if metrics_path.exists():
-                        cached_result.add_artifact(
-                            artifact_type="json",
-                            path=metrics_path,
-                            description=f"Generalization metrics (cached)",
-                            category=Constants.Artifact_Category_Metrics,
-                        )
-                        artifacts_restored += 1
-
-                        if reporter:
-                            reporter.add_operation(
-                                f"Generalization metrics (cached)",
-                                details={
-                                    "artifact_type": "json",
-                                    "path": str(metrics_path),
-                                },
-                            )
-
-                # Add output artifact if file exists
-                output_result_path = cached_data.get("output_result_path")
-                if output_result_path:
-                    output_path = Path(output_result_path)
-                    if output_path.exists():
-                        cached_result.add_artifact(
-                            artifact_type=self.output_format,
-                            path=output_path,
-                            description=f"Generalized data (cached)",
-                            category=Constants.Artifact_Category_Output,
-                        )
-                        artifacts_restored += 1
-
-                        # Also report to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Generalized data (cached)",
-                                details={
-                                    "artifact_type": self.output_format,
-                                    "path": str(output_path),
-                                },
-                            )
-                    else:
-                        self.logger.warning(
-                            f"Cached output file not found: {output_path}"
-                        )
-
-                # Add visualization artifacts
-                visualizations = cached_data.get("visualizations", {})
-                for viz_type, viz_path in visualizations.items():
-                    path = Path(viz_path)
-                    if path.exists():
-                        cached_result.add_artifact(
-                            artifact_type="png",
-                            path=path,
-                            description=f"{viz_type} visualization (cached)",
-                            category=Constants.Artifact_Category_Visualization,
-                        )
-                        artifacts_restored += 1
-
-                        if reporter:
-                            reporter.add_operation(
-                                f"{viz_type} visualization (cached)",
-                                details={"artifact_type": "png", "path": str(path)},
-                            )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-                cached_result.add_metric("artifacts_restored", artifacts_restored)
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
@@ -1727,117 +1582,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
             )
 
         return output_result
-
-    def _save_to_cache(
-        self,
-        original_df: pd.DataFrame,
-        processed_df: pd.DataFrame,
-        metrics: Dict[str, Any],
-        metrics_result: WriterResult,
-        output_result: WriterResult,
-        visualizations: Dict[str, Any],
-        task_dir: Path,
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame
-            Original input data
-        processed_df : pd.DataFrame
-            Processed DataFrame
-        metrics : dict
-            The metrics of operation
-        metrics_result : WriterResult
-            The result of metrics
-        output_result : WriterResult
-            The result of output
-        visualizations : dict
-            The visualizations of operation
-        task_dir : Path
-            Task directory
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        try:
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(original_df)
-
-            # Prepare metadata for cache
-            operation_parameters = self._get_base_parameters()
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "metrics": metrics,
-                "metrics_result_path": str(metrics_result.path),
-                "output_result_path": str(output_result.path),
-                "visualizations": visualizations,
-                "data_info": {
-                    "original_df_length": len(original_df),
-                    "processed_df_length": len(processed_df),
-                },
-            }
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(f"Successfully saved results to cache")
-            else:
-                self.logger.warning(f"Failed to save results to cache")
-
-            return success
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
-
-    def _cleanup_memory(
-        self, original_df: Optional[pd.DataFrame], processed_df: Optional[pd.DataFrame]
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame, optional
-            Original data before processing
-        processed_df : pd.DataFrame, optional
-            Anonymized data after processing
-        """
-        # Clear argument references
-        if original_df is not None:
-            del original_df
-
-        if processed_df is not None:
-            del processed_df
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Force garbage collection
-        import gc
-
-        gc.collect()
 
 
 # Helper function to create the operation easily

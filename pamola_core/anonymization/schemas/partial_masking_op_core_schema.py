@@ -114,6 +114,7 @@ class PartialMaskingConfig(OperationConfig):
                         "items": {
                             "type": "integer",
                             "oneOf": [
+                                {"type": "null"},
                                 {"const": 0, "description": "0"},
                                 {"const": 2, "description": "2"},
                                 {"const": 4, "description": "4"},

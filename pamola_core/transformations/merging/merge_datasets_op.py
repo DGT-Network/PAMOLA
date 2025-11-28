@@ -50,11 +50,15 @@ from pamola_core.transformations.base_transformation_op import TransformationOpe
 from pamola_core.transformations.schemas.merge_datasets_op_core_schema import (
     MergeDatasetsOperationConfig,
 )
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import (
+    OperationResult,
+    OperationStatus,
+)
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.common.constants import Constants
@@ -269,6 +273,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
                 self.logger.info("Checking operation cache...")
                 cache_result = self._check_cache(df=left_df, reporter=reporter)
+
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
 
@@ -516,20 +521,22 @@ class MergeDatasetsOperation(TransformationOperation):
             if self.use_cache:
                 try:
                     self._save_to_cache(
-                        left_df=left_df,
+                        original_data=left_df,
                         transformed_data=processed_df,
-                        metrics=metrics,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            # Cleanup memory
-            self._cleanup_memory(processed_df, left_df, self.right_df)
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=left_df,
+                transformed_data=None,
+            )
 
             # Report completion
             if reporter:
@@ -1214,64 +1221,6 @@ class MergeDatasetsOperation(TransformationOperation):
 
         return str(output_result.path)
 
-    def _cleanup_memory(
-        self,
-        processed_df: Optional[pd.DataFrame] = None,
-        left_df: Optional[pd.DataFrame] = None,
-        right_df: Optional[pd.DataFrame] = None,
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        processed_df : pd.DataFrame, optional
-            Processed DataFrame to clear from memory
-        left_df : pd.DataFrame, optional
-            Left DataFrame to clear from memory
-        right_df : pd.DataFrame, optional
-            Right DataFrame to clear from memory
-        """
-        # Clear argument references
-        if processed_df is not None:
-            try:
-                del processed_df
-            except Exception:
-                pass
-
-        if left_df is not None:
-            try:
-                del left_df
-            except Exception:
-                pass
-
-        if right_df is not None:
-            try:
-                del right_df
-            except Exception:
-                pass
-
-        # Clear right DataFrame
-        if hasattr(self, "right_df"):
-            self.right_df = None
-
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Remove any temporary attributes starting with _temp_
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                setattr(self, attr_name, None)
-
-        # Optional: Force garbage collection for large datasets
-        # Uncomment if memory pressure is an issue
-        # import gc
-        # gc.collect()
-
     def _get_dataset(
         self, source: Any, dataset_name_or_path: Optional[str], **kwargs
     ) -> Optional[pd.DataFrame]:
@@ -1351,296 +1300,6 @@ class MergeDatasetsOperation(TransformationOperation):
             raise ValueError(
                 "Either right_dataset_name or right_dataset_path must be provided"
             )
-
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for this operation.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame to check in the cache
-        reporter : Any
-            Reporter to log cache hits/misses
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-            if self.left_key and self.left_key not in df.columns:
-                self.logger.warning(
-                    f"Field '{self.left_key}' not found in DataFrame columns."
-                )
-                return None
-
-            target_df = df[self.left_key] if self.left_key else df
-            cache_key = self._generate_cache_key(target_df)
-
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-
-            cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
-                return None
-
-            self.logger.info(f"Using cached result for {self.left_key} transformation")
-
-            result = OperationResult(status=OperationStatus.SUCCESS)
-            # Restore cached data
-            self._add_cached_metrics(result, cached_result)
-            artifacts_restored = self._restore_cached_artifacts(
-                result, cached_result, reporter
-            )
-
-            # Add cache metadata
-            result.add_metric("cached", True)
-            result.add_metric("cache_key", cache_key)
-            result.add_metric(
-                "cache_timestamp", cached_result.get("timestamp", "unknown")
-            )
-            result.add_metric("artifacts_restored", artifacts_restored)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Merge datasets transformation of {self.left_key} (cached)",
-                    details={
-                        "left_key": self.left_key,
-                        "cached": True,
-                        "artifacts_restored": artifacts_restored,
-                    },
-                )
-
-            self.logger.info(
-                f"Cache hit successful: restored {artifacts_restored} artifacts"
-            )
-            return result
-
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
-
-    def _add_cached_metrics(self, result: OperationResult, cached: dict):
-        """
-        Add cached scalar metrics (int, float, str, bool) to the OperationResult.
-
-        Parameters
-        ----------
-        result : OperationResult
-            The result object to update.
-        cached : dict
-            Cached result dictionary from cache manager.
-        """
-        for key, value in cached.get("metrics", {}).items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-    def _restore_cached_artifacts(
-        self, result: OperationResult, cached: dict, reporter: Optional[Any]
-    ) -> int:
-        """
-        Restore artifacts (output, metrics, visualizations) from cached result if files exist.
-
-        Parameters
-        ----------
-        result : OperationResult
-            OperationResult object to update with restored artifacts.
-        cached : dict
-            Cached result dictionary from cache manager.
-        reporter : Optional[Any]
-            Optional reporter object for tracking operation-level artifacts.
-
-        Returns
-        -------
-        int
-            Number of artifacts successfully restored.
-        """
-        artifacts_restored = 0
-
-        def restore_file_artifact(
-            path: Union[str, Path], artifact_type: str, desc_suffix: str, category: str
-        ):
-            """
-            Restore a single artifact from a file path if it exists.
-
-            Parameters
-            ----------
-            path : Union[str, Path]
-                Path to the artifact file.
-            artifact_type : str
-                Type of the artifact (e.g., 'json', 'csv', 'png').
-            desc_suffix : str
-                Description suffix (e.g., 'visualization', 'metrics').
-            category : str
-                Artifact category (e.g., output, metrics, visualization).
-            """
-            nonlocal artifacts_restored
-            if not path:
-                return
-
-            artifact_path = Path(path)
-            if artifact_path.exists():
-                result.add_artifact(
-                    artifact_type=artifact_type,
-                    path=artifact_path,
-                    description=f"{self.left_key} {desc_suffix} (cached)",
-                    category=category,
-                )
-                artifacts_restored += 1
-
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.left_key} {desc_suffix} (cached)",
-                        details={
-                            "artifact_type": artifact_type,
-                            "path": str(artifact_path),
-                        },
-                    )
-            else:
-                self.logger.warning(f"Cached file not found: {artifact_path}")
-
-        # Restore main output and metrics artifacts
-        restore_file_artifact(
-            cached.get("output_file"),
-            self.output_format,
-            "transformed data",
-            Constants.Artifact_Category_Output,
-        )
-        restore_file_artifact(
-            cached.get("metrics_file"),
-            "json",
-            "transformation metrics",
-            Constants.Artifact_Category_Metrics,
-        )
-
-        # Restore visualizations
-        for viz_type, path_str in cached.get("visualizations", {}).items():
-            restore_file_artifact(
-                path_str,
-                "png",
-                f"{viz_type} visualization",
-                Constants.Artifact_Category_Visualization,
-            )
-
-        return artifacts_restored
-
-    def _save_to_cache(
-        self,
-        left_df: Union[pd.Series, pd.DataFrame],
-        transformed_data: Union[pd.Series, pd.DataFrame],
-        metrics: Dict[str, Any],
-        visualization_paths: Dict[str, Path],
-        task_dir: Path,
-        metrics_result_path: Optional[str] = "",
-        output_result_path: Optional[str] = "",
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        left_df : pd.Series or pd.DataFrame
-            Original input data
-        transformed_data : pd.Series or pd.DataFrame
-            Transformed output data
-        metrics : Dict[str, Any]
-            Metrics collected during the operation
-        visualization_paths : Dict[str, Path]
-            Paths to generated visualizations
-        task_dir : Path
-            Task directory
-        metrics_result_path : Optional[str]
-            Path to the metrics result file
-            If not provided, a default path will be used.
-        output_result_path : Optional[str]
-            Path to the output result file
-            If not provided, a default path will be used.
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        if metrics is None:
-            metrics = {}
-
-        try:
-            # Generate cache key (same logic as _check_cache)
-            if isinstance(left_df, pd.DataFrame) and self.left_key:
-                if self.left_key in left_df.columns:
-                    cache_key = self._generate_cache_key(left_df[self.left_key])
-                else:
-                    cache_key = self._generate_cache_key(left_df)
-            else:
-                cache_key = self._generate_cache_key(left_df)
-
-            # Prepare metadata for cache
-            operation_params = self._get_base_parameters()
-
-            # Prepare cache data
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "metrics": {
-                    k: float(v) if isinstance(v, (np.integer, np.floating)) else v
-                    for k, v in metrics.items()
-                },
-                "parameters": operation_params,
-                "data_info": {
-                    "original_length": len(left_df),
-                    "transformed_length": len(transformed_data),
-                    "original_null_count": int(
-                        left_df.isna().sum().sum()
-                        if isinstance(left_df, pd.DataFrame)
-                        else left_df.isna().sum()
-                    ),
-                    "transformed_null_count": int(
-                        transformed_data.isna().sum().sum()
-                        if isinstance(transformed_data, pd.DataFrame)
-                        else transformed_data.isna().sum()
-                    ),
-                },
-                "output_file": output_result_path,  # Path to main output file
-                "metrics_file": metrics_result_path,  # Path to metrics file
-                "visualizations": {
-                    k: str(v) for k, v in visualization_paths.items()
-                },  # Paths to visualizations
-            }
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(
-                    f"Successfully saved {self.name} operation results to cache"
-                )
-            else:
-                self.logger.warning(
-                    f"Failed to save {self.name} operation results to cache"
-                )
-
-            return success
-
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
 
     def _detect_relationship_type_auto(
         self,

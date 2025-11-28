@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Tuple, Callable, Iterable, Iterator, Union, 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
@@ -244,9 +245,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     progress_tracker.update(1, {"step": "Checking Cache"})
 
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(
-                    df=df, task_dir=task_dir, reporter=reporter
-                )
+                cache_result = self._check_cache(df, reporter)
 
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
@@ -367,10 +366,9 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 try:
                     self._save_to_cache(
                         original_df=original_df,
-                        processed_df=processed_df,
+                        transformed_data=processed_df,
                         task_dir=task_dir,
                         result=result,
-                        reporter=reporter,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -398,8 +396,12 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 # Add the operation to the reporter
                 reporter.add_operation(f"Add/modify fields completed", details=details)
 
-            # Cleanup memory
-            self._cleanup_memory(original_df, processed_df)
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=original_df,
+                transformed_data=None,
+            )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
@@ -570,92 +572,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             Processed value
         """
         raise NotImplementedError("Not implement")
-
-    def _check_cache(
-        self, df: Union[pd.DataFrame, dd.DataFrame], task_dir: Path, reporter: Any
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for operation.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-        task_dir : Path
-            Task directory
-        reporter : Any
-            The reporter to log artifacts to
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(df)
-
-            # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if cached_data:
-                self.logger.info(f"Using cached result.")
-
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
-
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for name, value in metrics.items():
-                        cached_result.add_metric(name, value)
-
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        if isinstance(artifact, dict):
-                            artifact_type = artifact.get("artifact_type", "")
-                            path = artifact.get("path", "")
-                            description = artifact.get("description", "")
-                            category = artifact.get("category", "output")
-                            cached_result.add_artifact(
-                                artifact_type=artifact_type,
-                                path=path,
-                                description=description,
-                                category=category,
-                            )
-
-                            if reporter:
-                                reporter.add_operation(
-                                    name=description,
-                                    details={
-                                        "artifact_type": artifact_type,
-                                        "path": str(path),
-                                    },
-                                )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
@@ -2118,119 +2034,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             )
 
         return output_result
-
-    def _save_to_cache(
-        self,
-        original_df: Union[pd.DataFrame, dd.DataFrame],
-        processed_df: Union[pd.DataFrame, dd.DataFrame],
-        task_dir: Path,
-        result: OperationResult,
-        reporter: Any,
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        original_df : Union[pd.DataFrame, dd.DataFrame]
-            Original input data
-        task_dir : Path
-            Task directory
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        try:
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(original_df)
-
-            # Prepare metadata for cache
-            operation_parameters = self._get_base_parameters()
-
-            original_df_len = (
-                int(original_df.map_partitions(len).sum().compute())
-                if isinstance(original_df, dd.DataFrame)
-                else len(original_df)
-            )
-            processed_df_len = (
-                int(processed_df.map_partitions(len).sum().compute())
-                if isinstance(processed_df, dd.DataFrame)
-                else len(processed_df)
-            )
-            cache_data = {
-                "metrics": result.metrics,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "data_info": {
-                    "original_df_length": original_df_len,
-                    "processed_df_length": processed_df_len,
-                },
-            }
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(f"Successfully saved results to cache")
-            else:
-                self.logger.warning(f"Failed to save results to cache")
-
-            return success
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
-
-    def _cleanup_memory(
-        self,
-        original_df: Optional[Union[pd.DataFrame, dd.DataFrame]],
-        processed_df: Optional[Union[pd.DataFrame, dd.DataFrame]],
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame, optional
-            Original data before processing
-        processed_df : pd.DataFrame, optional
-            Anonymized data after processing
-        """
-        # Clear argument references
-        if original_df is not None:
-            del original_df
-
-        if processed_df is not None:
-            del processed_df
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Force garbage collection
-        import gc
-
-        gc.collect()
 
 
 # Helper function to create the operation easily
