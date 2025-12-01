@@ -29,6 +29,8 @@ Changelog:
 1.1.0 - 2025-11-11 - Updated with enhanced UI controls
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.schemas.base_op_ui_schema import BaseOperationUIConfig
@@ -52,12 +54,14 @@ class ImputeMissingValuesOperationUIConfig(OperationConfig):
                 "type": "object",
                 "properties": {
                     "field_strategies": {
-                        "x-component": "Object",
+                        "x-component": CustomComponents.FIELD_IMPUTE_STRATEGY,
                         "x-group": GroupName.FIELD_STRATEGIES_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS, CustomFunctions.INIT_DATA_TYPE_OPTIONS],
                     },
                     "invalid_values": {
-                        "x-component": "Object",
+                        "x-component": CustomComponents.VALUE_GROUP_ARRAY,
                         "x-group": GroupName.INVALID_VALUES_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS],
                     },
                 },
             },

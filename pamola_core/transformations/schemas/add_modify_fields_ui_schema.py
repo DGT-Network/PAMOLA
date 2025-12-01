@@ -61,6 +61,7 @@ class AddOrModifyFieldsOperationUIConfig(OperationConfig):
                     "lookup_tables": {
                         "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
                         "x-group": GroupName.LOOKUP_TABLE_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.INIT_UPLOAD],
                     },
                 },
             },

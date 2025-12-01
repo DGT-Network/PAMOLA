@@ -76,6 +76,7 @@ class SplitByIDValuesOperationConfig(OperationConfig):
                     },
                     "number_of_partitions": {
                         "type": "integer",
+                        "default": 1,
                         "minimum": 1,
                         "title": "Number of Partitions",
                         "description": "Number of partitions to create when using automatic partitioning (equal size, random, or modulo). Ignored if value_groups is provided.",
