@@ -29,6 +29,8 @@ Changelog:
 1.1.0 - 2025-11-11 - Updated with enhanced UI controls
 """
 
+from pamola_core.common.enum.custom_components import CustomComponents
+from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import GroupName
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.schemas.base_op_ui_schema import BaseOperationUIConfig
@@ -52,20 +54,24 @@ class CleanInvalidValuesOperationUIConfig(OperationConfig):
                 "type": "object",
                 "properties": {
                     "field_constraints": {
-                        "x-component": "Object",
+                        "x-component": CustomComponents.FIELD_DOUBLE_SELECT_INPUT_CLEAN_INVALID,
                         "x-group": GroupName.FIELD_CONSTRAINTS_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.INIT_FIELD_DOUBLE_SELECT],
                     },
                     "whitelist_path": {
-                        "x-component": "Object",
+                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_CLEAN_INVALID,
                         "x-group": GroupName.WHITELIST_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS, CustomFunctions.INIT_UPLOAD],
                     },
                     "blacklist_path": {
-                        "x-component": "Object",
+                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_CLEAN_INVALID,
                         "x-group": GroupName.BLACKLIST_CONFIGURATION,
+                        "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS, CustomFunctions.INIT_UPLOAD],
                     },
                     "null_replacement": {
-                        "x-component": "Object",
+                        "x-component": CustomComponents.FIELD_NULL_REPLACEMENT_INPUT,
                         "x-group": GroupName.NULL_REPLACEMENT_CONFIGURATION,
+                         "x-custom-function": [CustomFunctions.UPDATE_FIELD_OPTIONS, CustomFunctions.INIT_FIELD_STRATEGY_OPTIONS],
                     },
                 },
             },

@@ -319,10 +319,7 @@ def convert_property(
             field.pop("oneOf", None)
 
         if field["type"] == "array" or (isinstance(t, list) and "array" in t):
-            if (
-                "items" in field
-                and isinstance(field["items"], dict)
-            ):
+            if "items" in field and isinstance(field["items"], dict):
                 # Handling cases with direct enums
                 if "enum" in field["items"]:
                     field["enum"] = [
@@ -333,7 +330,7 @@ def convert_property(
                         for value in field["items"]["enum"]
                     ]
                     field["items"].pop("enum", None)  # ← Thêm cleanup
-                    
+
                 # Handle the case of oneOf
                 elif "oneOf" in field["items"]:
                     field["enum"] = [
@@ -342,9 +339,9 @@ def convert_property(
                             "label": opt.get("description", str(opt["const"])),
                         }
                         for opt in field["items"]["oneOf"]
-                        if "const" in opt  
+                        if "const" in opt
                     ]
-                    
+
                 # Cleanup
                 field["items"].pop("oneOf", None)
                 field["items"].pop("enum", None)
@@ -418,6 +415,9 @@ def convert_property(
         CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD_FAKE_NAME,
         CustomComponents.FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY,
         CustomComponents.FORMAT_RATIO_SLIDER,
+        CustomComponents.FIELD_IMPUTE_STRATEGY,
+        CustomComponents.FIELD_DOUBLE_SELECT_INPUT_CLEAN_INVALID,
+        CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_CLEAN_INVALID,
     ]:
         field = _handle_custom_component(field)
 
@@ -591,11 +591,6 @@ def _handle_custom_component(field: dict) -> dict:
             "getValueOptions": "{{(fieldName) => update_custom_aggregation_options(fieldName)}}",
             "editable": False,
         }
-    elif component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT:
-
-        field["x-component"] = CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT
-        field["x-decorator"] = "FormItem"
-        field = _add_upload_reaction(field)
 
     elif component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG:
 
@@ -810,6 +805,223 @@ def _handle_custom_component(field: dict) -> dict:
             "lockable": True,
         }
 
+    if component == CustomComponents.FIELD_IMPUTE_STRATEGY:
+        # Handle FIELD_IMPUTE_STRATEGY
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "getStrategies": "{{ get_strategies }}",
+            "requiresConstantValue": "{{ requires_constant_value }}",
+            "getDataGroupToStringMapping": "{{ get_data_group_to_string_mapping }}",
+        }
+
+    if component == CustomComponents.FIELD_DOUBLE_SELECT_INPUT_CLEAN_INVALID:
+        # Handle Field Double Select Input Clean Invalid
+        field["x-component"] = CustomComponents.FIELD_DOUBLE_SELECT_INPUT
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "targetFieldName": "constraint_type",
+            "label": "Field constraints",
+            "targetLabel": "Type",
+            "useCustomType": True,
+            "customTypeOptions": [
+                {"value": "numerical", "label": "Numerical"},
+                {"value": "categorical", "label": "Categorical"},
+                {"value": "date", "label": "Date"},
+                {"value": "text", "label": "Text"},
+            ],
+            "targetOptions": [
+                {"value": "min_value", "label": "Min value"},
+                {"value": "max_value", "label": "Max value"},
+                {"value": "valid_range", "label": "Valid range"},
+                {"value": "allowed_values", "label": "Allowed values"},
+                {"value": "disallowed_values", "label": "Disallowed values"},
+                {"value": "whitelist_file", "label": "Whitelist file"},
+                {"value": "blacklist_file", "label": "Blacklist file"},
+                {"value": "pattern", "label": "Pattern"},
+                {"value": "min_date", "label": "Min date"},
+                {"value": "max_date", "label": "Max date"},
+                {"value": "valid_format", "label": "Valid format"},
+                {"value": "date_range", "label": "Date range"},
+                {"value": "min_length", "label": "Min length"},
+                {"value": "max_length", "label": "Max length"},
+                {"value": "valid_pattern", "label": "Valid pattern"},
+            ],
+            "additionalParams": [
+                {
+                    "keyMappingTarget": "min_value",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_value",
+                            "inputType": "number",
+                            "placeholder": "Min value",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "max_value",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "max_value",
+                            "inputType": "number",
+                            "placeholder": "Max value",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "valid_range",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_value",
+                            "inputType": "number",
+                            "placeholder": "Min value",
+                        },
+                        {
+                            "additionalKeyValue": "max_value",
+                            "inputType": "number",
+                            "placeholder": "Max value",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "min_date",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_date",
+                            "inputType": "date",
+                            "placeholder": "Min date",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "max_date",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "max_date",
+                            "inputType": "date",
+                            "placeholder": "Max date",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "date_range",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_date",
+                            "inputType": "date",
+                            "placeholder": "Start date",
+                        },
+                        {
+                            "additionalKeyValue": "max_date",
+                            "inputType": "date",
+                            "placeholder": "End date",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "allowed_values",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "allowed_values",
+                            "inputType": "tags",
+                            "placeholder": "Allowed values (comma separated)",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "disallowed_values",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "disallowed_values",
+                            "inputType": "tags",
+                            "placeholder": "Disallowed values (comma separated)",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "whitelist_file",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "whitelist_file",
+                            "inputType": "text",
+                            "placeholder": "Whitelist file path",
+                            "fullWidth": True,
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "blacklist_file",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "blacklist_file",
+                            "inputType": "text",
+                            "placeholder": "Blacklist file path",
+                            "fullWidth": True,
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "pattern",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "pattern",
+                            "inputType": "text",
+                            "placeholder": "Pattern (regex, etc.)",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "valid_pattern",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "valid_pattern",
+                            "inputType": "text",
+                            "placeholder": "Valid pattern",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "min_length",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_length",
+                            "inputType": "number",
+                            "placeholder": "Min length",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "max_length",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "max_length",
+                            "inputType": "number",
+                            "placeholder": "Max length",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "valid_format",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "valid_format",
+                            "inputType": "text",
+                            "placeholder": "Valid format",
+                        }
+                    ],
+                },
+            ],
+        }
+
+    if component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_CLEAN_INVALID:
+        # Handle FIELD_IMPUTE_STRATEGY
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT
+        field["x-component-props"] = {
+                    "keyFieldLabel": "Select Option",
+                    "isUsingFieldOptions": True,
+                    "enableAddOption": True
+                }
+        
     return field
 
 
@@ -948,7 +1160,6 @@ def _add_x_reactions(
     has_dependencies = depend_fields and not is_ignore_depend_fields
     has_custom_function = "x-custom-function" in field
     custom_functions = field.get("x-custom-function", [])
-    function_name = custom_functions[0] if custom_functions else None
 
     # Case 1: Has dependencies (x-depend-on or x-required-on or x-disabled-on)
     if has_dependencies:
@@ -965,30 +1176,47 @@ def _add_x_reactions(
         if has_visible_or_required or has_custom_function:
             # Determine run script
             if has_custom_function:
-                if function_name == CustomFunctions.UPDATE_INT64_FIELD_OPTIONS:
-                    run = f"{function_name}($self); $self.setValue({default_value_str})"
-                else:
-                    deps_expr = ", ".join(
-                        [f"$deps[{i}]" for i in range(len(depend_fields))]
-                    )
-                    run = f"{function_name}($self, {deps_expr})"
+                # Create separate reactions for each custom function
+                for function_name in custom_functions:
+                    func_reaction = {
+                        "dependencies": depend_fields,
+                        "fulfill": {
+                            "state": state,
+                        },
+                    }
+                    
+                    if function_name == CustomFunctions.UPDATE_INT64_FIELD_OPTIONS:
+                        run = f"{function_name}($self); $self.setValue({default_value_str})"
+                    else:
+                        deps_expr = ", ".join(
+                            [f"$deps[{i}]" for i in range(len(depend_fields))]
+                        )
+                        run = f"{function_name}($self, {deps_expr}); $self.setValue({default_value_str})"
+                    
+                    func_reaction["fulfill"]["run"] = f"{{{{ {run} }}}}"
+                    existing_reactions.append(func_reaction)
             else:
                 run = f"$self.setValue({default_value_str})"
+                reaction["fulfill"]["run"] = f"{{{{ {run} }}}}"
+                existing_reactions.append(reaction)
 
-            reaction["fulfill"]["run"] = f"{{{{ {run} }}}}"
+        else:
+            # x-disabled-on only case
+            existing_reactions.append(reaction)
 
-        existing_reactions.append(reaction)
         field["x-reactions"] = existing_reactions
 
     # Case 2: Has custom function but NO dependencies
     elif has_custom_function:
-        # Build run template
-        run_template = f"{function_name}($self); $self.setValue({default_value_str})"
-
-        # Only add if no non-toggle reaction exists
-        if not any(r for r in existing_reactions if "target" not in r):
-            new_reaction = {"fulfill": {"run": f"{{{{ {run_template} }}}}"}}
-            existing_reactions.append(new_reaction)
+        # Check if non-toggle reaction already exists BEFORE adding new ones
+        has_non_toggle_reaction = any(r for r in existing_reactions if "target" not in r)
+        
+        if not has_non_toggle_reaction:
+            # Create separate reaction for each custom function
+            for function_name in custom_functions:
+                run_template = f"{function_name}($self); $self.setValue({default_value_str})"
+                new_reaction = {"fulfill": {"run": f"{{{{ {run_template} }}}}"}}
+                existing_reactions.append(new_reaction)
 
         field["x-reactions"] = existing_reactions
 
