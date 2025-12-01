@@ -56,7 +56,9 @@ class FakeEmailOperationConfig(OperationConfig):
                     "format": {
                         "type": ["string", "null"],
                         "title": "Email Format",
+                        "default": None,
                         "oneOf": [
+                            {"type": "null"},
                             {"const": "name_surname", "description": "Name Surname"},
                             {"const": "surname_name", "description": "Surname Name"},
                             {"const": "nickname", "description": "Nickname"},
@@ -75,8 +77,9 @@ class FakeEmailOperationConfig(OperationConfig):
                     "separator_options": {
                         "type": ["array", "null"],
                         "items": {"type": "string"},
-                        "default": [".", "_", "-", ""],
+                        "default": None,
                         "oneOf": [
+                            {"type": "null"},
                             {"const": ".", "description": "Dot"},
                             {"const": "_", "description": "Underscore"},
                             {"const": "-", "description": "Dash"},
@@ -134,7 +137,9 @@ class FakeEmailOperationConfig(OperationConfig):
                     "name_format": {
                         "type": ["string", "null"],
                         "title": "Name Format",
+                        "default": None,
                         "oneOf": [
+                            {"type": "null"},
                             {"const": "FL", "title": "First Last"},
                             {"const": "LF", "title": "Last First"},
                             {"const": "FML", "title": "First Middle Last"},

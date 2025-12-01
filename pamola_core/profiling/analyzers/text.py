@@ -45,6 +45,7 @@ from pamola_core.profiling.commons.text_utils import (
 from pamola_core.profiling.schemas.text_core_schema import (
     TextSemanticCategorizerOperationConfig,
 )
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     ensure_directory,
     load_data_operation,
@@ -421,10 +422,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             if self.use_cache:
                 self._save_to_cache(
                     df=df,
-                    analysis_results=analysis_results,
-                    analysis_result_path=analysis_result_path,
-                    categorization_result_paths=categorization_result_paths,
-                    visualization_paths=visualization_paths,
+                    result=result,
                     task_dir=task_dir,
                 )
 
@@ -444,7 +442,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 analysis_results=analysis_results,
                 instance=self,
             )
-            
+
             return result
         except Exception as e:
             logger.exception(
@@ -496,93 +494,18 @@ class TextSemanticCategorizerOperation(FieldOperation):
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
-            logger.debug(f"Checking cache for key: {cache_key}")
-
-            cached_data = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+            self.logger.debug(f"Checking cache for key: {cache_key}")
+            cached_result = self.operation_cache.get_cache(
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Restore artifacts from cache
-                artifacts_restored = 0
-
-                # Add analysis result path
-                analysis_result_path = cached_data.get("analysis_result_path")
-                if analysis_result_path and isinstance(analysis_result_path, dict):
-                    if Path(analysis_result_path.get("path")).exists():
-                        artifacts_restored += 1
-                        self._create_and_register_artifact(
-                            artifact_type=analysis_result_path.get("artifact_type"),
-                            path=analysis_result_path.get("path"),
-                            description=analysis_result_path.get("description"),
-                            result=cached_result,
-                            reporter=reporter,
-                            category=analysis_result_path.get("category"),
-                        )
-
-                # Add categorization result paths
-                categorization_result_paths = cached_data.get(
-                    "categorization_result_paths", []
-                )
-                for categorization_result_path in categorization_result_paths:
-                    if categorization_result_path and isinstance(
-                        categorization_result_path, dict
-                    ):
-                        if Path(categorization_result_path.get("path")).exists():
-                            artifacts_restored += 1
-                            self._create_and_register_artifact(
-                                artifact_type=categorization_result_path.get(
-                                    "artifact_type"
-                                ),
-                                path=categorization_result_path.get("path"),
-                                description=categorization_result_path.get(
-                                    "description"
-                                ),
-                                result=cached_result,
-                                reporter=reporter,
-                                category=categorization_result_path.get("category"),
-                            )
-
-                # Add categorization result paths
-                visualization_paths = cached_data.get("visualization_paths", [])
-                for visualization_path in visualization_paths:
-                    if visualization_path and isinstance(visualization_path, dict):
-                        if Path(
-                            visualization_path.get("path")
-                        ).exists() and visualization_path.get(
-                            "is_create_and_register_artifact"
-                        ):
-                            artifacts_restored += 1
-                            self._create_and_register_artifact(
-                                artifact_type=visualization_path.get("artifact_type"),
-                                path=visualization_path.get("path"),
-                                description=visualization_path.get("description"),
-                                result=cached_result,
-                                reporter=reporter,
-                                category=visualization_path.get("category"),
-                            )
-
-                # Add cached metrics to result
-                analysis_results = cached_data.get("analysis_results")
-                self._add_metrics_to_result(analysis_results, cached_result)
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-                cached_result.add_metric("artifacts_restored", artifacts_restored)
-
-                return cached_result
-
-            logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             logger.warning(f"Error checking cache: {str(e)}")
             return None
@@ -590,10 +513,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
     def _save_to_cache(
         self,
         df: pd.DataFrame,
-        analysis_results: Dict[str, Any],
-        analysis_result_path: Dict[str, str],
-        categorization_result_paths: List[Dict[str, str]],
-        visualization_paths: List[Dict[str, Any]],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -603,14 +523,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             Input data for the operation
-        analysis_results : dict
-            Analysis results to cache
-        analysis_result_path : dict
-            Analysis result path
-        categorization_result_paths : list of dict
-            Categorization result paths
-        visualization_paths : list of dict
-            Visualizations paths
+        result : OperationResult
+            The result object to be cached.
         task_dir : Path
             Task directory
 
@@ -626,25 +540,22 @@ class TextSemanticCategorizerOperation(FieldOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
-            # Prepare metadata for cache
-            operation_parameters = self._get_base_parameters()
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "analysis_results": analysis_results,
-                "analysis_result_path": analysis_result_path,
-                "categorization_result_paths": categorization_result_paths,
-                "visualization_paths": visualization_paths,
-                "data_info": {"df_length": len(df)},
-            }
+            # Prepare cache data
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+            cache_data.update(
+                {
+                    "data_info": {"df_length": len(df)},
+                }
+            )
 
             # Save to cache
             logger.debug(f"Saving to cache with key: {cache_key}")
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 

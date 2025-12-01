@@ -89,6 +89,7 @@ class CellSuppressionConfig(OperationConfig):
                     "suppress_if": {
                         "type": ["string", "null"],
                         "title": "Suppress If",
+                        "default": None,
                         "oneOf": [
                             {"type": "null"},
                             {"const": "outlier", "description": "Outlier"},

@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 import pandas as pd
 from pamola_core.profiling.schemas.phone_core_schema import PhoneOperationConfig
-from pamola_core.utils.helpers import filter_used_kwargs
+from pamola_core.utils.helpers import build_base_cache, filter_used_kwargs, get_cache_result
 from pamola_core.profiling.commons.phone_utils import (
     analyze_phone_field,
     analyze_phone_field_with_chunk,
@@ -402,7 +402,7 @@ class PhoneOperation(FieldOperation):
             global logger
             if kwargs.get("logger"):
                 logger = kwargs.get("logger")
-                
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
@@ -862,7 +862,7 @@ class PhoneOperation(FieldOperation):
                     self._save_to_cache(
                         df=df,
                         analysis_results=analysis_results,
-                        artifacts=artifacts,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
@@ -925,7 +925,7 @@ class PhoneOperation(FieldOperation):
                 analysis_results=analysis_results,
                 instance=self,
             )
-            
+
             return result
         except Exception as e:
             logger.exception(
@@ -977,99 +977,18 @@ class PhoneOperation(FieldOperation):
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
-            logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
+            self.logger.debug(f"Checking cache for key: {cache_key}")
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Restore artifacts from cache
-                artifacts_restored = 0
-
-                # Add artifacts
-                artifacts = cached_data.get("artifacts", [])
-                for artifact in artifacts:
-                    if artifact and isinstance(artifact, dict):
-                        if Path(artifact.get("path")).exists():
-                            artifacts_restored += 1
-                            cached_result.add_artifact(
-                                artifact.get("artifact_type"),
-                                artifact.get("path"),
-                                artifact.get("description"),
-                                category=artifact.get("category"),
-                            )
-                            reporter.add_artifact(
-                                artifact.get("artifact_type"),
-                                artifact.get("path"),
-                                artifact.get("description"),
-                            )
-
-                # Add cached metrics to result
-                analysis_results = cached_data.get("analysis_results", {})
-
-                cached_result.add_metric(
-                    "total_records", analysis_results.get("total_rows", 0)
-                )
-                cached_result.add_metric(
-                    "null_count", analysis_results.get("null_count", 0)
-                )
-                cached_result.add_metric(
-                    "null_percentage", analysis_results.get("null_percentage", 0)
-                )
-                cached_result.add_metric(
-                    "valid_count", analysis_results.get("valid_count", 0)
-                )
-                cached_result.add_metric(
-                    "valid_percentage", analysis_results.get("valid_percentage", 0)
-                )
-                cached_result.add_metric(
-                    "format_error_count", analysis_results.get("format_error_count", 0)
-                )
-                cached_result.add_metric(
-                    "has_comment_count", analysis_results.get("has_comment_count", 0)
-                )
-
-                # Add normalization metrics if available
-                if "normalization_success_count" in analysis_results:
-                    cached_result.add_metric(
-                        "normalization_success_count",
-                        analysis_results.get("normalization_success_count", 0),
-                    )
-                    cached_result.add_metric(
-                        "normalization_success_percentage",
-                        analysis_results.get("normalization_success_percentage", 0),
-                    )
-
-                # Add final operation status to reporter
-                reporter.add_operation(
-                    f"Analysis of {self.field_name} completed",
-                    details={
-                        "valid_phones": analysis_results.get("valid_count", 0),
-                        "format_errors": analysis_results.get("format_error_count", 0),
-                        "with_comments": analysis_results.get("has_comment_count", 0),
-                        "normalization_success": analysis_results.get(
-                            "normalization_success_count", 0
-                        ),
-                    },
-                )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-                cached_result.add_metric("artifacts_restored", artifacts_restored)
-
-                return cached_result
-
-            logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             logger.warning(f"Error checking cache: {str(e)}")
             return None
@@ -1078,7 +997,7 @@ class PhoneOperation(FieldOperation):
         self,
         df: pd.DataFrame,
         analysis_results: Dict[str, Any],
-        artifacts: List[Dict[str, str]],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -1090,8 +1009,8 @@ class PhoneOperation(FieldOperation):
             Input data for the operation
         analysis_results : dict
             Analysis results to cache
-        artifacts : list of dict
-            Artifacts
+        result : OperationResult
+            The result object to be cached.
         task_dir : Path
             Task directory
 
@@ -1107,16 +1026,16 @@ class PhoneOperation(FieldOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
-            # Prepare metadata for cache
-            operation_parameters = self._get_base_parameters()
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "analysis_results": analysis_results,
-                "artifacts": artifacts,
-                "data_info": {"df_length": len(df)},
-            }
+            # Prepare cache data
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+            cache_data.update(
+                {
+                    "analysis_results": analysis_results,
+                    "data_info": {"df_length": len(df)},
+                }
+            )
 
             # Save to cache
             logger.debug(f"Saving to cache with key: {cache_key}")

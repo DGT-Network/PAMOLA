@@ -62,8 +62,9 @@ class CorrelationOperationConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Correlation Method",
                         "description": "Correlation method to use. If None, the method is automatically selected based on the data types of the fields. Supported: 'pearson', 'spearman', 'cramers_v', 'correlation_ratio', 'point_biserial'.",
-                        "default": "pearson",
+                        "default": None,
                         "oneOf": [
+                            {"type": "null"},
                             {"const": "pearson", "description": "Pearson"},
                             {"const": "spearman", "description": "Spearman"},
                             {"const": "cramers_v", "description": "Cramers V"},

@@ -461,10 +461,8 @@ class MetricsOperation(BaseOperation):
                     self._save_to_cache(
                         original_df=original_df,
                         transformed_df=transformed_df,
-                        metrics=processed_metrics,
+                        result=result,
                         task_dir=task_dir,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -1143,147 +1141,28 @@ class MetricsOperation(BaseOperation):
                 self.logger.info("No cached result found, proceeding with operation")
                 return None
 
+            result = helpers.get_cache_result(cached_result)
+
             self.logger.info(f"Using cached result for {self.name} generalization")
-
-            result = OperationResult(status=OperationStatus.SUCCESS)
-            # Restore cached data
-            self._add_cached_metrics(result, cached_result)
-            artifacts_restored = self._restore_cached_artifacts(
-                result, cached_result, reporter
-            )
-
-            # Add cache metadata
-            result.add_metric("cached", True)
-            result.add_metric("cache_key", cache_key)
-            result.add_metric(
-                "cache_timestamp", cached_result.get("timestamp", "unknown")
-            )
-            result.add_metric("artifacts_restored", artifacts_restored)
 
             if reporter:
                 reporter.add_operation(
                     f"Metrics (cached)",
-                    details={
-                        "cached": True,
-                        "artifacts_restored": artifacts_restored,
-                    },
+                    details={"cached": True},
                 )
 
-            self.logger.info(
-                f"Cache hit successful: restored {artifacts_restored} artifacts"
-            )
             return result
 
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
-    def _add_cached_metrics(self, result: OperationResult, cached: dict):
-        """
-        Add cached scalar metrics (int, float, str, bool) to the OperationResult.
-
-        Parameters
-        ----------
-        result : OperationResult
-            The result object to update.
-        cached : dict
-            Cached result dictionary from cache manager.
-        """
-        for key, value in cached.get("metrics", {}).items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-    def _restore_cached_artifacts(
-        self, result: OperationResult, cached: dict, reporter: Optional[Any]
-    ) -> int:
-        """
-        Restore artifacts (output, metrics, visualizations) from cached result if files exist.
-
-        Parameters
-        ----------
-        result : OperationResult
-            OperationResult object to update with restored artifacts.
-        cached : dict
-            Cached result dictionary from cache manager.
-        reporter : Optional[Any]
-            Optional reporter object for tracking operation-level artifacts.
-
-        Returns
-        -------
-        int
-            Number of artifacts successfully restored.
-        """
-        artifacts_restored = 0
-
-        def restore_file_artifact(
-            path: Union[str, Path], artifact_type: str, desc_suffix: str, category: str
-        ):
-            """
-            Restore a single artifact from a file path if it exists.
-
-            Parameters
-            ----------
-            path : Union[str, Path]
-                Path to the artifact file.
-            artifact_type : str
-                Type of the artifact (e.g., 'json', 'csv', 'png').
-            desc_suffix : str
-                Description suffix (e.g., 'visualization', 'metrics').
-            category : str
-                Artifact category (e.g., output, metrics, visualization).
-            """
-            nonlocal artifacts_restored
-            if not path:
-                return
-
-            artifact_path = Path(path)
-            if artifact_path.exists():
-                result.add_artifact(
-                    artifact_type=artifact_type,
-                    path=artifact_path,
-                    description=f"{desc_suffix} (cached)",
-                    category=category,
-                )
-                artifacts_restored += 1
-
-                if reporter:
-                    reporter.add_operation(
-                        f"{desc_suffix} (cached)",
-                        details={
-                            "artifact_type": artifact_type,
-                            "path": str(artifact_path),
-                        },
-                    )
-            else:
-                self.logger.warning(f"Cached file not found: {artifact_path}")
-
-        # Restore main output and metrics and mapping artifacts
-        restore_file_artifact(
-            cached.get("metrics_file"),
-            "json",
-            "generalization metrics",
-            Constants.Artifact_Category_Metrics,
-        )
-
-        # Restore visualizations
-        for viz_type, path_str in cached.get("visualizations", {}).items():
-            restore_file_artifact(
-                path_str,
-                "png",
-                f"{viz_type} visualization",
-                Constants.Artifact_Category_Visualization,
-            )
-
-        return artifacts_restored
-
     def _save_to_cache(
         self,
         original_df: pd.DataFrame,
         transformed_df: pd.DataFrame,
-        metrics: Dict[str, Any],
+        result: OperationResult,
         task_dir: Path,
-        visualization_paths: Dict[str, Path] = {},
-        metrics_result_path: Optional[str] = None,
     ) -> bool:
         """
         Save operation results to cache.
@@ -1294,15 +1173,10 @@ class MetricsOperation(BaseOperation):
             Original input data
         transformed_df : pd.DataFrame
             Transformed output data
-        metrics : Dict[str, Any]
-            Metrics collected during the operation
-        visualization_paths : Dict[str, Path]
-            Paths to generated visualizations
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
-        metrics_result_path : Optional[str]
-            Path to the metrics result file
-            If not provided, a default path will be used.
 
         Returns:
         --------
@@ -1316,37 +1190,29 @@ class MetricsOperation(BaseOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
-            # Prepare metadata for cache
-            operation_params = self._get_base_parameters()
-            self.logger.debug(f"Operation parameters for cache: {operation_params}")
-
             # Prepare cache data
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "metrics": {
-                    k: float(v) if isinstance(v, (np.integer, np.floating)) else v
-                    for k, v in metrics.items()
-                },
-                "parameters": operation_params,
-                "data_info": {
-                    "original_length": len(original_df),
-                    "transformed_length": len(transformed_df),
-                    "original_null_count": int(
-                        original_df.isna().sum().sum()
-                        if isinstance(original_df, pd.DataFrame)
-                        else original_df.isna().sum()
-                    ),
-                    "transformed_null_count": (
-                        int(transformed_df.isna().sum().sum())
-                        if isinstance(transformed_df, pd.DataFrame)
-                        else int(transformed_df.isna().sum())
-                    ),
-                },
-                "metrics_file": metrics_result_path,  # Path to metrics file
-                "visualizations": {
-                    k: str(v) for k, v in visualization_paths.items()
-                },  # Paths to visualizations
-            }
+            cache_data = helpers.build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+
+            cache_data.update(
+                {
+                    "data_info": {
+                        "original_length": len(original_df),
+                        "transformed_length": len(transformed_df),
+                        "original_null_count": int(
+                            original_df.isna().sum().sum()
+                            if isinstance(original_df, pd.DataFrame)
+                            else original_df.isna().sum()
+                        ),
+                        "transformed_null_count": (
+                            int(transformed_df.isna().sum().sum())
+                            if isinstance(transformed_df, pd.DataFrame)
+                            else int(transformed_df.isna().sum())
+                        ),
+                    },
+                }
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")

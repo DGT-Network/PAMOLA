@@ -63,7 +63,9 @@ class FakeNameOperationConfig(OperationConfig):
                         "type": ["string", "null"],
                         "title": "Name Format",
                         "description": "Output format for synthetic names (e.g., 'FML', 'FL').",
+                        "default": None,
                         "oneOf": [
+                            {"type": "null"},
                             {"const": "FML", "description": "First Middle Last"},
                             {"const": "FL", "description": "First Last"},
                             {"const": "LF", "description": "Last First"},

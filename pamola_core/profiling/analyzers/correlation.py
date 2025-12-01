@@ -42,6 +42,7 @@ from pamola_core.profiling.schemas.correlation_core_schema import (
 from pamola_core.profiling.schemas.correlation_matrix_core_schema import (
     CorrelationMatrixOperationConfig,
 )
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
     ensure_directory,
@@ -562,9 +563,7 @@ class CorrelationOperation(FieldOperation):
                 try:
                     self._save_to_cache(
                         original_df=df,
-                        artifacts=result.artifacts,
-                        analysis_results=analysis_results,
-                        metrics=result.metrics,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
@@ -1073,9 +1072,7 @@ class CorrelationOperation(FieldOperation):
     def _save_to_cache(
         self,
         original_df: pd.DataFrame,
-        artifacts: List[OperationArtifact],
-        analysis_results: Dict[str, Any],
-        metrics: Dict[str, Any],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -1085,10 +1082,8 @@ class CorrelationOperation(FieldOperation):
         -----------
         original_df : pd.DataFrame
             Original input data
-        artifacts : List[OperationArtifact]
-            List of artifacts to save
-        metrics : dict
-            The metrics of operation
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
 
@@ -1097,7 +1092,7 @@ class CorrelationOperation(FieldOperation):
         bool
             True if successfully saved to cache, False otherwise
         """
-        if not self.use_cache or (not artifacts and not metrics):
+        if not self.use_cache:
             return False
 
         try:
@@ -1105,17 +1100,9 @@ class CorrelationOperation(FieldOperation):
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_base_parameters()
-
-            artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "artifacts": artifacts_for_cache,
-                "metrics": metrics,
-                "analysis_results": analysis_results,
-            }
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
@@ -1165,70 +1152,17 @@ class CorrelationOperation(FieldOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                self.logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        cached_result.add_metric(key, value)
-
-                analysis_results = cached_data.get("analysis_results", {})
-
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Collect metric",
-                            "message": "Collect metric successfully",
-                            "method": analysis_results.get("method", "unknown"),
-                            "correlation_coefficient": analysis_results.get(
-                                "correlation_coefficient", 0
-                            ),
-                            "sample_size": analysis_results.get("sample_size", 0),
-                            "p_value": analysis_results.get("p_value"),
-                            "statistically_significant": (
-                                analysis_results.get("p_value") is not None
-                                and analysis_results["p_value"] < 0.05
-                            ),
-                        },
-                    )
-
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        artifact_type = artifact.get("artifact_type", "")
-                        artifact_path = artifact.get("path", "")
-                        artifact_name = artifact.get("description", "")
-                        artifact_category = artifact.get("category", "output")
-                        cached_result.add_artifact(
-                            artifact_type,
-                            artifact_path,
-                            artifact_name,
-                            artifact_category,
-                        )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
