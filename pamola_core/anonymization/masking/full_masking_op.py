@@ -167,18 +167,14 @@ class FullMaskingOperation(AnonymizationOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Additional logic for FullMaskingOperation
         if not self.format_patterns:
             self._setup_format_patterns()
 
-        self.process_kwargs["format_patterns"] = self.format_patterns
-
         # Setup random mask pool if needed
         if self.random_mask and not self.mask_char_pool:
             self.mask_char_pool = string.ascii_letters + string.digits + "!@#$%^&*"
-            self.process_kwargs["mask_char_pool"] = self.mask_char_pool
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
@@ -704,8 +700,7 @@ class FullMaskingOperation(AnonymizationOperation):
                 except re.error as e:
                     raise ValueError(f"Invalid regex pattern for '{pattern_name}': {e}")
 
-    @classmethod
-    def _mask_with_format(cls, value: str, **kwargs) -> str:
+    def _mask_with_format(self, value: str) -> str:
         """
         Mask the value while preserving structural format using regex patterns.
 
@@ -713,14 +708,13 @@ class FullMaskingOperation(AnonymizationOperation):
 
         Args:
             value (str): The value to mask.
-            **kwargs: Additional masking parameters.
 
         Returns:
             str: Masked value with format preserved if possible.
         """
 
-        mask_char = kwargs.get("mask_char", "*")
-        format_patterns = kwargs.get("format_patterns", {})
+        mask_char = getattr(self, "mask_char", "*")
+        format_patterns = getattr(self, "format_patterns", {})
 
         if pd.isna(value) or value is None:
             return value
@@ -735,12 +729,13 @@ class FullMaskingOperation(AnonymizationOperation):
             for i, g in enumerate(groups, start=1):
                 masked_groups.append(mask_char * len(g))
 
-            return cls._reconstruct_format(masked_groups, match, value)
+            return self._reconstruct_format(masked_groups, match, value)
 
-        return cls._mask_value(value, **kwargs)
+        return self._mask_value(value)
 
-    @staticmethod
-    def _reconstruct_format(groups: List[str], match: re.Match, value: str) -> str:
+    def _reconstruct_format(
+        self, groups: List[str], match: re.Match, value: str
+    ) -> str:
         """
         Reconstruct string from masked/unmasked groups, preserving original separators.
 
@@ -769,8 +764,7 @@ class FullMaskingOperation(AnonymizationOperation):
             reconstructed += value[start + last_idx : end]
         return prefix + reconstructed + suffix
 
-    @staticmethod
-    def _mask_to_numeric(mask: str, value: str, **kwargs) -> Union[int, float]:
+    def _mask_to_numeric(self, mask: str, value: str) -> Union[int, float]:
         """
         Convert a masked string into a numeric representation, preserving
         the format (int, float, scientific notation) of the original value.
@@ -778,15 +772,14 @@ class FullMaskingOperation(AnonymizationOperation):
         Args:
             mask (str): The masked string (e.g. '******' or '@9#K$%').
             value (str): The original value as a string (e.g. '1234.56', '1.2e+04').
-            **kwargs: Additional masking parameters.
 
         Returns:
             int or float: Masked numeric representation.
         """
 
-        # Extract parameters from kwargs
-        random_mask = kwargs.get("random_mask", False)
-        mask_char = kwargs.get("mask_char", "*")
+        # Extract parameters from self
+        random_mask = getattr(self, "random_mask", False)
+        mask_char = getattr(self, "mask_char", "*")
 
         def is_scientific(s: str) -> bool:
             return bool(re.search(r"^[+-]?[\d.]+[eE][+-]?\d+$", s))
@@ -843,26 +836,24 @@ class FullMaskingOperation(AnonymizationOperation):
         except ValueError:
             return 0
 
-    @classmethod
-    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data with full masking.
 
         Args:
             batch (pd.DataFrame): Input DataFrame batch.
-            **kwargs: Masking configuration parameters.
 
         Returns:
             pd.DataFrame: DataFrame with masked values.
         """
 
         # Extract parameters from kwargs
-        field_name = kwargs.get("field_name", "field")
-        mode = kwargs.get("mode")
-        output_field_name = kwargs.get("output_field_name", "masked")
-        date_format = kwargs.get("date_format", None)
-        numeric_output = kwargs.get("numeric_output", "string")
-        preserve_format = kwargs.get("preserve_format", False)
+        field_name = self.field_name
+        mode = self.mode
+        output_field_name = self.output_field_name
+        date_format = self.date_format
+        numeric_output = self.numeric_output
+        preserve_format = self.preserve_format
 
         # Check if the field exists
         if field_name not in batch.columns:
@@ -885,28 +876,27 @@ class FullMaskingOperation(AnonymizationOperation):
                 result[output_col] = pd.to_datetime(result[field_name], errors="coerce")
                 result[output_col] = result[output_col].dt.strftime(date_format)
             except Exception:
-                cls.logger.warning(
+                self.logger.warning(
                     f"Failed to convert {field_name} to datetime with format {date_format}. "
                     "Falling back to string masking."
                 )
                 pass
 
         if numeric_output != "preserve" or not is_numeric_dtype(result[field_name]):
-            if preserve_format and cls._is_string_field(batch[field_name]):
+            if preserve_format and self._is_string_field(batch[field_name]):
                 # Format-aware masking
                 result[output_col] = result[output_col].apply(
-                    lambda x: cls._mask_with_format(x, **kwargs)
+                    lambda x: self._mask_with_format(x)
                 )
             else:
                 # Standard masking
                 result[output_col] = result[output_col].apply(
-                    lambda x: cls._mask_value(x, **kwargs)
+                    lambda x: self._mask_value(x)
                 )
 
         return result
 
-    @staticmethod
-    def _is_string_field(series: pd.Series) -> bool:
+    def _is_string_field(self, series: pd.Series) -> bool:
         """
         Check if a field contains string data.
 
@@ -929,23 +919,19 @@ class FullMaskingOperation(AnonymizationOperation):
                 return True
         return False
 
-    @staticmethod
-    def _can_vectorize(**kwargs) -> bool:
+    def _can_vectorize(self) -> bool:
         """
         Check if masking can be vectorized for performance.
-
-        Args:
-            **kwargs: Masking configuration parameters.
 
         Returns:
             bool: True if vectorization is possible.
         """
 
-        # Extract parameters from kwargs
-        random_mask = kwargs.get("random_mask", False)
-        date_format = kwargs.get("date_format", None)
-        numeric_output = kwargs.get("numeric_output", "string")
-        preserve_format = kwargs.get("preserve_format", False)
+        # Extract parameters from self
+        random_mask = getattr(self, "random_mask", False)
+        date_format = getattr(self, "date_format", None)
+        numeric_output = getattr(self, "numeric_output", "string")
+        preserve_format = getattr(self, "preserve_format", False)
 
         # Simple cases that can be vectorized
         return (
@@ -955,23 +941,21 @@ class FullMaskingOperation(AnonymizationOperation):
             and not date_format
         )
 
-    @staticmethod
-    def _vectorized_mask(series: pd.Series, **kwargs) -> pd.Series:
+    def _vectorized_mask(self, series: pd.Series) -> pd.Series:
         """
         Apply masking using vectorized operations.
 
         Args:
             series (pd.Series): Series to mask.
-            **kwargs: Masking configuration parameters.
 
         Returns:
             pd.Series: Masked series.
         """
 
         # Extract parameters from kwargs
-        fixed_length = kwargs.get("fixed_length", None)
-        preserve_length = kwargs.get("preserve_length", False)
-        mask_char = kwargs.get("mask_char", "*")
+        fixed_length = getattr(self, "fixed_length", None)
+        preserve_length = getattr(self, "preserve_length", False)
+        mask_char = getattr(self, "mask_char", "*")
 
         if fixed_length:
             # Fixed length masking
@@ -985,27 +969,25 @@ class FullMaskingOperation(AnonymizationOperation):
             # Default length
             return pd.Series([mask_char * 8] * len(series), index=series.index)
 
-    @classmethod
-    def _mask_value(cls, value: Any, **kwargs) -> Union[str, float, int, None]:
+    def _mask_value(self, value: Any) -> Union[str, float, int, None]:
         """
         Apply full masking to a single value.
 
         Args:
             value: Value to mask.
-            **kwargs: Masking configuration parameters.
 
         Returns:
             Masked value as string, number, or None.
         """
 
-        # Extract parameters from kwargs
-        null_strategy = kwargs.get("null_strategy", "PRESERVE")
-        preserve_length = kwargs.get("preserve_length", False)
-        mask_char = kwargs.get("mask_char", "*")
-        fixed_length = kwargs.get("fixed_length", None)
-        random_mask = kwargs.get("random_mask", False)
-        mask_char_pool = kwargs.get("mask_char_pool", None)
-        numeric_output = kwargs.get("numeric_output", "string")
+        # Extract parameters from self
+        null_strategy = getattr(self, "null_strategy", "PRESERVE")
+        preserve_length = getattr(self, "preserve_length", False)
+        mask_char = getattr(self, "mask_char", "*")
+        fixed_length = getattr(self, "fixed_length", None)
+        random_mask = getattr(self, "random_mask", False)
+        mask_char_pool = getattr(self, "mask_char_pool", None)
+        numeric_output = getattr(self, "numeric_output", "string")
 
         # Handle null values
         if pd.isna(value) and null_strategy == "PRESERVE":
@@ -1043,7 +1025,7 @@ class FullMaskingOperation(AnonymizationOperation):
 
             if is_numeric:
                 if numeric_output == "numeric":
-                    return cls._mask_to_numeric(masked, str_value, **kwargs)
+                    return self._mask_to_numeric(masked, str_value)
                 elif numeric_output == "preserve":
                     return value
         except:
@@ -1051,14 +1033,12 @@ class FullMaskingOperation(AnonymizationOperation):
 
         return masked
 
-    @classmethod
-    def process_batch_dask(cls, ddf: dd.DataFrame, **kwargs) -> dd.DataFrame:
+    def process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:
         """
         Process Dask DataFrame with full masking.
 
         Args:
             ddf (dd.DataFrame): Input Dask DataFrame.
-            **kwargs: Masking configuration parameters.
 
         Returns:
             dd.DataFrame: Processed Dask DataFrame.
@@ -1066,7 +1046,7 @@ class FullMaskingOperation(AnonymizationOperation):
 
         # Define masking function for map_partitions
         def mask_partition(partition):
-            return cls.process_batch(partition.copy(deep=True), **kwargs)
+            return self.process_batch(partition.copy(deep=True))
 
         # Apply masking to each partition
         result = ddf.map_partitions(mask_partition, meta=ddf._meta)

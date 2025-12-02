@@ -215,7 +215,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
@@ -690,8 +689,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 exception=e,
             )
 
-    @classmethod
-    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data to generalize numeric values.
 
@@ -699,19 +697,17 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns:
         --------
         pd.DataFrame
             Processed DataFrame batch with generalized values
         """
-        # Extract parameters from kwargs
-        field_name = kwargs.get("field_name")
-        output_field_name = kwargs.get("output_field_name")
-        mode = kwargs.get("mode")
-        strategy = kwargs.get("strategy")
+        # Extract parameters from self
+        field_name = self.field_name
+        output_field_name = self.output_field_name
+        mode = self.mode
+        strategy = self.strategy
 
         # Check if the field exists
         if field_name not in batch.columns:
@@ -730,11 +726,11 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         # Apply generalization based on strategy
         if strategy == "binning":
-            generalized_values = cls._apply_binning(field_data, **kwargs)
+            generalized_values = self._apply_binning(field_data)
         elif strategy == "rounding":
-            generalized_values = cls._apply_rounding(field_data, **kwargs)
+            generalized_values = self._apply_rounding(field_data)
         elif strategy == "range":
-            generalized_values = cls._apply_range(field_data, **kwargs)
+            generalized_values = self._apply_range(field_data)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -746,8 +742,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         return batch
 
-    @classmethod
-    def process_batch_dask(cls, ddf: dd.DataFrame, **kwargs) -> dd.DataFrame:
+    def process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
@@ -755,8 +750,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -766,7 +759,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         # Default implementation: process each partition with process_batch
         def process_partition(partition):
-            return cls.process_batch(partition.copy(deep=True), **kwargs)
+            return self.process_batch(partition.copy(deep=True))
 
         return ddf.map_partitions(process_partition)
 
@@ -802,8 +795,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         if self.condition_operator not in ["in", "not_in", "gt", "lt", "eq", "range"]:
             raise ValueError(f"Unknown condition operator: {self.condition_operator}")
 
-    @staticmethod
-    def _apply_binning(series: pd.Series, **kwargs) -> pd.Series:
+    def _apply_binning(self, series: pd.Series) -> pd.Series:
         """
         Apply binning with specific parameters.
 
@@ -811,17 +803,15 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         series : pd.Series
             Series to generalize
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns:
         --------
         pd.Series
             Binned series
         """
-        # Extract parameters from kwargs
-        bin_count = kwargs.get("bin_count")
-        binning_method = kwargs.get("binning_method")
+        # Extract parameters from self
+        bin_count = getattr(self, "bin_count", 10)
+        binning_method = getattr(self, "binning_method", "equal_width")
 
         # Validate bin count
         validate_bin_count(bin_count)
@@ -891,8 +881,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         return result
 
-    @staticmethod
-    def _apply_rounding(series: pd.Series, **kwargs) -> pd.Series:
+    def _apply_rounding(self, series: pd.Series) -> pd.Series:
         """
         Apply rounding with specific precision.
 
@@ -900,16 +889,14 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         series : pd.Series
             Series to round
-        kwargs : dict
-            Decimal places (positive) or power of 10 (negative)
 
         Returns:
         --------
         pd.Series
             Rounded series
         """
-        # Extract parameters from kwargs
-        precision = kwargs.get("precision")
+        # Extract parameters from self
+        precision = getattr(self, "precision", 0)
 
         # Validate precision
         validate_precision(precision)
@@ -929,8 +916,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             result = (series / factor).round() * factor
             return result.astype("Int64") if is_int else result
 
-    @staticmethod
-    def _apply_range(series: pd.Series, **kwargs) -> pd.Series:
+    def _apply_range(self, series: pd.Series) -> pd.Series:
         """
         Apply range-based generalization to a series.
 
@@ -938,8 +924,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         series : pd.Series
             Series to generalize
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -947,7 +931,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             Range-generalized series
         """
         # Extract parameters from kwargs
-        range_limits = kwargs.get("range_limits")
+        range_limits = getattr(self, "range_limits", [])
 
         # Validate range limits
         validate_range_limits(range_limits)
@@ -1443,7 +1427,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         # Prepare operation parameters
         operation_params: Dict[str, Any] = {
             "strategy": self.strategy,
-            **self.process_kwargs,
+            **self.config.to_dict(),
         }
 
         operation_metrics = collect_operation_metrics(
