@@ -220,6 +220,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             self.logger.info(
                 f"Operation: {self.operation_name}, Load data and validate input parameters"
             )
+
             df, is_valid = self._load_data_and_validate_input_parameters(
                 data_source,
                 progress_tracker=progress_tracker,

@@ -30,7 +30,6 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 def process_dataframe_using_dask(
     df: pd.DataFrame,
     process_function: Callable,
-    is_use_batch_dask: bool = False,
     progress_tracker: Optional[HierarchicalProgressTracker] = None,
     task_logger: Optional[logging.Logger] = None,
     **kwargs,
@@ -44,8 +43,6 @@ def process_dataframe_using_dask(
         The DataFrame to process.
     process_function : Callable
         Function to apply to each chunk, should take a DataFrame chunk as the first argument.
-    is_use_batch_dask : bool, optional
-        Whether to use batch processing with Dask (default: False).
     progress_tracker : Optional[HierarchicalProgressTracker], optional
         Progress tracker for monitoring processing status (default: None).
     task_logger : logging.Logger, optional
@@ -103,23 +100,14 @@ def process_dataframe_using_dask(
         task_logger.info(
             f"Processing {total_rows} rows in {npartitions} chunks with Dask"
         )
-        task_logger.info(
-            f"Batch Dask mode: {'enabled' if is_use_batch_dask else 'disabled'}"
-        )
 
-        if is_use_batch_dask:
-            # Apply the processing function to the chunk
-            processed_partitions = process_function(ddf, **kwargs)
-        else:
-            # Define a function for processing that can be applied to Dask partitions
-            def process_partition(partition):
-                processed_partition = process_function(
-                    partition.copy(deep=True), **kwargs
-                )
-                return processed_partition
+        # Define a function for processing that can be applied to Dask partitions
+        def process_partition(partition):
+            processed_partition = process_function(partition.copy(deep=True))
+            return processed_partition
 
-            # Apply to Dask DataFrame
-            processed_partitions = ddf.map_partitions(process_partition)
+        # Apply to Dask DataFrame
+        processed_partitions = ddf.map_partitions(process_partition)
 
         task_logger.info(
             f"Processing completed for {total_rows} rows in {npartitions} partitions"
@@ -208,7 +196,7 @@ def process_dataframe_using_joblib(
         # Function to process each chunk with error handling
         def process_with_progress(chunk):
             try:
-                processed_chunk = process_function(chunk, **kwargs)
+                processed_chunk = process_function(chunk)
                 return processed_chunk
             except Exception as e:
                 return None
@@ -317,7 +305,7 @@ def process_dataframe_using_chunk(
                         i + 1, {"step": f"Processing chunk {i + 1}/{total_chunks}"}
                     )
                 # Apply the processing function to the chunk
-                processed_chunk = process_function(chunk, **kwargs)
+                processed_chunk = process_function(chunk)
 
                 # Accumulate the results
                 processed_chunks.append(processed_chunk)
