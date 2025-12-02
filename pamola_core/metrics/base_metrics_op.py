@@ -121,9 +121,6 @@ class MetricsOperation(BaseOperation):
         self.confidence_level = confidence_level
         self.sample_size = sample_size
 
-        # Internal processing context
-        self.process_kwargs: Dict[str, Any] = {}
-
     def execute(
         self,
         data_source: DataSource,
@@ -741,7 +738,7 @@ class MetricsOperation(BaseOperation):
             original_df=original_df,
             transformed_df=transformed_df,
             progress_tracker=progress_tracker,
-            **self.process_kwargs,
+            **self.config.to_dict(),
         )
 
     def calculate_metrics(

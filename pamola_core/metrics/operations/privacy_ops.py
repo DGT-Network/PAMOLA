@@ -110,7 +110,6 @@ class PrivacyMetricOperation(MetricsOperation):
         # Save config attributes to self for easy access
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
