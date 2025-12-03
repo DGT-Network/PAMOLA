@@ -29,7 +29,6 @@ from typing import Any, Dict, List, Tuple, Callable, Iterable, Iterator, Union, 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
-from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
@@ -2006,7 +2005,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         # Use the DataWriter to save
         output_filename = f"{self.operation_name.lower()}_output_{operation_timestamp}"
 
-        encryption_mode = get_encryption_mode(processed_df, **kwargs)
+        encryption_mode = get_encryption_mode(processed_df, self.use_encryption)
         output_result = writer.write_dataframe(
             df=processed_df,
             name=output_filename,

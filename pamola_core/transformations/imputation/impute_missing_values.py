@@ -23,10 +23,9 @@ interfaces for input/output, progress tracking, and result reporting.
 """
 
 import time
-import json
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Union, Optional, Any
+from typing import List, Dict, Optional, Any
 import numpy as np
 import pandas as pd
 from pandas.api.types import (
@@ -36,7 +35,6 @@ from pandas.api.types import (
     is_numeric_dtype,
     is_datetime64_any_dtype,
 )
-from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
@@ -1522,7 +1520,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         # Use the DataWriter to save
         output_filename = f"{self.operation_name.lower()}_output_{operation_timestamp}"
 
-        encryption_mode = get_encryption_mode(processed_df, **kwargs)
+        encryption_mode = get_encryption_mode(processed_df, self.use_encryption)
         output_result = writer.write_dataframe(
             df=processed_df,
             name=output_filename,

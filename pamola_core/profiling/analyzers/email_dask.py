@@ -25,7 +25,6 @@ Key Features:
 """
 
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 import time
@@ -40,7 +39,6 @@ from pamola_core.profiling.commons.email_utils_dask import (
 from pamola_core.profiling.schemas.email_core_schema import EmailOperationConfig
 from pamola_core.utils.io import (
     write_json,
-    ensure_directory,
     load_data_operation,
     write_dataframe_to_csv,
     load_settings_operation,
@@ -52,13 +50,16 @@ from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.utils.helpers import build_base_cache, filter_used_kwargs, get_cache_result
+from pamola_core.utils.helpers import (
+    build_base_cache,
+    filter_used_kwargs,
+    get_cache_result,
+)
 from pamola_core.profiling.commons import helpers
 
 # Configure logger
@@ -415,7 +416,7 @@ class EmailOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
             stats_path = output_dir / stats_filename
 
-            encryption_mode = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode = get_encryption_mode(analysis_results, self.use_encryption)
             write_json(
                 analysis_results,
                 stats_path,
@@ -502,7 +503,9 @@ class EmailOperation(FieldOperation):
                     f"{self.field_name}_domains_dictionary_{operation_timestamp}.json"
                 )
                 json_dict_path = output_dir / json_dict_filename
-                encryption_mode_dict_result = get_encryption_mode(dict_result, **kwargs)
+                encryption_mode_dict_result = get_encryption_mode(
+                    dict_result, self.use_encryption
+                )
                 write_json(
                     dict_result,
                     json_dict_path,
@@ -549,7 +552,7 @@ class EmailOperation(FieldOperation):
                     )
                     privacy_path = output_dir / privacy_filename
                     encryption_mode_privacy_risk = get_encryption_mode(
-                        privacy_risk, **kwargs
+                        privacy_risk, self.use_encryption
                     )
                     write_json(
                         privacy_risk,

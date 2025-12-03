@@ -28,8 +28,7 @@ import time
 from datetime import datetime
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union
-
+from typing import Dict, List, Any, Optional
 import numpy as np
 import pandas as pd
 
@@ -679,7 +678,7 @@ class NumericOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
             stats_path = output_dir / stats_filename
 
-            encryption_mode = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode = get_encryption_mode(analysis_results, self.use_encryption)
             write_json(
                 analysis_results,
                 stats_path,

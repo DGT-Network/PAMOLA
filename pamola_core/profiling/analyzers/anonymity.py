@@ -49,13 +49,11 @@ TODO:
 
 from collections import Counter
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional
 from itertools import combinations
-
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
@@ -71,7 +69,6 @@ from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
@@ -617,7 +614,9 @@ class KAnonymityProfilerOperation(BaseOperation):
             output_filename = f"enriched_data_{operation_timestamp}.csv"
             output_path = output_dir / output_filename
 
-            encryption_mode_enriched_df = get_encryption_mode(enriched_df, **kwargs)
+            encryption_mode_enriched_df = get_encryption_mode(
+                enriched_df, self.use_encryption
+            )
             write_dataframe_to_csv(
                 df=enriched_df,
                 file_path=output_path,
@@ -1078,7 +1077,9 @@ class KAnonymityProfilerOperation(BaseOperation):
             for qi_name, metrics in all_metrics.items()
         }
 
-        encryption_mode_summary_data = get_encryption_mode(summary_data, **kwargs)
+        encryption_mode_summary_data = get_encryption_mode(
+            summary_data, self.use_encryption
+        )
         write_json(
             summary_data,
             str(summary_path),
@@ -1094,7 +1095,9 @@ class KAnonymityProfilerOperation(BaseOperation):
         if vulnerable_records:
             vuln_filename = f"vulnerable_records_{operation_timestamp}.json"
             vuln_path = output_dir / vuln_filename
-            encryption_mode_records = get_encryption_mode(vulnerable_records, **kwargs)
+            encryption_mode_records = get_encryption_mode(
+                vulnerable_records, self.use_encryption
+            )
             write_json(
                 vulnerable_records,
                 str(vuln_path),
@@ -1231,7 +1234,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             result = get_cache_result(cached_result)
 
             return result
-        
+
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
 

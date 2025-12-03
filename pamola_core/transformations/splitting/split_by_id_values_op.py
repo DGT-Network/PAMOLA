@@ -37,8 +37,6 @@ import numpy as np
 import pandas as pd
 import matplotlib
 
-from pamola_core.utils.helpers import build_base_cache, get_cache_result
-
 # Set the backend to 'Agg' to avoid GUI issues
 matplotlib.use("Agg")
 from pamola_core.transformations.base_transformation_op import TransformationOperation
@@ -55,7 +53,6 @@ from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
-    OperationArtifact,
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_registry import register
@@ -820,7 +817,7 @@ class SplitByIDValuesOperation(TransformationOperation):
             output_path = output_dir / filename
 
             try:
-                encryption_mode = get_encryption_mode(df, **kwargs)
+                encryption_mode = get_encryption_mode(df, self.use_encryption)
                 if self.output_format == OutputFormat.CSV.value:
                     write_dataframe_to_csv(
                         df=df,

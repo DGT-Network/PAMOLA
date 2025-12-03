@@ -48,7 +48,6 @@ from pamola_core.anonymization.schemas.attribute_op_core_schema import (
     AttributeSuppressionConfig,
 )
 from pamola_core.common.constants import Constants
-from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     load_settings_operation,
     load_data_operation,
@@ -67,7 +66,6 @@ from pamola_core.utils.ops.op_field_utils import (
 from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
-    OperationArtifact,
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_registry import register
@@ -998,14 +996,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         output_dir = task_dir / "output"
         ensure_directory(output_dir)
 
-        use_encryption = self.use_encryption
-        encryption_key = self.encryption_key
-        kwargs_encryption = {
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
-            "encryption_mode": self.encryption_mode,
-        }
-        encryption_mode = get_encryption_mode(output_data, **kwargs_encryption)
+        encryption_mode = get_encryption_mode(output_data, self.use_encryption)
         filename = f"{operation_name}_{self.field_name}_output_{operation_timestamp}.{self.output_format}"
         output_path = output_dir / filename
 
@@ -1014,13 +1005,13 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 write_dataframe_to_csv(
                     df=output_data,
                     file_path=output_path,
-                    encryption_key=encryption_key,
-                    use_encryption=use_encryption,
+                    encryption_key=self.encryption_key,
+                    use_encryption=self.use_encryption,
                     encryption_mode=encryption_mode,
                 )
 
             elif self.output_format == "json":
-                if encryption_key:
+                if self.encryption_key:
                     temp_dir = output_path.parent / "temp"
                     temp_dir.mkdir(parents=True, exist_ok=True)
                     temp_path = temp_dir / f"decrypted_{output_path.name}"
@@ -1029,7 +1020,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                     crypto_utils.encrypt_file(
                         source_path=temp_path,
                         destination_path=output_path,
-                        key=encryption_key,
+                        key=self.encryption_key,
                         mode=encryption_mode,
                     )
                     directory_utils.safe_remove_temp_file(temp_path)

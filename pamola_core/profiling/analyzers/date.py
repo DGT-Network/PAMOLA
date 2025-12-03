@@ -24,7 +24,6 @@ Key Features:
   - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
 
-import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -50,7 +49,6 @@ from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
@@ -432,7 +430,7 @@ class DateOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
             stats_path = output_dir / stats_filename
 
-            encryption_mode = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode = get_encryption_mode(analysis_results, self.use_encryption)
             write_json(
                 analysis_results,
                 stats_path,

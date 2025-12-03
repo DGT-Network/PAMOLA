@@ -57,8 +57,6 @@ import dask.dataframe as dd
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-
-import numpy as np
 import pandas as pd
 
 # Import anonymization-specific utilities
@@ -1520,7 +1518,9 @@ class AnonymizationOperation(FieldOperation):
 
         # Use the DataWriter to save the DataFrame
         safe_kwargs = filter_used_kwargs(kwargs, writer.write_dataframe)
-        safe_kwargs["encryption_mode"] = get_encryption_mode(result_df, **kwargs)
+        safe_kwargs["encryption_mode"] = get_encryption_mode(
+            result_df, self.use_encryption
+        )
         output_result = writer.write_dataframe(
             df=result_df,
             name=field_name_output,
