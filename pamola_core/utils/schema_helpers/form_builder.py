@@ -330,7 +330,7 @@ def convert_property(
                         }
                         for value in field["items"]["enum"]
                     ]
-                    field["items"].pop("enum", None)  # ← Thêm cleanup
+                    field["items"].pop("enum", None)
 
                 # Handle the case of oneOf
                 elif "oneOf" in field["items"]:
