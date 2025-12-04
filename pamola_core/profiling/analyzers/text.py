@@ -47,8 +47,6 @@ from pamola_core.profiling.schemas.text_core_schema import (
 )
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
-    ensure_directory,
-    load_data_operation,
     load_settings_operation,
     write_json,
     write_dataframe_to_csv,
@@ -245,16 +243,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                df = load_data_operation(
+                df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-
-                if df is None:
-                    error_message = "Failed to load input data"
-                    logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
-                    )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 logger.error(error_message)

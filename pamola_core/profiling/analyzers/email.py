@@ -343,12 +343,9 @@ class EmailOperation(FieldOperation):
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
             )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
-                )
+            df = helpers.validate_and_get_dataframe(
+                data_source, dataset_name, **settings_operation
+            )
 
             # Check if field exists
             if self.field_name not in df.columns:

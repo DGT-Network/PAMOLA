@@ -29,7 +29,7 @@ from datetime import datetime
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 
 import pandas as pd
 
@@ -573,46 +573,7 @@ class MVFOperation(FieldOperation):
                 data_source, dataset_name, **kwargs
             )
 
-            # Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                # Step 1: Check if we have a cached result
-                if main_progress:
-                    current_steps += 1
-                    self._update_progress_tracker(
-                        TOTAL_MAIN_STEPS, current_steps, "Checking cache", main_progress
-                    )
-
-                # Load left dataset for check cache
-                df = load_data_operation(
-                    data_source, dataset_name, **settings_operation
-                )
-                if df is None:
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="No valid DataFrame found in data source",
-                    )
-
-                self.logger.info(
-                    f"Field: '{self.field_name}' loaded with {len(df)} records."
-                )
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df=df, reporter=reporter)
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if main_progress:
-                        self._update_progress_tracker(
-                            TOTAL_MAIN_STEPS,
-                            current_steps,
-                            "Complete (cached)",
-                            main_progress,
-                        )
-
-                    return cache_result
-
-            # Step 2: Data Loading
+            # Step 1: Data Loading
             if main_progress:
                 current_steps += 1
                 self._update_progress_tracker(
@@ -621,15 +582,10 @@ class MVFOperation(FieldOperation):
 
             try:
                 # Load DataFrame
-                if df is None:
-                    df = load_data_operation(
-                        data_source, dataset_name, **settings_operation
-                    )
-                    if df is None:
-                        return OperationResult(
-                            status=OperationStatus.ERROR,
-                            error_message="No valid DataFrame found in data source",
-                        )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
@@ -639,7 +595,7 @@ class MVFOperation(FieldOperation):
                     exception=e,
                 )
 
-            # Step 3: Validation
+            # Step 2: Validation
             if main_progress:
                 current_steps += 1
                 self._update_progress_tracker(
@@ -663,6 +619,31 @@ class MVFOperation(FieldOperation):
                     "operation_type": "mvf_analysis",
                 },
             )
+
+            # Step 3: Check if we have a cached result
+            # Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if main_progress:
+                    current_steps += 1
+                    self._update_progress_tracker(
+                        TOTAL_MAIN_STEPS, current_steps, "Checking cache", main_progress
+                    )
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df=df, reporter=reporter)
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if main_progress:
+                        self._update_progress_tracker(
+                            TOTAL_MAIN_STEPS,
+                            current_steps,
+                            "Complete (cached)",
+                            main_progress,
+                        )
+
+                    return cache_result
 
             # Step 4: Processing progress tracker
             if main_progress:
@@ -825,14 +806,13 @@ class MVFOperation(FieldOperation):
                 )
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         analysis_results=analysis_results,
                         task_dir=task_dir,
                         result=result,
@@ -864,7 +844,7 @@ class MVFOperation(FieldOperation):
             if self.save_output:
                 try:
                     # Save values dictionary
-                    values_str_path = self._save_output_data(
+                    self._save_output_data(
                         df=values_dict,
                         suffix="values_dictionary",
                         is_encryption_required=self.use_encryption,
@@ -877,7 +857,7 @@ class MVFOperation(FieldOperation):
                     )
 
                     # Save combinations dictionary
-                    combinations_str_path = self._save_output_data(
+                    self._save_output_data(
                         df=combinations_dict,
                         suffix="combinations_dictionary",
                         is_encryption_required=self.use_encryption,

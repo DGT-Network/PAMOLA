@@ -40,13 +40,12 @@ Dependencies:
 """
 
 import hashlib
-import threading
 import time
 import uuid
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import dask.dataframe as dd
@@ -82,10 +81,6 @@ from pamola_core.anonymization.commons.categorical_strategies import (
 )
 
 # Commons - categories
-from pamola_core.anonymization.commons.category_mapping import (
-    DEFAULT_UNKNOWN_TEMPLATE,
-    DEFAULT_UNKNOWN_VALUE,
-)
 from pamola_core.anonymization.commons.category_utils import (
     analyze_category_distribution,
     calculate_semantic_diversity_safe,
@@ -381,53 +376,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                try:
-                    if main_progress:
-                        current_steps += 1
-                        main_progress.update(
-                            current_steps,
-                            {"step": "Checking cache", "field": self.field_name},
-                        )
-                    # Load data for cache check
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-
-                    self.logger.info("Checking operation cache...")
-                    cache_result = self._check_cache(df, reporter)
-
-                    if cache_result:
-                        self.logger.info(
-                            f"Using cached result for {self.field_name} generalization"
-                        )
-
-                        # Update progress
-                        if main_progress:
-                            main_progress.update(
-                                current_steps,
-                                {"step": "Complete (cached)", "field": self.field_name},
-                            )
-
-                        # Report cache hit to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Categorical generalization of {self.field_name} (from cache)",
-                                details={"cached": True},
-                            )
-
-                        return cache_result
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
-
-            # Step 2: Data Loading & Validation
+            # Step 1: Data Loading & Validation
             if main_progress:
                 current_steps += 1
                 main_progress.update(
@@ -437,11 +386,10 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
             # Validate and get dataframe
             try:
-                if df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
+                self.logger.info(f"Loading data for field '{self.field_name}'")
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
 
                 # Validate field is suitable for categorical operations
                 is_valid, validation_details = validate_categorical_field(
@@ -475,6 +423,48 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     error_message=error_message,
                     exception=e,
                 )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                try:
+                    if main_progress:
+                        current_steps += 1
+                        main_progress.update(
+                            current_steps,
+                            {"step": "Checking cache", "field": self.field_name},
+                        )
+                    # Load data for cache check
+                    self.logger.info("Checking operation cache...")
+                    cache_result = self._check_cache(df, reporter)
+
+                    if cache_result:
+                        self.logger.info(
+                            f"Using cached result for {self.field_name} generalization"
+                        )
+
+                        # Update progress
+                        if main_progress:
+                            main_progress.update(
+                                current_steps,
+                                {"step": "Complete (cached)", "field": self.field_name},
+                            )
+
+                        # Report cache hit to reporter
+                        if reporter:
+                            reporter.add_operation(
+                                f"Categorical generalization of {self.field_name} (from cache)",
+                                details={"cached": True},
+                            )
+
+                        return cache_result
+                except Exception as e:
+                    error_message = f"Error checking cache: {str(e)}"
+                    self.logger.error(error_message)
+                    return OperationResult(
+                        status=OperationStatus.ERROR,
+                        error_message=error_message,
+                        exception=e,
+                    )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -654,7 +644,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_viz = {
@@ -662,7 +651,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                         "encryption_key": self.encryption_key,
                         "metrics": metrics,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
                         task_dir=task_dir,
@@ -694,11 +683,10 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 )
 
             # Save output data if required
-            output_result_path = None
             if self.save_output:
                 try:
                     safe_kwargs = filter_used_kwargs(kwargs, self._save_output_data)
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
                         result=result,

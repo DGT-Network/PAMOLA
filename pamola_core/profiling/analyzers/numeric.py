@@ -29,6 +29,7 @@ from datetime import datetime
 import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -581,8 +582,6 @@ class NumericOperation(FieldOperation):
 
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
-            dictionaries_dir = dirs["dictionaries"]
-            cache_dir = dirs["cache"]
 
             # Update progress if tracker provided
             if progress_tracker:
@@ -595,11 +594,18 @@ class NumericOperation(FieldOperation):
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
             )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+
+            try:
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Check if field exists

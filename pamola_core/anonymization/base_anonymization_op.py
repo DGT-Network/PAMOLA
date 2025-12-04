@@ -57,6 +57,7 @@ import dask.dataframe as dd
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+
 import pandas as pd
 
 # Import anonymization-specific utilities
@@ -275,7 +276,30 @@ class AnonymizationOperation(FieldOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
+            # Step 1: Data Loading & Validation
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", "field": self.field_name}
+                )
+
+            # Validate and get dataframe
+            try:
+                self.logger.info(f"Loading data for")
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
                 try:
                     if main_progress:
@@ -284,10 +308,6 @@ class AnonymizationOperation(FieldOperation):
                             current_steps,
                             {"step": "Checking cache", "field": self.field_name},
                         )
-                    # Load data for cache check
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
 
                     self.logger.info("Checking operation cache...")
                     cache_result = self._check_cache(df, reporter)
@@ -320,29 +340,6 @@ class AnonymizationOperation(FieldOperation):
                         error_message=error_message,
                         exception=e,
                     )
-
-            # Step 2: Data Loading & Validation
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Data Loading", "field": self.field_name}
-                )
-
-            # Validate and get dataframe
-            try:
-                if df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -510,14 +507,13 @@ class AnonymizationOperation(FieldOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
                         task_dir=task_dir,
@@ -549,11 +545,10 @@ class AnonymizationOperation(FieldOperation):
                 )
 
             # Save output data if required
-            output_result_path = None
             if self.save_output:
                 try:
                     safe_kwargs = filter_used_kwargs(kwargs, self._save_output_data)
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
                         result=result,
@@ -658,12 +653,26 @@ class AnonymizationOperation(FieldOperation):
             self.logger.error(error_message)
             raise ValueError(error_message)
 
-        if self.field_name not in df.columns:
-            error_message = f"Field {self.field_name} not found in DataFrame"
-            self.logger.error(error_message)
-            raise ValueError(error_message)
+        if self.field_name:
+            if self.field_name not in df.columns:
+                error_msg = f"Field '{self.field_name}' not found in DataFrame columns"
+                self.logger.error(error_msg)
+                raise ValueError(error_msg)
 
         df = self._optimize_data(df)
+
+        # Apply data types from data source
+        try:
+            df = data_source.apply_data_types(df, dataset_name)
+        except ValueError as e:
+            error_msg = f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg) from e
+
+        except TypeError as e:
+            error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
+            self.logger.error(error_msg)
+            raise TypeError(error_msg) from e
 
         return df
 
@@ -1549,6 +1558,16 @@ class AnonymizationOperation(FieldOperation):
                     "path": str(output_result.path),
                 },
             )
+
+        # Save output data types
+        self._save_dtypes_output(
+            df=result_df,
+            writer=writer,
+            result=result,
+            reporter=reporter,
+            filename=field_name_output,
+        )
+
         return str(output_result.path)
 
     def _cleanup_memory(
@@ -1845,4 +1864,62 @@ class AnonymizationOperation(FieldOperation):
 
         except Exception as e:
             self.logger.warning(f"Error saving to cache: {str(e)}")
+            return False
+
+    def _save_dtypes_output(
+        self,
+        df: pd.DataFrame,
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        filename: str = None,
+    ) -> bool:
+        """
+        Saves data types dataframe format to a JSON file.
+
+        Returns
+        -------
+        Path or None
+            Path to saved file if success, otherwise None
+        """
+        try:
+
+            # Get the dtypes of the columns as a Series
+            dtypes_series = df.dtypes
+
+            # Convert the dtypes Series to a dictionary
+            dtypes_dict = dtypes_series.astype(str).to_dict()
+
+            # Generate standardized output filename with timestamp
+            dtypes_filename = f"data_types_{filename}"
+
+            dtypes_result = writer.write_json(
+                data=dtypes_dict,
+                name=dtypes_filename,
+                subdir="output",
+                timestamp_in_name=False,
+                encryption_key=self.encryption_key,
+            )
+
+            result.add_metric(dtypes_filename, dtypes_dict)
+
+            result.add_artifact(
+                artifact_type="json",
+                path=dtypes_result.path,
+                description=f"Data types of output dataframe",
+                category=Constants.Artifact_Category_Output,
+            )
+
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="json",
+                    path=str(dtypes_result.path),
+                    description=f"Data types of output dataframe",
+                )
+
+            self.logger.info(f"Dtypes output saved to: {Path(dtypes_result.path).name}")
+            return True
+
+        except Exception as e:
+            self.logger.warning(f"Failed to save dtypes format: {str(e)}")
             return False

@@ -190,7 +190,28 @@ class TransformationOperation(BaseOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
+            # Step 1: Data Loading
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", **field_info}
+                )
+
+            # Validate and get dataframe
+            try:
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
                 if main_progress:
                     current_steps += 1
@@ -198,11 +219,6 @@ class TransformationOperation(BaseOperation):
                         current_steps,
                         {"step": "Checking cache", **field_info},
                     )
-
-                # Load data for check cache
-                df = load_data_operation(
-                    data_source, dataset_name, **settings_operation
-                )
 
                 self.logger.info("Checking operation cache...")
                 cache_result = self._check_cache(df, reporter)
@@ -225,28 +241,6 @@ class TransformationOperation(BaseOperation):
                         )
 
                     return cache_result
-
-            # Step 2: Data Loading
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Data Loading", **field_info}
-                )
-
-            # Validate and get dataframe
-            try:
-                if df is None:
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Validation
             if main_progress:
@@ -377,14 +371,13 @@ class TransformationOperation(BaseOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         transformed_data=transformed_data,
                         task_dir=task_dir,
@@ -417,9 +410,8 @@ class TransformationOperation(BaseOperation):
             # Save output data if required
             if self.save_output:
                 try:
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=result_df,
-                        task_dir=task_dir,
                         is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
@@ -536,10 +528,19 @@ class TransformationOperation(BaseOperation):
                 error_msg = f"Field '{self.field_name}' not found in DataFrame columns"
                 self.logger.error(error_msg)
                 raise ValueError(error_msg)
-            else:
-                self.logger.debug(
-                    f"Field '{self.field_name}' found in DataFrame columns"
-                )
+
+        # Apply data types from data source
+        try:
+            df = data_source.apply_data_types(df, dataset_name)
+        except ValueError as e:
+            error_msg = f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg) from e
+
+        except TypeError as e:
+            error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
+            self.logger.error(error_msg)
+            raise TypeError(error_msg) from e
 
         return df
 
@@ -1165,6 +1166,7 @@ class TransformationOperation(BaseOperation):
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
         timestamp: Optional[str] = None,
+        file_name_output: str = None,
         **kwargs,
     ) -> str:
         """
@@ -1195,7 +1197,7 @@ class TransformationOperation(BaseOperation):
         custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
 
         # Generate standardized output filename with timestamp
-        field_name_output = (
+        field_name_output = file_name_output or (
             f"{self.field_label}_{self.operation_name}_output_{timestamp}"
         )
 
@@ -1213,7 +1215,7 @@ class TransformationOperation(BaseOperation):
         result.add_artifact(
             artifact_type=self.output_format,
             path=output_result.path,
-            description=f"{self.name} transformed data",
+            description=f"{self.operation_name} transformed data",
             category=Constants.Artifact_Category_Output,
         )
 
@@ -1222,8 +1224,17 @@ class TransformationOperation(BaseOperation):
             reporter.add_artifact(
                 self.output_format,
                 str(output_result.path),
-                f"{self.name} transformed data",
+                f"{self.operation_name} transformed data",
             )
+
+        # Save output data types
+        self._save_dtypes_output(
+            df=result_df,
+            writer=writer,
+            result=result,
+            reporter=reporter,
+            filename=field_name_output,
+        )
 
         return str(output_result.path)
 
@@ -1535,3 +1546,61 @@ class TransformationOperation(BaseOperation):
         custom_kwargs["encryption_mode"] = get_encryption_mode(df, self.use_encryption)
 
         return custom_kwargs
+
+    def _save_dtypes_output(
+        self,
+        df: pd.DataFrame,
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any = None,
+        filename: str = None,
+    ) -> bool:
+        """
+        Saves data types dataframe format to a JSON file.
+
+        Returns
+        -------
+        Path or None
+            Path to saved file if success, otherwise None
+        """
+        try:
+
+            # Get the dtypes of the columns as a Series
+            dtypes_series = df.dtypes
+
+            # Convert the dtypes Series to a dictionary
+            dtypes_dict = dtypes_series.astype(str).to_dict()
+
+            # Generate standardized output filename with timestamp
+            dtypes_filename = f"data_types_{filename}"
+
+            dtypes_result = writer.write_json(
+                data=dtypes_dict,
+                name=dtypes_filename,
+                subdir="output",
+                timestamp_in_name=False,
+                encryption_key=self.encryption_key,
+            )
+
+            result.add_metric(dtypes_filename, dtypes_dict)
+
+            result.add_artifact(
+                artifact_type="json",
+                path=dtypes_result.path,
+                description=f"Data types of output dataframe",
+                category=Constants.Artifact_Category_Output,
+            )
+
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="json",
+                    path=str(dtypes_result.path),
+                    description=f"Data types of output dataframe",
+                )
+
+            self.logger.info(f"Dtypes output saved to: {Path(dtypes_result.path).name}")
+            return True
+
+        except Exception as e:
+            self.logger.warning(f"Failed to save dtypes format: {str(e)}")
+            return False

@@ -32,9 +32,10 @@ import pandas as pd
 from pamola_core.utils import logging as custom_logging
 from pamola_core.utils.ops import op_data_source_helpers
 from pamola_core.utils.ops.op_data_reader import DataReader, ResultWithError
+from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 
 # Define type for file paths dictionary - allowing both Path and List[Path] as values
-PathType = TypeVar('PathType', Path, List[Path])
+PathType = TypeVar("PathType", Path, List[Path])
 
 
 class DataSource:
@@ -45,11 +46,14 @@ class DataSource:
     allowing operations to work with data from various sources in a uniform way.
     """
 
-    def __init__(self,
-                 dataframes: Dict[str, Union[pd.DataFrame, dd.DataFrame]] = None,
-                 file_paths: Dict[str, Union[Path, List[Path]]] = None,
-                 encryption_keys: Dict[str, Union[str, Path]] = None,
-                 encryption_modes: Dict[str, Union[str, Path]] = None):
+    def __init__(
+        self,
+        dataframes: Dict[str, Union[pd.DataFrame, dd.DataFrame]] = None,
+        file_paths: Dict[str, Union[Path, List[Path]]] = None,
+        encryption_keys: Dict[str, Union[str, Path]] = None,
+        encryption_modes: Dict[str, Union[str, Path]] = None,
+        data_types: Dict[str, Dict[str, str]] = None,
+    ):
         """
         Initialize a data source.
 
@@ -59,11 +63,18 @@ class DataSource:
             Dictionary of named DataFrames
         file_paths : Dict[str, Union[Path, List[Path]]], optional
             Dictionary of named file paths (can be single paths or lists of paths)
+        encryption_keys : Dict[str, Union[str, Path]], optional
+            Dictionary of encryption keys
+        encryption_modes : Dict[str, Union[str, Path]], optional
+            Dictionary of encryption modes
+        data_types : Dict[str, Dict[str, str]], optional
+            Dictionary specifying data types for each DataFrame or file
         """
         self.dataframes = dataframes or {}
         self.file_paths = file_paths or {}
         self.encryption_keys = encryption_keys or {}
         self.encryption_modes = encryption_modes or {}
+        self.data_types = data_types or {}
 
         # Initialize logger using the custom logging module
         self.logger = custom_logging.get_logger(f"{__name__}.{self.__class__.__name__}")
@@ -75,8 +86,12 @@ class DataSource:
                 self.file_paths[key] = Path(path)
                 self.logger.debug(f"Converted string path to Path object for '{key}'")
             elif isinstance(path, list):
-                self.file_paths[key] = [Path(p) if isinstance(p, str) else p for p in path]
-                self.logger.debug(f"Converted string paths to Path objects for list '{key}'")
+                self.file_paths[key] = [
+                    Path(p) if isinstance(p, str) else p for p in path
+                ]
+                self.logger.debug(
+                    f"Converted string paths to Path objects for list '{key}'"
+                )
 
         # Initialize DataReader for all file operations
         self.reader = DataReader(logger=self.logger)
@@ -84,8 +99,10 @@ class DataSource:
         # Cache for schema information
         self._schema_cache = {}
 
-        self.logger.debug(f"DataSource initialized with {len(self.dataframes)} dataframes and "
-                          f"{len(self.file_paths)} file paths")
+        self.logger.debug(
+            f"DataSource initialized with {len(self.dataframes)} dataframes and "
+            f"{len(self.file_paths)} file paths"
+        )
 
     def __enter__(self):
         """Support for context manager protocol."""
@@ -99,7 +116,9 @@ class DataSource:
         self._schema_cache.clear()
 
         if exc_type:
-            self.logger.error(f"Exception during DataSource context: {exc_type.__name__}: {exc_val}")
+            self.logger.error(
+                f"Exception during DataSource context: {exc_type.__name__}: {exc_val}"
+            )
 
         return False  # Don't suppress exceptions
 
@@ -125,7 +144,7 @@ class DataSource:
         if name in self._schema_cache:
             del self._schema_cache[name]
             self.logger.debug(f"Cleared schema cache for '{name}'")
-            
+
     def add_encryption_key(self, name: str, encryption_key: Union[str, Path]):
         existed_encryption_key = self.encryption_keys.get(name)
         if not existed_encryption_key:
@@ -138,11 +157,12 @@ class DataSource:
                 self.logger.debug(f"Cleared schema cache for '{name}'")
         else:
             self.logger.debug(f"encryption_key '{name}' is existed.")
-            
+
     def add_encryption_mode(self, name: str, path: Union[str, Path]):
         existed_encryption_mode = self.encryption_modes.get(name)
         if not existed_encryption_mode:
             from pamola_core.utils.io_helpers.crypto_utils import detect_encryption_mode
+
             encryption_mode = detect_encryption_mode(path)
             self.encryption_modes[name] = encryption_mode
             self.logger.debug(f"Added encryption_mode '{name}': {encryption_mode}")
@@ -153,7 +173,7 @@ class DataSource:
                 self.logger.debug(f"Cleared schema cache for '{name}'")
         else:
             self.logger.debug(f"encryption_mode '{name}' is existed.")
-            
+
     def add_file_path(self, name: str, path: Union[str, Path]):
         """
         Add a file path to the data source.
@@ -174,10 +194,7 @@ class DataSource:
             del self._schema_cache[name]
             self.logger.debug(f"Cleared schema cache for '{name}'")
 
-    def suggest_engine(
-            self,
-            name: str
-    ) -> str:
+    def suggest_engine(self, name: str) -> str:
         """
         Suggest engine should to use.
 
@@ -197,23 +214,23 @@ class DataSource:
         return suggest_engine
 
     def get_dataframe(
-            self,
-            name: str,
-            load_if_path: bool = True,
-            columns: Optional[List[str]] = None,
-            nrows: Optional[int] = None,
-            skiprows: Optional[Union[int, List[int]]] = None,
-            encoding: str = "utf-8",
-            delimiter: str = ",",
-            quotechar: str = '"',
-            use_dask: bool = False,
-            memory_limit: Optional[float] = None,
-            encryption_key: Optional[str] = None,
-            show_progress: bool = True,
-            validate_schema: Optional[Dict[str, Any]] = None,
-            detect_parameters: bool = True,
-            use_encryption: bool = False,
-            encryption_mode: Optional[str] = None,
+        self,
+        name: str,
+        load_if_path: bool = True,
+        columns: Optional[List[str]] = None,
+        nrows: Optional[int] = None,
+        skiprows: Optional[Union[int, List[int]]] = None,
+        encoding: str = "utf-8",
+        delimiter: str = ",",
+        quotechar: str = '"',
+        use_dask: bool = False,
+        memory_limit: Optional[float] = None,
+        encryption_key: Optional[str] = None,
+        show_progress: bool = True,
+        validate_schema: Optional[Dict[str, Any]] = None,
+        detect_parameters: bool = True,
+        use_encryption: bool = False,
+        encryption_mode: Optional[str] = None,
     ) -> ResultWithError:
         """
         Get a DataFrame by name with enhanced error reporting and schema validation.
@@ -257,12 +274,14 @@ class DataSource:
         if df is not None:
             # Validate schema if requested
             if validate_schema and df is not None:
-                is_valid, validation_errors = self._validate_dataframe_schema(df, validate_schema)
+                is_valid, validation_errors = self._validate_dataframe_schema(
+                    df, validate_schema
+                )
                 if not is_valid:
                     error_info = {
                         "error_type": "SchemaValidationError",
                         "message": f"DataFrame '{name}' failed schema validation",
-                        "validation_errors": validation_errors
+                        "validation_errors": validation_errors,
                     }
                     self.logger.warning(error_info["message"])
                     return df, error_info
@@ -271,9 +290,20 @@ class DataSource:
         # Try loading from file if requested
         if load_if_path:
             df, error_info = self._get_dataframe_from_file(
-                name, columns, nrows, skiprows, encoding, delimiter, quotechar,
-                use_dask, memory_limit, encryption_key, show_progress, detect_parameters=detect_parameters,
-                use_encryption=use_encryption, encryption_mode=encryption_mode
+                name,
+                columns,
+                nrows,
+                skiprows,
+                encoding,
+                delimiter,
+                quotechar,
+                use_dask,
+                memory_limit,
+                encryption_key,
+                show_progress,
+                detect_parameters=detect_parameters,
+                use_encryption=use_encryption,
+                encryption_mode=encryption_mode,
             )
 
             if df is not None:
@@ -282,12 +312,14 @@ class DataSource:
 
                 # Validate schema if requested
                 if validate_schema:
-                    is_valid, validation_errors = self._validate_dataframe_schema(df, validate_schema)
+                    is_valid, validation_errors = self._validate_dataframe_schema(
+                        df, validate_schema
+                    )
                     if not is_valid:
                         error_info = {
                             "error_type": "SchemaValidationError",
                             "message": f"DataFrame '{name}' failed schema validation",
-                            "validation_errors": validation_errors
+                            "validation_errors": validation_errors,
                         }
                         self.logger.warning(error_info["message"])
                         return df, error_info
@@ -299,13 +331,13 @@ class DataSource:
         # Not found
         error_info = {
             "error_type": "DataFrameNotFoundError",
-            "message": f"DataFrame '{name}' not found"
+            "message": f"DataFrame '{name}' not found",
         }
         self.logger.debug(error_info["message"])
         return None, error_info
 
     def _validate_dataframe_schema(
-            self, df: Union[pd.DataFrame, dd.DataFrame], expected_schema: Dict[str, Any]
+        self, df: Union[pd.DataFrame, dd.DataFrame], expected_schema: Dict[str, Any]
     ) -> Tuple[bool, List[str]]:
         """
         Validate a DataFrame against an expected schema.
@@ -329,10 +361,12 @@ class DataSource:
         return op_data_source_helpers.validate_schema(
             actual_schema=actual_schema,
             expected_schema=expected_schema,
-            logger=self.logger
+            logger=self.logger,
         )
 
-    def _build_schema_from_df(self, df: Union[pd.DataFrame, dd.DataFrame]) -> Dict[str, Any]:
+    def _build_schema_from_df(
+        self, df: Union[pd.DataFrame, dd.DataFrame]
+    ) -> Dict[str, Any]:
         """
         Build schema information from DataFrame.
 
@@ -348,28 +382,54 @@ class DataSource:
         """
         # Build actual schema from DataFrame
         schema = {
-            'columns': list(df.columns),
-            'dtypes': {col: str(df[col].dtype) for col in df.columns} if isinstance(df, pd.DataFrame)
-            else {col: str(df[col].map_partitions(lambda x: x.dtype).compute().iloc[0]) for col in df.columns},
-            'num_rows': len(df) if isinstance(df, pd.DataFrame)
-            else int(df.map_partitions(len).sum().compute()),
-            'num_cols': len(df.columns),
-            'null_counts': {col: int(df[col].isna().sum()) for col in df.columns} if isinstance(df, pd.DataFrame)
-            else {col: int(df[col].isna().map_partitions(lambda part: part.sum()).sum().compute()) for col in df.columns}
+            "columns": list(df.columns),
+            "dtypes": (
+                {col: str(df[col].dtype) for col in df.columns}
+                if isinstance(df, pd.DataFrame)
+                else {
+                    col: str(
+                        df[col].map_partitions(lambda x: x.dtype).compute().iloc[0]
+                    )
+                    for col in df.columns
+                }
+            ),
+            "num_rows": (
+                len(df)
+                if isinstance(df, pd.DataFrame)
+                else int(df.map_partitions(len).sum().compute())
+            ),
+            "num_cols": len(df.columns),
+            "null_counts": (
+                {col: int(df[col].isna().sum()) for col in df.columns}
+                if isinstance(df, pd.DataFrame)
+                else {
+                    col: int(
+                        df[col]
+                        .isna()
+                        .map_partitions(lambda part: part.sum())
+                        .sum()
+                        .compute()
+                    )
+                    for col in df.columns
+                }
+            ),
         }
 
         # Try to get unique counts for columns (not for very large datasets)
         if schema.get("num_rows", 100000) < 100000:
             try:
                 sample = df if isinstance(df, pd.DataFrame) else df.compute()
-                schema['unique_counts'] = {col: int(sample[col].nunique()) for col in sample.columns}
+                schema["unique_counts"] = {
+                    col: int(sample[col].nunique()) for col in sample.columns
+                }
             except Exception as e:
                 self.logger.debug(f"Could not compute unique counts: {e}")
 
         return schema
 
-    def _get_dataframe_from_memory(self, name: str,
-                                   columns: Optional[List[str]] = None) -> ResultWithError:
+    def _get_dataframe_from_memory(
+        self, name: str, columns: Optional[List[str]] = None
+    ) -> ResultWithError:
         """
         Get a DataFrame from memory.
 
@@ -393,7 +453,9 @@ class DataSource:
                 # Validate columns exist
                 missing_cols = [col for col in columns if col not in df.columns]
                 if missing_cols:
-                    self.logger.warning(f"Columns not found in DataFrame '{name}': {missing_cols}")
+                    self.logger.warning(
+                        f"Columns not found in DataFrame '{name}': {missing_cols}"
+                    )
 
                 valid_cols = [col for col in columns if col in df.columns]
                 if not valid_cols:
@@ -401,7 +463,7 @@ class DataSource:
                         "error_type": "ColumnNotFoundError",
                         "message": f"None of the requested columns exist in DataFrame '{name}'",
                         "requested_columns": columns,
-                        "available_columns": list(df.columns)
+                        "available_columns": list(df.columns),
                     }
                     self.logger.error(error_info["message"])
                     return None, error_info
@@ -412,21 +474,24 @@ class DataSource:
 
         return None, None
 
-    def _get_dataframe_from_file(self, name: str,
-                                 columns: Optional[List[str]] = None,
-                                 nrows: Optional[int] = None,
-                                 skiprows: Optional[Union[int, List[int]]] = None,
-                                 encoding: str = "utf-8",
-                                 delimiter: str = ",",
-                                 quotechar: str = '"',
-                                 use_dask: bool = False,
-                                 memory_limit: Optional[float] = None,
-                                 encryption_key: Optional[str] = None,
-                                 show_progress: bool = True,
-                                 auto_optimize: bool = True,
-                                 detect_parameters: bool = True,
-                                 use_encryption: bool = False,
-                                 encryption_mode: Optional[str] = None) -> ResultWithError:
+    def _get_dataframe_from_file(
+        self,
+        name: str,
+        columns: Optional[List[str]] = None,
+        nrows: Optional[int] = None,
+        skiprows: Optional[Union[int, List[int]]] = None,
+        encoding: str = "utf-8",
+        delimiter: str = ",",
+        quotechar: str = '"',
+        use_dask: bool = False,
+        memory_limit: Optional[float] = None,
+        encryption_key: Optional[str] = None,
+        show_progress: bool = True,
+        auto_optimize: bool = True,
+        detect_parameters: bool = True,
+        use_encryption: bool = False,
+        encryption_mode: Optional[str] = None,
+    ) -> ResultWithError:
         """
         Load a DataFrame from a file using DataReader.
 
@@ -466,7 +531,9 @@ class DataSource:
             return None, None
 
         file_path = self.file_paths[name]
-        self.logger.debug(f"DataFrame '{name}' not in memory, attempting to load from file: {file_path}")
+        self.logger.debug(
+            f"DataFrame '{name}' not in memory, attempting to load from file: {file_path}"
+        )
 
         # For a multi-file dataset (list of paths)
         if isinstance(file_path, list):
@@ -487,15 +554,17 @@ class DataSource:
                     memory_limit=memory_limit,
                     encryption_key=encryption_key,
                     auto_optimize=auto_optimize,
-                    show_progress=show_progress
+                    show_progress=show_progress,
                 )
             except Exception as e:
                 error_info = {
                     "error_type": type(e).__name__,
                     "message": str(e),
-                    "resolution": "Check file format and ensure it is readable"
+                    "resolution": "Check file format and ensure it is readable",
                 }
-                self.logger.error(f"Error loading multiple files: {error_info['error_type']}: {error_info['message']}")
+                self.logger.error(
+                    f"Error loading multiple files: {error_info['error_type']}: {error_info['message']}"
+                )
                 return None, error_info
 
         # For a single file path
@@ -517,21 +586,23 @@ class DataSource:
                     show_progress=show_progress,
                     detect_parameters=detect_parameters,
                     use_encryption=use_encryption,
-                    encryption_mode=encryption_mode
+                    encryption_mode=encryption_mode,
                 )
             except Exception as e:
                 error_info = {
                     "error_type": type(e).__name__,
                     "message": str(e),
                     "file_path": str(file_path),
-                    "resolution": "Check file format and ensure it is readable"
+                    "resolution": "Check file format and ensure it is readable",
                 }
-                self.logger.error(f"Error loading file '{name}': {error_info['error_type']}: {error_info['message']}")
+                self.logger.error(
+                    f"Error loading file '{name}': {error_info['error_type']}: {error_info['message']}"
+                )
                 return None, error_info
         else:
             error_info = {
                 "error_type": "FileNotFoundError",
-                "message": f"File path does not exist: {file_path}"
+                "message": f"File path does not exist: {file_path}",
             }
             self.logger.warning(error_info["message"])
             return None, error_info
@@ -579,7 +650,9 @@ class DataSource:
         # Get the DataFrame
         df, error_info = self.get_dataframe(name)
         if df is None:
-            self.logger.warning(f"Cannot get schema: DataFrame '{name}' not found: {error_info.get('message')}")
+            self.logger.warning(
+                f"Cannot get schema: DataFrame '{name}' not found: {error_info.get('message')}"
+            )
             return None
 
         # Build schema information
@@ -590,17 +663,21 @@ class DataSource:
         if len(df) > 0 and len(df) <= 10000:
             try:
                 sample_row = df.iloc[0].to_dict()
-                schema['sample_values'] = {k: str(v) for k, v in sample_row.items()}
+                schema["sample_values"] = {k: str(v) for k, v in sample_row.items()}
             except Exception as e:
                 self.logger.debug(f"Could not extract sample values: {e}")
 
         # Cache the schema
         self._schema_cache[name] = schema
-        self.logger.debug(f"Schema for '{name}' cached: {len(schema['columns'])} columns, {schema['num_rows']} rows")
+        self.logger.debug(
+            f"Schema for '{name}' cached: {len(schema['columns'])} columns, {schema['num_rows']} rows"
+        )
 
         return schema
 
-    def validate_schema(self, name: str, expected_schema: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    def validate_schema(
+        self, name: str, expected_schema: Dict[str, Any]
+    ) -> Tuple[bool, List[str]]:
         """
         Validate a DataFrame against an expected schema.
 
@@ -630,17 +707,21 @@ class DataSource:
             return False, ["DataFrame not found"]
 
         # Delegate schema validation to the helper function
-        return op_data_source_helpers.validate_schema(schema, expected_schema, self.logger)
+        return op_data_source_helpers.validate_schema(
+            schema, expected_schema, self.logger
+        )
 
-    def get_dataframe_chunks(self,
-                             name: str,
-                             chunk_size: int = 10000,
-                             columns: Optional[List[str]] = None,
-                             encoding: str = "utf-8",
-                             delimiter: str = ",",
-                             quotechar: str = '"',
-                             encryption_key: Optional[str] = None,
-                             show_progress: bool = True) -> Generator[pd.DataFrame, None, None]:
+    def get_dataframe_chunks(
+        self,
+        name: str,
+        chunk_size: int = 10000,
+        columns: Optional[List[str]] = None,
+        encoding: str = "utf-8",
+        delimiter: str = ",",
+        quotechar: str = '"',
+        encryption_key: Optional[str] = None,
+        show_progress: bool = True,
+    ) -> Generator[pd.DataFrame, None, None]:
         """
         Get chunks of a DataFrame for processing large datasets.
 
@@ -687,35 +768,39 @@ class DataSource:
                 # Use DataReader to read the file in chunks
                 try:
                     for chunk in self.reader.read_dataframe_in_chunks(
-                            source=file_path,
-                            chunk_size=chunk_size,
-                            columns=columns,
-                            encoding=encoding,
-                            delimiter=delimiter,
-                            quotechar=quotechar,
-                            encryption_key=encryption_key,
-                            show_progress=show_progress
+                        source=file_path,
+                        chunk_size=chunk_size,
+                        columns=columns,
+                        encoding=encoding,
+                        delimiter=delimiter,
+                        quotechar=quotechar,
+                        encryption_key=encryption_key,
+                        show_progress=show_progress,
                     ):
                         yield chunk
                 except Exception as e:
                     self.logger.error(f"Error reading chunks from '{name}': {str(e)}")
             else:
-                self.logger.error(f"Cannot generate chunks: File path does not exist or is not a single file")
+                self.logger.error(
+                    f"Cannot generate chunks: File path does not exist or is not a single file"
+                )
         else:
             self.logger.error(f"Cannot generate chunks: DataFrame '{name}' not found")
 
-    def add_multi_file_dataset(self,
-                               name: str,
-                               file_paths: List[Union[str, Path]],
-                               load: bool = False,
-                               columns: Optional[List[str]] = None,
-                               min_valid_files: int = 1,
-                               error_on_empty: bool = False,
-                               encoding: str = "utf-8",
-                               delimiter: str = ",",
-                               quotechar: str = '"',
-                               encryption_key: Optional[str] = None,
-                               show_progress: bool = True):
+    def add_multi_file_dataset(
+        self,
+        name: str,
+        file_paths: List[Union[str, Path]],
+        load: bool = False,
+        columns: Optional[List[str]] = None,
+        min_valid_files: int = 1,
+        error_on_empty: bool = False,
+        encoding: str = "utf-8",
+        delimiter: str = ",",
+        quotechar: str = '"',
+        encryption_key: Optional[str] = None,
+        show_progress: bool = True,
+    ):
         """
         Add a dataset consisting of multiple files.
 
@@ -765,19 +850,25 @@ class DataSource:
                     quotechar=quotechar,
                     encryption_key=encryption_key,
                     show_progress=show_progress,
-                    auto_optimize=True
+                    auto_optimize=True,
                 )
 
                 if df is not None:
                     self.dataframes[name] = df
-                    self.logger.info(f"Loaded multi-file dataset '{name}' with {len(df)} rows")
+                    self.logger.info(
+                        f"Loaded multi-file dataset '{name}' with {len(df)} rows"
+                    )
                 elif error_on_empty and error_info:
-                    error_msg = error_info.get("message", "Unknown error loading dataset")
+                    error_msg = error_info.get(
+                        "message", "Unknown error loading dataset"
+                    )
                     raise ValueError(error_msg)
             except Exception as e:
                 if error_on_empty:
                     raise
-                self.logger.error(f"Error loading multi-file dataset '{name}': {str(e)}")
+                self.logger.error(
+                    f"Error loading multi-file dataset '{name}': {str(e)}"
+                )
 
     def release_dataframe(self, name: str) -> bool:
         """
@@ -801,13 +892,18 @@ class DataSource:
             del self.dataframes[name]
             # Force garbage collection to ensure memory is freed
             import gc
+
             gc.collect()
             return True
         else:
-            self.logger.debug(f"DataFrame '{name}' not found in memory, nothing to release")
+            self.logger.debug(
+                f"DataFrame '{name}' not found in memory, nothing to release"
+            )
             return False
 
-    def get_task_encryption_key(self, task_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_task_encryption_key(
+        self, task_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         Get the encryption key and metadata for a task.
 
@@ -828,12 +924,13 @@ class DataSource:
 
         try:
             from pamola_core.utils.crypto_helpers.key_store import get_key_for_task
+
             key = get_key_for_task(task_id)
             if key:
                 return {
                     "key": key,
                     "mode": "simple",  # Default mode
-                    "task_id": task_id
+                    "task_id": task_id,
                 }
             return None
         except ImportError:
@@ -856,7 +953,11 @@ class DataSource:
             Dictionary with file metadata or None if file not found
         """
         file_path = self.get_file_path(name)
-        if file_path is None or not isinstance(file_path, Path) or not file_path.exists():
+        if (
+            file_path is None
+            or not isinstance(file_path, Path)
+            or not file_path.exists()
+        ):
             return None
 
         try:
@@ -882,7 +983,11 @@ class DataSource:
             Dictionary with encryption information or None if file not encrypted
         """
         file_path = self.get_file_path(name)
-        if file_path is None or not isinstance(file_path, Path) or not file_path.exists():
+        if (
+            file_path is None
+            or not isinstance(file_path, Path)
+            or not file_path.exists()
+        ):
             return None
 
         try:
@@ -914,12 +1019,16 @@ class DataSource:
                 "source": "memory",
                 "current_memory_mb": memory_usage,
                 "estimated_memory_mb": memory_usage,
-                "already_loaded": True
+                "already_loaded": True,
             }
 
         # For file path
         file_path = self.get_file_path(name)
-        if file_path is None or not isinstance(file_path, Path) or not file_path.exists():
+        if (
+            file_path is None
+            or not isinstance(file_path, Path)
+            or not file_path.exists()
+        ):
             return None
 
         try:
@@ -963,12 +1072,16 @@ class DataSource:
         """
         df, error_info = self.get_dataframe(name)
         if df is None:
-            self.logger.warning(f"Cannot analyze DataFrame '{name}': {error_info.get('message')}")
+            self.logger.warning(
+                f"Cannot analyze DataFrame '{name}': {error_info.get('message')}"
+            )
             return None
 
         return op_data_source_helpers.analyze_dataframe(df, self.logger)
 
-    def create_sample(self, name: str, sample_size: int = 1000, random_seed: int = 42) -> ResultWithError:
+    def create_sample(
+        self, name: str, sample_size: int = 1000, random_seed: int = 42
+    ) -> ResultWithError:
         """
         Create a representative sample of a DataFrame.
 
@@ -996,10 +1109,7 @@ class DataSource:
             )
             return sample_df, None
         except Exception as e:
-            error_info = {
-                "error_type": type(e).__name__,
-                "message": str(e)
-            }
+            error_info = {"error_type": type(e).__name__, "message": str(e)}
             self.logger.error(f"Error creating sample: {error_info['message']}")
             return None, error_info
 
@@ -1021,11 +1131,15 @@ class DataSource:
             DataSource containing the DataFrame
         """
         data_source = cls(dataframes={name: df})
-        data_source.logger.info(f"Created DataSource from DataFrame '{name}' with {len(df)} rows")
+        data_source.logger.info(
+            f"Created DataSource from DataFrame '{name}' with {len(df)} rows"
+        )
         return data_source
 
     @classmethod
-    def from_file_path(cls, path: Union[str, Path], name: str = "main", load: bool = False):
+    def from_file_path(
+        cls, path: Union[str, Path], name: str = "main", load: bool = False
+    ):
         """
         Create a DataSource from a file path.
 
@@ -1058,15 +1172,17 @@ class DataSource:
         return data_source
 
     @classmethod
-    def from_multi_file_dataset(cls,
-                                paths: List[Union[str, Path]],
-                                name: str = "main",
-                                load: bool = False,
-                                encoding: str = "utf-8",
-                                delimiter: str = ",",
-                                quotechar: str = '"',
-                                encryption_key: Optional[str] = None,
-                                show_progress: bool = True):
+    def from_multi_file_dataset(
+        cls,
+        paths: List[Union[str, Path]],
+        name: str = "main",
+        load: bool = False,
+        encoding: str = "utf-8",
+        delimiter: str = ",",
+        quotechar: str = '"',
+        encryption_key: Optional[str] = None,
+        show_progress: bool = True,
+    ):
         """
         Create a DataSource from multiple files.
 
@@ -1109,7 +1225,79 @@ class DataSource:
             delimiter=delimiter,
             quotechar=quotechar,
             encryption_key=encryption_key,
-            show_progress=show_progress
+            show_progress=show_progress,
         )
 
         return data_source
+
+    def apply_data_types(
+        self,
+        df: Union[pd.DataFrame, dd.DataFrame],
+        dataset_name: str,
+        data_types: Optional[Dict[str, Any]] = None,
+        fields: Optional[list[str]] = None,
+    ) -> Union[pd.DataFrame, dd.DataFrame]:
+        """
+        Apply dtypes to specified columns.
+
+        Strategy: Try fast conversion first. If fails, validate each column
+        individually to provide comprehensive error reporting.
+        """
+        # Validate dataframe type
+        if not isinstance(df, (pd.DataFrame, dd.DataFrame)):
+            raise TypeError(f"Unsupported dataframe type: {type(df)}")
+
+        # Get dtype mapping
+        dtype_map = data_types or self.data_types.get(dataset_name, {})
+        if not dtype_map:
+            return df
+
+        # Filter by fields if specified
+        if fields is not None:
+            dtype_map = {col: dt for col, dt in dtype_map.items() if col in fields}
+            if not dtype_map:
+                return df
+
+        # Only convert columns that exist in df AND need conversion
+        current_dtypes = df.dtypes.to_dict()
+        cols_to_convert = {}
+
+        for col, target_dtype in dtype_map.items():
+            if col not in df.columns:
+                continue
+
+            current_dtype = current_dtypes[col]
+            if current_dtype == target_dtype or str(current_dtype) == str(target_dtype):
+                continue
+
+            cols_to_convert[col] = target_dtype
+
+        if not cols_to_convert:
+            return df
+
+        # Fast path: try converting all at once
+        try:
+            return df.astype(cols_to_convert)
+        except Exception:
+            # Fast path failed - identify ALL problematic columns
+            pass
+
+        # Detailed validation: test each column to collect all errors
+        errors = {}
+        for col, target_dtype in cols_to_convert.items():
+            try:
+                # Test conversion without modifying df
+                _ = df[col].astype(target_dtype)
+            except Exception as e:
+                errors[col] = f"{target_dtype}: {str(e)}"
+
+        # Raise with comprehensive error details
+        if errors:
+            error_lines = [f"  - {col}: {msg}" for col, msg in errors.items()]
+            raise ValueError(
+                f"Failed to convert {len(errors)} column(s) in dataset:\n"
+                + "\n".join(error_lines)
+            )
+
+        # All validations passed - this shouldn't fail now
+        return df.astype(cols_to_convert)

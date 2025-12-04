@@ -40,14 +40,17 @@ from pamola_core.profiling.commons.group_utils import (
     calculate_field_metrics,
 )
 from pamola_core.profiling.schemas.group_core_schema import GroupAnalyzerOperationConfig
-from pamola_core.utils.helpers import build_base_cache, filter_used_kwargs, get_cache_result
+from pamola_core.utils.helpers import (
+    build_base_cache,
+    filter_used_kwargs,
+    get_cache_result,
+)
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
@@ -436,13 +439,9 @@ class GroupAnalyzerOperation(FieldOperation):
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
             )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-            if df is None:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
-                )
+            df = helpers.validate_and_get_dataframe(
+                data_source, dataset_name, **settings_operation
+            )
 
             # Check if field_name exists
             if self.field_name not in df.columns:
@@ -546,7 +545,7 @@ class GroupAnalyzerOperation(FieldOperation):
                 description=f"{self.__class__.__name__} {self.field_name} group analysis metrics",
                 category=Constants.Artifact_Category_Metrics,
             )
-            
+
             # Cache the result if caching is enabled
             if self.use_cache:
                 try:

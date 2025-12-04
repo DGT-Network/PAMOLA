@@ -258,7 +258,31 @@ class GeneratorOperation(FieldOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
+            # Step 1: Data Loading & Validation
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", "field": self.field_name}
+                )
+
+            # Validate and get dataframe
+            try:
+
+                self.logger.info(f"Loading data for field '{self.field_name}'")
+                self._original_df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
                 try:
                     if main_progress:
@@ -267,11 +291,8 @@ class GeneratorOperation(FieldOperation):
                             current_steps,
                             {"step": "Checking cache", "field": self.field_name},
                         )
-                    # Load data for cache check
-                    self._original_df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
 
+                    # Load data for cache check
                     self.logger.info("Checking operation cache...")
                     cache_result = self._check_cache(self._original_df, reporter)
 
@@ -303,29 +324,6 @@ class GeneratorOperation(FieldOperation):
                         error_message=error_message,
                         exception=e,
                     )
-
-            # Step 2: Data Loading & Validation
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Data Loading", "field": self.field_name}
-                )
-
-            # Validate and get dataframe
-            try:
-                if self._original_df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    self._original_df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -534,6 +532,7 @@ class GeneratorOperation(FieldOperation):
             if self.save_output:
                 try:
                     safe_kwargs = filter_used_kwargs(kwargs, self._save_output_data)
+                    # Save output data
                     self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
@@ -660,6 +659,19 @@ class GeneratorOperation(FieldOperation):
             error_message = f"Field {self.field_name} not found in DataFrame"
             self.logger.error(error_message)
             raise ValueError(error_message)
+
+        # Apply data types from data source
+        try:
+            df = data_source.apply_data_types(df, dataset_name)
+        except ValueError as e:
+            error_msg = f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
+            self.logger.error(error_msg)
+            raise ValueError(error_msg) from e
+
+        except TypeError as e:
+            error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
+            self.logger.error(error_msg)
+            raise TypeError(error_msg) from e
 
         return df
 
@@ -1386,6 +1398,15 @@ class GeneratorOperation(FieldOperation):
             category=Constants.Artifact_Category_Output,
         )
 
+        # Save output data types
+        self._save_dtypes_output(
+            df=result_df,
+            writer=writer,
+            reporter=reporter,
+            result=result,
+            filename=field_name_output,
+        )
+
         # Report to reporter
         if reporter:
             reporter.add_operation(
@@ -1592,3 +1613,61 @@ class GeneratorOperation(FieldOperation):
         )
 
         return parameters
+
+    def _save_dtypes_output(
+        self,
+        df: pd.DataFrame,
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        filename: str = None,
+    ) -> bool:
+        """
+        Saves data types dataframe format to a JSON file.
+
+        Returns
+        -------
+        Path or None
+            Path to saved file if success, otherwise None
+        """
+        try:
+
+            # Get the dtypes of the columns as a Series
+            dtypes_series = df.dtypes
+
+            # Convert the dtypes Series to a dictionary
+            dtypes_dict = dtypes_series.astype(str).to_dict()
+
+            # Generate standardized output filename with timestamp
+            dtypes_filename = f"data_types_{filename}"
+
+            dtypes_result = writer.write_json(
+                data=dtypes_dict,
+                name=dtypes_filename,
+                subdir="output",
+                timestamp_in_name=False,
+                encryption_key=self.encryption_key,
+            )
+
+            result.add_metric(dtypes_filename, dtypes_dict)
+
+            result.add_artifact(
+                artifact_type="json",
+                path=dtypes_result.path,
+                description=f"Data types of output dataframe",
+                category=Constants.Artifact_Category_Output,
+            )
+
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="json",
+                    path=str(dtypes_result.path),
+                    description=f"Data types of output dataframe",
+                )
+
+            self.logger.info(f"Dtypes output saved to: {Path(dtypes_result.path).name}")
+            return True
+
+        except Exception as e:
+            self.logger.warning(f"Failed to save dtypes format: {str(e)}")
+            return False

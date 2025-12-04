@@ -48,15 +48,12 @@ from pamola_core.anonymization.schemas.attribute_op_core_schema import (
     AttributeSuppressionConfig,
 )
 from pamola_core.common.constants import Constants
+from pamola_core.io.base import DataWriter
 from pamola_core.utils.io import (
     load_settings_operation,
-    load_data_operation,
     ensure_directory,
-    write_dataframe_to_csv,
     write_json,
 )
-from pamola_core.utils.io_helpers import crypto_utils, directory_utils
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_field_utils import (
@@ -188,6 +185,11 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
 
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -218,13 +220,33 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             self.logger.info(
                 f"Operation: {self.operation_name}, Load data and validate input parameters"
             )
-
-            df, is_valid = self._load_data_and_validate_input_parameters(
-                data_source,
-                progress_tracker=progress_tracker,
-                reporter=reporter,
-                **kwargs,
-            )
+            try:
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
+                    )
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                self.logger.info(f"Loading data for field '{self.field_name}'")
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+                is_valid = self._validate_input_parameters(df)
+                if not is_valid:
+                    raise ValueError("Missing fields in DataFrame.")
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Store original data for caching
             original_data = df[self.field_name].copy(deep=True)
@@ -300,13 +322,17 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             if self.save_output:
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save output")
-                    self._save_output(
-                        output_data=output_data,
-                        task_dir=task_dir,
+                    filename = f"{self.operation_name}_{self.field_name}_output_{operation_timestamp}"
+                    self._save_output_data(
+                        result_df=output_data,
+                        is_encryption_required=self.use_encryption,
+                        writer=writer,
                         result=result,
-                        progress_tracker=progress_tracker,
                         reporter=reporter,
-                        operation_timestamp=operation_timestamp,
+                        progress_tracker=progress_tracker,
+                        timestamp=operation_timestamp,
+                        file_name_output=filename,
+                        **kwargs,
                     )
                 except Exception as e:
                     error_message = f"Error saving output: {str(e)}"
@@ -956,122 +982,6 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                 )
             return None
 
-    def _save_output(
-        self,
-        output_data: pd.DataFrame,
-        task_dir: Path,
-        result: OperationResult,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        operation_timestamp: Optional[str] = None,
-    ):
-        """
-        Save the processed output DataFrame to disk and register it as an artifact.
-
-        This method handles saving the data in the configured format (e.g., CSV, JSON),
-        encrypting it if needed, and logging progress and errors. It also reports the
-        result to any registered reporter and adds the output file as an artifact.
-
-        Parameters
-        ----------
-        output_data : pd.DataFrame
-            Processed DataFrame to save.
-        task_dir : Path
-            Path to the task directory.
-        result : OperationResult
-            Operation result object to register output artifacts.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker instance to update progress.
-        reporter : Optional[Any]
-            Reporter object to log progress and status.
-        operation_timestamp : Optional[str]
-            Timestamp string to use for naming output files.
-        """
-        step = "Save output"
-        operation_name = self.operation_name.lower()
-
-        if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
-
-        output_dir = task_dir / "output"
-        ensure_directory(output_dir)
-
-        encryption_mode = get_encryption_mode(output_data, self.use_encryption)
-        filename = f"{operation_name}_{self.field_name}_output_{operation_timestamp}.{self.output_format}"
-        output_path = output_dir / filename
-
-        try:
-            if self.output_format == "csv":
-                write_dataframe_to_csv(
-                    df=output_data,
-                    file_path=output_path,
-                    encryption_key=self.encryption_key,
-                    use_encryption=self.use_encryption,
-                    encryption_mode=encryption_mode,
-                )
-
-            elif self.output_format == "json":
-                if self.encryption_key:
-                    temp_dir = output_path.parent / "temp"
-                    temp_dir.mkdir(parents=True, exist_ok=True)
-                    temp_path = temp_dir / f"decrypted_{output_path.name}"
-
-                    output_data.to_json(temp_path, orient="records", lines=True)
-                    crypto_utils.encrypt_file(
-                        source_path=temp_path,
-                        destination_path=output_path,
-                        key=self.encryption_key,
-                        mode=encryption_mode,
-                    )
-                    directory_utils.safe_remove_temp_file(temp_path)
-                else:
-                    output_data.to_json(output_path, orient="records", lines=True)
-
-            else:
-                warning_msg = f"Unsupported output format: {self.output_format}"
-                self.logger.warning(warning_msg)
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="warning",
-                        details={"step": step, "message": warning_msg},
-                    )
-                return
-
-            self.logger.info(f"Saved output: {output_path}")
-            result.add_artifact(
-                artifact_type=self.output_format,
-                path=output_path,
-                description=f"Save output successfully",
-                category=Constants.Artifact_Category_Output,
-            )
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Save output successfully",
-                        "file": str(output_path),
-                    },
-                )
-
-        except Exception as e:
-            error_msg = f"Failed to save processed output to {output_path}: {e}"
-            self.logger.error(error_msg, exc_info=True)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": step,
-                        "message": "Save output failed",
-                        "error": str(e),
-                    },
-                )
-
     def _generate_visualizations(
         self,
         input_data: pd.DataFrame,
@@ -1357,78 +1267,6 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             self.logger.error(f"Missing fields in DataFrame: {missing}")
             return False
         return True
-
-    def _load_data_and_validate_input_parameters(
-        self,
-        data_source: DataSource,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        **kwargs,
-    ) -> Tuple[Optional[pd.DataFrame], bool]:
-        """
-        Load input data and validate the required fields.
-
-        This method handles reporting and progress tracking internally.
-
-        Parameters
-        ----------
-        data_source : DataSource
-            Source of input data.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to update step status.
-        reporter : Optional[Any]
-            Reporter for audit or status reporting.
-        **kwargs : dict
-            Additional parameters like dataset_name, fields, etc.
-
-        Returns
-        -------
-        Tuple[Optional[pd.DataFrame], bool]
-            Loaded DataFrame (or None), and validation success flag.
-        """
-        step = "Load data and validate input parameters"
-
-        if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
-
-        dataset_name = kwargs.get("dataset_name", "main")
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-        df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-        if df is None or df.empty:
-            self.logger.error("Error: loaded DataFrame is None or empty")
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": step,
-                        "message": "Data load failed or empty DataFrame",
-                    },
-                )
-            return None, False
-
-        is_valid = self._validate_input_parameters(df)
-
-        if reporter:
-            reporter.add_operation(
-                f"Operation {self.operation_name}",
-                status="info" if is_valid else "warning",
-                details={
-                    "step": step,
-                    "message": (
-                        "Validation succeeded" if is_valid else "Validation failed"
-                    ),
-                    "shape": df.shape if is_valid else None,
-                },
-            )
-
-        df = self._optimize_data(df)
-
-        return df, is_valid
 
     def _compute_total_steps(self) -> int:
         steps = 0

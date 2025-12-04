@@ -28,7 +28,7 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 import pandas as pd
 from pamola_core.common.helpers.custom_aggregations_helper import (
     CUSTOM_AGG_FUNCTIONS,
@@ -49,14 +49,13 @@ from pamola_core.transformations.base_transformation_op import TransformationOpe
 from pamola_core.transformations.schemas.aggregate_records_op_core_schema import (
     AggregateRecordsOperationConfig,
 )
-from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_settings_operation
 from pamola_core.common.constants import Constants
 
 # Configure module logger
@@ -231,15 +230,22 @@ class AggregateRecordsOperation(TransformationOperation):
                     TOTAL_MAIN_STEPS, current_steps, "Data Loading", main_progress
                 )
 
-            # Loading datasets
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+            # Get and validate data
+            try:
+                # Load data
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Check Cache (if enabled and not forced to recalculate)
@@ -402,14 +408,13 @@ class AggregateRecordsOperation(TransformationOperation):
                 )
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_df=df,
                         processed_df=processed_df,
                         task_dir=task_dir,
@@ -442,8 +447,10 @@ class AggregateRecordsOperation(TransformationOperation):
             # Save output data if required
             if self.save_output:
                 try:
-                    output_result_path = self._save_output_data(
+                    file_name_output = f"{self.left_key}_{self.operation_name}_output_{operation_timestamp}"
+                    self._save_output_data(
                         result_df=processed_df,
+                        file_name_output=file_name_output,
                         task_dir=task_dir,
                         is_encryption_required=self.use_encryption,
                         writer=writer,
@@ -1041,74 +1048,6 @@ class AggregateRecordsOperation(TransformationOperation):
             self.logger.warning(f"Error creating visualizations: {e}")
 
         return visualization_paths
-
-    def _save_output_data(
-        self,
-        result_df: pd.DataFrame,
-        is_encryption_required: bool,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        timestamp: Optional[str] = None,
-        **kwargs,
-    ) -> str:
-        """
-        Save the processed output data.
-
-        Parameters:
-        -----------
-        result_df : pd.DataFrame
-            The processed dataframe to save
-        is_encryption_required : bool
-            Whether to encrypt the output
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        timestamp : Optional[str]
-            Optional timestamp for the output file
-        **kwargs : dict
-            Additional parameters for the operation
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving output data"})
-
-        # Generate standardized output filename with timestamp
-        field_name_output = f"{self.name}_output_{timestamp}"
-
-        custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
-        output_result = writer.write_dataframe(
-            df=result_df,
-            name=field_name_output,
-            format=self.output_format,
-            subdir="output",
-            timestamp_in_name=False,
-            encryption_key=self.encryption_key if is_encryption_required else None,
-            **custom_kwargs,
-        )
-
-        # Register output artifact with the result
-        result.add_artifact(
-            artifact_type=self.output_format,
-            path=output_result.path,
-            description=f"{self.name} transformed data",
-            category=Constants.Artifact_Category_Output,
-        )
-
-        # Report to reporter
-        if reporter:
-            reporter.add_artifact(
-                self.output_format,
-                str(output_result.path),
-                f"{self.name} transformed data",
-            )
-
-        return str(output_result.path)
 
     def _validate_input_params(
         self,

@@ -26,7 +26,7 @@ Key Features:
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 import pandas as pd
 from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
@@ -38,7 +38,6 @@ from pamola_core.profiling.schemas.categorical_core_schema import (
 from pamola_core.utils.helpers import build_base_cache
 from pamola_core.utils.io import (
     write_json,
-    load_data_operation,
     write_dataframe_to_csv,
     load_settings_operation,
 )
@@ -273,47 +272,42 @@ class CategoricalOperation(FieldOperation):
                 )
 
             # Load data and validate input parameters
-            self.logger.info(
-                f"Operation: {self.operation_name}, Load data and validate input parameters"
-            )
-            if progress_tracker:
-                progress_tracker.update(
-                    1,
-                    {
-                        "step": "Load data and validate input parameters",
-                        "operation": self.operation_name,
-                    },
+            try:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
+                    )
+
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
                 )
 
-            df, is_valid = self._load_data_and_validate_input_parameters(
-                data_source, **kwargs
-            )
+                self.logger.info(f"Loading data'")
 
-            if is_valid:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters successfully",
-                            "shape": df.shape,
-                        },
-                    )
-            else:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters failed",
-                        },
-                    )
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="Load data and validate input parameters failed",
-                    )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+                is_valid = self._validate_input_parameters(df)
+                if not is_valid:
+                    raise ValueError("Missing fields in DataFrame.")
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
@@ -1064,23 +1058,6 @@ class CategoricalOperation(FieldOperation):
 
         # All validations passed
         return True
-
-    def _load_data_and_validate_input_parameters(
-        self, data_source: DataSource, **kwargs
-    ) -> Tuple[Optional[pd.DataFrame], bool]:
-        dataset_name = kwargs.get("dataset_name", "main")
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-        df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-        if df is None or df.empty:
-            self.logger.error("Error data frame is None or empty")
-            return None, False
-
-        self._original_df = df.copy(deep=True)
-
-        return df, self._validate_input_parameters(df)
 
     def _compute_total_steps(self) -> int:
         steps = 0

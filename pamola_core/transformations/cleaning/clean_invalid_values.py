@@ -43,12 +43,11 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.transformations.schemas.clean_invalid_values_core_schema import (
     CleanInvalidValuesOperationConfig,
 )
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -203,15 +202,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                df = load_data_operation(
+                df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-                if df is None:
-                    error_message = "Failed to load input data"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
-                    )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
@@ -328,7 +321,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Finalization"})
 
-            visualizations = {}
             # Generate visualizations if required
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
@@ -336,7 +328,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualizations = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
                         metrics=metrics,
@@ -356,11 +348,10 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     self.logger.warning(error_message)
                     # Continue execution - visualization failure is not critical
 
-            output_result = DataWriter
             # Save output data if required
             if self.save_output:
                 try:
-                    output_result = self._save_output_data(
+                    self._save_output_data(
                         processed_df=processed_df,
                         task_dir=task_dir,
                         writer=writer,
@@ -1509,77 +1500,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
             self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
-
-    def _save_output_data(
-        self,
-        processed_df: pd.DataFrame,
-        task_dir: Path,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        operation_timestamp: str,
-        **kwargs,
-    ) -> WriterResult:
-        """
-        Save the processed output data.
-
-        Parameters:
-        -----------
-        processed_df : pd.DataFrame
-            The processed dataframe to save
-        task_dir : Path
-            The task directory
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        operation_timestamp : str
-            Timestamp string for filenames
-
-        Returns:
-        --------
-        WriterResult
-            Result object with path and metadata
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving output data"})
-
-        # Use the DataWriter to save
-        output_filename = f"{self.operation_name.lower()}_output_{operation_timestamp}"
-
-        encryption_mode = get_encryption_mode(processed_df, self.use_encryption)
-        output_result = writer.write_dataframe(
-            df=processed_df,
-            name=output_filename,
-            format="csv",
-            subdir="output",
-            timestamp_in_name=False,  # Already included in the filename
-            encryption_key=self.encryption_key if self.use_encryption else None,
-            encryption_mode=encryption_mode,
-        )
-
-        # Register output artifact with the result
-        result.add_artifact(
-            artifact_type="csv",
-            path=output_result.path,
-            description=f"Clean invalid values",
-            category=Constants.Artifact_Category_Output,
-        )
-
-        # Report to reporter
-        if reporter:
-            reporter.add_artifact(
-                artifact_type="csv",
-                path=str(output_result.path),
-                description=f"Clean invalid values",
-            )
-
-        return output_result
 
 
 # Helper function to create the operation easily
