@@ -9,7 +9,6 @@ calculating Shannon entropy, and detecting vulnerable records.
 import hashlib
 import logging
 from typing import Dict, List, Set, Any, Optional
-
 import numpy as np
 import pandas as pd
 
@@ -611,7 +610,7 @@ def save_ka_metrics(
         # Save to CSV
         use_encryption = kwargs.get("use_encryption", False)
         encryption_key = kwargs.get("encryption_key", None)
-        encryption_mode = get_encryption_mode(df, **kwargs)
+        encryption_mode = get_encryption_mode(df, use_encryption)
         write_dataframe_to_csv(
             df=df,
             file_path=output_path,

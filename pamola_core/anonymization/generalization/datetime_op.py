@@ -213,19 +213,15 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Set default input formats if missing
         self.input_formats = self.input_formats or Constants.COMMON_DATE_FORMATS
-        self.process_kwargs["input_formats"] = self.input_formats
 
         # Parse custom bins
         self.custom_bins = self._parse_custom_bins(custom_bins)
-        self.process_kwargs["custom_bins"] = self.custom_bins
 
         # Parse reference date
         self.reference_date = self._parse_reference_date(reference_date)
-        self.process_kwargs["reference_date"] = self.reference_date
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
@@ -714,8 +710,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
                     ) from e
         return sorted(parsed_bins) if parsed_bins else None
 
-    @classmethod
-    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of datetime data.
 
@@ -723,39 +718,38 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
-        **kwargs : Any
-            Additional keyword arguments for processing
 
         Returns:
         --------
         pd.DataFrame
             Processed DataFrame with generalized datetimes
         """
-        # Extract parameters from kwargs
-        field_name = kwargs.get("field_name")
-        output_field_name = kwargs.get("output_field_name", f"{field_name}_generalized")
-        mode = kwargs.get("mode", "REPLACE")
-        strategy = kwargs.get("strategy", "rounding")
-        input_formats = kwargs.get("input_formats", None)
+        # Read configuration strictly from self
+        field_name = self.field_name
+        output_field_name = self.output_field_name
+        mode = self.mode
+        strategy = self.strategy
+        input_formats = self.input_formats
 
-        # Get field data and convert to datetime if needed
+        # Extract field data
         field_data = batch[field_name]
 
+        # Convert to datetime if needed
         if not pd.api.types.is_datetime64_any_dtype(field_data):
             field_data = DataHelper.convert_to_datetime(field_data, input_formats)
 
         # Handle timezone
-        field_values = cls._handle_timezone(field_data, **kwargs)
+        field_values = self._handle_timezone(field_data)
 
-        # Apply generalization
+        # Apply generalization strategy
         if strategy == "rounding":
-            generalized = cls._apply_rounding(field_values, **kwargs)
+            generalized = self._apply_rounding(field_values)
         elif strategy == "binning":
-            generalized = cls._apply_binning(field_values, **kwargs)
+            generalized = self._apply_binning(field_values)
         elif strategy == "component":
-            generalized = cls._apply_component(field_values, **kwargs)
+            generalized = self._apply_component(field_values)
         elif strategy == "relative":
-            generalized = cls._apply_relative(field_values, **kwargs)
+            generalized = self._apply_relative(field_values)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -767,8 +761,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
 
         return batch
 
-    @classmethod
-    def process_batch_dask(cls, ddf: dd.DataFrame, **kwargs) -> dd.DataFrame:
+    def process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
@@ -776,8 +769,6 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -787,12 +778,11 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
 
         # Default implementation: process each partition with process_batch
         def process_partition(partition):
-            return cls.process_batch(partition.copy(deep=True), **kwargs)
+            return self.process_batch(partition.copy(deep=True))
 
         return ddf.map_partitions(process_partition)
 
-    @classmethod
-    def process_value(cls, value, **kwargs):
+    def process_value(self, value):
         """
         Process a single datetime value.
 
@@ -800,299 +790,303 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         -----------
         value : Any
             DateTime value to process
-        **kwargs : dict
-            Additional parameters
 
         Returns:
         --------
         Any
             Processed datetime value
         """
-        # Extract null_strategy from kwargs
-        field_name = kwargs.get("field_name")
-        strategy = kwargs.get("strategy", "rounding")
-        null_strategy = kwargs.get("null_strategy", "PRESERVE")
+        # Load config from self
+        strategy = getattr(self, "strategy", "rounding")
 
-        # Handle null
-        if pd.isna(value):
-            if null_strategy == "PRESERVE":
-                return value
-            elif null_strategy == "ERROR":
-                raise ValueError(f"Null value found in {field_name}")
-            elif null_strategy == "ANONYMIZE":
-                return pd.NaT
-            return pd.NaT
-
-        # Convert to pandas Timestamp if needed
+        # Ensure Timestamp
         if not isinstance(value, pd.Timestamp):
             value = pd.Timestamp(value)
 
         # Apply strategy
         if strategy == "rounding":
-            return cls._round_single_value(value, **kwargs)
-        elif strategy == "binning":
-            return cls._bin_single_value(value, **kwargs)
-        elif strategy == "component":
-            return cls._component_single_value(value, **kwargs)
-        elif strategy == "relative":
-            return cls._relative_single_value(value, **kwargs)
-        else:
-            return value
+            return self._round_single_value(value)
 
-    @staticmethod
-    def _handle_timezone(series: pd.Series, **kwargs) -> pd.Series:
-        """Handle timezone according to strategy."""
+        elif strategy == "binning":
+            return self._bin_single_value(value)
+
+        elif strategy == "component":
+            return self._component_single_value(value)
+
+        elif strategy == "relative":
+            return self._relative_single_value(value)
+
+        # fallback (should never hit)
+        return value
+
+    def _handle_timezone(self, series: pd.Series) -> pd.Series:
+        """Handle timezone according to instance configuration."""
+
         if not pd.api.types.is_datetime64_any_dtype(series):
             return series
 
-        # Extract timezone handling and default timezone from kwargs
-        timezone_handling = kwargs.get("timezone_handling", "preserve")
-        default_timezone = kwargs.get("default_timezone", "UTC")
+        # Extract timezone handling config
+        handling = getattr(self, "timezone_handling", "preserve")
+        default_tz = getattr(self, "default_timezone", "UTC")
 
-        if timezone_handling == "utc":
+        # If datetime is timezone-aware
+        def is_aware(s):
             try:
-                # Check if timezone aware
-                if hasattr(series.dt, "tz") and series.dt.tz is not None:
-                    return series.dt.tz_convert("UTC")
-                else:
-                    # For naive datetimes, localize to default timezone first, then convert to UTC
-                    return series.dt.tz_localize(default_timezone).dt.tz_convert("UTC")
-            except (AttributeError, TypeError) as e:
-                return series
-        elif timezone_handling == "remove":
-            try:
-                if hasattr(series.dt, "tz") and series.dt.tz is not None:
-                    return series.dt.tz_localize(None)
-                else:
-                    return series
-            except (AttributeError, TypeError):
-                return series
-        else:  # preserve
+                return s.dt.tz is not None
+            except Exception:
+                return False
+
+        # Convert to UTC
+        if handling == "utc":
+            if is_aware(series):
+                return series.dt.tz_convert("UTC")
+            # naive → localize → convert
+            return series.dt.tz_localize(default_tz).dt.tz_convert("UTC")
+
+        # Remove timezone
+        if handling == "remove":
+            if is_aware(series):
+                return series.dt.tz_localize(None)
             return series
 
-    @staticmethod
-    def _apply_rounding(series: pd.Series, **kwargs) -> pd.Series:
-        """Apply rounding generalization using vectorized operations."""
-        result = series.copy(deep=True)
-        non_null_mask = ~series.isna()
+        # Preserve (default)
+        return series
 
-        # Extract rounding unit from kwargs
-        rounding_unit = kwargs.get("rounding_unit", "year")
-        strftime_output_format = kwargs.get("strftime_output_format", None)
+    def _apply_rounding(self, series: pd.Series) -> pd.Series:
+        """Apply datetime rounding using instance configuration."""
+        if series.empty:
+            return series
 
-        if not non_null_mask.any():
+        # Extract rounding config
+        unit = getattr(self, "rounding_unit", "year")
+        fmt = getattr(self, "strftime_output_format", None)
+
+        result = series.copy()
+        mask = ~series.isna()
+
+        if not mask.any():
             return result
 
-        # Store rounded timestamps first
-        rounded_values = series.copy(deep=True)
+        # Use vectorized rounding
+        rounded = series.copy()
 
-        # Use vectorized operations for better performance
-        if rounding_unit == "year":
-            rounded_values[non_null_mask] = (
-                series[non_null_mask].dt.to_period("Y").dt.to_timestamp()
-            )
-        elif rounding_unit == "quarter":
-            rounded_values[non_null_mask] = (
-                series[non_null_mask].dt.to_period("Q").dt.to_timestamp()
-            )
-        elif rounding_unit == "month":
-            rounded_values[non_null_mask] = (
-                series[non_null_mask].dt.to_period("M").dt.to_timestamp()
-            )
-        elif rounding_unit == "week":
-            rounded_values[non_null_mask] = (
-                series[non_null_mask].dt.to_period("W").dt.to_timestamp()
-            )
-        elif rounding_unit == "day":
-            rounded_values[non_null_mask] = series[non_null_mask].dt.floor("D")
-        elif rounding_unit == "hour":
-            rounded_values[non_null_mask] = series[non_null_mask].dt.floor("h")
-
-        # Apply custom format if specified
-        if strftime_output_format and non_null_mask.any():
-            result = result.astype("object")  # Convert to object to store strings
-            # Use the rounded values for formatting, not the original series
-            result[non_null_mask] = rounded_values[non_null_mask].dt.strftime(
-                strftime_output_format
-            )
+        if unit == "year":
+            rounded[mask] = series[mask].dt.to_period("Y").dt.to_timestamp()
+        elif unit == "quarter":
+            rounded[mask] = series[mask].dt.to_period("Q").dt.to_timestamp()
+        elif unit == "month":
+            rounded[mask] = series[mask].dt.to_period("M").dt.to_timestamp()
+        elif unit == "week":
+            rounded[mask] = series[mask].dt.to_period("W").dt.to_timestamp()
+        elif unit == "day":
+            rounded[mask] = series[mask].dt.floor("D")
+        elif unit == "hour":
+            rounded[mask] = series[mask].dt.floor("H")
         else:
-            result = rounded_values
+            # Unknown rounding_unit → return unchanged
+            return result
+
+        # Apply strftime format if configured
+        if fmt:
+            result = result.astype("object")
+            result[mask] = rounded[mask].dt.strftime(fmt)
+        else:
+            result = rounded
 
         return result
 
-    @staticmethod
-    def _apply_binning(series: pd.Series, **kwargs) -> pd.Series:
-        """Apply binning generalization."""
+    def _apply_binning(self, series: pd.Series) -> pd.Series:
+        """Apply binning generalization using instance configuration."""
+
         result = pd.Series(index=series.index, dtype="object")
-        non_null_mask = ~series.isna()
+        mask = ~series.isna()
 
-        # Extract bin type and interval size from kwargs
-        bin_type = kwargs.get("bin_type", "day_range")
-        interval_size = kwargs.get("interval_size", 7)
-
-        if not non_null_mask.any():
+        if not mask.any():
             return result
 
-        non_null_values = series[non_null_mask]
+        bin_type = getattr(self, "bin_type", "day_range")
+        interval = getattr(self, "interval_size", 7)
+        values = series[mask]
 
+        # Hour range binning
         if bin_type == "hour_range":
-            # Hour ranges from start of day
-            hours = non_null_values.dt.hour
-            bin_edges = list(
-                range(0, DateTimeConstants.HOURS_PER_DAY + 1, interval_size)
-            )
-            # Ensure last edge covers 24 hours
+            hours = values.dt.hour
+
+            bin_edges = list(range(0, DateTimeConstants.HOURS_PER_DAY + 1, interval))
             if bin_edges[-1] != DateTimeConstants.HOURS_PER_DAY:
                 bin_edges.append(DateTimeConstants.HOURS_PER_DAY)
 
             labels = [
-                f"{i:02d}:00-{min(i + interval_size, DateTimeConstants.HOURS_PER_DAY):02d}:00"
+                f"{i:02d}:00-{min(i + interval, DateTimeConstants.HOURS_PER_DAY):02d}:00"
                 for i in bin_edges[:-1]
             ]
-            result[non_null_mask] = pd.cut(
+
+            result[mask] = pd.cut(
                 hours, bins=bin_edges, labels=labels, include_lowest=True
             )
+            return result
 
-        elif bin_type == "day_range":
-            # Day ranges from reference date
-            ref_date = kwargs.get("reference_date") or non_null_values.min()
+        # Day range binning
+        if bin_type == "day_range":
+            reference_date = getattr(self, "reference_date", None)
+            ref_date = reference_date or values.min()
 
-            # Convert reference date to datetime if it's a string
             if isinstance(ref_date, str):
                 ref_date = pd.to_datetime(ref_date)
 
-            days_diff = (non_null_values - ref_date).dt.days
+            days_diff = (values - ref_date).dt.days
 
-            # Create bins that cover all values
-            min_days = int(days_diff.min())
-            max_days = int(days_diff.max()) + 1
+            min_day = int(days_diff.min())
+            max_day = int(days_diff.max())
 
-            # Ensure bins cover full range
-            bin_start = min_days - (min_days % interval_size)
-            bin_end = max_days + (interval_size - max_days % interval_size)
-            bins = list(range(bin_start, bin_end + 1, interval_size))
+            # Align bins
+            start = min_day - (min_day % interval)
+            end = max_day + (interval - (max_day % interval))
+            bins = list(range(start, end + 1, interval))
 
-            labels = [f"Day {i}-{i + interval_size - 1}" for i in bins[:-1]]
-            result[non_null_mask] = pd.cut(
+            labels = [f"Day {i}-{i + interval - 1}" for i in bins[:-1]]
+
+            result[mask] = pd.cut(
                 days_diff, bins=bins, labels=labels, include_lowest=True
             )
+            return result
 
-        elif bin_type == "business_period":
-            # Business hours
-            hours = non_null_values.dt.hour
+        # Business period
+        if bin_type == "business_period":
+            hours = values.dt.hour
+            c = DateTimeConstants
+
             conditions = [
-                (hours >= DateTimeConstants.BUSINESS_HOURS_START)
-                & (hours < DateTimeConstants.BUSINESS_HOURS_MORNING_END),
-                (hours >= DateTimeConstants.BUSINESS_HOURS_MORNING_END)
-                & (hours < DateTimeConstants.BUSINESS_HOURS_AFTERNOON_END),
-                (hours >= DateTimeConstants.BUSINESS_HOURS_AFTERNOON_END)
-                | (hours < DateTimeConstants.BUSINESS_HOURS_START),
+                (hours >= c.BUSINESS_HOURS_START)
+                & (hours < c.BUSINESS_HOURS_MORNING_END),
+                (hours >= c.BUSINESS_HOURS_MORNING_END)
+                & (hours < c.BUSINESS_HOURS_AFTERNOON_END),
+                (hours >= c.BUSINESS_HOURS_AFTERNOON_END)
+                | (hours < c.BUSINESS_HOURS_START),
             ]
-            choices = ["Morning", "Afternoon", "Night"]
-            result[non_null_mask] = np.select(conditions, choices, default="Unknown")
 
-        elif bin_type == "seasonal":
-            # Seasons
-            months = non_null_values.dt.month
+            result[mask] = np.select(
+                conditions, ["Morning", "Afternoon", "Night"], default="Unknown"
+            )
+            return result
+
+        # Seasonal binning
+        if bin_type == "seasonal":
+            months = values.dt.month
+
             conditions = [
                 months.isin([12, 1, 2]),
                 months.isin([3, 4, 5]),
                 months.isin([6, 7, 8]),
                 months.isin([9, 10, 11]),
             ]
-            choices = ["Winter", "Spring", "Summer", "Fall"]
-            result[non_null_mask] = np.select(conditions, choices, default="Unknown")
 
-        elif bin_type == "custom":
-            custom_bins = kwargs.get("custom_bins")
-            if not custom_bins or len(custom_bins) < 2:
+            result[mask] = np.select(
+                conditions, ["Winter", "Spring", "Summer", "Fall"], default="Unknown"
+            )
+            return result
+
+        # Custom bins
+        if bin_type == "custom":
+            bins = getattr(self, "custom_bins", None)
+
+            if not bins or len(bins) < 2:
                 raise DateTimeGeneralizationError(
-                    "Custom bins must contain at least 2 datetime boundaries."
+                    "custom_bins must contain ≥ 2 datetime boundaries."
                 )
 
             try:
-                # Convert to datetime and sort
-                bins = sorted(pd.to_datetime(custom_bins))
+                bins = sorted(pd.to_datetime(bins))
             except Exception as e:
-                raise DateTimeGeneralizationError(
-                    f"Invalid datetime format in custom_bins: {custom_bins}"
-                ) from e
+                raise DateTimeGeneralizationError(f"Invalid custom_bins: {bins}") from e
 
-            # Generate human-readable labels from bins
             labels = [
-                f"{bins[i].date()} to {bins[i + 1].date()}"
-                for i in range(len(bins) - 1)
+                f"{bins[i].date()} to {bins[i+1].date()}" for i in range(len(bins) - 1)
             ]
 
-            result[non_null_mask] = pd.cut(
-                non_null_values, bins=bins, labels=labels, include_lowest=True
-            )
-
-        return result
-
-    @staticmethod
-    def _apply_component(series: pd.Series, **kwargs) -> pd.Series:
-        """Apply component-based generalization."""
-        result = pd.Series(index=series.index, dtype="object")
-        non_null_mask = ~series.isna()
-
-        # Extract keep_components from kwargs
-        keep_components = kwargs.get("keep_components", [])
-        if not non_null_mask.any():
+            result[mask] = pd.cut(values, bins=bins, labels=labels, include_lowest=True)
             return result
 
-        # Build format string based on components
-        format_parts = []
-        if "year" in keep_components:
-            format_parts.append("%Y")
-        if "month" in keep_components:
-            format_parts.append("%m")
-        if "day" in keep_components:
-            format_parts.append("%d")
-        if "hour" in keep_components:
-            format_parts.append("%H")
-        if "minute" in keep_components:
-            format_parts.append("%M")
-        if "weekday" in keep_components:
-            format_parts.append("%A")
-
-        format_string = "-".join(format_parts)
-        result[non_null_mask] = series[non_null_mask].dt.strftime(format_string)
-
+        # -----------------------
+        # Unknown type → no change
+        # -----------------------
         return result
 
-    @staticmethod
-    def _apply_relative(series: pd.Series, **kwargs) -> pd.Series:
+    def _apply_component(self, series: pd.Series) -> pd.Series:
+        """Apply component-based generalization using instance configuration."""
+
+        result = pd.Series(index=series.index, dtype="object")
+        mask = ~series.isna()
+
+        if not mask.any():
+            return result
+
+        components = getattr(self, "keep_components", [])
+
+        # Mapping internal component → strftime format
+        fmt_map = {
+            "year": "%Y",
+            "month": "%m",
+            "day": "%d",
+            "hour": "%H",
+            "minute": "%M",
+            "weekday": "%A",
+        }
+
+        # Build format string dynamically
+        fmt_parts = [fmt_map[c] for c in components if c in fmt_map]
+
+        if not fmt_parts:
+            # No components requested
+            result[mask] = None
+            return result
+
+        fmt = "-".join(fmt_parts)
+
+        result[mask] = series[mask].dt.strftime(fmt)
+        return result
+
+    def _apply_relative(self, series: pd.Series) -> pd.Series:
         """Apply relative date generalization."""
         result = pd.Series(index=series.index, dtype="object")
-        non_null_mask = ~series.isna()
-        # Extract reference_date from kwargs
-        reference_date = kwargs.get("reference_date", None)
+        non_null_mask = series.notna()
+
         if not non_null_mask.any():
             return result
 
-        # Use reference date or current date
+        # Use provided reference_date if class has it, otherwise use now()
+        reference_date = getattr(self, "reference_date", None)
         ref_date = reference_date or pd.Timestamp.now()
 
-        # Calculate differences
-        diff_days = (series[non_null_mask] - ref_date).dt.days
+        # Ensure datetime & handle invalid values
+        s = pd.to_datetime(series[non_null_mask], errors="coerce")
+        valid_mask = s.notna()
 
-        # Categorize
+        # invalid datetimes → Unknown
+        result[non_null_mask & ~valid_mask] = "Unknown"
+
+        if not valid_mask.any():
+            return result
+
+        # Compute day difference
+        diff_days = (s[valid_mask] - ref_date).dt.days
+
+        y = DateTimeConstants.DAYS_PER_YEAR
+        m = DateTimeConstants.DAYS_PER_MONTH
+        w = DateTimeConstants.DAYS_PER_WEEK
+
         conditions = [
-            diff_days < -DateTimeConstants.DAYS_PER_YEAR,
-            (diff_days >= -DateTimeConstants.DAYS_PER_YEAR)
-            & (diff_days < -DateTimeConstants.DAYS_PER_MONTH),
-            (diff_days >= -DateTimeConstants.DAYS_PER_MONTH)
-            & (diff_days < -DateTimeConstants.DAYS_PER_WEEK),
-            (diff_days >= -DateTimeConstants.DAYS_PER_WEEK) & (diff_days < 0),
+            diff_days < -y,
+            diff_days.between(-y, -m - 1),
+            diff_days.between(-m, -w - 1),
+            diff_days.between(-w, -1),
             diff_days == 0,
-            (diff_days > 0) & (diff_days <= DateTimeConstants.DAYS_PER_WEEK),
-            (diff_days > DateTimeConstants.DAYS_PER_WEEK)
-            & (diff_days <= DateTimeConstants.DAYS_PER_MONTH),
-            (diff_days > DateTimeConstants.DAYS_PER_MONTH)
-            & (diff_days <= DateTimeConstants.DAYS_PER_YEAR),
-            diff_days > DateTimeConstants.DAYS_PER_YEAR,
+            diff_days.between(1, w),
+            diff_days.between(w + 1, m),
+            diff_days.between(m + 1, y),
+            diff_days > y,
         ]
+
         choices = [
             "More than a year ago",
             "Months ago",
@@ -1105,153 +1099,149 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             "More than a year ahead",
         ]
 
-        result[non_null_mask] = np.select(conditions, choices, default="Unknown")
+        result[valid_mask] = np.select(conditions, choices, default="Unknown")
 
         return result
 
-    @staticmethod
-    def _round_single_value(value: pd.Timestamp, **kwargs) -> Union[pd.Timestamp, str]:
-        """Round a single timestamp value."""
-        # Extract rounding_unit and strftime_output_format from kwargs
-        rounding_unit = kwargs.get("rounding_unit", "year")
-        strftime_output_format = kwargs.get("strftime_output_format", None)
+    def _round_single_value(self, value: pd.Timestamp) -> Union[pd.Timestamp, str]:
+        """Round a single timestamp value according to self.rounding_unit."""
+        if not isinstance(value, pd.Timestamp):
+            return value
 
-        if rounding_unit == "year":
+        unit = getattr(self, "rounding_unit", "year")
+        fmt = getattr(self, "strftime_output_format", None)
+
+        if unit == "year":
             rounded = value.replace(
                 month=1, day=1, hour=0, minute=0, second=0, microsecond=0
             )
-        elif rounding_unit == "quarter":
-            quarter = (value.month - 1) // DateTimeConstants.MONTHS_PER_QUARTER + 1
+
+        elif unit == "quarter":
+            quarter = (
+                value.month - 1
+            ) // DateTimeConstants.MONTHS_PER_QUARTER  # 0,1,2,3
+            start_month = quarter * DateTimeConstants.MONTHS_PER_QUARTER + 1  # 1,4,7,10
             rounded = value.replace(
-                month=quarter * DateTimeConstants.MONTHS_PER_QUARTER - 2,
-                day=1,
-                hour=0,
-                minute=0,
-                second=0,
-                microsecond=0,
+                month=start_month, day=1, hour=0, minute=0, second=0, microsecond=0
             )
-        elif rounding_unit == "month":
+
+        elif unit == "month":
             rounded = value.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        elif rounding_unit == "week":
+
+        elif unit == "week":
             rounded = value - timedelta(days=value.weekday())
             rounded = rounded.replace(hour=0, minute=0, second=0, microsecond=0)
-        elif rounding_unit == "day":
+
+        elif unit == "day":
             rounded = value.replace(hour=0, minute=0, second=0, microsecond=0)
-        elif rounding_unit == "hour":
+
+        elif unit == "hour":
             rounded = value.replace(minute=0, second=0, microsecond=0)
+
         else:
             rounded = value
 
-        if strftime_output_format:
-            return rounded.strftime(strftime_output_format)
-        return rounded
+        return rounded.strftime(fmt) if fmt else rounded
 
-    @staticmethod
-    def _bin_single_value(value: pd.Timestamp, **kwargs) -> str:
-        """Bin a single timestamp value."""
-        # Extract bin_type and interval_size from kwargs
-        bin_type = kwargs.get("bin_type", "day_range")
-        interval_size = kwargs.get("interval_size", 7)
+    def _bin_single_value(self, value: pd.Timestamp) -> str:
+        """Bin a single timestamp value based on self.bin_type and self.interval_size."""
+        if not isinstance(value, pd.Timestamp):
+            return str(value)
+
+        bin_type = getattr(self, "bin_type", "day_range")
+        interval = getattr(self, "interval_size", 7)
 
         if bin_type == "hour_range":
             hour = value.hour
-            bin_start = (hour // interval_size) * interval_size
-            bin_end = min(bin_start + interval_size, DateTimeConstants.HOURS_PER_DAY)
-            return f"{bin_start:02d}:00-{bin_end:02d}:00"
+            start = (hour // interval) * interval
+            end = min(start + interval, DateTimeConstants.HOURS_PER_DAY)
+            return f"{start:02d}:00-{end:02d}:00"
+
         elif bin_type == "business_period":
-            hour = value.hour
+            h = value.hour
             if (
                 DateTimeConstants.BUSINESS_HOURS_START
-                <= hour
+                <= h
                 < DateTimeConstants.BUSINESS_HOURS_MORNING_END
             ):
                 return "Morning"
             elif (
                 DateTimeConstants.BUSINESS_HOURS_MORNING_END
-                <= hour
+                <= h
                 < DateTimeConstants.BUSINESS_HOURS_AFTERNOON_END
             ):
                 return "Afternoon"
             else:
                 return "Night"
+
         elif bin_type == "seasonal":
-            month = value.month
-            if month in [12, 1, 2]:
+            m = value.month
+            if m in (12, 1, 2):
                 return "Winter"
-            elif month in [3, 4, 5]:
+            if m in (3, 4, 5):
                 return "Spring"
-            elif month in [6, 7, 8]:
+            if m in (6, 7, 8):
                 return "Summer"
-            else:
-                return "Fall"
-        else:
+            return "Fall"
+
+        return str(value)
+
+    def _component_single_value(self, value: pd.Timestamp) -> str:
+        """Extract datetime components according to self.keep_components."""
+        if not isinstance(value, pd.Timestamp):
             return str(value)
 
-    @staticmethod
-    def _component_single_value(value: pd.Timestamp, **kwargs) -> str:
-        """Extract components from a single timestamp value."""
-        # Extract keep_components and strftime_output_format from kwargs
-        keep_components = kwargs.get("keep_components", [])
-        strftime_output_format = kwargs.get("strftime_output_format", None)
+        comps = getattr(self, "keep_components", [])
+        fmt = getattr(self, "strftime_output_format", None)
+
+        if fmt:
+            return value.strftime(fmt)
+
         parts = []
-        if "year" in keep_components:
+        if "year" in comps:
             parts.append(str(value.year))
-        if "month" in keep_components:
+        if "month" in comps:
             parts.append(f"{value.month:02d}")
-        if "day" in keep_components:
+        if "day" in comps:
             parts.append(f"{value.day:02d}")
-        if "hour" in keep_components:
+        if "hour" in comps:
             parts.append(f"{value.hour:02d}")
-        if "minute" in keep_components:
+        if "minute" in comps:
             parts.append(f"{value.minute:02d}")
-        if "weekday" in keep_components:
+        if "weekday" in comps:
             parts.append(value.strftime("%A"))
 
-        if strftime_output_format:
-            return value.strftime(strftime_output_format)
         return "-".join(parts)
 
-    @staticmethod
-    def _relative_single_value(value: pd.Timestamp, **kwargs) -> str:
+    def _relative_single_value(self, value: pd.Timestamp) -> str:
         """Convert single timestamp to relative description."""
-        # Extract reference_date from kwargs
-        ref_date = kwargs.get("reference_date", pd.Timestamp.now())
-        diff_days = (value - ref_date).days
+        if not isinstance(value, pd.Timestamp):
+            return "Unknown"
 
-        if diff_days < -DateTimeConstants.DAYS_PER_YEAR:
+        ref = getattr(self, "reference_date", pd.Timestamp.now())
+        diff = (value - ref).days
+
+        y = DateTimeConstants.DAYS_PER_YEAR
+        m = DateTimeConstants.DAYS_PER_MONTH
+        w = DateTimeConstants.DAYS_PER_WEEK
+
+        if diff < -y:
             return "More than a year ago"
-        elif (
-            -DateTimeConstants.DAYS_PER_YEAR
-            <= diff_days
-            < -DateTimeConstants.DAYS_PER_MONTH
-        ):
+        if -y <= diff < -m:
             return "Months ago"
-        elif (
-            -DateTimeConstants.DAYS_PER_MONTH
-            <= diff_days
-            < -DateTimeConstants.DAYS_PER_WEEK
-        ):
+        if -m <= diff < -w:
             return "Weeks ago"
-        elif -DateTimeConstants.DAYS_PER_WEEK <= diff_days < 0:
+        if -w <= diff < 0:
             return "Days ago"
-        elif diff_days == 0:
+        if diff == 0:
             return "Same day"
-        elif 0 < diff_days <= DateTimeConstants.DAYS_PER_WEEK:
+        if 0 < diff <= w:
             return "Days ahead"
-        elif (
-            DateTimeConstants.DAYS_PER_WEEK
-            < diff_days
-            <= DateTimeConstants.DAYS_PER_MONTH
-        ):
+        if w < diff <= m:
             return "Weeks ahead"
-        elif (
-            DateTimeConstants.DAYS_PER_MONTH
-            < diff_days
-            <= DateTimeConstants.DAYS_PER_YEAR
-        ):
+        if m < diff <= y:
             return "Months ahead"
-        else:
-            return "More than a year ahead"
+        return "More than a year ahead"
 
     def _validate_date_range(self, series: pd.Series) -> Tuple[int, int]:
         """

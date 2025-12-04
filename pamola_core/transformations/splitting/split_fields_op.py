@@ -26,10 +26,8 @@ Implementation follows the PAMOLA.CORE operation framework with standardized int
 for input/output, progress tracking, and result reporting.
 """
 
-import json
 import time
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Union, Tuple
 import pandas as pd
@@ -38,7 +36,6 @@ from pamola_core.transformations.schemas.split_fields_op_core_schema import (
     SplitFieldsOperationConfig,
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     load_data_operation,
     ensure_directory,
@@ -51,7 +48,6 @@ from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
-    OperationArtifact,
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
@@ -466,7 +462,7 @@ class SplitFieldsOperation(TransformationOperation):
                 original_data=df,
                 transformed_data=None,
             )
-            
+
             # Operation completed successfully
             self.logger.info(
                 f"Operation: {self.operation_name}, Operation completed successfully."
@@ -652,7 +648,7 @@ class SplitFieldsOperation(TransformationOperation):
             output_path = output_dir / filename
 
             try:
-                encryption_mode = get_encryption_mode(df, **kwargs)
+                encryption_mode = get_encryption_mode(df, self.use_encryption)
                 if self.output_format == OutputFormat.CSV.value:
                     write_dataframe_to_csv(
                         df=df,

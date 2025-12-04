@@ -25,11 +25,10 @@ Key Features:
 """
 
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, Any, Optional, Union
 import pandas as pd
 from pamola_core.common.enum.language_enum import Language
 from pamola_core.profiling.commons.attribute_utils import (
@@ -41,7 +40,6 @@ from pamola_core.profiling.schemas.attribute_core_schema import (
 )
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
-    ensure_directory,
     write_json,
     write_dataframe_to_csv,
     load_data_operation,
@@ -51,7 +49,6 @@ from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
@@ -324,7 +321,9 @@ class DataAttributeProfilerOperation(BaseOperation):
             # Save attribute roles to JSON
             roles_filename = f"attribute_roles_{operation_timestamp}.json"
             roles_path = output_dir / roles_filename
-            encryption_mode_analysis = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode_analysis = get_encryption_mode(
+                analysis_results, self.use_encryption
+            )
             write_json(
                 analysis_results,
                 roles_path,
@@ -372,7 +371,9 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             if entropy_data:
                 entropy_df = pd.DataFrame(entropy_data)
-                encryption_mode_entropy = get_encryption_mode(entropy_df, **kwargs)
+                encryption_mode_entropy = get_encryption_mode(
+                    entropy_df, self.use_encryption
+                )
                 write_dataframe_to_csv(
                     entropy_df,
                     entropy_path,
@@ -407,7 +408,9 @@ class DataAttributeProfilerOperation(BaseOperation):
                 if "statistics" in col_data and "samples" in col_data["statistics"]
             }
 
-            encryption_mode_sample_data = get_encryption_mode(sample_data, **kwargs)
+            encryption_mode_sample_data = get_encryption_mode(
+                sample_data, self.use_encryption
+            )
             write_json(
                 sample_data,
                 sample_path,
@@ -473,7 +476,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                 quasi_path = output_dir / quasi_filename
 
                 encryption_mode_quasi_identifier = get_encryption_mode(
-                    quasi_identifiers, **kwargs
+                    quasi_identifiers, self.use_encryption
                 )
                 write_json(
                     {"quasi_identifiers": quasi_identifiers},

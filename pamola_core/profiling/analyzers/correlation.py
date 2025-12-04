@@ -57,7 +57,6 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
-    OperationArtifact,
 )
 from pamola_core.utils.visualization import (
     create_scatter_plot,
@@ -673,7 +672,9 @@ class CorrelationOperation(FieldOperation):
         stats_filename = f"{correlation_name}_{operation_timestamp}.json"
         stats_path = output_dir / stats_filename
 
-        encryption_mode_analysis = get_encryption_mode(analysis_results, **kwargs)
+        encryption_mode_analysis = get_encryption_mode(
+            analysis_results, self.use_encryption
+        )
         write_json(
             analysis_results,
             stats_path,

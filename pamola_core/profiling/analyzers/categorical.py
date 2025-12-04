@@ -26,7 +26,7 @@ Key Features:
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
 from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
@@ -38,7 +38,6 @@ from pamola_core.profiling.schemas.categorical_core_schema import (
 from pamola_core.utils.helpers import build_base_cache
 from pamola_core.utils.io import (
     write_json,
-    ensure_directory,
     load_data_operation,
     write_dataframe_to_csv,
     load_settings_operation,
@@ -613,7 +612,9 @@ class CategoricalOperation(FieldOperation):
         stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
         stats_path = output_dir / stats_filename
 
-        encryption_mode_for_json = get_encryption_mode(analysis_results, **kwargs)
+        encryption_mode_for_json = get_encryption_mode(
+            analysis_results, self.use_encryption
+        )
         write_json(
             analysis_results,
             stats_path,

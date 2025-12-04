@@ -320,6 +320,7 @@ def convert_property(
 
         if field["type"] == "array" or (isinstance(t, list) and "array" in t):
             if "items" in field and isinstance(field["items"], dict):
+            if "items" in field and isinstance(field["items"], dict):
                 # Handling cases with direct enums
                 if "enum" in field["items"]:
                     field["enum"] = [

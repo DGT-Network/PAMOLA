@@ -48,7 +48,6 @@ def cleanup_memory(instance: Optional[Any] = None, force_gc: bool = True) -> Non
     Cleans up memory by clearing specific attributes of the provided instance.
     This function performs the following actions:
     - Clears the `operation_cache` attribute if it exists.
-    - Resets the `process_kwargs` attribute to an empty dictionary if it exists.
     - Clears the `filter_mask` attribute if it exists.
     - Additionally, it removes any attributes that start with `_temp_` from the instance.
     - If `force_gc` is set to True, it triggers garbage collection.
@@ -67,10 +66,6 @@ def cleanup_memory(instance: Optional[Any] = None, force_gc: bool = True) -> Non
         # Clear operation cache
         if hasattr(instance, "operation_cache"):
             instance.operation_cache = None
-
-        # Clear process kwargs
-        if hasattr(instance, "process_kwargs"):
-            instance.process_kwargs = {}
 
         # Clear filter mask
         if hasattr(instance, "filter_mask"):

@@ -25,7 +25,6 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
-import numpy as np
 import pandas as pd
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_data_operation, load_settings_operation
@@ -1533,6 +1532,6 @@ class TransformationOperation(BaseOperation):
                 "encryption_key",
             ]
         }
-        custom_kwargs["encryption_mode"] = get_encryption_mode(df, **kwargs)
+        custom_kwargs["encryption_mode"] = get_encryption_mode(df, self.use_encryption)
 
         return custom_kwargs

@@ -57,8 +57,6 @@ import dask.dataframe as dd
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-
-import numpy as np
 import pandas as pd
 
 # Import anonymization-specific utilities
@@ -184,7 +182,6 @@ class AnonymizationOperation(FieldOperation):
         self.vulnerable_record_strategy = vulnerable_record_strategy
 
         # Set up common variables & placeholder for filtering
-        self.process_kwargs: Dict[str, Any] = {}
         self.filter_mask = pd.Series(True, index=pd.Index([]))
 
     def execute(
@@ -404,10 +401,8 @@ class AnonymizationOperation(FieldOperation):
                 # Process the filtered data only if not empty
                 if not filtered_df.empty:
                     # Process the filtered data
-                    is_use_batch_dask = hasattr(self, "process_batch_dask")
                     processed_df = self._process_data_with_config(
                         df=filtered_df,
-                        is_use_batch_dask=is_use_batch_dask,
                         progress_tracker=data_tracker,
                     )
                 else:
@@ -766,7 +761,6 @@ class AnonymizationOperation(FieldOperation):
                 self.logger.warning(
                     f"Output field '{output_field}' already exists and will be overwritten"
                 )
-        self.process_kwargs["output_field_name"] = output_field
         return output_field
 
     def _report_operation_details(self, reporter: Any, output_field: str) -> None:
@@ -855,7 +849,6 @@ class AnonymizationOperation(FieldOperation):
     def _process_data_with_config(
         self,
         df: pd.DataFrame,
-        is_use_batch_dask: bool = False,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
     ) -> pd.DataFrame:
         """
@@ -865,8 +858,6 @@ class AnonymizationOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             The dataframe to process
-        is_use_batch_dask : bool
-            Whether to use Dask for batch processing
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
@@ -882,12 +873,27 @@ class AnonymizationOperation(FieldOperation):
 
         # Handle null values based on strategy
         if self.null_strategy != "PRESERVE":
+            anonymize_value = None
+
+            if self.null_strategy == "ANONYMIZE":
+                # Determine anonymize value
+                if getattr(self, "unknown_value", None) is not None:
+                    anonymize_value = self.unknown_value
+                else:
+                    # fallback: get default
+                    anonymize_value = "SUPPRESSED"
+
             df[self.field_name] = process_nulls(
-                df[self.field_name], strategy=self.null_strategy.upper()
+                df[self.field_name],
+                strategy=self.null_strategy.upper(),
+                anonymize_value=anonymize_value,
             )
 
         processed_df = None
         flag_processed = False
+        # Backup and clear operation cache during processing
+        cache_backup = self.operation_cache
+        self.operation_cache = None
         self.logger.info("Process with config")
 
         # For larger dataframes, check if we should use parallel processing
@@ -904,25 +910,19 @@ class AnonymizationOperation(FieldOperation):
 
                 self.logger.info("Process using Dask")
 
+                runtime_kwargs = {
+                    "npartitions": self.npartitions,
+                    "dask_partition_size": self.dask_partition_size,
+                }
+
                 # Process with Dask - delegate to subclass method
-                if is_use_batch_dask:
-                    processed_df, flag_processed = process_dataframe_using_dask(
-                        df=df,
-                        process_function=self.process_batch_dask,
-                        is_use_batch_dask=is_use_batch_dask,
-                        progress_tracker=progress_tracker,
-                        task_logger=self.logger,
-                        **self.process_kwargs,
-                    )
-                else:
-                    processed_df, flag_processed = process_dataframe_using_dask(
-                        df=df,
-                        process_function=self.process_batch,
-                        is_use_batch_dask=is_use_batch_dask,
-                        progress_tracker=progress_tracker,
-                        task_logger=self.logger,
-                        **self.process_kwargs,
-                    )
+                processed_df, flag_processed = process_dataframe_using_dask(
+                    df=df,
+                    process_function=self.process_batch,
+                    progress_tracker=progress_tracker,
+                    task_logger=self.logger,
+                    **runtime_kwargs,
+                )
 
                 if flag_processed:
                     self.logger.info("Completed using Dask")
@@ -947,12 +947,17 @@ class AnonymizationOperation(FieldOperation):
 
                 self.logger.info("Process using Joblib")
 
+                runtime_kwargs = {
+                    "parallel_processes": self.parallel_processes,
+                    "chunk_size": self.chunk_size,
+                }
+
                 processed_df, flag_processed = process_dataframe_using_joblib(
                     df=df,
                     process_function=self.process_batch,
                     progress_tracker=progress_tracker,
                     task_logger=self.logger,
-                    **self.process_kwargs,
+                    **runtime_kwargs,
                 )
 
                 if flag_processed:
@@ -980,12 +985,17 @@ class AnonymizationOperation(FieldOperation):
                         },
                     )
                 self.logger.info("Process using chunk")
+
+                runtime_kwargs = {
+                    "chunk_size": self.chunk_size,
+                }
+
                 processed_df, flag_processed = process_dataframe_using_chunk(
                     df=df,
                     process_function=self.process_batch,
                     progress_tracker=progress_tracker,
                     task_logger=self.logger,
-                    **self.process_kwargs,
+                    **runtime_kwargs,
                 )
                 if flag_processed:
                     self.logger.info("Completed using chunk")
@@ -994,11 +1004,13 @@ class AnonymizationOperation(FieldOperation):
 
         if not flag_processed:
             self.logger.info("Fallback process as usual")
-            processed_df = self.process_batch(df, **self.process_kwargs)
+            processed_df = self.process_batch(df)
             flag_processed = True
 
         # Update process count
         self.process_count += len(df)
+        # Restore operation cache
+        self.operation_cache = cache_backup
         return processed_df
 
     def _handle_vulnerable_records(
@@ -1506,7 +1518,9 @@ class AnonymizationOperation(FieldOperation):
 
         # Use the DataWriter to save the DataFrame
         safe_kwargs = filter_used_kwargs(kwargs, writer.write_dataframe)
-        safe_kwargs["encryption_mode"] = get_encryption_mode(result_df, **kwargs)
+        safe_kwargs["encryption_mode"] = get_encryption_mode(
+            result_df, self.use_encryption
+        )
         output_result = writer.write_dataframe(
             df=result_df,
             name=field_name_output,
@@ -1597,8 +1611,7 @@ class AnonymizationOperation(FieldOperation):
 
         return True
 
-    @classmethod
-    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data. Must be implemented by subclasses.
 
@@ -1606,8 +1619,6 @@ class AnonymizationOperation(FieldOperation):
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -1616,8 +1627,7 @@ class AnonymizationOperation(FieldOperation):
         """
         raise NotImplementedError("Subclasses must implement process_batch method")
 
-    @classmethod
-    def process_batch_dask(cls, ddf: dd.DataFrame, **kwargs) -> dd.DataFrame:
+    def process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
@@ -1625,8 +1635,6 @@ class AnonymizationOperation(FieldOperation):
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -1636,12 +1644,11 @@ class AnonymizationOperation(FieldOperation):
 
         # Default implementation: process each partition with process_batch
         def process_partition(partition):
-            return cls.process_batch(partition, **kwargs)
+            return self.process_batch(partition)
 
         return ddf.map_partitions(process_partition)
 
-    @classmethod
-    def process_value(cls, value, **kwargs):
+    def process_value(self, value):
         """
         Process a single value. Must be implemented by subclasses.
 
@@ -1649,8 +1656,6 @@ class AnonymizationOperation(FieldOperation):
         -----------
         value : Any
             Value to process
-        kwargs : dict
-            Additional parameters
 
         Returns:
         --------

@@ -32,7 +32,11 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 import pandas as pd
 from pamola_core.profiling.schemas.phone_core_schema import PhoneOperationConfig
-from pamola_core.utils.helpers import build_base_cache, filter_used_kwargs, get_cache_result
+from pamola_core.utils.helpers import (
+    build_base_cache,
+    filter_used_kwargs,
+    get_cache_result,
+)
 from pamola_core.profiling.commons.phone_utils import (
     analyze_phone_field,
     analyze_phone_field_with_chunk,
@@ -45,7 +49,6 @@ from pamola_core.profiling.commons.phone_utils import (
 )
 from pamola_core.utils.io import (
     write_json,
-    ensure_directory,
     load_data_operation,
     write_dataframe_to_csv,
     load_settings_operation,
@@ -555,7 +558,7 @@ class PhoneOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
             stats_path = output_dir / stats_filename
 
-            encryption_mode = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode = get_encryption_mode(analysis_results, self.use_encryption)
             write_json(
                 analysis_results,
                 stats_path,
@@ -647,7 +650,7 @@ class PhoneOperation(FieldOperation):
                 json_dict_filename = f"{self.field_name}_country_codes_dictionary_{operation_timestamp}.json"
                 json_dict_path = output_dir / json_dict_filename
                 encryption_mode_country_dict = get_encryption_mode(
-                    country_dict, **kwargs
+                    country_dict, self.use_encryption
                 )
                 write_json(
                     country_dict,
@@ -725,7 +728,7 @@ class PhoneOperation(FieldOperation):
                 json_dict_filename = f"{self.field_name}_operator_codes_dictionary_{operation_timestamp}.json"
                 json_dict_path = output_dir / json_dict_filename
                 encryption_mode_operator_dict = get_encryption_mode(
-                    operator_dict, **kwargs
+                    operator_dict, self.use_encryption
                 )
                 write_json(
                     operator_dict,
@@ -807,7 +810,7 @@ class PhoneOperation(FieldOperation):
                 )
                 json_dict_path = output_dir / json_dict_filename
                 encryption_mode_messenger_dict = get_encryption_mode(
-                    messenger_dict, **kwargs
+                    messenger_dict, self.use_encryption
                 )
                 write_json(
                     messenger_dict,
@@ -928,9 +931,7 @@ class PhoneOperation(FieldOperation):
 
             return result
         except Exception as e:
-            logger.exception(
-                f"Error in phone operation for {self.field_name}: {e}"
-            )
+            logger.exception(f"Error in phone operation for {self.field_name}: {e}")
 
             # Update progress tracker on error
             if progress_tracker:
@@ -1171,9 +1172,7 @@ class PhoneOperation(FieldOperation):
                             f"[DIAG] Context vars count: {len(list(current_context))}"
                         )
                     except Exception as ctx_e:
-                        logger.warning(
-                            f"[DIAG] Could not inspect context: {ctx_e}"
-                        )
+                        logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
 
                     # Generate visualizations with visualization context parameters
                     logger.info(f"[DIAG] Calling _generate_visualizations...")

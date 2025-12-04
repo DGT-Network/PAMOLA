@@ -26,15 +26,12 @@ Key Features:
 """
 
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 import time
-from typing import Dict, Any, List, Optional, Union
-
+from typing import Dict, Any, Optional, Union
 import dask
 import dask.dataframe as dd
-
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
@@ -65,7 +62,6 @@ from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
@@ -1542,7 +1538,7 @@ class CurrencyOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats.json"
             stats_path = output_dir / stats_filename
 
-            encryption_mode = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode = get_encryption_mode(analysis_results, self.use_encryption)
             write_json(
                 analysis_results,
                 stats_path,
