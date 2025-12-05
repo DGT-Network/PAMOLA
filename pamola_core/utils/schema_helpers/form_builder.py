@@ -418,6 +418,7 @@ def convert_property(
         CustomComponents.FIELD_IMPUTE_STRATEGY,
         CustomComponents.FIELD_DOUBLE_SELECT_INPUT_CLEAN_INVALID,
         CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_CLEAN_INVALID,
+        CustomComponents.SEPARATOR_OPTIONS,
     ]:
         field = _handle_custom_component(field)
 
@@ -1017,11 +1018,26 @@ def _handle_custom_component(field: dict) -> dict:
         field["x-decorator"] = "FormItem"
         field["x-component"] = CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT
         field["x-component-props"] = {
-                    "keyFieldLabel": "Select Option",
-                    "isUsingFieldOptions": True,
-                    "enableAddOption": True
-                }
-        
+            "keyFieldLabel": "Select Option",
+            "isUsingFieldOptions": True,
+            "enableAddOption": True,
+        }
+    if component == CustomComponents.SEPARATOR_OPTIONS:
+        field["x-component"] = "Select"
+        field["x-component-props"] = {
+            "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",
+            "showSearch": True,
+            "allowClear": True,
+            "optionFilterProp": "label",
+            "mode": "multiple",
+            "placeholder": "Select options",
+        }
+        field["enum"] = [
+            {"value": ".", "label": "Dot"},
+            {"value": "_", "label": "Underscore"},
+            {"value": "-", "label": "Dash"},
+            {"value": "", "label": "Blank"},
+        ]
     return field
 
 
@@ -1184,7 +1200,7 @@ def _add_x_reactions(
                             "state": state,
                         },
                     }
-                    
+
                     if function_name == CustomFunctions.UPDATE_INT64_FIELD_OPTIONS:
                         run = f"{function_name}($self); $self.setValue({default_value_str})"
                     else:
@@ -1192,7 +1208,7 @@ def _add_x_reactions(
                             [f"$deps[{i}]" for i in range(len(depend_fields))]
                         )
                         run = f"{function_name}($self, {deps_expr}); $self.setValue({default_value_str})"
-                    
+
                     func_reaction["fulfill"]["run"] = f"{{{{ {run} }}}}"
                     existing_reactions.append(func_reaction)
             else:
@@ -1209,12 +1225,16 @@ def _add_x_reactions(
     # Case 2: Has custom function but NO dependencies
     elif has_custom_function:
         # Check if non-toggle reaction already exists BEFORE adding new ones
-        has_non_toggle_reaction = any(r for r in existing_reactions if "target" not in r)
-        
+        has_non_toggle_reaction = any(
+            r for r in existing_reactions if "target" not in r
+        )
+
         if not has_non_toggle_reaction:
             # Create separate reaction for each custom function
             for function_name in custom_functions:
-                run_template = f"{function_name}($self); $self.setValue({default_value_str})"
+                run_template = (
+                    f"{function_name}($self); $self.setValue({default_value_str})"
+                )
                 new_reaction = {"fulfill": {"run": f"{{{{ {run_template} }}}}"}}
                 existing_reactions.append(new_reaction)
 
