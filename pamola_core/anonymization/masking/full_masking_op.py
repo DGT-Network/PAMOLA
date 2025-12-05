@@ -286,7 +286,7 @@ class FullMaskingOperation(AnonymizationOperation):
                 # Validate configuration early
                 self._validate_configuration()
 
-                self.logger.info(f"Loading data for field '{self.field_name}'")
+                self.logger.info(f"Operation: {self.operation_name}, Load data and validate input parameters")
                 df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )

@@ -410,7 +410,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                self.logger.info(f"Loading data for field '{self.field_name}'")
+                self.logger.info(f"Operation: {self.operation_name}, Load data and validate input parameters")
                 df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
