@@ -55,7 +55,6 @@ from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
     ensure_directory,
-    write_json,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -327,15 +326,19 @@ class RecordSuppressionOperation(AnonymizationOperation):
             try:
                 # Handle metric
                 self.logger.info(f"Operation: {self.operation_name}, Collect metric")
-                self._handle_metrics(
-                    input_data=df,
-                    output_data=output_data,
-                    mask=mask,
+
+                metrics = self._collect_metrics(df, output_data, mask)
+                result.metrics = metrics
+
+                file_name = f"{self.operation_name}_metrics_{operation_timestamp}"
+                self._save_metrics(
+                    metrics=metrics,
+                    writer=self._writer,
                     result=result,
-                    task_dir=task_dir,
-                    progress_tracker=progress_tracker,
                     reporter=reporter,
+                    progress_tracker=progress_tracker,
                     operation_timestamp=operation_timestamp,
+                    file_name=file_name,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -1116,112 +1119,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
         except Exception as e:
             self.logger.error(f"Error in _collect_metrics: {e}", exc_info=True)
             raise
-
-    def _save_metrics(
-        self,
-        metrics: Dict[str, Any],
-        task_dir: Path,
-        result: OperationResult,
-        operation_timestamp: Optional[str] = None,
-    ) -> None:
-        """
-        Save the collected metrics as a JSON file and register it as an artifact.
-
-        Raises:
-            Exception: If saving the metrics file fails.
-        """
-        try:
-            metrics_dir = task_dir / "metrics"
-            ensure_directory(metrics_dir)
-
-            operation_name = self.operation_name.lower()
-            filename = f"{operation_name}_metrics_{operation_timestamp}.json"
-            metrics_path = metrics_dir / filename
-
-            write_json(metrics, metrics_path, encryption_key=self.encryption_key)
-
-            result.add_artifact(
-                artifact_type="json",
-                path=metrics_path,
-                description=f"Metrics for {self.operation_name}",
-                category=Constants.Artifact_Category_Metrics,
-            )
-
-            self.logger.info(f"Structured metrics saved to {metrics_path}")
-
-        except Exception as e:
-            self.logger.error(
-                f"Failed to save metrics file to {metrics_path}: {e}", exc_info=True
-            )
-            raise
-
-    def _handle_metrics(
-        self,
-        input_data: pd.DataFrame,
-        output_data: pd.DataFrame,
-        mask: Optional[pd.Series],
-        result: OperationResult,
-        task_dir: Path,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        operation_timestamp: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Handle the collection and saving of metrics for record suppression.
-
-        Parameters
-        ----------
-        (Same as before)
-
-        Returns
-        -------
-        Optional[Dict[str, Any]]
-        """
-        step = "Collect metrics"
-        try:
-            if progress_tracker:
-                progress_tracker.update(
-                    1, {"step": step, "operation": self.operation_name}
-                )
-
-            metrics = self._collect_metrics(input_data, output_data, mask)
-            result.metrics = metrics
-            self._save_metrics(metrics, task_dir, result, operation_timestamp)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Metrics collected and saved successfully",
-                        "summary": {
-                            "operation_type": metrics.get("operation_type"),
-                            "records_suppressed": metrics.get("records_suppressed"),
-                            "suppression_rate": round(
-                                metrics.get("suppression_rate", 0), 2
-                            ),
-                            "remaining_records": metrics.get("remaining_records"),
-                            "records_processed": metrics.get("records_processed"),
-                            "duration_seconds": metrics.get("duration_seconds"),
-                            "records_per_second": metrics.get("records_per_second"),
-                        },
-                    },
-                )
-
-            return metrics
-
-        except Exception as e:
-            self.logger.error(
-                f"Failed to handle metrics in {self.operation_name}: {e}", exc_info=True
-            )
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={"step": step, "message": str(e)},
-                )
-            return None
 
     def _generate_visualizations(
         self,

@@ -329,7 +329,12 @@ class SplitFieldsOperation(TransformationOperation):
                 metrics = self._collect_metrics(df, processed_df)
                 result.metrics = metrics
                 self._save_metrics(
-                    metrics, task_dir, result, operation_timestamp, **kwargs
+                    metrics=metrics,
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -577,44 +582,6 @@ class SplitFieldsOperation(TransformationOperation):
             "execution_time_seconds": round(self.end_time - self.start_time, 2),
             "processing_date": datetime.now().isoformat(),
         }
-
-    def _save_metrics(
-        self,
-        metrics: Dict[str, Any],
-        task_dir: Path,
-        result: OperationResult,
-        operation_timestamp: str,
-        **kwargs,
-    ) -> Path:
-        """
-        Save the structured metrics dictionary to a JSON file in the task directory.
-        """
-        metrics_dir = task_dir / "metrics"
-        ensure_directory(metrics_dir)
-
-        operation_name = self.operation_name.lower()
-        metrics_filename = f"{operation_name}_metrics_{operation_timestamp}.json"
-        metrics_path = metrics_dir / metrics_filename
-
-        try:
-
-            # Save metrics to file
-            encryption_key = self.encryption_key if self.use_encryption else None
-            write_json(metrics, metrics_path, encryption_key=encryption_key)
-
-            result.add_artifact(
-                artifact_type="json",
-                path=metrics_path,
-                description=f"Metrics for {operation_name} saved at {operation_timestamp}",
-                category=Constants.Artifact_Category_Metrics,
-            )
-
-            self.logger.info(f"Structured metrics saved successfully to {metrics_path}")
-            return metrics_path
-
-        except Exception as e:
-            self.logger.error(f"Error saving structured metrics to {metrics_path}: {e}")
-            raise
 
     def _save_multiple_output_data(
         self,

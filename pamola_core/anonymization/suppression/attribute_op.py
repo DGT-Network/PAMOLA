@@ -48,7 +48,7 @@ from pamola_core.anonymization.schemas.attribute_op_core_schema import (
     AttributeSuppressionConfig,
 )
 from pamola_core.common.constants import Constants
-from pamola_core.io.base import DataWriter
+from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.io import (
     load_settings_operation,
     ensure_directory,
@@ -303,15 +303,19 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             try:
                 # Handle metric
                 self.logger.info(f"Operation: {self.operation_name}, Collect metric")
-                self._handle_metrics(
-                    input_data=df,
-                    output_data=output_data,
-                    mask=mask,
+
+                metrics = self._collect_metrics(df, output_data, mask)
+                result.metrics = metrics
+
+                file_name = f"{self.operation_name}_metrics_{operation_timestamp}"
+                self._save_metrics(
+                    metrics=metrics,
+                    writer=writer,
                     result=result,
-                    task_dir=task_dir,
-                    progress_tracker=progress_tracker,
                     reporter=reporter,
+                    progress_tracker=progress_tracker,
                     operation_timestamp=operation_timestamp,
+                    file_name=file_name,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -829,8 +833,11 @@ class AttributeSuppressionOperation(AnonymizationOperation):
     def _save_metrics(
         self,
         metrics: Dict[str, Any],
-        task_dir: Path,
+        writer: DataWriter,
         result: OperationResult,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        file_name: str = None,
         operation_timestamp: Optional[str] = None,
     ) -> None:
         """
@@ -840,34 +847,27 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             Exception: If saving the metrics file fails.
         """
         try:
-            metrics_dir = task_dir / "metrics"
-            ensure_directory(metrics_dir)
-
-            operation_name = self.operation_name.lower()
-            metrics_filename = f"{operation_name}_metrics_{operation_timestamp}.json"
-            metrics_path = metrics_dir / metrics_filename
-
-            write_json(metrics, metrics_path, encryption_key=self.encryption_key)
-
-            result.add_artifact(
-                artifact_type="json",
-                path=metrics_path,
-                description=f"Metrics for {self.operation_name}",
-                category=Constants.Artifact_Category_Metrics,
+            super()._save_metrics(
+                metrics=metrics,
+                writer=writer,
+                result=result,
+                reporter=reporter,
+                progress_tracker=progress_tracker,
+                operation_timestamp=operation_timestamp,
+                file_name=file_name,
             )
-
-            self.logger.info(f"Structured metrics saved to {metrics_path}")
 
             # Save suppressed schema if requested
             if self.save_suppressed_schema and self._suppressed_schema:
                 try:
-                    schema_filename = f"{operation_name}_suppressed_columns_schema_{operation_timestamp}.json"
-                    schema_path = metrics_dir / schema_filename
+                    schema_filename = f"{self.operation_name}_suppressed_columns_schema_{operation_timestamp}"
 
                     # Write the schema using write_json method
-                    write_json(
-                        self._suppressed_schema,
-                        schema_path,
+                    schema_path = writer.write_json(
+                        data=self._suppressed_schema,
+                        name=schema_filename,
+                        subdir="metrics",
+                        timestamp_in_name=False,
                         encryption_key=self.encryption_key,
                     )
 
@@ -889,98 +889,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                     result.add_metric("suppressed_schema_error", str(e))
 
         except Exception as e:
-            self.logger.error(
-                f"Failed to save metrics file to {metrics_path}: {e}", exc_info=True
-            )
+            self.logger.error(f"Failed to save metrics: {e}", exc_info=True)
             raise
-
-    def _handle_metrics(
-        self,
-        input_data: pd.DataFrame,
-        output_data: pd.DataFrame,
-        mask: Optional[pd.Series],
-        result: OperationResult,
-        task_dir: Path,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        operation_timestamp: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Handle the collection and saving of metrics for the operation.
-
-        This includes:
-        - Calculating effectiveness, performance, filtering, and suppression metrics.
-        - Saving the metrics as a JSON artifact into the task directory.
-        - Attaching the metrics to the result object and logging/reporting progress.
-
-        Parameters
-        ----------
-        input_data : pd.DataFrame
-            Original input dataset before suppression.
-        output_data : pd.DataFrame
-            Resulting dataset after suppression.
-        mask : Optional[pd.Series]
-            Boolean mask indicating processed records.
-        result : OperationResult
-            Result object to attach metrics and artifacts.
-        task_dir : Path
-            Directory where metrics will be saved.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to update.
-        reporter : Optional[Any]
-            Reporter to log detailed status.
-        operation_timestamp : Optional[str]
-            Timestamp string to use for naming metric files.
-
-        Returns
-        -------
-        Optional[Dict[str, Any]]
-            The collected metrics dictionary, or None if an error occurred.
-        """
-        step = "Collect metrics"
-        try:
-            if progress_tracker:
-                progress_tracker.update(
-                    1, {"step": step, "operation": self.operation_name}
-                )
-
-            metrics = self._collect_metrics(input_data, output_data, mask)
-            result.metrics = metrics
-            self._save_metrics(metrics, task_dir, result, operation_timestamp)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": "Collect metric",
-                        "message": "Metrics collected and saved successfully",
-                        "summary": {
-                            "records_processed": metrics.get("records_processed"),
-                            "total_records": metrics.get("total_records"),
-                            "processed_records": metrics.get("processed_records"),
-                            "filtered_records": metrics.get("filtered_records"),
-                            "processing_rate": metrics.get("processing_rate"),
-                            "columns_suppressed": metrics.get("columns_suppressed"),
-                            "data_width_reduction": metrics.get("data_width_reduction"),
-                            "duration_seconds": metrics.get("duration_seconds"),
-                            "records_per_second": metrics.get("records_per_second"),
-                        },
-                    },
-                )
-            return metrics
-
-        except Exception as e:
-            self.logger.error(
-                f"Failed to handle metrics in {self.operation_name}: {e}", exc_info=True
-            )
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={"step": "Collect metric", "message": str(e)},
-                )
-            return None
 
     def _generate_visualizations(
         self,

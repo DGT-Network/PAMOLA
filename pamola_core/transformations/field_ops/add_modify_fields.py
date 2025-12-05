@@ -275,7 +275,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
             # Initialize metrics in scope
             metrics = {}
-            metrics_result = DataWriter
             self.end_time = time.time()
             if self.end_time and self.start_time:
                 self.execution_time = self.end_time - self.start_time
@@ -283,9 +282,8 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             try:
                 metrics = self._calculate_all_metrics(original_df, processed_df)
 
-                metrics_result = self._save_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    task_dir=metrics_dir,
                     writer=writer,
                     result=result,
                     reporter=reporter,
@@ -1465,79 +1463,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 else float("inf")
             ),
         }
-
-    def _save_metrics(
-        self,
-        metrics: Dict[str, Any],
-        task_dir: Path,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        operation_timestamp: Optional[str] = None,
-    ) -> WriterResult:
-        """
-        Save metrics.
-
-        Parameters:
-        -----------
-        metrics : dict
-            The metrics of operation
-        task_dir : Path
-            The task directory
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        operation_timestamp : str, optional
-            Timestamp of the operation, if any  (default: None)
-
-        Returns:
-        --------
-        WriterResult
-            Result object with path and metadata
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving metrics"})
-
-        # Use the DataWriter to save
-        metrics_filename = (
-            f"{self.operation_name.lower()}_metrics_{operation_timestamp}"
-        )
-
-        metrics_result = writer.write_metrics(
-            metrics=metrics,
-            name=metrics_filename,
-            timestamp_in_name=False,  # Already included in the filename
-            encryption_key=self.encryption_key if self.use_encryption else None,
-        )
-
-        # Add metrics to result
-        for key, value in metrics.items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-        # Register metrics artifact
-        result.add_artifact(
-            artifact_type="json",
-            path=metrics_result.path,
-            description=f"Add/modify fields",
-            category=Constants.Artifact_Category_Metrics,
-        )
-
-        # Report artifact
-        if reporter:
-            reporter.add_artifact(
-                artifact_type="json",
-                path=str(metrics_result.path),
-                description=f"Add/modify fields metrics",
-            )
-
-        return metrics_result
 
     def _handle_visualizations(
         self,
