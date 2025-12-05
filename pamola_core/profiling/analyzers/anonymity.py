@@ -81,7 +81,6 @@ from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.io import (
     ensure_directory,
-    load_data_operation,
     load_settings_operation,
     write_json,
     write_dataframe_to_csv,
@@ -1199,10 +1198,6 @@ class KAnonymityProfilerOperation(BaseOperation):
         -----------
         data_source : DataSource
             Data source for the operation
-        task_dir : Path
-            Task directory
-        data_source_name: str
-            Dataset name
 
         Returns:
         --------

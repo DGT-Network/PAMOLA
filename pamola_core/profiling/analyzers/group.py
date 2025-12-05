@@ -404,33 +404,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     {"step": "Starting group analysis", "field": self.field_name},
                 )
 
-            # Step 2: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(data_source, dataset_name)
-
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if progress_tracker:
-                        progress_tracker.update(
-                            total_steps, {"step": "Complete (cached)"}
-                        )
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Clean invalid values (from cache)",
-                            details={"cached": True},
-                        )
-                    return cache_result
-
-            # Step 3: Load data
+            # Step 2: Load data
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Loading data"})
@@ -463,6 +437,32 @@ class GroupAnalyzerOperation(FieldOperation):
                 return OperationResult(
                     status=OperationStatus.ERROR, error_message=error_message
                 )
+
+            # Step 3: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
 
             # Step 4: Group data by the specified field
             if progress_tracker:
@@ -1054,22 +1054,14 @@ class GroupAnalyzerOperation(FieldOperation):
                     f"Failed to generate fallback visualization: {str(e2)}"
                 )
 
-    def _check_cache(
-        self,
-        data_source: DataSource,
-        data_source_name: str = "main",
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
         Parameters:
         -----------
-        data_source : DataSource
-            Data source for the operation
-        task_dir : Path
-            Task directory
-        data_source_name: str
-            Dataset name
+        df : pd.DataFrame
+            DataFrame for the operation
 
         Returns:
         --------
@@ -1080,9 +1072,6 @@ class GroupAnalyzerOperation(FieldOperation):
             return None
 
         try:
-
-            # Get DataFrame from data source
-            df = load_data_operation(data_source, data_source_name)
             if df is None:
                 self.logger.warning("No valid DataFrame found in data source")
                 return None

@@ -42,7 +42,6 @@ from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
     write_dataframe_to_csv,
-    load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_base import BaseOperation
@@ -209,13 +208,10 @@ class DataAttributeProfilerOperation(BaseOperation):
                 )
                 progress_tracker.total = total_steps  # Define total steps for tracking
 
-
             # Step 1: Data Loading
             if progress_tracker:
                 current_steps += 1
-                progress_tracker.update(
-                    current_steps, {"step": "Loading data"}
-                )
+                progress_tracker.update(current_steps, {"step": "Loading data"})
             # Validate and get dataframe
             try:
                 # Load settings operation
@@ -251,7 +247,6 @@ class DataAttributeProfilerOperation(BaseOperation):
                         "operation_type": "attribute_profiling",
                     },
                 )
-
 
             # Step 2: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
@@ -791,10 +786,6 @@ class DataAttributeProfilerOperation(BaseOperation):
         -----------
         data_source : DataSource
             Data source for the operation
-        task_dir : Path
-            Task directory
-        data_source_name: str
-            Dataset name
 
         Returns:
         --------

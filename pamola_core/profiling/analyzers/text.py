@@ -279,7 +279,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             if self.use_cache and not self.force_recalculation:
 
                 logger.info("Checking operation cache...")
-                cached_result = self._check_cache(df, reporter, **kwargs)
+                cached_result = self._check_cache(df)
                 if cached_result:
                     logger.info(f"Using cached results for {self.field_name}")
 
@@ -457,9 +457,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 exception=e,
             )
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any, **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -467,10 +465,6 @@ class TextSemanticCategorizerOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             Input data for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
 
         Returns:
         --------

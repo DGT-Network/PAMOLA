@@ -1462,7 +1462,7 @@ class CurrencyOperation(FieldOperation):
                 progress_tracker.update(1, {"step": "Checking Cache"})
 
             logger.info("Checking operation cache...")
-            cache_result = self._check_cache(df, dataset_name, **kwargs)
+            cache_result = self._check_cache(df)
 
             if cache_result:
                 self.logger.info("Cache hit! Using cached results.")
@@ -1974,12 +1974,6 @@ class CurrencyOperation(FieldOperation):
             # Deduplicate and sort indices
             indices = sorted(set(indices))
 
-            # Create sample DataFrame
-            if df.index.name:
-                id_field = df.index.name
-            else:
-                id_field = "index"
-
             sample_df = df.loc[indices, [self.field_name]].copy(deep=True)
             sample_df = sample_df.reset_index()
 
@@ -2111,9 +2105,6 @@ class CurrencyOperation(FieldOperation):
     def _check_cache(
         self,
         df: Union[pd.DataFrame, dd.DataFrame],
-        task_dir: Path,
-        reporter: Any,
-        **kwargs,
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -2122,10 +2113,6 @@ class CurrencyOperation(FieldOperation):
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
-        task_dir : Path
-            Task directory
-        reporter : Any
-            The reporter to log artifacts to
 
         Returns:
         --------

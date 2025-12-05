@@ -629,7 +629,7 @@ class NumericOperation(FieldOperation):
 
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
-                cached_result = self._check_cache(df, reporter, task_dir, **kwargs)
+                cached_result = self._check_cache(df)
                 if cached_result:
                     logger.info(f"Using cached results for {self.field_name}")
 
@@ -1014,9 +1014,7 @@ class NumericOperation(FieldOperation):
 
         return visualization_paths
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any, task_dir: Path, **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -1024,10 +1022,6 @@ class NumericOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             Input data for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
 
         Returns:
         --------

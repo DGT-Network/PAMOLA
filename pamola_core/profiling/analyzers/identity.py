@@ -442,7 +442,7 @@ class IdentityAnalysisOperation(FieldOperation):
                     )
 
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df=df, reporter=reporter)
+                cache_result = self._check_cache(df)
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
 
@@ -960,9 +960,7 @@ class IdentityAnalysisOperation(FieldOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for this operation.
 
@@ -970,8 +968,6 @@ class IdentityAnalysisOperation(FieldOperation):
         ----------
         df : pd.DataFrame
             DataFrame for the operation
-        reporter : Any
-            Reporter object for tracking progress and artifacts
 
         Returns
         -------

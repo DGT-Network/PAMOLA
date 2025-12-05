@@ -367,7 +367,7 @@ class CorrelationOperation(FieldOperation):
                     )
 
                 try:
-                    cached_result = self._check_cache(df, reporter)
+                    cached_result = self._check_cache(df)
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -1122,7 +1122,6 @@ class CorrelationOperation(FieldOperation):
     def _check_cache(
         self,
         df: pd.DataFrame,
-        reporter: Any,
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -1131,8 +1130,6 @@ class CorrelationOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             DataFrame for the operation
-        task_dir : Path
-            Task directory
 
         Returns:
         --------

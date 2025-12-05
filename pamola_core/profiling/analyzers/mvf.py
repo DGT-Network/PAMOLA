@@ -630,7 +630,7 @@ class MVFOperation(FieldOperation):
                     )
 
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df=df, reporter=reporter)
+                cache_result = self._check_cache(df)
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
 
@@ -1034,9 +1034,7 @@ class MVFOperation(FieldOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for this operation.
 
@@ -1044,8 +1042,6 @@ class MVFOperation(FieldOperation):
         ----------
         df : pd.DataFrame
             DataFrame for the operation
-        reporter : Any
-            Reporter object for tracking progress and artifacts
 
         Returns
         -------
@@ -1081,14 +1077,7 @@ class MVFOperation(FieldOperation):
 
             result = get_cache_result(cached_result)
 
-            if reporter:
-                reporter.add_operation(
-                    f"{self.name} profiling of {self.field_name} (cached)",
-                    details={"field_name": self.field_name, "cached": True},
-                )
-
             return result
-
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None

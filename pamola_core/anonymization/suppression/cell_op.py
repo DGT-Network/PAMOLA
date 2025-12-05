@@ -89,7 +89,6 @@ from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.io import (
     load_settings_operation,
     ensure_directory,
-    write_json,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
