@@ -70,7 +70,7 @@ class FakeEmailOperationUIConfig(OperationConfig):
                         "x-depend-on": {"format": "null"},
                     },
                     "separator_options": {
-                        "x-component": "Select",
+                        "x-component": CustomComponents.SEPARATOR_OPTIONS,
                         "x-group": GroupName.EMAIL_GENERATION_STYLE,
                     },
                     "number_suffix_probability": {

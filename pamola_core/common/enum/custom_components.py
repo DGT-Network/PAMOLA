@@ -42,3 +42,4 @@ class CustomComponents:
     FIELD_DOUBLE_SELECT_INPUT_CLEAN_INVALID = "FieldDoubleSelectInputCleanInvalid"
     FIELD_NULL_REPLACEMENT_INPUT = "FieldNullReplacementInput"
     FIELD_SELECT_UPLOAD_FILE_INPUT_CLEAN_INVALID = "FieldSelectUploadFileInputCleanInvalid"
+    SEPARATOR_OPTIONS = "SeparatorOptions"

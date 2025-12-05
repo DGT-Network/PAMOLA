@@ -78,13 +78,6 @@ class FakeEmailOperationConfig(OperationConfig):
                         "type": ["array", "null"],
                         "items": {"type": "string"},
                         "default": None,
-                        "oneOf": [
-                            {"type": "null"},
-                            {"const": ".", "description": "Dot"},
-                            {"const": "_", "description": "Underscore"},
-                            {"const": "-", "description": "Dash"},
-                            {"const": "", "description": "Blank"},
-                        ],
                         "title": "Separator Options",
                         "description": "List of separators to use between name parts in email addresses.",
                     },
