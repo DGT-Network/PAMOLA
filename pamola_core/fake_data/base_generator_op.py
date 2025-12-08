@@ -1394,7 +1394,7 @@ class GeneratorOperation(FieldOperation):
         result.add_artifact(
             artifact_type=self.output_format,
             path=output_result.path,
-            description=f"{self.field_name} generator data",
+            description=f"{self.field_name} {self.operation_name} generator data",
             category=Constants.Artifact_Category_Output,
         )
 
@@ -1654,7 +1654,7 @@ class GeneratorOperation(FieldOperation):
             result.add_artifact(
                 artifact_type="json",
                 path=dtypes_result.path,
-                description=f"Data types of output dataframe",
+                description=f"Data types of output {self.field_name} {self.operation_name}",
                 category=Constants.Artifact_Category_Output,
             )
 
@@ -1662,7 +1662,7 @@ class GeneratorOperation(FieldOperation):
                 reporter.add_artifact(
                     artifact_type="json",
                     path=str(dtypes_result.path),
-                    description=f"Data types of output dataframe",
+                    description=f"Data types of output {self.field_name} {self.operation_name}",
                 )
 
             self.logger.info(f"Dtypes output saved to: {Path(dtypes_result.path).name}")

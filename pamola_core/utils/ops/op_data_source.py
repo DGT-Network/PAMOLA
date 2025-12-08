@@ -1230,6 +1230,14 @@ class DataSource:
 
         return data_source
 
+    def add_data_type(self, name: str, data_type: Dict[str, str]):
+        existed_data_type = self.data_types.get(name)
+        if not existed_data_type:
+            self.data_types[name] = data_type
+            self.logger.debug(f"Added data_type '{name}'")
+        else:
+            self.logger.debug(f"data_type '{name}' is existed.")
+
     def apply_data_types(
         self,
         df: Union[pd.DataFrame, dd.DataFrame],

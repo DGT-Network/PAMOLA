@@ -159,6 +159,7 @@ class BaseTask:
                  task_type: str,
                  description: str,
                  input_datasets: Optional[Dict[str, str]] = None,
+                 data_types: Optional[Dict[str, Any]] = None,
                  auxiliary_datasets: Optional[Dict[str, str]] = None,
                  version: str = "1.0.0",
                  use_encryption: Optional[bool] = False,
@@ -181,6 +182,7 @@ class BaseTask:
         self.description = description
         self.version = version
         self.input_datasets = input_datasets or {}
+        self.data_types = data_types or {}
         self.encryption_keys = encryption_keys or {}
         self.auxiliary_datasets = auxiliary_datasets or {}
 

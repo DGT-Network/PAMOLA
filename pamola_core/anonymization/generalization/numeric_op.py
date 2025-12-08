@@ -545,14 +545,13 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
                         task_dir=task_dir,

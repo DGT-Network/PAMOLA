@@ -1568,7 +1568,7 @@ class TransformationOperation(BaseOperation):
             result.add_artifact(
                 artifact_type="json",
                 path=dtypes_result.path,
-                description=f"Data types of output dataframe",
+                description=f"Data types of output {self.field_label} {self.operation_name}",
                 category=Constants.Artifact_Category_Output,
             )
 
@@ -1576,7 +1576,7 @@ class TransformationOperation(BaseOperation):
                 reporter.add_artifact(
                     artifact_type="json",
                     path=str(dtypes_result.path),
-                    description=f"Data types of output dataframe",
+                    description=f"Data types of output {self.field_label} {self.operation_name}",
                 )
 
             self.logger.info(f"Dtypes output saved to: {Path(dtypes_result.path).name}")
