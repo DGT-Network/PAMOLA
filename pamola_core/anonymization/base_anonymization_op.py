@@ -1471,7 +1471,7 @@ class AnonymizationOperation(FieldOperation):
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
         timestamp: Optional[str] = None,
-        use_encryption: Optional[bool] = False,
+        file_name: str = None,
         **kwargs,
     ) -> str:
         """
@@ -1481,8 +1481,6 @@ class AnonymizationOperation(FieldOperation):
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
-        use_encryption : bool
-            Whether to encrypt the output
         writer : DataWriter
             The writer to use for saving data
         result : OperationResult
@@ -1493,6 +1491,8 @@ class AnonymizationOperation(FieldOperation):
             Optional progress tracker
         timestamp : Optional[str]
             Optional timestamp for the operation
+        file_name : str
+            File name for the name of output file
         **kwargs : dict
             Additional parameters for the operation
         """
@@ -1500,7 +1500,7 @@ class AnonymizationOperation(FieldOperation):
             progress_tracker.update(0, {"step": "Saving output data"})
 
         # Generate standardized output filename with timestamp
-        field_name_output = (
+        file_name = file_name or (
             f"{self.field_name}_{self.operation_name}_output_{timestamp}"
         )
 
@@ -1511,11 +1511,11 @@ class AnonymizationOperation(FieldOperation):
         )
         output_result = writer.write_dataframe(
             df=result_df,
-            name=field_name_output,
+            name=file_name,
             format=self.output_format,
             subdir="output",
             timestamp_in_name=False,
-            encryption_key=self.encryption_key if use_encryption else None,
+            encryption_key=self.encryption_key if self.use_encryption else None,
             overwrite=True,
             **safe_kwargs,
         )
@@ -1544,7 +1544,7 @@ class AnonymizationOperation(FieldOperation):
             writer=writer,
             result=result,
             reporter=reporter,
-            filename=field_name_output,
+            file_name=file_name,
         )
 
         return str(output_result.path)
@@ -1851,7 +1851,7 @@ class AnonymizationOperation(FieldOperation):
         writer: DataWriter,
         result: OperationResult,
         reporter: Any,
-        filename: str = None,
+        file_name: str = None,
     ) -> bool:
         """
         Saves data types dataframe format to a JSON file.
@@ -1870,12 +1870,11 @@ class AnonymizationOperation(FieldOperation):
             dtypes_dict = dtypes_series.astype(str).to_dict()
 
             # Generate standardized output filename with timestamp
-            dtypes_filename = f"data_types_{filename}"
+            dtypes_filename = f"data_types_{file_name}"
 
-            dtypes_result = writer.write_json(
-                data=dtypes_dict,
+            dtypes_result = writer.write_metrics(
+                metrics=dtypes_dict,
                 name=dtypes_filename,
-                subdir="output",
                 timestamp_in_name=False,
                 encryption_key=self.encryption_key,
             )

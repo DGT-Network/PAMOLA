@@ -334,13 +334,12 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     )
                     self._save_output_data(
                         result_df=processed_df,
-                        file_name_output=file_name_output,
-                        task_dir=output_dir,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=progress_tracker,
-                        operation_timestamp=operation_timestamp,
+                        timestamp=operation_timestamp,
+                        file_name=file_name_output,
                         **kwargs,
                     )
                 except Exception as e:

@@ -336,7 +336,7 @@ class TransformationOperation(BaseOperation):
                     operation_timestamp=operation_timestamp,
                     file_name=metrics_file_name,
                 )
-                
+
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
                 self.logger.warning(error_message)
@@ -1142,13 +1142,12 @@ class TransformationOperation(BaseOperation):
     def _save_output_data(
         self,
         result_df: pd.DataFrame,
-        is_encryption_required: bool,
         writer: DataWriter,
         result: OperationResult,
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
         timestamp: Optional[str] = None,
-        file_name_output: str = None,
+        file_name: str = None,
         **kwargs,
     ) -> str:
         """
@@ -1158,8 +1157,6 @@ class TransformationOperation(BaseOperation):
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
-        is_encryption_required : bool
-            Whether to encrypt the output
         writer : DataWriter
             The writer to use for saving data
         result : OperationResult
@@ -1170,6 +1167,8 @@ class TransformationOperation(BaseOperation):
             Optional progress tracker
         timestamp : Optional[str]
             Optional timestamp for the output file
+        file_name : str
+            File name for the name of output file
         **kwargs : dict
             Additional parameters for the operation
         """
@@ -1179,17 +1178,17 @@ class TransformationOperation(BaseOperation):
         custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
 
         # Generate standardized output filename with timestamp
-        field_name_output = file_name_output or (
+        file_name = file_name or (
             f"{self.field_label}_{self.operation_name}_output_{timestamp}"
         )
 
         output_result = writer.write_dataframe(
             df=result_df,
-            name=field_name_output,
+            name=file_name,
             format=self.output_format,
             subdir="output",
             timestamp_in_name=False,
-            encryption_key=self.encryption_key if is_encryption_required else None,
+            encryption_key=self.encryption_key if self.use_encryption else None,
             **custom_kwargs,
         )
 
@@ -1215,7 +1214,7 @@ class TransformationOperation(BaseOperation):
             writer=writer,
             result=result,
             reporter=reporter,
-            filename=field_name_output,
+            file_name=file_name,
         )
 
         return str(output_result.path)
@@ -1535,7 +1534,7 @@ class TransformationOperation(BaseOperation):
         writer: DataWriter,
         result: OperationResult,
         reporter: Any = None,
-        filename: str = None,
+        file_name: str = None,
     ) -> bool:
         """
         Saves data types dataframe format to a JSON file.
@@ -1553,12 +1552,11 @@ class TransformationOperation(BaseOperation):
             dtypes_dict = dtypes_series.astype(str).to_dict()
 
             # Generate standardized output filename with timestamp
-            dtypes_filename = f"data_types_{filename}"
+            dtypes_filename = f"data_types_{file_name}"
 
-            dtypes_result = writer.write_json(
-                data=dtypes_dict,
+            dtypes_result = writer.write_metrics(
+                metrics=dtypes_dict,
                 name=dtypes_filename,
-                subdir="output",
                 timestamp_in_name=False,
                 encryption_key=self.encryption_key,
             )

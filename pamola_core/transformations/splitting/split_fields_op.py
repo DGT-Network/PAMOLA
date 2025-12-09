@@ -208,7 +208,9 @@ class SplitFieldsOperation(TransformationOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                self.logger.info(f"Operation: {self.operation_name}, Load data and validate input parameters")
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
                 df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
@@ -327,7 +329,7 @@ class SplitFieldsOperation(TransformationOperation):
 
             try:
                 metrics = self._collect_metrics(df, processed_df)
-                result.metrics = metrics
+
                 self._save_metrics(
                     metrics=metrics,
                     writer=writer,
@@ -607,18 +609,17 @@ class SplitFieldsOperation(TransformationOperation):
         """
 
         for dataset_name, df in result_subsets.items():
-            filename = f"{dataset_name}_output_{timestamp}"
+            file_name = f"{dataset_name}_output_{timestamp}"
 
             try:
                 output_path = self._save_output_data(
                     result_df=df,
-                    is_encryption_required=self.use_encryption,
                     writer=writer,
                     result=result,
                     reporter=reporter,
                     progress_tracker=progress_tracker,
                     timestamp=timestamp,
-                    file_name_output=filename,
+                    file_name=file_name,
                     **kwargs,
                 )
             except Exception as e:

@@ -418,7 +418,6 @@ class MergeDatasetsOperation(TransformationOperation):
                     operation_timestamp=operation_timestamp,
                     file_name=metrics_file_name,
                 )
-
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
                 self.logger.warning(error_message)
@@ -478,14 +477,12 @@ class MergeDatasetsOperation(TransformationOperation):
                     file_name_output = f"{self.left_key}_{self.operation_name}_output_{operation_timestamp}"
                     self._save_output_data(
                         result_df=processed_df,
-                        task_dir=task_dir,
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
-                        file_name_output=file_name_output,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
+                        file_name=file_name_output,
                         **kwargs,
                     )
                 except Exception as e:

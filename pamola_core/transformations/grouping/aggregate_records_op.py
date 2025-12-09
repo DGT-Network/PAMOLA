@@ -360,9 +360,6 @@ class AggregateRecordsOperation(TransformationOperation):
             try:
                 metrics = self._collect_metrics(df=df, processed_df=processed_df)
 
-                # Generate metrics file name
-                metrics_file_name = f"{self.name}_metrics_{operation_timestamp}"
-
                 self._save_metrics(
                     metrics=metrics,
                     writer=writer,
@@ -370,9 +367,7 @@ class AggregateRecordsOperation(TransformationOperation):
                     reporter=reporter,
                     progress_tracker=progress_tracker,
                     operation_timestamp=operation_timestamp,
-                    file_name=metrics_file_name,
                 )
-
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
                 self.logger.warning(error_message)
@@ -431,14 +426,12 @@ class AggregateRecordsOperation(TransformationOperation):
                     file_name_output = f"{self.left_key}_{self.operation_name}_output_{operation_timestamp}"
                     self._save_output_data(
                         result_df=processed_df,
-                        file_name_output=file_name_output,
-                        task_dir=task_dir,
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
+                        file_name=file_name_output,
                         **kwargs,
                     )
                 except Exception as e:

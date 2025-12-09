@@ -386,7 +386,9 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
             # Validate and get dataframe
             try:
-                self.logger.info(f"Operation: {self.operation_name}, Load data and validate input parameters")
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
                 df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
@@ -670,7 +672,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        use_encryption=self.use_encryption,
                         **safe_kwargs,
                     )
                 except Exception as e:

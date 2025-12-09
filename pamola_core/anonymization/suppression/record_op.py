@@ -255,7 +255,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                self.logger.info(f"Operation: {self.operation_name}, Load data and validate input parameters")
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
                 df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
@@ -328,9 +330,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 self.logger.info(f"Operation: {self.operation_name}, Collect metric")
 
                 metrics = self._collect_metrics(df, output_data, mask)
-                result.metrics = metrics
 
                 file_name = f"{self.operation_name}_metrics_{operation_timestamp}"
+
                 self._save_metrics(
                     metrics=metrics,
                     writer=self._writer,
@@ -349,16 +351,15 @@ class RecordSuppressionOperation(AnonymizationOperation):
             if self.save_output:
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save output")
-                    filename = f"{self.operation_name}_{self.field_name}_output_{operation_timestamp}"
+                    file_name = f"{self.operation_name}_{self.field_name}_output_{operation_timestamp}"
                     self._save_output_data(
                         result_df=output_data,
-                        is_encryption_required=self.use_encryption,
                         writer=self._writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=progress_tracker,
                         timestamp=operation_timestamp,
-                        file_name_output=filename,
+                        file_name=file_name,
                         **kwargs,
                     )
                 except Exception as e:

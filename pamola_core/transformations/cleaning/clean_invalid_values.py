@@ -350,13 +350,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
             if self.save_output:
                 try:
                     self._save_output_data(
-                        processed_df=processed_df,
-                        task_dir=task_dir,
+                        result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=progress_tracker,
-                        operation_timestamp=operation_timestamp,
+                        timestamp=operation_timestamp,
                         **kwargs,
                     )
                 except Exception as e:
