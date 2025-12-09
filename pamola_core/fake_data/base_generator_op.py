@@ -1594,7 +1594,7 @@ class GeneratorOperation(FieldOperation):
         writer: DataWriter,
         result: OperationResult,
         reporter: Any,
-        filename: str = None,
+        file_name: str = None,
     ) -> bool:
         """
         Saves data types dataframe format to a JSON file.
@@ -1613,7 +1613,7 @@ class GeneratorOperation(FieldOperation):
             dtypes_dict = dtypes_series.astype(str).to_dict()
 
             # Generate standardized output filename with timestamp
-            dtypes_filename = f"data_types_{filename}"
+            dtypes_filename = f"data_types_{file_name}"
 
             dtypes_result = writer.write_metrics(
                 metrics=dtypes_dict,
