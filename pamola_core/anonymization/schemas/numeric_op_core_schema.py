@@ -98,15 +98,12 @@ class NumericGeneralizationConfig(OperationConfig):
                         "type": ["array", "null"],
                         "title": "Range Limits",
                         "items": {
-                            "type": "number",
+                            "type": "array",
                             "items": {"type": "number"},
                             "minItems": 2,
                             "maxItems": 2,
                         },
-                        "description": (
-                            "Custom range intervals for numeric generalization.\n"
-                            "Each range is defined as a two-element array [min, max]."
-                        ),
+                        "description": "Custom range intervals for numeric generalization. Each range is a two-element array [min, max].",
                     },
                     "quasi_identifiers": {
                         "type": ["array", "null"],
