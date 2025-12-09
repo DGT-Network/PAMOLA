@@ -33,9 +33,6 @@ from typing import Dict, List, Any, Optional
 
 import pandas as pd
 
-from pamola_core.anonymization.commons.visualization_utils import (
-    generate_visualization_filename,
-)
 from pamola_core.common.constants import Constants
 from pamola_core.profiling.commons.mvf_utils import (
     aggregate_mvf_analysis,
@@ -1122,12 +1119,8 @@ class MVFOperation(FieldOperation):
         custom_kwargs = {k: v for k, v in kwargs.items() if k != "encryption_key"}
 
         # Generate standardized output filename with timestamp
-        filename = generate_visualization_filename(
-            self.field_name,
-            f"{self.name}_{suffix}",
-            "output",
-            timestamp=timestamp,
-        )
+        field_name_clean = self.field_name.replace("/", "_").replace("\\", "_")
+        filename = f"{field_name_clean}_{self.operation_name}_{suffix}_output_{timestamp}"
 
         # Use the DataWriter to save the DataFrame
         output_result = writer.write_dataframe(
