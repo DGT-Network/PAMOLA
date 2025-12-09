@@ -362,7 +362,6 @@ class GroupAnalyzerOperation(FieldOperation):
                 cache_dir=dirs["cache"],
             )
             visualizations_dir = dirs["visualizations"]
-            output_dir = dirs["output"]
 
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None

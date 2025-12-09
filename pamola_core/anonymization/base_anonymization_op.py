@@ -1885,7 +1885,7 @@ class AnonymizationOperation(FieldOperation):
                 artifact_type="json",
                 path=dtypes_result.path,
                 description=f"Data types of output {self.field_name} {self.operation_name}",
-                category=Constants.Artifact_Category_Output,
+                category=Constants.Artifact_Category_Metrics,
             )
 
             if reporter:

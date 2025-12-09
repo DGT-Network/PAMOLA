@@ -152,9 +152,6 @@ class RemoveFieldsOperation(TransformationOperation):
                 cache_dir=dirs["cache"],
             )
 
-            output_dir = dirs["output"]
-            metrics_dir = dirs["metrics"]
-
             # Save configuration to task directory
             self.save_config(task_dir)
 
@@ -330,9 +327,6 @@ class RemoveFieldsOperation(TransformationOperation):
             # Save output data if required
             if self.save_output:
                 try:
-                    file_name_output = (
-                        f"{self.operation_name.lower()}_output_{operation_timestamp}"
-                    )
                     self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
@@ -340,7 +334,6 @@ class RemoveFieldsOperation(TransformationOperation):
                         reporter=reporter,
                         progress_tracker=progress_tracker,
                         timestamp=operation_timestamp,
-                        file_name=file_name_output,
                         **kwargs,
                     )
                 except Exception as e:

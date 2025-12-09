@@ -435,7 +435,6 @@ class PhoneOperation(FieldOperation):
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
-            cache_dir = dirs["cache"]
 
             # Update progress if tracker provided
             if progress_tracker:

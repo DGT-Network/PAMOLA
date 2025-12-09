@@ -392,10 +392,11 @@ class SplitByIDValuesOperation(TransformationOperation):
                 try:
                     self._save_multiple_output_data(
                         result_subsets=processed_df,
-                        task_dir=task_dir,
-                        result=result,
-                        operation_timestamp=operation_timestamp,
                         writer=writer,
+                        result=result,
+                        reporter=reporter,
+                        progress_tracker=progress_tracker,
+                        timestamp=operation_timestamp,
                         **kwargs,
                     )
                 except Exception as e:
@@ -781,7 +782,7 @@ class SplitByIDValuesOperation(TransformationOperation):
         """
 
         for dataset_name, df in result_subsets.items():
-            file_name = f"{dataset_name}_output_{timestamp}"
+            file_name = f"{self.operation_name}_{dataset_name}_output_{timestamp}"
 
             try:
                 output_path = self._save_output_data(

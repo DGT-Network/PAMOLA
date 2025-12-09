@@ -1179,7 +1179,7 @@ class TransformationOperation(BaseOperation):
 
         # Generate standardized output filename with timestamp
         file_name = file_name or (
-            f"{self.field_label}_{self.operation_name}_output_{timestamp}"
+            f"{self.operation_name}_output_{timestamp}"
         )
 
         output_result = writer.write_dataframe(
@@ -1567,7 +1567,7 @@ class TransformationOperation(BaseOperation):
                 artifact_type="json",
                 path=dtypes_result.path,
                 description=f"Data types of output {self.field_label} {self.operation_name}",
-                category=Constants.Artifact_Category_Output,
+                category=Constants.Artifact_Category_Metrics,
             )
 
             if reporter:

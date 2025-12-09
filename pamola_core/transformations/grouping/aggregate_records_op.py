@@ -423,7 +423,6 @@ class AggregateRecordsOperation(TransformationOperation):
             # Save output data if required
             if self.save_output:
                 try:
-                    file_name_output = f"{self.left_key}_{self.operation_name}_output_{operation_timestamp}"
                     self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
@@ -431,7 +430,6 @@ class AggregateRecordsOperation(TransformationOperation):
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        file_name=file_name_output,
                         **kwargs,
                     )
                 except Exception as e:
