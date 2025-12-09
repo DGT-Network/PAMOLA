@@ -328,7 +328,6 @@ class AttributeSuppressionOperation(AnonymizationOperation):
             if self.save_output:
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save output")
-                    file_name = f"{self.operation_name}_{self.field_name}_output_{operation_timestamp}"
                     self._save_output_data(
                         result_df=output_data,
                         writer=writer,
@@ -336,7 +335,6 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                         reporter=reporter,
                         progress_tracker=progress_tracker,
                         timestamp=operation_timestamp,
-                        file_name=file_name,
                         **kwargs,
                     )
                 except Exception as e:
@@ -879,7 +877,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
                     # Register the schema file as an artifact
                     result.add_artifact(
                         artifact_type="json",
-                        path=schema_path,
+                        path=schema_path.path,
                         description=f"Metadata about suppressed columns including data types and statistics",
                         category=Constants.Artifact_Category_Metrics,
                     )

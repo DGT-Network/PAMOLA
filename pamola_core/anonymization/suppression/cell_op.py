@@ -505,7 +505,6 @@ class CellSuppressionOperation(AnonymizationOperation):
             if self.save_output:
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save output")
-                    file_name = f"{self.operation_name}_{self.field_name}_output_{operation_timestamp}"
                     self._save_output_data(
                         result_df=output_data,
                         writer=writer,
@@ -513,7 +512,6 @@ class CellSuppressionOperation(AnonymizationOperation):
                         reporter=reporter,
                         progress_tracker=progress_tracker,
                         timestamp=operation_timestamp,
-                        file_name=file_name,
                         **kwargs,
                     )
                 except Exception as e:

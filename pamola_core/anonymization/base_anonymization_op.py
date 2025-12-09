@@ -532,7 +532,6 @@ class AnonymizationOperation(FieldOperation):
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        use_encryption=self.use_encryption,
                         **safe_kwargs,
                     )
                 except Exception as e:

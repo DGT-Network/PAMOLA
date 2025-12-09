@@ -847,7 +847,6 @@ class MVFOperation(FieldOperation):
                     self._save_output_data(
                         df=values_dict,
                         suffix="values_dictionary",
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -860,7 +859,6 @@ class MVFOperation(FieldOperation):
                     self._save_output_data(
                         df=combinations_dict,
                         suffix="combinations_dictionary",
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -1086,7 +1084,6 @@ class MVFOperation(FieldOperation):
         self,
         df: pd.DataFrame,
         suffix: str,
-        is_encryption_required: bool,
         writer: DataWriter,
         result: OperationResult,
         reporter: Any,
@@ -1103,8 +1100,6 @@ class MVFOperation(FieldOperation):
             The dataframe to save
         suffix : str
             The suffix to append to the output filename
-        is_encryption_required : bool
-            Whether to encrypt the output
         writer : DataWriter
             The writer to use for saving data
         result : OperationResult
@@ -1141,7 +1136,7 @@ class MVFOperation(FieldOperation):
             format=self.output_format,
             subdir="output",
             timestamp_in_name=False,
-            encryption_key=self.encryption_key if is_encryption_required else None,
+            encryption_key=self.encryption_key if self.use_encryption else None,
             **custom_kwargs,
         )
 

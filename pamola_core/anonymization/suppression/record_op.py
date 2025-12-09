@@ -172,8 +172,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
         self._suppressed_records_count = 0
         self._suppression_reasons: Dict[str, int] = {}
         self._batch_number = 0
-        self._writer: Optional[DataWriter] = None
-        self._task_dir: Optional[Path] = None
 
         # --- Metadata ---
         self.operation_name = self.__class__.__name__
@@ -236,6 +234,11 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 progress_tracker=progress_tracker,
                 reporter=reporter,
                 **kwargs,
+            )
+
+            # Create writer for consistent output handling
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
             # Load data and validate input parameters
@@ -311,7 +314,10 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 # Process data
                 self.logger.info(f"Operation: {self.operation_name}, Process data")
                 mask, output_data = self._process_data(
-                    df, progress_tracker=progress_tracker, reporter=reporter
+                    input_data=df,
+                    writer=writer,
+                    progress_tracker=progress_tracker,
+                    reporter=reporter,
                 )
             except Exception as e:
                 error_message = f"Error processing data: {str(e)}"
@@ -335,7 +341,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
 
                 self._save_metrics(
                     metrics=metrics,
-                    writer=self._writer,
+                    writer=writer,
                     result=result,
                     reporter=reporter,
                     progress_tracker=progress_tracker,
@@ -351,15 +357,13 @@ class RecordSuppressionOperation(AnonymizationOperation):
             if self.save_output:
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save output")
-                    file_name = f"{self.operation_name}_{self.field_name}_output_{operation_timestamp}"
                     self._save_output_data(
                         result_df=output_data,
-                        writer=self._writer,
+                        writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=progress_tracker,
                         timestamp=operation_timestamp,
-                        file_name=file_name,
                         **kwargs,
                     )
                 except Exception as e:
@@ -493,13 +497,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
         # Save configuration to task directory
         self.save_config(task_dir)
 
-        self._task_dir = task_dir
-
-        # Create writer for consistent output handling
-        self._writer = DataWriter(
-            task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-        )
-
         # Report preparation success
         if reporter:
             reporter.add_operation(
@@ -517,6 +514,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
     def _process_data(
         self,
         input_data: pd.DataFrame,
+        writer: DataWriter,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
     ) -> Tuple[pd.Series, pd.DataFrame]:
@@ -553,7 +551,10 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 f"Using vectorized processing with chunk size {self.chunk_size}"
             )
             return self._process_with_joblib(
-                input_data, progress_tracker=progress_tracker, reporter=reporter
+                input_data=input_data,
+                writer=writer,
+                progress_tracker=progress_tracker,
+                reporter=reporter,
             )
 
         else:
@@ -763,6 +764,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
     def _process_with_joblib(
         self,
         input_data: pd.DataFrame,
+        writer: DataWriter,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
     ) -> Tuple[pd.Series, pd.DataFrame]:
@@ -820,7 +822,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 )
                 if not suppressed_df.empty:
                     self._save_suppressed_records(
-                        suppressed_df, record_num=self._suppressed_records_count
+                        suppressed_df,
+                        record_num=self._suppressed_records_count,
+                        writer=writer,
                     )
 
             if reporter:
@@ -907,7 +911,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         return mask
 
     def _save_suppressed_records(
-        self, suppressed_df: pd.DataFrame, record_num: int
+        self, suppressed_df: pd.DataFrame, record_num: int, writer: DataWriter
     ) -> None:
         """
         Save suppressed records to disk immediately to manage memory.
@@ -928,27 +932,22 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 self._get_suppression_reason()
             )
 
-            if self._writer and self._task_dir:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = (
-                    f"{self.field_name}_suppressed_records_{record_num:04d}_{timestamp}"
-                )
-                suppressed_record_result = self._writer.write_dataframe(
-                    df=suppressed_df,
-                    name=filename,
-                    format="csv",
-                    subdir="output/suppressed_records",
-                    timestamp_in_name=False,
-                    encryption_key=self.encryption_key if self.use_encryption else None,
-                )
-                self.logger.debug(
-                    f"Saved {len(suppressed_df)} suppressed records (record_num={record_num}) "
-                    f"to file {suppressed_record_result.path}"
-                )
-            else:
-                self.logger.warning(
-                    "DataWriter not available, suppressed records not saved"
-                )
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = (
+                f"{self.field_name}_suppressed_records_{record_num:04d}_{timestamp}"
+            )
+            suppressed_record_result = writer.write_dataframe(
+                df=suppressed_df,
+                name=filename,
+                format="csv",
+                subdir="output/suppressed_records",
+                timestamp_in_name=False,
+                encryption_key=self.encryption_key if self.use_encryption else None,
+            )
+            self.logger.debug(
+                f"Saved {len(suppressed_df)} suppressed records (record_num={record_num}) "
+                f"to file {suppressed_record_result.path}"
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to save suppressed records: {e}", exc_info=True)

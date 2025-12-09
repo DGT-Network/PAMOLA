@@ -392,7 +392,6 @@ class TransformationOperation(BaseOperation):
                 try:
                     self._save_output_data(
                         result_df=result_df,
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
