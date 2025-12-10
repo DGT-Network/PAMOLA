@@ -1230,14 +1230,6 @@ class DataSource:
 
         return data_source
 
-    def add_data_type(self, name: str, data_type: Dict[str, str]):
-        existed_data_type = self.data_types.get(name)
-        if not existed_data_type:
-            self.data_types[name] = data_type
-            self.logger.debug(f"Added data_type '{name}'")
-        else:
-            self.logger.debug(f"data_type '{name}' is existed.")
-
     def apply_data_types(
         self,
         df: Union[pd.DataFrame, dd.DataFrame],
@@ -1275,7 +1267,14 @@ class DataSource:
                 continue
 
             current_dtype = current_dtypes[col]
-            if current_dtype == target_dtype or str(current_dtype) == str(target_dtype):
+
+            # Use pandas dtype equality API
+            try:
+                equal = pd.api.types.is_dtype_equal(current_dtype, target_dtype)
+            except:
+                equal = str(current_dtype) == str(target_dtype)
+
+            if equal:
                 continue
 
             cols_to_convert[col] = target_dtype
@@ -1283,29 +1282,36 @@ class DataSource:
         if not cols_to_convert:
             return df
 
-        # Fast path: try converting all at once
-        try:
-            return df.astype(cols_to_convert)
-        except Exception:
-            # Fast path failed - identify ALL problematic columns
-            pass
+        # Fast path (Pandas)
+        if isinstance(df, pd.DataFrame):
+            try:
+                return df.astype(cols_to_convert)
+            except Exception:
+                pass
 
-        # Detailed validation: test each column to collect all errors
+        # Fast path (Dask)
+        if isinstance(df, dd.DataFrame):
+            try:
+                test = df.astype(cols_to_convert)
+                test.head()  # force validation
+                return test
+            except Exception:
+                pass
+
+        # Fallback: validate each column
         errors = {}
         for col, target_dtype in cols_to_convert.items():
             try:
-                # Test conversion without modifying df
-                _ = df[col].astype(target_dtype)
+                if isinstance(df, dd.DataFrame):
+                    df[col].astype(target_dtype).head()
+                else:
+                    df[col].astype(target_dtype)
             except Exception as e:
-                errors[col] = f"{target_dtype}: {str(e)}"
+                errors[col] = f"{current_dtypes[col]} → {target_dtype} | {e}"
 
-        # Raise with comprehensive error details
         if errors:
-            error_lines = [f"  - {col}: {msg}" for col, msg in errors.items()]
-            raise ValueError(
-                f"Failed to convert {len(errors)} column(s) in dataset:\n"
-                + "\n".join(error_lines)
-            )
+            details = "\n".join(f"  - {c}: {msg}" for c, msg in errors.items())
+            raise ValueError(f"Failed to convert {len(errors)} column(s):\n{details}")
 
-        # All validations passed - this shouldn't fail now
+        # Final conversion (now safe)
         return df.astype(cols_to_convert)

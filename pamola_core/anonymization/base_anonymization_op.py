@@ -635,8 +635,6 @@ class AnonymizationOperation(FieldOperation):
                 self.logger.error(error_msg)
                 raise ValueError(error_msg)
 
-        df = self._optimize_data(df)
-
         # Apply data types from data source
         try:
             df = data_source.apply_data_types(df, dataset_name)
@@ -651,6 +649,9 @@ class AnonymizationOperation(FieldOperation):
             error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
             self.logger.error(error_msg)
             raise TypeError(error_msg) from e
+
+        # Optimize memory usage if enabled
+        df = self._optimize_data(df)
 
         return df
 
