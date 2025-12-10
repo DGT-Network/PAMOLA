@@ -542,7 +542,7 @@ class MVFOperation(FieldOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Validation, 3. Data loading, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data loading, 2. Validation, 3. Cache check, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )

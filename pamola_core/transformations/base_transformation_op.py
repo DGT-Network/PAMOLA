@@ -168,7 +168,7 @@ class TransformationOperation(BaseOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Data loading, 3. Validation, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data loading, 2. Validation, 3. Cache check, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -210,8 +210,34 @@ class TransformationOperation(BaseOperation):
                     error_message=error_message,
                     exception=e,
                 )
+            
+            # Step 2: Validation
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Validation", **field_info}
+                )
 
-            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            try:
+                output_fields = self._prepare_output_fields(df)
+                self._report_operation_details(reporter, output_fields)
+
+                original_data = (
+                    df[[self.field_name]].copy(deep=True)
+                    if self.field_name
+                    else df.copy(deep=True)
+                )
+
+            except Exception as e:
+                error_message = f"Validation error in '{self.operation_name}': {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+            
+            # Step 3: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
                 if main_progress:
                     current_steps += 1
@@ -241,32 +267,6 @@ class TransformationOperation(BaseOperation):
                         )
 
                     return cache_result
-
-            # Step 3: Validation
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Validation", **field_info}
-                )
-
-            try:
-                output_fields = self._prepare_output_fields(df)
-                self._report_operation_details(reporter, output_fields)
-
-                original_data = (
-                    df[[self.field_name]].copy(deep=True)
-                    if self.field_name
-                    else df.copy(deep=True)
-                )
-
-            except Exception as e:
-                error_message = f"Validation error in '{self.operation_name}': {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 4: Processing
             if main_progress:

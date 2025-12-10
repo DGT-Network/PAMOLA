@@ -188,7 +188,7 @@ class AggregateRecordsOperation(TransformationOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Validation, 2. Cache check, 3. Data loading, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Validation, 2. Data loading, 3. Cache check , 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
