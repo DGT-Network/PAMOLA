@@ -29,10 +29,10 @@ from typing import Dict, Any, List, Union, Optional, Tuple, Generator, TypeVar
 import dask.dataframe as dd
 import pandas as pd
 
+from pamola_core.common.constants import Constants
 from pamola_core.utils import logging as custom_logging
 from pamola_core.utils.ops import op_data_source_helpers
 from pamola_core.utils.ops.op_data_reader import DataReader, ResultWithError
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 
 # Define type for file paths dictionary - allowing both Path and List[Path] as values
 PathType = TypeVar("PathType", Path, List[Path])
@@ -1230,6 +1230,53 @@ class DataSource:
 
         return data_source
 
+    def add_data_type(self, name: str, data_type: Dict[str, str]):
+        existed_data_type = self.data_types.get(name)
+        if not existed_data_type:
+            self.data_types[name] = data_type
+            self.logger.debug(f"Added data_type '{name}'")
+        else:
+            self.logger.debug(f"data_type '{name}' is existed.")
+
+    def normalize_target_dtype(self, target_dtype):
+        """
+        Normalize a dtype string or object from FE/config into a proper pandas dtype.
+
+        This function:
+          - FE-friendly names: "Int64", "Float64", "String", "Boolean"
+          - Datetime: "Datetime" → datetime64[ns]
+          - Datetime with timezone: "DatetimeUTC" → datetime64[ns, UTC]
+          - Numpy/pandas dtype strings: "int64", "float64", "datetime64[ns]"
+          - Already-resolved pandas dtype objects (returns as-is)
+
+        Parameters
+        ----------
+        target_dtype : Any
+            Raw dtype definition coming from FE or dataset config.
+
+        Returns
+        -------
+        Any
+            A normalized pandas dtype object, numpy dtype, or original value if unresolved.
+        """
+        # Case 1 — Input is a string dtype from FE or config
+        if isinstance(target_dtype, str):
+
+            # Direct lookup after normalization
+            if target_dtype in Constants.PANDAS_DTYPE_MAP:
+                return Constants.PANDAS_DTYPE_MAP[target_dtype]
+
+            # Let pandas try to interpret unknown dtype strings
+            # (covers numpy-style dtypes, custom datetime formats, timedelta, etc.)
+            try:
+                return pd.api.types.pandas_dtype(target_dtype)
+            except Exception:
+                # Unknown or unsupported dtype: return raw string for higher-level handling
+                return target_dtype
+
+        # Case 2 — Already a pandas dtype object or numpy dtype
+        return target_dtype
+
     def apply_data_types(
         self,
         df: Union[pd.DataFrame, dd.DataFrame],
@@ -1238,80 +1285,76 @@ class DataSource:
         fields: Optional[list[str]] = None,
     ) -> Union[pd.DataFrame, dd.DataFrame]:
         """
-        Apply dtypes to specified columns.
-
-        Strategy: Try fast conversion first. If fails, validate each column
-        individually to provide comprehensive error reporting.
+        Apply dtype conversions to a DataFrame (pandas or dask).
+        Strategy:
+        1) Build conversion map
+        2) Try fast whole-DF conversion
+        3) If fails → validate per column → finally convert
         """
-        # Validate dataframe type
+
         if not isinstance(df, (pd.DataFrame, dd.DataFrame)):
             raise TypeError(f"Unsupported dataframe type: {type(df)}")
 
-        # Get dtype mapping
+        # Get full dtype config
         dtype_map = data_types or self.data_types.get(dataset_name, {})
         if not dtype_map:
             return df
 
-        # Filter by fields if specified
+        # Optional filtering by fields
         if fields is not None:
             dtype_map = {col: dt for col, dt in dtype_map.items() if col in fields}
             if not dtype_map:
                 return df
 
-        # Only convert columns that exist in df AND need conversion
         current_dtypes = df.dtypes.to_dict()
         cols_to_convert = {}
 
+        # Determine which columns need conversion
         for col, target_dtype in dtype_map.items():
             if col not in df.columns:
                 continue
 
+            normalized = self.normalize_target_dtype(target_dtype)
             current_dtype = current_dtypes[col]
 
-            # Use pandas dtype equality API
             try:
-                equal = pd.api.types.is_dtype_equal(current_dtype, target_dtype)
-            except:
-                equal = str(current_dtype) == str(target_dtype)
+                dtype_same = pd.api.types.is_dtype_equal(current_dtype, normalized)
+            except Exception:
+                dtype_same = str(current_dtype) == str(normalized)
 
-            if equal:
-                continue
-
-            cols_to_convert[col] = target_dtype
+            if not dtype_same:
+                cols_to_convert[col] = normalized
 
         if not cols_to_convert:
             return df
 
-        # Fast path (Pandas)
-        if isinstance(df, pd.DataFrame):
+        # Try fast-path conversion for whole DataFrame
+        def try_fast_convert(df_obj):
             try:
-                return df.astype(cols_to_convert)
+                result = df_obj.astype(cols_to_convert)
+                if isinstance(df_obj, dd.DataFrame):
+                    result.head()  # force processing in Dask
+                return result
             except Exception:
-                pass
+                return None
 
-        # Fast path (Dask)
-        if isinstance(df, dd.DataFrame):
-            try:
-                test = df.astype(cols_to_convert)
-                test.head()  # force validation
-                return test
-            except Exception:
-                pass
+        fast_result = try_fast_convert(df)
+        if fast_result is not None:
+            return fast_result
 
-        # Fallback: validate each column
+        # Fallback: validate each column individually
         errors = {}
         for col, target_dtype in cols_to_convert.items():
             try:
+                series = df[col].astype(target_dtype)
                 if isinstance(df, dd.DataFrame):
-                    df[col].astype(target_dtype).head()
-                else:
-                    df[col].astype(target_dtype)
+                    series.head()
             except Exception as e:
                 errors[col] = f"{current_dtypes[col]} → {target_dtype} | {e}"
 
         if errors:
-            details = "\n".join(f"  - {c}: {msg}" for c, msg in errors.items())
+            details = "\n".join(f"  - {col}: {msg}" for col, msg in errors.items())
             raise ValueError(f"Failed to convert {len(errors)} column(s):\n{details}")
 
-        # Final conversion (now safe)
+        # Safe final conversion
         return df.astype(cols_to_convert)
