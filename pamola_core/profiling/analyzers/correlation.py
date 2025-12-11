@@ -45,7 +45,6 @@ from pamola_core.profiling.schemas.correlation_matrix_core_schema import (
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
-    ensure_directory,
     load_data_operation,
     load_settings_operation,
 )
@@ -315,47 +314,43 @@ class CorrelationOperation(FieldOperation):
                 )
 
             # Load data and validate input parameters
-            self.logger.info(
-                f"Operation: {self.operation_name}, Load data and validate input parameters"
-            )
-            if progress_tracker:
-                progress_tracker.update(
-                    1,
-                    {
-                        "step": "Load data and validate input parameters",
-                        "operation": self.operation_name,
-                    },
+            try:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
+                    )
+
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
                 )
 
-            df, is_valid = self._load_data_and_validate_input_parameters(
-                data_source, **kwargs
-            )
+                self.logger.info(f"Loading data'")
 
-            if is_valid:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters successfully",
-                            "shape": df.shape,
-                        },
-                    )
-            else:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters failed",
-                        },
-                    )
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="Load data and validate input parameters failed",
-                    )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+                is_valid = self._validate_input_parameters(df)
+                if not is_valid:
+                    raise ValueError("Missing fields in DataFrame.")
+
+                self._original_df = df.copy(deep=True)
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
@@ -372,7 +367,7 @@ class CorrelationOperation(FieldOperation):
                     )
 
                 try:
-                    cached_result = self._check_cache(df, reporter)
+                    cached_result = self._check_cache(df)
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -1127,7 +1122,6 @@ class CorrelationOperation(FieldOperation):
     def _check_cache(
         self,
         df: pd.DataFrame,
-        reporter: Any,
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -1136,8 +1130,6 @@ class CorrelationOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             DataFrame for the operation
-        task_dir : Path
-            Task directory
 
         Returns:
         --------
@@ -1214,23 +1206,6 @@ class CorrelationOperation(FieldOperation):
 
         # All validations passed
         return True
-
-    def _load_data_and_validate_input_parameters(
-        self, data_source: DataSource, **kwargs
-    ) -> Tuple[Optional[pd.DataFrame], bool]:
-        dataset_name = kwargs.get("dataset_name", "main")
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-        df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-        if df is None or df.empty:
-            self.logger.error("Error data frame is None or empty")
-            return None, False
-
-        self._original_df = df.copy(deep=True)
-
-        return df, self._validate_input_parameters(df)
 
     def _compute_total_steps(self) -> int:
         steps = 0
@@ -1349,10 +1324,9 @@ class CorrelationMatrixOperation(BaseOperation):
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Set up directories
-            output_dir = task_dir / "output"
-            visualizations_dir = task_dir / "visualizations"
-            ensure_directory(output_dir)
-            ensure_directory(visualizations_dir)
+            dirs = self._prepare_directories(task_dir)
+            output_dir = dirs["output"]
+            visualizations_dir = dirs["visualizations"]
 
             # Create the main result object with initial status
             result = OperationResult(status=OperationStatus.SUCCESS)
@@ -1366,16 +1340,38 @@ class CorrelationMatrixOperation(BaseOperation):
                     1, {"step": "Preparation", "fields_count": len(self.fields)}
                 )
 
-            # Get DataFrame from data source
-            dataset_name = kwargs.get("dataset_name", "main")
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+            # Load data and validate input parameters
+            try:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
+                    )
+
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+
+                self.logger.info(f"Loading data'")
+
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Check if fields exist

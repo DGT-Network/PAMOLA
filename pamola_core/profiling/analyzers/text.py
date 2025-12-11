@@ -47,8 +47,6 @@ from pamola_core.profiling.schemas.text_core_schema import (
 )
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
-    ensure_directory,
-    load_data_operation,
     load_settings_operation,
     write_json,
     write_dataframe_to_csv,
@@ -245,16 +243,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                df = load_data_operation(
+                df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-
-                if df is None:
-                    error_message = "Failed to load input data"
-                    logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
-                    )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 logger.error(error_message)
@@ -288,7 +279,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             if self.use_cache and not self.force_recalculation:
 
                 logger.info("Checking operation cache...")
-                cached_result = self._check_cache(df, reporter, **kwargs)
+                cached_result = self._check_cache(df)
                 if cached_result:
                     logger.info(f"Using cached results for {self.field_name}")
 
@@ -466,9 +457,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 exception=e,
             )
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any, **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -476,10 +465,6 @@ class TextSemanticCategorizerOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             Input data for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
 
         Returns:
         --------

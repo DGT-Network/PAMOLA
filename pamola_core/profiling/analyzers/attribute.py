@@ -42,7 +42,6 @@ from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
     write_dataframe_to_csv,
-    load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_base import BaseOperation
@@ -188,7 +187,6 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
-            dictionaries_dir = dirs["dictionaries"]
 
             # Initialize operation result with success status
             result = OperationResult(status=OperationStatus.SUCCESS)
@@ -210,43 +208,27 @@ class DataAttributeProfilerOperation(BaseOperation):
                 )
                 progress_tracker.total = total_steps  # Define total steps for tracking
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-                logger.info("Checking operation cache...")
-                cache_result = self._check_cache(
-                    data_source=data_source, data_source_name=dataset_name, **kwargs
+            # Step 1: Data Loading
+            if progress_tracker:
+                current_steps += 1
+                progress_tracker.update(current_steps, {"step": "Loading data"})
+            # Validate and get dataframe
+            try:
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
                 )
 
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if progress_tracker:
-                        progress_tracker.update(
-                            total_steps, {"step": "Complete (cached)"}
-                        )
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Clean invalid values (from cache)",
-                            details={"cached": True},
-                        )
-                    return cache_result
-
-            # Retrieve DataFrame from data source
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Log initial dataset information
@@ -266,7 +248,33 @@ class DataAttributeProfilerOperation(BaseOperation):
                     },
                 )
 
-            # Step 2: Data Loading
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df=df)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
+
+            # Step 3: Data Loading dictionary and Preparation
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(
@@ -311,7 +319,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                 max_columns=self.max_columns,
             )
 
-            # Step 3: Analysis
+            # Step 4: Analysis
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(
@@ -770,9 +778,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                 details={"warning": f"Error creating some visualizations: {str(e)}"},
             )
 
-    def _check_cache(
-        self, data_source: DataSource, data_source_name: str = "main", **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -780,10 +786,6 @@ class DataAttributeProfilerOperation(BaseOperation):
         -----------
         data_source : DataSource
             Data source for the operation
-        task_dir : Path
-            Task directory
-        data_source_name: str
-            Dataset name
 
         Returns:
         --------
@@ -794,17 +796,6 @@ class DataAttributeProfilerOperation(BaseOperation):
             return None
 
         try:
-            # Get DataFrame from data source
-            settings_operation = load_settings_operation(
-                data_source, data_source_name, **kwargs
-            )
-            df = load_data_operation(
-                data_source, data_source_name, **settings_operation
-            )
-            if df is None:
-                self.logger.warning("No valid DataFrame found in data source")
-                return None
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 

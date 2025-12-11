@@ -32,21 +32,21 @@ for input/output, progress tracking, and result reporting.
 from datetime import datetime
 import time
 from pathlib import Path
-from typing import Optional, Dict, List, Any, Union, Tuple
+from typing import Optional, Dict, List, Any, Union
 import numpy as np
 import pandas as pd
 import matplotlib
 
+from pamola_core.utils.ops.op_data_writer import DataWriter
+
 # Set the backend to 'Agg' to avoid GUI issues
 matplotlib.use("Agg")
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.commons.enum import OutputFormat, PartitionMethod
+from pamola_core.transformations.commons.enum import PartitionMethod
 from pamola_core.utils.io import (
-    load_data_operation,
     ensure_directory,
     load_settings_operation,
     write_json,
-    write_dataframe_to_csv,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -62,10 +62,8 @@ from pamola_core.utils.visualization import (
     create_pie_chart,
     create_heatmap,
 )
-from pamola_core.utils.io_helpers import crypto_utils, directory_utils
 import dask.dataframe as dd
 from joblib import Parallel, delayed
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.transformations.schemas.split_by_id_values_op_core_schema import (
     SplitByIDValuesOperationConfig,
 )
@@ -187,6 +185,13 @@ class SplitByIDValuesOperation(TransformationOperation):
 
             dirs = self._prepare_directories(task_dir)
 
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir,
+                logger=self.logger,
+                progress_tracker=progress_tracker,
+            )
+
             # Initialize operation cache
             self.operation_cache = OperationCache(
                 cache_dir=dirs["cache"],
@@ -204,47 +209,38 @@ class SplitByIDValuesOperation(TransformationOperation):
                 )
 
             # Load data and validate input parameters
-            self.logger.info(
-                f"Operation: {self.operation_name}, Load data and validate input parameters"
-            )
-            if progress_tracker:
-                progress_tracker.update(
-                    1,
-                    {
-                        "step": "Load data and validate input parameters",
-                        "operation": self.operation_name,
-                    },
+            try:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
                 )
-
-            df, is_valid = self._load_data_and_validate_input_parameters(
-                data_source, **kwargs
-            )
-
-            if is_valid:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters successfully",
-                            "shape": df.shape,
-                        },
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
                     )
-            else:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters failed",
-                        },
-                    )
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="Load data and validate input parameters failed",
-                    )
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+                is_valid = self._validate_input_parameters(df)
+                if not is_valid:
+                    raise ValueError("Missing fields in DataFrame.")
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
@@ -349,9 +345,14 @@ class SplitByIDValuesOperation(TransformationOperation):
 
             try:
                 metrics = self._collect_metrics(df, processed_df)
-                result.metrics = metrics
+                
                 self._save_metrics(
-                    metrics, task_dir, result, operation_timestamp, **kwargs
+                    metrics=metrics,
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -389,8 +390,14 @@ class SplitByIDValuesOperation(TransformationOperation):
                     )
 
                 try:
-                    self._save_output(
-                        processed_df, task_dir, result, operation_timestamp, **kwargs
+                    self._save_multiple_output_data(
+                        result_subsets=processed_df,
+                        writer=writer,
+                        result=result,
+                        reporter=reporter,
+                        progress_tracker=progress_tracker,
+                        timestamp=operation_timestamp,
+                        **kwargs,
                     )
                 except Exception as e:
                     error_message = f"Error saving output data: {str(e)}"
@@ -749,48 +756,14 @@ class SplitByIDValuesOperation(TransformationOperation):
             "processing_date": datetime.now().isoformat(),
         }
 
-    def _save_metrics(
-        self,
-        metrics: Dict[str, Any],
-        task_dir: Path,
-        result: OperationResult,
-        operation_timestamp: str,
-        **kwargs,
-    ) -> Path:
-        """
-        Save the structured metrics dictionary to a JSON file in the task directory.
-        """
-        metrics_dir = task_dir / "metrics"
-        ensure_directory(metrics_dir)
-
-        operation_name = self.operation_name.lower()
-        metrics_filename = f"{operation_name}_metrics_{operation_timestamp}.json"
-        metrics_path = metrics_dir / metrics_filename
-
-        try:
-            encryption_key = self.encryption_key if self.use_encryption else None
-            write_json(metrics, metrics_path, encryption_key=encryption_key)
-
-            result.add_artifact(
-                artifact_type="json",
-                path=metrics_path,
-                description=f"Metrics for {operation_name} saved at {operation_timestamp}",
-                category=Constants.Artifact_Category_Metrics,
-            )
-
-            self.logger.info(f"Structured metrics saved successfully to {metrics_path}")
-            return metrics_path
-
-        except Exception as e:
-            self.logger.error(f"Error saving structured metrics to {metrics_path}: {e}")
-            raise
-
-    def _save_output(
+    def _save_multiple_output_data(
         self,
         result_subsets: dict[str, pd.DataFrame],
-        task_dir: Path,
+        writer: DataWriter,
         result: OperationResult,
-        operation_timestamp: str,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        timestamp: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -807,57 +780,21 @@ class SplitByIDValuesOperation(TransformationOperation):
         operation_timestamp : str
             Timestamp string for naming output files.
         """
-        output_dir = task_dir / "output"
-        ensure_directory(output_dir)
 
         for dataset_name, df in result_subsets.items():
-            filename = (
-                f"{dataset_name}_output_{operation_timestamp}.{self.output_format}"
-            )
-            output_path = output_dir / filename
+            file_name = f"{self.operation_name}_{dataset_name}_output_{timestamp}"
 
             try:
-                encryption_mode = get_encryption_mode(df, self.use_encryption)
-                if self.output_format == OutputFormat.CSV.value:
-                    write_dataframe_to_csv(
-                        df=df,
-                        file_path=output_path,
-                        encryption_key=self.encryption_key,
-                        use_encryption=self.use_encryption,
-                        encryption_mode=encryption_mode,
-                    )
-                elif self.output_format == OutputFormat.JSON.value:
-                    if self.encryption_key:
-                        file_path = Path(output_path)
-                        temp_dir = file_path.parent / "temp"
-                        temp_dir.mkdir(parents=True, exist_ok=True)
-                        temp_destination_path = temp_dir / f"decrypted_{file_path.name}"
-
-                        df.to_json(temp_destination_path, orient="records", lines=True)
-
-                        crypto_utils.encrypt_file(
-                            source_path=temp_destination_path,
-                            destination_path=output_path,
-                            key=self.encryption_key,
-                            mode=encryption_mode,
-                        )
-                        directory_utils.safe_remove_temp_file(temp_destination_path)
-                    else:
-                        df.to_json(temp_destination_path, orient="records", lines=True)
-                else:
-                    self.logger.warning(
-                        f"Unsupported output format: {self.output_format}"
-                    )
-                    continue
-
-                self.logger.info(f"Saved output: {output_path}")
-                result.add_artifact(
-                    artifact_type=self.output_format,
-                    path=output_path,
-                    description=f"Output for {dataset_name} saved at {operation_timestamp}",
-                    category=Constants.Artifact_Category_Output,
+                output_path = self._save_output_data(
+                    result_df=df,
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    timestamp=timestamp,
+                    file_name=file_name,
+                    **kwargs,
                 )
-
             except Exception as e:
                 self.logger.error(
                     f"Failed to save {dataset_name} to {output_path}: {e}"
@@ -1092,24 +1029,6 @@ class SplitByIDValuesOperation(TransformationOperation):
                 return False
 
         return True
-
-    def _load_data_and_validate_input_parameters(
-        self, data_source: DataSource, **kwargs
-    ) -> Tuple[Optional[pd.DataFrame], bool]:
-
-        dataset_name = kwargs.get("dataset_name", "main")
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-        df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-        if df is None or df.empty:
-            self.logger.error("Error data frame is None or empty")
-            return None, False
-
-        self._original_df = df.copy(deep=True)
-
-        return df, self._validate_input_parameters(df)
 
     def _compute_total_steps(self) -> int:
         steps = 0

@@ -308,33 +308,7 @@ class EmailOperation(FieldOperation):
                     current_steps, {"step": "Preparation", "field": self.field_name}
                 )
 
-            # Step 2: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-                logger.info("Checking operation cache...")
-                cache_result = self._check_cache(data_source, dataset_name, **kwargs)
-
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if progress_tracker:
-                        progress_tracker.update(
-                            total_steps, {"step": "Complete (cached)"}
-                        )
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Clean invalid values (from cache)",
-                            details={"cached": True},
-                        )
-                    return cache_result
-
-            # Step 3: Data Loading
+            # Step 2: Data Loading
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Data Loading"})
@@ -343,12 +317,9 @@ class EmailOperation(FieldOperation):
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
             )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
-                )
+            df = helpers.validate_and_get_dataframe(
+                data_source, dataset_name, **settings_operation
+            )
 
             # Check if field exists
             if self.field_name not in df.columns:
@@ -368,6 +339,32 @@ class EmailOperation(FieldOperation):
                         "operation_type": "email_analysis",
                     },
                 )
+
+            # Step 3: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
 
             # Step 4: Analysis
             if progress_tracker:
@@ -818,9 +815,7 @@ class EmailOperation(FieldOperation):
                     },
                 )
 
-    def _check_cache(
-        self, data_source: DataSource, data_source_name: str = "main", **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -842,14 +837,6 @@ class EmailOperation(FieldOperation):
             return None
 
         try:
-
-            # Get DataFrame from data source
-            settings_operation = load_settings_operation(
-                data_source, data_source_name, **kwargs
-            )
-            df = load_data_operation(
-                data_source, data_source_name, **settings_operation
-            )
             if df is None:
                 self.logger.warning("No valid DataFrame found in data source")
                 return None

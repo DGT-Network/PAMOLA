@@ -24,6 +24,9 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 from typing import List
 
+import numpy as np
+import pandas as pd
+
 
 class Constants:
     OPERATION_NAMES = ["generalization", "noise_addition"]
@@ -98,3 +101,16 @@ class Constants:
     Artifact_Category_Visualization = "visualization"
     Artifact_Category_Metrics = "metrics"
     Artifact_Category_Mapping = "mapping"
+
+    PANDAS_DTYPE_MAP = {
+        # String / Boolean
+        "String": pd.StringDtype(),
+        "Boolean": pd.BooleanDtype(),
+        # Nullable integers & floats
+        "Int64": pd.Int64Dtype(),
+        "Float64": pd.Float64Dtype(),
+        # Datetime (naive)
+        "Datetime": np.dtype("datetime64[ns]"),
+        # Datetime with timezone (UTC)
+        "DatetimeUTC": pd.DatetimeTZDtype(tz="UTC"),
+    }

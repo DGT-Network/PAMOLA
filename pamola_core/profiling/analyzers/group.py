@@ -40,14 +40,17 @@ from pamola_core.profiling.commons.group_utils import (
     calculate_field_metrics,
 )
 from pamola_core.profiling.schemas.group_core_schema import GroupAnalyzerOperationConfig
-from pamola_core.utils.helpers import build_base_cache, filter_used_kwargs, get_cache_result
+from pamola_core.utils.helpers import (
+    build_base_cache,
+    filter_used_kwargs,
+    get_cache_result,
+)
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
@@ -359,7 +362,6 @@ class GroupAnalyzerOperation(FieldOperation):
                 cache_dir=dirs["cache"],
             )
             visualizations_dir = dirs["visualizations"]
-            output_dir = dirs["output"]
 
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
@@ -401,33 +403,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     {"step": "Starting group analysis", "field": self.field_name},
                 )
 
-            # Step 2: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(data_source, dataset_name)
-
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if progress_tracker:
-                        progress_tracker.update(
-                            total_steps, {"step": "Complete (cached)"}
-                        )
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Clean invalid values (from cache)",
-                            details={"cached": True},
-                        )
-                    return cache_result
-
-            # Step 3: Load data
+            # Step 2: Load data
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Loading data"})
@@ -436,13 +412,9 @@ class GroupAnalyzerOperation(FieldOperation):
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
             )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-            if df is None:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
-                )
+            df = helpers.validate_and_get_dataframe(
+                data_source, dataset_name, **settings_operation
+            )
 
             # Check if field_name exists
             if self.field_name not in df.columns:
@@ -464,6 +436,32 @@ class GroupAnalyzerOperation(FieldOperation):
                 return OperationResult(
                     status=OperationStatus.ERROR, error_message=error_message
                 )
+
+            # Step 3: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
 
             # Step 4: Group data by the specified field
             if progress_tracker:
@@ -546,7 +544,7 @@ class GroupAnalyzerOperation(FieldOperation):
                 description=f"{self.__class__.__name__} {self.field_name} group analysis metrics",
                 category=Constants.Artifact_Category_Metrics,
             )
-            
+
             # Cache the result if caching is enabled
             if self.use_cache:
                 try:
@@ -1055,22 +1053,14 @@ class GroupAnalyzerOperation(FieldOperation):
                     f"Failed to generate fallback visualization: {str(e2)}"
                 )
 
-    def _check_cache(
-        self,
-        data_source: DataSource,
-        data_source_name: str = "main",
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
         Parameters:
         -----------
-        data_source : DataSource
-            Data source for the operation
-        task_dir : Path
-            Task directory
-        data_source_name: str
-            Dataset name
+        df : pd.DataFrame
+            DataFrame for the operation
 
         Returns:
         --------
@@ -1081,9 +1071,6 @@ class GroupAnalyzerOperation(FieldOperation):
             return None
 
         try:
-
-            # Get DataFrame from data source
-            df = load_data_operation(data_source, data_source_name)
             if df is None:
                 self.logger.warning("No valid DataFrame found in data source")
                 return None

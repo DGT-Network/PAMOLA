@@ -30,8 +30,7 @@ for input/output, progress tracking, and result reporting.
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
-import numpy as np
+from typing import Any, Dict, Optional, Tuple
 import pandas as pd
 from pamola_core.common.enum.relationship_type import RelationshipType
 from pamola_core.transformations.commons.processing_utils import (
@@ -50,7 +49,6 @@ from pamola_core.transformations.base_transformation_op import TransformationOpe
 from pamola_core.transformations.schemas.merge_datasets_op_core_schema import (
     MergeDatasetsOperationConfig,
 )
-from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -60,7 +58,7 @@ from pamola_core.utils.ops.op_result import (
     OperationStatus,
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_settings_operation
 from pamola_core.common.constants import Constants
 
 
@@ -411,35 +409,15 @@ class MergeDatasetsOperation(TransformationOperation):
                 # Generate metrics file name (in self.name existed left_key)
                 metrics_file_name = f"{self.left_key}_{self.operation_name}_metrics_{operation_timestamp}"
 
-                # Write metrics to persistent storage/artifact repository
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    file_name=metrics_file_name,
                 )
-
-                # Add simple metrics (int, float, str, bool) to the result object
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register the metrics artifact for tracking and visualization
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"Merging on {self.left_key} ↔ {self.right_key} — datasets transformation metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report the metrics artifact to the reporter if available
-                if reporter:
-                    reporter.add_operation(
-                        f"Merging on {self.left_key} ↔ {self.right_key} — datasets transformation metrics",
-                        details={"type": "json", "path": str(metrics_result.path)},
-                    )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
                 self.logger.warning(error_message)
@@ -456,14 +434,13 @@ class MergeDatasetsOperation(TransformationOperation):
                 )
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         left_df=left_df,
                         right_df=self.right_df,
                         merged_df=processed_df,
@@ -497,15 +474,15 @@ class MergeDatasetsOperation(TransformationOperation):
             # Save output data if required
             if self.save_output:
                 try:
-                    output_result_path = self._save_output_data(
+                    file_name_output = f"{self.left_key}_{self.operation_name}_output_{operation_timestamp}"
+                    self._save_output_data(
                         result_df=processed_df,
-                        task_dir=task_dir,
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
+                        file_name=file_name_output,
                         **kwargs,
                     )
                 except Exception as e:
@@ -1152,75 +1129,6 @@ class MergeDatasetsOperation(TransformationOperation):
 
         return visualization_paths
 
-    def _save_output_data(
-        self,
-        result_df: pd.DataFrame,
-        is_encryption_required: bool,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        timestamp: Optional[str] = None,
-        **kwargs,
-    ) -> str:
-        """
-        Save the processed output data.
-
-        Parameters:
-        -----------
-        result_df : pd.DataFrame
-            The processed dataframe to save
-        is_encryption_required : bool
-            Whether to encrypt the output
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        timestamp : Optional[str]
-            Optional timestamp for the output file
-        **kwargs : dict
-            Additional parameters for the operation
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving output data"})
-
-        custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
-
-        # Generate standardized output filename with timestamp
-        field_name_output = f"{self.left_key}_{self.operation_name}_output_{timestamp}"
-
-        output_result = writer.write_dataframe(
-            df=result_df,
-            name=field_name_output,
-            format=self.output_format,
-            subdir="output",
-            timestamp_in_name=False,
-            encryption_key=self.encryption_key if is_encryption_required else None,
-            **custom_kwargs,
-        )
-
-        # Register output artifact with the result
-        result.add_artifact(
-            artifact_type=self.output_format,
-            path=output_result.path,
-            description=f"{self.name} transformed data",
-            category=Constants.Artifact_Category_Output,
-        )
-
-        # Report to reporter
-        if reporter:
-            reporter.add_artifact(
-                self.output_format,
-                str(output_result.path),
-                f"{self.name} transformed data",
-            )
-
-        return str(output_result.path)
-
     def _get_dataset(
         self, source: Any, dataset_name_or_path: Optional[str], **kwargs
     ) -> Optional[pd.DataFrame]:
@@ -1250,7 +1158,9 @@ class MergeDatasetsOperation(TransformationOperation):
         settings_operation = load_settings_operation(
             source, dataset_name_or_path, **kwargs
         )
-        return load_data_operation(source, dataset_name_or_path, **settings_operation)
+        return self._validate_and_get_dataframe(
+            source, dataset_name_or_path, **settings_operation
+        )
 
     def _validate_input_params(
         self,

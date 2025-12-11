@@ -330,7 +330,7 @@ class IdentityAnalysisOperation(FieldOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Validation, 3. Data loading, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data loading, 2. Validation, 3. Cache check, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -358,46 +358,7 @@ class IdentityAnalysisOperation(FieldOperation):
                 data_source, dataset_name, **kwargs
             )
 
-            # Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                # Step 1: Check if we have a cached result
-                if main_progress:
-                    current_steps += 1
-                    self._update_progress_tracker(
-                        TOTAL_MAIN_STEPS, current_steps, "Checking cache", main_progress
-                    )
-
-                # Load left dataset for check cache
-                df = load_data_operation(
-                    data_source, dataset_name, **settings_operation
-                )
-                if df is None:
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="No valid DataFrame found in data source",
-                    )
-
-                self.logger.info(
-                    f"Field: '{self.field_name}' loaded with {len(df)} records."
-                )
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df=df, reporter=reporter)
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if main_progress:
-                        self._update_progress_tracker(
-                            TOTAL_MAIN_STEPS,
-                            current_steps,
-                            "Complete (cached)",
-                            main_progress,
-                        )
-
-                    return cache_result
-
-            # Step 2: Data Loading
+            # Step 1: Data Loading
             if main_progress:
                 current_steps += 1
                 self._update_progress_tracker(
@@ -406,15 +367,9 @@ class IdentityAnalysisOperation(FieldOperation):
 
             try:
                 # Load DataFrame
-                if df is None:
-                    df = load_data_operation(
-                        data_source, dataset_name, **settings_operation
-                    )
-                    if df is None:
-                        return OperationResult(
-                            status=OperationStatus.ERROR,
-                            error_message="No valid DataFrame found in data source",
-                        )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
@@ -424,7 +379,7 @@ class IdentityAnalysisOperation(FieldOperation):
                     exception=e,
                 )
 
-            # Step 3: Validation
+            # Step 2: Validation
             if main_progress:
                 current_steps += 1
                 self._update_progress_tracker(
@@ -476,6 +431,31 @@ class IdentityAnalysisOperation(FieldOperation):
                     "operation_type": "identity_analysis",
                 },
             )
+
+            # Step 3: Check if we have a cached result
+            # Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if main_progress:
+                    current_steps += 1
+                    self._update_progress_tracker(
+                        TOTAL_MAIN_STEPS, current_steps, "Checking cache", main_progress
+                    )
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df)
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if main_progress:
+                        self._update_progress_tracker(
+                            TOTAL_MAIN_STEPS,
+                            current_steps,
+                            "Complete (cached)",
+                            main_progress,
+                        )
+
+                    return cache_result
 
             # Step 4: Processing progress tracker
             if main_progress:
@@ -980,9 +960,7 @@ class IdentityAnalysisOperation(FieldOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for this operation.
 
@@ -990,8 +968,6 @@ class IdentityAnalysisOperation(FieldOperation):
         ----------
         df : pd.DataFrame
             DataFrame for the operation
-        reporter : Any
-            Reporter object for tracking progress and artifacts
 
         Returns
         -------

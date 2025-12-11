@@ -32,6 +32,9 @@ from pamola_core.profiling.commons.dtype_helpers import (
     is_categorical_dtype,
 )
 from pamola_core.utils import helpers
+from pamola_core.utils.io import load_data_operation
+from pamola_core.utils.ops.op_result import OperationResult
+from pamola_core.utils.ops.op_data_source import DataSource
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -695,3 +698,48 @@ def cleanup_memory(
         helpers.cleanup_memory(instance=instance)
     except Exception as e:
         logger.warning(f"Error cleanup_memory: {e}")
+
+
+def validate_and_get_dataframe(
+    data_source: DataSource, dataset_name: str, **kwargs: Any
+) -> pd.DataFrame:
+    """
+    Validate data source and retrieve the main dataframe.
+
+    Parameters:
+    -----------
+    data_source : DataSource
+        The data source to validate
+    dataset_name : str
+        The name of the dataset to retrieve
+    **kwargs : Any
+        Additional keyword arguments to pass to the data loading function
+
+    Returns:
+    --------
+    pd.DataFrame
+        The validated dataframe
+
+    Raises:
+    -------
+    ValueError
+        If no valid dataframe is found or the field is missing
+    """
+    # Get DataFrame from the data source
+    df = load_data_operation(data_source, dataset_name, **kwargs)
+    if df is None:
+        error_message = f"Failed to load input data!"
+        raise ValueError(error_message)
+
+    # Apply data types from data source
+    try:
+        df = data_source.apply_data_types(df, dataset_name)
+    except ValueError as e:
+        error_msg = f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
+        raise ValueError(error_msg) from e
+
+    except TypeError as e:
+        error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
+        raise TypeError(error_msg) from e
+
+    return df

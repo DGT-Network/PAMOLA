@@ -168,7 +168,7 @@ class TransformationOperation(BaseOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Data loading, 3. Validation, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data loading, 2. Validation, 3. Cache check, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -190,43 +190,7 @@ class TransformationOperation(BaseOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if main_progress:
-                    current_steps += 1
-                    main_progress.update(
-                        current_steps,
-                        {"step": "Checking cache", **field_info},
-                    )
-
-                # Load data for check cache
-                df = load_data_operation(
-                    data_source, dataset_name, **settings_operation
-                )
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df, reporter)
-
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if main_progress:
-                        main_progress.update(
-                            current_steps,
-                            {"step": "Complete (cached)", **field_info},
-                        )
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Transformation of {self.field_label} (from cache)",
-                            details={"cached": True},
-                        )
-
-                    return cache_result
-
-            # Step 2: Data Loading
+            # Step 1: Data Loading
             if main_progress:
                 current_steps += 1
                 main_progress.update(
@@ -235,10 +199,9 @@ class TransformationOperation(BaseOperation):
 
             # Validate and get dataframe
             try:
-                if df is None:
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
@@ -247,8 +210,8 @@ class TransformationOperation(BaseOperation):
                     error_message=error_message,
                     exception=e,
                 )
-
-            # Step 3: Validation
+            
+            # Step 2: Validation
             if main_progress:
                 current_steps += 1
                 main_progress.update(
@@ -273,6 +236,37 @@ class TransformationOperation(BaseOperation):
                     error_message=error_message,
                     exception=e,
                 )
+            
+            # Step 3: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if main_progress:
+                    current_steps += 1
+                    main_progress.update(
+                        current_steps,
+                        {"step": "Checking cache", **field_info},
+                    )
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if main_progress:
+                        main_progress.update(
+                            current_steps,
+                            {"step": "Complete (cached)", **field_info},
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Transformation of {self.field_label} (from cache)",
+                            details={"cached": True},
+                        )
+
+                    return cache_result
 
             # Step 4: Processing
             if main_progress:
@@ -333,35 +327,15 @@ class TransformationOperation(BaseOperation):
                 # Generate metrics file name (in self.name existed field_name)
                 metrics_file_name = f"{self.field_label}_{self.operation_name}_metrics_{operation_timestamp}"
 
-                # Write metrics to persistent storage/artifact repository
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    file_name=metrics_file_name,
                 )
-
-                # Add simple metrics (int, float, str, bool) to the result object
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register the metrics artifact for tracking and visualization
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"{field_info} transformation metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report the metrics artifact to the reporter if available
-                if reporter:
-                    reporter.add_operation(
-                        f"{field_info} transformation metrics",
-                        details={"type": "json", "path": str(metrics_result.path)},
-                    )
 
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -377,14 +351,13 @@ class TransformationOperation(BaseOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         transformed_data=transformed_data,
                         task_dir=task_dir,
@@ -417,10 +390,8 @@ class TransformationOperation(BaseOperation):
             # Save output data if required
             if self.save_output:
                 try:
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=result_df,
-                        task_dir=task_dir,
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -536,10 +507,21 @@ class TransformationOperation(BaseOperation):
                 error_msg = f"Field '{self.field_name}' not found in DataFrame columns"
                 self.logger.error(error_msg)
                 raise ValueError(error_msg)
-            else:
-                self.logger.debug(
-                    f"Field '{self.field_name}' found in DataFrame columns"
-                )
+
+        # Apply data types from data source
+        try:
+            df = data_source.apply_data_types(df, dataset_name)
+        except ValueError as e:
+            error_msg = (
+                f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
+            )
+            self.logger.error(error_msg)
+            raise ValueError(error_msg) from e
+
+        except TypeError as e:
+            error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
+            self.logger.error(error_msg)
+            raise TypeError(error_msg) from e
 
         return df
 
@@ -1159,12 +1141,12 @@ class TransformationOperation(BaseOperation):
     def _save_output_data(
         self,
         result_df: pd.DataFrame,
-        is_encryption_required: bool,
         writer: DataWriter,
         result: OperationResult,
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
         timestamp: Optional[str] = None,
+        file_name: str = None,
         **kwargs,
     ) -> str:
         """
@@ -1174,8 +1156,6 @@ class TransformationOperation(BaseOperation):
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
-        is_encryption_required : bool
-            Whether to encrypt the output
         writer : DataWriter
             The writer to use for saving data
         result : OperationResult
@@ -1186,6 +1166,8 @@ class TransformationOperation(BaseOperation):
             Optional progress tracker
         timestamp : Optional[str]
             Optional timestamp for the output file
+        file_name : str
+            File name for the name of output file
         **kwargs : dict
             Additional parameters for the operation
         """
@@ -1195,17 +1177,17 @@ class TransformationOperation(BaseOperation):
         custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
 
         # Generate standardized output filename with timestamp
-        field_name_output = (
-            f"{self.field_label}_{self.operation_name}_output_{timestamp}"
+        file_name = file_name or (
+            f"{self.operation_name}_output_{timestamp}"
         )
 
         output_result = writer.write_dataframe(
             df=result_df,
-            name=field_name_output,
+            name=file_name,
             format=self.output_format,
             subdir="output",
             timestamp_in_name=False,
-            encryption_key=self.encryption_key if is_encryption_required else None,
+            encryption_key=self.encryption_key if self.use_encryption else None,
             **custom_kwargs,
         )
 
@@ -1213,7 +1195,7 @@ class TransformationOperation(BaseOperation):
         result.add_artifact(
             artifact_type=self.output_format,
             path=output_result.path,
-            description=f"{self.name} transformed data",
+            description=f"{self.operation_name} transformed data",
             category=Constants.Artifact_Category_Output,
         )
 
@@ -1222,8 +1204,17 @@ class TransformationOperation(BaseOperation):
             reporter.add_artifact(
                 self.output_format,
                 str(output_result.path),
-                f"{self.name} transformed data",
+                f"{self.operation_name} transformed data",
             )
+
+        # Save output data types
+        self._save_dtypes_output(
+            df=result_df,
+            writer=writer,
+            result=result,
+            reporter=reporter,
+            file_name=file_name,
+        )
 
         return str(output_result.path)
 
@@ -1535,3 +1526,136 @@ class TransformationOperation(BaseOperation):
         custom_kwargs["encryption_mode"] = get_encryption_mode(df, self.use_encryption)
 
         return custom_kwargs
+
+    def _save_dtypes_output(
+        self,
+        df: pd.DataFrame,
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any = None,
+        file_name: str = None,
+    ) -> bool:
+        """
+        Saves data types dataframe format to a JSON file.
+
+        Returns
+        -------
+        True or False
+        """
+        try:
+
+            # Get the dtypes of the columns as a Series
+            dtypes_series = df.dtypes
+
+            # Convert the dtypes Series to a dictionary
+            dtypes_dict = dtypes_series.astype(str).to_dict()
+
+            # Generate standardized output filename with timestamp
+            dtypes_filename = f"data_types_{file_name}"
+
+            dtypes_result = writer.write_metrics(
+                metrics=dtypes_dict,
+                name=dtypes_filename,
+                timestamp_in_name=False,
+                encryption_key=self.encryption_key,
+            )
+
+            result.add_metric(dtypes_filename, dtypes_dict)
+
+            result.add_artifact(
+                artifact_type="json",
+                path=dtypes_result.path,
+                description=f"Data types of output {self.field_label} {self.operation_name}",
+                category=Constants.Artifact_Category_Metrics,
+            )
+
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="json",
+                    path=str(dtypes_result.path),
+                    description=f"Data types of output {self.field_label} {self.operation_name}",
+                )
+
+            self.logger.info(f"Dtypes output saved to: {Path(dtypes_result.path).name}")
+            return True
+
+        except Exception as e:
+            self.logger.warning(f"Failed to save dtypes format: {str(e)}")
+            return False
+
+    def _save_metrics(
+        self,
+        metrics: Dict[str, Any],
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        file_name: str = None,
+        operation_timestamp: Optional[str] = None,
+    ) -> bool:
+        """
+        Save metrics.
+
+        Parameters:
+        -----------
+        metrics : dict
+            The metrics of operation
+        writer : DataWriter
+            The writer to use for saving data
+        result : OperationResult
+            The operation result to add artifacts to
+        reporter : Any
+            The reporter to log artifacts to
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Optional progress tracker
+        operation_timestamp : str, optional
+            Timestamp of the operation, if any (for filename purposes)
+        file_name : Str
+            The file name
+
+        Returns
+        -------
+        True or False
+
+        """
+        try:
+            if progress_tracker:
+                progress_tracker.update(0, {"step": "Saving metrics"})
+
+            # Use the DataWriter to save
+            metrics_filename = file_name or (
+                f"{self.operation_name.lower()}_metrics_{operation_timestamp}"
+            )
+
+            metrics_result = writer.write_metrics(
+                metrics=metrics,
+                name=metrics_filename,
+                timestamp_in_name=False,  # Already included in the filename
+                encryption_key=self.encryption_key if self.use_encryption else None,
+            )
+
+            # Add metrics to result
+            for key, value in metrics.items():
+                if isinstance(value, (int, float, str, bool)):
+                    result.add_metric(key, value)
+
+            # Register metrics artifact
+            result.add_artifact(
+                artifact_type="json",
+                path=metrics_result.path,
+                description=f"{self.operation_name.lower()} metrics",
+                category=Constants.Artifact_Category_Metrics,
+            )
+
+            # Report artifact
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="json",
+                    path=str(metrics_result.path),
+                    description=f"{self.operation_name.lower()} metrics",
+                )
+
+            return True
+        except Exception as e:
+            self.logger.warning(f"Failed to save metrics: {str(e)}")
+            return False

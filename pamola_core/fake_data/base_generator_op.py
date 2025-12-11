@@ -236,7 +236,7 @@ class GeneratorOperation(FieldOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Data Loading & Validation, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data Loading & Validation, 2. Cache check, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -258,7 +258,33 @@ class GeneratorOperation(FieldOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
+            # Step 1: Data Loading & Validation
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", "field": self.field_name}
+                )
+
+            # Validate and get dataframe
+            try:
+
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                self._original_df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
                 try:
                     if main_progress:
@@ -267,11 +293,8 @@ class GeneratorOperation(FieldOperation):
                             current_steps,
                             {"step": "Checking cache", "field": self.field_name},
                         )
-                    # Load data for cache check
-                    self._original_df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
 
+                    # Load data for cache check
                     self.logger.info("Checking operation cache...")
                     cache_result = self._check_cache(self._original_df, reporter)
 
@@ -303,29 +326,6 @@ class GeneratorOperation(FieldOperation):
                         error_message=error_message,
                         exception=e,
                     )
-
-            # Step 2: Data Loading & Validation
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Data Loading", "field": self.field_name}
-                )
-
-            # Validate and get dataframe
-            try:
-                if self._original_df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    self._original_df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -418,43 +418,14 @@ class GeneratorOperation(FieldOperation):
             try:
                 metrics = self._collect_metrics(processed_df)
 
-                # Generate metrics file name (in self.name existed field_name)
-                metrics_file_name = (
-                    f"{self.field_name}_{self.name}_metrics_{operation_timestamp}"
-                )
-
-                # Save metrics using writer
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
                 )
-
-                # Add metrics to result
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register metrics artifact
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"{self.field_name} generator metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report artifact
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} generator metrics",
-                        details={
-                            "artifact_type": "json",
-                            "path": str(metrics_result.path),
-                        },
-                    )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
                 self.logger.warning(error_message)
@@ -534,6 +505,7 @@ class GeneratorOperation(FieldOperation):
             if self.save_output:
                 try:
                     safe_kwargs = filter_used_kwargs(kwargs, self._save_output_data)
+                    # Save output data
                     self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
@@ -541,7 +513,6 @@ class GeneratorOperation(FieldOperation):
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        use_encryption=self.use_encryption,
                         **safe_kwargs,
                     )
                 except Exception as e:
@@ -660,6 +631,21 @@ class GeneratorOperation(FieldOperation):
             error_message = f"Field {self.field_name} not found in DataFrame"
             self.logger.error(error_message)
             raise ValueError(error_message)
+
+        # Apply data types from data source
+        try:
+            df = data_source.apply_data_types(df, dataset_name)
+        except ValueError as e:
+            error_msg = (
+                f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
+            )
+            self.logger.error(error_msg)
+            raise ValueError(error_msg) from e
+
+        except TypeError as e:
+            error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
+            self.logger.error(error_msg)
+            raise TypeError(error_msg) from e
 
         return df
 
@@ -1329,7 +1315,7 @@ class GeneratorOperation(FieldOperation):
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
         timestamp: Optional[str] = None,
-        use_encryption: Optional[bool] = False,
+        file_name: str = None,
         **kwargs,
     ) -> str:
         """
@@ -1339,8 +1325,6 @@ class GeneratorOperation(FieldOperation):
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
-        use_encryption : bool
-            Whether to encrypt the output
         writer : DataWriter
             The writer to use for saving data
         result : OperationResult
@@ -1351,6 +1335,8 @@ class GeneratorOperation(FieldOperation):
             Optional progress tracker
         timestamp : Optional[str]
             Optional timestamp for the operation
+        file_name : str
+            File name for the name of output file
         **kwargs : dict
             Additional parameters for the operation
         """
@@ -1358,7 +1344,7 @@ class GeneratorOperation(FieldOperation):
             progress_tracker.update(0, {"step": "Saving output data"})
 
         # Generate standardized output filename with timestamp
-        field_name_output = (
+        file_name = file_name or (
             f"{self.field_name}_{self.operation_name}_output_{timestamp}"
         )
 
@@ -1369,11 +1355,11 @@ class GeneratorOperation(FieldOperation):
         )
         output_result = writer.write_dataframe(
             df=result_df,
-            name=field_name_output,
+            name=file_name,
             format=self.output_format,
             subdir="output",
             timestamp_in_name=False,
-            encryption_key=self.encryption_key if use_encryption else None,
+            encryption_key=self.encryption_key if self.use_encryption else None,
             overwrite=True,
             **safe_kwargs,
         )
@@ -1382,8 +1368,17 @@ class GeneratorOperation(FieldOperation):
         result.add_artifact(
             artifact_type=self.output_format,
             path=output_result.path,
-            description=f"{self.field_name} generator data",
+            description=f"{self.field_name} {self.operation_name} generator data",
             category=Constants.Artifact_Category_Output,
+        )
+
+        # Save output data types
+        self._save_dtypes_output(
+            df=result_df,
+            writer=writer,
+            reporter=reporter,
+            result=result,
+            file_name=file_name,
         )
 
         # Report to reporter
@@ -1592,3 +1587,136 @@ class GeneratorOperation(FieldOperation):
         )
 
         return parameters
+
+    def _save_dtypes_output(
+        self,
+        df: pd.DataFrame,
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        file_name: str = None,
+    ) -> bool:
+        """
+        Saves data types dataframe format to a JSON file.
+
+        Returns
+        -------
+        Path or None
+            Path to saved file if success, otherwise None
+        """
+        try:
+
+            # Get the dtypes of the columns as a Series
+            dtypes_series = df.dtypes
+
+            # Convert the dtypes Series to a dictionary
+            dtypes_dict = dtypes_series.astype(str).to_dict()
+
+            # Generate standardized output filename with timestamp
+            dtypes_filename = f"data_types_{file_name}"
+
+            dtypes_result = writer.write_metrics(
+                metrics=dtypes_dict,
+                name=dtypes_filename,
+                timestamp_in_name=False,
+                encryption_key=self.encryption_key,
+            )
+
+            result.add_metric(dtypes_filename, dtypes_dict)
+
+            result.add_artifact(
+                artifact_type="json",
+                path=dtypes_result.path,
+                description=f"Data types of output {self.field_name} {self.operation_name}",
+                category=Constants.Artifact_Category_Metrics,
+            )
+
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="json",
+                    path=str(dtypes_result.path),
+                    description=f"Data types of output {self.field_name} {self.operation_name}",
+                )
+
+            self.logger.info(f"Dtypes output saved to: {Path(dtypes_result.path).name}")
+            return True
+
+        except Exception as e:
+            self.logger.warning(f"Failed to save dtypes format: {str(e)}")
+            return False
+
+    def _save_metrics(
+        self,
+        metrics: Dict[str, Any],
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        file_name: str = None,
+        operation_timestamp: Optional[str] = None,
+    ) -> bool:
+        """
+        Save metrics.
+
+        Parameters:
+        -----------
+        metrics : dict
+            The metrics of operation
+        writer : DataWriter
+            The writer to use for saving data
+        result : OperationResult
+            The operation result to add artifacts to
+        reporter : Any
+            The reporter to log artifacts to
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Optional progress tracker
+        operation_timestamp : str, optional
+            Timestamp of the operation, if any (for filename purposes)
+        file_name : Str
+            The file name
+
+        Returns
+        -------
+        True or False
+
+        """
+        try:
+            if progress_tracker:
+                progress_tracker.update(0, {"step": "Saving metrics"})
+
+            # Use the DataWriter to save
+            metrics_filename = file_name or (
+                f"{self.field_name}_{self.operation_name}_metrics_{operation_timestamp}"
+            )
+
+            # Save metrics using writer
+            metrics_result = writer.write_metrics(
+                metrics=metrics,
+                name=metrics_filename,
+                timestamp_in_name=False,
+                encryption_key=(self.encryption_key if self.use_encryption else None),
+            )
+
+            # Add metrics to result
+            for key, value in metrics.items():
+                if isinstance(value, (int, float, str, bool)):
+                    result.add_metric(key, value)
+
+            # Register metrics artifact
+            result.add_artifact(
+                artifact_type="json",
+                path=metrics_result.path,
+                description=f"{self.operation_name.lower()} {self.field_name} generator metrics",
+                category=Constants.Artifact_Category_Metrics,
+            )
+
+            # Report artifact
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="json",
+                    path=str(metrics_result.path),
+                    description=f"{self.operation_name.lower()} {self.field_name} generator metrics",
+                )
+        except Exception as e:
+            self.logger.warning(f"Failed to save metrics: {str(e)}")
+            return False

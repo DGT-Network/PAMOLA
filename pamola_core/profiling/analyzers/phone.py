@@ -49,7 +49,6 @@ from pamola_core.profiling.commons.phone_utils import (
 )
 from pamola_core.utils.io import (
     write_json,
-    load_data_operation,
     write_dataframe_to_csv,
     load_settings_operation,
 )
@@ -436,7 +435,6 @@ class PhoneOperation(FieldOperation):
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
-            cache_dir = dirs["cache"]
 
             # Update progress if tracker provided
             if progress_tracker:
@@ -450,14 +448,9 @@ class PhoneOperation(FieldOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                df = load_data_operation(
+                df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-                if df is None:
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="No valid DataFrame found in data source",
-                    )
             except Exception as e:
                 error_message = f"Data loading error: {str(e)}"
                 logger.error(error_message)
@@ -487,7 +480,7 @@ class PhoneOperation(FieldOperation):
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
                 try:
-                    cached_result = self._check_cache(df, reporter, task_dir, **kwargs)
+                    cached_result = self._check_cache(df)
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     logger.error(error_message)
@@ -950,9 +943,7 @@ class PhoneOperation(FieldOperation):
                 exception=e,
             )
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any, task_dir: Path, **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -960,10 +951,6 @@ class PhoneOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             Input data for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
 
         Returns:
         --------

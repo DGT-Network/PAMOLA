@@ -307,7 +307,7 @@ class PartialMaskingOperation(AnonymizationOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Data Loading & Validation, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data Loading & Validation, 2. Cache check, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -329,9 +329,35 @@ class PartialMaskingOperation(AnonymizationOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
+            # Step 1: Data Loading & Validation
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", "field": self.field_name}
+                )
+
+            # Validate and get dataframe
+            try:
+                # Validate configuration early
+                self._validate_configuration()
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 2: Check if we have a cached result
             if self.use_cache and not self.force_recalculation:
                 try:
-                    # Step 1: Check if we have a cached result
                     if main_progress:
                         current_steps += 1
                         main_progress.update(
@@ -380,31 +406,6 @@ class PartialMaskingOperation(AnonymizationOperation):
                         error_message=error_message,
                         exception=e,
                     )
-
-            # Step 2: Data Loading & Validation
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Data Loading", "field": self.field_name}
-                )
-
-            # Validate and get dataframe
-            try:
-                # Validate configuration early
-                self._validate_configuration()
-                if df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -519,38 +520,16 @@ class PartialMaskingOperation(AnonymizationOperation):
                     f"{self.field_name}_{self.name}_metrics_{operation_timestamp}"
                 )
 
-                # Save metrics using writer
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    file_name=metrics_file_name,
                 )
 
-                # Add metrics to result
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register metrics artifact
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"{self.field_name} generalization metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report artifact
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} generalization metrics",
-                        details={
-                            "artifact_type": "json",
-                            "path": str(metrics_result.path),
-                        },
-                    )
                 # Log summary
                 summary = get_process_summary(metrics.get("privacy_metrics", {}))
                 for key, message in summary.items():
@@ -571,14 +550,13 @@ class PartialMaskingOperation(AnonymizationOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
                         task_dir=task_dir,
@@ -610,21 +588,19 @@ class PartialMaskingOperation(AnonymizationOperation):
                 )
 
             # Save output data if required
-            output_result_path = None
             if self.save_output:
                 try:
                     # Save the processed DataFrame
                     safe_kwargs = filter_used_kwargs(
                         kwargs, PartialMaskingOperation._save_output_data
                     )
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        use_encryption=self.use_encryption,
                         **safe_kwargs,
                     )
                 except Exception as e:

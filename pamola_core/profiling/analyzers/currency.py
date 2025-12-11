@@ -30,6 +30,7 @@ import logging
 from pathlib import Path
 import time
 from typing import Dict, Any, Optional, Union
+
 import dask
 import dask.dataframe as dd
 from joblib import Parallel, delayed
@@ -53,7 +54,6 @@ from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_dataframe_to_csv,
     write_json,
-    load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_base import FieldOperation
@@ -1426,32 +1426,29 @@ class CurrencyOperation(FieldOperation):
             total_steps = 5 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
-            current_steps = 0
 
             # Step 1: Preparation
             if progress_tracker:
                 progress_tracker.total = total_steps  # Define total steps for tracking
                 progress_tracker.update(
-                    current_steps,
+                    1,
                     {"step": "Preparation", "operation": self.operation_name},
                 )
 
             # Step 2: Data Loading
+            step = "Load data and validate input parameters"
             if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Data Loading"})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             # Load data
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
             )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                error_message = "Failed to load input data"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
-                )
+            df = helpers.validate_and_get_dataframe(
+                data_source, dataset_name, **settings_operation
+            )
         except Exception as e:
             error_message = f"Error loading data: {str(e)}"
             self.logger.error(error_message)
@@ -1462,18 +1459,17 @@ class CurrencyOperation(FieldOperation):
         # Step 3: Check Cache (if enabled and not forced to recalculate)
         if self.use_cache and not self.force_recalculation:
             if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Checking Cache"})
+                progress_tracker.update(1, {"step": "Checking Cache"})
 
             logger.info("Checking operation cache...")
-            cache_result = self._check_cache(df, dataset_name, **kwargs)
+            cache_result = self._check_cache(df)
 
             if cache_result:
                 self.logger.info("Cache hit! Using cached results.")
 
                 # Update progress
                 if progress_tracker:
-                    progress_tracker.update(total_steps, {"step": "Complete (cached)"})
+                    progress_tracker.update(1, {"step": "Complete (cached)"})
 
                 # Report cache hit to reporter
                 if reporter:
@@ -1508,8 +1504,7 @@ class CurrencyOperation(FieldOperation):
 
             # Step 4: Analysis
             if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "K-Anonymity Analysis"})
+                progress_tracker.update(1, {"step": "K-Anonymity Analysis"})
 
             # Execute the analyzer
             analysis_results = self.analyzer.analyze(
@@ -1562,10 +1557,7 @@ class CurrencyOperation(FieldOperation):
 
                 # Step 5: Creating Visualizations
                 if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(
-                        current_steps, {"step": "Creating Visualizations"}
-                    )
+                    progress_tracker.update(1, {"step": "Creating Visualizations"})
 
                 self._handle_visualizations(
                     analysis_results=analysis_results,
@@ -1597,9 +1589,8 @@ class CurrencyOperation(FieldOperation):
 
             # Step 6: Finalization
             if progress_tracker:
-                current_steps += 1
                 progress_tracker.update(
-                    current_steps, {"step": "Operation complete", "status": "success"}
+                    1, {"step": "Operation complete", "status": "success"}
                 )
 
             # Add final operation status to reporter
@@ -1983,12 +1974,6 @@ class CurrencyOperation(FieldOperation):
             # Deduplicate and sort indices
             indices = sorted(set(indices))
 
-            # Create sample DataFrame
-            if df.index.name:
-                id_field = df.index.name
-            else:
-                id_field = "index"
-
             sample_df = df.loc[indices, [self.field_name]].copy(deep=True)
             sample_df = sample_df.reset_index()
 
@@ -2120,9 +2105,6 @@ class CurrencyOperation(FieldOperation):
     def _check_cache(
         self,
         df: Union[pd.DataFrame, dd.DataFrame],
-        task_dir: Path,
-        reporter: Any,
-        **kwargs,
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -2131,10 +2113,6 @@ class CurrencyOperation(FieldOperation):
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
-        task_dir : Path
-            Task directory
-        reporter : Any
-            The reporter to log artifacts to
 
         Returns:
         --------

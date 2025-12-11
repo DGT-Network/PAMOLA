@@ -54,13 +54,8 @@ from pamola_core.anonymization.schemas.record_op_core_schema import (
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import (
     load_settings_operation,
-    load_data_operation,
     ensure_directory,
-    write_dataframe_to_csv,
-    write_json,
 )
-from pamola_core.utils.io_helpers import crypto_utils, directory_utils
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -177,8 +172,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
         self._suppressed_records_count = 0
         self._suppression_reasons: Dict[str, int] = {}
         self._batch_number = 0
-        self._writer: Optional[DataWriter] = None
-        self._task_dir: Optional[Path] = None
 
         # --- Metadata ---
         self.operation_name = self.__class__.__name__
@@ -243,17 +236,45 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 **kwargs,
             )
 
+            # Create writer for consistent output handling
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
             # Load data and validate input parameters
             self.logger.info(
                 f"Operation: {self.operation_name}, Load data and validate input parameters"
             )
 
-            df, is_valid = self._load_data_and_validate_input_parameters(
-                data_source,
-                progress_tracker=progress_tracker,
-                reporter=reporter,
-                **kwargs,
-            )
+            try:
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
+                    )
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+                is_valid = self._validate_input_parameters(df)
+                if not is_valid:
+                    raise ValueError("Missing fields in DataFrame.")
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Store original data for caching
             original_data = df[self.field_name].copy(deep=True)
@@ -293,7 +314,10 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 # Process data
                 self.logger.info(f"Operation: {self.operation_name}, Process data")
                 mask, output_data = self._process_data(
-                    df, progress_tracker=progress_tracker, reporter=reporter
+                    input_data=df,
+                    writer=writer,
+                    progress_tracker=progress_tracker,
+                    reporter=reporter,
                 )
             except Exception as e:
                 error_message = f"Error processing data: {str(e)}"
@@ -310,15 +334,19 @@ class RecordSuppressionOperation(AnonymizationOperation):
             try:
                 # Handle metric
                 self.logger.info(f"Operation: {self.operation_name}, Collect metric")
-                self._handle_metrics(
-                    input_data=df,
-                    output_data=output_data,
-                    mask=mask,
+
+                metrics = self._collect_metrics(df, output_data, mask)
+
+                file_name = f"{self.operation_name}_metrics_{operation_timestamp}"
+
+                self._save_metrics(
+                    metrics=metrics,
+                    writer=writer,
                     result=result,
-                    task_dir=task_dir,
-                    progress_tracker=progress_tracker,
                     reporter=reporter,
+                    progress_tracker=progress_tracker,
                     operation_timestamp=operation_timestamp,
+                    file_name=file_name,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -329,13 +357,14 @@ class RecordSuppressionOperation(AnonymizationOperation):
             if self.save_output:
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save output")
-                    self._save_output(
-                        output_data=output_data,
-                        task_dir=task_dir,
+                    self._save_output_data(
+                        result_df=output_data,
+                        writer=writer,
                         result=result,
-                        progress_tracker=progress_tracker,
                         reporter=reporter,
-                        operation_timestamp=operation_timestamp,
+                        progress_tracker=progress_tracker,
+                        timestamp=operation_timestamp,
+                        **kwargs,
                     )
                 except Exception as e:
                     error_message = f"Error saving output: {str(e)}"
@@ -468,13 +497,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
         # Save configuration to task directory
         self.save_config(task_dir)
 
-        self._task_dir = task_dir
-
-        # Create writer for consistent output handling
-        self._writer = DataWriter(
-            task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-        )
-
         # Report preparation success
         if reporter:
             reporter.add_operation(
@@ -492,6 +514,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
     def _process_data(
         self,
         input_data: pd.DataFrame,
+        writer: DataWriter,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
     ) -> Tuple[pd.Series, pd.DataFrame]:
@@ -528,7 +551,10 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 f"Using vectorized processing with chunk size {self.chunk_size}"
             )
             return self._process_with_joblib(
-                input_data, progress_tracker=progress_tracker, reporter=reporter
+                input_data=input_data,
+                writer=writer,
+                progress_tracker=progress_tracker,
+                reporter=reporter,
             )
 
         else:
@@ -738,6 +764,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
     def _process_with_joblib(
         self,
         input_data: pd.DataFrame,
+        writer: DataWriter,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
     ) -> Tuple[pd.Series, pd.DataFrame]:
@@ -795,7 +822,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 )
                 if not suppressed_df.empty:
                     self._save_suppressed_records(
-                        suppressed_df, record_num=self._suppressed_records_count
+                        suppressed_df,
+                        record_num=self._suppressed_records_count,
+                        writer=writer,
                     )
 
             if reporter:
@@ -882,7 +911,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         return mask
 
     def _save_suppressed_records(
-        self, suppressed_df: pd.DataFrame, record_num: int
+        self, suppressed_df: pd.DataFrame, record_num: int, writer: DataWriter
     ) -> None:
         """
         Save suppressed records to disk immediately to manage memory.
@@ -903,27 +932,22 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 self._get_suppression_reason()
             )
 
-            if self._writer and self._task_dir:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = (
-                    f"{self.field_name}_suppressed_records_{record_num:04d}_{timestamp}"
-                )
-                suppressed_record_result = self._writer.write_dataframe(
-                    df=suppressed_df,
-                    name=filename,
-                    format="csv",
-                    subdir="output/suppressed_records",
-                    timestamp_in_name=False,
-                    encryption_key=self.encryption_key if self.use_encryption else None,
-                )
-                self.logger.debug(
-                    f"Saved {len(suppressed_df)} suppressed records (record_num={record_num}) "
-                    f"to file {suppressed_record_result.path}"
-                )
-            else:
-                self.logger.warning(
-                    "DataWriter not available, suppressed records not saved"
-                )
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = (
+                f"{self.field_name}_suppressed_records_{record_num:04d}_{timestamp}"
+            )
+            suppressed_record_result = writer.write_dataframe(
+                df=suppressed_df,
+                name=filename,
+                format="csv",
+                subdir="output/suppressed_records",
+                timestamp_in_name=False,
+                encryption_key=self.encryption_key if self.use_encryption else None,
+            )
+            self.logger.debug(
+                f"Saved {len(suppressed_df)} suppressed records (record_num={record_num}) "
+                f"to file {suppressed_record_result.path}"
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to save suppressed records: {e}", exc_info=True)
@@ -1095,228 +1119,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
         except Exception as e:
             self.logger.error(f"Error in _collect_metrics: {e}", exc_info=True)
             raise
-
-    def _save_metrics(
-        self,
-        metrics: Dict[str, Any],
-        task_dir: Path,
-        result: OperationResult,
-        operation_timestamp: Optional[str] = None,
-    ) -> None:
-        """
-        Save the collected metrics as a JSON file and register it as an artifact.
-
-        Raises:
-            Exception: If saving the metrics file fails.
-        """
-        try:
-            metrics_dir = task_dir / "metrics"
-            ensure_directory(metrics_dir)
-
-            operation_name = self.operation_name.lower()
-            filename = f"{operation_name}_metrics_{operation_timestamp}.json"
-            metrics_path = metrics_dir / filename
-
-            write_json(metrics, metrics_path, encryption_key=self.encryption_key)
-
-            result.add_artifact(
-                artifact_type="json",
-                path=metrics_path,
-                description=f"Metrics for {self.operation_name}",
-                category=Constants.Artifact_Category_Metrics,
-            )
-
-            self.logger.info(f"Structured metrics saved to {metrics_path}")
-
-        except Exception as e:
-            self.logger.error(
-                f"Failed to save metrics file to {metrics_path}: {e}", exc_info=True
-            )
-            raise
-
-    def _handle_metrics(
-        self,
-        input_data: pd.DataFrame,
-        output_data: pd.DataFrame,
-        mask: Optional[pd.Series],
-        result: OperationResult,
-        task_dir: Path,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        operation_timestamp: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Handle the collection and saving of metrics for record suppression.
-
-        Parameters
-        ----------
-        (Same as before)
-
-        Returns
-        -------
-        Optional[Dict[str, Any]]
-        """
-        step = "Collect metrics"
-        try:
-            if progress_tracker:
-                progress_tracker.update(
-                    1, {"step": step, "operation": self.operation_name}
-                )
-
-            metrics = self._collect_metrics(input_data, output_data, mask)
-            result.metrics = metrics
-            self._save_metrics(metrics, task_dir, result, operation_timestamp)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Metrics collected and saved successfully",
-                        "summary": {
-                            "operation_type": metrics.get("operation_type"),
-                            "records_suppressed": metrics.get("records_suppressed"),
-                            "suppression_rate": round(
-                                metrics.get("suppression_rate", 0), 2
-                            ),
-                            "remaining_records": metrics.get("remaining_records"),
-                            "records_processed": metrics.get("records_processed"),
-                            "duration_seconds": metrics.get("duration_seconds"),
-                            "records_per_second": metrics.get("records_per_second"),
-                        },
-                    },
-                )
-
-            return metrics
-
-        except Exception as e:
-            self.logger.error(
-                f"Failed to handle metrics in {self.operation_name}: {e}", exc_info=True
-            )
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={"step": step, "message": str(e)},
-                )
-            return None
-
-    def _save_output(
-        self,
-        output_data: pd.DataFrame,
-        task_dir: Path,
-        result: OperationResult,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        operation_timestamp: Optional[str] = None,
-    ):
-        """
-        Save the processed output DataFrame to disk and register it as an artifact.
-
-        This method handles saving the data in the configured format (e.g., CSV, JSON),
-        encrypting it if needed, and logging progress and errors. It also reports the
-        result to any registered reporter and adds the output file as an artifact.
-
-        Parameters
-        ----------
-        output_data : pd.DataFrame
-            Processed DataFrame to save.
-        task_dir : Path
-            Path to the task directory.
-        result : OperationResult
-            Operation result object to register output artifacts.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker instance to update progress.
-        reporter : Optional[Any]
-            Reporter object to log progress and status.
-        operation_timestamp : Optional[str]
-            Timestamp string to include in filenames for uniqueness.
-        """
-        step = "Save output"
-        operation_name = self.operation_name.lower()
-
-        if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
-
-        output_dir = task_dir / "output"
-        ensure_directory(output_dir)
-
-        encryption_mode = get_encryption_mode(output_data, self.use_encryption)
-        filename = f"{operation_name}_{self.field_name}_output_{operation_timestamp}.{self.output_format}"
-        output_path = output_dir / filename
-
-        try:
-            if self.output_format == "csv":
-                write_dataframe_to_csv(
-                    df=output_data,
-                    file_path=output_path,
-                    encryption_key=self.encryption_key,
-                    use_encryption=self.use_encryption,
-                    encryption_mode=encryption_mode,
-                )
-
-            elif self.output_format == "json":
-                if self.encryption_key:
-                    temp_dir = output_path.parent / "temp"
-                    temp_dir.mkdir(parents=True, exist_ok=True)
-                    temp_path = temp_dir / f"decrypted_{output_path.name}"
-
-                    output_data.to_json(temp_path, orient="records", lines=True)
-                    crypto_utils.encrypt_file(
-                        source_path=temp_path,
-                        destination_path=output_path,
-                        key=self.encryption_key,
-                        mode=encryption_mode,
-                    )
-                    directory_utils.safe_remove_temp_file(temp_path)
-                else:
-                    output_data.to_json(output_path, orient="records", lines=True)
-
-            else:
-                warning_msg = f"Unsupported output format: {self.output_format}"
-                self.logger.warning(warning_msg)
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="warning",
-                        details={"step": step, "message": warning_msg},
-                    )
-                return
-
-            self.logger.info(f"Saved output: {output_path}")
-            result.add_artifact(
-                artifact_type=self.output_format,
-                path=output_path,
-                description=f"Save output successfully",
-                category=Constants.Artifact_Category_Output,
-            )
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Save output successfully",
-                        "file": str(output_path),
-                    },
-                )
-
-        except Exception as e:
-            error_msg = f"Failed to save processed output to {output_path}: {e}"
-            self.logger.error(error_msg, exc_info=True)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": step,
-                        "message": "Save output failed",
-                        "error": str(e),
-                    },
-                )
 
     def _generate_visualizations(
         self,
@@ -1609,80 +1411,6 @@ class RecordSuppressionOperation(AnonymizationOperation):
             return False
 
         return True
-
-    def _load_data_and_validate_input_parameters(
-        self,
-        data_source: DataSource,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        **kwargs,
-    ) -> Tuple[Optional[pd.DataFrame], bool]:
-        """
-        Load input data and validate the required fields.
-
-        This method handles reporting and progress tracking internally.
-
-        Parameters
-        ----------
-        data_source : DataSource
-            Source of input data.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to update step status.
-        reporter : Optional[Any]
-            Reporter for audit or status reporting.
-        **kwargs : dict
-            Additional parameters like dataset_name, fields, etc.
-
-        Returns
-        -------
-        Tuple[Optional[pd.DataFrame], bool]
-            Loaded DataFrame (or None), and validation success flag.
-        """
-        step_label = "Load data and validate input parameters"
-
-        if progress_tracker:
-            progress_tracker.update(
-                1, {"step": step_label, "operation": self.operation_name}
-            )
-
-        dataset_name = kwargs.get("dataset_name", "main")
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-        df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-        if df is None or df.empty:
-            self.logger.error("Error: loaded DataFrame is None or empty")
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": step_label,
-                        "message": "Data load failed or empty DataFrame",
-                    },
-                )
-            return None, False
-
-        is_valid = self._validate_input_parameters(df)
-
-        if reporter:
-            reporter.add_operation(
-                f"Operation {self.operation_name}",
-                status="info" if is_valid else "warning",
-                details={
-                    "step": step_label,
-                    "message": (
-                        "Validation succeeded" if is_valid else "Validation failed"
-                    ),
-                    "shape": df.shape if is_valid else None,
-                },
-            )
-
-        df = self._optimize_data(df)
-
-        return df, is_valid
 
     def _compute_total_steps(self) -> int:
         steps = 0

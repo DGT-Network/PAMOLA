@@ -81,7 +81,6 @@ from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.io import (
     ensure_directory,
-    load_data_operation,
     load_settings_operation,
     write_json,
     write_dataframe_to_csv,
@@ -255,46 +254,28 @@ class KAnonymityProfilerOperation(BaseOperation):
                     },
                 )
 
-            # Step 2: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(data_source, dataset_name, **kwargs)
-
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if progress_tracker:
-                        progress_tracker.update(
-                            total_steps, {"step": "Complete (cached)"}
-                        )
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Clean invalid values (from cache)",
-                            details={"cached": True},
-                        )
-                    return cache_result
-
-            # Step 3: Data Loading
+            # Step 2: Data Loading
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Data Loading"})
 
-            # Get DataFrame
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+            # Validate and get dataframe
+            try:
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Check if field exists
@@ -319,6 +300,32 @@ class KAnonymityProfilerOperation(BaseOperation):
             self.logger.info(
                 f"Analyzing {len(qi_combinations)} quasi-identifier combinations"
             )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df=df)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
 
             # Update progress
             # Step 4: Prepared QI combinations
@@ -1183,9 +1190,7 @@ class KAnonymityProfilerOperation(BaseOperation):
 
         return visualization_paths
 
-    def _check_cache(
-        self, data_source: DataSource, data_source_name: str = "main", **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -1193,10 +1198,6 @@ class KAnonymityProfilerOperation(BaseOperation):
         -----------
         data_source : DataSource
             Data source for the operation
-        task_dir : Path
-            Task directory
-        data_source_name: str
-            Dataset name
 
         Returns:
         --------
@@ -1207,17 +1208,6 @@ class KAnonymityProfilerOperation(BaseOperation):
             return None
 
         try:
-            # Get DataFrame from data source
-            settings_operation = load_settings_operation(
-                data_source, data_source_name, **kwargs
-            )
-            df = load_data_operation(
-                data_source, data_source_name, **settings_operation
-            )
-            if df is None:
-                self.logger.warning("No valid DataFrame found in data source")
-                return None
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
