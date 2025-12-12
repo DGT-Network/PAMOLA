@@ -540,7 +540,10 @@ class RecordSuppressionOperation(AnonymizationOperation):
             self.logger.info("Parallel Engine: Dask")
             self.logger.info(f"Parallel Workers: {self.npartitions}")
             return self._process_with_dask(
-                input_data, progress_tracker=progress_tracker, reporter=reporter
+                input_data,
+                writer=writer,
+                progress_tracker=progress_tracker,
+                reporter=reporter,
             )
 
         elif self.use_vectorization and self.parallel_processes > 1:
@@ -563,12 +566,16 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 f"Using Pandas processing with chunk size {self.chunk_size}"
             )
             return self._process_with_pandas(
-                input_data, progress_tracker=progress_tracker, reporter=reporter
+                input_data,
+                writer=writer,
+                progress_tracker=progress_tracker,
+                reporter=reporter,
             )
 
     def _process_with_pandas(
         self,
         input_data: pd.DataFrame,
+        writer: DataWriter,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
     ) -> Tuple[pd.Series, pd.DataFrame]:
@@ -636,7 +643,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 )
                 if not suppressed_df.empty:
                     self._save_suppressed_records(
-                        suppressed_df, record_num=self._suppressed_records_count
+                        suppressed_df,
+                        record_num=self._suppressed_records_count,
+                        writer=writer,
                     )
 
             if reporter:
@@ -674,6 +683,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
     def _process_with_dask(
         self,
         input_data: pd.DataFrame,
+        writer: DataWriter,
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
         reporter: Optional[Any] = None,
     ) -> Tuple[pd.Series, pd.DataFrame]:
@@ -727,7 +737,9 @@ class RecordSuppressionOperation(AnonymizationOperation):
                 suppressed_df = input_data[mask].copy(deep=True)
                 if not suppressed_df.empty:
                     self._save_suppressed_records(
-                        suppressed_df, record_num=self._suppressed_records_count
+                        suppressed_df,
+                        record_num=self._suppressed_records_count,
+                        writer=writer,
                     )
 
             if reporter:
