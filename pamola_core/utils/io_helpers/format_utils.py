@@ -425,7 +425,7 @@ def get_pandas_dtypes_info(df: pd.DataFrame) -> Dict[str, str]:
         dtype_str = str(df[col].dtype)
 
         # Add more specific info for object columns
-        if df[col].dtype == 'object':
+        if pd.api.types.is_string_dtype(df[col]):
             # Sample non-null values
             sample = df[col].dropna()
             if len(sample) > 0:

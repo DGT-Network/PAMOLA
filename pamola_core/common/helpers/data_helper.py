@@ -450,7 +450,7 @@ class DataHelper:
 
         if pd.api.types.is_numeric_dtype(df_copy[column]):
             df_copy[column] = DataHelper.bin_numeric(df_copy[column], num_bins)
-        elif df_copy[column].dtype == object:
+        elif pd.api.types.is_string_dtype(df_copy[column]):
             df_copy[column] = df_copy[column].apply(
                 DataHelper.generalize_categorical_or_range
             )

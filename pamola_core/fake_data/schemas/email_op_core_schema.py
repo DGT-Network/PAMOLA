@@ -67,7 +67,7 @@ class FakeEmailOperationConfig(OperationConfig):
                                 "description": "Existing Domain",
                             },
                         ],
-                        "description": "Format for generating email addresses (e.g., 'first_last', 'nickname').",
+                        "description": "Format for generating email addresses (e.g., 'name_surname', 'nickname').",
                     },
                     "format_ratio": {
                         "type": ["object", "null"],

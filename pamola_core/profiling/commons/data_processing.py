@@ -94,7 +94,7 @@ def prepare_field_for_analysis(
         return series, DataType.NUMERIC.value
     elif pd.api.types.is_datetime64_any_dtype(series):
         return series, DataType.DATE.value
-    elif series.dtype == 'object':
+    elif pd.api.types.is_string_dtype(series):
         # Try to infer more specific type for object series
         if series.str.contains('@', na=False).any():
             return series, DataType.EMAIL.value

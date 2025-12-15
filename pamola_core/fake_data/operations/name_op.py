@@ -60,7 +60,7 @@ class FakeNameOperation(GeneratorOperation):
         gender_from_name : bool, optional
             Whether to infer gender from existing name values.
         format : str, optional
-            Output format for synthetic names (e.g., "first_last", "last_first").
+            Output format for synthetic names (e.g., FML, FL, LF, LFM, F_L, L_F).
         f_m_ratio : float, optional
             Ratio of female-to-male names to preserve balance (default 0.5).
         use_faker : bool, optional

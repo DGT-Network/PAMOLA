@@ -106,7 +106,7 @@ def safe_numpy_bytes(arr: np.ndarray) -> bytes:
     """
     Convert numpy array to deterministic bytes for hashing.
     """
-    if arr.dtype == object:
+    if pd.api.types.is_string_dtype(arr):
         return pd.util.hash_pandas_object(pd.Series(arr), index=False).values.tobytes()
     return arr.tobytes()
 

@@ -49,7 +49,7 @@ def calculate_field_variation(group: pd.DataFrame, field: str, handle_nulls: str
             return 0.0
 
     # For MVF fields (stored as string representations of lists)
-    if values.dtype == 'object' and values.iloc[0] is not None and isinstance(values.iloc[0], str) and values.iloc[
+    if pd.api.types.is_string_dtype(values) and values.iloc[0] is not None and isinstance(values.iloc[0], str) and values.iloc[
         0].startswith('['):
         try:
             # Try to interpret as list representation

@@ -25,6 +25,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 
 import math
+from typing import Any
 import numpy as np
 import pandas as pd
 
@@ -139,3 +140,16 @@ def describe_dataframe(df, include="all"):
         pd.DataFrame: A DataFrame containing summary statistics.
     """
     return df.describe(include=include)
+
+def fmt_float(value: Any, fmt: str = ".2f") -> str:
+    """Safely format float values."""
+    if isinstance(value, (int, float)):
+        return format(value, fmt)
+    return "N/A"
+
+
+def fmt_percent(value: Any) -> str:
+    """Safely format percentage values."""
+    if isinstance(value, (int, float)):
+        return format(value, ".2%")
+    return "N/A"

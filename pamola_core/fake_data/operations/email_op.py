@@ -66,7 +66,7 @@ class FakeEmailOperation(GeneratorOperation):
         domains : list or str, optional
             List of available domains or path to domain dictionary.
         format : str, optional
-            Email format (e.g., 'first_last', 'nickname', 'existing_domain').
+            Email format (e.g., name_surname, surname_name, nickname, existing_domain).
         format_ratio : dict, optional
             Ratio distribution for format usage.
         first_name_field, last_name_field, full_name_field : str, optional
