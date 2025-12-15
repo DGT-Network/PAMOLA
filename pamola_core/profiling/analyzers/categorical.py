@@ -1149,7 +1149,7 @@ def analyze_categorical_fields(
             for col in df.columns:
                 try:
                     # Check if column is object type (usually string)
-                    if df[col].dtype == "object":
+                    if pd.api.types.is_string_dtype(df[col]):
                         cat_fields.append(col)
                     # Or check number of unique values relative to dataset size
                     elif pd.api.types.is_numeric_dtype(df[col]) and df[

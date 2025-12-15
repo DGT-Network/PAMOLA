@@ -462,7 +462,7 @@ def get_field_statistics(
                 }
 
     # Add categorical statistics if applicable
-    elif isinstance(series.dtype, pd.CategoricalDtype) or series.dtype == "object":
+    elif isinstance(series.dtype, pd.CategoricalDtype) or pd.api.types.is_string_dtype(series):
         value_counts = series.value_counts()
         if len(value_counts) > 0:
             stats.update(

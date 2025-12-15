@@ -171,7 +171,7 @@ def optimize_memory_usage(data: pd.DataFrame, quasi_identifiers: List[str]) -> p
     for col in quasi_identifiers:
         if col in result.columns:
             # Convert string columns to categorical
-            if result[col].dtype == 'object':
+            if pd.api.types.is_string_dtype(result[col]):
                 result[col] = result[col].astype('category')
 
             # Downcast integer columns where possible
