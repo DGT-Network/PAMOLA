@@ -437,12 +437,9 @@ def sort_series(
     sort_by: str = "value",
     ascending: bool = False,
     max_items: Optional[int] = None,
-    value_strategy: str = "auto",  # auto | str | len
 ) -> pd.Series:
     """
     Sort a pandas Series safely.
-
-    Handles non-comparable values (e.g. dicts) without raising TypeError.
 
     Parameters:
     -----------
@@ -454,11 +451,6 @@ def sort_series(
         Whether to sort in ascending order.
     max_items : int, optional
         Limit number of items in output.
-    value_strategy : str
-        Strategy when sorting by value:
-        - auto: try normal sort, fallback to string-based
-        - str: sort by string representation
-        - len: sort by length (dict/list)
 
     Returns:
     --------
@@ -466,48 +458,24 @@ def sort_series(
         Sorted (or original) series.
     """
     try:
-        # --------------------------------------------------------------
-        # Sort by key (index)
-        # --------------------------------------------------------------
-        if sort_by == "key":
+        if sort_by == "value":
+            sorted_series = series.sort_values(ascending=ascending)
+        elif sort_by == "key":
             sorted_series = series.sort_index(ascending=ascending)
-
-        # --------------------------------------------------------------
-        # Sort by value
-        # --------------------------------------------------------------
         else:
-            if value_strategy == "str":
-                sorted_series = series.astype(str).sort_values(ascending=ascending)
+            logger.warning(f"Unknown sort_by: {sort_by}. Falling back to sort by 'value'.")
+            sorted_series = series.sort_values(ascending=ascending)
 
-            elif value_strategy == "len":
-                # Sort by length, then map back to original values
-                lengths = series.apply(lambda x: len(x) if hasattr(x, "__len__") else 0)
-                sorted_series = series.loc[
-                    lengths.sort_values(ascending=ascending).index
-                ]
-
-            else:  # auto
-                try:
-                    sorted_series = series.sort_values(ascending=ascending)
-                except TypeError:
-                    logger.warning(
-                        "Series values are non-comparable. "
-                        "Falling back to string-based sorting."
-                    )
-                    sorted_series = series.astype(str).sort_values(ascending=ascending)
-
-        # --------------------------------------------------------------
-        # Limit output size
-        # --------------------------------------------------------------
-        if max_items is not None:
+        if max_items is not None and len(sorted_series) > max_items:
             sorted_series = sorted_series.iloc[:max_items]
 
         return sorted_series
 
+    except TypeError as e:
+        logger.warning(f"TypeError during sorting: {e}. Series values might be non-comparable (e.g., dicts).")
+        return series
     except Exception as e:
-        logger.warning(
-            f"Unexpected error during sorting: {e}. Returning original series."
-        )
+        logger.warning(f"Unexpected error during sorting: {e}.")
         return series
 
 

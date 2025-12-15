@@ -9,6 +9,7 @@ and supporting consistent mapping with regional specificity.
 import random
 import re
 from typing import Dict, Any, List, Optional
+import pandas as pd
 
 from pamola_core.fake_data.commons import dict_helpers
 from pamola_core.fake_data.commons.prgn import PRNGenerator
@@ -672,69 +673,67 @@ class OrganizationGenerator(BaseGenerator):
         Returns:
             Generated organization name
         """
-        # Check if the original value is empty or None
-        if original_value is None or original_value == "":
+        # ---- 1. # Handle None / NA / NaN / empty ----
+        if pd.isna(original_value) or original_value == "":
             return ""
 
-        # Determine organization type from original name if preservation enabled
+        # Ensure string (defensive)
+        original_value = str(original_value)
+
+        # ---- 2. Determine organization type ----
         org_type = self.organization_type
-        if self.preserve_type and original_value:
+
+        if self.preserve_type:
             detected_type = self.detect_organization_type(original_value)
             if detected_type:
                 org_type = detected_type
 
         # Allow override via params
-        org_type = params.get('organization_type', org_type)
+        org_type = params.get("organization_type", org_type)
 
-        # Determine region from original name
+        # ---- 3. Determine region ----
         region = self.region
-        if original_value:
-            detected_region = self._determine_region_from_name(original_value, org_type)
-            if detected_region:
-                region = detected_region
+        detected_region = self._determine_region_from_name(original_value, org_type)
+        if detected_region:
+            region = detected_region
 
         # Allow override via params
-        region = params.get('region', region)
+        region = params.get("region", region)
 
+        # ---- 4. Context for deterministic generation ----
         self.original_value = original_value
-        self.context_salt = params.get("context_salt", None)
+        self.context_salt = params.get("context_salt")
 
-        # Generate base name with detected properties
+        # ---- 5. Generate base name ----
         new_name = self.generate_organization_name(org_type, region)
 
-        # Get deterministic prefixes/suffixes based on original value
-        add_prefix = False
-        add_suffix = False
-
-        # Decide on prefix based on configured probability or explicit parameter
-        if 'add_prefix' in params:
-            add_prefix = params['add_prefix']
+        # ---- 6. Decide prefix / suffix ----
+        if "add_prefix" in params:
+            add_prefix = params["add_prefix"]
         elif self.prgn_generator:
             rng = self.prgn_generator.get_random_by_value(
                 original_value,
-                salt="org-prefix-decision"
+                salt="org-prefix-decision",
             )
             add_prefix = rng.random() < self.add_prefix_probability
         else:
             add_prefix = random.random() < self.add_prefix_probability
 
-        # Decide on suffix based on configured probability or explicit parameter
-        if 'add_suffix' in params:
-            add_suffix = params['add_suffix']
+        if "add_suffix" in params:
+            add_suffix = params["add_suffix"]
         elif self.prgn_generator:
             rng = self.prgn_generator.get_random_by_value(
                 original_value,
-                salt="org-suffix-decision"
+                salt="org-suffix-decision",
             )
             add_suffix = rng.random() < self.add_suffix_probability
         else:
             add_suffix = random.random() < self.add_suffix_probability
 
-        # Add prefix if decided
+        # ---- 7. Apply prefix / suffix ----
         if add_prefix:
             new_name = self.add_prefix(new_name, org_type, region)
 
-        # Add suffix if decided
         if add_suffix:
             new_name = self.add_suffix(new_name, org_type, region)
 

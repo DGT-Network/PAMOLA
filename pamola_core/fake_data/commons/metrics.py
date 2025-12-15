@@ -389,7 +389,7 @@ class MetricsCollector:
                         f"Error creating value distribution visualization: {str(e)}"
                     )
 
-        # Visualize length distribution for string data
+        # Visualize length statistics for string data (combined chart)
         if (
             "original_data" in metrics
             and "length_stats" in metrics["original_data"]
@@ -400,40 +400,72 @@ class MetricsCollector:
             orig_stats = metrics["original_data"]["length_stats"]
             gen_stats = metrics["generated_data"]["length_stats"]
 
-            # Only visualize if there's length data
-            if orig_stats and gen_stats and "min" in orig_stats and "min" in gen_stats:
-                # Create data for combined chart
-                stats_keys = ["min", "max", "mean", "median"]
-                orig_stats_values = [orig_stats.get(k, 0) for k in stats_keys]
-                gen_stats_values = [gen_stats.get(k, 0) for k in stats_keys]
-
-                # Create combined chart for length stats
-                length_path = (
-                    output_dir / f"{op_type}_{field_name}_length_stats_{timestamp}.png"
+            # Validate stats structure
+            required_keys = {"min", "max", "mean", "median"}
+            if not (
+                isinstance(orig_stats, dict)
+                and isinstance(gen_stats, dict)
+                and required_keys.issubset(orig_stats)
+                and required_keys.issubset(gen_stats)
+            ):
+                logger.warning(
+                    "Length stats missing required keys, skipping visualization"
                 )
-                try:
-                    vis_path = create_bar_plot(
-                        data={
-                            "Original": dict(zip(stats_keys, orig_stats_values)),
-                            "Generated": dict(zip(stats_keys, gen_stats_values)),
-                        },
-                        output_path=length_path,
-                        title=f"Length Statistics for {field_name}",
-                        x_label="Statistic",
-                        y_label="Value",
-                        **kwargs,
+
+            else:
+                # Build numeric DataFrame: rows = dataset, cols = statistics
+                stats_df = pd.DataFrame(
+                    {
+                        "Original": orig_stats,
+                        "Generated": gen_stats,
+                    }
+                ).T[["min", "max", "mean", "median"]]
+
+                # Ensure numeric values (defensive)
+                stats_df = stats_df.apply(pd.to_numeric, errors="coerce")
+
+                # Skip if all values are NaN
+                if stats_df.isna().all().all():
+                    logger.warning(
+                        "All length statistics are NaN, skipping visualization"
                     )
-                    if not vis_path.startswith("Error"):
-                        visualizations["length_stats"] = Path(vis_path)
-                    else:
-                        logger.warning(
-                            f"Error creating replacement rate visualization: {str(e)}"
+                else:
+                    # Flatten to 1D Series (create_bar_plot compatible)
+                    plot_series = pd.Series(
+                        {
+                            "Original-min": stats_df.loc["Original", "min"],
+                            "Original-max": stats_df.loc["Original", "max"],
+                            "Original-mean": stats_df.loc["Original", "mean"],
+                            "Original-median": stats_df.loc["Original", "median"],
+                            "Generated-min": stats_df.loc["Generated", "min"],
+                            "Generated-max": stats_df.loc["Generated", "max"],
+                            "Generated-mean": stats_df.loc["Generated", "mean"],
+                            "Generated-median": stats_df.loc["Generated", "median"],
+                        }
+                    )
+
+                    length_path = (
+                        output_dir
+                        / f"{op_type}_{field_name}_length_stats_{timestamp}.png"
+                    )
+
+                    try:
+                        vis_path = create_bar_plot(
+                            data=plot_series,
+                            output_path=length_path,
+                            title=f"Length Statistics for {field_name}",
+                            x_label="Statistic",
+                            y_label="Value",
+                            **kwargs,
                         )
 
-                except Exception as e:
-                    logger.warning(
-                        f"Error creating length stats visualization: {str(e)}"
-                    )
+                        if not vis_path.startswith("Error"):
+                            visualizations["length_stats"] = Path(vis_path)
+
+                    except Exception as e:
+                        logger.warning(
+                            f"Error creating length stats visualization: {str(e)}"
+                        )
 
         # Visualize transformation metrics
         if "transformation_metrics" in metrics:

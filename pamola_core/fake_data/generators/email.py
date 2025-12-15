@@ -10,6 +10,7 @@ import random
 import re
 import string
 from typing import Dict, Any, List, Optional
+import pandas as pd
 
 from pamola_core.fake_data.commons import dict_helpers
 from pamola_core.fake_data.commons.prgn import PRNGenerator
@@ -702,72 +703,73 @@ class EmailGenerator(BaseGenerator):
         Returns:
             str: Generated email address
         """
-        # Extract parameters
-        format_override = params.get("format")
+        # ---- 1. # Handle None / NA / NaN / empty ----
+        if pd.isna(original_value) or original_value == "":
+            return ""
 
-        # Parse full name if provided
+        # Ensure string (defensive)
+        original_value = str(original_value)
         first_name = params.get("first_name")
         last_name = params.get("last_name")
         full_name = params.get("full_name")
         name_format = params.get("name_format")
+        format_override = params.get("format")
 
-        if full_name and not (first_name and last_name):
-            # Extract name components from full name
-            name_components = self._parse_full_name(full_name, name_format)
-            if "first_name" in name_components and not first_name:
-                first_name = name_components["first_name"]
-            if "last_name" in name_components and not last_name:
-                last_name = name_components["last_name"]
-
-        # Validate the original email if validation is enabled
-        is_valid = False
-        if self.validate_source:
-            is_valid = self.validate_email(original_value)
+        if not original_value:
+            # original email empty → treat as invalid
+            is_valid = False
         else:
-            # If validation is disabled, treat as valid if it has basic structure
-            is_valid = isinstance(original_value, str) and '@' in original_value
+            # ---- 2. Validate original email ----
+            if self.validate_source:
+                is_valid = self.validate_email(original_value)
+            else:
+                is_valid = "@" in original_value
 
         self.original_value = original_value
-        self.context_salt = params.get("context_salt", None)
+        self.context_salt = params.get("context_salt")
 
-        # Select format to use
+        # ---- 3. Parse full name if provided ----
+        if full_name and not (first_name and last_name):
+            name_components = self._parse_full_name(full_name, name_format)
+            first_name = first_name or name_components.get("first_name", "")
+            last_name = last_name or name_components.get("last_name", "")
+
+        # ---- 4. Select format ----
         format_to_use = format_override or self._select_format()
 
-        # For existing_domain format, use original domain if valid
+        # ---- 5. existing_domain logic ----
         if format_to_use == "existing_domain" and is_valid:
-            # Create email with original domain but new local part
             domain = self.extract_domain(original_value)
 
-            # Generate appropriate local part
             if first_name and last_name:
-                # If name components available, use them
                 local_format = params.get("local_format", "name_surname")
-                local_part = self._generate_from_name_components(first_name, last_name, local_format)
+                local_part = self._generate_from_name_components(
+                    first_name, last_name, local_format
+                )
             else:
-                # Otherwise use nickname format
                 local_part = self._generate_nickname_format()
 
-            # Return combined email
             return f"{local_part}@{domain}"
 
+        # ---- 6. Prepare params for generation ----
         params["first_name"] = first_name
         params["last_name"] = last_name
         params["format"] = format_to_use
         params["original_email"] = original_value
 
-        # For other cases or invalid emails, generate new email
+        # ---- 7. Handle invalid email ----
         if not is_valid:
-            # Handle invalid email according to configuration
             if self.handle_invalid_email == "keep_empty":
                 return ""
             elif self.handle_invalid_email == "generate_with_default_domain":
-                # Generate with default domain
-                params["domain"] = random.choice(self._domain_list) if self._domain_list else "example.com"
-                return self._generate_email(**params)
-            else:  # generate_new (default)
+                params["domain"] = (
+                    random.choice(self._domain_list)
+                    if self._domain_list
+                    else "example.com"
+                )
                 return self._generate_email(**params)
 
-        # For valid emails with other formats, generate as normal
+        # ---- 8. Normal generation (valid email OR fallback) ----
         return self._generate_email(**params)
 
     def _parse_full_name(self, full_name: str, name_format: Optional[str] = None) -> Dict[str, str]:
