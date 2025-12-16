@@ -29,6 +29,10 @@ from typing import Any, Dict, List, Tuple, Callable, Iterable, Iterator, Union, 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
+from pamola_core.transformations.commons.aggregation_utils import (
+    eval_condition,
+    eval_value,
+)
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -41,6 +45,7 @@ from pamola_core.transformations.base_transformation_op import TransformationOpe
 from pamola_core.transformations.schemas.add_modify_fields_core_schema import (
     AddOrModifyFieldsOperationConfig,
 )
+from pamola_core.utils.visualization import create_bar_plot
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -451,7 +456,9 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 ):
                     batch[field_name] = batch.apply(
                         lambda row: (
-                            value_if_true if eval(condition) else value_if_false
+                            eval_value(row, value_if_true)
+                            if eval_condition(row, condition)
+                            else eval_value(row, value_if_false)
                         ),
                         axis=1,
                     )
@@ -509,7 +516,9 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
                     batch[output_field_name] = batch.apply(
                         lambda row: (
-                            value_if_true if eval(condition) else value_if_false
+                            eval_value(row, value_if_true)
+                            if eval_condition(row, condition)
+                            else eval_value(row, value_if_false)
                         ),
                         axis=1,
                     )
@@ -1046,56 +1055,62 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             and not original_sample[col].equals(processed_sample[col])
         ]
 
-        distribution_statistics = {}
+        # Summary statistics
+        summary_statistics = {}
+
         for processed_field in fields_modified + fields_added:
-            distribution_statistics.update(
-                {
-                    processed_field: processed_sample[processed_field]
-                    .describe()
-                    .to_dict()
-                }
+            summary_statistics[processed_field] = (
+                processed_sample[processed_field].describe().to_dict()
             )
 
+        # Correlations
         correlations = {}
+
         for processed_field in fields_modified + fields_added:
-            if processed_field.startswith(self.column_prefix):
-                original_field = processed_field[len(self.column_prefix) :]
-            else:
-                original_field = processed_field
 
-            if original_field in original_sample.columns:
-
-                if ptypes.is_numeric_dtype(
-                    original_sample[original_field]
-                ) and ptypes.is_numeric_dtype(processed_sample[processed_field]):
-                    x = pd.to_numeric(original_sample[original_field], errors="coerce")
-                    y = pd.to_numeric(
-                        processed_sample[processed_field], errors="coerce"
-                    )
-                    if x.std() == 0 or y.std() == 0 or x.isna().all() or y.isna().all():
-                        correlation = np.nan
-                    else:
-                        correlation = x.corr(y, method="pearson")
-
-                    correlations.update(
-                        {
-                            original_field: (
-                                "NaN" if np.isnan(correlation) else correlation
-                            )
-                        }
-                    )
-
-        missing_values = {}
-        for processed_field in fields_added:
-            missing_values.update(
-                {processed_field: int(processed_sample[processed_field].isnull().sum())}
+            original_field = (
+                processed_field[len(self.column_prefix) :]
+                if processed_field.startswith(self.column_prefix)
+                else processed_field
             )
+
+            # No original counterpart → cannot compute correlation
+            if original_field not in original_sample.columns:
+                correlations[processed_field] = np.nan
+                continue
+
+            if not (
+                ptypes.is_numeric_dtype(original_sample[original_field])
+                and ptypes.is_numeric_dtype(processed_sample[processed_field])
+            ):
+                correlations[processed_field] = np.nan
+                continue
+
+            x = pd.to_numeric(original_sample[original_field], errors="coerce")
+            y = pd.to_numeric(processed_sample[processed_field], errors="coerce")
+
+            if x.isna().all() or y.isna().all() or x.std() == 0 or y.std() == 0:
+                correlation = np.nan
+            else:
+                correlation = x.corr(y, method="pearson")
+
+            correlations[processed_field] = correlation
+
+        # Missing values
+        missing_values = {}
+
+        for field in fields_added:
+            if field not in processed_sample.columns:
+                missing_values[field] = np.nan
+                continue
+
+            missing_values[field] = int(processed_sample[field].isna().sum())
 
         metrics.update(
             {
                 "fields_added_count": len(fields_added),
                 "fields_modified_count": len(fields_modified),
-                "distribution_statistics": distribution_statistics,
+                "summary_statistics": summary_statistics,
                 "correlations": correlations,
                 "missing_values": missing_values,
             }
@@ -1717,11 +1732,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         Dict[str, Path]
             Dictionary with visualization types and paths
         """
-        from pamola_core.utils.visualization import create_bar_plot
-        from pamola_core.transformations.commons.visualization_utils import (
-            sample_large_dataset,
-        )
-
         visualization_paths = {}
         viz_dir = task_dir / "visualizations"
         viz_dir.mkdir(parents=True, exist_ok=True)
@@ -1781,10 +1791,10 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
             # Fields Count Comparison Before/After
             viz_data = {
-                "1.Before": len(original_for_viz.columns),
-                "2.After": len(processed_for_viz.columns),
-                "3.Modified": metrics["fields_modified_count"],
-                "4.Added": metrics["fields_added_count"],
+                "1.Before (Total)": len(original_for_viz.columns),
+                "2.After (Total)": len(processed_for_viz.columns),
+                "3.Modified (Count)": metrics["fields_modified_count"],
+                "4.Added (Count)": metrics["fields_added_count"],
             }
             viz_path = (
                 viz_dir
@@ -1794,8 +1804,8 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 data=viz_data,
                 output_path=viz_path,
                 title="Fields Count Comparison",
-                x_label="Fields Count",
-                y_label="Value",
+                x_label="Category",
+                y_label="Number of Fields",
                 sort_by="key",
                 backend=vis_backend,
                 theme=vis_theme,
@@ -1808,19 +1818,30 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             else:
                 visualization_paths[f"fields_count_comparison"] = viz_path
 
-            # Distribution statistics for new/modified fields
-            for field, distribution_statistic in metrics[
-                "distribution_statistics"
-            ].items():
-                viz_data = distribution_statistic
+            # Summary statistics for new/modified fields
+            for field, summary_statistics in metrics["summary_statistics"].items():
+
+                viz_data = {
+                    k: v
+                    for k, v in summary_statistics.items()
+                    if isinstance(v, (int, float)) and not np.isnan(v)
+                }
+
+                if len(viz_data) <= 1:
+                    self.logger.info(
+                        f"Skip summary statistics visualization for '{field}' (count={summary_statistics.get('count')})"
+                    )
+                    continue
+
                 viz_path = (
                     viz_dir
-                    / f"{self.operation_name.lower()}_distribution_statistic_{field.lower()}_{operation_timestamp}.png"
+                    / f"{self.operation_name.lower()}_summary_statistics_{field.lower()}_{operation_timestamp}.png"
                 )
+
                 viz_result = create_bar_plot(
                     data=viz_data,
                     output_path=viz_path,
-                    title=f"Distribution Statistics For '{field.upper()}'",
+                    title=f"Summary Statistics For '{field.upper()}'",
                     x_label="Statistic",
                     y_label="Value",
                     sort_by="key",
@@ -1833,32 +1854,44 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 if viz_result.startswith("Error"):
                     self.logger.error(f"Failed to create visualization: {viz_result}")
                 else:
-                    visualization_paths[f"distribution_statistic_{field.lower()}"] = (
+                    visualization_paths[f"summary_statistics_{field.lower()}"] = (
                         viz_path
                     )
 
             # Correlation between original and modified fields
-            viz_data = metrics["correlations"]
-            viz_path = (
-                viz_dir
-                / f"{self.operation_name.lower()}_correlations_{operation_timestamp}.png"
-            )
-            viz_result = create_bar_plot(
-                data=viz_data,
-                output_path=viz_path,
-                title=f"Correlations",
-                x_label="Field",
-                y_label="Correlation",
-                sort_by="key",
-                backend=vis_backend,
-                theme=vis_theme,
-                strict=vis_strict,
-                **kwargs,
-            )
-            if viz_result.startswith("Error"):
-                self.logger.error(f"Failed to create visualization: {viz_result}")
+            raw_corr = metrics.get("correlations", {})
+
+            viz_data = {
+                field: corr
+                for field, corr in raw_corr.items()
+                if isinstance(corr, (int, float)) and not np.isnan(corr)
+            }
+
+            if not viz_data:
+                self.logger.info("[VIZ] Skip correlation visualization (no valid data)")
             else:
-                visualization_paths[f"correlations"] = viz_path
+                viz_path = (
+                    viz_dir
+                    / f"{self.operation_name.lower()}_correlations_{operation_timestamp}.png"
+                )
+
+                viz_result = create_bar_plot(
+                    data=viz_data,
+                    output_path=viz_path,
+                    title="Correlation with Original Fields",
+                    x_label="Field",
+                    y_label="Pearson Correlation",
+                    sort_by="key",
+                    backend=vis_backend,
+                    theme=vis_theme,
+                    strict=vis_strict,
+                    **kwargs,
+                )
+
+                if viz_result.startswith("Error"):
+                    self.logger.error(f"Failed to create visualization: {viz_result}")
+                else:
+                    visualization_paths["correlations"] = viz_path
 
             self.logger.info(
                 f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations"
