@@ -781,7 +781,7 @@ class PhoneOperation(FieldOperation):
             if "error" not in messenger_dict:
                 # Save dictionary to CSV
                 dict_filename = (
-                    f"{self.field_name}_messenger_dictionary{operation_timestamp}.csv"
+                    f"{self.field_name}_messenger_dictionary_{operation_timestamp}.csv"
                 )
                 dict_path = dictionaries_dir / dict_filename
 

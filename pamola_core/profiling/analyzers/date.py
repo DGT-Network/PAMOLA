@@ -754,8 +754,6 @@ class DateOperation(FieldOperation):
                 analysis_results["age_distribution"],
                 str(age_path),
                 title=title,
-                x_label="Age Group",
-                y_label="Count",
                 theme=vis_theme,
                 backend=vis_backend,
                 strict=vis_strict,

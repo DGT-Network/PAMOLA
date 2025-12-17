@@ -85,6 +85,7 @@ from pamola_core.anonymization.commons.visualization_utils import (
 )
 from pamola_core.anonymization.schemas.cell_op_core_schema import CellSuppressionConfig
 from pamola_core.common.constants import Constants
+from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.io import (
     load_settings_operation,
@@ -1795,7 +1796,7 @@ def apply_group_mean(
         Series with suppressed values
     """
     result_series = df[field_name].copy(deep=True)
-    result_series = result_series.astype("float64")
+    result_series = DataHelper.safe_numeric_series(result_series)
     group_stats = df.groupby(group_by_field)[field_name].agg(["mean", "count"])
 
     for group_val, row in group_stats.iterrows():

@@ -23,11 +23,11 @@ For details, see the LICENSE file or visit:
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-
 import math
 from typing import Any
 import numpy as np
 import pandas as pd
+
 
 def replace_special_floats(obj):
     """
@@ -56,13 +56,16 @@ def calculate_sum(values):
     """Return the sum of all elements in a list or NumPy array."""
     return np.sum(values)
 
+
 def calculate_min(values):
     """Return the minimum value from a list or NumPy array."""
     return np.min(values)
 
+
 def calculate_max(values):
     """Return the maximum value from a list or NumPy array."""
     return np.max(values)
+
 
 def sum_column(df, col_name):
     """
@@ -77,6 +80,7 @@ def sum_column(df, col_name):
     """
     return df[col_name].sum()
 
+
 def min_column(df, col_name):
     """
     Find the minimum value in a column of the DataFrame.
@@ -89,6 +93,7 @@ def min_column(df, col_name):
         float: The minimum value in the column.
     """
     return df[col_name].min()
+
 
 def max_column(df, col_name):
     """
@@ -103,9 +108,11 @@ def max_column(df, col_name):
     """
     return df[col_name].max()
 
+
 def std_column(df, col_name):
     """Calculate the standard deviation of a column in the DataFrame."""
     return df[col_name].std()
+
 
 def group_by_dataframe(df: pd.DataFrame, group_by_columns: list):
     """
@@ -122,8 +129,9 @@ def group_by_dataframe(df: pd.DataFrame, group_by_columns: list):
         return ValueError("Input must be a Pandas DataFrame.")
     if not group_by_columns:
         return ValueError("group_by_columns cannot be empty.")
-    
+
     return df.groupby(group_by_columns)
+
 
 def describe_dataframe(df, include="all"):
     """
@@ -131,7 +139,7 @@ def describe_dataframe(df, include="all"):
 
     Args:
         df (pd.DataFrame): The input DataFrame.
-        include (str or list, optional): 
+        include (str or list, optional):
             - "number": Describes only numeric columns.
             - "all": Describes both numeric and non-numeric columns.
             - A list of data types (e.g., ["object", "category"]) to describe specific column types.
@@ -140,6 +148,7 @@ def describe_dataframe(df, include="all"):
         pd.DataFrame: A DataFrame containing summary statistics.
     """
     return df.describe(include=include)
+
 
 def fmt_float(value: Any, fmt: str = ".2f") -> str:
     """Safely format float values."""

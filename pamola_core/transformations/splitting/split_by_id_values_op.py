@@ -78,7 +78,7 @@ class SplitByIDValuesOperation(TransformationOperation):
         name: str = "split_by_id_values_operation",
         id_field: Optional[str] = None,
         value_groups: Optional[Dict[str, List[Any]]] = None,
-        number_of_partitions: int = 0,
+        number_of_partitions: int = 1,
         partition_method: str = PartitionMethod.EQUAL_SIZE.value,
         **kwargs,
     ):
