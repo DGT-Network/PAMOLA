@@ -102,6 +102,8 @@ class Constants:
     Artifact_Category_Metrics = "metrics"
     Artifact_Category_Mapping = "mapping"
 
+    # Pandas Dtype Map
+    # This map is used to convert string representations of data types to actual pandas/numpy d
     PANDAS_DTYPE_MAP = {
         # String / Boolean
         "String": pd.StringDtype(),
@@ -113,4 +115,12 @@ class Constants:
         "Datetime": np.dtype("datetime64[ns]"),
         # Datetime with timezone (UTC)
         "DatetimeUTC": pd.DatetimeTZDtype(tz="UTC"),
+    }
+
+    # Safe globals for eval
+    # This dictionary is used to safely evaluate expressions in transformations
+    SAFE_GLOBALS = {
+        "__builtins__": {},
+        "pd": pd,
+        "np": np,
     }

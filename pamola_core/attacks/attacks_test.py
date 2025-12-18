@@ -296,7 +296,7 @@ class AttacksTest:
         # Check and adjust invalid values
         for col in data.columns:
             if (
-                data[col].dtype == "object"
+                pd.api.types.is_string_dtype(data[col])
             ):  # If the column is string replace None values with empty
                 data[col] = data[col].replace({None: ""})
             elif np.issubdtype(
@@ -315,7 +315,7 @@ class AttacksTest:
         # Check and adjust invalid values
         for col in data_test.columns:
             if (
-                data_test[col].dtype == "object"
+                pd.api.types.is_string_dtype(data_test[col])
             ):  # If the column is string replace None values with empty
                 data_test[col] = data_test[col].replace({None: ""})
             elif np.issubdtype(

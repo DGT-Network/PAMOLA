@@ -1044,7 +1044,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         total_vulnerable_records = int(vulnerable_groups["k"].sum())
 
         # Join back to get vulnerable record IDs for sampling
-        join_fields = fields.copy(deep=True)
+        join_fields = fields.copy()
         df_subset = df[[id_field] + join_fields]
         vulnerable_df = pd.merge(
             df_subset, vulnerable_groups[join_fields], on=join_fields, how="inner"

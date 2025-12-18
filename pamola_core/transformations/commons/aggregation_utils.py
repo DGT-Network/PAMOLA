@@ -20,6 +20,7 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 import pandas as pd
+from pamola_core.common.constants import Constants
 from pamola_core.common.helpers.custom_aggregations_helper import (
     CUSTOM_AGG_FUNCTIONS,
     STANDARD_AGGREGATIONS,
@@ -91,7 +92,7 @@ def generate_record_count_per_group_vis(
     backend: Optional[str] = None,
     strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Generate bar chart visualization for record count per group.
@@ -150,7 +151,7 @@ def generate_record_count_per_group_vis(
         theme=theme,
         backend=backend,
         strict=strict,
-        **kwargs
+        **kwargs,
     )
     logger.debug("Bar chart saved to: %s", vis_path)
     visualization_paths["record_count_per_group_bar_chart"] = vis_path
@@ -229,7 +230,7 @@ def generate_aggregation_comparison_vis(
     backend: Optional[str] = None,
     strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Generate bar chart visualizations for aggregation comparison across groups.
@@ -293,7 +294,7 @@ def generate_aggregation_comparison_vis(
             theme=theme,
             backend=backend,
             strict=strict,
-            **kwargs
+            **kwargs,
         )
         logger.debug(
             "Aggregation comparison bar chart for '%s' saved to: %s",
@@ -365,7 +366,7 @@ def generate_group_size_distribution_vis(
     backend: Optional[str] = None,
     strict: Optional[bool] = None,
     visualization_paths: Optional[Dict[str, Any]] = None,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Generate histogram visualization for distribution of group sizes.
@@ -424,7 +425,7 @@ def generate_group_size_distribution_vis(
         theme=theme,
         backend=backend,
         strict=strict,
-        **kwargs
+        **kwargs,
     )
     logger.debug("Group size distribution histogram saved to: %s", vis_path)
     visualization_paths["group_size_distribution_histogram"] = vis_path
@@ -641,3 +642,60 @@ def apply_custom_aggregations_post_dask(
         )
 
     return result_df
+
+
+def eval_value(row, expr_or_value):
+    """
+    Evaluate a value expression or return a literal value.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Current row being processed. Exposed to expressions as `row`.
+
+    expr_or_value : Any
+        - If `str`: treated as a Python expression and evaluated using `eval`.
+          The expression may reference `row`, `pd`, `np`, etc.
+        - If not `str`: treated as a literal value and returned as-is.
+
+    Returns
+    -------
+    Any
+        The evaluated result or the literal value.
+        May return any type (number, string, datetime, pd.NA, etc.).
+    """
+    if isinstance(expr_or_value, str):
+        return eval(expr_or_value, Constants.SAFE_GLOBALS, {"row": row})
+    return expr_or_value
+
+
+def eval_condition(row, expr):
+    """
+    Evaluate a conditional expression and normalize it to a strict boolean.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Current row being processed. Exposed to the condition as `row`.
+
+    expr : str
+        A Python expression representing a condition.
+        The expression must evaluate to a boolean-like value.
+
+    Returns
+    -------
+    bool
+        - True  : condition is satisfied
+        - False : condition is not satisfied or result is ambiguous
+    """
+    result = eval(expr, Constants.SAFE_GLOBALS, {"row": row})
+
+    if result is pd.NA:
+        return False
+
+    if not isinstance(result, bool):
+        raise ValueError(
+            f"Condition must evaluate to bool, got {type(result).__name__}: {result}"
+        )
+
+    return result

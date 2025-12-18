@@ -9,8 +9,8 @@ It uses dictionaries of names and supports consistent generation.
 import logging
 import random
 from typing import List, Dict, Any, Optional, Tuple
-
 from faker import Faker
+import pandas as pd
 
 from pamola_core.fake_data.commons import dict_helpers
 from pamola_core.fake_data.commons import utils
@@ -328,90 +328,82 @@ class NameGenerator(BaseGenerator):
         Returns:
             Generated name
         """
-        # Handle empty or None values
-        if not original_value:
+        # ---- 1. # Handle None / NA / NaN / empty ----
+        if pd.isna(original_value) or original_value == "":
             return ""
 
+        # Ensure string (defensive for pandas / numpy scalars)
+        original_value = str(original_value)
+
+        # ---- 2. Resolve parameters ----
         gender = params.get("gender", self.gender)
         language = self._normalize_language(params.get("language", self.language))
         format_str = params.get("format", self.format)
         context_salt = params.get("context_salt", "name-generation")
 
-        # Try to detect gender from name if gender_from_name is True and gender not specified
+        # ---- 3. Detect gender if needed ----
         if gender is None and self.gender_from_name:
             detected_gender = self.detect_gender(original_value, language)
             if detected_gender:
                 gender = detected_gender
 
-        # Parse original value to determine format if not specified
+        # ---- 4. Detect format from original name ----
         if format_str is None:
             parsed_name = self.parse_full_name(original_value, language)
-            if parsed_name.get("middle_name"):
-                format_str = "FML"
-            else:
-                format_str = "FL"
+            format_str = "FML" if parsed_name.get("middle_name") else "FL"
 
-        # Check if we're using mapping store
+        # ---- 5. Mapping store lookup ----
         if self.use_mapping and self.mapping_store:
             field_name = params.get("field_name", "name")
-            # Check if mapping already exists
             if hasattr(self.mapping_store, "get_mapping"):
                 synthetic = self.mapping_store.get_mapping(field_name, original_value)
                 if synthetic:
                     return synthetic
 
-        # Check if using PRGN
+        # ---- 6. Deterministic (PRGN) generation ----
         if self.prgn_generator:
-            # Generate deterministically based on original value
             if gender == "M":
                 dict_to_use = self._first_names_male.get(language, [])
             else:
                 dict_to_use = self._first_names_female.get(language, [])
 
-            # Fall back to English if dictionary is empty
+            # Fallback to English
             if not dict_to_use:
-                if gender == "M":
-                    dict_to_use = self._first_names_male.get("en", [])
-                else:
-                    dict_to_use = self._first_names_female.get("en", [])
+                dict_to_use = (
+                    self._first_names_male.get("en", [])
+                    if gender == "M"
+                    else self._first_names_female.get("en", [])
+                )
 
-            # Generate first name
             first_name = self.prgn_generator.select_from_list(
                 dict_to_use,
                 original_value,
-                salt=f"{context_salt}-first-{gender}-{language}"
+                salt=f"{context_salt}-first-{gender}-{language}",
             )
 
-            # Generate last name
-            last_name_dict = self._last_names.get(language, [])
-            if not last_name_dict:
-                last_name_dict = self._last_names.get("en", [])
-
+            last_name_dict = self._last_names.get(language, []) or self._last_names.get("en", [])
             last_name = self.prgn_generator.select_from_list(
                 last_name_dict,
                 original_value,
-                salt=f"{context_salt}-last-{language}"
+                salt=f"{context_salt}-last-{language}",
             )
 
-            # Generate middle name if needed
             middle_name = ""
-            if "M" in format_str and language in ["ru"]:
-                if gender == "M":
-                    middle_dict = self._middle_names_male.get(language, [])
-                else:
-                    middle_dict = self._middle_names_female.get(language, [])
-
+            if "M" in format_str and language == "ru":
+                middle_dict = (
+                    self._middle_names_male.get(language, [])
+                    if gender == "M"
+                    else self._middle_names_female.get(language, [])
+                )
                 if middle_dict:
                     middle_name = self.prgn_generator.select_from_list(
                         middle_dict,
                         original_value,
-                        salt=f"{context_salt}-middle-{gender}-{language}"
+                        salt=f"{context_salt}-middle-{gender}-{language}",
                     )
 
-            # Format full name
             result = self._format_name(first_name, middle_name, last_name, format_str)
 
-            # Store in mapping if using mapping store
             if self.use_mapping and self.mapping_store:
                 field_name = params.get("field_name", "name")
                 if hasattr(self.mapping_store, "add_mapping"):
@@ -419,7 +411,7 @@ class NameGenerator(BaseGenerator):
 
             return result
 
-        # Otherwise, generate using standard method
+        # ---- 7. Fallback generation ----
         return self.generate_full_name(gender, language, format_str)
 
     def generate_first_name(self, gender: Optional[str] = None, language: Optional[str] = None) -> str:

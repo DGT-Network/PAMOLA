@@ -8,8 +8,8 @@ consistent mapping.
 
 import random
 import re
-import string
-from typing import Dict, Any, List, Optional, Tuple, Union
+from typing import Dict, Any, List, Optional, Union
+import pandas as pd
 
 from pamola_core.fake_data.commons import dict_helpers
 from pamola_core.fake_data.commons.prgn import PRNGenerator
@@ -685,55 +685,45 @@ class PhoneGenerator(BaseGenerator):
         Returns:
             str: Generated phone number
         """
-        # Check if the original value is empty or None
-        if original_value is None or original_value == "":
+        # Handle None / NA / NaN / empty
+        if pd.isna(original_value) or original_value == "":
             return ""
 
+        # Ensure string
+        original_value = str(original_value)
+
         # Validate the original phone if validation is enabled
-        is_valid = False
         if self.validate_source:
             is_valid = self.validate_phone(original_value)
         else:
-            # If validation is disabled, treat as valid if it has digits
             is_valid = bool(self.digits_pattern.search(original_value))
 
-        # For valid phones, try to preserve characteristics
         if is_valid:
-            # Extract country and operator codes
             country_code = self.extract_country_code(original_value)
             operator_code = self.extract_operator_code(original_value, country_code)
 
-            # Update parameters for generation
             gen_params = params.copy()
 
-            # Only use extracted values if we should preserve them
             if self.preserve_country_code and country_code:
                 gen_params["country_code"] = country_code
 
             if self.preserve_operator_code and operator_code:
                 gen_params["operator_code"] = operator_code
 
-            # Generate new phone with preserved characteristics
             return self.generate_phone_number(
                 gen_params.get("country_code"),
                 gen_params.get("operator_code"),
                 original_value
             )
 
-        # Handle invalid phone according to configuration
-        if not is_valid:
-            if self.handle_invalid_phone == "keep_empty":
-                return ""
-            elif self.handle_invalid_phone == "generate_with_default_country":
-                # Generate with default country code
-                return self.generate_phone_number(
-                    self._get_country_code_for_region(self.default_country)
-                )
-            else:  # generate_new (default)
-                # Generate completely new phone
-                return self.generate_phone_number()
+        # Handle invalid phone
+        if self.handle_invalid_phone == "keep_empty":
+            return ""
+        elif self.handle_invalid_phone == "generate_with_default_country":
+            return self.generate_phone_number(
+                self._get_country_code_for_region(self.default_country)
+            )
 
-        # Fallback to default generation
         return self.generate_phone_number()
 
     def transform(self, values: List[str], **params) -> List[str]:

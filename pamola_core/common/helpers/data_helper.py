@@ -28,7 +28,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 import datetime
 import re
-from typing import List, Optional
+from typing import List, Optional, Any, Callable, Tuple
 import numpy as np
 import pandas as pd
 from pamola_core.common.constants import Constants
@@ -450,7 +450,7 @@ class DataHelper:
 
         if pd.api.types.is_numeric_dtype(df_copy[column]):
             df_copy[column] = DataHelper.bin_numeric(df_copy[column], num_bins)
-        elif df_copy[column].dtype == object:
+        elif pd.api.types.is_string_dtype(df_copy[column]):
             df_copy[column] = df_copy[column].apply(
                 DataHelper.generalize_categorical_or_range
             )
@@ -701,3 +701,85 @@ class DataHelper:
                     return series.astype("Int64")
 
         return series
+
+    @staticmethod
+    def safe_numeric_series(series: pd.Series) -> pd.Series:
+        """
+        Safely convert a pandas Series to a numeric-compatible representation.
+
+        - Attempts to cast the series to float64 to normalize numeric operations.
+        - Preserves non-numeric values when conversion is not possible.
+        - Prevents pandas nullable values (pd.NA) from leaking into downstream
+        statistical computations.
+
+        Parameters
+        ----------
+        series : pd.Series
+            Input pandas Series.
+
+        Returns
+        -------
+        pd.Series
+            A Series suitable for numeric statistical functions.
+        """
+        return series.astype("float64", errors="ignore")
+
+    @staticmethod
+    def safe_numeric_stat(
+        series: pd.Series,
+        func: Callable[[pd.Series], Any],
+        min_count: int,
+    ) -> Tuple[Any, int]:
+        """
+        Safely compute a numeric statistical metric with sample-size validation.
+
+        This function is intended for numeric Series only and enforces:
+        - Numeric-compatible dtype normalization
+        - Minimum non-null sample requirements
+        - JSON-safe output (None instead of NaN)
+
+        Parameters
+        ----------
+        series : pd.Series
+            Input numeric pandas Series.
+        func : Callable[[pd.Series], Any]
+            Numeric statistical function (e.g., Series.std, Series.skew).
+        min_count : int
+            Minimum number of valid samples required.
+
+        Returns
+        -------
+        Tuple[Any, int]
+            - Computed statistic or None if not computable
+            - Number of valid samples
+        """
+        s = DataHelper.safe_numeric_series(series)
+        valid_count = int(s.notna().sum())
+
+        if valid_count < min_count:
+            return None, valid_count
+
+        value = func(s)
+        return (None if pd.isna(value) else float(value)), valid_count
+
+    @staticmethod
+    def safe_mode(series: pd.Series) -> Any:
+        """
+        Safely compute the mode of a pandas Series.
+
+        - Drops null values before computation.
+        - Prevents IndexError when the series has no valid mode.
+        - Returns None when no mode can be determined.
+
+        Parameters
+        ----------
+        series : pd.Series
+            Input pandas Series.
+
+        Returns
+        -------
+        Any
+            The mode value if available, otherwise None.
+        """
+        m = series.mode(dropna=True)
+        return None if m.empty else m.iloc[0]
