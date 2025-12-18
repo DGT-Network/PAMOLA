@@ -165,20 +165,27 @@ def prepare_text_values(
     Returns:
     --------
     np.ndarray
-        Formatted text values
+        Formatted text values as strings for heatmap display
     """
     try:
+        # Convert to float first
+        matrix_float = matrix.astype(float)
+        
         if annotation_format.startswith(".") and annotation_format.endswith("f"):
-            # Parse decimal format like ".2f" to get number of decimal places
             decimal_places = int(annotation_format[1:-1])
         else:
             decimal_places = 2
-
-        return np.round(matrix, decimals=decimal_places)
+        
+        # Format as strings with exact decimal places for heatmap annotations
+        format_func = np.vectorize(lambda x: f"{x:.{decimal_places}f}")
+        text_array = format_func(matrix_float)
+        
+        return text_array
+        
     except Exception as e:
         logger.error(f"Error preparing text values: {e}")
-        # Return the original matrix as fallback
-        return matrix
+        # Fallback: convert to string with 2 decimals
+        return np.vectorize(lambda x: f"{float(x):.2f}")(matrix)
 
 
 def handle_mask_values(

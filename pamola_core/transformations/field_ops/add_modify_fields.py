@@ -1809,56 +1809,65 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 visualization_paths[f"fields_count_comparison"] = viz_path
 
             # Distribution statistics for new/modified fields
-            for field, distribution_statistic in metrics[
-                "distribution_statistics"
-            ].items():
-                viz_data = distribution_statistic
+            distribution_stats = metrics.get("distribution_statistics", {})
+
+            if distribution_stats:
+                for field, distribution_statistic in distribution_stats.items():
+                    viz_data = distribution_statistic
+                    
+                    # Check if viz_data is not empty before creating visualization
+                    if viz_data and len(viz_data) > 0:
+                        viz_path = (
+                            viz_dir
+                            / f"{self.operation_name.lower()}_distribution_statistic_{field.lower()}_{operation_timestamp}.png"
+                        )
+                        viz_result = create_bar_plot(
+                            data=viz_data,
+                            output_path=viz_path,
+                            title=f"Distribution Statistics For '{field.upper()}'",
+                            x_label="Statistic",
+                            y_label="Value",
+                            sort_by="key",
+                            backend=vis_backend,
+                            theme=vis_theme,
+                            strict=vis_strict,
+                            **kwargs,
+                        )
+
+                        if viz_result.startswith("Error"):
+                            self.logger.error(f"Failed to create visualization for field '{field}': {viz_result}")
+                        else:
+                            visualization_paths[f"distribution_statistic_{field.lower()}"] = viz_path
+                    else:
+                        self.logger.warning(f"No distribution statistics data for field '{field}' - skipping visualization")
+            else:
+                self.logger.info("No distribution statistics available - skipping all distribution visualizations")
+
+            # Correlation between original and modified fields
+            viz_data = metrics["correlations"]
+
+            # Check if viz_data is not empty before creating visualization
+            if viz_data:
                 viz_path = (
                     viz_dir
-                    / f"{self.operation_name.lower()}_distribution_statistic_{field.lower()}_{operation_timestamp}.png"
+                    / f"{self.operation_name.lower()}_correlations_{operation_timestamp}.png"
                 )
                 viz_result = create_bar_plot(
                     data=viz_data,
                     output_path=viz_path,
-                    title=f"Distribution Statistics For '{field.upper()}'",
-                    x_label="Statistic",
-                    y_label="Value",
+                    title=f"Correlations",
+                    x_label="Field",
+                    y_label="Correlation",
                     sort_by="key",
                     backend=vis_backend,
                     theme=vis_theme,
                     strict=vis_strict,
                     **kwargs,
                 )
-
                 if viz_result.startswith("Error"):
                     self.logger.error(f"Failed to create visualization: {viz_result}")
                 else:
-                    visualization_paths[f"distribution_statistic_{field.lower()}"] = (
-                        viz_path
-                    )
-
-            # Correlation between original and modified fields
-            viz_data = metrics["correlations"]
-            viz_path = (
-                viz_dir
-                / f"{self.operation_name.lower()}_correlations_{operation_timestamp}.png"
-            )
-            viz_result = create_bar_plot(
-                data=viz_data,
-                output_path=viz_path,
-                title=f"Correlations",
-                x_label="Field",
-                y_label="Correlation",
-                sort_by="key",
-                backend=vis_backend,
-                theme=vis_theme,
-                strict=vis_strict,
-                **kwargs,
-            )
-            if viz_result.startswith("Error"):
-                self.logger.error(f"Failed to create visualization: {viz_result}")
-            else:
-                visualization_paths[f"correlations"] = viz_path
+                    visualization_paths[f"correlations"] = viz_path
 
             self.logger.info(
                 f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations"
