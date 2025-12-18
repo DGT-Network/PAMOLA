@@ -35,6 +35,7 @@ from pandas.api.types import (
     is_numeric_dtype,
     is_datetime64_any_dtype,
 )
+from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
@@ -802,10 +803,11 @@ class ImputeMissingValuesOperation(TransformationOperation):
         # Basic metrics
         metrics: Dict[str, Any] = {}
 
-        # Specific metrics
+        # Detect field changes
         fields_added = [
             col for col in processed_df.columns if col not in original_df.columns
         ]
+
         fields_modified = [
             col
             for col in original_df.columns
@@ -813,80 +815,121 @@ class ImputeMissingValuesOperation(TransformationOperation):
             and not original_df[col].equals(processed_df[col])
         ]
 
-        imputed_values = {}
-        statistical_comparisons = {}
-        imputation_impacts = {}
-        for processed_field in fields_modified + fields_added:
-            if processed_field.startswith(self.column_prefix):
-                original_field = processed_field[len(self.column_prefix) :]
-            else:
-                original_field = processed_field
+        imputed_values: Dict[str, Any] = {}
+        statistical_comparisons: Dict[str, Any] = {}
+        imputation_impacts: Dict[str, Any] = {}
 
+        total_rows = len(original_df)
+
+        for processed_field in fields_modified + fields_added:
+            # Resolve original field name
+            original_field = (
+                processed_field[len(self.column_prefix) :]
+                if processed_field.startswith(self.column_prefix)
+                else processed_field
+            )
+
+            if original_field not in original_df:
+                continue
+
+            original_series = original_df[original_field]
+            processed_series = processed_df[processed_field]
+
+            # Imputed values count
             changes = (
                 np.logical_not(
                     np.where(
-                        original_df[original_field].isna()
-                        | processed_df[processed_field].isna(),
-                        original_df[original_field].isna()
-                        & processed_df[processed_field].isna(),
-                        original_df[original_field] == processed_df[processed_field],
+                        original_series.isna() | processed_series.isna(),
+                        original_series.isna() & processed_series.isna(),
+                        original_series == processed_series,
                     )
                 )
             ).sum()
 
-            imputed_values.update(
-                {
-                    original_field: {
-                        "count": int(changes),
-                        "percent": int(changes) / len(original_df),
-                    }
-                }
+            imputed_values[original_field] = {
+                "count": int(changes),
+                "percent": (
+                    round(int(changes) / total_rows, 6) if total_rows > 0 else 0.0
+                ),
+            }
+
+            # Numeric metrics only
+            if not (
+                is_numeric_dtype(original_series) and is_numeric_dtype(processed_series)
+            ):
+                continue
+
+            # ---- Statistical comparisons ----
+            statistical_comparisons[original_field] = {
+                "mean": {
+                    "before": original_series.mean(),
+                    "after": processed_series.mean(),
+                },
+                "median": {
+                    "before": original_series.median(),
+                    "after": processed_series.median(),
+                },
+                "mode": {
+                    "before": DataHelper.safe_mode(original_series),
+                    "after": DataHelper.safe_mode(processed_series),
+                },
+            }
+
+            # ---- Imputation impacts ----
+            std_before, cnt_std_before = DataHelper.safe_numeric_stat(
+                original_series, pd.Series.std, min_count=2
+            )
+            std_after, cnt_std_after = DataHelper.safe_numeric_stat(
+                processed_series, pd.Series.std, min_count=2
             )
 
-            if is_numeric_dtype(original_df[original_field]) and is_numeric_dtype(
-                processed_df[processed_field]
-            ):
-                statistical_comparisons.update(
-                    {
-                        original_field: {
-                            "mean": {
-                                "before": original_df[original_field].mean(),
-                                "after": processed_df[processed_field].mean(),
-                            },
-                            "median": {
-                                "before": original_df[original_field].median(),
-                                "after": processed_df[processed_field].median(),
-                            },
-                            "mode": {
-                                "before": original_df[original_field].mode().iloc[0],
-                                "after": processed_df[processed_field].mode().iloc[0],
-                            },
-                        }
-                    }
-                )
+            var_before, cnt_var_before = DataHelper.safe_numeric_stat(
+                original_series, pd.Series.var, min_count=2
+            )
+            var_after, cnt_var_after = DataHelper.safe_numeric_stat(
+                processed_series, pd.Series.var, min_count=2
+            )
 
-                imputation_impacts.update(
-                    {
-                        original_field: {
-                            "standard_deviation": {
-                                "before": original_df[original_field].std(),
-                                "after": processed_df[processed_field].std(),
-                            },
-                            "variance": {
-                                "before": original_df[original_field].var(),
-                                "after": processed_df[processed_field].var(),
-                            },
-                            "skewness": {
-                                "before": original_df[original_field].skew(),
-                                "after": processed_df[processed_field].skew(),
-                            },
-                            "kurtosis": {
-                                "before": original_df[original_field].kurtosis(),
-                                "after": processed_df[processed_field].kurtosis(),
-                            },
-                        }
-                    }
-                )
+            skew_before, cnt_skew_before = DataHelper.safe_numeric_stat(
+                original_series, pd.Series.skew, min_count=3
+            )
+            skew_after, cnt_skew_after = DataHelper.safe_numeric_stat(
+                processed_series, pd.Series.skew, min_count=3
+            )
+
+            kurt_before, cnt_kurt_before = DataHelper.safe_numeric_stat(
+                original_series, pd.Series.kurtosis, min_count=4
+            )
+            kurt_after, cnt_kurt_after = DataHelper.safe_numeric_stat(
+                processed_series, pd.Series.kurtosis, min_count=4
+            )
+
+            imputation_impacts[original_field] = {
+                "standard_deviation": {
+                    "before": std_before,
+                    "after": std_after,
+                    "before_sample_count": cnt_std_before,
+                    "after_sample_count": cnt_std_after,
+                },
+                "variance": {
+                    "before": var_before,
+                    "after": var_after,
+                    "before_sample_count": cnt_var_before,
+                    "after_sample_count": cnt_var_after,
+                },
+                "skewness": {
+                    "before": skew_before,
+                    "after": skew_after,
+                    "before_sample_count": cnt_skew_before,
+                    "after_sample_count": cnt_skew_after,
+                },
+                "kurtosis": {
+                    "before": kurt_before,
+                    "after": kurt_after,
+                    "before_sample_count": cnt_kurt_before,
+                    "after_sample_count": cnt_kurt_after,
+                },
+            }
 
         metrics.update(
             {

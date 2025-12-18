@@ -571,13 +571,13 @@ class MergeDatasetsOperation(TransformationOperation):
                     f"Expected one-to-one relationship, but got left_unique={left_unique}, right_unique={right_unique}."
                 )
         elif self.relationship_type == RelationshipType.ONE_TO_MANY.value:
-            if not right_unique:
-                raise ValueError(
-                    f"Expected one-to-many relationship, but right key '{self.right_key}' is not unique."
-                )
             if not left_unique:
+                raise ValueError(
+                    f"Expected one-to-many relationship, but left key '{self.left_key}' is not unique."
+                )
+            if not right_unique:
                 self.logger.warning(
-                    f"[Relationship Warning] Left key '{self.left_key}' is not unique (one-to-many). Possible data duplication."
+                    f"[Relationship Warning] Right key '{self.right_key}' is not unique (one-to-many). Possible data duplication."
                 )
         else:
             raise ValueError(
@@ -1251,8 +1251,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
         if left_key_is_unique and right_key_is_unique:
             detected_relationship = RelationshipType.ONE_TO_ONE.value
-        elif right_key_is_unique:
-
+        elif left_key_is_unique:
             detected_relationship = RelationshipType.ONE_TO_MANY.value
         else:
             raise ValueError(

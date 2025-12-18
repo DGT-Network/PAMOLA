@@ -29,6 +29,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+import numpy as np
 import pandas as pd
 from pamola_core.common.helpers.custom_aggregations_helper import (
     CUSTOM_AGG_FUNCTIONS,
@@ -630,21 +631,36 @@ class AggregateRecordsOperation(TransformationOperation):
 
         # Statistical properties of aggregated fields
         aggregated_field_stats = {}
-        agg_fields = self.aggregations.keys() if self.aggregations else []
+
         for col in processed_df.columns:
-            # Only consider columns that are results of aggregation
-            # Exclude group_by fields
             if col in self.group_by_fields:
                 continue
+
             series = processed_df[col]
-            if pd.api.types.is_numeric_dtype(series):
+
+            if not pd.api.types.is_numeric_dtype(series):
+                continue
+
+            values = pd.to_numeric(series, errors="coerce").dropna()
+
+            if values.empty:
                 aggregated_field_stats[col] = {
-                    "min": float(series.min()),
-                    "max": float(series.max()),
-                    "mean": float(series.mean()),
-                    "median": float(series.median()),
-                    "std": float(series.std()),
+                    "min": np.nan,
+                    "max": np.nan,
+                    "mean": np.nan,
+                    "median": np.nan,
+                    "std": np.nan,
                 }
+                continue
+
+            aggregated_field_stats[col] = {
+                "min": float(values.min()),
+                "max": float(values.max()),
+                "mean": float(values.mean()),
+                "median": float(values.median()),
+                "std": float(values.std()) if len(values) > 1 else np.nan,
+            }
+
         metrics["aggregated_field_stats"] = aggregated_field_stats
 
         return metrics
