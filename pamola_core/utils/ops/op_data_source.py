@@ -1231,6 +1231,19 @@ class DataSource:
         return data_source
 
     def add_data_type(self, name: str, data_type: Dict[str, str]):
+        """
+        Register a new dataset-level dtype configuration.
+
+        Parameters
+        ----------
+        name : str
+            Dataset identifier used as the key in `self.data_types`.
+
+        data_type : Dict[str, str]
+            Mapping of column names to target dtypes for the dataset.
+            Each key is a column name and each value is a dtype specification
+            compatible with pandas / numpy astype().
+        """
         existed_data_type = self.data_types.get(name)
         if not existed_data_type:
             self.data_types[name] = data_type
@@ -1280,16 +1293,48 @@ class DataSource:
     def apply_data_types(
         self,
         df: Union[pd.DataFrame, dd.DataFrame],
-        dataset_name: str,
+        dataset_name: Optional[str] = None,
         data_types: Optional[Dict[str, Any]] = None,
         fields: Optional[list[str]] = None,
     ) -> Union[pd.DataFrame, dd.DataFrame]:
         """
         Apply dtype conversions to a DataFrame (pandas or dask).
-        Strategy:
-        1) Build conversion map
-        2) Try fast whole-DF conversion
-        3) If fails → validate per column → finally convert
+
+        The function supports two ways to resolve target dtypes:
+        1. Explicit `data_types` mapping (highest priority)
+        2. Dataset-based lookup via `dataset_name` from `self.data_types`
+
+        Parameters
+        ----------
+        df : Union[pd.DataFrame, dd.DataFrame]
+            Input DataFrame whose columns will be cast to target dtypes.
+            Supports both pandas and dask DataFrames.
+
+        dataset_name : Optional[str], default None
+            Key used to look up dtype configuration from `self.data_types`.
+            If None, dataset-based lookup is skipped.
+            Ignored if `data_types` is explicitly provided.
+
+        data_types : Optional[Dict[str, Any]], default None
+            Explicit mapping of column name to target dtype.
+            When provided, this mapping takes precedence over `dataset_name`.
+
+        fields : Optional[list[str]], default None
+            Optional list of column names to restrict dtype conversion.
+            If provided, only columns in this list will be considered.
+
+        Returns
+        -------
+        Union[pd.DataFrame, dd.DataFrame]
+            DataFrame with applied dtype conversions.
+            Returns the original DataFrame if no conversion is required.
+
+        Notes
+        -----
+        - Columns already matching the target dtype are skipped.
+        - A fast-path conversion is attempted for the whole DataFrame first.
+        - If fast conversion fails, columns are validated and converted individually.
+        - Raises ValueError with detailed diagnostics if conversion fails.
         """
 
         if not isinstance(df, (pd.DataFrame, dd.DataFrame)):
