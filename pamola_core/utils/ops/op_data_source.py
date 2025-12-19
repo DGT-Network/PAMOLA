@@ -1253,42 +1253,32 @@ class DataSource:
 
     def normalize_target_dtype(self, target_dtype):
         """
-        Normalize a dtype string or object from FE/config into a proper pandas dtype.
+        Normalize a dtype definition from FE or config into a safe pandas-compatible dtype.
 
-        This function:
-          - FE-friendly names: "Int64", "Float64", "String", "Boolean"
-          - Datetime: "Datetime" → datetime64[ns]
-          - Datetime with timezone: "DatetimeUTC" → datetime64[ns, UTC]
-          - Numpy/pandas dtype strings: "int64", "float64", "datetime64[ns]"
-          - Already-resolved pandas dtype objects (returns as-is)
-
-        Parameters
-        ----------
-        target_dtype : Any
-            Raw dtype definition coming from FE or dataset config.
-
-        Returns
-        -------
-        Any
-            A normalized pandas dtype object, numpy dtype, or original value if unresolved.
+        Behavior:
+        - Always prefer explicit mapping (PANDAS_DTYPE_MAP)
+        - int64 / int32 / int16 → Pandas nullable integer dtypes
+        - Fall back to pandas_dtype only if not explicitly mapped
+        - Return unresolved values as-is for higher-level handling
         """
-        # Case 1 — Input is a string dtype from FE or config
-        if isinstance(target_dtype, str):
+        # Case 1 — Already a resolved dtype (pandas / numpy)
+        if not isinstance(target_dtype, str):
+            return target_dtype
 
-            # Direct lookup after normalization
-            if target_dtype in Constants.PANDAS_DTYPE_MAP:
-                return Constants.PANDAS_DTYPE_MAP[target_dtype]
+        # Normalize input string
+        key = target_dtype.strip().lower()
 
-            # Let pandas try to interpret unknown dtype strings
-            # (covers numpy-style dtypes, custom datetime formats, timedelta, etc.)
-            try:
-                return pd.api.types.pandas_dtype(target_dtype)
-            except Exception:
-                # Unknown or unsupported dtype: return raw string for higher-level handling
-                return target_dtype
+        # Case 2 — Always-map (SAFE DEFAULT)
+        mapped_dtype = Constants.PANDAS_DTYPE_MAP.get(key)
+        if mapped_dtype is not None:
+            return mapped_dtype
 
-        # Case 2 — Already a pandas dtype object or numpy dtype
-        return target_dtype
+        # Case 3 — Fallback to pandas resolution
+        try:
+            return pd.api.types.pandas_dtype(key)
+        except Exception:
+            # Leave unresolved for validation layer
+            return target_dtype
 
     def apply_data_types(
         self,
