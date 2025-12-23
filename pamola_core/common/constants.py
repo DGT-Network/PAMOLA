@@ -105,16 +105,18 @@ class Constants:
     # Pandas Dtype Map
     # This map is used to convert string representations of data types to actual pandas/numpy d
     PANDAS_DTYPE_MAP = {
-        # String / Boolean
-        "String": pd.StringDtype(),
-        "Boolean": pd.BooleanDtype(),
-        # Nullable integers & floats
-        "Int64": pd.Int64Dtype(),
-        "Float64": pd.Float64Dtype(),
-        # Datetime (naive)
-        "Datetime": np.dtype("datetime64[ns]"),
-        # Datetime with timezone (UTC)
-        "DatetimeUTC": pd.DatetimeTZDtype(tz="UTC"),
+        # -------- STRING --------
+        "string": pd.StringDtype(),
+        # -------- BOOLEAN --------
+        "boolean": pd.BooleanDtype(),
+        # -------- INTEGER --------
+        "int64": pd.Int64Dtype(),
+        # -------- FLOAT --------
+        "float64": pd.Float64Dtype(),  # nullable float
+        # -------- DATETIME --------
+        "datetime": np.dtype("datetime64[ns]"),
+        # -------- DATETIME TZ --------
+        "datetimeutc": pd.DatetimeTZDtype(tz="UTC"),
     }
 
     # Safe globals for eval
