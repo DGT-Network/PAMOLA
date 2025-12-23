@@ -32,7 +32,7 @@ Dependencies:
   - numpy - mathematical functions and vectorized operations
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -187,23 +187,27 @@ def calculate_provisional_risk(
         sensitives = _detect_fields_by_role_category(df.columns, "SENSITIVE_ATTRIBUTE")
 
     # --- 3. Direct Identifier Component ---
-    coverage_direct = len(direct_identifiers) / total_fields
-    sigmoid_direct = _sigmoid(
-        coverage_direct, sigmoid_midpoints.get("direct_identifier", 0.2)
-    )
-    direct_component = weights.get("direct_identifier", 0.5) * sigmoid_direct
+    direct_component = 0.0
+    if direct_identifiers:
+        coverage_direct = len(direct_identifiers) / total_fields
+        sigmoid_direct = _sigmoid(
+            coverage_direct, sigmoid_midpoints.get("direct_identifier", 0.2)
+        )
+        direct_component = weights.get("direct_identifier", 0.5) * sigmoid_direct
 
-    # --- 4. Quasi-Identifier Component ---
-    coverage_quasi = len(quasi_identifiers) / total_fields
-    sigmoid_quasi = _sigmoid(
-        coverage_quasi, sigmoid_midpoints.get("quasi_identifier", 0.4)
-    )
-    quasi_component = weights.get("quasi_identifier", 0.3) * sigmoid_quasi
-
-    # --- 5. Uniqueness Estimate Component ---
+    # Initialize quasi and uniqueness components
+    quasi_component = 0.0
     uniqueness_estimate = 0.0
     uniqueness_component = 0.0
     if quasi_identifiers:
+        # --- 4. Quasi-Identifier Component ---
+        coverage_quasi = len(quasi_identifiers) / total_fields
+        sigmoid_quasi = _sigmoid(
+            coverage_quasi, sigmoid_midpoints.get("quasi_identifier", 0.4)
+        )
+        quasi_component = weights.get("quasi_identifier", 0.3) * sigmoid_quasi
+
+        # --- 5. Uniqueness Estimate Component ---
         # Convert each row's QIs to tuple for uniqueness check
         tuple_series = df[quasi_identifiers].apply(tuple, axis=1)
         uniqueness_estimate = tuple_series.nunique() / len(tuple_series)
@@ -245,25 +249,30 @@ def calculate_provisional_risk(
     }
 
 
-def _sigmoid(x: float, midpoint: float = 0.5) -> float:
+def _sigmoid(
+    x: Union[float, np.ndarray],
+    midpoint: float = 0.5,
+    k: float = 12.0
+) -> Union[float, np.ndarray]:
     """
-    Logistic sigmoid function for smooth scaling of proportions.
+    Logistic Sigmoid with:
+    - Input clipping to [0, 1]
+    - Exponent clipping to [-700, 700] (Float64 safe)
+    - Vectorized support for numpy arrays
 
-    Parameters
-    ----------
-    x : float
-        Input proportion (e.g., coverage value between 0 and 1).
-    midpoint : float, default 0.5
-        Inflection point where the output is 0.5. Controls horizontal shift.
-
-    Returns
-    -------
-    float
-        Scaled value between 0 and 1.
+    f(x) = 1 / (1 + exp(-k(x - midpoint)))
     """
-    # Prevent overflow for large values of (x - midpoint)
-    z = np.clip(x - midpoint, -50, 50)
-    return 1 / (1 + np.exp(-z))
+
+    # Clip inputs to domain
+    x = np.clip(x, 0.0, 1.0)
+
+    # Compute and clip exponent safely
+    # We clip to +/- 700 to be safe.
+    SAFE_LIMIT = 700.0
+    z = np.clip(k * (x - midpoint), -SAFE_LIMIT, SAFE_LIMIT)
+
+    # Compute logistic sigmoid
+    return 1.0 / (1.0 + np.exp(-z))
 
 
 def _detect_fields_by_role_category(
