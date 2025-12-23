@@ -1511,16 +1511,27 @@ def build_suppression_mask_for_joblib(
     multi_conditions: Optional[List[Dict[str, Any]]],
     condition_logic: Optional[str],
 ) -> pd.Series:
+
     if suppression_condition == "null":
         mask = batch[field_name].isna()
+
     elif suppression_condition == "value":
-        mask = batch[field_name].isin(suppression_values)
+        mask = batch[field_name].isin(suppression_values or [])
+
     elif suppression_condition == "range":
-        mask = batch[field_name].between(*suppression_range, inclusive="both")
+        series = pd.to_numeric(batch[field_name], errors="coerce")
+        mask = series.between(*suppression_range, inclusive="both")
+
     elif suppression_condition == "risk":
-        mask = batch[ka_risk_field] < risk_threshold
+        if ka_risk_field not in batch.columns or risk_threshold is None:
+            mask = pd.Series(False, index=batch.index)
+        else:
+            risk_series = pd.to_numeric(batch[ka_risk_field], errors="coerce")
+            mask = risk_series < risk_threshold
+
     elif suppression_condition == "custom":
         mask = create_multi_field_mask(batch, multi_conditions, condition_logic)
+
     else:
         mask = pd.Series(False, index=batch.index)
 
@@ -1532,7 +1543,13 @@ def process_batch_for_suppression(
     suppression_config: Dict[str, Any],
     save_suppressed_records: bool,
 ) -> Tuple[pd.DataFrame, pd.Series, Optional[pd.DataFrame]]:
+
     mask = build_suppression_mask_for_joblib(batch, **suppression_config)
-    suppressed = batch[mask] if save_suppressed_records else None
-    result = batch[~mask].copy(deep=True)
-    return result, mask.astype(bool), suppressed
+
+    # Ensure boolean mask (no NaN)
+    mask_bool = mask.fillna(False).astype(bool)
+
+    suppressed = batch[mask_bool] if save_suppressed_records else None
+    result = batch[~mask_bool].copy(deep=True)
+
+    return result, mask_bool, suppressed
