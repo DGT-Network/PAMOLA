@@ -450,7 +450,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                             )
 
                     # Impute with mean
-                    if imputation_strategy == "mean":
+                    elif imputation_strategy == "mean":
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )
@@ -462,7 +462,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         )
 
                     # Impute with median
-                    if imputation_strategy == "median":
+                    elif imputation_strategy == "median":
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )
@@ -472,7 +472,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         )
 
                     # Impute with mode
-                    if imputation_strategy == "mode":
+                    elif imputation_strategy == "mode":
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )
@@ -482,7 +482,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         )
 
                     # Impute with min
-                    if imputation_strategy == "min":
+                    elif imputation_strategy == "min":
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )
@@ -492,7 +492,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         )
 
                     # Impute with max
-                    if imputation_strategy == "max":
+                    elif imputation_strategy == "max":
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )
@@ -502,7 +502,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         )
 
                     # Impute with interpolation
-                    if imputation_strategy == "interpolation":
+                    elif imputation_strategy == "interpolation":
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )
@@ -511,7 +511,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                             batch[output_field_name].interpolate()
                         )
 
-                if (
+                elif (
                     isinstance(batch[output_field_name].dtype, CategoricalDtype)
                     or data_type == "categorical"
                 ):
@@ -535,7 +535,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                             )
 
                     # Impute with mode, most_frequent
-                    if imputation_strategy in ("mode", "most_frequent"):
+                    elif imputation_strategy in ("mode", "most_frequent"):
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )
@@ -545,7 +545,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         )
 
                     # Impute with random_sample
-                    if imputation_strategy == "random_sample":
+                    elif imputation_strategy == "random_sample":
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )
@@ -560,78 +560,68 @@ class ImputeMissingValuesOperation(TransformationOperation):
                             "category"
                         )
 
-                if (
+                elif (
                     is_datetime64_any_dtype(batch[output_field_name])
                     or data_type == "date"
                 ):
+                    # Convert to datetime first (common for all strategies)
+                    batch[output_field_name] = pd.to_datetime(
+                        batch[output_field_name].replace(invalid_values, np.nan),
+                        errors="coerce",
+                    )
+
                     # Impute with constant_date
                     if imputation_strategy == "constant_date":
                         if constant_value and constant_value not in invalid_values:
-                            batch[output_field_name] = batch[output_field_name].replace(
-                                invalid_values, np.nan
+                            constant_dt = pd.to_datetime(
+                                constant_value, errors="coerce"
                             )
-
-                            batch[output_field_name] = batch[output_field_name].fillna(
-                                constant_value
-                            )
+                            if pd.notna(constant_dt):
+                                batch[output_field_name] = batch[
+                                    output_field_name
+                                ].fillna(constant_dt)
 
                     # Impute with mean_date
-                    if imputation_strategy == "mean_date":
-                        batch[output_field_name] = batch[output_field_name].replace(
-                            invalid_values, np.nan
-                        )
-
-                        batch[output_field_name] = batch[output_field_name].fillna(
-                            pd.to_datetime(
-                                batch[output_field_name]
-                                .dropna()
-                                .astype(np.int64)
-                                .mean()
+                    elif imputation_strategy == "mean_date":
+                        valid_dates = batch[output_field_name].dropna()
+                        if len(valid_dates) > 0:
+                            mean_date = pd.to_datetime(
+                                valid_dates.astype(np.int64).mean()
                             )
-                        )
+                            batch[output_field_name] = batch[output_field_name].fillna(
+                                mean_date
+                            )
 
                     # Impute with median_date
-                    if imputation_strategy == "median_date":
-                        batch[output_field_name] = batch[output_field_name].replace(
-                            invalid_values, np.nan
-                        )
-
-                        batch[output_field_name] = batch[output_field_name].fillna(
-                            pd.to_datetime(
-                                batch[output_field_name]
-                                .dropna()
-                                .astype(np.int64)
-                                .median()
+                    elif imputation_strategy == "median_date":
+                        valid_dates = batch[output_field_name].dropna()
+                        if len(valid_dates) > 0:
+                            median_date = pd.to_datetime(
+                                valid_dates.astype(np.int64).median()
                             )
-                        )
+                            batch[output_field_name] = batch[output_field_name].fillna(
+                                median_date
+                            )
 
                     # Impute with mode_date
-                    if imputation_strategy == "mode_date":
-                        batch[output_field_name] = batch[output_field_name].replace(
-                            invalid_values, np.nan
-                        )
+                    elif imputation_strategy == "mode_date":
+                        valid_dates = batch[output_field_name].dropna()
+                        if len(valid_dates) > 0:
+                            mode_result = valid_dates.mode()
+                            if len(mode_result) > 0:
+                                batch[output_field_name] = batch[
+                                    output_field_name
+                                ].fillna(mode_result[0])
 
-                        batch[output_field_name] = batch[output_field_name].fillna(
-                            batch[output_field_name].mode()[0]
-                        )
-
-                    # Impute with previous_date
-                    if imputation_strategy == "previous_date":
-                        batch[output_field_name] = batch[output_field_name].replace(
-                            invalid_values, np.nan
-                        )
-
+                    # Impute with previous_date (forward fill)
+                    elif imputation_strategy == "previous_date":
                         batch[output_field_name] = batch[output_field_name].ffill()
 
-                    # Impute with next_date
-                    if imputation_strategy == "next_date":
-                        batch[output_field_name] = batch[output_field_name].replace(
-                            invalid_values, np.nan
-                        )
-
+                    # Impute with next_date (backward fill)
+                    elif imputation_strategy == "next_date":
                         batch[output_field_name] = batch[output_field_name].bfill()
 
-                if (
+                elif (
                     is_string_dtype(batch[output_field_name])
                     or is_object_dtype(batch[output_field_name])
                     or data_type == "text"
@@ -648,7 +638,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                             )
 
                     # Impute with most_frequent
-                    if imputation_strategy == "most_frequent":
+                    elif imputation_strategy == "most_frequent":
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )
@@ -658,7 +648,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
                         )
 
                     # Impute with random_sample
-                    if imputation_strategy == "random_sample":
+                    elif imputation_strategy == "random_sample":
                         batch[output_field_name] = batch[output_field_name].replace(
                             invalid_values, np.nan
                         )

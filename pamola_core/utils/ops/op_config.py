@@ -25,6 +25,7 @@ TODO:
 - Consider standardizing error classes with OpsError base class
 """
 
+from enum import Enum
 import json
 import logging
 from pathlib import Path
@@ -199,6 +200,23 @@ class OperationConfig(Generic[T]):
 
         # Update parameters
         self._params.update(kwargs)
+
+    def json_safe(self, obj: Any) -> Any:
+        """Convert non-JSON-serializable objects to JSON-safe types."""
+
+        if isinstance(obj, Path):
+            return str(obj)
+
+        if isinstance(obj, Enum):
+            return obj.value
+
+        if isinstance(obj, dict):
+            return {k: self.json_safe(v) for k, v in obj.items()}
+
+        if isinstance(obj, (list, tuple, set)):
+            return [self.json_safe(v) for v in obj]
+
+        return obj
 
     def __repr__(self) -> str:
         """String representation of the configuration."""

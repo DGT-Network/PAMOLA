@@ -568,20 +568,36 @@ class MergeDatasetsOperation(TransformationOperation):
         if self.relationship_type == RelationshipType.ONE_TO_ONE.value:
             if not left_unique or not right_unique:
                 raise ValueError(
-                    f"Expected one-to-one relationship, but got left_unique={left_unique}, right_unique={right_unique}."
+                    f"Expected one-to-one relationship, but got "
+                    f"left_unique={left_unique}, right_unique={right_unique}."
                 )
+            self.logger.info("✓ Validated one-to-one relationship")
+
         elif self.relationship_type == RelationshipType.ONE_TO_MANY.value:
             if not left_unique:
                 raise ValueError(
-                    f"Expected one-to-many relationship, but left key '{self.left_key}' is not unique."
+                    f"Expected one-to-many relationship (left key must be unique), "
+                    f"but left key '{self.left_key}' has duplicates."
                 )
             if not right_unique:
-                self.logger.warning(
-                    f"[Relationship Warning] Right key '{self.right_key}' is not unique (one-to-many). Possible data duplication."
+                # This is EXPECTED for one-to-many - change from warning to info
+                right_count = len(right_df)
+                right_unique_count = right_df[self.right_key].nunique()
+                avg_per_key = right_count / right_unique_count
+                self.logger.info(
+                    f"✓ One-to-many relationship confirmed: "
+                    f"{right_unique_count} unique keys in right dataset, "
+                    f"average {avg_per_key:.1f} records per key"
+                )
+            else:
+                self.logger.info(
+                    "✓ One-to-many relationship (currently one-to-one, "
+                    "may expand in future)"
                 )
         else:
             raise ValueError(
-                f"Unsupported relationship_type: '{self.relationship_type}'. Expected 'one-to-one' or 'one-to-many'."
+                f"Unsupported relationship_type: '{self.relationship_type}'. "
+                f"Expected 'one-to-one' or 'one-to-many'."
             )
 
     def _process_value(self, value: Any, **params) -> Any:
@@ -665,7 +681,7 @@ class MergeDatasetsOperation(TransformationOperation):
         processed_df: pd.DataFrame,
     ) -> dict:
 
-        key_columns = self._get_processed_key_columns(left_df, right_df, processed_df)
+        key_columns = self._get_processed_key_columns(processed_df)
         if not key_columns:
             return {}
 
@@ -1095,9 +1111,7 @@ class MergeDatasetsOperation(TransformationOperation):
             )
 
             # 4. Join type distribution (pie chart)
-            key_columns = self._get_processed_key_columns(
-                left_viz, right_viz, merged_viz
-            )
+            key_columns = self._get_processed_key_columns(merged_viz)
             if not key_columns:
                 return {}
 
@@ -1264,39 +1278,55 @@ class MergeDatasetsOperation(TransformationOperation):
 
     def _get_processed_key_columns(
         self,
-        left_df: pd.DataFrame,
-        right_df: pd.DataFrame,
         processed_df: pd.DataFrame,
     ) -> Optional[Tuple[str, str]]:
         """
-        Determine the key column names in processed_df after merge, considering suffixes.
+        Determine the key column names in processed_df after merge.
+
+        Pandas merge behavior:
+        - If left_key == right_key (same name): single column without suffix
+        - If left_key != right_key: both keys kept with original names
+        - Suffixes only applied to non-key overlapping columns
 
         Returns
         -------
-        (left_key_col, right_key_col) if both exist in processed_df, else None.
-        Logs warning if missing.
+        (left_key_col, right_key_col) if both exist, else None
         """
-        left_key_col = (
-            f"{self.left_key}{self.suffixes[0]}"
-            if self.left_key in right_df.columns
-            else self.left_key
-        )
-        right_key_col = (
-            f"{self.right_key}{self.suffixes[1]}"
-            if self.right_key in left_df.columns
-            else self.right_key
-        )
+        # Case 1: Keys have SAME name → single column, no suffix
+        if self.left_key == self.right_key:
+            key_col = self.left_key
+            if key_col in processed_df.columns:
+                self.logger.debug(
+                    f"Join keys have same name '{key_col}' → single column in result"
+                )
+                return key_col, key_col  # Return same column for both
+            else:
+                self.logger.warning(
+                    f"Expected key column '{key_col}' not found in processed_df. "
+                    f"Available columns: {list(processed_df.columns)}"
+                )
+                return None
+
+        # Case 2: Keys have DIFFERENT names → both kept with original names
+        left_key_col = self.left_key
+        right_key_col = self.right_key
 
         missing_keys = []
         if left_key_col not in processed_df.columns:
-            missing_keys.append(f"processed_df['{left_key_col}']")
+            missing_keys.append(f"'{left_key_col}'")
         if right_key_col not in processed_df.columns:
-            missing_keys.append(f"processed_df['{right_key_col}']")
+            missing_keys.append(f"'{right_key_col}'")
+
         if missing_keys:
             self.logger.warning(
-                f"Cannot find key columns in processed_df: {', '.join(missing_keys)}"
+                f"Cannot find key columns in processed_df: {', '.join(missing_keys)}. "
+                f"Available columns: {list(processed_df.columns)}"
             )
             return None
+
+        self.logger.debug(
+            f"Join keys have different names: left='{left_key_col}', right='{right_key_col}'"
+        )
         return left_key_col, right_key_col
 
     def _update_progress_tracker(
