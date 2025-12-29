@@ -334,6 +334,9 @@ class BaseOperation(ABC):
         config_path = task_dir / "config.json"
         temp_path = config_path.with_suffix(".json.tmp")
 
+        # Sanitize before dump
+        config_dict = self.config.json_safe(config_dict)
+
         try:
             # Write to temporary file first
             with open(temp_path, "w") as f:
