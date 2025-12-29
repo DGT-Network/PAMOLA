@@ -76,10 +76,10 @@ class FakePhoneOperationConfig(OperationConfig):
                         "description": "Field name containing country codes to guide phone number generation.",
                     },
                     "operator_codes_dict": {
-                        "type": ["object", "null"],
+                        "type": ["string", "null"],
                         "default": None,
-                        "title": "Operator Codes Dictionary",
-                        "description": "Dictionary mapping country codes to lists of operator codes for phone number generation.",
+                        "title": "Operator Codes Configuration",
+                        "description": "Path to a JSON file containing operator codes mapped by country code (e.g. {\"VN\": [\"098\", \"097\"]})"
                     },
                     "format": {
                         "type": ["string", "null"],
