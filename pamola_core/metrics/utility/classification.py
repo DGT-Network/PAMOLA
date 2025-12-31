@@ -338,24 +338,37 @@ class ClassificationUtility:
             classes_recall = {}
             classes_thresholds = {}
 
-            if len(set(y_test)) == 2:
+            y_test = np.asarray(y_test)
+            classes = np.unique(y_test)
+
+            # ---------- Binary classification ----------
+            if len(classes) == 2:
+                pos_label = classes[-1]
+                pos_index = list(classes).index(pos_label)
+
                 precision, recall, thresholds = precision_recall_curve(
-                    y_test, y_prob[:, 1]
+                    y_test,
+                    y_prob[:, pos_index],
+                    pos_label=pos_label
                 )
 
-                classes_precision["1"] = precision.tolist()
-                classes_recall["1"] = recall.tolist()
-                classes_thresholds["1"] = thresholds.tolist()
+                classes_precision[str(pos_label)] = precision.tolist()
+                classes_recall[str(pos_label)] = recall.tolist()
+                classes_thresholds[str(pos_label)] = thresholds.tolist()
+
+            # ---------- Multi-class ----------
             else:
-                y_bin = label_binarize(y_test, classes=np.unique(y_test))
-                for i in range(len(np.unique(y_test))):
+                y_bin = label_binarize(y_test, classes=classes)
+
+                for i, cls in enumerate(classes):
                     precision, recall, thresholds = precision_recall_curve(
-                        y_bin[:, i], y_prob[:, i]
+                        y_bin[:, i],
+                        y_prob[:, i]
                     )
 
-                    classes_precision[str(i)] = precision.tolist()
-                    classes_recall[str(i)] = recall.tolist()
-                    classes_thresholds[str(i)] = thresholds.tolist()
+                    classes_precision[str(cls)] = precision.tolist()
+                    classes_recall[str(cls)] = recall.tolist()
+                    classes_thresholds[str(cls)] = thresholds.tolist()
 
             precision_values.append(classes_precision)
             recall_values.append(classes_recall)

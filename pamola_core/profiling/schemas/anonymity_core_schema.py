@@ -78,10 +78,14 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                     },
                     "quasi_identifier_sets": {
                         "type": ["array", "null"],
-                        "items": {"type": "string"},
+                        "items": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "minItems": 1
+                        },
                         "default": None,
                         "title": "Quasi-Identifier Sets",
-                        "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Overrides automatic detection.",
+                        "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Each set is an array of field names. Overrides automatic detection.",
                     },
                     "threshold_k": {
                         "type": "integer",

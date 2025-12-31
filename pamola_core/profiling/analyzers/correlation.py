@@ -125,7 +125,12 @@ class CorrelationAnalyzer:
         )
 
     @staticmethod
-    def analyze_matrix(df: pd.DataFrame, fields: List[str], **kwargs) -> Dict[str, Any]:
+    def analyze_matrix(
+        df: pd.DataFrame,
+        fields: List[str],
+        logger: Optional[logging.Logger] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Create a correlation matrix for multiple fields.
 
@@ -135,6 +140,8 @@ class CorrelationAnalyzer:
             DataFrame containing the data
         fields : List[str]
             List of field names to include in the correlation matrix
+        logger : Optional[logging.Logger]
+            Logger for logging messages
         **kwargs : dict
             Additional parameters for analysis
 
@@ -143,7 +150,9 @@ class CorrelationAnalyzer:
         Dict[str, Any]
             Dictionary with correlation matrix and supporting information
         """
-        return analyze_correlation_matrix(df=df, fields=fields, **kwargs)
+        return analyze_correlation_matrix(
+            df=df, fields=fields, task_logger=logger, **kwargs
+        )
 
     @staticmethod
     def estimate_resources(
@@ -1320,6 +1329,10 @@ class CorrelationMatrixOperation(BaseOperation):
             Results of the operation
         """
         try:
+            # Set logger if provided in kwargs
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting operation: {self.operation_name}")
+
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -1410,6 +1423,7 @@ class CorrelationMatrixOperation(BaseOperation):
                 methods=self.methods,
                 null_handling=self.null_handling,
                 min_threshold=self.min_threshold,
+                logger=self.logger,
             )
 
             # Check for errors
@@ -1443,6 +1457,12 @@ class CorrelationMatrixOperation(BaseOperation):
 
             # Generate visualization if requested
             if self.generate_visualization and "correlation_matrix" in analysis_results:
+                # Visualization parameters
+                kwargs_visualization = {
+                    "use_encryption": self.use_encryption,
+                    "encryption_key": self.encryption_key,
+                }
+
                 # Update progress
                 if progress_tracker:
                     progress_tracker.update(0, {"step": "Generating visualization"})
@@ -1463,7 +1483,7 @@ class CorrelationMatrixOperation(BaseOperation):
                     annotation_format=".2f",
                     mask_diagonal=False,
                     mask_upper=False,
-                    **kwargs,
+                    **kwargs_visualization,
                 )
 
                 # Add visualization to result if successful
