@@ -137,6 +137,7 @@ def analyze_correlation_matrix(
         df: pd.DataFrame,
         fields: List[str],
         methods: Optional[Dict[str, str]] = None,
+        task_logger: Optional[logging.Logger] = None,
         **kwargs
 ) -> Dict[str, Any]:
     """
@@ -150,6 +151,8 @@ def analyze_correlation_matrix(
         List of field names to include in the correlation matrix
     methods : Dict[str, str], optional
         Dictionary mapping field pairs to correlation methods
+    task_logger : logging.Logger, optional
+        Logger for logging messages
     **kwargs : dict
         Additional parameters:
         - mvf_parser: function to parse multi-valued fields
@@ -162,6 +165,9 @@ def analyze_correlation_matrix(
     Dict[str, Any]
         Dictionary with correlation matrix and supporting information
     """
+    if task_logger is not None:
+        logger = task_logger
+
     # Check if fields exist in DataFrame
     missing_fields = [field for field in fields if field not in df.columns]
     if missing_fields:
@@ -207,7 +213,8 @@ def analyze_correlation_matrix(
                         method=method,
                         mvf_parser=mvf_parser,
                         null_handling=null_handling,
-                        include_plots=False
+                        include_plots=False,
+                        task_logger=logger,
                     )
 
                     # Extract results

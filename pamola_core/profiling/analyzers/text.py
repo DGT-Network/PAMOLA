@@ -297,6 +297,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     3, {"step": "Basic text analysis", "field": self.field_name}
                 )
 
+            # Backup and clear operation cache during processing
+            cache_backup = self.operation_cache
+            self.operation_cache = None
+
             # Step 1: Perform basic text analysis (always executed)
             basic_analysis = self._perform_basic_analysis(
                 df,
@@ -350,6 +354,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     self.use_vectorization,
                     self.parallel_processes,
                 )
+
+            # Restore operation cache
+            self.operation_cache = cache_backup
 
             # Update progress
             if progress_tracker:
