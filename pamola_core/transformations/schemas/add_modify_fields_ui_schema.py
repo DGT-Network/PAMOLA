@@ -59,7 +59,7 @@ class AddOrModifyFieldsOperationUIConfig(OperationConfig):
                         "x-custom-function": [CustomFunctions.INIT_FIELD_DOUBLE_SELECT],
                     },
                     "lookup_tables": {
-                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
+                        "x-component": CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_ADD_OR_MODIFY,
                         "x-group": GroupName.LOOKUP_TABLE_CONFIGURATION,
                         "x-custom-function": [CustomFunctions.INIT_UPLOAD],
                     },

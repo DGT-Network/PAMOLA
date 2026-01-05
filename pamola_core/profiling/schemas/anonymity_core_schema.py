@@ -69,13 +69,6 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                             },
                         ],
                     },
-                    "quasi_identifiers": {
-                        "type": ["array", "null"],
-                        "items": {"type": "string"},
-                        "default": None,
-                        "title": "Individual quasi-identifier fields",
-                        "description": "List of fields used as quasi-identifiers for k-anonymity analysis. These are the columns whose combinations are evaluated for re-identification risk.",
-                    },
                     "quasi_identifier_sets": {
                         "type": ["array", "null"],
                         "items": {
@@ -86,6 +79,13 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "default": None,
                         "title": "Quasi-Identifier Sets",
                         "description": "Optional list of pre-defined sets of quasi-identifiers to analyze as combinations. Each set is an array of field names. Overrides automatic detection.",
+                    },
+                    "quasi_identifiers": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                        "default": None,
+                        "title": "Individual quasi-identifier fields",
+                        "description": "List of fields used as quasi-identifiers for k-anonymity analysis. These are the columns whose combinations are evaluated for re-identification risk.",
                     },
                     "threshold_k": {
                         "type": "integer",
@@ -121,7 +121,6 @@ class KAnonymityProfilerOperationConfig(OperationConfig):
                         "description": "If true, export k-anonymity metrics and vulnerability analysis to JSON/CSV files.",
                     },
                 },
-                "required": ["quasi_identifiers"],
             },
         ],
     }

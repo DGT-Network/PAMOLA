@@ -147,6 +147,12 @@ class KAnonymityProfilerOperation(BaseOperation):
         kwargs.setdefault("name", name)
         kwargs.setdefault("description", "K-anonymity profiling and risk assessment")
 
+        # Normalize quasi_identifier_sets if it's a flat list of strings
+        if quasi_identifier_sets and isinstance(quasi_identifier_sets, list):
+            # Check if it's a flat list (all elements are strings)
+            if all(isinstance(item, str) for item in quasi_identifier_sets):
+                quasi_identifier_sets = [quasi_identifier_sets]
+
         # Merge specific config parameters
         config = KAnonymityProfilerOperationConfig(
             quasi_identifiers=quasi_identifiers or [],
@@ -479,7 +485,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             stats = get_field_statistics(df[col])
 
             # Include if categorical or numeric with reasonable cardinality
-            if stats["dtype"] in ["object", "category"] or (
+            if stats["dtype"] in ["object", "category", "string"] or (
                 stats["dtype"] in ["int64", "float64"] and stats["unique_count"] < 100
             ):
                 selected_qis.append(col)

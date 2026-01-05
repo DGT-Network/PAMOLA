@@ -410,6 +410,7 @@ def convert_property(
         CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
         CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD_FAKE_NAME,
         CustomComponents.FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY,
+        CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_ADD_OR_MODIFY,
         CustomComponents.FORMAT_RATIO_SLIDER,
         CustomComponents.FIELD_IMPUTE_STRATEGY,
         CustomComponents.FIELD_DOUBLE_SELECT_INPUT_CLEAN_INVALID,
@@ -637,6 +638,16 @@ def _handle_custom_component(field: dict) -> dict:
                     {"label": "Male first names", "value": "maleFirstNames"},
                 ],
             },
+        }
+        field = _add_upload_reaction(field)
+    
+    elif component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_ADD_OR_MODIFY:
+
+        # Handle Field Select Upload File Input
+        field["x-component"] = CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "keyFieldLabel": "Lookup table name",
         }
         field = _add_upload_reaction(field)
 
@@ -1083,9 +1094,9 @@ def _build_condition_expression(condition_value: Any, field_index: int) -> str:
         js_value = "true" if condition_value else "false"
         return f" $deps[{field_index}] === {js_value} "
     if condition_value == "not_null":
-        return f" !!$deps[{field_index}] "
+        return f" !!$deps[{field_index}] && (!Array.isArray($deps[{field_index}]) || $deps[{field_index}].length > 0) "
     if condition_value == "null" or condition_value is None:
-        return f" !$deps[{field_index}] "
+        return f" !$deps[{field_index}] || (Array.isArray($deps[{field_index}]) && $deps[{field_index}].length === 0) "
     if isinstance(condition_value, list):
         return " || ".join(
             f" $deps[{field_index}] === '{val}' " for val in condition_value
