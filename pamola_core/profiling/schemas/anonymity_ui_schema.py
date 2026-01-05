@@ -59,13 +59,16 @@ class KAnonymityProfilerOperationUIConfig(OperationConfig):
                         "x-component": "Select",
                         "x-group": GroupName.ANALYSIS_CONFIGURATION,
                     },
-                    "quasi_identifiers": {
+                    "id_fields": {
                         "x-component": "Select",
-                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
+                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                         "x-custom-function": [
                             CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS
                         ],
-                        "x-depend-on": {"id_fields": "not_null"},
+                        "x-required-on": {
+                            "quasi_identifier_sets": "null",
+                            "quasi_identifiers": "null",
+                        },
                     },
                     "quasi_identifier_sets": {
                         "x-component": "Select",
@@ -73,7 +76,14 @@ class KAnonymityProfilerOperationUIConfig(OperationConfig):
                         "x-custom-function": [
                             CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS
                         ],
-                        "x-depend-on": {"id_fields": "not_null"},
+                    },
+                    "quasi_identifiers": {
+                        "x-component": "Select",
+                        "x-group": GroupName.ANALYSIS_CONFIGURATION,
+                        "x-custom-function": [
+                            CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS
+                        ],
+                        "x-depend-on": {"quasi_identifier_sets": "null"},
                     },
                     "threshold_k": {
                         "x-component": "NumberPicker",
@@ -82,17 +92,7 @@ class KAnonymityProfilerOperationUIConfig(OperationConfig):
                     "max_combinations": {
                         "x-component": "NumberPicker",
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
-                    },
-                    "id_fields": {
-                        "x-component": "Select",
-                        "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
-                        "x-custom-function": [
-                            CustomFunctions.UPDATE_EXCLUSIVE_FIELD_OPTIONS
-                        ],
-                        "x-depend-on": {
-                            "quasi_identifiers": "not_null",
-                            "quasi_identifier_sets": "not_null",
-                        },
+                        "x-depend-on": {"quasi_identifier_sets": "not_null"},
                     },
                     "output_field_suffix": {
                         "x-component": "Input",
@@ -102,7 +102,7 @@ class KAnonymityProfilerOperationUIConfig(OperationConfig):
                         "x-component": "Checkbox",
                         "x-group": GroupName.OPERATION_BEHAVIOR_OUTPUT,
                     },
-                }
+                },
             },
         ],
     }

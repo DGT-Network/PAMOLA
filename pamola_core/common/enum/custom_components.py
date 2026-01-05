@@ -37,6 +37,7 @@ class CustomComponents:
     FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG = "FieldSelectUploadFileInputFakeOrg"
     FIELD_MULTIPLE_SELECT_UPLOAD_FAKE_NAME = "FieldMultipleSelectUploadFakeName"
     FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY = "FieldDoubleSelectInputAddOrModify"
+    FIELD_SELECT_UPLOAD_FILE_INPUT_ADD_OR_MODIFY = "FieldSelectUploadFileInputAddOrModify"
     FORMAT_RATIO_SLIDER = "FormatRatioSlider" 
     FIELD_IMPUTE_STRATEGY = "FieldImputeStrategy"
     FIELD_DOUBLE_SELECT_INPUT_CLEAN_INVALID = "FieldDoubleSelectInputCleanInvalid"
