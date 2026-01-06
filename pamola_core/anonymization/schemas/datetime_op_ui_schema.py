@@ -95,6 +95,7 @@ class DateTimeGeneralizationUIConfig(OperationConfig):
                         "x-component": "DatePickerArray",
                         "x-group": GroupName.CORE_GENERALIZATION_STRATEGY,
                         "x-depend-on": {"bin_type": "custom"},
+                        "x-required-on": {"bin_type": "custom"},
                         "x-component-props": {
                             "format": "YYYY-MM-DD",
                             "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",

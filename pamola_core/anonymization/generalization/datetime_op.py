@@ -992,7 +992,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         if not mask.any():
             return result
 
-        components = getattr(self, "keep_components", [])
+        components = getattr(self, "keep_components", None) or ["year", "month"]
 
         # Mapping internal component → strftime format
         fmt_map = {
@@ -1162,7 +1162,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         if not isinstance(value, pd.Timestamp):
             return str(value)
 
-        comps = getattr(self, "keep_components", [])
+        comps = getattr(self, "keep_components", None) or ["year", "month"]
         fmt = getattr(self, "strftime_output_format", None)
 
         if fmt:
@@ -1336,7 +1336,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
             if self.bin_type == "custom" and self.custom_bins:
                 metrics["custom_bin_count"] = len(self.custom_bins) - 1
         elif self.strategy == "component":
-            metrics["kept_components"] = self.keep_components
+            metrics["keep_components"] = self.keep_components
 
         return metrics
 

@@ -208,16 +208,6 @@ class DateTimeGeneralizationConfig(OperationConfig):
                 "then": {"required": ["custom_bins"]},
             },
             {
-                "if": {"properties": {"strategy": {"const": "component"}}},
-                "then": {"required": ["keep_components"]},
-            },
-            {
-                "if": {"properties": {"strategy": {"const": "relative"}}},
-                "then": {
-                    "properties": {"reference_date": {"type": "string", "minLength": 1}}
-                },
-            },
-            {
                 "if": {"properties": {"timezone_handling": {"const": "utc"}}},
                 "then": {"required": ["default_timezone"]},
             },
