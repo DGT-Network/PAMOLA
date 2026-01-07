@@ -751,7 +751,7 @@ def save_dtypes_output(
     result: OperationResult,
     reporter: Any,
     operation_name: str,
-    task_dir: str,
+    task_dir: Path,
     output_filename: str,
     encryption_key: str = None,
     encryption_mode: str = None,
@@ -770,7 +770,7 @@ def save_dtypes_output(
         The reporter to add artifacts to
     operation_name : str
         Name of the operation for description
-    task_dir : str
+    task_dir : Path
         Directory to save the output file
     output_filename : str
         Base name for the output file (default: "data_types_output.json")
@@ -799,7 +799,8 @@ def save_dtypes_output(
 
         # Generate standardized output filename with timestamp
         output_dir = task_dir / "metrics"
-        dtype_path = output_dir / f"data_types_{output_filename}"
+        dtype_filename = f"data_types_{output_filename}"
+        dtype_path = output_dir / dtype_filename
 
         write_json(
             dtypes_dict,
@@ -808,7 +809,7 @@ def save_dtypes_output(
             encryption_mode=encryption_mode,
         )
 
-        result.add_metric(dtype_path, dtypes_dict)
+        result.add_metric(dtype_path.stem, dtypes_dict)
 
         result.add_artifact(
             artifact_type="json",
