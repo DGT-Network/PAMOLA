@@ -652,6 +652,19 @@ class KAnonymityProfilerOperation(BaseOperation):
             result.add_metric("enrichment_min_k", int(k_values.min()))
             result.add_metric("enrichment_max_k", int(k_values.max()))
 
+            # Save output data types
+            helpers.save_dtypes_output(
+                df=enriched_df,
+                result=result,
+                reporter=reporter,
+                operation_name=self.operation_name,
+                task_dir=task_dir,
+                output_filename=output_filename,
+                encryption_key=self.encryption_key,
+                encryption_mode=encryption_mode_enriched_df,
+                task_logger=self.logger,
+            )
+
             # Update progress
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Enrichment completed"})

@@ -16,6 +16,7 @@ from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from pamola_core.common.constants import Constants
 from pamola_core.profiling.commons.data_types import (
     DataType,
     DataTypeDetection,
@@ -32,7 +33,7 @@ from pamola_core.profiling.commons.dtype_helpers import (
     is_categorical_dtype,
 )
 from pamola_core.utils import helpers
-from pamola_core.utils.io import load_data_operation
+from pamola_core.utils.io import load_data_operation, write_json
 from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.ops.op_data_source import DataSource
 
@@ -743,3 +744,89 @@ def validate_and_get_dataframe(
         raise TypeError(error_msg) from e
 
     return df
+
+
+def save_dtypes_output(
+    df: pd.DataFrame,
+    result: OperationResult,
+    reporter: Any,
+    operation_name: str,
+    task_dir: str,
+    output_filename: str,
+    encryption_key: str = None,
+    encryption_mode: str = None,
+    task_logger: Optional[logging.Logger] = None,
+) -> bool:
+    """
+    Saves data types dataframe format to a JSON file.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        The dataframe whose dtypes are to be saved
+    result : OperationResult
+        The operation result to add metrics and artifacts to
+    reporter : Any
+        The reporter to add artifacts to
+    operation_name : str
+        Name of the operation for description
+    task_dir : str
+        Directory to save the output file
+    output_filename : str
+        Base name for the output file (default: "data_types_output.json")
+    encryption_key : str, optional
+        Encryption key for the output file, if any
+    encryption_mode : str, optional
+        Encryption mode for the output file, if any
+    task_logger : logging.Logger, optional
+        Logger to use for logging messages (default: None)
+
+    Returns
+    -------
+    Path or None
+        Path to saved file if success, otherwise None
+    """
+    try:
+        # Use provided logger or default
+        if task_logger is not None:
+            logger = task_logger
+
+        # Get the dtypes of the columns as a Series
+        dtypes_series = df.dtypes
+
+        # Convert the dtypes Series to a dictionary
+        dtypes_dict = dtypes_series.astype(str).to_dict()
+
+        # Generate standardized output filename with timestamp
+        output_dir = task_dir / "metrics"
+        dtype_path = output_dir / f"data_types_{output_filename}"
+
+        write_json(
+            dtypes_dict,
+            str(dtype_path),
+            encryption_key=encryption_key,
+            encryption_mode=encryption_mode,
+        )
+
+        result.add_metric(dtype_path, dtypes_dict)
+
+        result.add_artifact(
+            artifact_type="json",
+            path=dtype_path,
+            description=f"Data types of output {operation_name}",
+            category=Constants.Artifact_Category_Metrics,
+        )
+
+        if reporter:
+            reporter.add_artifact(
+                artifact_type="json",
+                path=str(dtype_path),
+                description=f"Data types of output {operation_name}",
+            )
+
+        logger.info(f"Dtypes output saved to: {dtype_path}")
+        return True
+
+    except Exception as e:
+        logger.warning(f"Failed to save dtypes format: {str(e)}")
+        return False
