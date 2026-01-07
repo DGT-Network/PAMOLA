@@ -783,3 +783,92 @@ class DataHelper:
         """
         m = series.mode(dropna=True)
         return None if m.empty else m.iloc[0]
+
+    @staticmethod
+    def convert_for_comparison(series: pd.Series, values: List[Any]) -> List[Any]:
+        """
+        Convert condition values to match series dtype if needed.
+
+        Parameters:
+        -----------
+        series : pd.Series
+            Series to compare against
+        values : List[Any]
+            Values to convert
+
+        Returns:
+        --------
+        List[Any]
+            Converted values matching series dtype
+
+        Raises:
+        -------
+        ValueError
+            If datetime conversion fails
+        """
+        if pd.api.types.is_datetime64_any_dtype(series):
+            converted = []
+            for val in values:
+                if isinstance(val, str):
+                    try:
+                        converted.append(pd.to_datetime(val))
+                    except Exception as e:
+                        raise ValueError(
+                            f"Cannot convert '{val}' to datetime for comparison with datetime series: {str(e)}"
+                        )
+                else:
+                    converted.append(val)
+            return converted
+        return values
+
+    @staticmethod
+    def get_sample_value(series: pd.Series) -> Any:
+        """
+        Get first non-null value from series for type checking.
+
+        Parameters:
+        -----------
+        series : pd.Series
+            Series to sample from
+
+        Returns:
+        --------
+        Any or None
+            First non-null value, or None if all values are null
+        """
+        non_null = series.dropna()
+        if len(non_null) == 0:
+            return None
+        return non_null.iloc[0]
+
+    @staticmethod
+    def ensure_comparable(series: pd.Series, val: Any, operator: str) -> None:
+        """
+        Check if value can be compared with series values.
+
+        Parameters:
+        -----------
+        series : pd.Series
+            Series to compare against
+        val : Any
+            Value to check
+        operator : str
+            Operator name for error messages
+
+        Raises:
+        -------
+        TypeError
+            If types are not comparable
+        """
+        sample = DataHelper.get_sample_value(series)
+        if sample is None:
+            # Series is all NaN - comparison will work but return all False
+            return
+
+        try:
+            _ = sample > val  # test comparability
+        except Exception:
+            raise TypeError(
+                f"Operator '{operator}' not supported for type '{type(sample)}' "
+                f"with value type '{type(val)}'"
+            )

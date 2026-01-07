@@ -42,8 +42,8 @@ import hashlib
 import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
-
 import pandas as pd
+from pamola_core.common.helpers.data_helper import DataHelper
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -269,6 +269,10 @@ def apply_condition_operator(
             raise ValueError("Operator 'all' does not accept condition_values")
         return pd.Series(True, index=series.index)
 
+    # Handle empty series
+    if len(series) == 0:
+        return pd.Series(dtype=bool)
+
     # Validate condition_values
     if condition_values is None:
         raise ValueError(f"Operator '{operator}' requires condition_values")
@@ -277,17 +281,10 @@ def apply_condition_operator(
     if len(condition_values) == 0:
         raise ValueError(f"Operator '{operator}' requires non-empty condition_values")
 
-    # Helper: check comparable types
-    def ensure_comparable(val):
-        try:
-            _ = series.iloc[0] > val  # test comparability
-        except Exception:
-            raise TypeError(
-                f"Operator '{operator}' not supported for type '{type(series.iloc[0])}' "
-                f"with value type '{type(val)}'"
-            )
-
     try:
+        # Convert condition values if needed for datetime comparisons
+        condition_values = DataHelper.convert_for_comparison(series, condition_values)
+
         if operator == "in":
             return series.isin(condition_values)
 
@@ -301,7 +298,7 @@ def apply_condition_operator(
             return series != condition_values[0]
 
         elif operator in ("gt", "lt", "ge", "le"):
-            ensure_comparable(condition_values[0])
+            DataHelper.ensure_comparable(series, condition_values[0], operator)
             if operator == "gt":
                 return series > condition_values[0]
             elif operator == "lt":
@@ -313,9 +310,11 @@ def apply_condition_operator(
 
         elif operator == "range":
             if len(condition_values) < 2:
-                raise ValueError("Operator 'range' requires at least 2 values [min, max]")
-            ensure_comparable(condition_values[0])
-            ensure_comparable(condition_values[1])
+                raise ValueError(
+                    "Operator 'range' requires at least 2 values [min, max]"
+                )
+            DataHelper.ensure_comparable(series, condition_values[0], operator)
+            DataHelper.ensure_comparable(series, condition_values[1], operator)
             return (series >= condition_values[0]) & (series <= condition_values[1])
 
         else:
@@ -462,7 +461,9 @@ def get_field_statistics(
                 }
 
     # Add categorical statistics if applicable
-    elif isinstance(series.dtype, pd.CategoricalDtype) or pd.api.types.is_string_dtype(series):
+    elif isinstance(series.dtype, pd.CategoricalDtype) or pd.api.types.is_string_dtype(
+        series
+    ):
         value_counts = series.value_counts()
         if len(value_counts) > 0:
             stats.update(
