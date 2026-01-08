@@ -252,14 +252,16 @@ class BaseOperationConfig(OperationConfig):
                 "if": {"properties": {"mode": {"const": "ENRICH"}}},
                 "then": {
                     "anyOf": [
+                        # Option 1: output_field_name is a non-empty string.
                         {
                             "properties": {
                                 "output_field_name": {"type": "string", "minLength": 1}
                             }
                         },
+                        # Option 2: output_field_name empty/null → REQUIRED column_prefix
                         {
                             "properties": {
-                                "output_field_name": {"type": "null"},
+                                "output_field_name": {"enum": ["", None]},
                                 "column_prefix": {"type": "string", "minLength": 1},
                             },
                             "required": ["column_prefix"],
