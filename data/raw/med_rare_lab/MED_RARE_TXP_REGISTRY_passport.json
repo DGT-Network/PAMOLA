@@ -1,0 +1,52 @@
+{
+  "generated_date": "2026-01-10",
+  "generator": "PAMOLA Epic 2 - generate_med_rare_lab.py",
+  "seed": 42,
+  "synthetic_notice": {
+    "is_synthetic": true,
+    "contains_real_phi": false,
+    "derived_from_real_data": false,
+    "collected_from_external": false,
+    "statement": "All data is artificially generated. No real patient information included."
+  },
+  "dataset_name": "MED_RARE_TXP_REGISTRY",
+  "version": "1.0.0",
+  "file": "MED_RARE_TXP_REGISTRY_10k.csv",
+  "statistics": {
+    "total_records": 10000,
+    "unique_patients": 5100,
+    "disease_distribution": {
+      "Hemophilia A": 845,
+      "Phenylketonuria": 795,
+      "Pompe Disease": 866,
+      "Cystic Fibrosis": 800,
+      "ALS": 825,
+      "Gaucher Disease": 859,
+      "Wilson Disease": 826,
+      "Sickle Cell Disease": 844,
+      "Fabry Disease": 841,
+      "Huntington Disease": 796,
+      "Idiopathic Pulmonary Fibrosis": 847,
+      "Marfan Syndrome": 856
+    },
+    "transplanted_count": 1523,
+    "transplanted_pct": 15.23,
+    "waitlist_active_pct": 25.26,
+    "graft_failure_1y_pct": 2.43,
+    "mortality_1y_pct": 1.91,
+    "phi_in_text_pct": 48.34,
+    "with_link_shared_id_pct": 49.87
+  },
+  "linkage": {
+    "total_unique_patients": 6500,
+    "shared_patients": 2200,
+    "registry_only": 2900,
+    "lab_only": 1400,
+    "overlap_pct": 33.85
+  },
+  "fingerprints": {
+    "prefix": "PMLA",
+    "row_pattern": "PMLA-RR{index}-SYN",
+    "center_pattern": "PMLA-CTR{index}-SYN"
+  }
+}
