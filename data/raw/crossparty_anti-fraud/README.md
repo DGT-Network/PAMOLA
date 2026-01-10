@@ -1,6 +1,18 @@
-# PAMOLA 3-Way Cross-Party Anti-Fraud Dataset
+# Synthetic 3-Way Cross-Party Anti-Fraud Dataset
 
-**Version:** 1.0.0 | **License:** Apache-2.0 | **Maintainers:** PAMOLA Team (REALM Data)
+> **⚠️ Synthetic Data Notice - No Real Financial Information**
+> 
+> This dataset is **fully synthetic** - programmatically generated for testing purposes.**No real Personally Identifiable Information (PII) or financial data is included.**
+> 
+> * Not collected from any bank, payment processor, or telecommunications provider
+> * Not derived from any real transaction logs, fraud cases, or customer records
+> * Not extracted from any financial institution, card network, or carrier system
+> * All customer IDs, transaction amounts, phone numbers, and behavioral signals are artificially generated
+> * Any resemblance to actual persons, institutions, or fraud patterns is coincidental
+> 
+> This dataset is designed for **testing federated learning, privacy-preserving analytics, PSI protocols, and synthetic data generation pipelines**.It is not intended for production fraud detection, credit decisions, or customer risk assessment.
+> 
+> *This documentation is for technical reference, not legal or financial advice.*
 
 * * *
 
@@ -8,14 +20,11 @@
 
 Synthetic dataset designed for demonstrating **privacy-preserving cross-party fraud detection** using Vertical Federated Learning (VFL) and Private Set Intersection (PSI).
 
-### Use Cases
+**Key Feature:** ~8,300 synthetic persons distributed across three parties with ~4,600 appearing in all datasets via PSI-compatible linkage tokens.
 
-| Project         | Use Case                                                    |
-| --------------- | ----------------------------------------------------------- |
-| **PAMOLA CORE** | Data profiling, synthetic data generation, PSI linkage demo |
-| **GUARDORA**    | 3-party VFL training (Bank=active, PSP/Telecom=passive)     |
+* * *
 
-### Scenario
+## Scenario
 
 Three parties collaborate to detect fraud that no single party can identify alone:
 
@@ -24,13 +33,37 @@ Three parties collaborate to detect fraud that no single party can identify alon
     │  (Active)   │◄───►│  (Passive)  │◄───►│  (Passive)  │
     │  Has Label  │     │  Payments   │     │  SIM/OTP    │
     └─────────────┘     └─────────────┘     └─────────────┘
-           │                   │                   │
-           └───────────────────┼───────────────────┘
+           │                     │                   │
+           └─────────────────────┼───────────────────┘
                                │
-                        ┌──────▼──────┐
+                        ┌─────▼───────┐
                         │   PSI/VFL   │
                         │  Protocols  │
                         └─────────────┘
+
+### Use Cases
+
+| Application | Description |
+| --- | --- |
+| **Privacy Engineering** | Data profiling, synthetic data generation, PSI linkage demonstration |
+| **Federated Learning** | 3-party VFL training (Bank=active with labels, PSP/Telecom=passive) |
+| **Cross-Party Analytics** | Testing secure multi-party computation protocols |
+
+* * *
+
+## Data Generation
+
+**Method:** Rule-based synthetic generation with controlled distributions and cross-party linkage
+
+| Component | Approach |
+| --- | --- |
+| Customer demographics | Canadian population distributions (provinces, FSAs) |
+| Transaction amounts | Log-normal distribution with realistic ranges |
+| Fraud patterns | 4 cross-party scenarios with correlated signals |
+| Linkage tokens | Per-party HMAC-SHA256 with independent salts |
+| Behavioral signals | Correlated across parties for fraud cases |
+
+**Seed:** 42 (reproducible)
 
 * * *
 
@@ -43,7 +76,7 @@ Three parties collaborate to detect fraud that no single party can identify alon
 | `BANK_ANTIFRAUD.csv` | 46,003 | Bank transactions with fraud labels |
 | `PAYMENT_ANTIFRAUD.csv` | 46,231 | PSP payment authorizations |
 | `TELECOM_ANTIFRAUD.csv` | 29,044 | Telecom events (OTP, SIM swap) |
-| `CROSSPARTY_FRAUD_SCENARIOS.csv` | 217 | Cross-party fraud patterns |
+| `CROSSPARTY_FRAUD_SCENARIOS.csv` | 217 | Cross-party fraud pattern examples |
 | `CROSSPARTY_LINKAGE_STATS.json` | —   | Linkage overlap statistics |
 | `*_passport.json` | —   | Schema + field statistics |
 | `MANIFEST.json` | —   | File checksums (SHA256) |
@@ -66,68 +99,128 @@ Three parties collaborate to detect fraud that no single party can identify alon
 
 * * *
 
+## Cross-Party Linkage for Federated Learning
+
+### Linkage Statistics
+
+| Metric | Value |
+| --- | --- |
+| Total unique persons | ~8,300 |
+| Shared across all 3 parties | ~4,600 (55%) |
+| Bank-PSP overlap | ~7,200 |
+| Bank-Telecom overlap | ~6,500 |
+
+### Linkage Fields
+
+| Field              | Description                          | Purpose                              |     |
+| ------------------ | ------------------------------------ | ------------------------------------ | --- |
+| `psi_phone_token`  | HMAC-SHA256(phone, PARTY_SALT)[:32]  | Privacy-preserving cross-party joins |     |
+| `psi_email_token`  | HMAC-SHA256(email, PARTY_SALT)[:32]  | Additional linkage key               |     |
+| `psi_device_token` | HMAC-SHA256(device, PARTY_SALT)[:32] | Device fingerprint linkage           |     |
+| `gt_person_id`     | Ground-truth ID (dev only)           | Validation and testing               |     |
+
+**Note:** PSI tokens are NOT directly joinable — each party uses independent salts. PSI protocol required for matching.
+
+### Federated Learning Scenarios
+
+**Vertical Federated Learning:**
+
+    Bank Dataset    → Account data, transaction history, fraud labels
+          ↓ PSI protocol
+    PSP Dataset     → Payment velocity, risk scores, CVV/AVS checks
+          ↓ PSI protocol  
+    Telecom Dataset → SIM swap flags, OTP patterns, device history
+    
+    Use Case: Detect SIM-swap fraud combining all three signal sources
+
+* * *
+
 ## Schema
 
-### Linkage Keys (PSI Tokens)
+### BANK_ANTIFRAUD.csv (36 fields)
 
-Each party generates **independent PSI tokens** using party-specific salts:
+#### Identifiers
 
-| Field | Description |
-| --- | --- |
-| `psi_phone_token` | HMAC-SHA256(phone, PARTY_SALT)[:32] |
-| `psi_email_token` | HMAC-SHA256(email, PARTY_SALT)[:32] |
-| `psi_device_token` | HMAC-SHA256(device_fp, PARTY_SALT)[:32] |
+| Field | Type | Description | Anonymization |
+| --- | --- | --- | --- |
+| `bank_record_id` | string | Unique row ID: `PMLA-BA-*-SYN` | Hash with salt |
+| `psi_phone_token` | string | Bank's phone PSI token | PSI-compatible |
+| `psi_email_token` | string | Bank's email PSI token | PSI-compatible |
+| `customer_id` | string | Internal customer ID | Hash with salt |
+| `gt_person_id` | string | Ground-truth ID (dev only) | **Remove before release** |
 
-**Note:** Tokens are NOT directly joinable. PSI protocol required for matching.
-
-### BANK_ANTIFRAUD.csv
+#### Transaction Data
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `bank_record_id` | string | Unique record ID (PMLA-BA-*-SYN) |
-| `psi_phone_token` | string | Bank's phone PSI token |
-| `psi_email_token` | string | Bank's email PSI token |
-| `customer_id` | string | Internal customer ID |
-| `account_type` | enum | checking, savings, credit |
 | `transaction_ts` | datetime | Transaction timestamp |
 | `amount` | float | Transaction amount (CAD) |
+| `account_type` | enum | checking, savings, credit |
 | `channel` | enum | online, mobile, branch, atm |
+
+#### Behavioral Signals
+
+| Field | Type | Description |
+| --- | --- | --- |
 | `is_new_device` | bool | First time device seen |
 | `is_new_ip` | bool | First time IP seen |
 | `login_attempts_24h` | int | Login attempts in 24h |
 | `failed_logins_24h` | int | Failed logins in 24h |
 | `transactions_24h` | int | Transactions in 24h |
 | `amount_24h` | float | Total amount in 24h |
-| **`is_fraud_bank`** | bool | **LABEL: fraud indicator** |
-| `fraud_type_bank` | string | Fraud category |
 
-### PAYMENT_ANTIFRAUD.csv
+#### Labels
+
+| Field | Type | Rate | Description |
+| --- | --- | --- | --- |
+| **`is_fraud_bank`** | bool | ~2% | **LABEL: fraud indicator** |
+| `fraud_type_bank` | string | —   | Fraud category |
+
+### PAYMENT_ANTIFRAUD.csv (28 fields)
+
+#### Transaction Data
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `payment_record_id` | string | Unique record ID |
-| `psi_phone_token` | string | PSP's phone PSI token |
+| `payment_record_id` | string | Unique row ID |
 | `authorization_ts` | datetime | Auth timestamp |
 | `amount` | float | Transaction amount |
 | `merchant_mcc` | int | Merchant category code |
 | `pos_entry_mode` | enum | chip, contactless, ecommerce |
+
+#### Verification Signals
+
+| Field | Type | Description |
+| --- | --- | --- |
 | `cvv_match` | bool | CVV verification result |
 | `avs_match` | bool | Address verification result |
+| `3ds_result` | string | 3D Secure authentication result |
+
+#### Velocity and Risk
+
+| Field | Type | Description |
+| --- | --- | --- |
 | `velocity_1h` | int | Transactions in last hour |
 | `velocity_24h` | int | Transactions in 24h |
 | `cross_border_flag` | bool | International transaction |
 | `risk_score` | int | PSP risk score (0-1000) |
 | `is_fraud_payment` | bool | Fraud indicator |
 
-### TELECOM_ANTIFRAUD.csv
+### TELECOM_ANTIFRAUD.csv (24 fields)
+
+#### Subscriber Data
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `telecom_record_id` | string | Unique record ID |
-| `psi_phone_token` | string | Telecom's phone PSI token |
+| `telecom_record_id` | string | Unique row ID |
 | `subscriber_id` | string | Internal subscriber ID |
 | `event_type` | enum | call, sms, data, otp |
 | `event_ts` | datetime | Event timestamp |
+
+#### SIM and Device Signals
+
+| Field | Type | Description |
+| --- | --- | --- |
 | `sim_swap_date` | date | Last SIM swap date |
 | `sim_swap_count_90d` | int | SIM swaps in 90 days |
 | `otp_requests_24h` | int | OTP requests in 24h |
@@ -146,9 +239,27 @@ Each party generates **independent PSI tokens** using party-specific salts:
 | **Card Testing** | Testing stolen card numbers | PSP: micro-transactions + CVV failures → Telecom: OTP attempts |
 | **Identity Theft** | New account fraud | Bank: new customer → PSP: immediate high spend |
 
+### SIM Swap Attack Signature (Example)
+
+    Telecom signals:
+      - otp_requests_24h: 8-20 (burst)
+      - sim_swap_count_90d: 1-3 (recent swap)
+    
+    Bank signals:
+      - is_new_device: True
+      - login_attempts_24h: 5-12
+      - amount: 3-8x typical
+    
+    PSP signals:
+      - velocity_24h: elevated
+      - 3ds_result: authenticated (intercepted OTP)
+    
+    Without telecom data: appears as normal authenticated transaction
+    With cross-party integration: high fraud probability detected
+
 * * *
 
-## Demonstrated Results (Fixed Cohort)
+## Demonstrated Results (Fixed Cohort Evaluation)
 
 Evaluated on 6,531 persons present in all three datasets:
 
@@ -159,7 +270,9 @@ Evaluated on 6,531 persons present in all three datasets:
 | Bank + PSP + Telecom | 0.873 | **60.5%** | +2.3pp |
 | VFL 3-party | 0.816 | —   | gap: 5.7% |
 
-**Key Insight:** PSP data adds **+14 percentage points** to fraud recall at 1% FPR.
+**Key Insight:** PSP data adds **+14 percentage points** to fraud recall at 1% FPR on the same population.
+
+**VFL Gap Analysis:** 5.7% gap represents realistic privacy-utility tradeoff for Hardy et al. VFL protocol with linear models (~94% utility retention).
 
 * * *
 
@@ -184,13 +297,14 @@ Evaluated on 6,531 persons present in all three datasets:
 ### 3. PSI Linkage Demo
 
     # In real PSI, parties compute set intersection without revealing identifiers
-    # For demo purposes, we show the concept:
+    # Each party has tokens generated with their own secret salt:
     
-    # Bank has: psi_phone_token = 'a3f2b7c4...'
-    # PSP has:  psi_phone_token = 'x9y8z7w6...'  (different salt!)
-    #
+    # Bank has:    psi_phone_token = 'a3f2b7c4...' (HMAC with BANK_SALT)
+    # PSP has:     psi_phone_token = 'x9y8z7w6...' (HMAC with PSP_SALT)
+    # Telecom has: psi_phone_token = 'j5k6l7m8...' (HMAC with TEL_SALT)
+    
     # PSI protocol determines if they refer to same person
-    # WITHOUT revealing the underlying phone number
+    # WITHOUT revealing the underlying phone number or the salts
 
 ### 4. Regenerate Dataset
 
@@ -199,52 +313,117 @@ Evaluated on 6,531 persons present in all three datasets:
 
 * * *
 
-## Data Quality Notes
+## Testing Capabilities
 
-### Realism
+### Privacy and Anonymization
 
-* Canadian geography (provinces, FSAs, area codes)
-* Realistic fraud rates (~3.5%)
-* Correlated cross-party signals for fraud scenarios
-* Log-normal transaction amounts
+| Technique | Application |
+| --- | --- |
+| PSI Protocols | Cross-party linkage without revealing identifiers |
+| Vertical FL | Collaborative model training without data sharing |
+| Differential Privacy | Adding noise to aggregated statistics |
+| Secure MPC | Multi-party computation for fraud scoring |
 
-### Synthetic Limitations
+### Cross-Party Challenges
 
-* No temporal dependencies between events
-* Simplified fraud patterns
-* No seasonal variations
-* Linkage based on hashed identifiers (not raw PII)
+| Challenge | Description |
+| --- | --- |
+| Linkage attack prevention | Test resistance using quasi-identifiers |
+| Inference control | Prevent attribute disclosure across parties |
+| Population overlap bias | Fixed cohort evaluation methodology |
+| Privacy-utility tradeoff | VFL gap measurement |
 
-### Privacy
+* * *
 
-* **PUBLIC variant:** No `gt_person_id`, cannot directly link records
-* **DEV variant:** Includes ground truth for testing only
-* All identifiers are synthetic (no real PII)
+## Synthetic Fingerprints
+
+All IDs contain synthetic markers for lineage tracking:
+
+| Dataset | Field | Pattern | Example |
+| --- | --- | --- | --- |
+| Bank | bank_record_id | `PMLA-BA-*-SYN` | `PMLA-BA-000001-SYN` |
+| Payment | payment_record_id | `PMLA-PA-*-SYN` | `PMLA-PA-000001-SYN` |
+| Telecom | telecom_record_id | `PMLA-TA-*-SYN` | `PMLA-TA-000001-SYN` |
+| All (dev) | gt_person_id | `PERSON-*` | `PERSON-000001` |
+
+* * *
+
+## Known Limitations
+
+1. **Simplified fraud patterns** - Real fraud is more sophisticated and evolving
+2. **No temporal dependencies** - Events are not sequentially correlated
+3. **Perfect PSI assumption** - Real-world identifier matching is messier
+4. **Static behavior** - No concept drift or seasonal variations
+5. **Balanced overlap** - Real cross-party overlap is often smaller
+6. **Canadian geography only** - Single jurisdiction simplification
 
 * * *
 
 ## Intended Use
 
-### Permitted
+This dataset is intended for:
 
-✅ Privacy-preserving ML research✅ VFL/PSI protocol development✅ PAMOLA/GUARDORA demonstration✅ Academic publications (with citation)
+* ✅ Testing federated learning algorithms
+* ✅ Developing privacy-preserving cross-party analytics
+* ✅ Evaluating PSI protocol implementations
+* ✅ Testing synthetic data generation pipelines
+* ✅ Educational purposes in privacy engineering
+* ✅ Academic publications (with citation)
 
-### Not Permitted
+This dataset is **not** intended for:
 
-❌ Production fraud detection systems❌ Training models for real-world deployment❌ Re-identification research❌ Commercial use without license
+* ❌ Production fraud detection systems
+* ❌ Training models for real-world deployment
+* ❌ Credit decisions or customer risk assessment
+* ❌ Re-identification research
+* ❌ Regulatory compliance certification
+
+* * *
+
+## File Structure
+
+    3way-antifraud/
+    ├── public/
+    │   ├── BANK_ANTIFRAUD.csv
+    │   ├── PAYMENT_ANTIFRAUD.csv
+    │   ├── TELECOM_ANTIFRAUD.csv
+    │   ├── CROSSPARTY_FRAUD_SCENARIOS.csv
+    │   ├── CROSSPARTY_LINKAGE_STATS.json
+    │   ├── *_passport.json
+    │   ├── MANIFEST.json
+    │   ├── README.md
+    │   └── LICENSE
+    │
+    ├── dev/
+    │   ├── (same as public)
+    │   ├── gt_person_id columns
+    │   └── PSI_GROUND_TRUTH.json
+    │
+    └── tools/
+        ├── generate_antifraud_crossparty.py
+        ├── prepare_release.py
+        └── validate.py
 
 * * *
 
 ## Citation
 
-    @dataset{pamola_antifraud_2024,
-      title={PAMOLA 3-Way Cross-Party Anti-Fraud Synthetic Dataset},
+    @dataset{crossparty_antifraud_2024,
+      title={Synthetic 3-Way Cross-Party Anti-Fraud Dataset},
       author={REALM Data Team},
       year={2024},
       publisher={REALM Data},
       version={1.0.0},
-      url={https://github.com/realm-data/pamola-datasets}
+      url={https://github.com/realm-data/synthetic-datasets}
     }
+
+* * *
+
+## License
+
+Apache 2.0
+
+See [LICENSE](./LICENSE) for full terms.
 
 * * *
 
@@ -254,14 +433,10 @@ Evaluated on 6,531 persons present in all three datasets:
 
 * Initial release
 * 3 party datasets (Bank, PSP, Telecom)
-* Per-party PSI tokens
+* Per-party PSI tokens with independent salts
 * Fixed cohort evaluation results
-* Public/Dev variants
+* Public/Dev variants with ground truth separation
 
 * * *
 
-## Contact
-
-* **Project:** [PAMOLA](https://pamola.realmdata.io)
-* **Issues:** GitHub Issues
-* **Email:** pamola@realmdata.io
+**Maintainer:** [REALM Data](https://realmdata.io)  | **Repository:** [github.com/DGT-Network/PAMOLA](https://github.com/DGT-NETWORK/PAMOLA/data) | **Version:** 1.0.0
