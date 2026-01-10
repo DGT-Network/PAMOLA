@@ -35,11 +35,11 @@ Three parties collaborate to detect fraud that no single party can identify alon
     └─────────────┘     └─────────────┘     └─────────────┘
            │                     │                   │
            └─────────────────────┼───────────────────┘
-                               │
-                        ┌─────▼───────┐
-                        │   PSI/VFL   │
-                        │  Protocols  │
-                        └─────────────┘
+                                 │
+                        ┌────────▼───────┐
+                        │   PSI/VFL      │
+                        │  Protocols     │
+                        └────────────────┘
 
 ### Use Cases
 
