@@ -1,262 +1,332 @@
-# S_CHURN_BANK_CANADA DATASET SPECIFICATION
+# Synthetic Customer Churn Dataset - Canadian Banking
 
-## 1. Dataset Overview
+> **⚠️ Synthetic Data Notice**
+>
+> This dataset is **fully synthetic** - programmatically generated for testing purposes.
+> **No real personal or financial information is included.**
+>
+> - Not collected from any external sources or financial institutions
+> - Not derived from any real customer or banking data
+> - Any resemblance to actual persons, accounts, or institutions is coincidental
+>
+> *This documentation is for technical reference, not legal advice.*
 
-### 1.1 Metadata
+---
 
-* **Dataset Name**: S_CHURN_BANK_CANADA
-* **Data Type**: Synthetic (Surrogate) Data
-* **Source**: Generated based on marginal distributions for a hypothetical Canadian bank (RBC-like) with rule-based churn labels
-* **Format**: CSV (Comma-Separated Values)
-* **Encoding**: UTF-8
-* **Delimiter**: Comma (,)
-* **Text Qualifier**: Double quotes (")
-* **Header**: First row contains field names
-* **Missing Values**: Present in some fields (notably FAMILYID, loan_status)
-* **Data Quality**: Cleaned, strong regularization, distributions ~normal-like
+## Overview
 
-### 1.2 Available Versions
+Synthetic customer churn dataset simulating a hypothetical Canadian retail bank. Designed for testing churn prediction models, privacy-preserving ML techniques, and anonymization pipelines. Multiple dataset versions available for different testing scenarios.
+
+**Domain:** Canadian retail banking  
+**Target Variable:** `ChurnProbability` (continuous 0-1)  
+**Primary Use Cases:** Churn prediction, privacy testing, data quality validation
+
+---
+
+## Data Generation
+
+**Method:** Rule-based synthetic generation with controlled distributions
+
+| Component | Approach |
+|-----------|----------|
+| Demographics | Faker-style generation with Canadian distributions |
+| Financial attributes | Log-normal distributions matching retail banking patterns |
+| Churn labels | Rule-based probability calculation from feature combinations |
+| Geographic | Canadian provinces with realistic city distributions |
+| Data quality issues | Intentionally introduced in DIRTY variants |
+
+**Reproducibility:** JSON passport file contains generation parameters.
+
+---
+
+## Dataset Versions
 
 | Version | Filename | Records | Size | Use Case |
-| --- | --- | --- | --- | --- |
-| **Micro** | **S_CHURN_BANK_CANADA_50.csv** | **50** | **~25 KB** | **Unit testing, validation** |
-| Small | S_CHURN_BANK_CANADA_2K.csv | 2,000 | ~1 MB | Development, testing |
-| Medium | S_CHURN_BANK_CANADA_10K.csv | 10,000 | ~5 MB | Integration testing |
-| Large | S_CHURN_BANK_CANADA_365K.csv | 365,000 | ~180 MB | Production simulation |
+|---------|----------|---------|------|----------|
+| **Micro** | `S_CHURN_BANK_CANADA_50.csv` | 50 | ~25 KB | Unit testing, validation |
+| **Small** | `S_CHURN_BANK_CANADA_2K.csv` | 2,000 | ~1 MB | Development, testing |
+| **Small + Issues** | `S_CHURN_BANK_CANADA_2K_DIRTY.csv` | 2,000 | ~1 MB | Data quality testing |
+| **Issue Catalog** | `S_CHURN_BANK_CANADA_2K_DIRTY_ISSUES.csv` | - | - | Documents injected issues |
+| **Medium** | `S_CHURN_BANK_CANADA_10K.csv` | 10,000 | ~5 MB | Integration testing |
+| **Passport** | `S_CHURN_BANK_CANADA_50.json` | - | - | Metadata and statistics |
 
-### 1.3 Target Variable Statistics (50-record sample)
+### DIRTY Dataset Variants
 
-* **Target Column**: `ChurnProbability`
-* **Type**: Continuous probability [0,1]
-* **Distribution**:
-  * Min: 0.04
-  * Max: 0.53
-  * Mean: 0.1902
-  * Std: 0.1302
-  * Median: ~0.15 (estimated)
+The `_DIRTY` variants contain intentionally introduced data quality issues:
 
-## 2. Business Context and Use Cases
+| Issue Type | Description | Purpose |
+|------------|-------------|---------|
+| Missing values | Additional nulls in optional fields | Completeness testing |
+| Format violations | Case inconsistencies, whitespace | Validation testing |
+| Outliers | Extreme values in numeric fields | Anomaly detection |
+| Duplicates | Near-duplicate records | Deduplication testing |
 
-### 2.1 Primary ML Tasks
+The `_DIRTY_ISSUES.csv` file documents all injected issues with row references.
 
-1. **Binary Classification**: Predict customer churn (threshold ChurnProbability)
-2. **Regression**: Direct churn probability prediction
-3. **Calibration Testing**: Evaluate probability calibration
-4. **Privacy-Preserving ML**: DP-SGD, federated learning experiments
+---
 
-### 2.2 Privacy Risk Evaluation
+## Target Variable
 
-* **Membership Inference Attacks (MIA)**: Test susceptibility
-* **Attribute Inference**: Evaluate sensitive attribute disclosure
-* **Re-identification Risk**: Assess quasi-identifier combinations
+| Property | Value |
+|----------|-------|
+| **Column** | `ChurnProbability` |
+| **Type** | Continuous probability [0, 1] |
+| **Distribution** | Right-skewed (most customers low risk) |
+| **Statistics (50-sample)** | Min: 0.04, Max: 0.53, Mean: 0.19, Std: 0.13 |
 
-## 3. Enhanced Field Specifications
+**Binary threshold:** Use 0.5 for classification tasks, or optimize based on business cost.
 
-### 3.1 Updated Privacy Classification (Based on Actual Data Analysis)
+---
+
+## Field Specifications
+
+### Privacy Classification Summary
 
 | Category | Count | Fields |
-| --- | --- | --- |
-| **Direct Identifiers** | 7   | ID, FULLNAME, FAMILYID, MobilePhone, Email, AccountType*, account_age* |
-| **Quasi-Identifiers** | 6   | CITY, PROVINCE, AGE, overdraft_usage, branch_visits, digital_usage_level |
-| **Sensitive Attributes** | 4   | Income, credit_score, loan_status, credit_card_status |
-| **Indirect Attributes** | 20  | SEX, IsMarried, RACE, IsHomeOwner, HOMEVALUE, RENTVALUE, IsEduBachelors, IsUnemployed, AME, AMB, avg12_tx, BankIsPrimary, avg12_tx_volume, customer_service, complaints_filed, satisfaction_level, CardNumber, CardType, BankPresenceRating, ChurnProbability |
+|----------|-------|--------|
+| **Direct Identifiers** | 7 | ID, FULLNAME, FAMILYID, MobilePhone, Email, CardNumber, AccountType |
+| **Quasi-Identifiers** | 6 | CITY, PROVINCE, AGE, overdraft_usage, branch_visits, digital_usage_level |
+| **Sensitive Attributes** | 4 | Income, credit_score, loan_status, credit_card_status |
+| **Behavioral/Indirect** | 20 | SEX, IsMarried, RACE, IsHomeOwner, transaction features, satisfaction metrics |
 
-*Note: AccountType and account_age reclassified as direct identifiers due to high uniqueness in small samples
+### Direct Identifiers
 
-### 3.2 Detailed Field Analysis with Observed Statistics (50-record sample)
+| Field | Type | Unique Ratio | Anonymization |
+|-------|------|--------------|---------------|
+| `ID` | Integer | 1.00 | Drop or hash with salt |
+| `FULLNAME` | Text | 1.00 | Drop |
+| `FAMILYID` | Categorical | 1.00* | Drop (92% missing) |
+| `MobilePhone` | Text | ~1.00 | Mask (keep area code) |
+| `Email` | Text | ~1.00 | Domain only |
+| `CardNumber` | Text | ~1.00 | Mask (show last 4) |
+| `AccountType` | Categorical | High | Generalize |
 
-| Field | Type | Non-null | Unique | Unique Ratio | Observed Distribution | Anonymization Priority |
-| --- | --- | --- | --- | --- | --- | --- |
-| **ID** | Integer | 50  | 50  | 1.00 | Range: 3455-360515 | Remove/Pseudonymize |
-| **SEX** | Categorical | 50  | 2   | 0.04 | F:60%, M:40% | Low risk |
-| **CITY** | Text | 50  | 29  | 0.58 | Toronto:22%, Ottawa:8% | Generalize to region |
-| **PROVINCE** | Categorical | 50  | 4   | 0.08 | ON:64%, BC:16%, QC:16% | Group to regions |
-| **FULLNAME** | Text | 50  | 50  | 1.00 | All unique | Remove |
-| **AGE** | Integer | 50  | 25  | 0.50 | μ=36.3, σ=8.05, Range:21-52 | 5-year bins |
-| **IsMarried** | Boolean | 50  | 2   | 0.04 | True:40%, False:60% | Preserve |
-| **FAMILYID** | Categorical | 4   | 4   | 1.00 | 92% missing | Handle missing/remove |
-| **RACE** | Categorical | 50  | 5   | 0.10 | White:60%, Asian:26% | Consider suppression |
-| **Income** | Float | 50  | 50  | 1.00 | μ=74966, σ=25935 | Add noise ±5% |
-| **credit_score** | Float | 50  | 46  | 0.92 | μ=679.6, σ=90.5, Range:414-850 | Categorize |
-| **loan_status** | Categorical | 38  | 4   | 0.11 | 24% missing, Mortgage:79% | Handle missing |
-| **BankPresenceRating** | Float | 50  | 9   | 0.18 | μ=0.143, σ=0.018 | Scale issue detected* |
+### Quasi-Identifiers
 
-*Note: BankPresenceRating shows values 0.1-0.18 instead of expected 0-10 scale
+| Field | Type | Values | Anonymization |
+|-------|------|--------|---------------|
+| `AGE` | Integer | 21-52 (mean 36) | 5-year bins |
+| `CITY` | Text | 29 cities | Generalize to region |
+| `PROVINCE` | Categorical | ON 64%, BC 16%, QC 16%, AB 4% | Group to East/Central/West |
+| `overdraft_usage` | Float | Continuous | Binning |
+| `branch_visits` | Integer | Count | Capping |
+| `digital_usage_level` | Categorical | Low/Medium/High | Preserve |
 
-### 3.3 Critical Data Quality Observations
+### Sensitive Attributes
 
-1. **Missing Data Patterns**:
-  
-  * FAMILYID: 92% missing (only 4 of 50 records)
-  * loan_status: 24% missing (12 of 50 records)
-2. **Unique Value Ratios**:
-  
-  * High (>0.8): ID, FULLNAME, Income, AME, AMB, credit_score, MobilePhone, CardNumber, Email
-  * Medium (0.4-0.8): AGE, CITY, ChurnProbability
-  * Low (<0.4): Most categorical fields
-3. **Anomalies Detected**:
-  
-  * BankPresenceRating: Scale appears to be 0-1 instead of 0-10
-  * Phone numbers have 'T' suffix (e.g., "807-881-7806T")
-  * Card numbers have 'T' in middle (e.g., "4514 0112T 1742 1725")
+| Field | Type | Distribution | Anonymization |
+|-------|------|--------------|---------------|
+| `Income` | Float | Mean $75K, Std $26K | Laplace noise (epsilon=0.1) |
+| `credit_score` | Float | Mean 680, Range 414-850 | Categorize to 5 bands |
+| `loan_status` | Categorical | 24% missing, Mortgage 79% | Handle missing, generalize |
+| `credit_card_status` | Categorical | Active/Inactive/None | Preserve |
 
-## 4. Updated Anonymization Strategy
+### Demographic Fields
 
-### 4.1 Field-Specific Recommendations
+| Field | Type | Distribution | Notes |
+|-------|------|--------------|-------|
+| `SEX` | Categorical | F 60%, M 40% | Low re-identification risk |
+| `IsMarried` | Boolean | True 40%, False 60% | Binary |
+| `RACE` | Categorical | White 60%, Asian 26%, Other 14% | Consider suppression |
+| `IsHomeOwner` | Boolean | Binary | Correlates with Income |
+| `HOMEVALUE` | Float | Nullable | Only for homeowners |
+| `RENTVALUE` | Float | Nullable | Only for renters |
+| `IsEduBachelors` | Boolean | Binary | Education indicator |
+| `IsUnemployed` | Boolean | Binary | Employment status |
 
-| Field | Strategy | Parameters | Rationale |
-| --- | --- | --- | --- |
-| **High Priority (Direct Identifiers)** |     |     |     |
-| ID  | Drop or hash | SHA-256+salt | No ML value |
-| FULLNAME | Drop | -   | No ML value |
-| FAMILYID | Drop | -   | 92% missing |
-| MobilePhone | Mask | Keep area code | Preserve geographic info |
-| Email | Domain only | Keep provider type | Preserve service preference |
-| **Medium Priority (Quasi-Identifiers)** |     |     |     |
-| AGE | Generalize | 5-year bins | Balance utility/privacy |
-| CITY | Hierarchical | City→Region | Preserve geographic patterns |
-| PROVINCE | Group | East/Central/West | Maintain regional effects |
-| **Low Priority (Sensitive)** |     |     |     |
-| Income | Add noise | Laplace ε=0.1 | Preserve distribution |
-| credit_score | Categorize | 5 bands | Standard industry practice |
+### Financial Behavior Fields
 
-### 4.2 k-Anonymity Evaluation
+| Field | Type | Description |
+|-------|------|-------------|
+| `AME` | Float | Average monthly expenses |
+| `AMB` | Float | Average monthly balance |
+| `avg12_tx` | Float | Average transactions (12 months) |
+| `avg12_tx_volume` | Float | Average transaction volume |
+| `BankIsPrimary` | Boolean | Primary banking relationship |
 
-Based on 50-record analysis:
+### Engagement Fields
 
-* **Current k-anonymity**: k=1 (multiple unique combinations)
-* **Target k-anonymity**: k≥3 for micro dataset, k≥5 for larger sets
-* **Critical QI combinations**:
-  * {AGE, SEX, PROVINCE}: Requires generalization
-  * {CITY, IsMarried, AccountType}: High uniqueness
+| Field | Type | Description |
+|-------|------|-------------|
+| `customer_service` | Integer | Service interactions count |
+| `complaints_filed` | Integer | Complaint count |
+| `satisfaction_level` | Float | Satisfaction score |
+| `BankPresenceRating` | Float | Engagement rating (scale 0-1)* |
 
-## 5. Statistical Validation Metrics
+*Note: BankPresenceRating uses 0-1 scale (observed range 0.1-0.18)
 
-### 5.1 Distribution Preservation Tests
+---
 
-| Metric | Test | Threshold | Critical Fields |
-| --- | --- | --- | --- |
-| **Numerical** | KS Statistic | <0.15 | Income, credit_score, AGE |
-| **Categorical** | Chi-Square | p>0.05 | PROVINCE, AccountType |
-| **Correlation** | Pearson R | >0.85 | Feature pairs |
-| **Target** | AUROC | >0.90 of original | ChurnProbability prediction |
+## Known Data Quality Issues
 
-### 5.2 Privacy Metrics
+### Documented Anomalies
 
-| Metric | Current (50 records) | Target |
-| --- | --- | --- |
-| k-anonymity | 1   | ≥3  |
-| l-diversity | N/A | ≥2  |
-| Unique combinations | >60% | <20% |
-| Re-identification risk | High | <10% |
+| Issue | Field | Description | Handling |
+|-------|-------|-------------|----------|
+| Missing data | `FAMILYID` | 92% null | Drop column |
+| Missing data | `loan_status` | 24% null | Impute mode or preserve |
+| Text artifacts | `MobilePhone` | 'T' suffix (e.g., "807-881-7806T") | Strip suffix |
+| Text artifacts | `CardNumber` | 'T' in middle (e.g., "4514 0112T 1742") | Remove 'T' |
+| Scale issue | `BankPresenceRating` | 0-0.18 instead of expected 0-10 | Document or rescale |
 
-## 6. Implementation Guidelines for PAMOLA
+### Data Cleaning Recommendations
 
-### 6.1 Data Loading Considerations
+```python
+# Handle missing values
+missing_patterns = {
+    'FAMILYID': 'drop_column',      # 92% missing
+    'loan_status': 'impute_mode'    # 24% missing
+}
 
-    # Handle missing values appropriately
-    missing_patterns = {
-        'FAMILYID': 'drop_column',  # 92% missing
-        'loan_status': 'impute_mode'  # 24% missing
-    }
-    
-    # Fix scale issues
-    scale_corrections = {
-        'BankPresenceRating': lambda x: x * 100  # Convert 0-0.18 to 0-18
-    }
-    
-    # Clean text anomalies
-    text_cleaning = {
-        'MobilePhone': lambda x: x.rstrip('T'),
-        'CardNumber': lambda x: x.replace('T', '')
-    }
+# Clean text artifacts
+text_cleaning = {
+    'MobilePhone': lambda x: x.rstrip('T') if x else x,
+    'CardNumber': lambda x: x.replace('T', '') if x else x
+}
+```
 
-### 6.2 Anonymization Pipeline Sequence
+---
 
-    1. Data Cleaning
-       ├── Handle missing values
-       ├── Fix scale issues
-       └── Clean text artifacts
-    
-    2. Direct Identifier Processing
-       ├── Drop: FULLNAME, FAMILYID
-       ├── Hash: ID
-       └── Mask: MobilePhone, CardNumber, Email
-    
-    3. Quasi-Identifier Generalization
-       ├── AGE → 5-year bins
-       ├── CITY → Region mapping
-       └── PROVINCE → Geographic groups
-    
-    4. Sensitive Attribute Protection
-       ├── Income + Laplace noise
-       ├── credit_score → Categories
-       └── loan_status → Binary
-    
-    5. Validation
-       ├── Check k-anonymity
-       ├── Measure utility loss
-       └── Verify distributions
+## Testing Capabilities
 
-### 6.3 Quality Assurance Checks
+### ML Tasks
 
-1. **Pre-processing**:
-  
-  * Verify no duplicate IDs
-  * Check value ranges
-  * Validate categorical levels
-2. **Post-anonymization**:
-  
-  * Confirm k≥3 achieved
-  * Test ML model performance
-  * Validate statistical properties
-3. **Edge Cases**:
-  
-  * Handle missing FAMILYID gracefully
-  * Preserve loan_status distribution despite missingness
-  * Maintain churn probability calibration
+| Task | Target | Metrics |
+|------|--------|---------|
+| Binary Classification | ChurnProbability > threshold | AUROC, F1, Precision/Recall |
+| Regression | ChurnProbability continuous | MAE, RMSE, R-squared |
+| Calibration | Probability calibration | Brier score, calibration curve |
 
-## 7. Testing Recommendations
+### Privacy Testing
 
-### 7.1 Unit Testing (50-record dataset)
+| Test Type | Method | Target |
+|-----------|--------|--------|
+| K-anonymity | QI combinations | k >= 3 (micro), k >= 5 (larger) |
+| L-diversity | Sensitive attribute distribution | l >= 2 |
+| Membership inference | Attack simulation | < 10% success rate |
+| Attribute inference | Predict credit_score from QIs | Measure disclosure risk |
 
-* Individual field transformations
-* Missing value handling
-* Scale corrections
-* Text cleaning
+### Data Quality Testing
 
-### 7.2 Performance Benchmarks
+| Test | Dataset | Purpose |
+|------|---------|---------|
+| Completeness | All | Detect missing value patterns |
+| Validity | DIRTY variant | Detect format violations |
+| Consistency | All | Cross-field validation |
+| Uniqueness | All | Duplicate detection |
 
-| Dataset Size | Processing Time | Memory Usage |
-| --- | --- | --- |
-| 50 records | <1 second | <10 MB |
-| 2K records | <10 seconds | <50 MB |
-| 365K records | <5 minutes | <2 GB |
+---
 
-### 7.3 Privacy Attack Simulations
+## Anonymization Pipeline
 
-* **Linkage Attack**: Use {AGE, CITY, PROVINCE} as QIs
-* **Membership Inference**: Target high-income individuals
-* **Attribute Inference**: Predict credit_score from other fields
+### Recommended Sequence
 
-## 8. Known Issues and Limitations
+```
+1. Data Cleaning
+   ├── Handle missing values (FAMILYID: drop, loan_status: impute)
+   ├── Clean text artifacts (phone 'T' suffix, card 'T')
+   └── Validate value ranges
 
-### 8.1 Data Quality Issues
+2. Direct Identifier Processing
+   ├── Drop: FULLNAME, FAMILYID
+   ├── Hash: ID (SHA-256 + project salt)
+   └── Mask: MobilePhone, CardNumber, Email
 
-1. **Scale inconsistency**: BankPresenceRating (0-0.18 vs expected 0-10)
-2. **Text artifacts**: 'T' suffixes in phone/card numbers
-3. **Missing data**: Significant missingness in FAMILYID, loan_status
+3. Quasi-Identifier Generalization
+   ├── AGE -> 5-year bins ([20-24], [25-29], ...)
+   ├── CITY -> Region mapping (GTA, Ottawa Region, etc.)
+   └── PROVINCE -> Geographic groups (East/Central/West)
 
-### 8.2 Statistical Limitations
+4. Sensitive Attribute Protection
+   ├── Income + Laplace noise (epsilon=0.1)
+   ├── credit_score -> Categories (Poor/Fair/Good/VeryGood/Excellent)
+   └── loan_status -> Binary (HasLoan / NoLoan)
 
-1. **Small sample effects**: 50 records may not represent full distribution
-2. **Perfect regularization**: Overly clean data may not reflect real-world noise
-3. **Temporal absence**: No time-based features for trend analysis
+5. Validation
+   ├── Verify k-anonymity achieved
+   ├── Test ML model performance preservation
+   └── Validate distribution similarity (KS test)
+```
 
-### 8.3 Privacy Considerations
+### Target Privacy Metrics
 
-1. **High uniqueness**: Many fields have unique ratio >0.8
-2. **Geographic concentration**: 64% from Ontario
-3. **Demographic skew**: May not represent full population diversity
+| Metric | Micro (50) | Small (2K) | Medium (10K) |
+|--------|------------|------------|--------------|
+| k-anonymity | >= 3 | >= 5 | >= 5 |
+| l-diversity | >= 2 | >= 2 | >= 3 |
+| Unique QI combinations | < 30% | < 20% | < 15% |
+| Re-identification risk | < 20% | < 10% | < 5% |
 
-This enhanced specification incorporates empirical observations from the actual 50-record dataset and provides practical guidance for PAMOLA implementation and testing.
+---
+
+## File Structure
+
+```
+churn_ca/
+├── S_CHURN_BANK_CANADA_50.csv          # Micro dataset (unit testing)
+├── S_CHURN_BANK_CANADA_50.json         # Passport/metadata
+├── S_CHURN_BANK_CANADA_2K.csv          # Small dataset (development)
+├── S_CHURN_BANK_CANADA_2K_DIRTY.csv    # With data quality issues
+├── S_CHURN_BANK_CANADA_2K_DIRTY_ISSUES.csv  # Issue documentation
+├── S_CHURN_BANK_CANADA_10K.csv         # Medium dataset (integration)
+└── README.md                           # This documentation
+```
+
+---
+
+## Usage Examples
+
+### Load and Explore
+
+```python
+import pandas as pd
+
+# Load appropriate version
+df = pd.read_csv("data/raw/churn_ca/S_CHURN_BANK_CANADA_2K.csv")
+
+# Check target distribution
+print(df['ChurnProbability'].describe())
+
+# Identify high-risk customers
+high_risk = df[df['ChurnProbability'] > 0.3]
+```
+
+### Test Anonymization
+
+```python
+from pamola_core.profiling import ProfileOperation
+from pamola_core.anonymization import KAnonymityOperation
+
+# Profile quasi-identifiers
+quasi_ids = ['AGE', 'CITY', 'PROVINCE', 'SEX']
+profile = ProfileOperation(params={"fields": quasi_ids}).run(df)
+
+# Apply k-anonymity
+anon_result = KAnonymityOperation(
+    params={"k": 5, "quasi_identifiers": quasi_ids}
+).run(df)
+```
+
+---
+
+## Known Limitations
+
+1. **Sample size effects** - 50-record micro dataset may not represent full distributions
+2. **Geographic concentration** - 64% Ontario skews geographic analysis
+3. **No temporal features** - No time-series data for trend analysis
+4. **Perfect regularization** - Clean data may not reflect real-world noise (use DIRTY variant)
+5. **Single churn definition** - Rule-based labels may not match real churn patterns
+
+---
+
+## License
+
+Apache 2.0 - same as PAMOLA.CORE repository.
+
+See [LICENSE](../../../LICENSE) for full terms.
+
+---
+
+**Maintainer:** [Realm Inveo Inc.](https://realmdata.io)  
+**Repository:** [github.com/DGT-Network/PAMOLA](https://github.com/DGT-Network/PAMOLA)  
+**Version:** 1.0.0 (Epic 2 Testing Suite)
