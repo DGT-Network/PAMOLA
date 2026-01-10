@@ -1,27 +1,52 @@
 # Synthetic Sample Data (No PII)
 
-This directory contains **fully synthetic datasets** generated специально для демонстраций, тестирования и разработки PAMOLA.
+This directory contains **fully synthetic datasets** generated specifically for PAMOLA demonstrations, testing, and development.
 
-## Key statement
+---
+
+## Key Statement
+
 - **No real personal data (PII/PHI) is included.**
-- Records are **artificially generated** and do not correspond to real individuals.
-- Any similarity to real persons is purely coincidental.
+- All records are **artificially generated** and do not correspond to real individuals.
+- Any resemblance to actual persons is purely coincidental.
+
+---
 
 ## Purpose
+
 These datasets exist to:
-- demonstrate ingestion/profiling/anonymization/synthesis workflows,
-- support automated tests and examples,
-- provide consistent sample inputs for the team.
+
+- Demonstrate ingestion, profiling, anonymization, and synthesis workflows
+- Support automated tests and provide working examples
+- Provide consistent sample inputs for the development team
+
+---
 
 ## Structure
-Each subfolder contains a synthetic dataset family, e.g.:
-- `bank_*` — simulated banking / transactions / fraud scenarios
-- `churn_*` — synthetic churn datasets
-- `hr_job_resume` — synthetic HR profile / resume-like records (synthetic only)
-- `med_*` — synthetic medical/EHR-style records (synthetic only)
 
-## Policy (IMPORTANT)
-- **Do not commit real customer/employee/patient data** into this repository.
-- If you need to test with real data, use the approved secure storage and follow internal access procedures.
+Each subfolder contains a synthetic dataset family:
 
-Questions: contact@realmdata.io
+| Prefix | Description |
+|--------|-------------|
+| `bank_*` | Simulated banking transactions and fraud detection scenarios |
+| `churn_*` | Synthetic customer churn datasets |
+| `hr_job_resume` | Synthetic HR profiles and resume-like records |
+| `med_*` | Synthetic medical and EHR-style records |
+
+---
+
+## Policy
+
+> ⚠️ **Important:** Do not commit real customer, employee, or patient data to this repository.
+
+If you need to test with real data, use the approved secure storage and follow internal data access procedures.
+
+---
+
+## Generation
+
+Sample data is programmatically generated using the Python [Faker](https://faker.readthedocs.io/) library with custom domain-specific extensions.
+
+---
+
+**Questions:** info@realmdata.io
