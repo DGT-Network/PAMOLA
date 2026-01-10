@@ -1,0 +1,398 @@
+{
+  "dataset_name": "TELECOM_ANTIFRAUD",
+  "fingerprint_pattern": "PMLA-TA...",
+  "generation": {
+    "timestamp": "2026-01-10T22:54:42.686241",
+    "seed": 42,
+    "generator_version": "1.0.0",
+    "synthetic": true
+  },
+  "size": {
+    "records": 29044,
+    "fields": 32
+  },
+  "schema": [
+    {
+      "name": "telecom_record_id",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "gt_person_id",
+      "type": "string",
+      "pii_category": "ground_truth",
+      "remove_before_release": true
+    },
+    {
+      "name": "link_phone_hash",
+      "type": "string",
+      "pii_category": "linkage_key"
+    },
+    {
+      "name": "link_email_hash",
+      "type": "string",
+      "pii_category": "linkage_key"
+    },
+    {
+      "name": "link_device_hash",
+      "type": "string",
+      "pii_category": "linkage_key"
+    },
+    {
+      "name": "subscriber_id",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "msisdn_hash",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "account_type",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "activation_date",
+      "type": "date",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "contract_type",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "imei_hash",
+      "type": "string",
+      "pii_category": "device_identifier"
+    },
+    {
+      "name": "imsi_hash",
+      "type": "string",
+      "pii_category": "device_identifier"
+    },
+    {
+      "name": "device_brand",
+      "type": "string",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "device_model",
+      "type": "string",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "sim_swap_date",
+      "type": "date",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "sim_swap_count_90d",
+      "type": "integer",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "event_ts",
+      "type": "datetime",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "event_type",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "event_duration_sec",
+      "type": "integer",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "data_volume_mb",
+      "type": "float",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "destination_type",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "cell_tower_id",
+      "type": "string",
+      "pii_category": "location"
+    },
+    {
+      "name": "cell_lat",
+      "type": "float",
+      "pii_category": "location"
+    },
+    {
+      "name": "cell_lng",
+      "type": "float",
+      "pii_category": "location"
+    },
+    {
+      "name": "location_city",
+      "type": "string",
+      "pii_category": "location"
+    },
+    {
+      "name": "location_province",
+      "type": "string",
+      "pii_category": "location"
+    },
+    {
+      "name": "otp_requests_24h",
+      "type": "integer",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "unique_devices_30d",
+      "type": "integer",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "international_roaming_flag",
+      "type": "boolean",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "unusual_hours_activity",
+      "type": "boolean",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "is_fraud_telecom",
+      "type": "boolean",
+      "pii_category": "label"
+    },
+    {
+      "name": "fraud_type_telecom",
+      "type": "string",
+      "pii_category": "label"
+    }
+  ],
+  "field_statistics": {
+    "telecom_record_id": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 29044,
+      "coverage": 1.0
+    },
+    "gt_person_id": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 8330,
+      "coverage": 1.0
+    },
+    "link_phone_hash": {
+      "non_null_count": 20599,
+      "null_count": 8445,
+      "unique_values": 5922,
+      "coverage": 0.7092
+    },
+    "link_email_hash": {
+      "non_null_count": 17494,
+      "null_count": 11550,
+      "unique_values": 5040,
+      "coverage": 0.6023
+    },
+    "link_device_hash": {
+      "non_null_count": 11753,
+      "null_count": 17291,
+      "unique_values": 3379,
+      "coverage": 0.4047
+    },
+    "subscriber_id": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 8330,
+      "coverage": 1.0
+    },
+    "msisdn_hash": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 8290,
+      "coverage": 1.0
+    },
+    "account_type": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0,
+      "distribution": {
+        "postpaid": 21902,
+        "prepaid": 7142
+      }
+    },
+    "activation_date": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 1810,
+      "coverage": 1.0
+    },
+    "contract_type": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 4,
+      "coverage": 1.0,
+      "distribution": {
+        "byod": 7366,
+        "24_month": 7275,
+        "month_to_month": 7238,
+        "12_month": 7165
+      }
+    },
+    "imei_hash": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 8330,
+      "coverage": 1.0
+    },
+    "imsi_hash": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 8330,
+      "coverage": 1.0
+    },
+    "device_brand": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 5,
+      "coverage": 1.0
+    },
+    "device_model": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 15,
+      "coverage": 1.0
+    },
+    "sim_swap_date": {
+      "non_null_count": 1092,
+      "null_count": 27952,
+      "unique_values": 205,
+      "coverage": 0.0376
+    },
+    "sim_swap_count_90d": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 4,
+      "coverage": 1.0
+    },
+    "event_ts": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 29034,
+      "coverage": 1.0
+    },
+    "event_type": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 4,
+      "coverage": 1.0,
+      "distribution": {
+        "data": 9987,
+        "call": 8707,
+        "sms": 7280,
+        "otp": 3070
+      }
+    },
+    "event_duration_sec": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 592,
+      "coverage": 1.0
+    },
+    "data_volume_mb": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 5821,
+      "coverage": 1.0
+    },
+    "destination_type": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 4,
+      "coverage": 1.0,
+      "distribution": {
+        "local": 20410,
+        "long_distance": 5709,
+        "international": 2030,
+        "premium": 895
+      }
+    },
+    "cell_tower_id": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 20318,
+      "coverage": 1.0
+    },
+    "cell_lat": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 8541,
+      "coverage": 1.0
+    },
+    "cell_lng": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 9042,
+      "coverage": 1.0
+    },
+    "location_city": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 24,
+      "coverage": 1.0
+    },
+    "location_province": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 10,
+      "coverage": 1.0
+    },
+    "otp_requests_24h": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 26,
+      "coverage": 1.0
+    },
+    "unique_devices_30d": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 5,
+      "coverage": 1.0
+    },
+    "international_roaming_flag": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0
+    },
+    "unusual_hours_activity": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0
+    },
+    "is_fraud_telecom": {
+      "non_null_count": 29044,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0
+    },
+    "fraud_type_telecom": {
+      "non_null_count": 471,
+      "null_count": 28573,
+      "unique_values": 4,
+      "coverage": 0.0162
+    }
+  },
+  "linkage": {
+    "phone_hash_coverage": 0.7092,
+    "email_hash_coverage": 0.6023,
+    "device_hash_coverage": 0.4047
+  }
+}

@@ -1,0 +1,494 @@
+{
+  "dataset_name": "BANK_ANTIFRAUD",
+  "fingerprint_pattern": "PMLA-BA...",
+  "generation": {
+    "timestamp": "2026-01-10T22:54:42.686241",
+    "seed": 42,
+    "generator_version": "1.0.0",
+    "synthetic": true
+  },
+  "size": {
+    "records": 46003,
+    "fields": 37
+  },
+  "schema": [
+    {
+      "name": "bank_record_id",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "gt_person_id",
+      "type": "string",
+      "pii_category": "ground_truth",
+      "remove_before_release": true
+    },
+    {
+      "name": "link_phone_hash",
+      "type": "string",
+      "pii_category": "linkage_key"
+    },
+    {
+      "name": "link_email_hash",
+      "type": "string",
+      "pii_category": "linkage_key"
+    },
+    {
+      "name": "link_device_hash",
+      "type": "string",
+      "pii_category": "linkage_key"
+    },
+    {
+      "name": "customer_id",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "account_id",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "account_open_date",
+      "type": "date",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "account_type",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "customer_since",
+      "type": "date",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "customer_segment",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "birth_year",
+      "type": "integer",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "gender",
+      "type": "string",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "postal_fsa",
+      "type": "string",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "province",
+      "type": "string",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "transaction_id",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "transaction_ts",
+      "type": "datetime",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "amount",
+      "type": "float",
+      "pii_category": "sensitive"
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "transaction_type",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "channel",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "merchant_category",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "merchant_mcc",
+      "type": "integer",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "merchant_country",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "card_present",
+      "type": "boolean",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "device_id",
+      "type": "string",
+      "pii_category": "device_identifier"
+    },
+    {
+      "name": "ip_address",
+      "type": "string",
+      "pii_category": "device_identifier"
+    },
+    {
+      "name": "session_id",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "is_new_device",
+      "type": "boolean",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "is_new_ip",
+      "type": "boolean",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "login_attempts_24h",
+      "type": "integer",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "failed_logins_24h",
+      "type": "integer",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "transactions_24h",
+      "type": "integer",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "amount_24h",
+      "type": "float",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "is_fraud_bank",
+      "type": "boolean",
+      "pii_category": "label"
+    },
+    {
+      "name": "fraud_type_bank",
+      "type": "string",
+      "pii_category": "label"
+    },
+    {
+      "name": "fraud_amount_bank",
+      "type": "float",
+      "pii_category": "label"
+    }
+  ],
+  "field_statistics": {
+    "bank_record_id": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 46003,
+      "coverage": 1.0
+    },
+    "gt_person_id": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 8359,
+      "coverage": 1.0
+    },
+    "link_phone_hash": {
+      "non_null_count": 32637,
+      "null_count": 13366,
+      "unique_values": 5924,
+      "coverage": 0.7095
+    },
+    "link_email_hash": {
+      "non_null_count": 27971,
+      "null_count": 18032,
+      "unique_values": 5068,
+      "coverage": 0.608
+    },
+    "link_device_hash": {
+      "non_null_count": 18343,
+      "null_count": 27660,
+      "unique_values": 3342,
+      "coverage": 0.3987
+    },
+    "customer_id": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 8359,
+      "coverage": 1.0
+    },
+    "account_id": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 8315,
+      "coverage": 1.0
+    },
+    "account_open_date": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 1095,
+      "coverage": 1.0
+    },
+    "account_type": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 3,
+      "coverage": 1.0,
+      "distribution": {
+        "savings": 15418,
+        "checking": 15299,
+        "credit": 15286
+      }
+    },
+    "customer_since": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 1095,
+      "coverage": 1.0
+    },
+    "customer_segment": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 4,
+      "coverage": 1.0,
+      "distribution": {
+        "premium": 11749,
+        "mass": 11590,
+        "affluent": 11370,
+        "private": 11294
+      }
+    },
+    "birth_year": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 56,
+      "coverage": 1.0
+    },
+    "gender": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 3,
+      "coverage": 1.0
+    },
+    "postal_fsa": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 2327,
+      "coverage": 1.0
+    },
+    "province": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 10,
+      "coverage": 1.0
+    },
+    "transaction_id": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 46003,
+      "coverage": 1.0
+    },
+    "transaction_ts": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 45970,
+      "coverage": 1.0
+    },
+    "amount": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 29606,
+      "coverage": 1.0
+    },
+    "currency": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 1,
+      "coverage": 1.0,
+      "distribution": {
+        "CAD": 46003
+      }
+    },
+    "transaction_type": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 5,
+      "coverage": 1.0,
+      "distribution": {
+        "purchase": 20586,
+        "transfer": 9293,
+        "withdrawal": 6935,
+        "payment": 6926,
+        "deposit": 2263
+      }
+    },
+    "channel": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 4,
+      "coverage": 1.0,
+      "distribution": {
+        "mobile": 18323,
+        "online": 16144,
+        "atm": 6859,
+        "branch": 4677
+      }
+    },
+    "merchant_category": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 10,
+      "coverage": 1.0,
+      "distribution": {
+        "financial": 4802,
+        "clothing": 4673,
+        "travel": 4606,
+        "restaurant": 4601,
+        "online_services": 4592,
+        "healthcare": 4591,
+        "gaming": 4583,
+        "grocery": 4568,
+        "gas_station": 4535,
+        "electronics": 4452
+      }
+    },
+    "merchant_mcc": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 496,
+      "coverage": 1.0,
+      "distribution": {
+        "5541": 2319,
+        "7995": 2296,
+        "7994": 2287,
+        "5542": 2216,
+        "6012": 1661,
+        "6011": 1603,
+        "5812": 1554,
+        "5814": 1545,
+        "6010": 1538,
+        "5733": 1503
+      }
+    },
+    "merchant_country": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 6,
+      "coverage": 1.0,
+      "distribution": {
+        "CA": 34473,
+        "US": 6885,
+        "GB": 1401,
+        "CN": 1399,
+        "FR": 937,
+        "DE": 908
+      }
+    },
+    "card_present": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0,
+      "distribution": {
+        "False": 28966,
+        "True": 17037
+      }
+    },
+    "device_id": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 30919,
+      "coverage": 1.0
+    },
+    "ip_address": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 45996,
+      "coverage": 1.0
+    },
+    "session_id": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 45896,
+      "coverage": 1.0
+    },
+    "is_new_device": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0
+    },
+    "is_new_ip": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0
+    },
+    "login_attempts_24h": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 12,
+      "coverage": 1.0
+    },
+    "failed_logins_24h": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 7,
+      "coverage": 1.0
+    },
+    "transactions_24h": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 41,
+      "coverage": 1.0
+    },
+    "amount_24h": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 39164,
+      "coverage": 1.0
+    },
+    "is_fraud_bank": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0
+    },
+    "fraud_type_bank": {
+      "non_null_count": 937,
+      "null_count": 45066,
+      "unique_values": 4,
+      "coverage": 0.0204
+    },
+    "fraud_amount_bank": {
+      "non_null_count": 46003,
+      "null_count": 0,
+      "unique_values": 921,
+      "coverage": 1.0
+    }
+  },
+  "linkage": {
+    "phone_hash_coverage": 0.7095,
+    "email_hash_coverage": 0.608,
+    "device_hash_coverage": 0.3987
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "PAMOLA 3-Way Cross-Party Anti-Fraud Dataset",
+  "version": "1.0.0",
+  "variant": "public",
+  "created": "2026-01-10T23:16:55.280873",
+  "license": "Apache-2.0",
+  "files": {
+    "BANK_ANTIFRAUD.csv": {
+      "size_bytes": 15293038,
+      "sha256": "62ea4ce3ed69bf5c3d1333818daf417e833829f6de5e0cd29ec75cea2bf00087"
+    },
+    "BANK_ANTIFRAUD_passport.json": {
+      "size_bytes": 10706,
+      "sha256": "d1343fffd00b5d8b6d6b18010c26f09d53f696b9c3f5fd1cbfee4c9ec88a20b0"
+    },
+    "CROSSPARTY_FRAUD_SCENARIOS.csv": {
+      "size_bytes": 13244,
+      "sha256": "848ed0c0f249e69777d67d24a54be7031a991cc75c0c18272d9a67b52d43d8eb"
+    },
+    "CROSSPARTY_LINKAGE_STATS.json": {
+      "size_bytes": 949,
+      "sha256": "d0b991618e00d1e9301cf16c672bdddef2aa2ccbbc0a1c85d7a8cded6bfba856"
+    },
+    "PAYMENT_ANTIFRAUD.csv": {
+      "size_bytes": 13106657,
+      "sha256": "cd4d1ecfec807884a3758f9bbe2584fdf5474cf006d8f55cf950dbd2fbaa28a6"
+    },
+    "PAYMENT_ANTIFRAUD_passport.json": {
+      "size_bytes": 10394,
+      "sha256": "bb1e1be8c9300ce26ffcd74bbfb3d915f975f631a5dccd6fa3bd505554012cf4"
+    },
+    "TELECOM_ANTIFRAUD.csv": {
+      "size_bytes": 9991198,
+      "sha256": "7fadd66e8275aedbc20646c0255568ad13f54ef0c7eb7558d30ffefc8a46baae"
+    },
+    "TELECOM_ANTIFRAUD_passport.json": {
+      "size_bytes": 8699,
+      "sha256": "02b2f7249928ba918b6239613224518073a9dbf4fbcdbc46e74871080262b4d5"
+    }
+  }
+}
