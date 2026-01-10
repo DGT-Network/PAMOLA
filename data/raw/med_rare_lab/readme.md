@@ -1,332 +1,479 @@
-# Medical Rare Disease & Laboratory Datasets for Privacy-Preserving Healthcare Analytics
+# Synthetic Medical Rare Disease & Laboratory Datasets
+
+> **⚠️ Synthetic Data Notice - No Real Patient Information**
+>
+> These datasets are **fully synthetic** - programmatically generated for testing purposes.
+> **No real Protected Health Information (PHI) is included.**
+>
+> - Not collected from any healthcare systems, disease registries, or laboratory information systems
+> - Not derived from any real patient records, transplant registries, or clinical databases
+> - Not extracted from any hospital systems, rare disease foundations, or lab networks
+> - All patient IDs, diagnoses, genetic data, lab results, and clinical notes are artificially generated
+> - Any resemblance to actual patients, providers, or healthcare encounters is coincidental
+>
+> These datasets are designed for **testing federated learning, privacy-preserving analytics, and anonymization pipelines**.
+> They are not intended for clinical decision-making, medical research, or patient care.
+>
+> *This documentation is for technical reference, not legal or medical advice.*
+
+---
 
 ## Overview
 
-Two comprehensive synthetic medical datasets designed for testing privacy-preserving analytics in rare disease registries and laboratory information systems. These datasets simulate Canadian healthcare data with realistic clinical patterns while containing no actual patient information. Designed specifically for federated learning scenarios with intentional patient overlap.
+Two comprehensive synthetic medical datasets designed for testing privacy-preserving analytics in rare disease registries and laboratory information systems. These datasets simulate Canadian healthcare data with realistic clinical patterns and intentional patient overlap for federated learning scenarios.
+
+**Key Feature:** ~2,200 patients appear in both datasets via `link_shared_id` for cross-silo analytics testing.
+
+---
+
+## Data Generation
+
+**Method:** Rule-based synthetic generation with controlled distributions and cross-dataset linkage
+
+| Component | Approach |
+|-----------|----------|
+| Patient demographics | Faker-style with Canadian population distributions |
+| Rare diseases | 12 disease groups with appropriate genetic variants |
+| Transplant data | Realistic waitlist and outcome patterns |
+| Laboratory results | LOINC-coded tests with normal/abnormal distributions |
+| Clinical notes | Template generation with intentional PHI injection |
+| Cross-linkage | Shared patient pool with consistent `link_shared_id` |
+
+**Seed:** 42 (reproducible)
+
+---
 
 ## Datasets
 
 ### 1. MED_RARE_TXP_REGISTRY - Rare Disease & Transplant Registry
-**File:** `MED_RARE_TXP_REGISTRY_10k.csv`  
-**Records:** 10,000 synthetic patient registry records  
-**Patients:** ~5,100 unique individuals  
-**Purpose:** Testing anonymization of rare disease cohorts and transplant registries  
-**Passport:** `MED_RARE_TXP_REGISTRY_passport.json`
 
-### 2. MED_LAB - Laboratory Results System  
-**File:** `MED_LAB_10k.csv`  
-**Records:** 10,000 synthetic laboratory test results  
-**Patients:** ~3,600 unique individuals  
-**Purpose:** Testing privacy techniques on clinical laboratory data  
-**Passport:** `MED_LAB_passport.json`
+| Property | Value |
+|----------|-------|
+| **File** | `MED_RARE_TXP_REGISTRY_10k.csv` |
+| **Records** | 10,000 |
+| **Unique Patients** | ~5,100 |
+| **Purpose** | Testing anonymization of rare disease cohorts |
+| **Passport** | `MED_RARE_TXP_REGISTRY_passport.json` |
+
+### 2. MED_LAB - Laboratory Results System
+
+| Property | Value |
+|----------|-------|
+| **File** | `MED_LAB_10k.csv` |
+| **Records** | 10,000 |
+| **Unique Patients** | ~3,600 |
+| **Purpose** | Testing privacy techniques on clinical laboratory data |
+| **Passport** | `MED_LAB_passport.json` |
 
 ### Supporting Files
-**Dictionary:** `MED_RARE_TXP_REGISTRY_dictionary.csv` - Medical code mappings, reference ranges, and terminology
+
+| File | Description |
+|------|-------------|
+| `MED_RARE_TXP_REGISTRY_dictionary.csv` | Medical code mappings and terminology |
+
+---
 
 ## Cross-Dataset Linkage for Federated Learning
 
-### Linkage Capabilities
-- **Shared Patients:** ~2,000-2,500 individuals appear in both datasets
-- **Linkage Field:** `link_shared_id` enables privacy-preserving joins
-  - Registry: 59% have linkage IDs
-  - Laboratory: 56% have linkage IDs
-- **Ground Truth:** `gt_person_id` for validation (remove before production)
-- **Overlap Design:** Simulates real-world scenario where transplant patients have extensive lab monitoring
+### Linkage Statistics
 
-## Field Descriptions
+| Metric | Value |
+|--------|-------|
+| Total unique patients | ~6,500 |
+| Shared patients (in both) | ~2,200 (34%) |
+| Registry-only patients | ~2,900 |
+| Lab-only patients | ~1,400 |
 
-### MED_RARE_TXP_REGISTRY Fields (36 fields)
+### Linkage Fields
 
-#### Patient Identifiers & Demographics (9 fields)
-- `registry_row_id`: Unique row identifier
-- `registry_internal_id`: Registry's stable patient hash
-- `gt_person_id`: Ground-truth ID for evaluation (~5,100 unique)
-- `link_shared_id`: Cross-dataset linkage hash (59% populated)
-- `birth_year`: Year of birth (1930-2015)
-- `sex`: Biological sex (F/M/X)
-- `home_postal_fsa`: Canadian postal FSA
-- `home_province`: Province code
-- `language_pref`: Language preference (EN/FR/Bilingual)
-
-#### Disease & Transplant Information (7 fields)
-- `disease_group`: Rare disease category (12 groups)
-  - Top conditions: Hemophilia A, IPF, Sickle Cell, PKU, ALS
-- `transplant_type`: Organ/tissue type (Kidney/Liver/Heart/Lung/Pancreas/HSCT)
-- `diagnosis_date`: Initial diagnosis date
-- `referral_date`: Transplant program referral
-- `waitlist_status`: Not Listed/Active/Inactive/Removed (55% not listed)
-- `transplant_date`: Actual transplant date (25% transplanted)
-- `donor_type`: Deceased/Living donor (when applicable)
-
-#### Genetic & Immunological Data (5 fields)
-- `hla_typing`: HLA typing results (A/B/DR alleles)
-- `pra_percent`: Panel reactive antibody percentage (0-100%)
-- `genotype_gene`: Relevant gene symbol
-- `genotype_variant`: Variant notation
-- `immunosuppression`: Medication regimen (semicolon-separated)
-
-#### Transplant Center Information (6 fields)
-- `center_id`: Transplant center identifier (~100 centers)
-- `center_name`: Center name
-- `center_city`: Center location city
-- `center_province`: Center province
-- `center_lat`/`center_lng`: Center coordinates (~21% missing)
-
-#### Clinical Notes & PHI Detection (5 fields)
-- `clinician_note`: Clinical narrative (120-600 chars)
-- `has_phi_in_text`: PHI presence flag (48% of records)
-- `phi_email_count`: Embedded emails (0-3)
-- `phi_phone_count`: Embedded phones (0-3)
-- `phi_date_count`: Embedded dates (0-5)
-
-#### Outcomes (3 fields)
-- `hospitalized_30d`: 30-day hospitalization flag
-- `graft_failure_1y`: 1-year graft failure (1.94% rate)
-- `mortality_1y`: 1-year mortality (1.93% rate)
-
-#### Metadata (3 fields)
-- `created_at`: Record creation date
-- `updated_at`: Last modification date
-- `source_system`: Source system identifier
-
-### MED_LAB Fields (30 fields)
-
-#### Patient & Order Identifiers (6 fields)
-- `lab_row_id`: Unique row identifier
-- `lab_internal_id`: Lab's stable patient hash
-- `gt_person_id`: Ground-truth ID (~3,600 unique)
-- `link_shared_id`: Cross-dataset linkage (56% populated)
-- `order_id`: Laboratory order number
-- `birth_year`, `sex`, `home_postal_fsa`, `home_province`, `language_pref`: Demographics
-
-#### Laboratory Site Information (6 fields)
-- `site_id`: Lab facility identifier (~100 sites)
-- `site_name`: Laboratory name
-- `site_city`: Lab location city
-- `site_province`: Lab province
-- `site_lat`/`site_lng`: Lab coordinates (~23% missing)
-
-#### Test Information (6 fields)
-- `test_loinc`: LOINC code for test type
-- `test_name`: Human-readable test name
-- `specimen_type`: Sample type (Blood/Urine/Plasma/Serum/Sputum)
-- `collection_ts`: Sample collection timestamp
-- `received_ts`: Sample receipt timestamp
-
-#### Test Results (4 fields)
-- `result_value`: Numeric result value
-- `result_units`: Measurement units
-- `ref_range`: Reference range string
-- `abnormal_flag`: Abnormal result indicator (6.69% abnormal)
-
-#### Clinical Notes & PHI (5 fields)
-- `note`: Result comments/notes (~16% populated)
-- `has_phi_in_text`: PHI presence flag (16% of records)
-- `phi_email_count`: Embedded emails
-- `phi_phone_count`: Embedded phones
-- `phi_date_count`: Embedded dates
-
-## Key Data Characteristics
-
-### MED_RARE_TXP_REGISTRY Statistics
-
-#### Disease Distribution
-- **Hemophilia A:** 8.8%
-- **Idiopathic Pulmonary Fibrosis:** 8.6%
-- **Sickle Cell Disease:** 8.6%
-- **Cystic Fibrosis:** 8.2%
-- **ALS:** 8.2%
-- **Other rare diseases:** 57.6%
-
-#### Transplant Statistics
-- **Transplanted:** 25.14% of patients
-- **Waitlist Active:** 14.8%
-- **Graft Failure Rate:** 1.94% at 1 year
-- **Mortality Rate:** 1.93% at 1 year
-- **Equal distribution** across organ types (~16.7% each)
-
-#### Immunological Markers
-- **PRA Levels:** Median 21%, IQR 9-34%
-- **HLA Typing:** Complete for all patients
-- **Immunosuppression:** Triple therapy most common
-
-### MED_LAB Statistics
-
-#### Test Volume & Types
-- **Top Tests:**
-  - Complete Blood Count components (19123-9, 777-3)
-  - Basic Metabolic Panel (2951-2, 1920-8)
-  - Liver Function Tests (1742-6)
-  - Inflammatory Markers (2160-0)
-- **Specimen Types:** Equal distribution (~20% each type)
-- **Abnormal Rate:** 6.69% of results flagged
-
-#### Result Distributions
-- **Median Value:** 17.24 (varies by test)
-- **25th Percentile:** 4.47
-- **75th Percentile:** 116.93
-- **Wide range** reflecting different test types
-
-## Testing Capabilities
+| Field | Registry Coverage | Lab Coverage | Purpose |
+|-------|-------------------|--------------|---------|
+| `link_shared_id` | ~50% | ~69% | Privacy-preserving cross-dataset joins |
+| `gt_person_id` | 100% | 100% | Ground-truth for validation (remove before production) |
 
 ### Federated Learning Scenarios
 
-#### Vertical Federated Learning
+**Vertical Federated Learning:**
 ```
-Registry Dataset → Patient demographics, disease info, transplant data
-     ↓ link_shared_id
-Laboratory Dataset → Lab results, test patterns, biomarkers
+Registry Dataset → Demographics, disease info, transplant data, genetics
+       ↓ link_shared_id
+Laboratory Dataset → Lab results, biomarkers, test patterns
 
 Use Case: Predict transplant outcomes using combined clinical and lab data
 ```
 
-#### Horizontal Federated Learning
+**Horizontal Federated Learning:**
 ```
 Hospital A: Registry subset (provinces ON, QC)
 Hospital B: Registry subset (provinces BC, AB)
 Hospital C: Registry subset (provinces Atlantic)
 
-Use Case: Train rare disease models across institutions
+Use Case: Train rare disease models across institutions without data sharing
 ```
 
-#### Cross-Silo Analytics
-```
-Registry Silo: Long-term outcomes, genetic data
-Laboratory Silo: Real-time biomarkers, trends
+---
 
-Use Case: Early detection of transplant rejection
-```
+## MED_RARE_TXP_REGISTRY Fields (36 fields)
 
-### Privacy & Anonymization Testing
+### Patient Identifiers and Demographics
 
-#### Multi-Dataset Challenges
-- **Linkage Attack Prevention:** Test resistance using quasi-identifiers
-- **Inference Control:** Prevent attribute disclosure across datasets
-- **Temporal Privacy:** Protect sequential lab results
-- **Rare Disease Privacy:** Extra protection for small cohorts
+| Field | Type | Description | Anonymization |
+|-------|------|-------------|---------------|
+| `registry_row_id` | string | Unique row ID: `PMLA-RR{index}-SYN` | Hash with salt |
+| `registry_internal_id` | string | Registry's stable patient hash | Hash with salt |
+| `gt_person_id` | string | Ground-truth ID (~5,100 unique) | **Remove before release** |
+| `link_shared_id` | string | Cross-dataset linkage (50% populated) | Hash with salt |
+| `birth_year` | integer | Year of birth (1930-2015) | 5-year bins |
+| `sex` | string | F/M/X | Keep |
+| `home_postal_fsa` | string | Canadian postal FSA | First char if k<5 |
+| `home_province` | string | Province code | Keep or group |
+| `language_pref` | string | EN/FR/Bilingual | Keep |
 
-#### Anonymization Strategies
-- **K-anonymity:** Minimum group size 5 for rare diseases
-- **L-diversity:** Ensure diversity in genetic markers
-- **Differential Privacy:** Add noise to lab values (ε≈0.3)
-- **Secure Multi-party Computation:** Test protocols for joint analysis
+### Disease and Transplant Information
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `disease_group` | string | Rare disease category (12 groups) |
+| `transplant_type` | string | Kidney/Liver/Heart/Lung/Pancreas/HSCT |
+| `diagnosis_date` | date | Initial diagnosis date |
+| `referral_date` | date | Transplant program referral |
+| `waitlist_status` | string | Not Listed/Active/Inactive/Removed |
+| `transplant_date` | date | Actual transplant date (~15% transplanted) |
+| `donor_type` | string | Deceased/Living (when applicable) |
+
+### Genetic and Immunological Data
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hla_typing` | string | HLA typing (A/B/DR alleles) |
+| `pra_percent` | float | Panel reactive antibody (0-100%) |
+| `genotype_gene` | string | Relevant gene symbol |
+| `genotype_variant` | string | Variant notation |
+| `immunosuppression` | string | Medication regimen (semicolon-separated) |
+
+### Transplant Center Information
+
+| Field | Type | Missing % | Description |
+|-------|------|-----------|-------------|
+| `center_id` | string | 0% | Center ID: `PMLA-CTR{index}-SYN` |
+| `center_name` | string | 0% | Synthetic center name |
+| `center_city` | string | 0% | Center city |
+| `center_province` | string | 0% | Center province |
+| `center_lat` | float | ~21% | Latitude (jittered) |
+| `center_lng` | float | ~21% | Longitude (jittered) |
+
+### Clinical Notes and PHI Detection
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `clinician_note` | string | Clinical narrative (120-600 chars) |
+| `has_phi_in_text` | boolean | PHI presence flag (~48% true) |
+| `phi_email_count` | integer | Emails in note (0-3) |
+| `phi_phone_count` | integer | Phones in note (0-3) |
+| `phi_date_count` | integer | Dates in note (0-5) |
+
+### Outcomes
+
+| Field | Type | Rate | Description |
+|-------|------|------|-------------|
+| `hospitalized_30d` | boolean | ~15% | 30-day hospitalization |
+| `graft_failure_1y` | boolean | ~2% | 1-year graft failure |
+| `mortality_1y` | boolean | ~2% | 1-year mortality |
+
+---
+
+## MED_LAB Fields (30 fields)
+
+### Patient and Order Identifiers
+
+| Field | Type | Description | Anonymization |
+|-------|------|-------------|---------------|
+| `lab_row_id` | string | Unique row ID: `PMLA-LR{index}-SYN` | Hash with salt |
+| `lab_internal_id` | string | Lab's stable patient hash | Hash with salt |
+| `gt_person_id` | string | Ground-truth ID (~3,600 unique) | **Remove before release** |
+| `link_shared_id` | string | Cross-dataset linkage (~69% populated) | Hash with salt |
+| `order_id` | string | Lab order number | Hash with salt |
+
+### Laboratory Site Information
+
+| Field | Type | Missing % | Description |
+|-------|------|-----------|-------------|
+| `site_id` | string | 0% | Site ID: `PMLA-LAB{index}-SYN` |
+| `site_name` | string | 0% | Laboratory name |
+| `site_city` | string | 0% | Lab city |
+| `site_province` | string | 0% | Lab province |
+| `site_lat` | float | ~21% | Latitude |
+| `site_lng` | float | ~21% | Longitude |
+
+### Test Information
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `test_loinc` | string | LOINC code |
+| `test_name` | string | Human-readable test name |
+| `specimen_type` | string | Blood/Serum/Plasma/Urine/Sputum |
+| `collection_ts` | datetime | Sample collection timestamp |
+| `received_ts` | datetime | Sample receipt timestamp |
+
+### Test Results
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `result_value` | float | Numeric result |
+| `result_units` | string | Measurement units |
+| `ref_range` | string | Reference range |
+| `abnormal_flag` | string | N (normal) or A (abnormal) - ~18% abnormal |
+
+### Notes and PHI Detection
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `note` | string | Result comments (~16% populated) |
+| `has_phi_in_text` | boolean | PHI presence flag (~2% true) |
+| `phi_email_count` | integer | Emails in note |
+| `phi_phone_count` | integer | Phones in note |
+| `phi_date_count` | integer | Dates in note |
+
+---
+
+## Key Data Characteristics
+
+### Disease Distribution (Registry)
+
+| Disease Group | Prevalence |
+|---------------|------------|
+| Hemophilia A | ~8% |
+| Idiopathic Pulmonary Fibrosis | ~8% |
+| Sickle Cell Disease | ~8% |
+| Cystic Fibrosis | ~8% |
+| ALS | ~8% |
+| Phenylketonuria | ~8% |
+| Huntington Disease | ~8% |
+| Marfan Syndrome | ~8% |
+| Wilson Disease | ~8% |
+| Gaucher Disease | ~8% |
+| Fabry Disease | ~8% |
+| Pompe Disease | ~8% |
+
+### Transplant Statistics (Registry)
+
+| Metric | Value |
+|--------|-------|
+| Transplanted | ~15% |
+| Waitlist Active | ~25% |
+| Graft Failure (1yr) | ~2% |
+| Mortality (1yr) | ~2% |
+
+### Laboratory Tests (Lab)
+
+| LOINC | Test Name | Units |
+|-------|-----------|-------|
+| 19123-9 | Hemoglobin | g/dL |
+| 777-3 | Platelets | 10*3/uL |
+| 2951-2 | Sodium | mmol/L |
+| 1920-8 | AST | U/L |
+| 1742-6 | ALT | U/L |
+| 2160-0 | Creatinine | mg/dL |
+| 3094-0 | BUN | mg/dL |
+| 2345-7 | Glucose | mg/dL |
+| 6690-2 | WBC | 10*3/uL |
+| 4544-3 | Hematocrit | % |
+
+---
+
+## Testing Capabilities
+
+### Privacy and Anonymization
+
+| Technique | Application |
+|-----------|-------------|
+| K-anonymity | Demographic quasi-identifiers (k>=5 for rare diseases) |
+| L-diversity | Genetic markers diversity |
+| Differential Privacy | Lab values (epsilon ~0.3) |
+| Secure MPC | Cross-dataset analysis protocols |
+| PHI Detection | Clinical notes with ground-truth flags |
+
+### Cross-Dataset Challenges
+
+| Challenge | Description |
+|-----------|-------------|
+| Linkage attack prevention | Test resistance using quasi-identifiers |
+| Inference control | Prevent attribute disclosure across datasets |
+| Temporal privacy | Protect sequential lab results |
+| Rare disease privacy | Extra protection for small cohorts |
 
 ### Clinical Research Applications
 
-#### Transplant Outcomes Research
-- Survival analysis with censored data
-- Rejection prediction using lab trends
-- Donor-recipient matching optimization
-- Immunosuppression protocol comparison
+| Use Case | Relevant Data |
+|----------|---------------|
+| Transplant outcomes | Waitlist, outcomes, lab trends |
+| Rare disease natural history | Diagnosis dates, progression |
+| Biomarker discovery | Lab patterns, outcomes correlation |
+| Genotype-phenotype | Genetic variants, disease severity |
 
-#### Rare Disease Studies
-- Natural history modeling
-- Biomarker discovery
-- Genotype-phenotype correlations
-- Treatment response prediction
+---
 
-## Data Quality Features
-
-### Realistic Clinical Correlations
-- **Disease-Transplant Logic:** Appropriate organ needs by disease
-- **Lab-Clinical Alignment:** Abnormal labs correlate with outcomes
-- **Temporal Consistency:** Lab results track disease progression
-- **Geographic Patterns:** Center distribution matches population
-
-### Intentional Complexity
-- **Missing Data Patterns:** Realistic clinical missingness
-- **PHI Contamination:** 48% registry, 16% lab notes contain PHI
-- **Duplicate Testing:** Multiple labs per patient over time
-- **Referral Patterns:** Geographic referral networks
-
-## Anonymization Pipeline Recommendations
+## Anonymization Pipeline
 
 ### Priority 1: Identifier Protection
+
 ```python
 # Pseudonymize all IDs consistently across datasets
-ids_to_hash = ['registry_internal_id', 'lab_internal_id', 
-               'gt_person_id', 'link_shared_id']
+ids_to_hash = ['registry_internal_id', 'lab_internal_id', 'link_shared_id']
 for id_field in ids_to_hash:
     df[id_field] = hash_with_salt(df[id_field], project_salt)
+
+# CRITICAL: Remove ground-truth IDs before any release
+df = df.drop(columns=['gt_person_id'])
 ```
 
 ### Priority 2: Quasi-Identifier Management
-- Generalize `birth_year` to 5-year bands
-- Coarsen `postal_fsa` to first character for k<5
-- Group rare diseases into broader categories
-- Aggregate lab sites by region
+
+```
+- birth_year -> 5-year bands
+- home_postal_fsa -> First character if k<5
+- disease_group -> Consider grouping rare conditions
+- center_city/site_city -> Region or suppress
+```
 
 ### Priority 3: Sensitive Data Protection
-- Redact PHI from clinical notes using NER
-- Add Laplace noise to lab values (preserve clinical validity)
-- Coarsen timestamps to week/month level
-- Round geographic coordinates to city centroids
+
+```
+- Clinical notes -> NER redaction (EMAIL, PHONE, DATE, NAME)
+- Lab values -> Laplace noise (preserve clinical validity)
+- Timestamps -> Coarsen to week/month
+- Coordinates -> Round to city centroids
+```
 
 ### Priority 4: Cross-Dataset Consistency
-- Maintain referential integrity of `link_shared_id`
-- Apply same anonymization rules to shared fields
-- Preserve temporal relationships
+
+```
+- Apply same anonymization to shared fields
+- Maintain referential integrity of link_shared_id
 - Validate linkage after anonymization
+- Preserve temporal relationships
+```
 
-## Usage Scenarios
+---
 
-### Scenario 1: Federated Transplant Model
-Train rejection prediction model across multiple centers without data sharing
+## Synthetic Fingerprints
 
-### Scenario 2: Rare Disease Natural History
-Analyze disease progression using combined registry and lab data
+All IDs contain synthetic markers for lineage tracking:
 
-### Scenario 3: Privacy-Preserving Biomarker Discovery
-Identify lab patterns predictive of outcomes while protecting patient identity
+| Dataset | Field | Pattern | Example |
+|---------|-------|---------|---------|
+| Registry | registry_row_id | `PMLA-RR{index}-SYN` | `PMLA-RR000001-SYN` |
+| Registry | center_id | `PMLA-CTR{index}-SYN` | `PMLA-CTR000005-SYN` |
+| Lab | lab_row_id | `PMLA-LR{index}-SYN` | `PMLA-LR000001-SYN` |
+| Lab | site_id | `PMLA-LAB{index}-SYN` | `PMLA-LAB000010-SYN` |
+| Both | gt_person_id | `PMLA-P{index}-SYN` | `PMLA-P005466-SYN` |
 
-### Scenario 4: Synthetic Data Generation
-Generate larger synthetic cohorts maintaining clinical relationships
-
-### Scenario 5: Regulatory Compliance Testing
-Validate PIPEDA/HIPAA compliance for multi-institutional studies
+---
 
 ## File Structure
+
 ```
-medical_rare_disease_data/
+med_rare_lab/
 ├── MED_RARE_TXP_REGISTRY_10k.csv        # Registry dataset
-├── MED_RARE_TXP_REGISTRY_passport.json  # Registry specifications
+├── MED_RARE_TXP_REGISTRY_passport.json  # Registry metadata
 ├── MED_LAB_10k.csv                      # Laboratory dataset
-├── MED_LAB_passport.json                # Lab specifications
-├── MED_RARE_TXP_REGISTRY_dictionary.csv # Medical terminology
-└── README.md                             # This documentation
+├── MED_LAB_passport.json                # Lab metadata
+├── MED_RARE_TXP_REGISTRY_dictionary.csv # Code mappings
+└── README.md                            # This documentation
 ```
 
-## Dataset Integration Statistics
+---
 
-### Linkage Metrics
-- **Total Unique Patients:** ~6,700 across both datasets
-- **Overlapping Patients:** ~2,000-2,500 (30-37%)
-- **Registry-only Patients:** ~2,600
-- **Lab-only Patients:** ~1,100
-- **Linkage Coverage:** 85% of true overlaps have `link_shared_id`
+## Usage Examples
 
-### Use Case Coverage
-- **Transplant Monitoring:** Complete pre/post lab data
-- **Rare Disease Cohorts:** 12 disease groups
-- **Genetic Testing:** HLA + disease variants
-- **Outcome Tracking:** 1-year follow-up data
+### Load Both Datasets
 
-## Compliance & Ethics
+```python
+import pandas as pd
 
-- **100% Synthetic:** No real patient information
-- **PIPEDA/HIPAA Aligned:** Suitable for privacy regulation testing
-- **Rare Disease Considerations:** Extra privacy for vulnerable populations
-- **Clinical Validity:** Medically reviewed relationships
-- **Ethical AI:** Supports responsible healthcare AI development
+registry = pd.read_csv("data/raw/med_rare_lab/MED_RARE_TXP_REGISTRY_10k.csv")
+lab = pd.read_csv("data/raw/med_rare_lab/MED_LAB_10k.csv")
+
+print(f"Registry: {len(registry)} records, {registry['gt_person_id'].nunique()} patients")
+print(f"Lab: {len(lab)} records, {lab['gt_person_id'].nunique()} patients")
+```
+
+### Find Shared Patients
+
+```python
+# Using ground-truth (for validation only)
+registry_patients = set(registry['gt_person_id'])
+lab_patients = set(lab['gt_person_id'])
+shared = registry_patients & lab_patients
+print(f"Shared patients: {len(shared)}")
+
+# Using link_shared_id (privacy-preserving)
+registry_links = set(registry['link_shared_id'].dropna())
+lab_links = set(lab['link_shared_id'].dropna())
+linkable = registry_links & lab_links
+print(f"Linkable via link_shared_id: {len(linkable)}")
+```
+
+### Join Datasets for Analysis
+
+```python
+# Get transplant patients with their lab data
+transplanted = registry[registry['transplant_date'].notna()]
+
+# Join via link_shared_id
+merged = transplanted.merge(
+    lab,
+    on='link_shared_id',
+    suffixes=('_reg', '_lab')
+)
+
+# Analyze lab patterns for transplant outcomes
+outcome_analysis = merged.groupby('graft_failure_1y').agg({
+    'result_value': 'mean',
+    'abnormal_flag': lambda x: (x == 'A').mean()
+})
+```
+
+---
 
 ## Known Limitations
 
-1. **Simplified Biology:** Real disease mechanisms more complex
-2. **Static Genetics:** No somatic mutations or evolution
-3. **Limited Medications:** Simplified immunosuppression regimens
-4. **Perfect Linkage:** Real-world matching is messier
-5. **Temporal Simplification:** No complex longitudinal patterns
+1. **Simplified biology** - Real disease mechanisms are more complex
+2. **Static genetics** - No somatic mutations or disease evolution
+3. **Limited medications** - Simplified immunosuppression regimens
+4. **Perfect linkage** - Real-world matching is messier
+5. **Temporal simplification** - No complex longitudinal patterns
+6. **Geographic simplification** - Urban bias in facility distribution
 
 ---
-*Generated for PAMOLA Epic 2 Testing Suite - Federated Healthcare Analytics Module*  
-*Version 1.0 - August 2025*
+
+## Intended Use
+
+These datasets are intended for:
+
+- ✅ Testing federated learning algorithms
+- ✅ Developing privacy-preserving cross-silo analytics
+- ✅ Evaluating linkage attack resistance
+- ✅ Testing PHI detection and de-identification
+- ✅ Educational purposes in health informatics
+
+These datasets are **not** intended for:
+
+- ❌ Clinical decision-making or patient care
+- ❌ Medical research or epidemiological studies
+- ❌ Training production clinical AI systems
+- ❌ Regulatory compliance certification
+
+---
+
+## License
+
+Apache 2.0 - same as PAMOLA.CORE repository.
+
+See [LICENSE](../../../LICENSE) for full terms.
+
+---
+
+**Maintainer:** [Realm Inveo Inc.](https://realmdata.io)  
+**Repository:** [github.com/DGT-Network/PAMOLA](https://github.com/DGT-Network/PAMOLA)  
+**Version:** 1.0.0 (Epic 2 Testing Suite - Federated Healthcare Module)
