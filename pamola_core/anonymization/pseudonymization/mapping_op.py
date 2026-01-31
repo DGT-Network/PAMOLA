@@ -531,7 +531,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                     df, all_fields, self.compound_separator, self.compound_null_handling
                 )
             else:
-                original_series = df[self.field_name].copy()
+                original_series = df[self.field_name].copy(deep=True)
 
             # Update progress: Data loaded (10%)
             progress_tracker.update(
@@ -629,9 +629,9 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                         self.compound_null_handling,
                     )
                 else:
-                    processed_series = df[self.field_name].copy()
+                    processed_series = df[self.field_name].copy(deep=True)
             else:
-                processed_series = df[self._output_field].copy()
+                processed_series = df[self._output_field].copy(deep=True)
 
             # Update progress: Processing complete (10%)
             progress_tracker.update(
@@ -860,7 +860,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                 batch, all_fields, self.compound_separator, self.compound_null_handling
             )
         else:
-            working_series = batch[self.field_name].copy()
+            working_series = batch[self.field_name].copy(deep=True)
 
         # P-3: Handle null values with proper error handling
         try:
@@ -872,7 +872,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             self.logger.warning(
                 f"Null processing error: {e}. Continuing with PRESERVE strategy."
             )
-            processed_series = working_series.copy()
+            processed_series = working_series.copy(deep=True)
 
         # Pseudonymize non-null values
         non_null_mask = processed_series.notna()

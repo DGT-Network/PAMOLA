@@ -115,7 +115,6 @@ class FidelityOperation(MetricsOperation):
         # Save config attributes to self for easy access
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
@@ -408,25 +407,6 @@ class FidelityOperation(MetricsOperation):
         params = dict(
             fidelity_metrics=self.fidelity_metrics,
             metric_params=self.metric_params,
-            columns=self.columns,
-            column_mapping=self.column_mapping,
-            normalize=self.normalize,
-            confidence_level=self.confidence_level,
-            sample_size=self.sample_size,
-            optimize_memory=self.optimize_memory,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
         )
 
         return params

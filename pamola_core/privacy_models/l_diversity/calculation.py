@@ -43,7 +43,7 @@ import numpy as np
 import pandas as pd
 from dask import dataframe as dd
 
-from pamola_core.config.config_variables import L_DIVERSITY_DEFAULTS
+from pamola_core.configs.config_variables import L_DIVERSITY_DEFAULTS
 # PAMOLA pamola core imports
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
 from pamola_core.utils import progress

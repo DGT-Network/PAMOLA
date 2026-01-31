@@ -19,7 +19,8 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of utility metric config file
 """
 
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.ops.schemas.base_op_core_schema import BaseOperationConfig
 
 class UtilityMetricConfig(OperationConfig):
     """

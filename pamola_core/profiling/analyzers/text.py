@@ -42,12 +42,11 @@ from pamola_core.profiling.commons.text_utils import (
     extract_text_and_ids,
     find_dictionary_file,
 )
-from pamola_core.profiling.schemas.text_schema import (
+from pamola_core.profiling.schemas.text_core_schema import (
     TextSemanticCategorizerOperationConfig,
 )
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
-    ensure_directory,
-    load_data_operation,
     load_settings_operation,
     write_json,
     write_dataframe_to_csv,
@@ -72,6 +71,7 @@ from pamola_core.utils.visualization import (
     plot_text_length_distribution,
 )
 from pamola_core.common.constants import Constants
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = get_logger(__name__)
@@ -196,6 +196,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+
             # Initialize timing and result
             self.start_time = time.time()
 
@@ -210,7 +214,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Save configuration
@@ -239,16 +243,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                df = load_data_operation(
+                df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-
-                if df is None:
-                    error_message = "Failed to load input data"
-                    logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
-                    )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 logger.error(error_message)
@@ -282,7 +279,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             if self.use_cache and not self.force_recalculation:
 
                 logger.info("Checking operation cache...")
-                cached_result = self._check_cache(df, reporter, **kwargs)
+                cached_result = self._check_cache(df)
                 if cached_result:
                     logger.info(f"Using cached results for {self.field_name}")
 
@@ -299,6 +296,10 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 progress_tracker.update(
                     3, {"step": "Basic text analysis", "field": self.field_name}
                 )
+
+            # Backup and clear operation cache during processing
+            cache_backup = self.operation_cache
+            self.operation_cache = None
 
             # Step 1: Perform basic text analysis (always executed)
             basic_analysis = self._perform_basic_analysis(
@@ -353,6 +354,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
                     self.use_vectorization,
                     self.parallel_processes,
                 )
+
+            # Restore operation cache
+            self.operation_cache = cache_backup
 
             # Update progress
             if progress_tracker:
@@ -416,10 +420,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             if self.use_cache:
                 self._save_to_cache(
                     df=df,
-                    analysis_results=analysis_results,
-                    analysis_result_path=analysis_result_path,
-                    categorization_result_paths=categorization_result_paths,
-                    visualization_paths=visualization_paths,
+                    result=result,
                     task_dir=task_dir,
                 )
 
@@ -432,6 +433,13 @@ class TextSemanticCategorizerOperation(FieldOperation):
             self.end_time = time.time()
             if self.end_time and self.start_time:
                 self.execution_time = self.end_time - self.start_time
+
+            # Clean up memory AFTER all file operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
 
             return result
         except Exception as e:
@@ -456,37 +464,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
                 exception=e,
             )
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare standard directories for storing operation artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with standard directory paths
-        """
-        # Create standard directories
-        directories = {
-            "output": task_dir / "output",
-            "dictionaries": task_dir / "dictionaries",
-            "visualizations": task_dir / "visualizations",
-            "cache": task_dir / "cache",
-        }
-
-        # Ensure directories exist
-        for dir_path in directories.values():
-            ensure_directory(dir_path)
-
-        return directories
-
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any, **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -494,10 +472,6 @@ class TextSemanticCategorizerOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             Input data for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
 
         Returns:
         --------
@@ -512,93 +486,18 @@ class TextSemanticCategorizerOperation(FieldOperation):
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
-            logger.debug(f"Checking cache for key: {cache_key}")
-
-            cached_data = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+            self.logger.debug(f"Checking cache for key: {cache_key}")
+            cached_result = self.operation_cache.get_cache(
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Restore artifacts from cache
-                artifacts_restored = 0
-
-                # Add analysis result path
-                analysis_result_path = cached_data.get("analysis_result_path")
-                if analysis_result_path and isinstance(analysis_result_path, dict):
-                    if Path(analysis_result_path.get("path")).exists():
-                        artifacts_restored += 1
-                        self._create_and_register_artifact(
-                            artifact_type=analysis_result_path.get("artifact_type"),
-                            path=analysis_result_path.get("path"),
-                            description=analysis_result_path.get("description"),
-                            result=cached_result,
-                            reporter=reporter,
-                            category=analysis_result_path.get("category"),
-                        )
-
-                # Add categorization result paths
-                categorization_result_paths = cached_data.get(
-                    "categorization_result_paths", []
-                )
-                for categorization_result_path in categorization_result_paths:
-                    if categorization_result_path and isinstance(
-                        categorization_result_path, dict
-                    ):
-                        if Path(categorization_result_path.get("path")).exists():
-                            artifacts_restored += 1
-                            self._create_and_register_artifact(
-                                artifact_type=categorization_result_path.get(
-                                    "artifact_type"
-                                ),
-                                path=categorization_result_path.get("path"),
-                                description=categorization_result_path.get(
-                                    "description"
-                                ),
-                                result=cached_result,
-                                reporter=reporter,
-                                category=categorization_result_path.get("category"),
-                            )
-
-                # Add categorization result paths
-                visualization_paths = cached_data.get("visualization_paths", [])
-                for visualization_path in visualization_paths:
-                    if visualization_path and isinstance(visualization_path, dict):
-                        if Path(
-                            visualization_path.get("path")
-                        ).exists() and visualization_path.get(
-                            "is_create_and_register_artifact"
-                        ):
-                            artifacts_restored += 1
-                            self._create_and_register_artifact(
-                                artifact_type=visualization_path.get("artifact_type"),
-                                path=visualization_path.get("path"),
-                                description=visualization_path.get("description"),
-                                result=cached_result,
-                                reporter=reporter,
-                                category=visualization_path.get("category"),
-                            )
-
-                # Add cached metrics to result
-                analysis_results = cached_data.get("analysis_results")
-                self._add_metrics_to_result(analysis_results, cached_result)
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-                cached_result.add_metric("artifacts_restored", artifacts_restored)
-
-                return cached_result
-
-            logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             logger.warning(f"Error checking cache: {str(e)}")
             return None
@@ -606,10 +505,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
     def _save_to_cache(
         self,
         df: pd.DataFrame,
-        analysis_results: Dict[str, Any],
-        analysis_result_path: Dict[str, str],
-        categorization_result_paths: List[Dict[str, str]],
-        visualization_paths: List[Dict[str, Any]],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -619,14 +515,8 @@ class TextSemanticCategorizerOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             Input data for the operation
-        analysis_results : dict
-            Analysis results to cache
-        analysis_result_path : dict
-            Analysis result path
-        categorization_result_paths : list of dict
-            Categorization result paths
-        visualization_paths : list of dict
-            Visualizations paths
+        result : OperationResult
+            The result object to be cached.
         task_dir : Path
             Task directory
 
@@ -642,25 +532,22 @@ class TextSemanticCategorizerOperation(FieldOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
-            # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "analysis_results": analysis_results,
-                "analysis_result_path": analysis_result_path,
-                "categorization_result_paths": categorization_result_paths,
-                "visualization_paths": visualization_paths,
-                "data_info": {"df_length": len(df)},
-            }
+            # Prepare cache data
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+            cache_data.update(
+                {
+                    "data_info": {"df_length": len(df)},
+                }
+            )
 
             # Save to cache
             logger.debug(f"Saving to cache with key: {cache_key}")
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -674,34 +561,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
             logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return self.operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -722,55 +582,9 @@ class TextSemanticCategorizerOperation(FieldOperation):
             "perform_categorization": self.perform_categorization,
             "perform_clustering": self.perform_clustering,
             "match_strategy": self.match_strategy,
-            "version": self.version,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import json
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _perform_basic_analysis(
         self,

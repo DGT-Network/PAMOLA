@@ -38,7 +38,9 @@ try:
 
     LANGUAGE_MODULE_AVAILABLE = True
 except ImportError:
-    logger.warning("pamola_core.utils.nlp.language not available, using basic language detection")
+    logger.warning(
+        "pamola_core.utils.nlp.language not available, using basic language detection"
+    )
     LANGUAGE_MODULE_AVAILABLE = False
 
 # Dictionary cache
@@ -46,8 +48,12 @@ _dictionary_cache = {}
 
 
 @lru_cache(maxsize=128)
-def normalize_string(value: Optional[str] = None, keep_case: bool = False,
-                     remove_punctuation: bool = False, remove_spaces: bool = False) -> str:
+def normalize_string(
+    value: Optional[str] = None,
+    keep_case: bool = False,
+    remove_punctuation: bool = False,
+    remove_spaces: bool = False,
+) -> str:
     """
     Normalizes a string by removing extra spaces, punctuation, etc.
 
@@ -76,13 +82,13 @@ def normalize_string(value: Optional[str] = None, keep_case: bool = False,
 
     # Replace multiple spaces with single space
     if not remove_spaces:
-        result = re.sub(r'\s+', ' ', result)
+        result = re.sub(r"\s+", " ", result)
     else:
-        result = re.sub(r'\s+', '', result)
+        result = re.sub(r"\s+", "", result)
 
     # Remove punctuation if requested
     if remove_punctuation:
-        result = re.sub(r'[^\w\s]', '', result)
+        result = re.sub(r"[^\w\s]", "", result)
 
     # Convert to lowercase if not keeping case
     if not keep_case:
@@ -134,7 +140,9 @@ def hash_value(value: Any, salt: str = "", algorithm: str = "sha256") -> str:
         elif algorithm == "sha512":
             hash_obj = hashlib.sha512(salted_value.encode())
         else:
-            raise ValueError(f"Unsupported hash algorithm: {algorithm}. Supported: sha256, md5, sha1, sha512")
+            raise ValueError(
+                f"Unsupported hash algorithm: {algorithm}. Supported: sha256, md5, sha1, sha512"
+            )
 
         return hash_obj.hexdigest()
     except Exception as e:
@@ -142,9 +150,12 @@ def hash_value(value: Any, salt: str = "", algorithm: str = "sha256") -> str:
         raise
 
 
-def generate_deterministic_value(seed_value: Any, length: int = 10,
-                                 chars: Optional[str] = None,
-                                 seed_algorithm: str = "sha256") -> str:
+def generate_deterministic_value(
+    seed_value: Any,
+    length: int = 10,
+    chars: Optional[str] = None,
+    seed_algorithm: str = "sha256",
+) -> str:
     """
     Generates a deterministic value based on a seed.
 
@@ -179,7 +190,7 @@ def generate_deterministic_value(seed_value: Any, length: int = 10,
             chars = string.ascii_letters + string.digits
 
         # Generate random value
-        return ''.join(rng.choice(chars) for _ in range(length))
+        return "".join(rng.choice(chars) for _ in range(length))
     except Exception as e:
         logger.error(f"Error generating deterministic value: {e}")
         raise
@@ -215,11 +226,11 @@ def detect_language(text: Optional[str], default_language: str = "en") -> str:
 
         # Basic fallback implementation
         # Check for Cyrillic characters (likely Russian)
-        if re.search(r'[а-яА-ЯёЁ]', text):
+        if re.search(r"[а-яА-ЯёЁ]", text):
             return "ru"
 
         # Check for Latin characters (likely English or other Latin-based language)
-        if re.search(r'[a-zA-Z]', text):
+        if re.search(r"[a-zA-Z]", text):
             return "en"
 
         # Default to specified default language
@@ -229,9 +240,11 @@ def detect_language(text: Optional[str], default_language: str = "en") -> str:
         return default_language
 
 
-def detect_gender_by_dictionary(name: Optional[str],
-                                gender_dict: Optional[Dict[str, str]] = None,
-                                default_gender: Optional[str] = None) -> Optional[str]:
+def detect_gender_by_dictionary(
+    name: Optional[str],
+    gender_dict: Optional[Dict[str, str]] = None,
+    default_gender: Optional[str] = None,
+) -> Optional[str]:
     """
     Determines gender from a name using a dictionary lookup.
 
@@ -261,11 +274,13 @@ def detect_gender_by_dictionary(name: Optional[str],
     return gender if gender is not None else default_gender
 
 
-def load_dictionary(source: Union[str, Path, Dict],
-                    dictionary_type: str = "general",
-                    base_path: Optional[Path] = None,
-                    encoding: str = "utf-8",
-                    cache: bool = True) -> List[str]:
+def load_dictionary(
+    source: Union[str, Path, Dict],
+    dictionary_type: str = "general",
+    base_path: Optional[Path] = None,
+    encoding: str = "utf-8",
+    cache: bool = True,
+) -> List[str]:
     """
     Loads a dictionary of values from various sources.
 
@@ -326,8 +341,8 @@ def load_dictionary(source: Union[str, Path, Dict],
                         file_path = resolved_path
 
                     # Try with common extensions if no extension in source
-                    elif '.' not in source:
-                        for ext in ['.txt', '.csv', '.json']:
+                    elif "." not in source:
+                        for ext in [".txt", ".csv", ".json"]:
                             ext_path = base_path / f"{source}{ext}"
                             if os.path.exists(ext_path):
                                 file_path = ext_path
@@ -343,21 +358,23 @@ def load_dictionary(source: Union[str, Path, Dict],
                 extension = file_path.suffix.lower()
 
                 # Load based on file extension
-                if extension in ['.txt', '.csv']:
+                if extension in [".txt", ".csv"]:
                     # Read as a simple text file with one entry per line
-                    with open(file_path, 'r', encoding=encoding) as f:
+                    with open(file_path, "r", encoding=encoding) as f:
                         result = [line.strip() for line in f if line.strip()]
-                elif extension == '.json':
+                elif extension == ".json":
                     # Read as JSON
                     try:
-                        with open(file_path, 'r', encoding=encoding) as f:
+                        with open(file_path, "r", encoding=encoding) as f:
                             data = json.load(f)
                             if isinstance(data, list):
                                 result = data
                             elif isinstance(data, dict):
                                 result = list(data.values())
                             else:
-                                raise ValueError(f"Unsupported JSON structure in {file_path}")
+                                raise ValueError(
+                                    f"Unsupported JSON structure in {file_path}"
+                                )
                     except json.JSONDecodeError:
                         logger.error(f"Error parsing JSON from {file_path}")
                         raise
@@ -378,8 +395,11 @@ def load_dictionary(source: Union[str, Path, Dict],
         raise
 
 
-def find_dictionary_file(dictionary_name: str, base_dirs: List[Union[str, Path]] = None,
-                         suffixes: List[str] = None) -> Optional[Path]:
+def find_dictionary_file(
+    dictionary_name: str,
+    base_dirs: List[Union[str, Path]] = None,
+    suffixes: List[str] = None,
+) -> Optional[Path]:
     """
     Finds a dictionary file in standard locations.
 
@@ -401,10 +421,12 @@ def find_dictionary_file(dictionary_name: str, base_dirs: List[Union[str, Path]]
     if base_dirs is None:
         base_dirs = [
             Path("DATA/external_dictionaries/fake"),  # Standard project location
-            Path(os.path.dirname(
-                os.path.dirname(os.path.abspath(__file__)))).parent / "DATA" / "external_dictionaries" / "fake",
+            Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))).parent
+            / "DATA"
+            / "external_dictionaries"
+            / "fake",
             Path.cwd() / "DATA" / "external_dictionaries" / "fake",
-            Path.home() / "DATA" / "external_dictionaries" / "fake"
+            Path.home() / "DATA" / "external_dictionaries" / "fake",
         ]
 
     # Convert all to Path objects
@@ -412,7 +434,7 @@ def find_dictionary_file(dictionary_name: str, base_dirs: List[Union[str, Path]]
 
     # Default suffixes
     if suffixes is None:
-        suffixes = ['.txt', '.csv', '.json', '']
+        suffixes = [".txt", ".csv", ".json", ""]
 
     # Try each base directory
     for base_dir in base_dirs:
@@ -450,7 +472,7 @@ def validate_email(email: str) -> bool:
         return False
 
     # Use a simple regex for basic validation
-    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     return bool(re.match(email_pattern, email))
 
 
@@ -474,7 +496,7 @@ def validate_phone(phone: str, region: str = "INTL") -> bool:
         return False
 
     # Strip non-digit characters for validation
-    digits_only = re.sub(r'\D', '', phone)
+    digits_only = re.sub(r"\D", "", phone)
 
     # Must have at least some digits
     if not digits_only:
@@ -492,7 +514,9 @@ def validate_phone(phone: str, region: str = "INTL") -> bool:
         return 7 <= len(digits_only) <= 15
 
 
-def format_phone_number(digits: str, region: str = "INTL", formatting: bool = True) -> str:
+def format_phone_number(
+    digits: str, region: str = "INTL", formatting: bool = True
+) -> str:
     """
     Formats a phone number according to regional standards.
 
@@ -514,7 +538,7 @@ def format_phone_number(digits: str, region: str = "INTL", formatting: bool = Tr
         return ""
 
     # Strip non-digit characters
-    digits_only = re.sub(r'\D', '', digits)
+    digits_only = re.sub(r"\D", "", digits)
 
     if not formatting:
         return digits_only
@@ -523,10 +547,10 @@ def format_phone_number(digits: str, region: str = "INTL", formatting: bool = Tr
     if region == "US":
         if len(digits_only) == 10:
             return f"({digits_only[0:3]}) {digits_only[3:6]}-{digits_only[6:10]}"
-        elif len(digits_only) == 11 and digits_only[0] == '1':
+        elif len(digits_only) == 11 and digits_only[0] == "1":
             return f"+1 ({digits_only[1:4]}) {digits_only[4:7]}-{digits_only[7:11]}"
     elif region == "RU":
-        if len(digits_only) == 11 and digits_only[0] in ['7', '8']:
+        if len(digits_only) == 11 and digits_only[0] in ["7", "8"]:
             return f"+7 ({digits_only[1:4]}) {digits_only[4:7]}-{digits_only[7:9]}-{digits_only[9:11]}"
 
     # Default international format with country code
@@ -537,7 +561,9 @@ def format_phone_number(digits: str, region: str = "INTL", formatting: bool = Tr
     return digits
 
 
-def create_progress_bar(total: int, description: str, unit: str = "items") -> progress.ProgressBar:
+def create_progress_bar(
+    total: int, description: str, unit: str = "items"
+) -> progress.ProgressBar:
     """
     Creates a standardized progress bar for fake data operations.
 
@@ -577,7 +603,7 @@ def save_metrics(metrics: Dict[str, Any], path: Union[str, Path]) -> Path:
     path = Path(path)
     io.ensure_directory(path.parent)
 
-    with open(path, 'w', encoding='utf-8') as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)
 
     return path

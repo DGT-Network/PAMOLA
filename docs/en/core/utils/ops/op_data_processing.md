@@ -393,7 +393,7 @@ print("Memory cleaned up")
     ```python
     # Good: Verify conversion
     result = safe_convert_to_numeric(series)
-    if result.dtype == 'object':
+    if pd.api.types.is_string_dtype(result):
         # Conversion failed, handle appropriately
         pass
     ```

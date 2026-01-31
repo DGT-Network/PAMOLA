@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.email import EmailGenerator
-from pamola_core.fake_data.schemas.email_op_schema import FakeEmailOperationConfig
+from pamola_core.fake_data.schemas.email_op_core_schema import FakeEmailOperationConfig
 from pamola_core.utils import io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
@@ -66,7 +66,7 @@ class FakeEmailOperation(GeneratorOperation):
         domains : list or str, optional
             List of available domains or path to domain dictionary.
         format : str, optional
-            Email format (e.g., 'first_last', 'nickname', 'existing_domain').
+            Email format (e.g., name_surname, surname_name, nickname, existing_domain).
         format_ratio : dict, optional
             Ratio distribution for format usage.
         first_name_field, last_name_field, full_name_field : str, optional

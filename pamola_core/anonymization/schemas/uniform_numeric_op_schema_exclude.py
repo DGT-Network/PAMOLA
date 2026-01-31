@@ -42,6 +42,8 @@ RECORD_EXCLUDE_FIELDS = [
     "encryption_key",
     "save_output",
     "config",
+    "use_secure_random",
+    "random_seed",
     "field_name",
     "ka_risk_field",
     "risk_threshold",

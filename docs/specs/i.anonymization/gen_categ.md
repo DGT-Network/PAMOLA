@@ -175,7 +175,6 @@ def __init__(self,
     hierarchy_level: int = 1,
     
     # Frequency-based parameters
-    merge_low_freq: bool = False,
     min_group_size: int = 10,
     freq_threshold: float = 0.01,
     max_categories: int = 1000,

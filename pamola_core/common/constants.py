@@ -24,6 +24,9 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 from typing import List
 
+import numpy as np
+import pandas as pd
+
 
 class Constants:
     OPERATION_NAMES = ["generalization", "noise_addition"]
@@ -98,3 +101,28 @@ class Constants:
     Artifact_Category_Visualization = "visualization"
     Artifact_Category_Metrics = "metrics"
     Artifact_Category_Mapping = "mapping"
+
+    # Pandas Dtype Map
+    # This map is used to convert string representations of data types to actual pandas/numpy d
+    PANDAS_DTYPE_MAP = {
+        # -------- STRING --------
+        "string": pd.StringDtype(),
+        # -------- BOOLEAN --------
+        "boolean": pd.BooleanDtype(),
+        # -------- INTEGER --------
+        "int64": pd.Int64Dtype(),
+        # -------- FLOAT --------
+        "float64": pd.Float64Dtype(),  # nullable float
+        # -------- DATETIME --------
+        "datetime": np.dtype("datetime64[ns]"),
+        # -------- DATETIME TZ --------
+        "datetimeutc": pd.DatetimeTZDtype(tz="UTC"),
+    }
+
+    # Safe globals for eval
+    # This dictionary is used to safely evaluate expressions in transformations
+    SAFE_GLOBALS = {
+        "__builtins__": {},
+        "pd": pd,
+        "np": np,
+    }

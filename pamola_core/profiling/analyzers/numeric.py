@@ -28,7 +28,7 @@ import time
 from datetime import datetime
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -46,12 +46,14 @@ from pamola_core.profiling.commons.numeric_utils import (
     process_with_dask,
     process_with_joblib,
 )
-from pamola_core.profiling.schemas.numeric_schema import NumericOperationConfig
+from pamola_core.profiling.schemas.numeric_core_schema import NumericOperationConfig
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
     load_data_operation,
     load_settings_operation,
 )
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -64,6 +66,7 @@ from pamola_core.utils.visualization import (
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -550,6 +553,10 @@ class NumericOperation(FieldOperation):
             if kwargs.get("logger"):
                 logger = kwargs.get("logger")
 
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -567,10 +574,14 @@ class NumericOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
-            dictionaries_dir = dirs["dictionaries"]
-            cache_dir = dirs["cache"]
 
             # Update progress if tracker provided
             if progress_tracker:
@@ -583,11 +594,18 @@ class NumericOperation(FieldOperation):
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
             )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+
+            try:
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Check if field exists
@@ -611,7 +629,7 @@ class NumericOperation(FieldOperation):
 
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
-                cached_result = self._check_cache(df, reporter, task_dir, **kwargs)
+                cached_result = self._check_cache(df)
                 if cached_result:
                     logger.info(f"Using cached results for {self.field_name}")
 
@@ -666,7 +684,7 @@ class NumericOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
             stats_path = output_dir / stats_filename
 
-            encryption_mode = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode = get_encryption_mode(analysis_results, self.use_encryption)
             write_json(
                 analysis_results,
                 stats_path,
@@ -757,8 +775,7 @@ class NumericOperation(FieldOperation):
             if self.use_cache:
                 self._save_to_cache(
                     df=df,
-                    analysis_results=analysis_results,
-                    artifacts=artifacts,
+                    result=result,
                     task_dir=task_dir,
                 )
 
@@ -793,6 +810,13 @@ class NumericOperation(FieldOperation):
             self.end_time = time.time()
             if self.end_time and self.start_time:
                 self.execution_time = self.end_time - self.start_time
+
+            # Clean up memory AFTER all file operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
 
             return result
         except Exception as e:
@@ -990,9 +1014,7 @@ class NumericOperation(FieldOperation):
 
         return visualization_paths
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any, task_dir: Path, **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -1000,10 +1022,6 @@ class NumericOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             Input data for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
 
         Returns:
         --------
@@ -1014,107 +1032,23 @@ class NumericOperation(FieldOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
 
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
-            logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache_dir.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+            self.logger.debug(f"Checking cache for key: {cache_key}")
+            cached_result = self.operation_cache.get_cache(
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Restore artifacts from cache
-                artifacts_restored = 0
-
-                # Add artifacts
-                artifacts = cached_data.get("artifacts", [])
-                for artifact in artifacts:
-                    if artifact and isinstance(artifact, dict):
-                        if Path(artifact.get("path")).exists():
-                            artifacts_restored += 1
-                            cached_result.add_artifact(
-                                artifact.get("artifact_type"),
-                                artifact.get("path"),
-                                artifact.get("description"),
-                                category=artifact.get("category"),
-                            )
-                            reporter.add_artifact(
-                                artifact.get("artifact_type"),
-                                artifact.get("path"),
-                                artifact.get("description"),
-                            )
-
-                # Add cached metrics to result
-                analysis_results = cached_data.get("analysis_results", {})
-                stats_dict = analysis_results.get("stats", {})
-
-                cached_result.add_metric(
-                    "total_rows", analysis_results.get("total_rows", 0)
-                )
-                cached_result.add_metric(
-                    "null_count", analysis_results.get("null_count", 0)
-                )
-                cached_result.add_metric(
-                    "null_percentage", analysis_results.get("null_percentage", 0)
-                )
-                cached_result.add_metric("min", stats_dict.get("min"))
-                cached_result.add_metric("max", stats_dict.get("max"))
-                cached_result.add_metric("mean", stats_dict.get("mean"))
-                cached_result.add_metric("median", stats_dict.get("median"))
-
-                if "outliers" in stats_dict:
-                    cached_result.add_metric(
-                        "outliers_count", stats_dict["outliers"].get("count", 0)
-                    )
-                    cached_result.add_metric(
-                        "outliers_percentage",
-                        stats_dict["outliers"].get("percentage", 0),
-                    )
-
-                if "normality" in stats_dict:
-                    cached_result.add_metric(
-                        "is_normal", stats_dict["normality"].get("is_normal", False)
-                    )
-
-                # Add final operation status to reporter
-                outliers = stats_dict.get("outliers", {})
-                normality = stats_dict.get("normality", {})
-                reporter.add_operation(
-                    f"Analysis of {self.field_name} completed",
-                    details={
-                        "valid_values": analysis_results.get("valid_count", 0),
-                        "null_percentage": analysis_results.get("null_percentage", 0),
-                        "min": stats_dict.get("min"),
-                        "max": stats_dict.get("max"),
-                        "mean": stats_dict.get("mean"),
-                        "outliers": outliers.get("count", 0),
-                        "is_normal": normality.get("is_normal", False),
-                    },
-                )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-                cached_result.add_metric("artifacts_restored", artifacts_restored)
-
-                return cached_result
-
-            logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             logger.warning(f"Error checking cache: {str(e)}")
             return None
@@ -1122,8 +1056,7 @@ class NumericOperation(FieldOperation):
     def _save_to_cache(
         self,
         df: pd.DataFrame,
-        analysis_results: Dict[str, Any],
-        artifacts: List[Dict[str, str]],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -1135,8 +1068,8 @@ class NumericOperation(FieldOperation):
             Input data for the operation
         analysis_results : dict
             Analysis results to cache
-        artifacts : list of dict
-            Artifacts
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
 
@@ -1149,32 +1082,26 @@ class NumericOperation(FieldOperation):
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            # Generate operation cache
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
-            # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
+            # Prepare cache data
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
 
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "analysis_results": analysis_results,
-                "artifacts": artifacts,
-                "data_info": {"df_length": len(df)},
-            }
+            cache_data.update(
+                {
+                    "data_info": {"df_length": len(df)},
+                }
+            )
 
             # Save to cache
             logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache_dir.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -1188,36 +1115,7 @@ class NumericOperation(FieldOperation):
             logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1233,55 +1131,9 @@ class NumericOperation(FieldOperation):
             "detect_outliers": self.detect_outliers,
             "test_normality": self.test_normality,
             "near_zero_threshold": self.near_zero_threshold,
-            "version": self.version,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import json
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
         self,
@@ -1496,36 +1348,6 @@ class NumericOperation(FieldOperation):
                 )
 
         return visualization_paths
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare standard directories for storing operation artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with standard directory paths
-        """
-        from pamola_core.utils.io import ensure_directory
-
-        # Create standard directories
-        directories = {
-            "output": task_dir / "output",
-            "dictionaries": task_dir / "dictionaries",
-            "visualizations": task_dir / "visualizations",
-            "cache": task_dir / "cache",
-        }
-
-        # Ensure directories exist
-        for dir_path in directories.values():
-            ensure_directory(dir_path)
-
-        return directories
 
 
 def analyze_numeric_fields(

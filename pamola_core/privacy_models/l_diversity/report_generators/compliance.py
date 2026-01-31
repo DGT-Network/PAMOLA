@@ -25,7 +25,7 @@ from datetime import datetime
 import pandas as pd
 
 # Import from pamola_core utilities
-from pamola_core import config
+from pamola_core import configs
 from pamola_core.utils.io import write_json
 
 # Configure logging

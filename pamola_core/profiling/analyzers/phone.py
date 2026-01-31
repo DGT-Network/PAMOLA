@@ -31,8 +31,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import pandas as pd
-from pamola_core.profiling.schemas.phone_schema import PhoneOperationConfig
-from pamola_core.utils.helpers import filter_used_kwargs
+from pamola_core.profiling.schemas.phone_core_schema import PhoneOperationConfig
+from pamola_core.utils.helpers import (
+    build_base_cache,
+    filter_used_kwargs,
+    get_cache_result,
+)
 from pamola_core.profiling.commons.phone_utils import (
     analyze_phone_field,
     analyze_phone_field_with_chunk,
@@ -45,13 +49,10 @@ from pamola_core.profiling.commons.phone_utils import (
 )
 from pamola_core.utils.io import (
     write_json,
-    ensure_directory,
-    load_data_operation,
     write_dataframe_to_csv,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -59,6 +60,7 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -403,12 +405,12 @@ class PhoneOperation(FieldOperation):
             if kwargs.get("logger"):
                 logger = kwargs.get("logger")
 
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
-            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -417,17 +419,22 @@ class PhoneOperation(FieldOperation):
             self.start_time = time.time()
             result = OperationResult(status=OperationStatus.SUCCESS)
 
-            self.logger.info(
+            logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
                 f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
             )
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
-            cache_dir = dirs["cache"]
 
             # Update progress if tracker provided
             if progress_tracker:
@@ -441,17 +448,12 @@ class PhoneOperation(FieldOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                df = load_data_operation(
+                df = helpers.validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-                if df is None:
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="No valid DataFrame found in data source",
-                    )
             except Exception as e:
                 error_message = f"Data loading error: {str(e)}"
-                self.logger.error(error_message)
+                logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
                     error_message=error_message,
@@ -478,10 +480,10 @@ class PhoneOperation(FieldOperation):
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
                 try:
-                    cached_result = self._check_cache(df, reporter, task_dir, **kwargs)
+                    cached_result = self._check_cache(df)
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
-                    self.logger.error(error_message)
+                    logger.error(error_message)
                     return OperationResult(
                         status=OperationStatus.ERROR,
                         error_message=error_message,
@@ -489,7 +491,7 @@ class PhoneOperation(FieldOperation):
                     )
 
                 if cached_result:
-                    self.logger.info(f"Using cached results for {self.field_name}")
+                    logger.info(f"Using cached results for {self.field_name}")
 
                     # Update progress if tracker provided
                     if progress_tracker:
@@ -524,7 +526,7 @@ class PhoneOperation(FieldOperation):
                 )
             except Exception as e:
                 error_message = f"Attribute analysis error: {str(e)}"
-                self.logger.error(error_message)
+                logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
                     error_message=error_message,
@@ -549,7 +551,7 @@ class PhoneOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
             stats_path = output_dir / stats_filename
 
-            encryption_mode = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode = get_encryption_mode(analysis_results, self.use_encryption)
             write_json(
                 analysis_results,
                 stats_path,
@@ -607,7 +609,7 @@ class PhoneOperation(FieldOperation):
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
-                    self.logger.error(error_message)
+                    logger.error(error_message)
                     # Continue execution - visualization failure is not critical
                 artifacts.extend(visualization_paths)
 
@@ -641,7 +643,7 @@ class PhoneOperation(FieldOperation):
                 json_dict_filename = f"{self.field_name}_country_codes_dictionary_{operation_timestamp}.json"
                 json_dict_path = output_dir / json_dict_filename
                 encryption_mode_country_dict = get_encryption_mode(
-                    country_dict, **kwargs
+                    country_dict, self.use_encryption
                 )
                 write_json(
                     country_dict,
@@ -719,7 +721,7 @@ class PhoneOperation(FieldOperation):
                 json_dict_filename = f"{self.field_name}_operator_codes_dictionary_{operation_timestamp}.json"
                 json_dict_path = output_dir / json_dict_filename
                 encryption_mode_operator_dict = get_encryption_mode(
-                    operator_dict, **kwargs
+                    operator_dict, self.use_encryption
                 )
                 write_json(
                     operator_dict,
@@ -779,7 +781,7 @@ class PhoneOperation(FieldOperation):
             if "error" not in messenger_dict:
                 # Save dictionary to CSV
                 dict_filename = (
-                    f"{self.field_name}_messenger_dictionary{operation_timestamp}.csv"
+                    f"{self.field_name}_messenger_dictionary_{operation_timestamp}.csv"
                 )
                 dict_path = dictionaries_dir / dict_filename
 
@@ -801,7 +803,7 @@ class PhoneOperation(FieldOperation):
                 )
                 json_dict_path = output_dir / json_dict_filename
                 encryption_mode_messenger_dict = get_encryption_mode(
-                    messenger_dict, **kwargs
+                    messenger_dict, self.use_encryption
                 )
                 write_json(
                     messenger_dict,
@@ -856,12 +858,12 @@ class PhoneOperation(FieldOperation):
                     self._save_to_cache(
                         df=df,
                         analysis_results=analysis_results,
-                        artifacts=artifacts,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
                     error_message = f"Failed to cache results: {str(e)}"
-                    self.logger.error(error_message)
+                    logger.error(error_message)
                     # Continue execution - cache failure is not critical
 
             # Update progress
@@ -913,11 +915,16 @@ class PhoneOperation(FieldOperation):
             if self.end_time and self.start_time:
                 self.execution_time = self.end_time - self.start_time
 
+            # Clean up memory AFTER all file operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
+
             return result
         except Exception as e:
-            self.logger.exception(
-                f"Error in phone operation for {self.field_name}: {e}"
-            )
+            logger.exception(f"Error in phone operation for {self.field_name}: {e}")
 
             # Update progress tracker on error
             if progress_tracker:
@@ -936,9 +943,7 @@ class PhoneOperation(FieldOperation):
                 exception=e,
             )
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any, task_dir: Path, **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -946,10 +951,6 @@ class PhoneOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             Input data for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
 
         Returns:
         --------
@@ -964,108 +965,27 @@ class PhoneOperation(FieldOperation):
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
-            logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
+            self.logger.debug(f"Checking cache for key: {cache_key}")
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Restore artifacts from cache
-                artifacts_restored = 0
-
-                # Add artifacts
-                artifacts = cached_data.get("artifacts", [])
-                for artifact in artifacts:
-                    if artifact and isinstance(artifact, dict):
-                        if Path(artifact.get("path")).exists():
-                            artifacts_restored += 1
-                            cached_result.add_artifact(
-                                artifact.get("artifact_type"),
-                                artifact.get("path"),
-                                artifact.get("description"),
-                                category=artifact.get("category"),
-                            )
-                            reporter.add_artifact(
-                                artifact.get("artifact_type"),
-                                artifact.get("path"),
-                                artifact.get("description"),
-                            )
-
-                # Add cached metrics to result
-                analysis_results = cached_data.get("analysis_results", {})
-
-                cached_result.add_metric(
-                    "total_records", analysis_results.get("total_rows", 0)
-                )
-                cached_result.add_metric(
-                    "null_count", analysis_results.get("null_count", 0)
-                )
-                cached_result.add_metric(
-                    "null_percentage", analysis_results.get("null_percentage", 0)
-                )
-                cached_result.add_metric(
-                    "valid_count", analysis_results.get("valid_count", 0)
-                )
-                cached_result.add_metric(
-                    "valid_percentage", analysis_results.get("valid_percentage", 0)
-                )
-                cached_result.add_metric(
-                    "format_error_count", analysis_results.get("format_error_count", 0)
-                )
-                cached_result.add_metric(
-                    "has_comment_count", analysis_results.get("has_comment_count", 0)
-                )
-
-                # Add normalization metrics if available
-                if "normalization_success_count" in analysis_results:
-                    cached_result.add_metric(
-                        "normalization_success_count",
-                        analysis_results.get("normalization_success_count", 0),
-                    )
-                    cached_result.add_metric(
-                        "normalization_success_percentage",
-                        analysis_results.get("normalization_success_percentage", 0),
-                    )
-
-                # Add final operation status to reporter
-                reporter.add_operation(
-                    f"Analysis of {self.field_name} completed",
-                    details={
-                        "valid_phones": analysis_results.get("valid_count", 0),
-                        "format_errors": analysis_results.get("format_error_count", 0),
-                        "with_comments": analysis_results.get("has_comment_count", 0),
-                        "normalization_success": analysis_results.get(
-                            "normalization_success_count", 0
-                        ),
-                    },
-                )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-                cached_result.add_metric("artifacts_restored", artifacts_restored)
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
+            logger.warning(f"Error checking cache: {str(e)}")
             return None
 
     def _save_to_cache(
         self,
         df: pd.DataFrame,
         analysis_results: Dict[str, Any],
-        artifacts: List[Dict[str, str]],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -1077,8 +997,8 @@ class PhoneOperation(FieldOperation):
             Input data for the operation
         analysis_results : dict
             Analysis results to cache
-        artifacts : list of dict
-            Artifacts
+        result : OperationResult
+            The result object to be cached.
         task_dir : Path
             Task directory
 
@@ -1094,19 +1014,19 @@ class PhoneOperation(FieldOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
-            # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "analysis_results": analysis_results,
-                "artifacts": artifacts,
-                "data_info": {"df_length": len(df)},
-            }
+            # Prepare cache data
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+            cache_data.update(
+                {
+                    "analysis_results": analysis_results,
+                    "data_info": {"df_length": len(df)},
+                }
+            )
 
             # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
+            logger.debug(f"Saving to cache with key: {cache_key}")
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
@@ -1115,44 +1035,16 @@ class PhoneOperation(FieldOperation):
             )
 
             if success:
-                self.logger.info(f"Successfully saved results to cache")
+                logger.info(f"Successfully saved results to cache")
             else:
-                self.logger.warning(f"Failed to save results to cache")
+                logger.warning(f"Failed to save results to cache")
 
             return success
         except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
+            logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return self.operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1167,11 +1059,7 @@ class PhoneOperation(FieldOperation):
             "min_frequency": self.min_frequency,
             "patterns_csv": self.patterns_csv,
             "country_codes": self.country_codes,
-            "version": self.version,
         }
-
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
 
         return parameters
 
@@ -1185,37 +1073,6 @@ class PhoneOperation(FieldOperation):
             Parameters for cache key generation
         """
         return {}
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import json
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
         self,
@@ -1265,7 +1122,7 @@ class PhoneOperation(FieldOperation):
         if progress_tracker:
             progress_tracker.update(0, {"step": "Generating visualizations"})
 
-        self.logger.info(
+        logger.info(
             f"Generating visualizations with backend: {vis_backend}, timeout: {vis_timeout}s"
         )
 
@@ -1284,10 +1141,10 @@ class PhoneOperation(FieldOperation):
                 thread_id = threading.current_thread().ident
                 thread_name = threading.current_thread().name
 
-                self.logger.info(
+                logger.info(
                     f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
                 )
-                self.logger.info(
+                logger.info(
                     f"[DIAG] Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
                 )
 
@@ -1295,19 +1152,17 @@ class PhoneOperation(FieldOperation):
 
                 try:
                     # Log context variables
-                    self.logger.info(f"[DIAG] Checking context variables...")
+                    logger.info(f"[DIAG] Checking context variables...")
                     try:
                         current_context = contextvars.copy_context()
-                        self.logger.info(
+                        logger.info(
                             f"[DIAG] Context vars count: {len(list(current_context))}"
                         )
                     except Exception as ctx_e:
-                        self.logger.warning(
-                            f"[DIAG] Could not inspect context: {ctx_e}"
-                        )
+                        logger.warning(f"[DIAG] Could not inspect context: {ctx_e}")
 
                     # Generate visualizations with visualization context parameters
-                    self.logger.info(f"[DIAG] Calling _generate_visualizations...")
+                    logger.info(f"[DIAG] Calling _generate_visualizations...")
                     # Create child progress tracker for visualization if available
                     total_steps = 3  # prepare data, create viz, save
                     viz_progress = None
@@ -1319,7 +1174,7 @@ class PhoneOperation(FieldOperation):
                                 unit="steps",
                             )
                         except Exception as e:
-                            self.logger.debug(
+                            logger.debug(
                                 f"Could not create child progress tracker: {e}"
                             )
 
@@ -1362,7 +1217,7 @@ class PhoneOperation(FieldOperation):
                                 }
                             )
                         else:
-                            self.logger.warning(
+                            logger.warning(
                                 f"Error creating country code visualization: {viz_result}"
                             )
 
@@ -1403,7 +1258,7 @@ class PhoneOperation(FieldOperation):
                                 }
                             )
                         else:
-                            self.logger.warning(
+                            logger.warning(
                                 f"Error creating operator code visualization: {viz_result}"
                             )
 
@@ -1443,7 +1298,7 @@ class PhoneOperation(FieldOperation):
                                 }
                             )
                         else:
-                            self.logger.warning(
+                            logger.warning(
                                 f"Error creating messenger mentions visualization: {viz_result}"
                             )
 
@@ -1455,19 +1310,19 @@ class PhoneOperation(FieldOperation):
                             pass
 
                     elapsed = time.time() - start_time
-                    self.logger.info(
+                    logger.info(
                         f"[DIAG] Visualization completed in {elapsed:.2f}s, generated {len(visualization_paths)} files"
                     )
                 except Exception as e:
                     elapsed = time.time() - start_time
                     visualization_error = e
-                    self.logger.error(
+                    logger.error(
                         f"[DIAG] Visualization failed after {elapsed:.2f}s: {type(e).__name__}: {e}"
                     )
-                    self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+                    logger.error(f"[DIAG] Stack trace:", exc_info=True)
 
             # Copy context for the thread
-            self.logger.info(f"[DIAG] Preparing to launch visualization thread...")
+            logger.info(f"[DIAG] Preparing to launch visualization thread...")
             ctx = contextvars.copy_context()
 
             # Create thread with context
@@ -1478,7 +1333,7 @@ class PhoneOperation(FieldOperation):
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
-            self.logger.info(
+            logger.info(
                 f"[DIAG] Starting visualization thread with timeout={vis_timeout}s"
             )
             thread_start_time = time.time()
@@ -1491,36 +1346,36 @@ class PhoneOperation(FieldOperation):
                 viz_thread.join(timeout=check_interval)
                 elapsed = time.time() - thread_start_time
                 if viz_thread.is_alive():
-                    self.logger.info(
+                    logger.info(
                         f"[DIAG] Visualization thread still running after {elapsed:.1f}s..."
                     )
 
             if viz_thread.is_alive():
-                self.logger.error(
+                logger.error(
                     f"[DIAG] Visualization thread still alive after {vis_timeout}s timeout"
                 )
-                self.logger.error(
+                logger.error(
                     f"[DIAG] Thread state: alive={viz_thread.is_alive()}, daemon={viz_thread.daemon}"
                 )
                 visualization_paths = []
             elif visualization_error:
-                self.logger.error(
+                logger.error(
                     f"[DIAG] Visualization failed with error: {visualization_error}"
                 )
                 visualization_paths = []
             else:
                 total_time = time.time() - thread_start_time
-                self.logger.info(
+                logger.info(
                     f"[DIAG] Visualization thread completed successfully in {total_time:.2f}s"
                 )
-                self.logger.info(
+                logger.info(
                     f"[DIAG] Generated visualizations: {[viz['path'] for viz in visualization_paths]}"
                 )
         except Exception as e:
-            self.logger.error(
+            logger.error(
                 f"[DIAG] Error in visualization thread setup: {type(e).__name__}: {e}"
             )
-            self.logger.error(f"[DIAG] Stack trace:", exc_info=True)
+            logger.error(f"[DIAG] Stack trace:", exc_info=True)
             visualization_paths = []
 
         # Register visualization artifacts
@@ -1544,35 +1399,3 @@ class PhoneOperation(FieldOperation):
                 )
 
         return visualization_paths
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare required directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary of directory paths
-        """
-        # Create required directories
-        output_dir = task_dir / "output"
-        visualizations_dir = task_dir / "visualizations"
-        dictionaries_dir = task_dir / "dictionaries"
-        cache_dir = task_dir / "cache"
-
-        ensure_directory(output_dir)
-        ensure_directory(visualizations_dir)
-        ensure_directory(dictionaries_dir)
-        ensure_directory(cache_dir)
-
-        return {
-            "output": output_dir,
-            "visualizations": visualizations_dir,
-            "dictionaries": dictionaries_dir,
-            "cache": cache_dir,
-        }

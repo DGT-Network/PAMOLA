@@ -30,8 +30,7 @@ for input/output, progress tracking, and result reporting.
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
-import numpy as np
+from typing import Any, Dict, Optional, Tuple
 import pandas as pd
 from pamola_core.common.enum.relationship_type import RelationshipType
 from pamola_core.transformations.commons.processing_utils import (
@@ -47,14 +46,19 @@ from pamola_core.transformations.commons.merging_utils import (
     generate_record_overlap_vis,
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.schemas.merge_datasets_op_schema import MergeDatasetsOperationConfig
+from pamola_core.transformations.schemas.merge_datasets_op_core_schema import (
+    MergeDatasetsOperationConfig,
+)
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import (
+    OperationResult,
+    OperationStatus,
+)
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_settings_operation
 from pamola_core.common.constants import Constants
 
 
@@ -186,16 +190,18 @@ class MergeDatasetsOperation(TransformationOperation):
             result = OperationResult(status=OperationStatus.PENDING)
 
             # Prepare directories for artifacts
-            directories = self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
-                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+                task_dir=task_dir,
+                logger=self.logger,
+                progress_tracker=progress_tracker,
             )
 
             # Save configuration to task directory
@@ -265,6 +271,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
                 self.logger.info("Checking operation cache...")
                 cache_result = self._check_cache(df=left_df, reporter=reporter)
+
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
 
@@ -402,35 +409,15 @@ class MergeDatasetsOperation(TransformationOperation):
                 # Generate metrics file name (in self.name existed left_key)
                 metrics_file_name = f"{self.left_key}_{self.operation_name}_metrics_{operation_timestamp}"
 
-                # Write metrics to persistent storage/artifact repository
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    file_name=metrics_file_name,
                 )
-
-                # Add simple metrics (int, float, str, bool) to the result object
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register the metrics artifact for tracking and visualization
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"Merging on {self.left_key} ↔ {self.right_key} — datasets transformation metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report the metrics artifact to the reporter if available
-                if reporter:
-                    reporter.add_operation(
-                        f"Merging on {self.left_key} ↔ {self.right_key} — datasets transformation metrics",
-                        details={"type": "json", "path": str(metrics_result.path)},
-                    )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
                 self.logger.warning(error_message)
@@ -447,14 +434,13 @@ class MergeDatasetsOperation(TransformationOperation):
                 )
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         left_df=left_df,
                         right_df=self.right_df,
                         merged_df=processed_df,
@@ -488,15 +474,15 @@ class MergeDatasetsOperation(TransformationOperation):
             # Save output data if required
             if self.save_output:
                 try:
-                    output_result_path = self._save_output_data(
+                    file_name_output = f"{self.left_key}_{self.operation_name}_output_{operation_timestamp}"
+                    self._save_output_data(
                         result_df=processed_df,
-                        task_dir=task_dir,
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
+                        file_name=file_name_output,
                         **kwargs,
                     )
                 except Exception as e:
@@ -512,20 +498,22 @@ class MergeDatasetsOperation(TransformationOperation):
             if self.use_cache:
                 try:
                     self._save_to_cache(
-                        left_df=left_df,
+                        original_data=left_df,
                         transformed_data=processed_df,
-                        metrics=metrics,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            # Cleanup memory
-            self._cleanup_memory(processed_df, left_df, self.right_df)
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=left_df,
+                transformed_data=None,
+            )
 
             # Report completion
             if reporter:
@@ -580,20 +568,36 @@ class MergeDatasetsOperation(TransformationOperation):
         if self.relationship_type == RelationshipType.ONE_TO_ONE.value:
             if not left_unique or not right_unique:
                 raise ValueError(
-                    f"Expected one-to-one relationship, but got left_unique={left_unique}, right_unique={right_unique}."
+                    f"Expected one-to-one relationship, but got "
+                    f"left_unique={left_unique}, right_unique={right_unique}."
                 )
+            self.logger.info("✓ Validated one-to-one relationship")
+
         elif self.relationship_type == RelationshipType.ONE_TO_MANY.value:
-            if not right_unique:
-                raise ValueError(
-                    f"Expected one-to-many relationship, but right key '{self.right_key}' is not unique."
-                )
             if not left_unique:
-                self.logger.warning(
-                    f"[Relationship Warning] Left key '{self.left_key}' is not unique (one-to-many). Possible data duplication."
+                raise ValueError(
+                    f"Expected one-to-many relationship (left key must be unique), "
+                    f"but left key '{self.left_key}' has duplicates."
+                )
+            if not right_unique:
+                # This is EXPECTED for one-to-many - change from warning to info
+                right_count = len(right_df)
+                right_unique_count = right_df[self.right_key].nunique()
+                avg_per_key = right_count / right_unique_count
+                self.logger.info(
+                    f"✓ One-to-many relationship confirmed: "
+                    f"{right_unique_count} unique keys in right dataset, "
+                    f"average {avg_per_key:.1f} records per key"
+                )
+            else:
+                self.logger.info(
+                    "✓ One-to-many relationship (currently one-to-one, "
+                    "may expand in future)"
                 )
         else:
             raise ValueError(
-                f"Unsupported relationship_type: '{self.relationship_type}'. Expected 'one-to-one' or 'one-to-many'."
+                f"Unsupported relationship_type: '{self.relationship_type}'. "
+                f"Expected 'one-to-one' or 'one-to-many'."
             )
 
     def _process_value(self, value: Any, **params) -> Any:
@@ -677,7 +681,7 @@ class MergeDatasetsOperation(TransformationOperation):
         processed_df: pd.DataFrame,
     ) -> dict:
 
-        key_columns = self._get_processed_key_columns(left_df, right_df, processed_df)
+        key_columns = self._get_processed_key_columns(processed_df)
         if not key_columns:
             return {}
 
@@ -740,20 +744,6 @@ class MergeDatasetsOperation(TransformationOperation):
             "join_type": self.join_type,
             "relationship_type": self.relationship_type,
             "suffixes": self.suffixes,
-            "chunk_size": self.chunk_size,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "output_format": self.output_format,
-            "force_recalculation": self.force_recalculation,
-            "generate_visualization": self.generate_visualization,
-            "save_output": self.save_output,
         }
 
         return params
@@ -1121,9 +1111,7 @@ class MergeDatasetsOperation(TransformationOperation):
             )
 
             # 4. Join type distribution (pie chart)
-            key_columns = self._get_processed_key_columns(
-                left_viz, right_viz, merged_viz
-            )
+            key_columns = self._get_processed_key_columns(merged_viz)
             if not key_columns:
                 return {}
 
@@ -1155,164 +1143,6 @@ class MergeDatasetsOperation(TransformationOperation):
 
         return visualization_paths
 
-    def _save_output_data(
-        self,
-        result_df: pd.DataFrame,
-        is_encryption_required: bool,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        timestamp: Optional[str] = None,
-        **kwargs,
-    ) -> str:
-        """
-        Save the processed output data.
-
-        Parameters:
-        -----------
-        result_df : pd.DataFrame
-            The processed dataframe to save
-        is_encryption_required : bool
-            Whether to encrypt the output
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        timestamp : Optional[str]
-            Optional timestamp for the output file
-        **kwargs : dict
-            Additional parameters for the operation
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving output data"})
-
-        custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
-
-        # Generate standardized output filename with timestamp
-        field_name_output = f"{self.left_key}_{self.operation_name}_output_{timestamp}"
-
-        output_result = writer.write_dataframe(
-            df=result_df,
-            name=field_name_output,
-            format=self.output_format,
-            subdir="output",
-            timestamp_in_name=False,
-            encryption_key=self.encryption_key if is_encryption_required else None,
-            **custom_kwargs,
-        )
-
-        # Register output artifact with the result
-        result.add_artifact(
-            artifact_type=self.output_format,
-            path=output_result.path,
-            description=f"{self.name} transformed data",
-            category=Constants.Artifact_Category_Output,
-        )
-
-        # Report to reporter
-        if reporter:
-            reporter.add_artifact(
-                self.output_format,
-                str(output_result.path),
-                f"{self.name} transformed data",
-            )
-
-        return str(output_result.path)
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts following PAMOLA.CORE conventions.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories following PAMOLA.CORE conventions
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["visualizations"] = task_dir / "visualizations"
-        directories["logs"] = task_dir / "logs"
-        directories["cache"] = task_dir / "cache"
-        directories["metrics"] = task_dir / "metrics"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
-
-    def _cleanup_memory(
-        self,
-        processed_df: Optional[pd.DataFrame] = None,
-        left_df: Optional[pd.DataFrame] = None,
-        right_df: Optional[pd.DataFrame] = None,
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        processed_df : pd.DataFrame, optional
-            Processed DataFrame to clear from memory
-        left_df : pd.DataFrame, optional
-            Left DataFrame to clear from memory
-        right_df : pd.DataFrame, optional
-            Right DataFrame to clear from memory
-        """
-        # Clear argument references
-        if processed_df is not None:
-            try:
-                del processed_df
-            except Exception:
-                pass
-
-        if left_df is not None:
-            try:
-                del left_df
-            except Exception:
-                pass
-
-        if right_df is not None:
-            try:
-                del right_df
-            except Exception:
-                pass
-
-        # Clear right DataFrame
-        if hasattr(self, "right_df"):
-            self.right_df = None
-
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Remove any temporary attributes starting with _temp_
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                setattr(self, attr_name, None)
-
-        # Optional: Force garbage collection for large datasets
-        # Uncomment if memory pressure is an issue
-        # import gc
-        # gc.collect()
-
     def _get_dataset(
         self, source: Any, dataset_name_or_path: Optional[str], **kwargs
     ) -> Optional[pd.DataFrame]:
@@ -1342,7 +1172,9 @@ class MergeDatasetsOperation(TransformationOperation):
         settings_operation = load_settings_operation(
             source, dataset_name_or_path, **kwargs
         )
-        return load_data_operation(source, dataset_name_or_path, **settings_operation)
+        return self._validate_and_get_dataframe(
+            source, dataset_name_or_path, **settings_operation
+        )
 
     def _validate_input_params(
         self,
@@ -1393,297 +1225,6 @@ class MergeDatasetsOperation(TransformationOperation):
                 "Either right_dataset_name or right_dataset_path must be provided"
             )
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for this operation.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame to check in the cache
-        reporter : Any
-            Reporter to log cache hits/misses
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-            if self.left_key and self.left_key not in df.columns:
-                self.logger.warning(
-                    f"Field '{self.left_key}' not found in DataFrame columns."
-                )
-                return None
-
-            target_df = df[self.left_key] if self.left_key else df
-            cache_key = self._generate_cache_key(target_df)
-
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-
-            cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
-                return None
-
-            self.logger.info(f"Using cached result for {self.left_key} transformation")
-
-            result = OperationResult(status=OperationStatus.SUCCESS)
-            # Restore cached data
-            self._add_cached_metrics(result, cached_result)
-            artifacts_restored = self._restore_cached_artifacts(
-                result, cached_result, reporter
-            )
-
-            # Add cache metadata
-            result.add_metric("cached", True)
-            result.add_metric("cache_key", cache_key)
-            result.add_metric(
-                "cache_timestamp", cached_result.get("timestamp", "unknown")
-            )
-            result.add_metric("artifacts_restored", artifacts_restored)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Merge datasets transformation of {self.left_key} (cached)",
-                    details={
-                        "left_key": self.left_key,
-                        "cached": True,
-                        "artifacts_restored": artifacts_restored,
-                    },
-                )
-
-            self.logger.info(
-                f"Cache hit successful: restored {artifacts_restored} artifacts"
-            )
-            return result
-
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
-
-    def _add_cached_metrics(self, result: OperationResult, cached: dict):
-        """
-        Add cached scalar metrics (int, float, str, bool) to the OperationResult.
-
-        Parameters
-        ----------
-        result : OperationResult
-            The result object to update.
-        cached : dict
-            Cached result dictionary from cache manager.
-        """
-        for key, value in cached.get("metrics", {}).items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-    def _restore_cached_artifacts(
-        self, result: OperationResult, cached: dict, reporter: Optional[Any]
-    ) -> int:
-        """
-        Restore artifacts (output, metrics, visualizations) from cached result if files exist.
-
-        Parameters
-        ----------
-        result : OperationResult
-            OperationResult object to update with restored artifacts.
-        cached : dict
-            Cached result dictionary from cache manager.
-        reporter : Optional[Any]
-            Optional reporter object for tracking operation-level artifacts.
-
-        Returns
-        -------
-        int
-            Number of artifacts successfully restored.
-        """
-        artifacts_restored = 0
-
-        def restore_file_artifact(
-            path: Union[str, Path], artifact_type: str, desc_suffix: str, category: str
-        ):
-            """
-            Restore a single artifact from a file path if it exists.
-
-            Parameters
-            ----------
-            path : Union[str, Path]
-                Path to the artifact file.
-            artifact_type : str
-                Type of the artifact (e.g., 'json', 'csv', 'png').
-            desc_suffix : str
-                Description suffix (e.g., 'visualization', 'metrics').
-            category : str
-                Artifact category (e.g., output, metrics, visualization).
-            """
-            nonlocal artifacts_restored
-            if not path:
-                return
-
-            artifact_path = Path(path)
-            if artifact_path.exists():
-                result.add_artifact(
-                    artifact_type=artifact_type,
-                    path=artifact_path,
-                    description=f"{self.left_key} {desc_suffix} (cached)",
-                    category=category,
-                )
-                artifacts_restored += 1
-
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.left_key} {desc_suffix} (cached)",
-                        details={
-                            "artifact_type": artifact_type,
-                            "path": str(artifact_path),
-                        },
-                    )
-            else:
-                self.logger.warning(f"Cached file not found: {artifact_path}")
-
-        # Restore main output and metrics artifacts
-        restore_file_artifact(
-            cached.get("output_file"),
-            self.output_format,
-            "transformed data",
-            Constants.Artifact_Category_Output,
-        )
-        restore_file_artifact(
-            cached.get("metrics_file"),
-            "json",
-            "transformation metrics",
-            Constants.Artifact_Category_Metrics,
-        )
-
-        # Restore visualizations
-        for viz_type, path_str in cached.get("visualizations", {}).items():
-            restore_file_artifact(
-                path_str,
-                "png",
-                f"{viz_type} visualization",
-                Constants.Artifact_Category_Visualization,
-            )
-
-        return artifacts_restored
-
-    def _save_to_cache(
-        self,
-        left_df: Union[pd.Series, pd.DataFrame],
-        transformed_data: Union[pd.Series, pd.DataFrame],
-        metrics: Dict[str, Any],
-        visualization_paths: Dict[str, Path],
-        task_dir: Path,
-        metrics_result_path: Optional[str] = "",
-        output_result_path: Optional[str] = "",
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        left_df : pd.Series or pd.DataFrame
-            Original input data
-        transformed_data : pd.Series or pd.DataFrame
-            Transformed output data
-        metrics : Dict[str, Any]
-            Metrics collected during the operation
-        visualization_paths : Dict[str, Path]
-            Paths to generated visualizations
-        task_dir : Path
-            Task directory
-        metrics_result_path : Optional[str]
-            Path to the metrics result file
-            If not provided, a default path will be used.
-        output_result_path : Optional[str]
-            Path to the output result file
-            If not provided, a default path will be used.
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        if metrics is None:
-            metrics = {}
-
-        try:
-            # Generate cache key (same logic as _check_cache)
-            if isinstance(left_df, pd.DataFrame) and self.left_key:
-                if self.left_key in left_df.columns:
-                    cache_key = self._generate_cache_key(left_df[self.left_key])
-                else:
-                    cache_key = self._generate_cache_key(left_df)
-            else:
-                cache_key = self._generate_cache_key(left_df)
-
-            # Prepare metadata for cache
-            operation_params = self._get_basic_parameters()
-            operation_params.update(self._get_cache_parameters())
-
-            # Prepare cache data
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "metrics": {
-                    k: float(v) if isinstance(v, (np.integer, np.floating)) else v
-                    for k, v in metrics.items()
-                },
-                "parameters": operation_params,
-                "data_info": {
-                    "original_length": len(left_df),
-                    "transformed_length": len(transformed_data),
-                    "original_null_count": int(
-                        left_df.isna().sum().sum()
-                        if isinstance(left_df, pd.DataFrame)
-                        else left_df.isna().sum()
-                    ),
-                    "transformed_null_count": int(
-                        transformed_data.isna().sum().sum()
-                        if isinstance(transformed_data, pd.DataFrame)
-                        else transformed_data.isna().sum()
-                    ),
-                },
-                "output_file": output_result_path,  # Path to main output file
-                "metrics_file": metrics_result_path,  # Path to metrics file
-                "visualizations": {
-                    k: str(v) for k, v in visualization_paths.items()
-                },  # Paths to visualizations
-            }
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(
-                    f"Successfully saved {self.name} operation results to cache"
-                )
-            else:
-                self.logger.warning(
-                    f"Failed to save {self.name} operation results to cache"
-                )
-
-            return success
-
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
-
     def _detect_relationship_type_auto(
         self,
         left_df: pd.DataFrame,
@@ -1724,8 +1265,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
         if left_key_is_unique and right_key_is_unique:
             detected_relationship = RelationshipType.ONE_TO_ONE.value
-        elif right_key_is_unique:
-
+        elif left_key_is_unique:
             detected_relationship = RelationshipType.ONE_TO_MANY.value
         else:
             raise ValueError(
@@ -1738,39 +1278,55 @@ class MergeDatasetsOperation(TransformationOperation):
 
     def _get_processed_key_columns(
         self,
-        left_df: pd.DataFrame,
-        right_df: pd.DataFrame,
         processed_df: pd.DataFrame,
     ) -> Optional[Tuple[str, str]]:
         """
-        Determine the key column names in processed_df after merge, considering suffixes.
+        Determine the key column names in processed_df after merge.
+
+        Pandas merge behavior:
+        - If left_key == right_key (same name): single column without suffix
+        - If left_key != right_key: both keys kept with original names
+        - Suffixes only applied to non-key overlapping columns
 
         Returns
         -------
-        (left_key_col, right_key_col) if both exist in processed_df, else None.
-        Logs warning if missing.
+        (left_key_col, right_key_col) if both exist, else None
         """
-        left_key_col = (
-            f"{self.left_key}{self.suffixes[0]}"
-            if self.left_key in right_df.columns
-            else self.left_key
-        )
-        right_key_col = (
-            f"{self.right_key}{self.suffixes[1]}"
-            if self.right_key in left_df.columns
-            else self.right_key
-        )
+        # Case 1: Keys have SAME name → single column, no suffix
+        if self.left_key == self.right_key:
+            key_col = self.left_key
+            if key_col in processed_df.columns:
+                self.logger.debug(
+                    f"Join keys have same name '{key_col}' → single column in result"
+                )
+                return key_col, key_col  # Return same column for both
+            else:
+                self.logger.warning(
+                    f"Expected key column '{key_col}' not found in processed_df. "
+                    f"Available columns: {list(processed_df.columns)}"
+                )
+                return None
+
+        # Case 2: Keys have DIFFERENT names → both kept with original names
+        left_key_col = self.left_key
+        right_key_col = self.right_key
 
         missing_keys = []
         if left_key_col not in processed_df.columns:
-            missing_keys.append(f"processed_df['{left_key_col}']")
+            missing_keys.append(f"'{left_key_col}'")
         if right_key_col not in processed_df.columns:
-            missing_keys.append(f"processed_df['{right_key_col}']")
+            missing_keys.append(f"'{right_key_col}'")
+
         if missing_keys:
             self.logger.warning(
-                f"Cannot find key columns in processed_df: {', '.join(missing_keys)}"
+                f"Cannot find key columns in processed_df: {', '.join(missing_keys)}. "
+                f"Available columns: {list(processed_df.columns)}"
             )
             return None
+
+        self.logger.debug(
+            f"Join keys have different names: left='{left_key_col}', right='{right_key_col}'"
+        )
         return left_key_col, right_key_col
 
     def _update_progress_tracker(

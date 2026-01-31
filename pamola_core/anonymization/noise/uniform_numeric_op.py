@@ -77,7 +77,9 @@ from pamola_core.anonymization.commons.validation import (
 
 # Import framework utilities
 from pamola_core.anonymization.commons.validation_utils import validate_numeric_field
-from pamola_core.anonymization.schemas.uniform_numeric_op_schema import UniformNumericNoiseConfig
+from pamola_core.anonymization.schemas.uniform_numeric_op_core_schema import (
+    UniformNumericNoiseConfig,
+)
 from pamola_core.utils.ops.op_registry import register
 
 # Constants
@@ -184,7 +186,6 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Validate and initialize internal fields
         self.noise_type = noise_type.lower()
@@ -192,14 +193,6 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
 
         self._generator: Optional[SecureRandomGenerator] = None
         self._scale_factor_calculated: Optional[float] = None
-
-        self.process_kwargs.update(
-            {
-                "noise_type": self.noise_type,
-                "_generator": self._generator,
-                "_scale_factor_calculated": self._scale_factor_calculated,
-            }
-        )
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
@@ -261,25 +254,23 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
                     reason=f"must be less than output_max ({output_max})",
                 )
 
-    @staticmethod
-    def _generate_noise(size: int, **kwargs) -> np.ndarray:
+    def _generate_noise(self, size: int) -> np.ndarray:
         """
         Generate uniform noise values.
 
         Args:
             size: Number of noise values to generate
-            **kwargs: Additional parameters (e.g., noise_range, scale_factor)
 
         Returns:
             Array of noise values
         """
-        # Get parameters from kwargs
-        noise_range = kwargs.get("noise_range", [])
-        use_secure_random = kwargs.get("use_secure_random", True)
-        random_seed = kwargs.get("random_seed", None)
-        scale_factor = kwargs.get("scale_factor", 1.0)
-        _generator = kwargs.get("_generator", None)
-        _scale_factor_calculated = kwargs.get("_scale_factor_calculated", 0.0)
+        # Get parameters from self
+        noise_range = getattr(self, "noise_range", [])
+        use_secure_random = getattr(self, "use_secure_random", True)
+        random_seed = getattr(self, "random_seed", None)
+        scale_factor = getattr(self, "scale_factor", 1.0)
+        _generator = getattr(self, "_generator", None)
+        _scale_factor_calculated = getattr(self, "_scale_factor_calculated", 0.0)
 
         if _generator is None:
             _generator = SecureRandomGenerator(
@@ -307,21 +298,19 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
 
         return np.asarray(noise)
 
-    @staticmethod
-    def _calculate_scale_factor(series: pd.Series, **kwargs) -> float:
+    def _calculate_scale_factor(self, series: pd.Series) -> float:
         """
         Calculate noise scale factor based on data statistics.
 
         Args:
             series: Data series to analyze
-            **kwargs: Additional parameters (e.g., scale_by_std, scale_factor)
 
         Returns:
             Calculated scale factor
         """
-        # Get parameters from kwargs
-        scale_by_std = kwargs.get("scale_by_std", False)
-        scale_factor = kwargs.get("scale_factor", 1.0)
+        # Get parameters from self
+        scale_by_std = getattr(self, "scale_by_std", False)
+        scale_factor = getattr(self, "scale_factor", 1.0)
 
         if not scale_by_std:
             return scale_factor
@@ -333,26 +322,23 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         else:
             return scale_factor
 
-    @staticmethod
-    def _apply_noise(values: pd.Series, noise: np.ndarray, **kwargs) -> pd.Series:
+    def _apply_noise(self, values: pd.Series, noise: np.ndarray) -> pd.Series:
         """
         Apply noise to values with constraints.
 
         Args:
             values: Original values
             noise: Noise values to apply
-            **kwargs: Additional parameters (e.g., output_min, output_max,
-                      round_to_integer, preserve_zero)
 
         Returns:
             Series with noise applied
         """
-        # Get parameters from kwargs
-        noise_type = kwargs.get("noise_type", "additive")
-        output_min = kwargs.get("output_min", None)
-        output_max = kwargs.get("output_max", None)
-        preserve_zero = kwargs.get("preserve_zero", False)
-        round_to_integer = kwargs.get("round_to_integer", False)
+        # Get parameters from self
+        noise_type = getattr(self, "noise_type", "additive")
+        output_min = getattr(self, "output_min", None)
+        output_max = getattr(self, "output_max", None)
+        preserve_zero = getattr(self, "preserve_zero", False)
+        round_to_integer = getattr(self, "round_to_integer", False)
 
         if len(values) != len(noise):
             raise ValueError("Length of values and noise must match.")
@@ -384,8 +370,7 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
 
         return result
 
-    @classmethod
-    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data by adding uniform noise.
 
@@ -393,20 +378,18 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         -----------
             batch : pd.DataFrame
                 DataFrame batch to process
-            **kwargs : Any
-                Additional keyword arguments for processing
 
         Returns:
             Processed DataFrame with noise added
         """
-        # Extract parameters from kwargs
-        field_name = kwargs.get("field_name")
-        output_field_name = kwargs.get("output_field_name", f"{field_name}_generalized")
-        _scale_factor_calculated = kwargs.get("_scale_factor_calculated", None)
-        round_to_integer = kwargs.get("round_to_integer", None)
-        scale_by_std = kwargs.get("scale_by_std", False)
-        mode = kwargs.get("mode", "REPLACE")
-        null_strategy = kwargs.get("null_strategy", "PRESERVE")
+        # Extract parameters from self
+        field_name = self.field_name
+        output_field_name = self.output_field_name
+        _scale_factor_calculated = self._scale_factor_calculated
+        round_to_integer = self.round_to_integer
+        scale_by_std = self.scale_by_std
+        mode = self.mode
+        null_strategy = self.null_strategy
 
         result = batch.copy(deep=True)
 
@@ -423,30 +406,30 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
 
         # Auto-detect integer type if not specified
         if round_to_integer is None:
-            kwargs["round_to_integer"] = pd.api.types.is_integer_dtype(values)
+            self.round_to_integer = pd.api.types.is_integer_dtype(values)
 
         # Calculate scale factor if needed (once per operation)
         if scale_by_std and _scale_factor_calculated is None:
-            _scale_factor_calculated = cls._calculate_scale_factor(values, **kwargs)
+            _scale_factor_calculated = self._calculate_scale_factor(values)
 
         # Handle nulls based on strategy
         non_null_mask = values.notna()
         non_null_values = values[non_null_mask]
         if len(non_null_values) > 0:
             # Generate and apply noise
-            noise = cls._generate_noise(len(non_null_values), **kwargs)
-            noisy_values = cls._apply_noise(non_null_values, noise, **kwargs)
+            noise = self._generate_noise(len(non_null_values))
+            noisy_values = self._apply_noise(non_null_values, noise)
 
             # Update result
             if mode == "REPLACE":
                 result.loc[non_null_mask, field_name] = noisy_values
             else:  # ENRICH
-                result[output_field_name] = values.copy()
+                result[output_field_name] = values.copy(deep=True)
                 result.loc[non_null_mask, output_field_name] = noisy_values
         else:
             # No non-null values to process
             if mode == "ENRICH":
-                result[output_field_name] = values.copy()
+                result[output_field_name] = values.copy(deep=True)
 
         return result
 
@@ -548,55 +531,19 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         Returns:
             Dictionary of parameters affecting the operation output
         """
-        params = super()._get_cache_parameters()
-
         # Add noise-specific parameters
-        params.update(
-            {
-                "field_name": self.field_name,
-                "noise_range": self.noise_range,
-                "noise_type": self.noise_type,
-                "output_min": self.output_min,
-                "output_max": self.output_max,
-                "preserve_zero": self.preserve_zero,
-                "round_to_integer": self.round_to_integer,
-                "scale_by_std": self.scale_by_std,
-                "scale_factor": self.scale_factor,
-                "random_seed": self.random_seed if not self.use_secure_random else None,
-                "use_secure_random": self.use_secure_random,
-                "condition_field": self.condition_field,
-                "condition_values": self.condition_values,
-                "condition_operator": self.condition_operator,
-                "multi_conditions": self.multi_conditions,
-                "condition_logic": self.condition_logic,
-                "ka_risk_field": self.ka_risk_field,
-                "risk_threshold": self.risk_threshold,
-                "vulnerable_record_strategy": self.vulnerable_record_strategy,
-                "optimize_memory": self.optimize_memory,
-                "adaptive_chunk_size": self.adaptive_chunk_size,
-                "mode": self.mode,
-                "column_prefix": self.column_prefix,
-                "output_field_name": self.output_field_name,
-                "null_strategy": self.null_strategy,
-                "chunk_size": self.chunk_size,
-                "use_dask": self.use_dask,
-                "npartitions": self.npartitions,
-                "dask_partition_size": self.dask_partition_size,
-                "use_vectorization": self.use_vectorization,
-                "parallel_processes": self.parallel_processes,
-                "use_cache": self.use_cache,
-                "output_format": self.output_format,
-                "visualization_theme": self.visualization_theme,
-                "visualization_backend": self.visualization_backend,
-                "visualization_strict": self.visualization_strict,
-                "visualization_timeout": self.visualization_timeout,
-                "use_encryption": self.use_encryption,
-                "encryption_mode": self.encryption_mode,
-                "encryption_key": self.encryption_key,
-            }
-        )
-
-        return params
+        return {
+            "noise_range": self.noise_range,
+            "noise_type": self.noise_type,
+            "output_min": self.output_min,
+            "output_max": self.output_max,
+            "preserve_zero": self.preserve_zero,
+            "round_to_integer": self.round_to_integer,
+            "scale_by_std": self.scale_by_std,
+            "scale_factor": self.scale_factor,
+            "random_seed": self.random_seed if not self.use_secure_random else None,
+            "use_secure_random": self.use_secure_random,
+        }
 
     def __repr__(self) -> str:
         """String representation of the operation."""

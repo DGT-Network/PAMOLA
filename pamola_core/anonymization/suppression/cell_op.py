@@ -61,8 +61,6 @@ Changelog:
 """
 
 from datetime import datetime
-import hashlib
-import json
 import time
 from collections import OrderedDict
 from pathlib import Path
@@ -85,24 +83,20 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_histogram,
     create_comparison_visualization,
 )
-from pamola_core.anonymization.schemas.cell_op_schema import CellSuppressionConfig
+from pamola_core.anonymization.schemas.cell_op_core_schema import CellSuppressionConfig
 from pamola_core.common.constants import Constants
+from pamola_core.common.helpers.data_helper import DataHelper
+from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.io import (
     load_settings_operation,
-    load_data_operation,
     ensure_directory,
-    write_json,
-    write_dataframe_to_csv,
 )
-from pamola_core.utils.io_helpers import crypto_utils, directory_utils
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_field_utils import create_field_mask
 from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
-    OperationArtifact,
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_registry import register
@@ -245,7 +239,6 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
-        self._original_df = None
 
     def _cache_group_statistics(self, group_val: Any, stats: Dict[str, Any]) -> None:
         """
@@ -372,6 +365,11 @@ class CellSuppressionOperation(AnonymizationOperation):
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
             # Initialize result object
             result = OperationResult(
                 status=OperationStatus.PENDING,
@@ -400,22 +398,57 @@ class CellSuppressionOperation(AnonymizationOperation):
                 f"Operation: {self.operation_name}, Load data and validate input parameters"
             )
 
-            df, is_valid = self._load_data_and_validate_input_parameters(
-                data_source,
-                progress_tracker=progress_tracker,
-                reporter=reporter,
-                **kwargs,
-            )
+            try:
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
+                    )
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+                is_valid = self._validate_input_parameters(df)
+                if not is_valid:
+                    raise ValueError("Missing fields in DataFrame.")
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Store original data for caching
+            original_data = df[self.field_name].copy(deep=True)
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
                 try:
+                    if progress_tracker:
+                        progress_tracker.update(
+                            1,
+                            {
+                                "step": "Load result from cache",
+                                "operation": self.operation_name,
+                            },
+                        )
+
                     self.logger.info(
                         f"Operation: {self.operation_name}, Load result from cache"
                     )
-                    cached_result = self._get_cache(
-                        df.copy(), progress_tracker=progress_tracker, reporter=reporter
-                    )
+
+                    cached_result = self._check_cache(df, reporter)
+
                     if cached_result is not None and isinstance(
                         cached_result, OperationResult
                     ):
@@ -450,15 +483,19 @@ class CellSuppressionOperation(AnonymizationOperation):
             try:
                 # Handle metric
                 self.logger.info(f"Operation: {self.operation_name}, Collect metric")
-                self._handle_metrics(
-                    input_data=df,
-                    output_data=output_data,
-                    mask=mask,
+
+                metrics = self._collect_metrics(df, output_data, mask)
+
+                file_name = f"{self.operation_name}_metrics_{operation_timestamp}"
+
+                self._save_metrics(
+                    metrics=metrics,
+                    writer=writer,
                     result=result,
-                    task_dir=task_dir,
-                    progress_tracker=progress_tracker,
                     reporter=reporter,
+                    progress_tracker=progress_tracker,
                     operation_timestamp=operation_timestamp,
+                    file_name=file_name,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -469,13 +506,14 @@ class CellSuppressionOperation(AnonymizationOperation):
             if self.save_output:
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save output")
-                    self._save_output(
-                        output_data=output_data,
-                        task_dir=task_dir,
+                    self._save_output_data(
+                        result_df=output_data,
+                        writer=writer,
                         result=result,
-                        progress_tracker=progress_tracker,
                         reporter=reporter,
-                        operation_timestamp=operation_timestamp,
+                        progress_tracker=progress_tracker,
+                        timestamp=operation_timestamp,
+                        **kwargs,
                     )
                 except Exception as e:
                     error_message = f"Error saving output: {str(e)}"
@@ -510,15 +548,23 @@ class CellSuppressionOperation(AnonymizationOperation):
             if self.use_cache:
                 try:
                     self.logger.info(f"Operation: {self.operation_name}, Save cache")
-                    self._save_cache(
-                        task_dir,
-                        result,
-                        progress_tracker=progress_tracker,
-                        reporter=reporter,
+                    self._save_to_cache(
+                        original_data=original_data,
+                        anonymized_data=output_data,
+                        result=result,
+                        task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                processed_df=output_data,
+                original_data=original_data,
+                anonymized_data=None,
+            )
 
             # Finalize timing
             self.end_time = time.time()
@@ -594,7 +640,7 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         # Initialize operation cache
         self.operation_cache = OperationCache(
-            cache_dir=task_dir / "cache",
+            cache_dir=dirs["cache"],
         )
 
         # Save configuration to task directory
@@ -708,7 +754,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             # Step 2: Process each chunk
             for start in range(0, total_rows, chunk_size):
                 end = min(start + chunk_size, total_rows)
-                batch = input_data.iloc[start:end].copy()
+                batch = input_data.iloc[start:end].copy(deep=True)
                 batch_mask = global_suppression_mask.iloc[start:end]
 
                 working_field = (
@@ -720,7 +766,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 if self.mode == "ENRICH" and self.output_field_name:
                     batch[self.output_field_name] = batch[self.field_name]
 
-                original = batch[working_field].copy()
+                original = batch[working_field].copy(deep=True)
 
                 batch = apply_suppression_strategy(
                     batch=batch,
@@ -816,7 +862,7 @@ class CellSuppressionOperation(AnonymizationOperation):
                 suppression_counter=suppression_counter,
             )
 
-            input_data = input_data.copy()
+            input_data = input_data.copy(deep=True)
             input_data["_suppression_mask_"] = global_suppression_mask
 
             ddf = dd.from_pandas(input_data, npartitions=self.npartitions or 1)
@@ -926,7 +972,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             total_rows = len(input_data)
             chunk_size = max(1, min(self.chunk_size or total_rows, total_rows))
             chunks = [
-                input_data.iloc[i : i + chunk_size].copy()
+                input_data.iloc[i : i + chunk_size].copy(deep=True)
                 for i in range(0, total_rows, chunk_size)
             ]
 
@@ -1186,236 +1232,6 @@ class CellSuppressionOperation(AnonymizationOperation):
             self.logger.error(f"Error in _collect_metrics: {e}", exc_info=True)
             raise
 
-    def _save_metrics(
-        self, metrics: Dict[str, Any], task_dir: Path, result: OperationResult, operation_timestamp: Optional[str] = None
-    ) -> None:
-        """
-        Save the collected metrics as a JSON file and register it as an artifact.
-
-        Raises:
-            Exception: If saving the metrics file fails.
-        """
-        try:
-            metrics_dir = task_dir / "metrics"
-            ensure_directory(metrics_dir)
-
-            operation_name = self.operation_name.lower()
-            filename = f"{operation_name}_metrics_{operation_timestamp}.json"
-            metrics_path = metrics_dir / filename
-
-            write_json(metrics, metrics_path, encryption_key=self.encryption_key)
-
-            result.add_artifact(
-                artifact_type="json",
-                path=metrics_path,
-                description=f"Metrics for {self.operation_name}",
-                category=Constants.Artifact_Category_Metrics,
-            )
-
-            self.logger.info(f"Structured metrics saved to {metrics_path}")
-
-        except Exception as e:
-            self.logger.error(
-                f"Failed to save metrics file to {metrics_path}: {e}", exc_info=True
-            )
-            raise
-
-    def _handle_metrics(
-        self,
-        input_data: pd.DataFrame,
-        output_data: pd.DataFrame,
-        mask: Optional[pd.Series],
-        result: OperationResult,
-        task_dir: Path,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        operation_timestamp: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Handle the collection and saving of metrics for record suppression.
-
-        Parameters
-        ----------
-        (Same as before)
-
-        Returns
-        -------
-        Optional[Dict[str, Any]]
-        """
-        step = "Collect metrics"
-        try:
-            if progress_tracker:
-                progress_tracker.update(
-                    1, {"step": step, "operation": self.operation_name}
-                )
-
-            metrics = self._collect_metrics(input_data, output_data, mask)
-            result.metrics = metrics
-            self._save_metrics(metrics, task_dir, result, operation_timestamp)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Metrics collected and saved successfully",
-                        "summary": {
-                            "operation_type": metrics.get("operation_type"),
-                            "cells_suppressed": metrics.get("cells_suppressed"),
-                            "suppression_rate": round(
-                                metrics.get("suppression_rate", 0), 2
-                            ),
-                            "non_null_cells_processed": metrics.get(
-                                "non_null_cells_processed"
-                            ),
-                            "total_cells_processed": metrics.get(
-                                "total_cells_processed"
-                            ),
-                            "records_processed": metrics.get("records_processed"),
-                            "duration_seconds": metrics.get("duration_seconds"),
-                            "records_per_second": metrics.get("records_per_second"),
-                        },
-                    },
-                )
-
-            return metrics
-
-        except Exception as e:
-            self.logger.error(
-                f"Failed to handle metrics in {self.operation_name}: {e}", exc_info=True
-            )
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={"step": step, "message": str(e)},
-                )
-            return None
-
-    def _save_output(
-        self,
-        output_data: pd.DataFrame,
-        task_dir: Path,
-        result: OperationResult,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        operation_timestamp: Optional[str] = None,
-    ):
-        """
-        Save the processed output DataFrame to disk and register it as an artifact.
-
-        This method handles saving the data in the configured format (e.g., CSV, JSON),
-        encrypting it if needed, and logging progress and errors. It also reports the
-        result to any registered reporter and adds the output file as an artifact.
-
-        Parameters
-        ----------
-        output_data : pd.DataFrame
-            Processed DataFrame to save.
-        task_dir : Path
-            Path to the task directory.
-        result : OperationResult
-            Operation result object to register output artifacts.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker instance to update progress.
-        reporter : Optional[Any]
-            Reporter object to log progress and status.
-        operation_timestamp : Optional[str]
-            Timestamp string for file naming.
-        """
-        step = "Save output"
-        operation_name = self.operation_name.lower()
-
-        if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
-
-        output_dir = task_dir / "output"
-        ensure_directory(output_dir)
-
-        use_encryption = self.use_encryption
-        encryption_key = self.encryption_key
-        kwargs_encryption = {
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
-            "encryption_mode": self.encryption_mode,
-        }
-        encryption_mode = get_encryption_mode(output_data, **kwargs_encryption)
-        filename = f"{operation_name}_{self.field_name}_output_{operation_timestamp}.{self.output_format}"
-        output_path = output_dir / filename
-
-        try:
-            if self.output_format == "csv":
-                write_dataframe_to_csv(
-                    df=output_data,
-                    file_path=output_path,
-                    encryption_key=encryption_key,
-                    use_encryption=use_encryption,
-                    encryption_mode=encryption_mode,
-                )
-
-            elif self.output_format == "json":
-                if encryption_key:
-                    temp_dir = output_path.parent / "temp"
-                    temp_dir.mkdir(parents=True, exist_ok=True)
-                    temp_path = temp_dir / f"decrypted_{output_path.name}"
-
-                    output_data.to_json(temp_path, orient="records", lines=True)
-                    crypto_utils.encrypt_file(
-                        source_path=temp_path,
-                        destination_path=output_path,
-                        key=encryption_key,
-                        mode=encryption_mode,
-                    )
-                    directory_utils.safe_remove_temp_file(temp_path)
-                else:
-                    output_data.to_json(output_path, orient="records", lines=True)
-
-            else:
-                warning_msg = f"Unsupported output format: {self.output_format}"
-                self.logger.warning(warning_msg)
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="warning",
-                        details={"step": step, "message": warning_msg},
-                    )
-                return
-
-            self.logger.info(f"Saved output: {output_path}")
-            result.add_artifact(
-                artifact_type=self.output_format,
-                path=output_path,
-                description=f"Save output successfully",
-                category=Constants.Artifact_Category_Output,
-            )
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Save output successfully",
-                        "file": str(output_path),
-                    },
-                )
-
-        except Exception as e:
-            error_msg = f"Failed to save processed output to {output_path}: {e}"
-            self.logger.error(error_msg, exc_info=True)
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": step,
-                        "message": "Save output failed",
-                        "error": str(e),
-                    },
-                )
-
     def _generate_visualizations(
         self,
         input_data: pd.DataFrame,
@@ -1646,187 +1462,6 @@ class CellSuppressionOperation(AnonymizationOperation):
                     },
                 )
 
-    def _save_cache(
-        self,
-        task_dir: Path,
-        result: OperationResult,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-    ) -> None:
-        """
-        Save the operation result to cache and update progress or reporter if available.
-
-        Parameters
-        ----------
-        task_dir : Path
-            Root directory for the task.
-        result : OperationResult
-            The result object to be cached.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to update UI or logs.
-        reporter : Optional[Any]
-            Reporter object to log external updates.
-        **kwargs : dict
-            Additional keyword arguments, used to compute the cache key.
-        """
-        step = "Save cache"
-
-        try:
-            result_data = {
-                "status": (
-                    result.status.name
-                    if isinstance(result.status, OperationStatus)
-                    else str(result.status)
-                ),
-                "metrics": result.metrics,
-                "error_message": result.error_message,
-                "execution_time": result.execution_time,
-                "error_trace": result.error_trace,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
-            }
-
-            cache_data = {
-                "result": result_data,
-                "parameters": self._get_cache_parameters(),
-            }
-
-            cache_key = self.operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
-            )
-
-            self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            self.logger.info(f"Saved result to cache with key: {cache_key}")
-
-            if progress_tracker:
-                progress_tracker.update(
-                    1, {"step": step, "operation": self.operation_name}
-                )
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": "Save cache",
-                        "message": "Save cache successfully",
-                    },
-                )
-
-        except Exception as e:
-            self.logger.warning(f"Failed to save cache: {e}", exc_info=True)
-
-    def _get_cache(
-        self,
-        df: pd.DataFrame,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-    ) -> Optional[OperationResult]:
-        """
-        Retrieve cached result if available and valid.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The input DataFrame used to generate the cache key.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to log cache step.
-        reporter : Optional[Any]
-            Operation reporter for logging.
-        **kwargs : dict
-            Additional parameters for cache key generation.
-
-        Returns
-        -------
-        Optional[OperationResult]
-            The cached OperationResult if available, otherwise None.
-        """
-        step = "Load result from cache"
-
-        if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
-
-        try:
-            cache_key = self.operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(),
-                data_hash=self._generate_data_hash(df),
-            )
-
-            cached = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            result_data = cached.get("result")
-            if not isinstance(result_data, dict):
-                raise ValueError("Cached result is not a valid dictionary")
-
-            status_str = result_data.get("status", OperationStatus.ERROR.name)
-            status = (
-                OperationStatus[status_str]
-                if status_str in OperationStatus.__members__
-                else OperationStatus.ERROR
-            )
-
-            artifacts = []
-            for art_dict in result_data.get("artifacts", []):
-                try:
-                    artifacts.append(
-                        OperationArtifact(
-                            artifact_type=art_dict.get("type"),
-                            path=art_dict.get("path"),
-                            description=art_dict.get("description", ""),
-                            category=art_dict.get("category", "output"),
-                            tags=art_dict.get("tags", []),
-                        )
-                    )
-                except Exception as e:
-                    self.logger.warning(f"Failed to deserialize artifact: {e}")
-
-            result = OperationResult(
-                status=status,
-                artifacts=artifacts,
-                metrics=result_data.get("metrics", {}),
-                error_message=result_data.get("error_message"),
-                execution_time=result_data.get("execution_time"),
-                error_trace=result_data.get("error_trace"),
-            )
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Loaded result from cache successfully",
-                    },
-                )
-
-            return result
-
-        except Exception as e:
-            self.logger.info(f"{self.operation_name} - {step} failed: {e}")
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": step,
-                        "message": "Load result from cache failed - proceeding with execution",
-                        "error": str(e),
-                    },
-                )
-
-            return None
-
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get cache-relevant parameters for CellSuppressionOperation to uniquely
@@ -1836,11 +1471,6 @@ class CellSuppressionOperation(AnonymizationOperation):
             Dict[str, Any]: Dictionary of relevant parameters for cache identity.
         """
         return {
-            "operation": self.operation_name,
-            "version": self.version,
-            "field_name": self.field_name,
-            "mode": self.mode,
-            "output_field_name": self.output_field_name,
             "save_suppressed_schema": getattr(self, "save_suppressed_schema", True),
             # Suppression-specific configuration
             "suppression_strategy": self.suppression_strategy,
@@ -1851,98 +1481,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             "outlier_method": self.outlier_method,
             "outlier_threshold": self.outlier_threshold,
             "rare_threshold": self.rare_threshold,
-            # Conditional logic
-            "condition_field": self.condition_field,
-            "condition_values": self.condition_values,
-            "condition_operator": self.condition_operator,
-            "ka_risk_field": getattr(self, "ka_risk_field", None),
-            "risk_threshold": getattr(self, "risk_threshold", 5.0),
-            # Execution and system parameters
-            "optimize_memory": self.optimize_memory,
-            "adaptive_chunk_size": self.adaptive_chunk_size,
-            "generate_visualization": self.generate_visualization,
-            "save_output": self.save_output,
-            "output_format": self.output_format,
-            "use_cache": self.use_cache,
-            "force_recalculation": self.force_recalculation,
-            # Parallelization and performance
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "dask_partition_size": self.dask_partition_size,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "chunk_size": self.chunk_size,
-            # Visualization
-            "visualization_backend": self.visualization_backend,
-            "visualization_theme": self.visualization_theme,
-            "visualization_strict": self.visualization_strict,
-            # Encryption
-            "use_encryption": self.use_encryption,
-            "encryption_key": str(self.encryption_key) if self.encryption_key else None,
-            "encryption_mode": self.encryption_mode,
         }
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash that represents key characteristics of the input DataFrame.
-
-        The hash is based on structure and summary statistics to detect changes
-        for caching purposes.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Input DataFrame to generate a representative hash from.
-
-        Returns
-        -------
-        str
-            A hash string representing the structure and key properties of the data.
-        """
-        try:
-            characteristics = {
-                "columns": list(df.columns),
-                "shape": df.shape,
-                "summary": {},
-            }
-
-            for col in df.columns:
-                col_data = df[col]
-                col_info = {
-                    "dtype": str(col_data.dtype),
-                    "null_count": int(col_data.isna().sum()),
-                    "unique_count": int(col_data.nunique()),
-                }
-
-                if pd.api.types.is_numeric_dtype(col_data):
-                    non_null = col_data.dropna()
-                    if not non_null.empty:
-                        col_info.update(
-                            {
-                                "min": float(non_null.min()),
-                                "max": float(non_null.max()),
-                                "mean": float(non_null.mean()),
-                                "median": float(non_null.median()),
-                                "std": float(non_null.std()),
-                            }
-                        )
-                elif pd.api.types.is_object_dtype(col_data) or isinstance(
-                    col_data.dtype, pd.CategoricalDtype
-                ):
-                    top_values = col_data.value_counts(dropna=True).head(5)
-                    col_info["top_values"] = {
-                        str(k): int(v) for k, v in top_values.items()
-                    }
-
-                characteristics["summary"][col] = col_info
-
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode()).hexdigest()
-
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-            fallback = f"{df.shape}_{list(df.dtypes)}"
-            return hashlib.md5(fallback.encode()).hexdigest()
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """
@@ -2001,80 +1540,6 @@ class CellSuppressionOperation(AnonymizationOperation):
 
         return True
 
-    def _load_data_and_validate_input_parameters(
-        self,
-        data_source: DataSource,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-        reporter: Optional[Any] = None,
-        **kwargs,
-    ) -> Tuple[Optional[pd.DataFrame], bool]:
-        """
-        Load input data and validate the required fields.
-
-        This method handles reporting and progress tracking internally.
-
-        Parameters
-        ----------
-        data_source : DataSource
-            Source of input data.
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Progress tracker to update step status.
-        reporter : Optional[Any]
-            Reporter for audit or status reporting.
-        **kwargs : dict
-            Additional parameters like dataset_name, fields, etc.
-
-        Returns
-        -------
-        Tuple[Optional[pd.DataFrame], bool]
-            Loaded DataFrame (or None), and validation success flag.
-        """
-        step = "Load data and validate input parameters"
-
-        if progress_tracker:
-            progress_tracker.update(1, {"step": step, "operation": self.operation_name})
-
-        dataset_name = kwargs.get("dataset_name", "main")
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-        df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-        if df is None or df.empty:
-            self.logger.error("Error: loaded DataFrame is None or empty")
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": step,
-                        "message": "Data load failed or empty DataFrame",
-                    },
-                )
-            return None, False
-
-        self._original_df = df.copy(deep=True)
-
-        is_valid = self._validate_input_parameters(df)
-
-        if reporter:
-            reporter.add_operation(
-                f"Operation {self.operation_name}",
-                status="info" if is_valid else "warning",
-                details={
-                    "step": step,
-                    "message": (
-                        "Validation succeeded" if is_valid else "Validation failed"
-                    ),
-                    "shape": df.shape if is_valid else None,
-                },
-            )
-
-        df = self._optimize_data(df)
-
-        return df, is_valid
-
     def _compute_total_steps(self) -> int:
 
         steps = 0
@@ -2127,7 +1592,7 @@ def suppression_partition_dask(
     if mode == "ENRICH" and working_field:
         batch[working_field] = batch[field_name]
 
-    original = batch[working_field].copy()
+    original = batch[working_field].copy(deep=True)
 
     result = apply_suppression_strategy(
         batch=batch,
@@ -2164,7 +1629,7 @@ def suppression_partition_joblib(
     if mode == "ENRICH" and working_field:
         batch[working_field] = batch[field_name]
 
-    original = batch[working_field].copy()
+    original = batch[working_field].copy(deep=True)
 
     batch = apply_suppression_strategy(
         batch=batch,
@@ -2330,8 +1795,8 @@ def apply_group_mean(
     Returns:
         Series with suppressed values
     """
-    result_series = df[field_name].copy()
-    result_series = result_series.astype("float64")
+    result_series = df[field_name].copy(deep=True)
+    result_series = DataHelper.safe_numeric_series(result_series)
     group_stats = df.groupby(group_by_field)[field_name].agg(["mean", "count"])
 
     for group_val, row in group_stats.iterrows():
@@ -2378,7 +1843,7 @@ def apply_group_mode(
     Returns:
         Series with updated suppressed values
     """
-    result_series = df[field_name].copy()
+    result_series = df[field_name].copy(deep=True)
     grouped = df.groupby(group_by_field)[field_name]
 
     for group_val, group_series in grouped:

@@ -109,26 +109,42 @@ class PlotlyBoxPlot(PlotlyFigure):
         try:
             # Convert values to numpy array, handling different input types
             if isinstance(values, pd.Series):
-                values_array = values.dropna().values
+                # Convert to numeric first, coerce errors to NaN
+                numeric_values = pd.to_numeric(values, errors='coerce')
+                values_array = numeric_values.dropna().values
             elif isinstance(values, list):
-                values_array = np.array(
-                    [v for v in values if v is not None and not np.isnan(v)]
-                )
+                # Convert list to pandas Series for safer numeric conversion
+                series_values = pd.Series(values)
+                numeric_values = pd.to_numeric(series_values, errors='coerce')
+                values_array = numeric_values.dropna().values
             elif isinstance(values, np.ndarray):
-                values_array = values[~np.isnan(values)]
+                # Try to convert to float, handle non-numeric data
+                try:
+                    # First try direct float conversion
+                    float_array = values.astype(float)
+                    values_array = float_array[~np.isnan(float_array)]
+                except (ValueError, TypeError):
+                    # If direct conversion fails, use pandas
+                    series_values = pd.Series(values)
+                    numeric_values = pd.to_numeric(series_values, errors='coerce')
+                    values_array = numeric_values.dropna().values
             else:
                 raise TypeError(f"Unsupported type for values: {type(values)}")
+
+            # Validate we have numeric data
+            if not np.issubdtype(values_array.dtype, np.number):
+                raise ValueError(f"Column '{column}' could not be converted to numeric type")
+
+            # Handle empty data
+            if len(values_array) == 0:
+                logger.warning(f"Column '{column}' has no valid numeric data points.")
+                raise ValueError(f"No valid data for column '{column}'")
 
             # Handle single data point
             if len(values_array) == 1:
                 logger.warning(
                     f"Column '{column}' has only one data point. Box plot may not display properly."
                 )
-
-            # Handle empty data
-            if len(values_array) == 0:
-                logger.warning(f"Column '{column}' has no valid data points.")
-                values_array = np.array([0])  # Use placeholder
 
             # Prepare base box arguments with explicit type annotation
             box_args: Dict[str, Any] = {
@@ -160,6 +176,7 @@ class PlotlyBoxPlot(PlotlyFigure):
             box_args["width"] = kwargs.get("box_width", 0.5)
 
             return box_args
+            
         except Exception as e:
             logger.error(
                 f"[_prepare_box_trace_args] column={column!r}, "

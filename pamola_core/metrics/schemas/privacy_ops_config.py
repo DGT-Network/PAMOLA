@@ -19,7 +19,8 @@ Changelog:
 """
 
 from pamola_core.common.enum.privacy_metrics_type import PrivacyMetricsType
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+from pamola_core.utils.ops.op_config import OperationConfig
+from pamola_core.utils.ops.schemas.base_op_core_schema import BaseOperationConfig
 
 class PrivacyMetricConfig(OperationConfig):
     """Configuration for PrivacyMetricOperation with BaseOperationConfig merged."""

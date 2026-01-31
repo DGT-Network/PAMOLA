@@ -49,25 +49,26 @@ TODO:
 
 from collections import Counter
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 import time
 from typing import Dict, List, Any, Optional
 from itertools import combinations
-
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 
 from pamola_core.common.constants import Constants
 from pamola_core.common.enum.analysis_mode_enum import AnalysisMode
-from pamola_core.profiling.schemas.anonymity_schema import KAnonymityProfilerOperationConfig
+from pamola_core.profiling.schemas.anonymity_core_schema import (
+    KAnonymityProfilerOperationConfig,
+)
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_base import BaseOperation
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
@@ -80,13 +81,13 @@ from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.io import (
     ensure_directory,
-    load_data_operation,
     load_settings_operation,
     write_json,
     write_dataframe_to_csv,
 )
 from pamola_core.utils.visualization import create_bar_plot, create_spider_chart
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -145,6 +146,12 @@ class KAnonymityProfilerOperation(BaseOperation):
         # Ensure default metadata
         kwargs.setdefault("name", name)
         kwargs.setdefault("description", "K-anonymity profiling and risk assessment")
+
+        # Normalize quasi_identifier_sets if it's a flat list of strings
+        if quasi_identifier_sets and isinstance(quasi_identifier_sets, list):
+            # Check if it's a flat list (all elements are strings)
+            if all(isinstance(item, str) for item in quasi_identifier_sets):
+                quasi_identifier_sets = [quasi_identifier_sets]
 
         # Merge specific config parameters
         config = KAnonymityProfilerOperationConfig(
@@ -205,6 +212,19 @@ class KAnonymityProfilerOperation(BaseOperation):
             Results of the operation
         """
         try:
+            # Prepare directories
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+            enriched_df = None
+
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -240,43 +260,28 @@ class KAnonymityProfilerOperation(BaseOperation):
                     },
                 )
 
-            # Step 2: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(data_source, dataset_name, **kwargs)
-
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if progress_tracker:
-                        progress_tracker.update(total_steps, {"step": "Complete (cached)"})
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Clean invalid values (from cache)", details={"cached": True}
-                        )
-                    return cache_result
-
-            # Step 3: Data Loading
+            # Step 2: Data Loading
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Data Loading"})
 
-            # Get DataFrame
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+            # Validate and get dataframe
+            try:
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Check if field exists
@@ -301,6 +306,32 @@ class KAnonymityProfilerOperation(BaseOperation):
             self.logger.info(
                 f"Analyzing {len(qi_combinations)} quasi-identifier combinations"
             )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df=df)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
 
             # Update progress
             # Step 4: Prepared QI combinations
@@ -389,14 +420,21 @@ class KAnonymityProfilerOperation(BaseOperation):
             if self.use_cache:
                 try:
                     self._save_to_cache(
-                        artifacts=result.artifacts,
                         original_df=df,
-                        metrics=result.metrics,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Clean up memory AFTER all file operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                analyzed_df=enriched_df,
+                instance=self,
+            )
 
             return result
 
@@ -447,7 +485,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             stats = get_field_statistics(df[col])
 
             # Include if categorical or numeric with reasonable cardinality
-            if stats["dtype"] in ["object", "category"] or (
+            if stats["dtype"] in ["object", "category", "string"] or (
                 stats["dtype"] in ["int64", "float64"] and stats["unique_count"] < 100
             ):
                 selected_qis.append(col)
@@ -579,7 +617,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             k_values = self._calculate_k_values(df, qi_fields)
 
             # Add to DataFrame
-            enriched_df = df.copy()
+            enriched_df = df.copy(deep=True)
             enriched_df[output_field] = k_values
 
             # Save enriched data
@@ -589,7 +627,9 @@ class KAnonymityProfilerOperation(BaseOperation):
             output_filename = f"enriched_data_{operation_timestamp}.csv"
             output_path = output_dir / output_filename
 
-            encryption_mode_enriched_df = get_encryption_mode(enriched_df, **kwargs)
+            encryption_mode_enriched_df = get_encryption_mode(
+                enriched_df, self.use_encryption
+            )
             write_dataframe_to_csv(
                 df=enriched_df,
                 file_path=output_path,
@@ -611,6 +651,19 @@ class KAnonymityProfilerOperation(BaseOperation):
             result.add_metric("enrichment_field", output_field)
             result.add_metric("enrichment_min_k", int(k_values.min()))
             result.add_metric("enrichment_max_k", int(k_values.max()))
+
+            # Save output data types
+            helpers.save_dtypes_output(
+                df=enriched_df,
+                result=result,
+                reporter=reporter,
+                operation_name=self.operation_name,
+                task_dir=task_dir,
+                output_filename=output_filename,
+                encryption_key=self.encryption_key,
+                encryption_mode=encryption_mode_enriched_df,
+                task_logger=self.logger,
+            )
 
             # Update progress
             if progress_tracker:
@@ -748,7 +801,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         is_large_df = total_rows > chunk_size
 
         # Step 1: Normalize columns used for grouping
-        df = df.copy()
+        df = df.copy(deep=True)
         for field in fields:
             if field in df.columns:  # Safety check
                 df[field] = df[field].astype("object")
@@ -1050,7 +1103,9 @@ class KAnonymityProfilerOperation(BaseOperation):
             for qi_name, metrics in all_metrics.items()
         }
 
-        encryption_mode_summary_data = get_encryption_mode(summary_data, **kwargs)
+        encryption_mode_summary_data = get_encryption_mode(
+            summary_data, self.use_encryption
+        )
         write_json(
             summary_data,
             str(summary_path),
@@ -1066,7 +1121,9 @@ class KAnonymityProfilerOperation(BaseOperation):
         if vulnerable_records:
             vuln_filename = f"vulnerable_records_{operation_timestamp}.json"
             vuln_path = output_dir / vuln_filename
-            encryption_mode_records = get_encryption_mode(vulnerable_records, **kwargs)
+            encryption_mode_records = get_encryption_mode(
+                vulnerable_records, self.use_encryption
+            )
             write_json(
                 vulnerable_records,
                 str(vuln_path),
@@ -1152,22 +1209,7 @@ class KAnonymityProfilerOperation(BaseOperation):
 
         return visualization_paths
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """Prepare required directories for artifacts."""
-        dirs = {
-            "output": task_dir / "output",
-            "visualizations": task_dir / "visualizations",
-            "dictionaries": task_dir / "dictionaries",
-        }
-
-        for dir_path in dirs.values():
-            ensure_directory(dir_path)
-
-        return dirs
-
-    def _check_cache(
-        self, data_source: DataSource, data_source_name: str = "main", **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -1175,10 +1217,6 @@ class KAnonymityProfilerOperation(BaseOperation):
         -----------
         data_source : DataSource
             Data source for the operation
-        task_dir : Path
-            Task directory
-        data_source_name: str
-            Dataset name
 
         Returns:
         --------
@@ -1189,75 +1227,30 @@ class KAnonymityProfilerOperation(BaseOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
-            # Get DataFrame from data source
-            settings_operation = load_settings_operation(
-                data_source, data_source_name, **kwargs
-            )
-            df = load_data_operation(
-                data_source, data_source_name, **settings_operation
-            )
-            if df is None:
-                self.logger.warning("No valid DataFrame found in data source")
-                return None
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                self.logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        cached_result.add_metric(key, value)
+            return result
 
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        artifact_type = artifact.get("type", "")
-                        artifact_path = artifact.get("path", "")
-                        artifact_name = artifact.get("description", "")
-                        artifact_category = artifact.get("category", "output")
-                        cached_result.add_artifact(
-                            artifact_type,
-                            artifact_path,
-                            artifact_name,
-                            artifact_category,
-                        )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
 
     def _save_to_cache(
         self,
         original_df: pd.DataFrame,
-        artifacts: List[OperationArtifact],
-        metrics: Dict[str, Any],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -1267,10 +1260,8 @@ class KAnonymityProfilerOperation(BaseOperation):
         -----------
         original_df : pd.DataFrame
             Original input data
-        processed_df : pd.DataFrame
-            Processed DataFrame
-        metrics : dict
-            The metrics of operation
+        result : OperationResult
+            The result object to be cached.
         task_dir : Path
             Task directory
 
@@ -1279,31 +1270,23 @@ class KAnonymityProfilerOperation(BaseOperation):
         bool
             True if successfully saved to cache, False otherwise
         """
-        if not self.use_cache or (not artifacts and not metrics):
+        if not self.use_cache:
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
+            operation_parameters = self._get_base_parameters()
 
-            artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "artifacts": artifacts_for_cache,
-                "metrics": metrics,
-            }
+            cache_data = build_base_cache(
+                parameters=operation_parameters, result=result
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,
@@ -1320,36 +1303,7 @@ class KAnonymityProfilerOperation(BaseOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1361,58 +1315,13 @@ class KAnonymityProfilerOperation(BaseOperation):
         # Get basic operation parameters
         parameters = {
             "quasi_identifiers": self.quasi_identifiers,
-            "mode": self.mode,
             "threshold_k": self.threshold_k,
             "max_combinations": self.max_combinations,
             "id_fields": self.id_fields,
             "threshold_k": self.threshold_k,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
         self,

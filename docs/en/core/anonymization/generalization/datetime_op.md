@@ -230,7 +230,6 @@ k_anon_op = DateTimeGeneralizationOperation(
 |-----------|------|---------|-------------|
 | `bin_type` | str | "hour_range", "day_range", "business_period", "seasonal", "custom" | Type of binning |
 | `interval_size` | int | > 0 | Size of intervals |
-| `interval_unit` | str | "hours", "days", "weeks", "months" | Unit for intervals |
 | `custom_bins` | list | datetime strings/objects | Custom bin boundaries |
 
 #### Component Strategy

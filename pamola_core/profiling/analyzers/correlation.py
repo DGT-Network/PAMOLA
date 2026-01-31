@@ -36,13 +36,15 @@ from pamola_core.profiling.commons.correlation_utils import (
     analyze_correlation_matrix,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.correlation_schema import CorrelationOperationConfig
-from pamola_core.profiling.schemas.correlation_matrix_schema import (
+from pamola_core.profiling.schemas.correlation_core_schema import (
+    CorrelationOperationConfig,
+)
+from pamola_core.profiling.schemas.correlation_matrix_core_schema import (
     CorrelationMatrixOperationConfig,
 )
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
-    ensure_directory,
     load_data_operation,
     load_settings_operation,
 )
@@ -54,7 +56,6 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
-    OperationArtifact,
 )
 from pamola_core.utils.visualization import (
     create_scatter_plot,
@@ -64,6 +65,7 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 
 class CorrelationAnalyzer:
@@ -123,7 +125,12 @@ class CorrelationAnalyzer:
         )
 
     @staticmethod
-    def analyze_matrix(df: pd.DataFrame, fields: List[str], **kwargs) -> Dict[str, Any]:
+    def analyze_matrix(
+        df: pd.DataFrame,
+        fields: List[str],
+        logger: Optional[logging.Logger] = None,
+        **kwargs,
+    ) -> Dict[str, Any]:
         """
         Create a correlation matrix for multiple fields.
 
@@ -133,6 +140,8 @@ class CorrelationAnalyzer:
             DataFrame containing the data
         fields : List[str]
             List of field names to include in the correlation matrix
+        logger : Optional[logging.Logger]
+            Logger for logging messages
         **kwargs : dict
             Additional parameters for analysis
 
@@ -141,7 +150,9 @@ class CorrelationAnalyzer:
         Dict[str, Any]
             Dictionary with correlation matrix and supporting information
         """
-        return analyze_correlation_matrix(df=df, fields=fields, **kwargs)
+        return analyze_correlation_matrix(
+            df=df, fields=fields, task_logger=logger, **kwargs
+        )
 
     @staticmethod
     def estimate_resources(
@@ -264,14 +275,15 @@ class CorrelationOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+
             # Set logger if provided in kwargs
             self.logger = kwargs.get("logger", self.logger)
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            # Initialize operation cache
-            self.operation_cache = OperationCache(cache_dir=task_dir / "cache")
 
             # Save configuration
             self.save_config(task_dir)
@@ -290,6 +302,12 @@ class CorrelationOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             visualizations_dir = dirs["visualizations"]
             output_dir = dirs["output"]
 
@@ -305,47 +323,43 @@ class CorrelationOperation(FieldOperation):
                 )
 
             # Load data and validate input parameters
-            self.logger.info(
-                f"Operation: {self.operation_name}, Load data and validate input parameters"
-            )
-            if progress_tracker:
-                progress_tracker.update(
-                    1,
-                    {
-                        "step": "Load data and validate input parameters",
-                        "operation": self.operation_name,
-                    },
+            try:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
+                    )
+
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
                 )
 
-            df, is_valid = self._load_data_and_validate_input_parameters(
-                data_source, **kwargs
-            )
+                self.logger.info(f"Loading data'")
 
-            if is_valid:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters successfully",
-                            "shape": df.shape,
-                        },
-                    )
-            else:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters failed",
-                        },
-                    )
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="Load data and validate input parameters failed",
-                    )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+                is_valid = self._validate_input_parameters(df)
+                if not is_valid:
+                    raise ValueError("Missing fields in DataFrame.")
+
+                self._original_df = df.copy(deep=True)
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
@@ -362,7 +376,7 @@ class CorrelationOperation(FieldOperation):
                     )
 
                 try:
-                    cached_result = self._check_cache(df, reporter)
+                    cached_result = self._check_cache(df)
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -552,9 +566,7 @@ class CorrelationOperation(FieldOperation):
                 try:
                     self._save_to_cache(
                         original_df=df,
-                        artifacts=result.artifacts,
-                        analysis_results=analysis_results,
-                        metrics=result.metrics,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
@@ -586,6 +598,13 @@ class CorrelationOperation(FieldOperation):
                     },
                 )
 
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
+
             return result
 
         except Exception as e:
@@ -605,29 +624,6 @@ class CorrelationOperation(FieldOperation):
             return OperationResult(
                 status=OperationStatus.ERROR, error_message=str(e), exception=e
             )
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare required directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary of directory paths
-        """
-        # Create required directories
-        output_dir = task_dir / "output"
-        visualizations_dir = task_dir / "visualizations"
-
-        ensure_directory(output_dir)
-        ensure_directory(visualizations_dir)
-
-        return {"output": output_dir, "visualizations": visualizations_dir}
 
     def _collect_metrics(self, analysis_results: dict, result: OperationResult) -> None:
         """
@@ -680,7 +676,9 @@ class CorrelationOperation(FieldOperation):
         stats_filename = f"{correlation_name}_{operation_timestamp}.json"
         stats_path = output_dir / stats_filename
 
-        encryption_mode_analysis = get_encryption_mode(analysis_results, **kwargs)
+        encryption_mode_analysis = get_encryption_mode(
+            analysis_results, self.use_encryption
+        )
         write_json(
             analysis_results,
             stats_path,
@@ -1079,9 +1077,7 @@ class CorrelationOperation(FieldOperation):
     def _save_to_cache(
         self,
         original_df: pd.DataFrame,
-        artifacts: List[OperationArtifact],
-        analysis_results: Dict[str, Any],
-        metrics: Dict[str, Any],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -1091,10 +1087,8 @@ class CorrelationOperation(FieldOperation):
         -----------
         original_df : pd.DataFrame
             Original input data
-        artifacts : List[OperationArtifact]
-            List of artifacts to save
-        metrics : dict
-            The metrics of operation
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
 
@@ -1103,7 +1097,7 @@ class CorrelationOperation(FieldOperation):
         bool
             True if successfully saved to cache, False otherwise
         """
-        if not self.use_cache or (not artifacts and not metrics):
+        if not self.use_cache:
             return False
 
         try:
@@ -1111,17 +1105,9 @@ class CorrelationOperation(FieldOperation):
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
-
-            artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "artifacts": artifacts_for_cache,
-                "metrics": metrics,
-                "analysis_results": analysis_results,
-            }
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
@@ -1145,7 +1131,6 @@ class CorrelationOperation(FieldOperation):
     def _check_cache(
         self,
         df: pd.DataFrame,
-        reporter: Any,
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -1154,8 +1139,6 @@ class CorrelationOperation(FieldOperation):
         -----------
         df : pd.DataFrame
             DataFrame for the operation
-        task_dir : Path
-            Task directory
 
         Returns:
         --------
@@ -1171,135 +1154,22 @@ class CorrelationOperation(FieldOperation):
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = self.operation_cache.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                self.logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        cached_result.add_metric(key, value)
-
-                analysis_results = cached_data.get("analysis_results", {})
-
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Collect metric",
-                            "message": "Collect metric successfully",
-                            "method": analysis_results.get("method", "unknown"),
-                            "correlation_coefficient": analysis_results.get(
-                                "correlation_coefficient", 0
-                            ),
-                            "sample_size": analysis_results.get("sample_size", 0),
-                            "p_value": analysis_results.get("p_value"),
-                            "statistically_significant": (
-                                analysis_results.get("p_value") is not None
-                                and analysis_results["p_value"] < 0.05
-                            ),
-                        },
-                    )
-
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        artifact_type = artifact.get("artifact_type", "")
-                        artifact_path = artifact.get("path", "")
-                        artifact_name = artifact.get("description", "")
-                        artifact_category = artifact.get("category", "output")
-                        cached_result.add_artifact(
-                            artifact_type,
-                            artifact_path,
-                            artifact_name,
-                            artifact_category,
-                        )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import json
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
-
-    def _get_operation_parameters(self, **kwargs) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters required for generating a cache key.
 
@@ -1313,22 +1183,11 @@ class CorrelationOperation(FieldOperation):
         """
 
         return {
-            "operation": self.operation_name,
-            "version": self.version,
             "field1": self.field1,
             "field2": self.field2,
             "method": self.method,
-            "description": self.description,
             "null_handling": self.null_handling,
             "mvf_parser": self.mvf_parser,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_mode": self.encryption_mode,
-            "encryption_key": self.encryption_key,
         }
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
@@ -1356,23 +1215,6 @@ class CorrelationOperation(FieldOperation):
 
         # All validations passed
         return True
-
-    def _load_data_and_validate_input_parameters(
-        self, data_source: DataSource, **kwargs
-    ) -> Tuple[Optional[pd.DataFrame], bool]:
-        dataset_name = kwargs.get("dataset_name", "main")
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-        df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-        if df is None or df.empty:
-            self.logger.error("Error data frame is None or empty")
-            return None, False
-
-        self._original_df = df.copy(deep=True)
-
-        return df, self._validate_input_parameters(df)
 
     def _compute_total_steps(self) -> int:
         steps = 0
@@ -1487,14 +1329,17 @@ class CorrelationMatrixOperation(BaseOperation):
             Results of the operation
         """
         try:
+            # Set logger if provided in kwargs
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting operation: {self.operation_name}")
+
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Set up directories
-            output_dir = task_dir / "output"
-            visualizations_dir = task_dir / "visualizations"
-            ensure_directory(output_dir)
-            ensure_directory(visualizations_dir)
+            dirs = self._prepare_directories(task_dir)
+            output_dir = dirs["output"]
+            visualizations_dir = dirs["visualizations"]
 
             # Create the main result object with initial status
             result = OperationResult(status=OperationStatus.SUCCESS)
@@ -1508,16 +1353,38 @@ class CorrelationMatrixOperation(BaseOperation):
                     1, {"step": "Preparation", "fields_count": len(self.fields)}
                 )
 
-            # Get DataFrame from data source
-            dataset_name = kwargs.get("dataset_name", "main")
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+            # Load data and validate input parameters
+            try:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
+                    )
+
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+
+                self.logger.info(f"Loading data'")
+
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Check if fields exist
@@ -1556,6 +1423,7 @@ class CorrelationMatrixOperation(BaseOperation):
                 methods=self.methods,
                 null_handling=self.null_handling,
                 min_threshold=self.min_threshold,
+                logger=self.logger,
             )
 
             # Check for errors
@@ -1589,6 +1457,12 @@ class CorrelationMatrixOperation(BaseOperation):
 
             # Generate visualization if requested
             if self.generate_visualization and "correlation_matrix" in analysis_results:
+                # Visualization parameters
+                kwargs_visualization = {
+                    "use_encryption": self.use_encryption,
+                    "encryption_key": self.encryption_key,
+                }
+
                 # Update progress
                 if progress_tracker:
                     progress_tracker.update(0, {"step": "Generating visualization"})
@@ -1609,7 +1483,7 @@ class CorrelationMatrixOperation(BaseOperation):
                     annotation_format=".2f",
                     mask_diagonal=False,
                     mask_upper=False,
-                    **kwargs,
+                    **kwargs_visualization,
                 )
 
                 # Add visualization to result if successful
@@ -1652,6 +1526,14 @@ class CorrelationMatrixOperation(BaseOperation):
                         "min_threshold": self.min_threshold,
                     },
                 )
+
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                analyzed_df=matrix_df,
+                instance=self,
+            )
 
             return result
 

@@ -26,40 +26,34 @@ Implementation follows the PAMOLA.CORE operation framework with standardized int
 for input/output, progress tracking, and result reporting.
 """
 
-import json
 import time
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
-from typing import Optional, Dict, List, Any, Union, Tuple
+from typing import Optional, Dict, List, Any, Union
 import pandas as pd
-from pamola_core.transformations.commons.enum import OutputFormat
-from pamola_core.transformations.schemas.split_fields_op_schema import SplitFieldsOperationConfig
+from pamola_core.transformations.schemas.split_fields_op_core_schema import (
+    SplitFieldsOperationConfig,
+)
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.utils.io import (
-    load_data_operation,
     ensure_directory,
     load_settings_operation,
     write_json,
-    write_dataframe_to_csv,
 )
-from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
+from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
-    OperationArtifact,
 )
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
 from pamola_core.utils.visualization import create_bar_plot, plot_field_subset_network
-from pamola_core.utils.io_helpers import crypto_utils, directory_utils
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
 import matplotlib
 
 # Set the backend to 'Agg' to avoid GUI issues
 matplotlib.use("Agg")
-import hashlib
 from pamola_core.utils.ops.op_registry import register
 
 
@@ -175,6 +169,18 @@ class SplitFieldsOperation(TransformationOperation):
 
             dirs = self._prepare_directories(task_dir)
 
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir,
+                logger=self.logger,
+                progress_tracker=progress_tracker,
+            )
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             if reporter:
                 reporter.add_operation(
                     f"Operation {self.operation_name}",
@@ -187,47 +193,38 @@ class SplitFieldsOperation(TransformationOperation):
                 )
 
             # Load data and validate input parameters
-            self.logger.info(
-                f"Operation: {self.operation_name}, Load data and validate input parameters"
-            )
-            if progress_tracker:
-                progress_tracker.update(
-                    1,
-                    {
-                        "step": "Load data and validate input parameters",
-                        "operation": self.operation_name,
-                    },
+            try:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
                 )
-
-            df, is_valid = self._load_data_and_validate_input_parameters(
-                data_source, **kwargs
-            )
-
-            if is_valid:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters successfully",
-                            "shape": df.shape,
-                        },
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
                     )
-            else:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters failed",
-                        },
-                    )
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="Load data and validate input parameters failed",
-                    )
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+                is_valid = self._validate_input_parameters(df)
+                if not is_valid:
+                    raise ValueError("Missing fields in DataFrame.")
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
@@ -244,8 +241,8 @@ class SplitFieldsOperation(TransformationOperation):
                     )
 
                 try:
-                    # _get_cache now returns OperationResult or None
-                    cached_result = self._get_cache(df.copy(), **kwargs)
+                    self.logger.info("Checking operation cache...")
+                    cached_result = self._check_cache(df, reporter)
                 except Exception as e:
                     error_message = f"Check cache error: {str(e)}"
                     self.logger.error(error_message)
@@ -290,7 +287,7 @@ class SplitFieldsOperation(TransformationOperation):
                 )
 
             try:
-                transformed_df = self._process_data(df, **kwargs)
+                processed_df = self._process_data(df, **kwargs)
             except Exception as e:
                 error_message = f"Processing error: {str(e)}"
                 self.logger.error(error_message)
@@ -307,7 +304,7 @@ class SplitFieldsOperation(TransformationOperation):
                     details={
                         "step": "Process data",
                         "message": "Process data successfully",
-                        "num_subsets": len(transformed_df),
+                        "num_subsets": len(processed_df),
                     },
                 )
 
@@ -331,10 +328,15 @@ class SplitFieldsOperation(TransformationOperation):
                 )
 
             try:
-                metrics = self._collect_metrics(df, transformed_df)
-                result.metrics = metrics
+                metrics = self._collect_metrics(df, processed_df)
+
                 self._save_metrics(
-                    metrics, task_dir, result, operation_timestamp, **kwargs
+                    metrics=metrics,
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
                 )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
@@ -372,8 +374,14 @@ class SplitFieldsOperation(TransformationOperation):
                     )
 
                 try:
-                    self._save_output(
-                        transformed_df, task_dir, result, operation_timestamp, **kwargs
+                    self._save_multiple_output_data(
+                        result_subsets=processed_df,
+                        writer=writer,
+                        result=result,
+                        reporter=reporter,
+                        progress_tracker=progress_tracker,
+                        timestamp=operation_timestamp,
+                        **kwargs,
                     )
                 except Exception as e:
                     error_message = f"Error saving output data: {str(e)}"
@@ -412,7 +420,7 @@ class SplitFieldsOperation(TransformationOperation):
                 try:
                     self._handle_visualizations(
                         input_data=df,
-                        output_data=transformed_df,
+                        output_data=processed_df,
                         task_dir=task_dir,
                         result=result,
                         operation_timestamp=operation_timestamp,
@@ -439,30 +447,26 @@ class SplitFieldsOperation(TransformationOperation):
                         },
                     )
 
-            # Save cache if required
+            # Cache the result if caching is enabled
             if self.use_cache:
-                self.logger.info(f"Operation: {self.operation_name}, Save cache")
-                if progress_tracker:
-                    progress_tracker.update(
-                        1, {"step": "Save cache", "operation": self.operation_name}
-                    )
-
                 try:
-                    self._save_cache(task_dir, result, **kwargs)
-                except Exception as e:
-                    error_message = f"Failed to cache results: {str(e)}"
-                    self.logger.error(error_message)
-                    # Continue execution - cache failure is not critical
-
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Save cache",
-                            "message": "Save cache successfully",
-                        },
+                    self._save_to_cache(
+                        original_data=self._original_df,
+                        transformed_data=processed_df,
+                        result=result,
+                        task_dir=task_dir,
                     )
+                except Exception as e:
+                    # Failure to cache is non-critical
+                    self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=df,
+                transformed_data=None,
+            )
 
             # Operation completed successfully
             self.logger.info(
@@ -536,7 +540,7 @@ class SplitFieldsOperation(TransformationOperation):
                 selected_columns.insert(0, self.id_field)
 
             # Subset the DataFrame
-            subset_df = df[selected_columns].copy()
+            subset_df = df[selected_columns].copy(deep=True)
             result_subsets[group_name] = subset_df
 
         return result_subsets
@@ -581,50 +585,14 @@ class SplitFieldsOperation(TransformationOperation):
             "processing_date": datetime.now().isoformat(),
         }
 
-    def _save_metrics(
-        self,
-        metrics: Dict[str, Any],
-        task_dir: Path,
-        result: OperationResult,
-        operation_timestamp: str,
-        **kwargs,
-    ) -> Path:
-        """
-        Save the structured metrics dictionary to a JSON file in the task directory.
-        """
-        metrics_dir = task_dir / "metrics"
-        ensure_directory(metrics_dir)
-
-        operation_name = self.operation_name.lower()
-        metrics_filename = f"{operation_name}_metrics_{operation_timestamp}.json"
-        metrics_path = metrics_dir / metrics_filename
-
-        try:
-
-            # Save metrics to file
-            encryption_key = self.encryption_key if self.use_encryption else None
-            write_json(metrics, metrics_path, encryption_key=encryption_key)
-
-            result.add_artifact(
-                artifact_type="json",
-                path=metrics_path,
-                description=f"Metrics for {operation_name} saved at {operation_timestamp}",
-                category=Constants.Artifact_Category_Metrics,
-            )
-
-            self.logger.info(f"Structured metrics saved successfully to {metrics_path}")
-            return metrics_path
-
-        except Exception as e:
-            self.logger.error(f"Error saving structured metrics to {metrics_path}: {e}")
-            raise
-
-    def _save_output(
+    def _save_multiple_output_data(
         self,
         result_subsets: dict[str, pd.DataFrame],
-        task_dir: Path,
+        writer: DataWriter,
         result: OperationResult,
-        operation_timestamp: str,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        timestamp: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -639,57 +607,21 @@ class SplitFieldsOperation(TransformationOperation):
         result : OperationResult
             Result object to append artifact file paths.
         """
-        output_dir = task_dir / "output"
-        ensure_directory(output_dir)
 
         for dataset_name, df in result_subsets.items():
-            filename = (
-                f"{dataset_name}_output_{operation_timestamp}.{self.output_format}"
-            )
-            output_path = output_dir / filename
+            file_name = f"{self.operation_name}_{dataset_name}_output_{timestamp}"
 
             try:
-                encryption_mode = get_encryption_mode(df, **kwargs)
-                if self.output_format == OutputFormat.CSV.value:
-                    write_dataframe_to_csv(
-                        df=df,
-                        file_path=output_path,
-                        encryption_key=self.encryption_key,
-                        use_encryption=self.use_encryption,
-                        encryption_mode=encryption_mode,
-                    )
-                elif self.output_format == OutputFormat.JSON.value:
-                    if self.encryption_key:
-                        file_path = Path(output_path)
-                        temp_dir = file_path.parent / "temp"
-                        temp_dir.mkdir(parents=True, exist_ok=True)
-                        temp_destination_path = temp_dir / f"decrypted_{file_path.name}"
-
-                        df.to_json(temp_destination_path, orient="records", lines=True)
-
-                        crypto_utils.encrypt_file(
-                            source_path=temp_destination_path,
-                            destination_path=output_path,
-                            key=self.encryption_key,
-                            mode=encryption_mode,
-                        )
-                        directory_utils.safe_remove_temp_file(temp_destination_path)
-                    else:
-                        df.to_json(temp_destination_path, orient="records", lines=True)
-                else:
-                    self.logger.warning(
-                        f"Unsupported output format: {self.output_format}"
-                    )
-                    continue
-
-                self.logger.info(f"Saved output: {output_path}")
-                result.add_artifact(
-                    artifact_type=self.output_format,
-                    path=output_path,
-                    description=f"Output for {dataset_name} saved at {operation_timestamp}",
-                    category=Constants.Artifact_Category_Output,
+                output_path = self._save_output_data(
+                    result_df=df,
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    timestamp=timestamp,
+                    file_name=file_name,
+                    **kwargs,
                 )
-
             except Exception as e:
                 self.logger.error(
                     f"Failed to save {dataset_name} to {output_path}: {e}"
@@ -864,122 +796,7 @@ class SplitFieldsOperation(TransformationOperation):
                 f"[VIZ] Error setting up visualization thread: {e}", exc_info=True
             )
 
-    def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
-        """
-        Save the operation result to cache.
-
-        Parameters
-        ----------
-        task_dir : Path
-            Root directory for the task.
-        result : OperationResult
-            The result object to be cached.
-        """
-        try:
-            result_data = {
-                "status": (
-                    result.status.name
-                    if isinstance(result.status, OperationStatus)
-                    else str(result.status)
-                ),
-                "metrics": result.metrics,
-                "error_message": result.error_message,
-                "execution_time": result.execution_time,
-                "error_trace": result.error_trace,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
-            }
-
-            cache_data = {
-                "result": result_data,
-                "parameters": self._get_cache_parameters(**kwargs),
-            }
-
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
-            )
-
-            operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            self.logger.info(f"Saved result to cache with key: {cache_key}")
-        except Exception as e:
-            self.logger.warning(f"Failed to save cache: {e}")
-
-    def _get_cache(self, df: pd.DataFrame, **kwargs) -> Optional[OperationResult]:
-        """
-        Retrieve cached result if available and valid.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The input DataFrame used to generate the cache key.
-
-        Returns
-        -------
-        Optional[OperationResult]
-            The cached OperationResult if available, otherwise None.
-        """
-        try:
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(df),
-            )
-
-            cached = operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            result_data = cached.get("result")
-            if not isinstance(result_data, dict):
-                return None
-
-            # Parse enum safely
-            status_str = result_data.get("status", OperationStatus.ERROR.name)
-            status = (
-                OperationStatus[status_str]
-                if isinstance(status_str, str)
-                and status_str in OperationStatus.__members__
-                else OperationStatus.ERROR
-            )
-
-            # Rebuild artifacts
-            artifacts = []
-            for art_dict in result_data.get("artifacts", []):
-                if isinstance(art_dict, dict):
-                    try:
-                        artifacts.append(
-                            OperationArtifact(
-                                artifact_type=art_dict.get("type"),
-                                path=art_dict.get("path"),
-                                description=art_dict.get("description", ""),
-                                category=art_dict.get("category", "output"),
-                                tags=art_dict.get("tags", []),
-                            )
-                        )
-                    except Exception as e:
-                        self.logger.warning(f"Failed to deserialize artifact: {e}")
-
-            return OperationResult(
-                status=status,
-                artifacts=artifacts,
-                metrics=result_data.get("metrics", {}),
-                error_message=result_data.get("error_message"),
-                execution_time=result_data.get("execution_time"),
-                error_trace=result_data.get("error_trace"),
-            )
-
-        except Exception as e:
-            self.logger.warning(f"Failed to load cache: {e}")
-            return None
-
-    def _get_cache_parameters(self, **kwargs) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters for SplitFieldsOperation using external kwargs.
 
@@ -995,87 +812,10 @@ class SplitFieldsOperation(TransformationOperation):
         """
 
         return {
-            "operation": self.operation_name,
-            "version": self.version,
             "id_field": self.id_field,
             "field_groups": self.field_groups,
             "include_id_field": self.include_id_field,
-            "output_format": self.output_format,
-            "save_output": self.save_output,
-            "use_cache": self.use_cache,
-            "force_recalculation": self.force_recalculation,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "visualization_backend": self.visualization_backend,
-            "visualization_theme": self.visualization_theme,
-            "visualization_strict": self.visualization_strict,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
         }
-
-    def _generate_data_hash(self, data: pd.DataFrame) -> str:
-        """
-        Generate a hash that represents key characteristics of the input DataFrame.
-
-        The hash is based on structure and summary statistics to detect changes
-        for caching purposes.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Input DataFrame to generate a representative hash from.
-
-        Returns
-        -------
-        str
-            A hash string representing the structure and key properties of the data.
-        """
-        try:
-            characteristics = {
-                "columns": list(data.columns),
-                "shape": data.shape,
-                "summary": {},
-            }
-
-            for col in data.columns:
-                col_data = data[col]
-                col_info = {
-                    "dtype": str(col_data.dtype),
-                    "null_count": int(col_data.isna().sum()),
-                    "unique_count": int(col_data.nunique()),
-                }
-
-                if pd.api.types.is_numeric_dtype(col_data):
-                    non_null = col_data.dropna()
-                    if not non_null.empty:
-                        col_info.update(
-                            {
-                                "min": float(non_null.min()),
-                                "max": float(non_null.max()),
-                                "mean": float(non_null.mean()),
-                                "median": float(non_null.median()),
-                                "std": float(non_null.std()),
-                            }
-                        )
-                elif pd.api.types.is_object_dtype(col_data) or isinstance(
-                    col_data.dtype, pd.CategoricalDtype
-                ):
-                    top_values = col_data.value_counts(dropna=True).head(5)
-                    col_info["top_values"] = {
-                        str(k): int(v) for k, v in top_values.items()
-                    }
-
-                characteristics["summary"][col] = col_info
-
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode()).hexdigest()
-
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-            fallback = f"{data.shape}_{list(data.dtypes)}"
-            return hashlib.md5(fallback.encode()).hexdigest()
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """
@@ -1116,24 +856,6 @@ class SplitFieldsOperation(TransformationOperation):
 
         # All validations passed
         return True
-
-    def _load_data_and_validate_input_parameters(
-        self, data_source: DataSource, **kwargs
-    ) -> Tuple[Optional[pd.DataFrame], bool]:
-
-        dataset_name = kwargs.get("dataset_name", "main")
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-        df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-        if df is None or df.empty:
-            self.logger.error("Error data frame is None or empty")
-            return None, False
-
-        self._original_df = df.copy(deep=True)
-
-        return df, self._validate_input_parameters(df)
 
     def _compute_total_steps(self) -> int:
 

@@ -44,12 +44,9 @@ Dependencies:
 """
 
 import time
-import dask.dataframe as dd
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
-from joblib import Parallel, delayed
-import numpy as np
 import pandas as pd
 
 # Import anonymization-specific utilities
@@ -77,15 +74,16 @@ from pamola_core.utils.ops.op_base import FieldOperation
 
 # Import framework utilities
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_data_processing import (
-    force_garbage_collection,
-)
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.helpers import filter_used_kwargs
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.utils.helpers import (
+    build_base_cache,
+    filter_used_kwargs,
+    get_cache_result,
+)
+from pamola_core.utils import helpers
 
 
 class GeneratorOperation(FieldOperation):
@@ -210,11 +208,11 @@ class GeneratorOperation(FieldOperation):
             result = OperationResult(status=OperationStatus.PENDING)
 
             # Prepare directories for artifacts
-            self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Create writer for consistent output handling
@@ -238,7 +236,7 @@ class GeneratorOperation(FieldOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Data Loading & Validation, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data Loading & Validation, 2. Cache check, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -260,7 +258,33 @@ class GeneratorOperation(FieldOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
+            # Step 1: Data Loading & Validation
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", "field": self.field_name}
+                )
+
+            # Validate and get dataframe
+            try:
+
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                self._original_df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
                 try:
                     if main_progress:
@@ -269,11 +293,8 @@ class GeneratorOperation(FieldOperation):
                             current_steps,
                             {"step": "Checking cache", "field": self.field_name},
                         )
-                    # Load data for cache check
-                    self._original_df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
 
+                    # Load data for cache check
                     self.logger.info("Checking operation cache...")
                     cache_result = self._check_cache(self._original_df, reporter)
 
@@ -305,29 +326,6 @@ class GeneratorOperation(FieldOperation):
                         error_message=error_message,
                         exception=e,
                     )
-
-            # Step 2: Data Loading & Validation
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Data Loading", "field": self.field_name}
-                )
-
-            # Validate and get dataframe
-            try:
-                if self._original_df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    self._original_df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -420,43 +418,14 @@ class GeneratorOperation(FieldOperation):
             try:
                 metrics = self._collect_metrics(processed_df)
 
-                # Generate metrics file name (in self.name existed field_name)
-                metrics_file_name = (
-                    f"{self.field_name}_{self.name}_metrics_{operation_timestamp}"
-                )
-
-                # Save metrics using writer
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
                 )
-
-                # Add metrics to result
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register metrics artifact
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"{self.field_name} generator metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report artifact
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} generator metrics",
-                        details={
-                            "artifact_type": "json",
-                            "path": str(metrics_result.path),
-                        },
-                    )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
                 self.logger.warning(error_message)
@@ -495,14 +464,13 @@ class GeneratorOperation(FieldOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         df=processed_df,
                         metrics=metrics,
                         task_dir=task_dir,
@@ -534,18 +502,17 @@ class GeneratorOperation(FieldOperation):
                 )
 
             # Save output data if required
-            output_result_path = None
             if self.save_output:
                 try:
                     safe_kwargs = filter_used_kwargs(kwargs, self._save_output_data)
-                    output_result_path = self._save_output_data(
+                    # Save output data
+                    self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        use_encryption=self.use_encryption,
                         **safe_kwargs,
                     )
                 except Exception as e:
@@ -563,11 +530,8 @@ class GeneratorOperation(FieldOperation):
                     self._save_to_cache(
                         original_data=original_data,
                         generated_data=generated_data,
-                        metrics=metrics,
+                        result=result,
                         task_dir=task_dir,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -667,6 +631,21 @@ class GeneratorOperation(FieldOperation):
             error_message = f"Field {self.field_name} not found in DataFrame"
             self.logger.error(error_message)
             raise ValueError(error_message)
+
+        # Apply data types from data source
+        try:
+            df = data_source.apply_data_types(df, dataset_name)
+        except ValueError as e:
+            error_msg = (
+                f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
+            )
+            self.logger.error(error_msg)
+            raise ValueError(error_msg) from e
+
+        except TypeError as e:
+            error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
+            self.logger.error(error_msg)
+            raise TypeError(error_msg) from e
 
         return df
 
@@ -1336,7 +1315,7 @@ class GeneratorOperation(FieldOperation):
         reporter: Any,
         progress_tracker: Optional[HierarchicalProgressTracker],
         timestamp: Optional[str] = None,
-        use_encryption: Optional[bool] = False,
+        file_name: str = None,
         **kwargs,
     ) -> str:
         """
@@ -1346,8 +1325,6 @@ class GeneratorOperation(FieldOperation):
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
-        use_encryption : bool
-            Whether to encrypt the output
         writer : DataWriter
             The writer to use for saving data
         result : OperationResult
@@ -1358,6 +1335,8 @@ class GeneratorOperation(FieldOperation):
             Optional progress tracker
         timestamp : Optional[str]
             Optional timestamp for the operation
+        file_name : str
+            File name for the name of output file
         **kwargs : dict
             Additional parameters for the operation
         """
@@ -1365,20 +1344,22 @@ class GeneratorOperation(FieldOperation):
             progress_tracker.update(0, {"step": "Saving output data"})
 
         # Generate standardized output filename with timestamp
-        field_name_output = (
+        file_name = file_name or (
             f"{self.field_name}_{self.operation_name}_output_{timestamp}"
         )
 
         # Use the DataWriter to save the DataFrame
         safe_kwargs = filter_used_kwargs(kwargs, writer.write_dataframe)
-        safe_kwargs["encryption_mode"] = get_encryption_mode(result_df, **kwargs)
+        safe_kwargs["encryption_mode"] = get_encryption_mode(
+            result_df, self.use_encryption
+        )
         output_result = writer.write_dataframe(
             df=result_df,
-            name=field_name_output,
+            name=file_name,
             format=self.output_format,
             subdir="output",
             timestamp_in_name=False,
-            encryption_key=self.encryption_key if use_encryption else None,
+            encryption_key=self.encryption_key if self.use_encryption else None,
             overwrite=True,
             **safe_kwargs,
         )
@@ -1387,8 +1368,17 @@ class GeneratorOperation(FieldOperation):
         result.add_artifact(
             artifact_type=self.output_format,
             path=output_result.path,
-            description=f"{self.field_name} generator data",
+            description=f"{self.field_name} {self.operation_name} generator data",
             category=Constants.Artifact_Category_Output,
+        )
+
+        # Save output data types
+        self._save_dtypes_output(
+            df=result_df,
+            writer=writer,
+            reporter=reporter,
+            result=result,
+            file_name=file_name,
         )
 
         # Report to reporter
@@ -1431,17 +1421,8 @@ class GeneratorOperation(FieldOperation):
         if generated_data is not None:
             del generated_data
 
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Force garbage collection
-        force_garbage_collection()
+        # cleanup memory from instance
+        helpers.cleanup_memory(instance=self)
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
@@ -1500,164 +1481,29 @@ class GeneratorOperation(FieldOperation):
                 self.logger.info("No cached result found, proceeding with operation")
                 return None
 
+            result = get_cache_result(cached_result)
+
             self.logger.info(
                 f"Using cached result for {self.field_name} generalization"
             )
 
-            result = OperationResult(status=OperationStatus.SUCCESS)
-            # Restore cached data
-            self._add_cached_metrics(result, cached_result)
-            artifacts_restored = self._restore_cached_artifacts(
-                result, cached_result, reporter
-            )
-
-            # Add cache metadata
-            result.add_metric("cached", True)
-            result.add_metric("cache_key", cache_key)
-            result.add_metric(
-                "cache_timestamp", cached_result.get("timestamp", "unknown")
-            )
-            result.add_metric("artifacts_restored", artifacts_restored)
-
             if reporter:
                 reporter.add_operation(
                     f"Generalization of {self.field_name} (cached)",
-                    details={
-                        "null_strategy": self.null_strategy,
-                        "cached": True,
-                        "artifacts_restored": artifacts_restored,
-                    },
+                    details={"null_strategy": self.null_strategy, "cached": True},
                 )
-
-            self.logger.info(
-                f"Cache hit successful: restored {artifacts_restored} artifacts"
-            )
             return result
 
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
-    def _add_cached_metrics(self, result: OperationResult, cached: dict):
-        """
-        Add cached scalar metrics (int, float, str, bool) to the OperationResult.
-
-        Parameters
-        ----------
-        result : OperationResult
-            The result object to update.
-        cached : dict
-            Cached result dictionary from cache manager.
-        """
-        for key, value in cached.get("metrics", {}).items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-    def _restore_cached_artifacts(
-        self, result: OperationResult, cached: dict, reporter: Optional[Any]
-    ) -> int:
-        """
-        Restore artifacts (output, metrics, visualizations) from cached result if files exist.
-
-        Parameters
-        ----------
-        result : OperationResult
-            OperationResult object to update with restored artifacts.
-        cached : dict
-            Cached result dictionary from cache manager.
-        reporter : Optional[Any]
-            Optional reporter object for tracking operation-level artifacts.
-
-        Returns
-        -------
-        int
-            Number of artifacts successfully restored.
-        """
-        artifacts_restored = 0
-
-        def restore_file_artifact(
-            path: Union[str, Path], artifact_type: str, desc_suffix: str, category: str
-        ):
-            """
-            Restore a single artifact from a file path if it exists.
-
-            Parameters
-            ----------
-            path : Union[str, Path]
-                Path to the artifact file.
-            artifact_type : str
-                Type of the artifact (e.g., 'json', 'csv', 'png').
-            desc_suffix : str
-                Description suffix (e.g., 'visualization', 'metrics').
-            category : str
-                Artifact category (e.g., output, metrics, visualization).
-            """
-            nonlocal artifacts_restored
-            if not path:
-                return
-
-            artifact_path = Path(path)
-            if artifact_path.exists():
-                result.add_artifact(
-                    artifact_type=artifact_type,
-                    path=artifact_path,
-                    description=f"{self.field_name} {desc_suffix} (cached)",
-                    category=category,
-                )
-                artifacts_restored += 1
-
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} {desc_suffix} (cached)",
-                        details={
-                            "artifact_type": artifact_type,
-                            "path": str(artifact_path),
-                        },
-                    )
-            else:
-                self.logger.warning(f"Cached file not found: {artifact_path}")
-
-        # Restore main output and metrics and mapping artifacts
-        restore_file_artifact(
-            cached.get("output_file"),
-            self.output_format,
-            "generalized data",
-            Constants.Artifact_Category_Output,
-        )
-        restore_file_artifact(
-            cached.get("metrics_file"),
-            "json",
-            "generalization metrics",
-            Constants.Artifact_Category_Metrics,
-        )
-        restore_file_artifact(
-            cached.get("mapping_file"),
-            "json",
-            "generalized mapping",
-            Constants.Artifact_Category_Mapping,
-        )
-
-        # Restore visualizations
-        for viz_type, path_str in cached.get("visualizations", {}).items():
-            restore_file_artifact(
-                path_str,
-                "png",
-                f"{viz_type} visualization",
-                Constants.Artifact_Category_Visualization,
-            )
-
-        return artifacts_restored
-
     def _save_to_cache(
         self,
         original_data: pd.Series,
         generated_data: pd.Series,
-        metrics: Dict[str, Any],
+        result: OperationResult,
         task_dir: Path,
-        visualization_paths: Dict[str, Path] = {},
-        metrics_result_path: Optional[str] = None,
-        output_result_path: Optional[str] = None,
-        mapping_result_path: Optional[str] = None,
     ) -> bool:
         """
         Save operation results to cache.
@@ -1668,21 +1514,10 @@ class GeneratorOperation(FieldOperation):
             Original input data
         generated_data : pd.Series
             Generated output data
-        metrics : Dict[str, Any]
-            Metrics collected during the operation
-        visualization_paths : Dict[str, Path]
-            Paths to generated visualizations
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
-        metrics_result_path : Optional[str]
-            Path to the metrics result file
-            If not provided, a default path will be used.
-        output_result_path : Optional[str]
-            Path to the output result file
-            If not provided, a default path will be used.
-        mapping_result_path : Optional[str]
-            Path to the mapping result file
-            If not provided, a default path will be used.
 
         Returns:
         --------
@@ -1696,32 +1531,21 @@ class GeneratorOperation(FieldOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(original_data)
 
-            # Prepare metadata for cache
-            operation_params = self._get_basic_parameters()
-            operation_params.update(self._get_cache_parameters())
-            self.logger.debug(f"Operation parameters for cache: {operation_params}")
-
             # Prepare cache data
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "metrics": {
-                    k: float(v) if isinstance(v, (np.integer, np.floating)) else v
-                    for k, v in metrics.items()
-                },
-                "parameters": operation_params,
-                "data_info": {
-                    "original_length": len(original_data),
-                    "generated_length": len(generated_data),
-                    "original_null_count": int(original_data.isna().sum()),
-                    "generated_null_count": int(generated_data.isna().sum()),
-                },
-                "output_file": output_result_path,  # Path to main output file
-                "metrics_file": metrics_result_path,  # Path to metrics file
-                "mapping_file": mapping_result_path,  # Path to mapping file if applicable
-                "visualizations": {
-                    k: str(v) for k, v in visualization_paths.items()
-                },  # Paths to visualizations
-            }
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+
+            cache_data.update(
+                {
+                    "data_info": {
+                        "original_length": len(original_data),
+                        "generated_length": len(generated_data),
+                        "original_null_count": int(original_data.isna().sum()),
+                        "generated_null_count": int(generated_data.isna().sum()),
+                    }
+                }
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
@@ -1748,101 +1572,151 @@ class GeneratorOperation(FieldOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, data: pd.Series) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        data : pd.Series
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
+    def _get_base_parameters(self) -> Dict[str, str]:
+        """Get the basic parameters for the cache key generation."""
         # Get basic operation parameters
-        parameters = self._get_basic_parameters()
 
-        # Add operation-specific parameters through method that subclasses can override
-        parameters.update(self._get_cache_parameters())
+        parameters = super()._get_base_parameters()
 
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(data)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return self.operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
+        parameters.update(
+            {
+                "field_name": self.field_name,
+                "output_field_name": self.output_field_name,
+                "null_strategy": self.null_strategy,
+            }
         )
 
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the DataFrame.
+        return parameters
 
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Input data for the operation
+    def _save_dtypes_output(
+        self,
+        df: pd.DataFrame,
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        file_name: str = None,
+    ) -> bool:
+        """
+        Saves data types dataframe format to a JSON file.
 
         Returns
         -------
-        str
-            Hash string representing the data
+        Path or None
+            Path to saved file if success, otherwise None
         """
-        import hashlib
-        import json
-
         try:
-            # Generate summary statistics for all columns (numeric and non-numeric)
-            characteristics = df.describe(include="all")
 
-            # Convert to JSON string with consistent formatting (ISO for dates)
-            json_str = characteristics.to_json(date_format="iso")
+            # Get the dtypes of the columns as a Series
+            dtypes_series = df.dtypes
+
+            # Convert the dtypes Series to a dictionary
+            dtypes_dict = dtypes_series.astype(str).to_dict()
+
+            # Generate standardized output filename with timestamp
+            dtypes_filename = f"data_types_{file_name}"
+
+            dtypes_result = writer.write_metrics(
+                metrics=dtypes_dict,
+                name=dtypes_filename,
+                timestamp_in_name=False,
+                encryption_key=self.encryption_key,
+            )
+
+            result.add_metric(dtypes_filename, dtypes_dict)
+
+            result.add_artifact(
+                artifact_type="json",
+                path=dtypes_result.path,
+                description=f"Data types of output {self.field_name} {self.operation_name}",
+                category=Constants.Artifact_Category_Metrics,
+            )
+
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="json",
+                    path=str(dtypes_result.path),
+                    description=f"Data types of output {self.field_name} {self.operation_name}",
+                )
+
+            self.logger.info(f"Dtypes output saved to: {Path(dtypes_result.path).name}")
+            return True
+
         except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
+            self.logger.warning(f"Failed to save dtypes format: {str(e)}")
+            return False
 
-            # Fallback: use length and column data types
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
-
-    def _get_basic_parameters(self) -> Dict[str, str]:
-        """Get the basic parameters for the cache key generation."""
-        return {
-            "mode": self.mode,
-            "operation": self.operation_name,
-            "version": self.version,
-            "field_name": self.field_name,
-            "output_field_name": self.output_field_name,
-            "null_strategy": self.null_strategy,
-            "chunk_size": self.chunk_size,
-            "use_cache": self.use_cache,
-            "force_recalculation": self.force_recalculation,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "visualization_backend": self.visualization_backend,
-            "visualization_theme": self.visualization_theme,
-            "visualization_strict": self.visualization_strict,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
-        }
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
+    def _save_metrics(
+        self,
+        metrics: Dict[str, Any],
+        writer: DataWriter,
+        result: OperationResult,
+        reporter: Any,
+        progress_tracker: Optional[HierarchicalProgressTracker],
+        file_name: str = None,
+        operation_timestamp: Optional[str] = None,
+    ) -> bool:
         """
-        Get operation-specific parameters for cache key generation.
+        Save metrics.
 
-        This method should be overridden by subclasses to provide
-        operation-specific parameters for caching.
+        Parameters:
+        -----------
+        metrics : dict
+            The metrics of operation
+        writer : DataWriter
+            The writer to use for saving data
+        result : OperationResult
+            The operation result to add artifacts to
+        reporter : Any
+            The reporter to log artifacts to
+        progress_tracker : Optional[HierarchicalProgressTracker]
+            Optional progress tracker
+        operation_timestamp : str, optional
+            Timestamp of the operation, if any (for filename purposes)
+        file_name : Str
+            The file name
 
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
+        Returns
+        -------
+        True or False
+
         """
-        # Base implementation returns minimal parameters
-        return {}
+        try:
+            if progress_tracker:
+                progress_tracker.update(0, {"step": "Saving metrics"})
+
+            # Use the DataWriter to save
+            metrics_filename = file_name or (
+                f"{self.field_name}_{self.operation_name}_metrics_{operation_timestamp}"
+            )
+
+            # Save metrics using writer
+            metrics_result = writer.write_metrics(
+                metrics=metrics,
+                name=metrics_filename,
+                timestamp_in_name=False,
+                encryption_key=(self.encryption_key if self.use_encryption else None),
+            )
+
+            # Add metrics to result
+            for key, value in metrics.items():
+                if isinstance(value, (int, float, str, bool)):
+                    result.add_metric(key, value)
+
+            # Register metrics artifact
+            result.add_artifact(
+                artifact_type="json",
+                path=metrics_result.path,
+                description=f"{self.operation_name.lower()} {self.field_name} generator metrics",
+                category=Constants.Artifact_Category_Metrics,
+            )
+
+            # Report artifact
+            if reporter:
+                reporter.add_artifact(
+                    artifact_type="json",
+                    path=str(metrics_result.path),
+                    description=f"{self.operation_name.lower()} {self.field_name} generator metrics",
+                )
+        except Exception as e:
+            self.logger.warning(f"Failed to save metrics: {str(e)}")
+            return False

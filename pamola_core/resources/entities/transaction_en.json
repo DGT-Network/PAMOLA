@@ -1,0 +1,227 @@
+{
+  "categories_hierarchy": {
+    "Finance": {
+      "alias": "finance",
+      "domain": "Finance",
+      "level": 0,
+      "language": ["en"],
+      "children": ["Payment", "Transfer", "Withdrawal", "Deposit", "Refund", "Salary", "Subscription", "Utility", "Investment", "Insurance", "Loan", "Tax", "Fee", "Shopping", "Travel", "Entertainment", "Food", "Healthcare", "Education", "Charity"]
+    },
+    "Payment": {
+      "alias": "payment",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "payment", "pay", "invoice", "purchase", "fee"
+      ]
+    },
+    "Transfer": {
+      "alias": "transfer",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "transfer", "remittance", "wire", "moved", "send"
+      ]
+    },
+    "Withdrawal": {
+      "alias": "withdrawal",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "withdrawal", "cash", "atm", "terminal"
+      ]
+    },
+    "Deposit": {
+      "alias": "deposit",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "deposit", "savings", "investment"
+      ]
+    },
+    "Refund": {
+      "alias": "refund",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "refund", "cashback", "reimbursement", "repayment", "return"
+      ]
+    },
+    "Salary": {
+      "alias": "salary",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "salary", "wage", "payroll", "compensation", "comp"
+      ]
+    },
+    "Subscription": {
+      "alias": "subscription",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "subscription", "recurring", "periodic", "monthly", "annual", "service"
+      ]
+    },
+    "Utility": {
+      "alias": "utility",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "utility", "utilities", "electric", "water", "utility bill", "phone bill", 
+        "internet", "heating"
+      ]
+    },
+    "Investment": {
+      "alias": "investment",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "investment", "stock", "bond", "mutual fund", "dividend", "securities", "portfolio", 
+        "shares", "crypto", "bitcoin", "ethereum", "trading", "broker", "interest"
+      ]
+    },
+    "Insurance": {
+      "alias": "insurance",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "insurance", "policy", "premium", "coverage", "claim", "health insurance", 
+        "life insurance", "car insurance", "property insurance", "liability"
+      ]
+    },
+    "Loan": {
+      "alias": "loan",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "loan", "mortgage", "credit", "debt", "repayment", "interest", "principal", 
+        "borrowing", "financing", "installment", "student loan", "car loan", "consolidation"
+      ]
+    },
+    "Tax": {
+      "alias": "tax",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "tax", "taxes", "income tax", "VAT", "property tax", "tax return", 
+        "tax refund", "taxation", "withholding", "tax payment", "duty"
+      ]
+    },
+    "Fee": {
+      "alias": "fee",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "fee", "service fee", "membership fee", "processing fee", "late fee", 
+        "annual fee", "account fee", "transaction fee", "ATM fee", "penalty"
+      ]
+    },
+    "Shopping": {
+      "alias": "shopping",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "shopping", "purchase", "retail", "online shopping", "store", "supermarket", 
+        "mall", "grocery", "clothes", "electronics", "furniture", "cosmetics", 
+        "department store"
+      ]
+    },
+    "Travel": {
+      "alias": "travel",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "travel", "flight", "airline", "hotel", "booking", "vacation", "accommodation", 
+        "tourism", "ticket", "reservation", "car rental", "cruise", "tour"
+      ]
+    },
+    "Entertainment": {
+      "alias": "entertainment",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "entertainment", "movie", "concert", "theater", "show", "ticket", "amusement", 
+        "streaming", "Netflix", "Spotify", "gaming", "event", "festival", "party"
+      ]
+    },
+    "Food": {
+      "alias": "food",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "food", "restaurant", "cafe", "dining", "takeout", "delivery", "fastfood", 
+        "meal", "grocery", "coffee", "lunch", "dinner", "breakfast", "bar"
+      ]
+    },
+    "Healthcare": {
+      "alias": "healthcare",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "healthcare", "medical", "doctor", "hospital", "clinic", "pharmacy", "medicine", 
+        "dental", "therapy", "specialist", "emergency", "insurance", "treatment", 
+        "examination"
+      ]
+    },
+    "Education": {
+      "alias": "education",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "education", "tuition", "school", "university", "college", "course", "training", 
+        "textbook", "supplies", "student", "class", "lesson", "degree", "certification", 
+        "examination"
+      ]
+    },
+    "Charity": {
+      "alias": "charity",
+      "domain": "Finance",
+      "level": 1,
+      "parent": "Finance",
+      "language": ["en"],
+      "keywords": [
+        "charity", "donation", "nonprofit", "foundation", "fundraiser", "support", 
+        "contribution", "humanitarian", "volunteer", "giving", "community", "aid"
+      ]
+    }
+  }
+}

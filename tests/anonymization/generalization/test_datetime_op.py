@@ -22,7 +22,6 @@ from unittest.mock import Mock, patch, MagicMock
 
 from pamola_core.anonymization.generalization.datetime_op import (
     DateTimeGeneralizationOperation,
-    DateTimeGeneralizationConfig,
     create_datetime_generalization_operation,
     DateTimeParsingError,
     DateTimeGeneralizationError,
@@ -30,6 +29,7 @@ from pamola_core.anonymization.generalization.datetime_op import (
     DateTimeConstants,
 )
 from pamola_core.anonymization.commons.categorical_config import NullStrategy
+from pamola_core.anonymization.schemas.datetime_op_core_schema import DateTimeGeneralizationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.ops.op_config import ConfigError

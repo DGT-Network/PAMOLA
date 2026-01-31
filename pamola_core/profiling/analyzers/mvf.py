@@ -29,13 +29,10 @@ from datetime import datetime
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Any, Optional
 
 import pandas as pd
 
-from pamola_core.anonymization.commons.visualization_utils import (
-    generate_visualization_filename,
-)
 from pamola_core.common.constants import Constants
 from pamola_core.profiling.commons.mvf_utils import (
     aggregate_mvf_analysis,
@@ -51,19 +48,20 @@ from pamola_core.profiling.commons.mvf_utils import (
     estimate_resources,
     process_mvf_partition,
 )
-from pamola_core.profiling.schemas.mvf_schema import MVFAnalysisOperationConfig
+from pamola_core.profiling.schemas.mvf_core_schema import MVFAnalysisOperationConfig
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_cache import OperationCache
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -280,7 +278,7 @@ class MVFAnalyzer:
             return df
 
         # Create a copy of the DataFrame to avoid modifying the original
-        result_df = df.copy()
+        result_df = df.copy(deep=True)
 
         # Create the new column name
         parsed_column = f"parsed_{field_name}"
@@ -507,6 +505,12 @@ class MVFOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+            values_dict = None
+            combinations_dict = None
+
             # Initialize timing and result
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
@@ -515,11 +519,11 @@ class MVFOperation(FieldOperation):
             result = OperationResult(status=OperationStatus.PENDING)
 
             # Prepare directories for artifacts
-            directories = self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Save configuration to task directory
@@ -538,7 +542,7 @@ class MVFOperation(FieldOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Validation, 3. Data loading, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data loading, 2. Validation, 3. Cache check, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -566,46 +570,7 @@ class MVFOperation(FieldOperation):
                 data_source, dataset_name, **kwargs
             )
 
-            # Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                # Step 1: Check if we have a cached result
-                if main_progress:
-                    current_steps += 1
-                    self._update_progress_tracker(
-                        TOTAL_MAIN_STEPS, current_steps, "Checking cache", main_progress
-                    )
-
-                # Load left dataset for check cache
-                df = load_data_operation(
-                    data_source, dataset_name, **settings_operation
-                )
-                if df is None:
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="No valid DataFrame found in data source",
-                    )
-
-                self.logger.info(
-                    f"Field: '{self.field_name}' loaded with {len(df)} records."
-                )
-
-                self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df=df, reporter=reporter)
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if main_progress:
-                        self._update_progress_tracker(
-                            TOTAL_MAIN_STEPS,
-                            current_steps,
-                            "Complete (cached)",
-                            main_progress,
-                        )
-
-                    return cache_result
-
-            # Step 2: Data Loading
+            # Step 1: Data Loading
             if main_progress:
                 current_steps += 1
                 self._update_progress_tracker(
@@ -614,15 +579,10 @@ class MVFOperation(FieldOperation):
 
             try:
                 # Load DataFrame
-                if df is None:
-                    df = load_data_operation(
-                        data_source, dataset_name, **settings_operation
-                    )
-                    if df is None:
-                        return OperationResult(
-                            status=OperationStatus.ERROR,
-                            error_message="No valid DataFrame found in data source",
-                        )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
@@ -632,7 +592,7 @@ class MVFOperation(FieldOperation):
                     exception=e,
                 )
 
-            # Step 3: Validation
+            # Step 2: Validation
             if main_progress:
                 current_steps += 1
                 self._update_progress_tracker(
@@ -656,6 +616,31 @@ class MVFOperation(FieldOperation):
                     "operation_type": "mvf_analysis",
                 },
             )
+
+            # Step 3: Check if we have a cached result
+            # Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if main_progress:
+                    current_steps += 1
+                    self._update_progress_tracker(
+                        TOTAL_MAIN_STEPS, current_steps, "Checking cache", main_progress
+                    )
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df)
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if main_progress:
+                        self._update_progress_tracker(
+                            TOTAL_MAIN_STEPS,
+                            current_steps,
+                            "Complete (cached)",
+                            main_progress,
+                        )
+
+                    return cache_result
 
             # Step 4: Processing progress tracker
             if main_progress:
@@ -818,14 +803,13 @@ class MVFOperation(FieldOperation):
                 )
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         analysis_results=analysis_results,
                         task_dir=task_dir,
                         result=result,
@@ -857,10 +841,9 @@ class MVFOperation(FieldOperation):
             if self.save_output:
                 try:
                     # Save values dictionary
-                    values_str_path = self._save_output_data(
+                    self._save_output_data(
                         df=values_dict,
                         suffix="values_dictionary",
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -870,10 +853,9 @@ class MVFOperation(FieldOperation):
                     )
 
                     # Save combinations dictionary
-                    combinations_str_path = self._save_output_data(
+                    self._save_output_data(
                         df=combinations_dict,
                         suffix="combinations_dictionary",
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -893,18 +875,12 @@ class MVFOperation(FieldOperation):
                 try:
                     self._save_to_cache(
                         original_data=df,
-                        metrics=metrics,
-                        visualization_paths=visualization_paths,
+                        result=result,
                         task_dir=task_dir,
-                        values_str_path=values_str_path,
-                        combinations_str_path=combinations_str_path,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
-
-            # Cleanup memory
-            self._cleanup_memory(df, values_dict, combinations_dict)
 
             # Record end time
             self.end_time = time.time()
@@ -940,6 +916,14 @@ class MVFOperation(FieldOperation):
                 f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
             )
 
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                values_dict=values_dict,
+                combinations_dict=combinations_dict,
+                instance=self,
+            )
+
             # Set success status
             result.status = OperationStatus.SUCCESS
             return result
@@ -952,87 +936,6 @@ class MVFOperation(FieldOperation):
                 status=OperationStatus.ERROR,
                 error_message=f"Error analyzing MVF field {self.field_name}: {str(e)}",
             )
-
-    def _cleanup_memory(
-        self,
-        original_df: Optional[pd.DataFrame] = None,
-        values_dict: Optional[Dict[str, Any]] = None,
-        combinations_dict: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        references and optionally calling garbage collection.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame, optional
-            Original DataFrame to clear from memory
-        values_dict : dict, optional
-            Dictionary containing values to clear from memory
-        combinations_dict : dict, optional
-            Dictionary containing combinations to clear from memory
-        """
-        # Delete references
-        if original_df is not None:
-            del original_df
-        if values_dict is not None:
-            del values_dict
-        if combinations_dict is not None:
-            del combinations_dict
-
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Optional: Force garbage collection for large datasets
-        # Uncomment if memory pressure is an issue
-        # import gc
-        # gc.collect()
-
-    def _generate_cache_key(self, data: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        data : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        # Get basic operation parameters
-        parameters = self._get_basic_parameters()
-
-        # Add operation-specific parameters (could be overridden by subclasses)
-        parameters.update(self._get_cache_parameters())
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(data)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return self.operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_basic_parameters(self) -> Dict[str, str]:
-        """Get the basic parameters for the cache key generation."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "version": self.version,
-        }
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
@@ -1053,64 +956,15 @@ class MVFOperation(FieldOperation):
             "min_frequency": self.min_frequency,
             "format_type": self.format_type,
             "parse_kwargs": self.parse_kwargs,
-            "chunk_size": self.chunk_size,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "force_recalculation": self.force_recalculation,
-            "generate_visualization": self.generate_visualization,
-            "output_format": self.output_format,
         }
 
         return params
 
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the DataFrame.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns
-        -------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-        import json
-
-        try:
-            # Generate summary statistics for all columns (numeric and non-numeric)
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string with consistent formatting (ISO for dates)
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback: use length and column data types
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
-
     def _save_to_cache(
         self,
         original_data: pd.DataFrame,
-        metrics: Dict[str, Any],
-        visualization_paths: Dict[str, Path],
+        result: OperationResult,
         task_dir: Path,
-        values_str_path: Optional[str] = None,
-        combinations_str_path: Optional[str] = None,
     ) -> bool:
         """
         Save operation results to cache.
@@ -1119,14 +973,10 @@ class MVFOperation(FieldOperation):
         -----------
         original_data : pd.DataFrame
             Original input data
-        metrics : Dict[str, Any]
-            Metrics collected during the operation
-        visualization_paths : Dict[str, Path]
-            Paths to generated visualizations
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
-        values_str_path : Optional[str] = None
-        combinations_str_path : Optional[str] = None
 
         Returns:
         --------
@@ -1140,27 +990,19 @@ class MVFOperation(FieldOperation):
             # Generate cache key
             cache_key = self._generate_cache_key(original_data[self.field_name])
 
-            # Prepare metadata for cache
-            operation_params = self._get_basic_parameters()
-            operation_params.update(self._get_cache_parameters())
-
-            self.logger.debug(f"Operation parameters for cache: {operation_params}")
-
             # Prepare cache data
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "metrics": metrics,
-                "parameters": operation_params,
-                "data_info": {
-                    "original_length": len(original_data),
-                    "original_null_count": int(original_data.isna().sum().sum()),
-                },
-                "visualizations": {
-                    k: str(v) for k, v in visualization_paths.items()
-                },  # Paths to visualizations
-                "values_str_path": values_str_path,
-                "combinations_str_path": combinations_str_path,
-            }
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
+
+            cache_data.update(
+                {
+                    "data_info": {
+                        "original_length": len(original_data),
+                        "original_null_count": int(original_data.isna().sum().sum()),
+                    }
+                }
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
@@ -1168,7 +1010,7 @@ class MVFOperation(FieldOperation):
             success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -1187,9 +1029,7 @@ class MVFOperation(FieldOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for this operation.
 
@@ -1197,8 +1037,6 @@ class MVFOperation(FieldOperation):
         ----------
         df : pd.DataFrame
             DataFrame for the operation
-        reporter : Any
-            Reporter object for tracking progress and artifacts
 
         Returns
         -------
@@ -1219,162 +1057,30 @@ class MVFOperation(FieldOperation):
             self.logger.debug(f"Checking cache for key: {cache_key}")
 
             cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+                cache_key=cache_key, operation_type=self.operation_name
+            )
+
+            # Check for cached result
+            self.logger.debug(f"Checking cache for key: {cache_key}")
+            cached_result = self.operation_cache.get_cache(
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
             if not cached_result:
                 self.logger.info("No cached result found, proceeding with operation")
                 return None
 
-            self.logger.info(
-                f"Using cached result for {self.field_name} of {self.name} profiling"
-            )
+            result = get_cache_result(cached_result)
 
-            result = OperationResult(status=OperationStatus.SUCCESS)
-            # Restore cached data
-            self._add_cached_metrics(result, cached_result)
-            artifacts_restored = self._restore_cached_artifacts(
-                result, cached_result, reporter
-            )
-
-            # Add cache metadata
-            result.add_metric("cached", True)
-            result.add_metric("cache_key", cache_key)
-            result.add_metric(
-                "cache_timestamp", cached_result.get("timestamp", "unknown")
-            )
-            result.add_metric("artifacts_restored", artifacts_restored)
-
-            if reporter:
-                reporter.add_operation(
-                    f"{self.name} profiling of {self.field_name} (cached)",
-                    details={
-                        "field_name": self.field_name,
-                        "cached": True,
-                        "artifacts_restored": artifacts_restored,
-                    },
-                )
-
-            self.logger.info(
-                f"Cache hit successful: restored {artifacts_restored} artifacts"
-            )
             return result
-
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
-
-    def _add_cached_metrics(self, result: OperationResult, cached: dict):
-        """
-        Add cached scalar metrics (int, float, str, bool) to the OperationResult.
-
-        Parameters
-        ----------
-        result : OperationResult
-            The result object to update.
-        cached : dict
-            Cached result dictionary from cache manager.
-        """
-        for key, value in cached.get("metrics", {}).items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-    def _restore_cached_artifacts(
-        self, result: OperationResult, cached: dict, reporter: Optional[Any]
-    ) -> int:
-        """
-        Restore artifacts (output, metrics, visualizations) from cached result if files exist.
-
-        Parameters
-        ----------
-        result : OperationResult
-            OperationResult object to update with restored artifacts.
-        cached : dict
-            Cached result dictionary from cache manager.
-        reporter : Optional[Any]
-            Optional reporter object for tracking operation-level artifacts.
-
-        Returns
-        -------
-        int
-            Number of artifacts successfully restored.
-        """
-        artifacts_restored = 0
-
-        def restore_file_artifact(
-            path: Union[str, Path], artifact_type: str, desc_suffix: str, category: str
-        ):
-            """
-            Restore a single artifact from a file path if it exists.
-
-            Parameters
-            ----------
-            path : Union[str, Path]
-                Path to the artifact file.
-            artifact_type : str
-                Type of the artifact (e.g., 'json', 'csv', 'png').
-            desc_suffix : str
-                Description suffix (e.g., 'visualization', 'metrics').
-            category : str
-                Artifact category (e.g., output, metrics, visualization).
-            """
-            nonlocal artifacts_restored
-            if not path:
-                return
-
-            artifact_path = Path(path)
-            if artifact_path.exists():
-                result.add_artifact(
-                    artifact_type=artifact_type,
-                    path=artifact_path,
-                    description=f"{self.field_name} {desc_suffix} (cached)",
-                    category=category,
-                )
-                artifacts_restored += 1
-
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} {desc_suffix} (cached)",
-                        details={
-                            "artifact_type": artifact_type,
-                            "path": str(artifact_path),
-                        },
-                    )
-            else:
-                self.logger.warning(f"Cached file not found: {artifact_path}")
-
-        # Restore main output and metrics artifacts
-        restore_file_artifact(
-            cached.get("values_str_path"),
-            self.output_format,
-            "generalized data",
-            Constants.Artifact_Category_Output,
-        )
-
-        # Restore main output and metrics artifacts
-        restore_file_artifact(
-            cached.get("combinations_str_path"),
-            self.output_format,
-            "generalized data",
-            Constants.Artifact_Category_Output,
-        )
-
-        # Restore visualizations
-        for viz_type, path_str in cached.get("visualizations", {}).items():
-            restore_file_artifact(
-                path_str,
-                "png",
-                f"{viz_type} visualization",
-                Constants.Artifact_Category_Visualization,
-            )
-
-        return artifacts_restored
 
     def _save_output_data(
         self,
         df: pd.DataFrame,
         suffix: str,
-        is_encryption_required: bool,
         writer: DataWriter,
         result: OperationResult,
         reporter: Any,
@@ -1391,8 +1097,6 @@ class MVFOperation(FieldOperation):
             The dataframe to save
         suffix : str
             The suffix to append to the output filename
-        is_encryption_required : bool
-            Whether to encrypt the output
         writer : DataWriter
             The writer to use for saving data
         result : OperationResult
@@ -1415,12 +1119,8 @@ class MVFOperation(FieldOperation):
         custom_kwargs = {k: v for k, v in kwargs.items() if k != "encryption_key"}
 
         # Generate standardized output filename with timestamp
-        filename = generate_visualization_filename(
-            self.field_name,
-            f"{self.name}_{suffix}",
-            "output",
-            timestamp=timestamp,
-        )
+        field_name_clean = self.field_name.replace("/", "_").replace("\\", "_")
+        filename = f"{field_name_clean}_{self.operation_name}_{suffix}_output_{timestamp}"
 
         # Use the DataWriter to save the DataFrame
         output_result = writer.write_dataframe(
@@ -1429,7 +1129,7 @@ class MVFOperation(FieldOperation):
             format=self.output_format,
             subdir="output",
             timestamp_in_name=False,
-            encryption_key=self.encryption_key if is_encryption_required else None,
+            encryption_key=self.encryption_key if self.use_encryption else None,
             **custom_kwargs,
         )
 
@@ -1779,35 +1479,6 @@ class MVFOperation(FieldOperation):
                     "field_name": f"{self.field_name}",
                 },
             )
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts following PAMOLA.CORE conventions.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories following PAMOLA.CORE conventions
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["logs"] = task_dir / "logs"
-        directories["cache"] = task_dir / "cache"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
 
 
 def analyze_mvf_fields(

@@ -26,7 +26,6 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Union, Optional, Any
-import json
 import numpy as np
 import pandas as pd
 from pandas.api.types import (
@@ -37,16 +36,18 @@ from pandas.api.types import (
     is_datetime64_any_dtype,
 )
 
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
+from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.schemas.clean_invalid_values_schema import CleanInvalidValuesOperationConfig
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.transformations.schemas.clean_invalid_values_core_schema import (
+    CleanInvalidValuesOperationConfig,
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -163,7 +164,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
             )
 
             # Prepare directories for artifacts
-            directories = self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
 
             # Save configuration to task directory
             self.save_config(task_dir)
@@ -185,14 +191,37 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 progress_tracker.total = total_steps
                 progress_tracker.update(current_steps, {"step": "Preparation"})
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
+            # Step 1: Data Loading
+            if progress_tracker:
+                current_steps += 1
+                progress_tracker.update(current_steps, {"step": "Data Loading"})
+
+            # Get and validate data
+            try:
+                # Load data
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
                 if progress_tracker:
                     current_steps += 1
                     progress_tracker.update(current_steps, {"step": "Checking Cache"})
 
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(data_source, reporter, **kwargs)
+                cache_result = self._check_cache(df, reporter)
 
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
@@ -210,35 +239,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
                             details={"cached": True},
                         )
                     return cache_result
-
-            # Step 2: Data Loading
-            if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Data Loading"})
-
-            # Get and validate data
-            try:
-                # Load data
-                settings_operation = load_settings_operation(
-                    data_source, dataset_name, **kwargs
-                )
-                df = load_data_operation(
-                    data_source, dataset_name, **settings_operation
-                )
-                if df is None:
-                    error_message = "Failed to load input data"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Validation
             if progress_tracker:
@@ -294,7 +294,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
 
             # Initialize metrics in scope
             metrics = {}
-            metrics_result = DataWriter
             self.end_time = time.time()
             if self.end_time and self.start_time:
                 self.execution_time = self.end_time - self.start_time
@@ -302,9 +301,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
             try:
                 metrics = self._calculate_all_metrics(original_df, processed_df)
 
-                metrics_result = self._save_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    task_dir=task_dir,
                     writer=writer,
                     result=result,
                     reporter=reporter,
@@ -321,7 +319,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Finalization"})
 
-            visualizations = {}
             # Generate visualizations if required
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
@@ -329,7 +326,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualizations = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
                         metrics=metrics,
@@ -349,18 +346,16 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     self.logger.warning(error_message)
                     # Continue execution - visualization failure is not critical
 
-            output_result = DataWriter
             # Save output data if required
             if self.save_output:
                 try:
-                    output_result = self._save_output_data(
-                        processed_df=processed_df,
-                        task_dir=task_dir,
+                    self._save_output_data(
+                        result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=progress_tracker,
-                        operation_timestamp=operation_timestamp,
+                        timestamp=operation_timestamp,
                         **kwargs,
                     )
                 except Exception as e:
@@ -377,11 +372,8 @@ class CleanInvalidValuesOperation(TransformationOperation):
                 try:
                     self._save_to_cache(
                         original_df=original_df,
-                        processed_df=processed_df,
-                        metrics=metrics,
-                        metrics_result=metrics_result,
-                        output_result=output_result,
-                        visualizations=visualizations,
+                        transformed_data=processed_df,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
@@ -412,8 +404,13 @@ class CleanInvalidValuesOperation(TransformationOperation):
                     f"Clean invalid values completed", details=details
                 )
 
-            # Cleanup memory
-            self._cleanup_memory(original_df, processed_df)
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=original_df,
+                transformed_data=None,
+            )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
@@ -744,215 +741,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         raise NotImplementedError("Not implement")
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["cache"] = task_dir / "cache"
-        directories["logs"] = task_dir / "logs"
-        directories["dictionaries"] = task_dir / "dictionaries"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
-
-    def _check_cache(
-        self, data_source: DataSource, reporter: Any, **kwargs
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for operation.
-
-        Parameters:
-        -----------
-        data_source : DataSource
-            Data source for the operation
-        reporter : Any
-            The reporter to log artifacts to
-        task_dir : Path
-            Task directory
-        dataset_name: str
-            Dataset name
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
-            # Get DataFrame from data source
-            # Load data
-            dataset_name = kwargs.get("dataset_name", "main")
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                error_message = "Failed to load input data"
-                self.logger.warning(f"Cannot check cache: {error_message}")
-                return None
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(df)
-
-            # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if cached_data:
-                self.logger.info(f"Using cached result.")
-
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
-
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        if isinstance(value, (int, float, str, bool)):
-                            cached_result.add_metric(key, value)
-
-                # Restore artifacts from cache
-                artifacts_restored = 0
-
-                # Add metrics artifact if exists
-                metrics_result_path = cached_data.get("metrics_result_path")
-                if metrics_result_path:
-                    metrics_path = Path(metrics_result_path)
-                    if metrics_path.exists():
-                        cached_result.add_artifact(
-                            artifact_type="json",
-                            path=metrics_path,
-                            description=f"Generalization metrics (cached)",
-                            category=Constants.Artifact_Category_Metrics,
-                        )
-                        artifacts_restored += 1
-
-                        if reporter:
-                            reporter.add_operation(
-                                f"Generalization metrics (cached)",
-                                details={
-                                    "artifact_type": "json",
-                                    "path": str(metrics_path),
-                                },
-                            )
-
-                # Add output artifact if file exists
-                output_result_path = cached_data.get("output_result_path")
-                if output_result_path:
-                    output_path = Path(output_result_path)
-                    if output_path.exists():
-                        cached_result.add_artifact(
-                            artifact_type=self.output_format,
-                            path=output_path,
-                            description=f"Generalized data (cached)",
-                            category=Constants.Artifact_Category_Output,
-                        )
-                        artifacts_restored += 1
-
-                        # Also report to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Generalized data (cached)",
-                                details={
-                                    "artifact_type": self.output_format,
-                                    "path": str(output_path),
-                                },
-                            )
-                    else:
-                        self.logger.warning(
-                            f"Cached output file not found: {output_path}"
-                        )
-
-                # Add visualization artifacts
-                visualizations = cached_data.get("visualizations", {})
-                for viz_type, viz_path in visualizations.items():
-                    path = Path(viz_path)
-                    if path.exists():
-                        cached_result.add_artifact(
-                            artifact_type="png",
-                            path=path,
-                            description=f"{viz_type} visualization (cached)",
-                            category=Constants.Artifact_Category_Visualization,
-                        )
-                        artifacts_restored += 1
-
-                        if reporter:
-                            reporter.add_operation(
-                                f"{viz_type} visualization (cached)",
-                                details={"artifact_type": "png", "path": str(path)},
-                            )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-                cached_result.add_metric("artifacts_restored", artifacts_restored)
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
-
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -967,54 +756,9 @@ class CleanInvalidValuesOperation(TransformationOperation):
             "whitelist_path": self.whitelist_path,
             "blacklist_path": self.blacklist_path,
             "null_replacement": self.null_replacement,
-            "version": self.version,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _process_dataframe(
         self, df: pd.DataFrame, progress_tracker: Optional[HierarchicalProgressTracker]
@@ -1176,79 +920,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
         )
 
         return metrics
-
-    def _save_metrics(
-        self,
-        metrics: Dict[str, Any],
-        task_dir: Path,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        operation_timestamp: str,
-    ) -> WriterResult:
-        """
-        Save metrics.
-
-        Parameters:
-        -----------
-        metrics : dict
-            The metrics of operation
-        task_dir : Path
-            The task directory
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        operation_timestamp : str
-            Timestamp string for filenames
-
-        Returns:
-        --------
-        WriterResult
-            Result object with path and metadata
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving metrics"})
-
-        # Use the DataWriter to save
-        metrics_filename = (
-            f"{self.operation_name.lower()}_metrics_{operation_timestamp}"
-        )
-
-        metrics_result = writer.write_metrics(
-            metrics=metrics,
-            name=metrics_filename,
-            timestamp_in_name=False,  # Already included in the filename
-            encryption_key=self.encryption_key if self.use_encryption else None,
-        )
-
-        # Add metrics to result
-        for key, value in metrics.items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-        # Register metrics artifact
-        result.add_artifact(
-            artifact_type="json",
-            path=metrics_result.path,
-            description=f"Clean invalid values",
-            category=Constants.Artifact_Category_Metrics,
-        )
-
-        # Report artifact
-        if reporter:
-            reporter.add_artifact(
-                artifact_type="json",
-                path=str(metrics_result.path),
-                description=f"Clean invalid values metrics",
-            )
-
-        return metrics_result
 
     def _handle_visualizations(
         self,
@@ -1753,190 +1424,6 @@ class CleanInvalidValuesOperation(TransformationOperation):
             self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
-
-    def _save_output_data(
-        self,
-        processed_df: pd.DataFrame,
-        task_dir: Path,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        operation_timestamp: str,
-        **kwargs,
-    ) -> WriterResult:
-        """
-        Save the processed output data.
-
-        Parameters:
-        -----------
-        processed_df : pd.DataFrame
-            The processed dataframe to save
-        task_dir : Path
-            The task directory
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        operation_timestamp : str
-            Timestamp string for filenames
-
-        Returns:
-        --------
-        WriterResult
-            Result object with path and metadata
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving output data"})
-
-        # Use the DataWriter to save
-        output_filename = f"{self.operation_name.lower()}_output_{operation_timestamp}"
-
-        encryption_mode = get_encryption_mode(processed_df, **kwargs)
-        output_result = writer.write_dataframe(
-            df=processed_df,
-            name=output_filename,
-            format="csv",
-            subdir="output",
-            timestamp_in_name=False,  # Already included in the filename
-            encryption_key=self.encryption_key if self.use_encryption else None,
-            encryption_mode=encryption_mode,
-        )
-
-        # Register output artifact with the result
-        result.add_artifact(
-            artifact_type="csv",
-            path=output_result.path,
-            description=f"Clean invalid values",
-            category=Constants.Artifact_Category_Output,
-        )
-
-        # Report to reporter
-        if reporter:
-            reporter.add_artifact(
-                artifact_type="csv",
-                path=str(output_result.path),
-                description=f"Clean invalid values",
-            )
-
-        return output_result
-
-    def _save_to_cache(
-        self,
-        original_df: pd.DataFrame,
-        processed_df: pd.DataFrame,
-        metrics: Dict[str, Any],
-        metrics_result: WriterResult,
-        output_result: WriterResult,
-        visualizations: Dict[str, Any],
-        task_dir: Path,
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame
-            Original input data
-        processed_df : pd.DataFrame
-            Processed DataFrame
-        metrics : dict
-            The metrics of operation
-        metrics_result : WriterResult
-            The result of metrics
-        output_result : WriterResult
-            The result of output
-        visualizations : dict
-            The visualizations of operation
-        task_dir : Path
-            Task directory
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(original_df)
-
-            # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "metrics": metrics,
-                "metrics_result_path": str(metrics_result.path),
-                "output_result_path": str(output_result.path),
-                "visualizations": visualizations,
-                "data_info": {
-                    "original_df_length": len(original_df),
-                    "processed_df_length": len(processed_df),
-                },
-            }
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(f"Successfully saved results to cache")
-            else:
-                self.logger.warning(f"Failed to save results to cache")
-
-            return success
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
-
-    def _cleanup_memory(
-        self, original_df: Optional[pd.DataFrame], processed_df: Optional[pd.DataFrame]
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame, optional
-            Original data before processing
-        processed_df : pd.DataFrame, optional
-            Anonymized data after processing
-        """
-        # Clear argument references
-        if original_df is not None:
-            del original_df
-
-        if processed_df is not None:
-            del processed_df
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Force garbage collection
-        import gc
-
-        gc.collect()
 
 
 # Helper function to create the operation easily

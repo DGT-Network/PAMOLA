@@ -25,7 +25,6 @@ Key Features:
 """
 
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 import time
@@ -37,27 +36,31 @@ from pamola_core.profiling.commons.email_utils_dask import (
     create_domain_dictionary,
     estimate_resources,
 )
+from pamola_core.profiling.schemas.email_core_schema import EmailOperationConfig
 from pamola_core.utils.io import (
     write_json,
-    ensure_directory,
     load_data_operation,
     write_dataframe_to_csv,
     load_settings_operation,
 )
 from pamola_core.utils.io_helpers.dask_utils import get_computed_df
-from pamola_core.utils.ops.op_config import BaseOperationConfig, OperationConfig
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.utils.helpers import filter_used_kwargs
+from pamola_core.utils.helpers import (
+    build_base_cache,
+    filter_used_kwargs,
+    get_cache_result,
+)
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -165,33 +168,6 @@ class EmailAnalyzer:
         return estimate_resources(df, field_name)
 
 
-class EmailOperationConfig(OperationConfig):
-    """Configuration for EmailOperation with BaseOperationConfig merged."""
-
-    schema = {
-        "type": "object",
-        "allOf": [
-            BaseOperationConfig.schema,  # merge all common operation fields
-            {
-                "type": "object",
-                "properties": {
-                    # --- Email-specific parameters ---
-                    "field_name": {"type": "string"},
-                    "top_n": {"type": "integer", "minimum": 1, "default": 20},
-                    "min_frequency": {"type": "integer", "minimum": 1, "default": 1},
-                    "profile_type": {
-                        "type": "string",
-                        "enum": ["email"],
-                        "default": "email",
-                    },
-                    "analyze_privacy_risk": {"type": "boolean", "default": True},
-                },
-                "required": ["field_name"],
-            },
-        ],
-    }
-
-
 @register(version="1.0.0")
 class EmailOperation(FieldOperation):
     """
@@ -287,6 +263,10 @@ class EmailOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+
             if kwargs.get("logger"):
                 self.logger = kwargs["logger"]
 
@@ -298,6 +278,12 @@ class EmailOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
@@ -358,7 +344,7 @@ class EmailOperation(FieldOperation):
                     progress_tracker.update(2, {"step": "Checking Cache"})
 
                 logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df, task_dir, reporter, **kwargs)
+                cache_result = self._check_cache(df)
 
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
@@ -430,7 +416,7 @@ class EmailOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
             stats_path = output_dir / stats_filename
 
-            encryption_mode = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode = get_encryption_mode(analysis_results, self.use_encryption)
             write_json(
                 analysis_results,
                 stats_path,
@@ -517,7 +503,9 @@ class EmailOperation(FieldOperation):
                     f"{self.field_name}_domains_dictionary_{operation_timestamp}.json"
                 )
                 json_dict_path = output_dir / json_dict_filename
-                encryption_mode_dict_result = get_encryption_mode(dict_result, **kwargs)
+                encryption_mode_dict_result = get_encryption_mode(
+                    dict_result, self.use_encryption
+                )
                 write_json(
                     dict_result,
                     json_dict_path,
@@ -564,7 +552,7 @@ class EmailOperation(FieldOperation):
                     )
                     privacy_path = output_dir / privacy_filename
                     encryption_mode_privacy_risk = get_encryption_mode(
-                        privacy_risk, **kwargs
+                        privacy_risk, self.use_encryption
                     )
                     write_json(
                         privacy_risk,
@@ -620,14 +608,20 @@ class EmailOperation(FieldOperation):
             if self.use_cache:
                 try:
                     self._save_to_cache(
-                        artifacts=result.artifacts,
                         original_df=df,
-                        metrics=result.metrics,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
 
             return result
 
@@ -652,35 +646,6 @@ class EmailOperation(FieldOperation):
                 error_message=f"Error analyzing email field {self.field_name}: {str(e)}",
                 exception=e,
             )
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare required directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary of directory paths
-        """
-        # Create required directories
-        output_dir = task_dir / "output"
-        visualizations_dir = task_dir / "visualizations"
-        dictionaries_dir = task_dir / "dictionaries"
-
-        ensure_directory(output_dir)
-        ensure_directory(visualizations_dir)
-        ensure_directory(dictionaries_dir)
-
-        return {
-            "output": output_dir,
-            "visualizations": visualizations_dir,
-            "dictionaries": dictionaries_dir,
-        }
 
     def _assess_privacy_risk(
         self, df: Union[dd.DataFrame, pd.DataFrame], field_name: str
@@ -849,11 +814,7 @@ class EmailOperation(FieldOperation):
                 )
 
     def _check_cache(
-        self,
-        df: Union[pd.DataFrame, dd.DataFrame],
-        task_dir: Path,
-        reporter: Any,
-        **kwargs,
+        self, df: Union[pd.DataFrame, dd.DataFrame]
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -862,10 +823,6 @@ class EmailOperation(FieldOperation):
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
-        task_dir : Path
-            Task directory
-        reporter : Any
-            The reporter to log artifacts to
 
         Returns:
         --------
@@ -876,58 +833,22 @@ class EmailOperation(FieldOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import OperationCache
-
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache_dir.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+            cached_result = self.operation_cache.get_cache(
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                self.logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        cached_result.add_metric(key, value)
-
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        artifact_type = artifact.get("artifact_type", "")
-                        artifact_path = artifact.get("path", "")
-                        artifact_name = artifact.get("description", "")
-                        artifact_category = artifact.get("category", "output")
-                        cached_result.add_artifact(
-                            artifact_type,
-                            artifact_path,
-                            artifact_name,
-                            artifact_category,
-                        )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
@@ -935,8 +856,7 @@ class EmailOperation(FieldOperation):
     def _save_to_cache(
         self,
         original_df: Union[pd.DataFrame, dd.DataFrame],
-        artifacts: List[OperationArtifact],
-        metrics: Dict[str, Any],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -946,10 +866,8 @@ class EmailOperation(FieldOperation):
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             Original input data
-        artifacts : List[OperationArtifact]
-            Operation Artifact
-        metrics : dict
-            The metrics of operation
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
 
@@ -958,37 +876,24 @@ class EmailOperation(FieldOperation):
         bool
             True if successfully saved to cache, False otherwise
         """
-        if not self.use_cache or (not artifacts and not metrics):
+        if not self.use_cache:
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            # Generate operation cache
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
-
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
-            # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
-
-            artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "artifacts": artifacts_for_cache,
-                "metrics": metrics,
-            }
+            # Prepare cache data
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache_dir.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -1002,36 +907,7 @@ class EmailOperation(FieldOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -1046,54 +922,9 @@ class EmailOperation(FieldOperation):
             "min_frequency": self.min_frequency,
             "profile_type": self.profile_type,
             "analyze_privacy_risk": self.analyze_privacy_risk,
-            "encryption_key": self.encryption_key,
-            "use_encryption": self.use_encryption,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "chunk_size": self.chunk_size,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_mode": self.encryption_mode,
-            "encryption_key": self.encryption_key,
         }
 
         return parameters
-
-    def _generate_data_hash(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
         self,

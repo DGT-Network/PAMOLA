@@ -818,8 +818,6 @@ def test_execute_cache_hit(tmp_path):
     # Covers lines 406, 407, 414, 417, 418, 425 (cache hit logic)
     op = AggregateRecordsOperation(group_by_fields=['A'], aggregations={'B': ['sum']}, use_cache=True, custom_aggregations={})
     op.operation_cache = MagicMock()
-    op._add_cached_metrics = MagicMock()
-    op._restore_cached_artifacts = MagicMock(return_value=1)
     op._generate_cache_key = MagicMock(return_value='key')
     op.logger = MagicMock()
     cached_result = {'timestamp': 'now'}

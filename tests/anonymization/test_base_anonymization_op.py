@@ -1307,59 +1307,5 @@ class TestAnonymizationOperation(unittest.TestCase):
             self.assertIsInstance(hash_result, str)
             self.assertEqual(len(hash_result), 32)
 
-    def test_add_cached_metrics(self):
-        """Test _add_cached_metrics method"""
-        op = AnonymizationOperation(field_name="name")
-        result = OperationResult(status=OperationStatus.SUCCESS)
-        
-        cached_data = {
-            "metrics": {
-                "int_metric": 42,
-                "float_metric": 3.14,
-                "str_metric": "test",
-                "bool_metric": True,
-                "complex_metric": {"nested": "value"}  # Should be ignored
-            }
-        }
-        
-        op._add_cached_metrics(result, cached_data)
-        
-        # Check that scalar metrics were added
-        self.assertEqual(result.metrics["int_metric"], 42)
-        self.assertEqual(result.metrics["float_metric"], 3.14)
-        self.assertEqual(result.metrics["str_metric"], "test")
-        self.assertEqual(result.metrics["bool_metric"], True)
-        
-        # Complex metric should not be added
-        self.assertNotIn("complex_metric", result.metrics)
-
-    def test_restore_cached_artifacts(self):
-        """Test _restore_cached_artifacts method"""
-        op = AnonymizationOperation(field_name="name")
-        result = OperationResult(status=OperationStatus.SUCCESS)
-        
-        # Create test files
-        test_output = self.test_dir / "output.csv"
-        test_metrics = self.test_dir / "metrics.json"
-        test_viz = self.test_dir / "viz.png"
-        
-        test_output.write_text("test,data\n1,2")
-        test_metrics.write_text('{"test": "metric"}')
-        test_viz.write_text("fake_image_data")
-        
-        cached_data = {
-            "output_file": str(test_output),
-            "metrics_file": str(test_metrics),
-            "visualizations": {
-                "distribution": str(test_viz)
-            }
-        }
-        
-        count = op._restore_cached_artifacts(result, cached_data, None)
-        
-        self.assertEqual(count, 3)  # 3 artifacts restored
-        self.assertEqual(len(result.artifacts), 3)
-
-
 if __name__ == '__main__':
     unittest.main()

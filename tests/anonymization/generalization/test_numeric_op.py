@@ -40,10 +40,8 @@ warnings.filterwarnings(
 )
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning:kaleido.*")
 
-from pamola_core.anonymization.generalization.numeric_op import (
-    NumericGeneralizationOperation,
-    NumericGeneralizationConfig,
-)
+from pamola_core.anonymization.generalization.numeric_op import NumericGeneralizationOperation
+from pamola_core.anonymization.schemas.numeric_op_core_schema import NumericGeneralizationConfig
 from pamola_core.utils.ops.op_result import OperationStatus
 from pamola_core.utils.ops.op_data_source import DataSource
 
@@ -491,12 +489,12 @@ class TestNumericGeneralizationOperation:
         
         # Test binning method
         binned = operation._apply_binning(test_series, bin_count=3, binning_method="equal_width")
-        assert binned.dtype == "object"  # Should be string intervals
+        assert pd.api.types.is_string_dtype(binned) # Should be string intervals
         assert len(binned.unique()) <= 3
         
         # Test range method
         ranged = operation._apply_range(test_series, range_limits=[[0.0, 20.0], [20.0, 40.0]])
-        assert ranged.dtype == "object"  # Should be string ranges
+        assert pd.api.types.is_string_dtype(ranged)  # Should be string ranges
         assert len(ranged.unique()) <= 2
     
     # ===== ADVANCED FEATURE TESTS =====

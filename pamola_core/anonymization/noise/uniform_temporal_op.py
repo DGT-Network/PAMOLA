@@ -74,7 +74,9 @@ from pamola_core.anonymization.commons.validation import (
     InvalidParameterError,
     DateTimeFieldValidator,
 )
-from pamola_core.anonymization.schemas.uniform_temporal_op_schema import UniformTemporalNoiseConfig
+from pamola_core.anonymization.schemas.uniform_temporal_op_core_schema import (
+    UniformTemporalNoiseConfig,
+)
 from pamola_core.common.helpers.data_helper import DataHelper
 
 # Import framework utilities
@@ -211,7 +213,6 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         self.direction = direction.lower()
 
@@ -236,18 +237,6 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
 
         # Calculate total shift range in seconds for efficiency
         self._total_shift_seconds = self._calculate_total_shift_seconds()
-
-        # Store computed attributes
-        self.process_kwargs.update(
-            {
-                "min_datetime": self.min_datetime,
-                "max_datetime": self.max_datetime,
-                "special_dates": self.special_dates,
-                "direction": self.direction,
-                "_generator": self._generator,
-                "_total_shift_seconds": self._total_shift_seconds,
-            }
-        )
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
@@ -340,24 +329,22 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
             total += self.noise_range_seconds
         return total
 
-    @staticmethod
-    def _generate_time_shifts(size: int, **kwargs) -> pd.TimedeltaIndex:
+    def _generate_time_shifts(self, size: int) -> pd.TimedeltaIndex:
         """
         Generate random time shifts.
 
         Args:
             size: Number of shifts to generate
-            **kwargs: Additional parameters for shift generation
 
         Returns:
             TimedeltaIndex with random shifts
         """
-        # Get parameters from kwargs
-        direction = kwargs.get("direction", "both")
-        use_secure_random = kwargs.get("use_secure_random", True)
-        random_seed = kwargs.get("random_seed", None)
-        _generator = kwargs.get("_generator", None)
-        _total_shift_seconds = kwargs.get("_total_shift_seconds", 0.0)
+        # Get parameters from self
+        direction = getattr(self, "direction", "both")
+        use_secure_random = getattr(self, "use_secure_random", True)
+        random_seed = getattr(self, "random_seed", None)
+        _generator = getattr(self, "_generator", None)
+        _total_shift_seconds = getattr(self, "_total_shift_seconds", 0.0)
 
         if _generator is None:
             _generator = SecureRandomGenerator(
@@ -379,9 +366,8 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         # Convert to TimedeltaIndex
         return pd.to_timedelta(shift_seconds, unit="s")
 
-    @classmethod
     def _apply_temporal_noise(
-        cls, timestamps: pd.Series, shifts: pd.TimedeltaIndex, **kwargs
+        self, timestamps: pd.Series, shifts: pd.TimedeltaIndex
     ) -> pd.Series:
         """
         Apply noise with temporal constraints.
@@ -389,19 +375,18 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         Args:
             timestamps: Original timestamps
             shifts: Time shifts to apply
-            **kwargs: Additional parameters for noise application
 
         Returns:
             Series with shifted timestamps
         """
-        # Get parameters from kwargs
-        min_datetime = kwargs.get("min_datetime", None)
-        max_datetime = kwargs.get("max_datetime", None)
-        preserve_special_dates = kwargs.get("preserve_special_dates", False)
-        special_dates = kwargs.get("special_dates", None)
-        preserve_weekends = kwargs.get("preserve_weekends", False)
-        preserve_time_of_day = kwargs.get("preserve_time_of_day", False)
-        output_granularity = kwargs.get("output_granularity", None)
+        # Get parameters from self
+        min_datetime = getattr(self, "min_datetime", None)
+        max_datetime = getattr(self, "max_datetime", None)
+        preserve_special_dates = getattr(self, "preserve_special_dates", False)
+        special_dates = getattr(self, "special_dates", None)
+        preserve_weekends = getattr(self, "preserve_weekends", False)
+        preserve_time_of_day = getattr(self, "preserve_time_of_day", False)
+        output_granularity = getattr(self, "output_granularity", None)
 
         # Apply shifts
         noisy_timestamps = timestamps + shifts
@@ -422,7 +407,7 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
 
         # Preserve weekends
         if preserve_weekends:
-            noisy_timestamps = cls._adjust_for_weekends(
+            noisy_timestamps = self._adjust_for_weekends(
                 timestamps, noisy_timestamps, min_datetime, max_datetime
             )
 
@@ -437,14 +422,14 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
 
         # Apply granularity
         if output_granularity:
-            noisy_timestamps = cls._apply_granularity(
+            noisy_timestamps = self._apply_granularity(
                 noisy_timestamps, output_granularity
             )
 
         return noisy_timestamps
 
-    @staticmethod
     def _adjust_for_weekends(
+        self,
         original: pd.Series,
         noisy: pd.Series,
         min_datetime: Optional[Union[str, pd.Timestamp]] = None,
@@ -475,7 +460,7 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
             return noisy
 
         # Adjust mismatched dates
-        adjusted = noisy.copy()
+        adjusted = noisy.copy(deep=True)
 
         # For each mismatched date, find nearest matching day type
         for idx in noisy[mismatch].index:
@@ -499,8 +484,9 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
 
         return adjusted
 
-    @staticmethod
-    def _apply_granularity(timestamps: pd.Series, output_granularity: str) -> pd.Series:
+    def _apply_granularity(
+        self, timestamps: pd.Series, output_granularity: str
+    ) -> pd.Series:
         """
         Round timestamps to specified granularity.
 
@@ -523,8 +509,7 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         else:
             return timestamps
 
-    @classmethod
-    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data by adding temporal noise.
 
@@ -532,19 +517,17 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         -----------
             batch : pd.DataFrame
                 DataFrame batch to process
-            **kwargs : Any
-                Additional keyword arguments for processing
 
         Returns:
         --------
         pd.DataFrame
             Processed DataFrame with generalized datetimes
         """
-        # Extract parameters from kwargs
-        field_name = kwargs.get("field_name")
-        output_field_name = kwargs.get("output_field_name", f"{field_name}_generalized")
-        mode = kwargs.get("mode", "REPLACE")
-        null_strategy = kwargs.get("null_strategy", "PRESERVE")
+        # Extract parameters from self
+        field_name = self.field_name
+        output_field_name = self.output_field_name
+        mode = self.mode
+        null_strategy = self.null_strategy
 
         result = batch.copy(deep=True)
 
@@ -572,19 +555,19 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         non_null_values = datetime_series[non_null_mask]
         if len(non_null_values) > 0:
             # Generate and apply shifts
-            shifts = cls._generate_time_shifts(len(non_null_values), **kwargs)
-            noisy_values = cls._apply_temporal_noise(non_null_values, shifts, **kwargs)
+            shifts = self._generate_time_shifts(len(non_null_values))
+            noisy_values = self._apply_temporal_noise(non_null_values, shifts)
 
             # Update result
             if mode == "REPLACE":
                 result.loc[non_null_mask, field_name] = noisy_values
             else:  # ENRICH
-                result[output_field_name] = datetime_series.copy()
+                result[output_field_name] = datetime_series.copy(deep=True)
                 result.loc[non_null_mask, output_field_name] = noisy_values
         else:
             # No non-null values to process
             if mode == "ENRICH":
-                result[output_field_name] = datetime_series.copy()
+                result[output_field_name] = datetime_series.copy(deep=True)
 
         return result
 
@@ -678,63 +661,28 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         Returns:
             Dictionary of parameters affecting the operation output
         """
-        params = super()._get_cache_parameters()
 
         # Add temporal-specific parameters
-        params.update(
-            {
-                "field_name": self.field_name,
-                "noise_range_days": self.noise_range_days,
-                "noise_range_hours": self.noise_range_hours,
-                "noise_range_minutes": self.noise_range_minutes,
-                "noise_range_seconds": self.noise_range_seconds,
-                "direction": self.direction,
-                "min_datetime": str(self.min_datetime) if self.min_datetime else None,
-                "max_datetime": str(self.max_datetime) if self.max_datetime else None,
-                "preserve_special_dates": self.preserve_special_dates,
-                "special_dates": (
-                    [str(d) for d in self.special_dates]
-                    if self.special_dates is not None
-                    else None
-                ),
-                "preserve_weekends": self.preserve_weekends,
-                "preserve_time_of_day": self.preserve_time_of_day,
-                "output_granularity": self.output_granularity,
-                "random_seed": self.random_seed if not self.use_secure_random else None,
-                "use_secure_random": self.use_secure_random,
-                "condition_field": self.condition_field,
-                "condition_values": self.condition_values,
-                "condition_operator": self.condition_operator,
-                "multi_conditions": self.multi_conditions,
-                "condition_logic": self.condition_logic,
-                "ka_risk_field": self.ka_risk_field,
-                "risk_threshold": self.risk_threshold,
-                "vulnerable_record_strategy": self.vulnerable_record_strategy,
-                "optimize_memory": self.optimize_memory,
-                "adaptive_chunk_size": self.adaptive_chunk_size,
-                "mode": self.mode,
-                "column_prefix": self.column_prefix,
-                "output_field_name": self.output_field_name,
-                "null_strategy": self.null_strategy,
-                "chunk_size": self.chunk_size,
-                "use_dask": self.use_dask,
-                "npartitions": self.npartitions,
-                "dask_partition_size": self.dask_partition_size,
-                "use_vectorization": self.use_vectorization,
-                "parallel_processes": self.parallel_processes,
-                "use_cache": self.use_cache,
-                "output_format": self.output_format,
-                "visualization_theme": self.visualization_theme,
-                "visualization_backend": self.visualization_backend,
-                "visualization_strict": self.visualization_strict,
-                "visualization_timeout": self.visualization_timeout,
-                "use_encryption": self.use_encryption,
-                "encryption_mode": self.encryption_mode,
-                "encryption_key": self.encryption_key,
-            }
-        )
-
-        return params
+        return {
+            "noise_range_days": self.noise_range_days,
+            "noise_range_hours": self.noise_range_hours,
+            "noise_range_minutes": self.noise_range_minutes,
+            "noise_range_seconds": self.noise_range_seconds,
+            "direction": self.direction,
+            "min_datetime": str(self.min_datetime) if self.min_datetime else None,
+            "max_datetime": str(self.max_datetime) if self.max_datetime else None,
+            "preserve_special_dates": self.preserve_special_dates,
+            "special_dates": (
+                [str(d) for d in self.special_dates]
+                if self.special_dates is not None
+                else None
+            ),
+            "preserve_weekends": self.preserve_weekends,
+            "preserve_time_of_day": self.preserve_time_of_day,
+            "output_granularity": self.output_granularity,
+            "random_seed": self.random_seed if not self.use_secure_random else None,
+            "use_secure_random": self.use_secure_random,
+        }
 
     def __repr__(self) -> str:
         """String representation of the operation."""

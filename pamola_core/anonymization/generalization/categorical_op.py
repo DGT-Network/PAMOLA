@@ -40,13 +40,12 @@ Dependencies:
 """
 
 import hashlib
-import threading
 import time
 import uuid
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import dask.dataframe as dd
@@ -80,22 +79,12 @@ from pamola_core.anonymization.commons.categorical_strategies import (
     apply_hierarchy,
     apply_merge_low_freq,
 )
-from pamola_core.anonymization.commons.category_utils import (
-    process_dataframe_using_chunk,
-    process_dataframe_using_dask,
-    process_dataframe_using_joblib,
-)
 
 # Commons - categories
-from pamola_core.anonymization.commons.category_mapping import (
-    DEFAULT_UNKNOWN_TEMPLATE,
-    DEFAULT_UNKNOWN_VALUE,
-)
 from pamola_core.anonymization.commons.category_utils import (
     analyze_category_distribution,
     calculate_semantic_diversity_safe,
 )
-from pamola_core.anonymization.commons.data_utils import process_nulls
 from pamola_core.anonymization.commons.hierarchy_dictionary import HierarchyDictionary
 
 # Commons - metrics
@@ -131,7 +120,9 @@ from pamola_core.anonymization.commons.visualization_utils import (
 )
 
 # Framework utilities
-from pamola_core.anonymization.schemas.categorical_op_schema import CategoricalGeneralizationConfig
+from pamola_core.anonymization.schemas.categorical_op_core_schema import (
+    CategoricalGeneralizationConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
@@ -168,7 +159,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         dictionary_format: str = "auto",
         hierarchy_level: int = 1,
         # Frequency-based parameters
-        merge_low_freq: bool = False,
         min_group_size: int = DEFAULT_MIN_GROUP_SIZE,
         freq_threshold: float = DEFAULT_FREQ_THRESHOLD,
         max_categories: int = MAX_CATEGORIES,
@@ -204,8 +194,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             Dictionary file format (auto|json|csv)
         hierarchy_level : int, default=1
             Target hierarchy level (1 to MAX_HIERARCHY_LEVELS)
-        merge_low_freq : bool, default=False
-            Enable low-frequency category merging
         min_group_size : int, default=DEFAULT_MIN_GROUP_SIZE
             Minimum group size for privacy
         freq_threshold : float, default=DEFAULT_FREQ_THRESHOLD
@@ -252,7 +240,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             external_dictionary_path=external_dictionary_path,
             dictionary_format=dictionary_format,
             hierarchy_level=hierarchy_level,
-            merge_low_freq=merge_low_freq,
             min_group_size=min_group_size,
             freq_threshold=freq_threshold,
             max_categories=max_categories,
@@ -283,7 +270,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Extract strategy-specific parameters
         self.strategy_params: Dict[str, Any] = get_strategy_params(config._params)
@@ -297,10 +283,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         self._hierarchy_info: Optional[Dict[str, Any]] = {}
         self._fuzzy_matches: int = 0
         self._unknown_values: set[str] = set()
-
-        # Prepare processing parameters
-        self._prepare_process_kwargs()
-        self._metrics = {}
 
     def execute(
         self,
@@ -344,11 +326,11 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             result = OperationResult(status=OperationStatus.PENDING)
 
             # Prepare directories for artifacts
-            self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Create writer for consistent output handling
@@ -394,53 +376,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                try:
-                    if main_progress:
-                        current_steps += 1
-                        main_progress.update(
-                            current_steps,
-                            {"step": "Checking cache", "field": self.field_name},
-                        )
-                    # Load data for cache check
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-
-                    self.logger.info("Checking operation cache...")
-                    cache_result = self._check_cache(df, reporter)
-
-                    if cache_result:
-                        self.logger.info(
-                            f"Using cached result for {self.field_name} generalization"
-                        )
-
-                        # Update progress
-                        if main_progress:
-                            main_progress.update(
-                                current_steps,
-                                {"step": "Complete (cached)", "field": self.field_name},
-                            )
-
-                        # Report cache hit to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Categorical generalization of {self.field_name} (from cache)",
-                                details={"cached": True},
-                            )
-
-                        return cache_result
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
-
-            # Step 2: Data Loading & Validation
+            # Step 1: Data Loading & Validation
             if main_progress:
                 current_steps += 1
                 main_progress.update(
@@ -450,11 +386,12 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
             # Validate and get dataframe
             try:
-                if df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
 
                 # Validate field is suitable for categorical operations
                 is_valid, validation_details = validate_categorical_field(
@@ -488,6 +425,48 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     error_message=error_message,
                     exception=e,
                 )
+
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                try:
+                    if main_progress:
+                        current_steps += 1
+                        main_progress.update(
+                            current_steps,
+                            {"step": "Checking cache", "field": self.field_name},
+                        )
+                    # Load data for cache check
+                    self.logger.info("Checking operation cache...")
+                    cache_result = self._check_cache(df, reporter)
+
+                    if cache_result:
+                        self.logger.info(
+                            f"Using cached result for {self.field_name} generalization"
+                        )
+
+                        # Update progress
+                        if main_progress:
+                            main_progress.update(
+                                current_steps,
+                                {"step": "Complete (cached)", "field": self.field_name},
+                            )
+
+                        # Report cache hit to reporter
+                        if reporter:
+                            reporter.add_operation(
+                                f"Categorical generalization of {self.field_name} (from cache)",
+                                details={"cached": True},
+                            )
+
+                        return cache_result
+                except Exception as e:
+                    error_message = f"Error checking cache: {str(e)}"
+                    self.logger.error(error_message)
+                    return OperationResult(
+                        status=OperationStatus.ERROR,
+                        error_message=error_message,
+                        exception=e,
+                    )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -542,7 +521,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 if not filtered_df.empty:
                     processed_df = self._process_data_with_config(
                         df=filtered_df,
-                        is_use_batch_dask=True,
                         progress_tracker=data_tracker,
                     )
                 else:
@@ -600,38 +578,15 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 # Generate metrics file name (in self.name existed field_name)
                 metrics_file_name = f"{self.field_name}_{self.operation_name}_metrics_{operation_timestamp}"
 
-                # Save metrics using writer
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    file_name=metrics_file_name,
                 )
-
-                # Add metrics to result
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register metrics artifact
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"{self.field_name} generalization metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report artifact
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} generalization metrics",
-                        details={
-                            "artifact_type": "json",
-                            "path": str(metrics_result.path),
-                        },
-                    )
 
                 # Log summary
                 summary = get_process_summary(metrics.get("privacy_metrics", {}))
@@ -668,17 +623,14 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
-                    # Store metrics for later use
-                    self._metrics = metrics
-
-                    kwargs_encryption = {
+                    kwargs_viz = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
+                        "metrics": metrics,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
                         task_dir=task_dir,
@@ -690,7 +642,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                         vis_strict=self.visualization_strict,
                         vis_timeout=self.visualization_timeout,
                         operation_timestamp=operation_timestamp,
-                        **kwargs_encryption,
+                        **kwargs_viz,
                     )
                 except Exception as e:
                     error_message = f"Error generating visualizations: {str(e)}"
@@ -710,18 +662,16 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 )
 
             # Save output data if required
-            output_result_path = None
             if self.save_output:
                 try:
                     safe_kwargs = filter_used_kwargs(kwargs, self._save_output_data)
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        use_encryption=self.use_encryption,
                         **safe_kwargs,
                     )
                 except Exception as e:
@@ -739,12 +689,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     self._save_to_cache(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
-                        metrics=metrics,
+                        result=result,
                         task_dir=task_dir,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
-                        mapping_result_path=mapping_result_path,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -794,227 +740,26 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             # Always reset state after execution
             self.reset_state()
 
-    def _process_data_with_config(
-        self,
-        df: pd.DataFrame,
-        is_use_batch_dask: bool = False,
-        progress_tracker: Optional[HierarchicalProgressTracker] = None,
-    ) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
-        Handle processing of the dataframe, including chunk-wise or full processing.
+        Process a batch of data using the configured strategy.
 
         Parameters:
         -----------
-        df : pd.DataFrame
-            The dataframe to process
-        is_use_batch_dask : bool
-            Whether to use Dask for batch processing
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
+        batch : pd.DataFrame
+            DataFrame batch to process
 
         Returns:
         --------
         pd.DataFrame
-            The processed dataframe
-        """
-        # Check if dataframe is empty
-        if len(df) == 0:
-            self.logger.warning("Empty DataFrame provided, returning as is")
-            return df
-
-        # Handle null values based on strategy
-        if self.null_strategy != "PRESERVE":
-            df[self.field_name] = process_nulls(
-                df[self.field_name],
-                strategy=self.null_strategy.upper(),
-                anonymize_value=self.unknown_value,
-            )
-
-        processed_df = None
-        flag_processed = False
-        self.logger.info("Process with config")
-
-        # For larger dataframes, check if we should use parallel processing
-        if not flag_processed and self.use_dask:
-            try:
-                self.logger.info("Parallel Enabled")
-                self.logger.info("Parallel Engine: Dask")
-                self.logger.info(f"Parallel Workers: {self.npartitions}")
-                self.logger.info(
-                    f"Using dask processing with chunk size {self.chunk_size}"
-                )
-                if progress_tracker:
-                    progress_tracker.update(0, {"step": "Setting up dask processing"})
-
-                self.logger.info("Process using Dask")
-
-                # Process with Dask - delegate to subclass method
-                if is_use_batch_dask:
-                    (
-                        processed_df,
-                        flag_processed,
-                        all_category_mapping,
-                        all_hierarchy_info,
-                        all_hierarchy_cache,
-                        all_fuzzy_matches,
-                        all_unknown_values,
-                    ) = process_dataframe_using_dask(
-                        df=df,
-                        process_function=self.process_batch_dask,
-                        is_use_batch_dask=is_use_batch_dask,
-                        progress_tracker=progress_tracker,
-                        task_logger=self.logger,
-                        **self.process_kwargs,
-                    )
-                else:
-                    (
-                        processed_df,
-                        flag_processed,
-                        all_category_mapping,
-                        all_hierarchy_info,
-                        all_hierarchy_cache,
-                        all_fuzzy_matches,
-                        all_unknown_values,
-                    ) = process_dataframe_using_dask(
-                        df=df,
-                        process_function=self.process_batch,
-                        is_use_batch_dask=is_use_batch_dask,
-                        progress_tracker=progress_tracker,
-                        task_logger=self.logger,
-                        **self.process_kwargs,
-                    )
-
-                if flag_processed:
-                    self.logger.info("Completed using Dask")
-
-            except Exception as e:
-                self.logger.warning(
-                    f"Error in dask processing: {e}, falling back to chunk processing"
-                )
-
-        if not flag_processed and self.use_vectorization:
-            try:
-                self.logger.info("Parallel Enabled")
-                self.logger.info("Parallel Engine: Joblib")
-                self.logger.info(f"Parallel Workers: {self.parallel_processes}")
-                self.logger.info(
-                    f"Using vectorized processing with chunk size {self.chunk_size}"
-                )
-                if progress_tracker:
-                    progress_tracker.update(
-                        0, {"step": "Setting up vectorized processing"}
-                    )
-
-                self.logger.info("Process using Joblib")
-
-                (
-                    processed_df,
-                    flag_processed,
-                    all_category_mapping,
-                    all_hierarchy_info,
-                    all_hierarchy_cache,
-                    all_fuzzy_matches,
-                    all_unknown_values,
-                ) = process_dataframe_using_joblib(
-                    df=df,
-                    process_function=self.process_batch,
-                    progress_tracker=progress_tracker,
-                    task_logger=self.logger,
-                    **self.process_kwargs,
-                )
-
-                if flag_processed:
-                    self.logger.info("Completed using Joblib")
-
-            except Exception as e:
-                self.logger.warning(
-                    f"Error in vectorized processing: {e}, falling back to chunk processing"
-                )
-
-        if not flag_processed and self.chunk_size > 1:
-            try:
-                # Regular chunk processing
-                self.logger.info(
-                    f"Processing in chunks with chunk size {self.chunk_size}"
-                )
-                total_chunks = (len(df) + self.chunk_size - 1) // self.chunk_size
-                self.logger.info(f"Total chunks to process: {total_chunks}")
-                if progress_tracker:
-                    progress_tracker.update(
-                        0,
-                        {
-                            "step": "Processing in chunks",
-                            "total_chunks": total_chunks,
-                        },
-                    )
-                self.logger.info("Process using chunk")
-                (
-                    processed_df,
-                    flag_processed,
-                    all_category_mapping,
-                    all_hierarchy_info,
-                    all_hierarchy_cache,
-                    all_fuzzy_matches,
-                    all_unknown_values,
-                ) = process_dataframe_using_chunk(
-                    df=df,
-                    process_function=self.process_batch,
-                    progress_tracker=progress_tracker,
-                    task_logger=self.logger,
-                    **self.process_kwargs,
-                )
-                if flag_processed:
-                    self.logger.info("Completed using chunk")
-            except Exception as e:
-                self.logger.warning(f"Error in chunk processing: {e}")
-
-        if not flag_processed:
-            self.logger.info("Fallback process as usual")
-            (
-                processed_df,
-                all_category_mapping,
-                all_hierarchy_info,
-                all_hierarchy_cache,
-                all_fuzzy_matches,
-                all_unknown_values,
-            ) = self.process_batch(df, **self.process_kwargs)
-            flag_processed = True
-
-        # Update internal state
-        self._category_mapping = all_category_mapping
-        self._hierarchy_info = all_hierarchy_info
-        self._hierarchy_cache = all_hierarchy_cache
-        self._fuzzy_matches = all_fuzzy_matches
-        self._unknown_values = all_unknown_values
-        if self.use_vectorization and "current" in self._hierarchy_cache:
-            current = self._hierarchy_cache["current"]
-            if not hasattr(current, "_lock") or current._lock is None:
-                setattr(current, "_lock", threading.RLock())
-
-        # Update process count
-        self.process_count += len(df)
-        return processed_df
-
-    @classmethod
-    def process_batch(
-        cls, batch: pd.DataFrame, **process_kwargs
-    ) -> Tuple[pd.DataFrame, Dict, Dict, Dict]:
-        """
-        Process a batch of data using the configured strategy.
-
-        Returns:
-            Tuple containing:
-            - processed batch
-            - category_mapping dict
-            - hierarchy_info dict
-            - hierarchy_cache dict
+            Processed DataFrame batch with generalized values
         """
         try:
             # Prepare context for processing
-            context = cls._prepare_context(batch, process_kwargs)
+            context = self._prepare_context(batch)
 
             # Apply generalization strategy
-            result = cls._apply_generalization_strategy(batch, context)
+            result = self._apply_generalization_strategy(batch, context)
 
             # Apply rare value template
             rare_value_template = context["rare_value_template"]
@@ -1024,63 +769,44 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 )
 
             # Update batch with result
-            cls._update_batch_with_result(batch, result, context)
-            use_vectorization = context.get("use_vectorization", False)
-            category_mapping = context.get("category_mapping", {})
-            hierarchy_info = context.get("hierarchy_info", {})
-            hierarchy_cache = context.get("hierarchy_cache", {})
-            fuzzy_matches = context.get("fuzzy_matches", 0)
-            unknown_values = context.get("unknown_values", set())
-            if use_vectorization and "current" in hierarchy_cache:
-                current = hierarchy_cache["current"]
-                if hasattr(current, "_lock"):
-                    del current._lock
+            self._update_batch_with_result(batch, result, context)
+
+            self._category_mapping.update(context.get("category_mapping", {}))
+            self._hierarchy_info.update(context.get("hierarchy_info", {}))
+            self._fuzzy_matches += context.get("fuzzy_matches", 0)
+            self._unknown_values.update(context.get("unknown_values", set()))
 
             # Return everything needed
-            return (
-                batch,
-                category_mapping,
-                hierarchy_info,
-                hierarchy_cache,
-                fuzzy_matches,
-                unknown_values,
-            )
+            return batch
 
         except Exception as e:
             raise
 
-    @staticmethod
     def _prepare_context(
-        batch: pd.DataFrame, process_kwargs: Dict[str, Any]
+        self,
+        batch: pd.DataFrame,
     ) -> Dict[str, Any]:
         return {
             "batch_df": batch,
-            "mode": process_kwargs.get("mode", OperationMode.REPLACE.value),
-            "field_name": process_kwargs.get("field_name"),
-            "output_field_name": process_kwargs.get("output_field_name", "generalized"),
-            "strategy": process_kwargs.get(
-                "strategy", GeneralizationStrategy.HIERARCHY.value
-            ),
-            "null_strategy": process_kwargs.get(
-                "null_strategy", NullStrategy.PRESERVE.value
-            ),
-            "use_vectorization": process_kwargs.get("use_vectorization", False),
-            "strategy_params": process_kwargs.get("strategy_params", {}),
-            "unknown_value": process_kwargs.get("unknown_value", DEFAULT_UNKNOWN_VALUE),
-            "rare_value_template": process_kwargs.get(
-                "rare_value_template", DEFAULT_UNKNOWN_TEMPLATE
-            ),
-            "case_sensitive": process_kwargs.get("case_sensitive", False),
+            "mode": self.mode,
+            "field_name": self.field_name,
+            "output_field_name": self.output_field_name,
+            "strategy": self.strategy,
+            "null_strategy": self.null_strategy,
+            "strategy_params": self.strategy_params,
+            "unknown_value": self.unknown_value,
+            "rare_value_template": self.rare_value_template,
+            "case_sensitive": self.case_sensitive,
+            # runtime state
             "unknown_values": set(),
             "fuzzy_matches": 0,
-            "category_mapping": process_kwargs.get("_category_mapping", {}),
-            "hierarchy_info": process_kwargs.get("_hierarchy_info", {}),
-            "hierarchy_cache": process_kwargs.get("_hierarchy_cache", {}),
+            "category_mapping": {},
+            "hierarchy_info": {},
+            "hierarchy_cache": {},
         }
 
-    @classmethod
     def _apply_generalization_strategy(
-        cls,
+        self,
         batch: pd.DataFrame,
         context: Dict[str, Any],
     ) -> pd.Series:
@@ -1089,10 +815,10 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         strategy_params = context["strategy_params"]
 
         if strategy == GeneralizationStrategy.HIERARCHY.value:
-            if "hierarchy" not in context:
-                hierarchy = cls._load_hierarchy(strategy_params)
-                context["hierarchy_cache"]["current"] = hierarchy
-                context["hierarchy"] = hierarchy
+            if not context["hierarchy_cache"]:
+                if not self._hierarchy_cache:
+                    self._hierarchy_cache = self._load_hierarchy(strategy_params)
+                context["hierarchy"] = self._hierarchy_cache
 
             return apply_hierarchy(batch[field_name], strategy_params, context)
 
@@ -1105,17 +831,15 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
-    @staticmethod
     def _update_batch_with_result(
-        batch: pd.DataFrame, result: pd.Series, context: Dict[str, Any]
+        self, batch: pd.DataFrame, result: pd.Series, context: Dict[str, Any]
     ):
         if context["mode"] == OperationMode.REPLACE.value:
             batch[context["field_name"]] = result
         else:
             batch[context["output_field_name"]] = result
 
-    @classmethod
-    def process_batch_dask(cls, ddf: dd.DataFrame, **process_kwargs) -> dd.DataFrame:
+    def process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
@@ -1123,8 +847,6 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -1134,7 +856,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
 
         # Default implementation: process each partition with process_batch
         def process_partition(partition):
-            return cls.process_batch(partition.copy(deep=True), **process_kwargs)
+            return self.process_batch(partition.copy(deep=True))
 
         return ddf.map_partitions(process_partition)
 
@@ -1429,6 +1151,10 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                 f"[VIZ] Original data type: {original_for_viz.dtype}, Anonymized data type: {anonymized_for_viz.dtype}"
             )
 
+            # Extract metrics if provided
+            metrics = kwargs.get("metrics", {})
+            kwargs.pop("metrics", {})
+
             # Step 2: Create visualization
             if progress_tracker:
                 progress_tracker.update(2, {"step": "Creating visualization"})
@@ -1480,9 +1206,9 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
                     )
 
             # 3. Metrics heatmap/visualization
-            if self._metrics:
+            if metrics:
                 metrics_viz_path = create_metrics_overview_visualization(
-                    metrics=self._metrics,
+                    metrics=metrics,
                     task_dir=viz_dir,
                     field_name=self.field_name,
                     operation_name=OPERATION_NAME,
@@ -1537,13 +1263,11 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             Strategy-specific parameters for numeric generalization
         """
         params = dict(
-            field_name=self.field_name,
             strategy=self.strategy,
             external_dictionary_path=self.external_dictionary_path,
             dictionary_format=self.dictionary_format,
             hierarchy_level=self.hierarchy_level,
             # Frequency-based parameters
-            merge_low_freq=self.merge_low_freq,
             min_group_size=self.min_group_size,
             freq_threshold=self.freq_threshold,
             max_categories=self.max_categories,
@@ -1561,52 +1285,8 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
             privacy_check_enabled=self.privacy_check_enabled,
             min_acceptable_k=self.min_acceptable_k,
             max_acceptable_disclosure_risk=self.max_acceptable_disclosure_risk,
-            mode=self.mode,
-            output_field_name=self.output_field_name,
-            column_prefix=self.column_prefix,
             quasi_identifiers=self.quasi_identifiers,
-            condition_field=self.condition_field,
-            condition_values=self.condition_values,
-            condition_operator=self.condition_operator,
-            ka_risk_field=self.ka_risk_field,
-            risk_threshold=self.risk_threshold,
-            vulnerable_record_strategy=self.vulnerable_record_strategy,
-            optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_vectorization=self.use_vectorization,
-            parallel_processes=self.parallel_processes,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            output_format=self.output_format,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
-            save_output=self.save_output,
         )
-
-        # Add strategy-specific parameters
-        if self.strategy == GeneralizationStrategy.HIERARCHY.value:
-            # Include dictionary hash if configured
-            if self.use_cache and self._hierarchy_cache.get("current"):
-                try:
-                    file_hash = self._calculate_dictionary_hash()
-                    if file_hash:
-                        params["dictionary_hash"] = file_hash
-                    else:
-                        self.logger.warning(
-                            "Dictionary file hash not available for cache key"
-                        )
-                except Exception as e:
-                    self.logger.warning(f"Failed to calculate dictionary hash: {e}")
 
         return params
 
@@ -1615,12 +1295,11 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         Reset operation state after execution.
         """
         # Clear cached data
-        self._hierarchy_cache.clear()
+        self._hierarchy_cache = {}
         self._category_mapping = None
         self._hierarchy_info = None
         self._fuzzy_matches = 0
         self._unknown_values = set()
-        self._metrics = {}
 
         # Reset chunk size if it was adjusted
         if hasattr(self, "original_chunk_size"):
@@ -1633,31 +1312,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         """Generate unique trace ID for operation."""
         return f"{OPERATION_NAME}_{uuid.uuid4().hex[:8]}"
 
-    def _prepare_process_kwargs(self) -> None:
-        """
-        Prepare or update keyword arguments for processing methods.
-
-        Consolidates configuration, parameters, and state into
-        process_kwargs for easy passing to processing functions.
-        """
-        if not hasattr(self, "process_kwargs"):
-            self.process_kwargs = {}
-
-        self.process_kwargs.update(
-            {
-                # Core identification
-                "operation_id": self.operation_id,
-                # Strategy parameters (pre-extracted)
-                "strategy_params": self.strategy_params,
-                # State references (mutable, allows tracking)
-                "_hierarchy_cache": self._hierarchy_cache,
-                "_category_mapping": self._category_mapping,
-                "_hierarchy_info": self._hierarchy_info,
-            }
-        )
-
-    @staticmethod
-    def _load_hierarchy(strategy_params: Dict[str, Any]) -> HierarchyDictionary:
+    def _load_hierarchy(self, strategy_params: Dict[str, Any]) -> HierarchyDictionary:
         """
         Load hierarchy dictionary for hierarchy strategy.
 
@@ -1720,7 +1375,7 @@ class CategoricalGeneralizationOperation(AnonymizationOperation):
         if self.strategy != GeneralizationStrategy.HIERARCHY.value:
             return 0.0
 
-        hierarchy = self._hierarchy_cache.get("current")
+        hierarchy = self._hierarchy_cache
         if not hierarchy:
             return 0.0
 

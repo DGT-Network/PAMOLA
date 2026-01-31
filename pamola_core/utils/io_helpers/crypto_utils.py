@@ -16,12 +16,12 @@ Key features:
 
 """
 
-
 import logging
 from pathlib import Path
 from typing import Union, Dict, Any, Optional
 from decouple import config
 import pandas as pd
+
 # Import register providers function to break circular imports
 from pamola_core.common.enum.encryption_mode import EncryptionMode
 from pamola_core.utils.crypto_helpers.register_providers import register_all_providers
@@ -33,7 +33,7 @@ from pamola_core.utils.io_helpers.crypto_router import (
     decrypt_file_router,
     encrypt_data_router,
     decrypt_data_router,
-    detect_encryption_mode
+    detect_encryption_mode,
 )
 from dotenv import load_dotenv
 
@@ -43,17 +43,21 @@ load_dotenv()
 
 # Configure logger
 logger = logging.getLogger("pamola_core.utils.io_helpers.crypto_utils")
-default_data_size: int = config('DATA_SIZE', default=1000000, cast=int)
-auto_choose_provider_encryption: bool = config('AUTO_CHOOSE_PROVIDER_ENCRYPTION', default=True, cast=bool)
+default_data_size: int = config("DATA_SIZE", default=1000000, cast=int)
+auto_choose_provider_encryption: bool = config(
+    "AUTO_CHOOSE_PROVIDER_ENCRYPTION", default=True, cast=bool
+)
 
 
-def encrypt_file(source_path: Union[str, Path],
-                 destination_path: Union[str, Path],
-                 key: Optional[str] = None,
-                 mode: str = "simple",
-                 task_id: Optional[str] = None,
-                 description: Optional[str] = None,
-                 **kwargs) -> Path:
+def encrypt_file(
+    source_path: Union[str, Path],
+    destination_path: Union[str, Path],
+    key: Optional[str] = None,
+    mode: str = "simple",
+    task_id: Optional[str] = None,
+    description: Optional[str] = None,
+    **kwargs,
+) -> Path:
     """
     Encrypt a file and save it to a new location.
 
@@ -100,7 +104,7 @@ def encrypt_file(source_path: Union[str, Path],
             destination_path=destination_path,
             key=key,
             mode=mode,
-            **kwargs
+            **kwargs,
         )
 
         # Log the operation for audit
@@ -111,7 +115,7 @@ def encrypt_file(source_path: Union[str, Path],
             source=source_path,
             destination=destination_path,
             task_id=task_id,
-            metadata={"description": description} if description else None
+            metadata={"description": description} if description else None,
         )
 
         return result
@@ -125,19 +129,21 @@ def encrypt_file(source_path: Union[str, Path],
             source=source_path,
             destination=destination_path,
             task_id=task_id,
-            metadata={"error": str(e)}
+            metadata={"error": str(e)},
         )
 
         logger.error(f"Error encrypting file {source_path}: {e}")
         raise
 
 
-def decrypt_file(source_path: Union[str, Path],
-                 destination_path: Union[str, Path],
-                 key: Optional[str] = None,
-                 mode: Optional[str] = None,
-                 task_id: Optional[str] = None,
-                 **kwargs) -> Path:
+def decrypt_file(
+    source_path: Union[str, Path],
+    destination_path: Union[str, Path],
+    key: Optional[str] = None,
+    mode: Optional[str] = None,
+    task_id: Optional[str] = None,
+    **kwargs,
+) -> Path:
     """
     Decrypt a file and save it to a new location.
 
@@ -180,7 +186,7 @@ def decrypt_file(source_path: Union[str, Path],
             destination_path=destination_path,
             key=key,
             mode=detected_mode,
-            **kwargs
+            **kwargs,
         )
 
         # Log the operation for audit
@@ -190,7 +196,7 @@ def decrypt_file(source_path: Union[str, Path],
             status="success",
             source=source_path,
             destination=destination_path,
-            task_id=task_id
+            task_id=task_id,
         )
 
         return result
@@ -210,19 +216,21 @@ def decrypt_file(source_path: Union[str, Path],
             source=source_path,
             destination=destination_path,
             task_id=task_id,
-            metadata={"error": str(e)}
+            metadata={"error": str(e)},
         )
 
         logger.error(f"Error decrypting file {source_path}: {e}")
         raise
 
 
-def encrypt_data(data: Union[str, bytes],
-                 key: Optional[str] = None,
-                 mode: str = "simple",
-                 task_id: Optional[str] = None,
-                 description: Optional[str] = None,
-                 **kwargs) -> Union[str, bytes, Dict[str, Any]]:
+def encrypt_data(
+    data: Union[str, bytes],
+    key: Optional[str] = None,
+    mode: str = "simple",
+    task_id: Optional[str] = None,
+    description: Optional[str] = None,
+    **kwargs,
+) -> Union[str, bytes, Dict[str, Any]]:
     """
     Encrypt data in memory.
 
@@ -258,12 +266,7 @@ def encrypt_data(data: Union[str, bytes],
             kwargs["data_info"] = {"description": description}
 
         # Call the router to perform the encryption
-        result = encrypt_data_router(
-            data=data,
-            key=key,
-            mode=mode,
-            **kwargs
-        )
+        result = encrypt_data_router(data=data, key=key, mode=mode, **kwargs)
 
         # Log the operation for audit
         log_crypto_operation(
@@ -271,14 +274,18 @@ def encrypt_data(data: Union[str, bytes],
             mode=mode,
             status="success",
             task_id=task_id,
-            metadata={
-                "description": description,
-                "data_type": type(data).__name__,
-                "result_type": type(result).__name__
-            } if description else {
-                "data_type": type(data).__name__,
-                "result_type": type(result).__name__
-            }
+            metadata=(
+                {
+                    "description": description,
+                    "data_type": type(data).__name__,
+                    "result_type": type(result).__name__,
+                }
+                if description
+                else {
+                    "data_type": type(data).__name__,
+                    "result_type": type(result).__name__,
+                }
+            ),
         )
 
         return result
@@ -290,21 +297,20 @@ def encrypt_data(data: Union[str, bytes],
             mode=mode,
             status="failure",
             task_id=task_id,
-            metadata={
-                "error": str(e),
-                "data_type": type(data).__name__
-            }
+            metadata={"error": str(e), "data_type": type(data).__name__},
         )
 
         logger.error(f"Error encrypting data: {e}")
         raise
 
 
-def decrypt_data(data: Union[str, bytes, Dict[str, Any]],
-                 key: Optional[str] = None,
-                 mode: Optional[str] = None,
-                 task_id: Optional[str] = None,
-                 **kwargs) -> Union[str, bytes]:
+def decrypt_data(
+    data: Union[str, bytes, Dict[str, Any]],
+    key: Optional[str] = None,
+    mode: Optional[str] = None,
+    task_id: Optional[str] = None,
+    **kwargs,
+) -> Union[str, bytes]:
     """
     Decrypt data in memory.
 
@@ -334,12 +340,7 @@ def decrypt_data(data: Union[str, bytes, Dict[str, Any]],
     """
     try:
         # Call the router to perform the decryption
-        result = decrypt_data_router(
-            data=data,
-            key=key,
-            mode=mode,
-            **kwargs
-        )
+        result = decrypt_data_router(data=data, key=key, mode=mode, **kwargs)
 
         # Determine the mode that was used (for logging)
         detected_mode = mode
@@ -356,8 +357,8 @@ def decrypt_data(data: Union[str, bytes, Dict[str, Any]],
             task_id=task_id,
             metadata={
                 "data_type": type(data).__name__,
-                "result_type": type(result).__name__
-            }
+                "result_type": type(result).__name__,
+            },
         )
 
         return result
@@ -376,10 +377,7 @@ def decrypt_data(data: Union[str, bytes, Dict[str, Any]],
             mode=detected_mode,
             status="failure",
             task_id=task_id,
-            metadata={
-                "error": str(e),
-                "data_type": type(data).__name__
-            }
+            metadata={"error": str(e), "data_type": type(data).__name__},
         )
 
         logger.error(f"Error decrypting data: {e}")
@@ -410,14 +408,17 @@ def is_encrypted(data_or_path: Union[str, bytes, Dict[str, Any], Path]) -> bool:
 
     # If it's a dictionary, check for encryption indicators
     if isinstance(data_or_path, dict):
-        return ("mode" in data_or_path and data_or_path["mode"] != "none") or \
-            ("algorithm" in data_or_path and "data" in data_or_path)
+        return ("mode" in data_or_path and data_or_path["mode"] != "none") or (
+            "algorithm" in data_or_path and "data" in data_or_path
+        )
 
     # For other types, we can't easily determine
     return False
 
 
-def get_encryption_info(data_or_path: Union[str, bytes, Dict[str, Any], Path]) -> Dict[str, Any]:
+def get_encryption_info(
+    data_or_path: Union[str, bytes, Dict[str, Any], Path],
+) -> Dict[str, Any]:
     """
     Get information about encrypted data or file.
 
@@ -446,8 +447,9 @@ def get_encryption_info(data_or_path: Union[str, bytes, Dict[str, Any], Path]) -
             # Try to read file to get more info for 'simple' mode
             if mode == "simple":
                 import json
+
                 try:
-                    with open(data_or_path, 'r', encoding='utf-8') as f:
+                    with open(data_or_path, "r", encoding="utf-8") as f:
                         data = json.load(f)
 
                     # Extract metadata while avoiding sensitive fields
@@ -469,33 +471,50 @@ def get_encryption_info(data_or_path: Union[str, bytes, Dict[str, Any], Path]) -
 
     return info
 
-def get_encryption_mode(df, **kwargs) -> str:
+
+def get_encryption_mode(data: Any, use_encryption: bool) -> str:
     """
-    Determines and returns the encryption mode to use based on the provided DataFrame and keyword arguments.
-    Parameters:
-        df: The data structure (typically a DataFrame) whose size may influence the encryption mode.
-        **kwargs: Arbitrary keyword arguments. Recognized keys:
-            - use_encryption (bool): Whether to use encryption. Defaults to False.
-            - encryption_mode (str): Will be set to the chosen encryption mode.
-    Returns:
-        str: The selected encryption mode.
-    Notes:
-        - If 'use_encryption' is False, sets encryption mode to EncryptionMode.NONE.
-        - If 'use_encryption' is True and 'auto_choose_provider_encryption' is enabled,
-          chooses between EncryptionMode.SIMPLE and EncryptionMode.AGE based on the length of df and 'default_data_size'.
-        - If df does not have a length, defaults to EncryptionMode.SIMPLE.
-        - Assumes 'EncryptionMode', 'auto_choose_provider_encryption', and 'default_data_size' are defined elsewhere.
+    Determine the encryption mode based on input data size and configuration.
+
+    Parameters
+    ----------
+    data : Any
+        The input dataset or container (e.g., DataFrame, dict, list, etc.) whose
+        size may influence the selected encryption mode.
+    use_encryption : bool
+        Whether encryption is enabled.
+
+    Returns
+    -------
+    str
+        The selected encryption mode.
+
+    Notes
+    -----
+    - If `use_encryption` is False, returns `EncryptionMode.NONE`.
+    - If `auto_choose_provider_encryption` is True, mode is determined by `len(data)`
+      compared against `default_data_size`.
+    - If `data` has no length (`__len__`), defaults to `EncryptionMode.SIMPLE`.
     """
-    use_encryption = kwargs.get('use_encryption', False)
-    
+
+    # Case 1: Encryption disabled
     if not use_encryption:
-        kwargs['encryption_mode'] = EncryptionMode.NONE.value
-    else:
-        if auto_choose_provider_encryption:
-            if hasattr(df, '__len__'):
-                length_df = df.__len__()
-                kwargs['encryption_mode'] = EncryptionMode.SIMPLE.value if length_df <= default_data_size else EncryptionMode.AGE.value
-            else:
-                kwargs['encryption_mode'] = EncryptionMode.SIMPLE.value
-        
-    return kwargs['encryption_mode']
+        return EncryptionMode.NONE.value
+
+    # Case 2: Auto-selection disabled → always SIMPLE
+    if not auto_choose_provider_encryption:
+        return EncryptionMode.SIMPLE.value
+
+    # Case 3: Auto-select based on size
+    try:
+        data_size = len(data)
+    except Exception:
+        # No length available → fallback
+        return EncryptionMode.SIMPLE.value
+
+    # Threshold decision
+    return (
+        EncryptionMode.SIMPLE.value
+        if data_size <= default_data_size
+        else EncryptionMode.AGE.value
+    )

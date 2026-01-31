@@ -28,7 +28,7 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 from pamola_core.common.helpers.custom_aggregations_helper import (
@@ -47,14 +47,16 @@ from pamola_core.transformations.commons.aggregation_utils import (
     generate_record_count_per_group_vis,
 )
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.transformations.schemas.aggregate_records_op_schema import AggregateRecordsOperationConfig
+from pamola_core.transformations.schemas.aggregate_records_op_core_schema import (
+    AggregateRecordsOperationConfig,
+)
 from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_settings_operation
 from pamola_core.common.constants import Constants
 
 # Configure module logger
@@ -164,11 +166,11 @@ class AggregateRecordsOperation(TransformationOperation):
             result = OperationResult(status=OperationStatus.PENDING)
 
             # Prepare directories for artifacts
-            directories = self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Create DataWriter for consistent file operations
@@ -187,7 +189,7 @@ class AggregateRecordsOperation(TransformationOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Validation, 2. Cache check, 3. Data loading, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Validation, 2. Data loading, 3. Cache check , 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -229,15 +231,22 @@ class AggregateRecordsOperation(TransformationOperation):
                     TOTAL_MAIN_STEPS, current_steps, "Data Loading", main_progress
                 )
 
-            # Loading datasets
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+            # Get and validate data
+            try:
+                # Load data
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Check Cache (if enabled and not forced to recalculate)
@@ -250,7 +259,7 @@ class AggregateRecordsOperation(TransformationOperation):
                     )
 
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(df=df, reporter=reporter)
+                cache_result = self._check_cache(df, reporter)
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
 
@@ -352,38 +361,14 @@ class AggregateRecordsOperation(TransformationOperation):
             try:
                 metrics = self._collect_metrics(df=df, processed_df=processed_df)
 
-                # Generate metrics file name
-                metrics_file_name = f"{self.name}_metrics_{operation_timestamp}"
-
-                # Write metrics to persistent storage/artifact repository
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
                 )
-
-                # Add simple metrics (int, float, str, bool) to the result object
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register the metrics artifact for tracking and visualization
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"Aggregation on {self.group_by_fields} — datasets transformation metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report the metrics artifact to the reporter if available
-                if reporter:
-                    reporter.add_operation(
-                        f"Aggregation on {self.group_by_fields} — datasets transformation metrics",
-                        details={"type": "json", "path": str(metrics_result.path)},
-                    )
             except Exception as e:
                 error_message = f"Error calculating metrics: {str(e)}"
                 self.logger.warning(error_message)
@@ -400,14 +385,13 @@ class AggregateRecordsOperation(TransformationOperation):
                 )
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_df=df,
                         processed_df=processed_df,
                         task_dir=task_dir,
@@ -440,10 +424,8 @@ class AggregateRecordsOperation(TransformationOperation):
             # Save output data if required
             if self.save_output:
                 try:
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=processed_df,
-                        task_dir=task_dir,
-                        is_encryption_required=self.use_encryption,
                         writer=writer,
                         result=result,
                         reporter=reporter,
@@ -466,18 +448,20 @@ class AggregateRecordsOperation(TransformationOperation):
                     self._save_to_cache(
                         original_data=df,
                         transformed_data=processed_df,
-                        metrics=metrics,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            # Cleanup memory
-            self._cleanup_memory(processed_df, df)
+            # Clean up memory AFTER all write operations are complete
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=df,
+                transformed_data=None,
+            )
 
             # Report completion
             if reporter:
@@ -647,21 +631,36 @@ class AggregateRecordsOperation(TransformationOperation):
 
         # Statistical properties of aggregated fields
         aggregated_field_stats = {}
-        agg_fields = self.aggregations.keys() if self.aggregations else []
+
         for col in processed_df.columns:
-            # Only consider columns that are results of aggregation
-            # Exclude group_by fields
             if col in self.group_by_fields:
                 continue
+
             series = processed_df[col]
-            if pd.api.types.is_numeric_dtype(series):
+
+            if not pd.api.types.is_numeric_dtype(series):
+                continue
+
+            values = pd.to_numeric(series, errors="coerce").dropna()
+
+            if values.empty:
                 aggregated_field_stats[col] = {
-                    "min": float(series.min()),
-                    "max": float(series.max()),
-                    "mean": float(series.mean()),
-                    "median": float(series.median()),
-                    "std": float(series.std()),
+                    "min": np.nan,
+                    "max": np.nan,
+                    "mean": np.nan,
+                    "median": np.nan,
+                    "std": np.nan,
                 }
+                continue
+
+            aggregated_field_stats[col] = {
+                "min": float(values.min()),
+                "max": float(values.max()),
+                "mean": float(values.mean()),
+                "median": float(values.median()),
+                "std": float(values.std()) if len(values) > 1 else np.nan,
+            }
+
         metrics["aggregated_field_stats"] = aggregated_field_stats
 
         return metrics
@@ -679,20 +678,6 @@ class AggregateRecordsOperation(TransformationOperation):
             "group_by_fields": self.group_by_fields,
             "aggregations": self.aggregations,
             "custom_aggregations": self.custom_aggregations,
-            "chunk_size": self.chunk_size,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "output_format": self.output_format,
-            "force_recalculation": self.force_recalculation,
-            "generate_visualization": self.generate_visualization,
-            "save_output": self.save_output,
         }
 
         return params
@@ -1052,149 +1037,6 @@ class AggregateRecordsOperation(TransformationOperation):
 
         return visualization_paths
 
-    def _save_output_data(
-        self,
-        result_df: pd.DataFrame,
-        is_encryption_required: bool,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        timestamp: Optional[str] = None,
-        **kwargs,
-    ) -> str:
-        """
-        Save the processed output data.
-
-        Parameters:
-        -----------
-        result_df : pd.DataFrame
-            The processed dataframe to save
-        is_encryption_required : bool
-            Whether to encrypt the output
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        timestamp : Optional[str]
-            Optional timestamp for the output file
-        **kwargs : dict
-            Additional parameters for the operation
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving output data"})
-
-        # Generate standardized output filename with timestamp
-        field_name_output = f"{self.name}_output_{timestamp}"
-
-        custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
-        output_result = writer.write_dataframe(
-            df=result_df,
-            name=field_name_output,
-            format=self.output_format,
-            subdir="output",
-            timestamp_in_name=False,
-            encryption_key=self.encryption_key if is_encryption_required else None,
-            **custom_kwargs,
-        )
-
-        # Register output artifact with the result
-        result.add_artifact(
-            artifact_type=self.output_format,
-            path=output_result.path,
-            description=f"{self.name} transformed data",
-            category=Constants.Artifact_Category_Output,
-        )
-
-        # Report to reporter
-        if reporter:
-            reporter.add_artifact(
-                self.output_format,
-                str(output_result.path),
-                f"{self.name} transformed data",
-            )
-
-        return str(output_result.path)
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts following PAMOLA.CORE conventions.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories following PAMOLA.CORE conventions
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["visualizations"] = task_dir / "visualizations"
-        directories["logs"] = task_dir / "logs"
-        directories["cache"] = task_dir / "cache"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
-
-    def _cleanup_memory(
-        self,
-        processed_df: Optional[pd.DataFrame] = None,
-        df: Optional[pd.DataFrame] = None,
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        processed_df : pd.DataFrame, optional
-            Processed DataFrame to clear from memory
-        df : pd.DataFrame, optional
-            Original DataFrame to clear from memory
-        """
-        # Clear argument references
-        if processed_df is not None:
-            try:
-                del processed_df
-            except Exception:
-                pass
-
-        if df is not None:
-            try:
-                del df
-            except Exception:
-                pass
-
-        # Clear operation cache
-        if hasattr(self, "operation_cache"):
-            self.operation_cache = None
-
-        # Remove any temporary attributes starting with _temp_
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                setattr(self, attr_name, None)
-
-        # Optional: Force garbage collection for large datasets
-        # Uncomment if memory pressure is an issue
-        # import gc
-        # gc.collect()
-
     def _validate_input_params(
         self,
         group_by_fields: List[str],
@@ -1239,303 +1081,6 @@ class AggregateRecordsOperation(TransformationOperation):
                             f"Unsupported custom aggregation function: {cus_agg_func} for field '{field}'. "
                             f"Allowed: {sorted(allowed_aggs)}"
                         )
-
-    def _check_cache(
-        self, df: pd.DataFrame, reporter: Any
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for this operation.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            DataFrame to check in the cache
-        reporter : Any
-            Reporter to log cache hits/misses
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-            # Create cache key from entire dataframe or from group_by_fields if present
-            if self.group_by_fields and not all(
-                field in df.columns for field in self.group_by_fields
-            ):
-                missing = [f for f in self.group_by_fields if f not in df.columns]
-                self.logger.warning(f"Missing fields for cache key: {missing}")
-                return None
-
-            cache_df = df[self.group_by_fields] if self.group_by_fields else df
-            cache_key = self._generate_cache_key(cache_df)
-
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_result = self.operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
-                return None
-
-            self.logger.info(
-                f"Using cached result for {self.group_by_fields} transformation"
-            )
-
-            result = OperationResult(status=OperationStatus.SUCCESS)
-            self._add_cached_metrics(result, cached_result)
-            artifacts_restored = self._restore_cached_artifacts(
-                result, cached_result, reporter
-            )
-
-            result.add_metric("cached", True)
-            result.add_metric("cache_key", cache_key)
-            result.add_metric(
-                "cache_timestamp", cached_result.get("timestamp", "unknown")
-            )
-            result.add_metric("artifacts_restored", artifacts_restored)
-
-            # Report cache hit to reporter
-            if reporter:
-                reporter.add_operation(
-                    f"Aggregate records transformation of {self.group_by_fields} (cached)",
-                    details={
-                        "cached": True,
-                        "group_by_fields": self.group_by_fields,
-                        "artifacts_restored": artifacts_restored,
-                    },
-                )
-
-            self.logger.info(
-                f"Cache hit successful: restored {artifacts_restored} artifacts"
-            )
-            return result
-
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
-
-    def _add_cached_metrics(self, result: OperationResult, cached: dict):
-        """
-        Add cached scalar metrics (int, float, str, bool) to the OperationResult.
-
-        Parameters
-        ----------
-        result : OperationResult
-            The result object to update.
-        cached : dict
-            Cached result dictionary from cache manager.
-        """
-        for key, value in cached.get("metrics", {}).items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-    def _restore_cached_artifacts(
-        self, result: OperationResult, cached: dict, reporter: Optional[Any]
-    ) -> int:
-        """
-        Restore artifacts (output, metrics, visualizations) from cached result if files exist.
-
-        Parameters
-        ----------
-        result : OperationResult
-            OperationResult object to update with restored artifacts.
-        cached : dict
-            Cached result dictionary from cache manager.
-        reporter : Optional[Any]
-            Optional reporter object for tracking operation-level artifacts.
-
-        Returns
-        -------
-        int
-            Number of artifacts successfully restored.
-        """
-        artifacts_restored = 0
-
-        def restore_file_artifact(
-            path: Union[str, Path], artifact_type: str, desc_suffix: str, category: str
-        ):
-            """
-            Restore a single artifact from a file path if it exists.
-
-            Parameters
-            ----------
-            path : Union[str, Path]
-                Path to the artifact file.
-            artifact_type : str
-                Type of the artifact (e.g., 'json', 'csv', 'png').
-            desc_suffix : str
-                Description suffix (e.g., 'visualization', 'metrics').
-            category : str
-                Artifact category (e.g., output, metrics, visualization).
-            """
-            nonlocal artifacts_restored
-            if not path:
-                return
-
-            artifact_path = Path(path)
-            if artifact_path.exists():
-                result.add_artifact(
-                    artifact_type=artifact_type,
-                    path=artifact_path,
-                    description=f"{self.name} {desc_suffix} (cached)",
-                    category=category,
-                )
-                artifacts_restored += 1
-
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.name} {desc_suffix} (cached)",
-                        details={
-                            "artifact_type": artifact_type,
-                            "path": str(artifact_path),
-                        },
-                    )
-            else:
-                self.logger.warning(f"Cached file not found: {artifact_path}")
-
-        # Restore main output and metrics artifacts
-        restore_file_artifact(
-            cached.get("output_file"),
-            self.output_format,
-            "transformed data",
-            Constants.Artifact_Category_Output,
-        )
-        restore_file_artifact(
-            cached.get("metrics_file"),
-            "json",
-            "transformation metrics",
-            Constants.Artifact_Category_Metrics,
-        )
-
-        # Restore visualizations
-        for viz_type, path_str in cached.get("visualizations", {}).items():
-            restore_file_artifact(
-                path_str,
-                "png",
-                f"{viz_type} visualization",
-                Constants.Artifact_Category_Visualization,
-            )
-
-        return artifacts_restored
-
-    def _save_to_cache(
-        self,
-        original_data: Union[pd.Series, pd.DataFrame],
-        transformed_data: Union[pd.Series, pd.DataFrame],
-        metrics: Dict[str, Any],
-        visualization_paths: Dict[str, Path],
-        task_dir: Path,
-        metrics_result_path: Optional[str] = "",
-        output_result_path: Optional[str] = "",
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        original_data : pd.Series or pd.DataFrame
-            Original input data
-        transformed_data : pd.Series or pd.DataFrame
-            Transformed output data
-        metrics : Dict[str, Any]
-            Metrics collected during the operation
-        visualization_paths : Dict[str, Path]
-            Paths to generated visualizations
-        task_dir : Path
-            Task directory
-        metrics_result_path : Optional[str]
-            Path to the metrics result file
-            If not provided, a default path will be used.
-        output_result_path : Optional[str]
-            Path to the output result file
-            If not provided, a default path will be used.
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        if metrics is None:
-            metrics = {}
-
-        try:
-            # Generate cache key (same logic as _check_cache)
-            if isinstance(original_data, pd.DataFrame) and self.group_by_fields:
-                if all(
-                    field in original_data.columns for field in self.group_by_fields
-                ):
-                    cache_key = self._generate_cache_key(
-                        original_data[self.group_by_fields]
-                    )
-                else:
-                    cache_key = self._generate_cache_key(original_data)
-            else:
-                cache_key = self._generate_cache_key(original_data)
-
-            # Prepare metadata for cache
-            operation_params = self._get_basic_parameters()
-            operation_params.update(self._get_cache_parameters())
-
-            # Prepare cache data
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "metrics": {
-                    k: float(v) if isinstance(v, (np.integer, np.floating)) else v
-                    for k, v in metrics.items()
-                },
-                "parameters": operation_params,
-                "data_info": {
-                    "original_length": len(original_data),
-                    "transformed_length": len(transformed_data),
-                    "original_null_count": int(
-                        original_data.isna().sum().sum()
-                        if isinstance(original_data, pd.DataFrame)
-                        else original_data.isna().sum()
-                    ),
-                    "transformed_null_count": int(
-                        transformed_data.isna().sum().sum()
-                        if isinstance(transformed_data, pd.DataFrame)
-                        else transformed_data.isna().sum()
-                    ),
-                },
-                "output_file": output_result_path,  # Path to main output file
-                "metrics_file": metrics_result_path,  # Path to metrics file
-                "visualizations": {
-                    k: str(v) for k, v in visualization_paths.items()
-                },  # Paths to visualizations
-            }
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = self.operation_cache.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(
-                    f"Successfully saved {self.name} operation results to cache"
-                )
-            else:
-                self.logger.warning(
-                    f"Failed to save {self.name} operation results to cache"
-                )
-
-            return success
-
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
 
     def _update_progress_tracker(
         self,

@@ -75,7 +75,7 @@ def get_dictionaries_path() -> Path:
         logger.warning(f"Error reading PAMOLA.CORE config: {e}")
 
     # Default path in package resources
-    package_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    package_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     default_dir = os.path.join(package_dir, 'resources', 'entities')
     os.makedirs(default_dir, exist_ok=True)
     return Path(default_dir)

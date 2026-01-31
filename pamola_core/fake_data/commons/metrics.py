@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional, Union
 from pathlib import Path
 import pandas as pd
 import numpy as np
-
+from pamola_core.common.helpers.math_helper import fmt_float, fmt_percent
 from pamola_core.utils.visualization import (
     create_bar_plot,
     create_combined_chart,
@@ -95,7 +95,7 @@ class MetricsCollector:
 
         # Basic counts
         total_records = len(data)
-        unique_values = len(non_null_data.unique())
+        unique_values = non_null_data.nunique()
 
         # Value distribution (top 20 most common values)
         value_counts = non_null_data.value_counts(normalize=True)
@@ -103,7 +103,9 @@ class MetricsCollector:
 
         # Length statistics for string data
         length_stats = {}
-        if non_null_data.dtype == object:
+
+        # Correct string dtype check
+        if pd.api.types.is_string_dtype(non_null_data):
             try:
                 # Convert to string and get lengths
                 lengths = non_null_data.astype(str).str.len()
@@ -115,7 +117,7 @@ class MetricsCollector:
                     "median": float(lengths.median()),
                 }
             except Exception as e:
-                logger.warning(f"Could not calculate length statistics: {str(e)}")
+                logger.warning(f"Could not calculate length statistics: {e}")
                 length_stats = {"error": str(e)}
 
         return {
@@ -387,7 +389,7 @@ class MetricsCollector:
                         f"Error creating value distribution visualization: {str(e)}"
                     )
 
-        # Visualize length distribution for string data
+        # Visualize length statistics for string data (combined chart)
         if (
             "original_data" in metrics
             and "length_stats" in metrics["original_data"]
@@ -398,40 +400,72 @@ class MetricsCollector:
             orig_stats = metrics["original_data"]["length_stats"]
             gen_stats = metrics["generated_data"]["length_stats"]
 
-            # Only visualize if there's length data
-            if orig_stats and gen_stats and "min" in orig_stats and "min" in gen_stats:
-                # Create data for combined chart
-                stats_keys = ["min", "max", "mean", "median"]
-                orig_stats_values = [orig_stats.get(k, 0) for k in stats_keys]
-                gen_stats_values = [gen_stats.get(k, 0) for k in stats_keys]
-
-                # Create combined chart for length stats
-                length_path = (
-                    output_dir / f"{op_type}_{field_name}_length_stats_{timestamp}.png"
+            # Validate stats structure
+            required_keys = {"min", "max", "mean", "median"}
+            if not (
+                isinstance(orig_stats, dict)
+                and isinstance(gen_stats, dict)
+                and required_keys.issubset(orig_stats)
+                and required_keys.issubset(gen_stats)
+            ):
+                logger.warning(
+                    "Length stats missing required keys, skipping visualization"
                 )
-                try:
-                    vis_path = create_bar_plot(
-                        data={
-                            "Original": dict(zip(stats_keys, orig_stats_values)),
-                            "Generated": dict(zip(stats_keys, gen_stats_values)),
-                        },
-                        output_path=length_path,
-                        title=f"Length Statistics for {field_name}",
-                        x_label="Statistic",
-                        y_label="Value",
-                        **kwargs,
+
+            else:
+                # Build numeric DataFrame: rows = dataset, cols = statistics
+                stats_df = pd.DataFrame(
+                    {
+                        "Original": orig_stats,
+                        "Generated": gen_stats,
+                    }
+                ).T[["min", "max", "mean", "median"]]
+
+                # Ensure numeric values (defensive)
+                stats_df = stats_df.apply(pd.to_numeric, errors="coerce")
+
+                # Skip if all values are NaN
+                if stats_df.isna().all().all():
+                    logger.warning(
+                        "All length statistics are NaN, skipping visualization"
                     )
-                    if not vis_path.startswith("Error"):
-                        visualizations["length_stats"] = Path(vis_path)
-                    else:
-                        logger.warning(
-                            f"Error creating replacement rate visualization: {str(e)}"
+                else:
+                    # Flatten to 1D Series (create_bar_plot compatible)
+                    plot_series = pd.Series(
+                        {
+                            "Original-min": stats_df.loc["Original", "min"],
+                            "Original-max": stats_df.loc["Original", "max"],
+                            "Original-mean": stats_df.loc["Original", "mean"],
+                            "Original-median": stats_df.loc["Original", "median"],
+                            "Generated-min": stats_df.loc["Generated", "min"],
+                            "Generated-max": stats_df.loc["Generated", "max"],
+                            "Generated-mean": stats_df.loc["Generated", "mean"],
+                            "Generated-median": stats_df.loc["Generated", "median"],
+                        }
+                    )
+
+                    length_path = (
+                        output_dir
+                        / f"{op_type}_{field_name}_length_stats_{timestamp}.png"
+                    )
+
+                    try:
+                        vis_path = create_bar_plot(
+                            data=plot_series,
+                            output_path=length_path,
+                            title=f"Length Statistics for {field_name}",
+                            x_label="Statistic",
+                            y_label="Value",
+                            **kwargs,
                         )
 
-                except Exception as e:
-                    logger.warning(
-                        f"Error creating length stats visualization: {str(e)}"
-                    )
+                        if not vis_path.startswith("Error"):
+                            visualizations["length_stats"] = Path(vis_path)
+
+                    except Exception as e:
+                        logger.warning(
+                            f"Error creating length stats visualization: {str(e)}"
+                        )
 
         # Visualize transformation metrics
         if "transformation_metrics" in metrics:
@@ -513,51 +547,65 @@ def generate_metrics_report(
     """
     report = []
 
-    # Add report header
+    # ------------------------------------------------------------------
+    # Header
+    # ------------------------------------------------------------------
     report.append("# Fake Data Generation Metrics Report")
     report.append("")
 
-    # Add summary section
+    # ------------------------------------------------------------------
+    # Summary
+    # ------------------------------------------------------------------
     report.append("## Summary")
     report.append("")
 
-    # Add original data summary
-    if "original_data" in metrics:
-        orig = metrics["original_data"]
+    # ------------------------------------------------------------------
+    # Original data
+    # ------------------------------------------------------------------
+    orig = metrics.get("original_data")
+    if orig:
         report.append("### Original Data")
         report.append("")
         report.append(f"- Total records: {orig.get('total_records', 'N/A')}")
         report.append(f"- Unique values: {orig.get('unique_values', 'N/A')}")
 
-        # Add length stats if available
-        if "length_stats" in orig and orig["length_stats"]:
-            length = orig["length_stats"]
+        length = orig.get("length_stats")
+        if length:
             report.append(
-                f"- Length: min={length.get('min', 'N/A')}, max={length.get('max', 'N/A')}, "
-                + f"mean={length.get('mean', 'N/A'):.2f}, median={length.get('median', 'N/A'):.2f}"
+                f"- Length: "
+                f"min={length.get('min', 'N/A')}, "
+                f"max={length.get('max', 'N/A')}, "
+                f"mean={fmt_float(length.get('mean'))}, "
+                f"median={fmt_float(length.get('median'))}"
             )
         report.append("")
 
-    # Add generated data summary
-    if "generated_data" in metrics:
-        gen = metrics["generated_data"]
+    # ------------------------------------------------------------------
+    # Generated data
+    # ------------------------------------------------------------------
+    gen = metrics.get("generated_data")
+    if gen:
         report.append("### Generated Data")
         report.append("")
         report.append(f"- Total records: {gen.get('total_records', 'N/A')}")
         report.append(f"- Unique values: {gen.get('unique_values', 'N/A')}")
 
-        # Add length stats if available
-        if "length_stats" in gen and gen["length_stats"]:
-            length = gen["length_stats"]
+        length = gen.get("length_stats")
+        if length:
             report.append(
-                f"- Length: min={length.get('min', 'N/A')}, max={length.get('max', 'N/A')}, "
-                + f"mean={length.get('mean', 'N/A'):.2f}, median={length.get('median', 'N/A'):.2f}"
+                f"- Length: "
+                f"min={length.get('min', 'N/A')}, "
+                f"max={length.get('max', 'N/A')}, "
+                f"mean={fmt_float(length.get('mean'))}, "
+                f"median={fmt_float(length.get('median'))}"
             )
         report.append("")
 
-    # Add transformation metrics
-    if "transformation_metrics" in metrics:
-        trans = metrics["transformation_metrics"]
+    # ------------------------------------------------------------------
+    # Transformation metrics
+    # ------------------------------------------------------------------
+    trans = metrics.get("transformation_metrics")
+    if trans:
         report.append("### Transformation")
         report.append("")
         report.append(
@@ -569,32 +617,36 @@ def generate_metrics_report(
         )
         report.append(f"- Mapping collisions: {trans.get('mapping_collisions', 'N/A')}")
         report.append(
-            f"- Reversibility rate: {trans.get('reversibility_rate', 'N/A'):.2%}"
+            f"- Reversibility rate: {fmt_percent(trans.get('reversibility_rate'))}"
         )
         report.append("")
 
-    # Add performance metrics
-    if "performance" in metrics:
-        perf = metrics["performance"]
+    # ------------------------------------------------------------------
+    # Performance metrics
+    # ------------------------------------------------------------------
+    perf = metrics.get("performance")
+    if perf is not None:
         report.append("### Performance")
         report.append("")
         if perf:
             report.append(
-                f"- Generation time: {perf.get('generation_time', 'N/A'):.2f} seconds"
+                f"- Generation time: {fmt_float(perf.get('generation_time'))} seconds"
             )
             report.append(
                 f"- Records per second: {perf.get('records_per_second', 'N/A')}"
             )
             report.append(
-                f"- Memory usage: {perf.get('memory_usage_mb', 'N/A'):.2f} MB"
+                f"- Memory usage: {fmt_float(perf.get('memory_usage_mb'))} MB"
             )
         else:
             report.append("No performance metrics available.")
         report.append("")
 
-    # Add dictionary metrics
-    if "dictionary_metrics" in metrics:
-        dict_metrics = metrics["dictionary_metrics"]
+    # ------------------------------------------------------------------
+    # Dictionary metrics
+    # ------------------------------------------------------------------
+    dict_metrics = metrics.get("dictionary_metrics")
+    if dict_metrics is not None:
         report.append("### Dictionary")
         report.append("")
         if dict_metrics:
@@ -602,31 +654,31 @@ def generate_metrics_report(
                 f"- Total entries: {dict_metrics.get('total_dictionary_entries', 'N/A')}"
             )
             report.append(
-                f"- Language variants: {', '.join(dict_metrics.get('language_variants', []))}"
+                f"- Language variants: "
+                f"{', '.join(dict_metrics.get('language_variants', [])) or 'N/A'}"
             )
             report.append(f"- Last update: {dict_metrics.get('last_update', 'N/A')}")
         else:
             report.append("No dictionary metrics available.")
         report.append("")
 
-    # Join report lines
+    # ------------------------------------------------------------------
+    # Output
+    # ------------------------------------------------------------------
     report_text = "\n".join(report)
 
-    # Save report if output path is provided
     if output_path:
         output_path = Path(output_path)
 
-        # If op_type and field_name are provided, use them in the filename
         if op_type and field_name and output_path.is_dir():
             output_path = (
                 output_path
                 / f"{op_type}_{field_name}_metrics_report_{operation_timestamp}.md"
             )
 
-        # Ensure directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(report_text)
 
     return report_text

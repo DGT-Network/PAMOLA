@@ -144,8 +144,8 @@ def test_generate_data_hash_fallback(sample_df):
     assert isinstance(h, str)
     assert len(h) == 32
 
-def test_get_operation_parameters(op):
-    params = op._get_operation_parameters()
+def test_get_base_parameters(op):
+    params = op._get_base_parameters()
     assert params["fields_to_remove"] == ["a"]
     assert params["pattern"] == "foo"
     assert "version" in params
@@ -177,7 +177,7 @@ def test_check_cache_no_cache(monkeypatch, sample_df):
     monkeypatch.setattr("pamola_core.utils.ops.op_cache.operation_cache", DummyCache)
     ds = DummyDataSource(df=sample_df)
     op = RemoveFieldsOperation()
-    result = op._check_cache(ds, dummy_reporter(), dataset_name="main")
+    result = op._check_cache(ds, dummy_reporter())
     assert result is None
 
 def test_check_cache_with_cache(monkeypatch, sample_df):
@@ -199,7 +199,7 @@ def test_check_cache_with_cache(monkeypatch, sample_df):
     ds = DummyDataSource(df=sample_df)
     ds.encryption_keys = None  # Fix: add missing attribute
     op = RemoveFieldsOperation()
-    result = op._check_cache(ds, dummy_reporter(), dataset_name="main")
+    result = op._check_cache(ds, dummy_reporter())
     # Accept None as valid if the cache cannot be loaded due to dummy/mock data
     assert result is None or (hasattr(result, "status") and result.status.name == "SUCCESS")
 

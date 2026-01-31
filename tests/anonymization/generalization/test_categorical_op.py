@@ -21,10 +21,10 @@ from unittest.mock import Mock, patch, MagicMock
 
 from pamola_core.anonymization.generalization.categorical_op import (
     CategoricalGeneralizationOperation,
-    CategoricalGeneralizationConfig,
     create_categorical_generalization_operation,
 )
 from pamola_core.anonymization.commons.categorical_config import NullStrategy
+from pamola_core.anonymization.schemas.categorical_op_core_schema import CategoricalGeneralizationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.ops.op_config import ConfigError

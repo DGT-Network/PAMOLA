@@ -87,7 +87,7 @@ def flatten_schema(schema: dict, unused_fields=None) -> dict:
             result["required"].extend(
                 [r for r in reqs if not unused_fields or r not in unused_fields]
             )
-            # Merge dependencies nếu có
+            # Merge dependencies if any
             if "dependencies" in sub_schema:
                 for dep_key, dep_val in sub_schema["dependencies"].items():
                     dependencies_merged[dep_key] = dep_val
@@ -99,7 +99,7 @@ def flatten_schema(schema: dict, unused_fields=None) -> dict:
     # If there are validation schemas, keep them in allOf
     if merged_validations:
         result["allOf"] = merged_validations
-    # Merge dependencies vào kết quả nếu có
+    # Merge dependencies into the result if any
     if "dependencies" in schema:
         for dep_key, dep_val in schema["dependencies"].items():
             dependencies_merged[dep_key] = dep_val
@@ -205,7 +205,8 @@ def get_schema_json(
 
 
 def generate_schema_json(
-    config_class: Type[OperationConfig],
+    core_config_cls: Type[OperationConfig],
+    ui_config_class: Type[OperationConfig],
     task_dir: Path,
     excluded_fields: List[str] = [],
     generate_formily_schema: bool = False,
@@ -214,15 +215,26 @@ def generate_schema_json(
     """
     Write the schema (after excluding specified fields) of the given config_class to a JSON file.
     Args:
-        config_class (class): Configuration class with a 'schema' attribute (dict).
+        core_config_cls (class): Core Config class with attributes:
+            - schema: dict, the original JSON schema.
+        ui_config_class (class): UI Config class with attributes:
+            - schema: dict, the original JSON schema.
+        task_dir (Path): Directory where the JSON file will be saved.
         excluded_fields (list, optional): List of field names to exclude from the schema. Defaults to [].
+        generate_formily_schema (bool): Whether to convert the schema to Formily format. Defaults to False.
+        tooltip (dict, optional): Tooltip information for Formily schema conversion. Defaults to None.
     Returns:
         Path: Path to the written JSON file.
     Example:
-        generate_schema_json(NumericGeneralizationConfig)
+        generate_schema_json(NumericGeneralizationConfig, NumericGeneralizationUIConfig)
     """
-    # Get filtered schema with excluded fields removed
-    filtered_schema = get_filtered_schema(config_class.schema, excluded_fields)
+    # Get core filtered schema with excluded fields removed
+    core_filtered_schema = get_filtered_schema(core_config_cls.schema, excluded_fields)
+    # Get UI filtered schema with excluded fields removed
+    ui_filtered_schema = get_filtered_schema(ui_config_class.schema, excluded_fields)
+
+    # Merge core and UI schemas
+    filtered_schema = merge_schemas(core_filtered_schema, ui_filtered_schema)
 
     # Flatten allOf recursively at all levels
     filtered_schema = flatten_schema(filtered_schema)
@@ -233,11 +245,11 @@ def generate_schema_json(
     if generate_formily_schema:
         # Convert the filtered JSON schema to Formily schema
         filtered_schema = convert_json_schema_to_formily(
-            filtered_schema, config_class.__name__, tooltip
+            filtered_schema, core_config_cls.__name__, tooltip
         )
 
-    # Use the class name as the output filename
-    filename = f"{config_class.__name__}.json"
+    # Use the UI class name as the output filename
+    filename = f"{core_config_cls.__name__}.json"
 
     # Define the output path
     output_path = task_dir / filename
@@ -247,3 +259,218 @@ def generate_schema_json(
 
     # Return the path to the written JSON file
     return path_file
+
+
+def merge_schemas(core_schema: dict, ui_schema: dict) -> dict:
+    """
+    Deep merge two JSON schemas, combining properties from both.
+    UI schema properties take precedence and are merged into core schema properties.
+
+    Args:
+        core_schema (dict): The core validation schema
+        ui_schema (dict): The UI metadata schema
+
+    Returns:
+        dict: Merged schema with both core validation and UI metadata
+    """
+    merged = copy.deepcopy(core_schema)
+
+    # Merge top-level allOf arrays if both exist
+    if "allOf" in core_schema and "allOf" in ui_schema:
+        # Merge properties from corresponding allOf elements
+        core_allof = merged["allOf"]
+        ui_allof = ui_schema["allOf"]
+
+        for i, ui_item in enumerate(ui_allof):
+            if (
+                i < len(core_allof)
+                and isinstance(ui_item, dict)
+                and isinstance(core_allof[i], dict)
+            ):
+                if "properties" in ui_item and "properties" in core_allof[i]:
+                    # Merge properties from UI into core
+                    for prop_name, prop_value in ui_item["properties"].items():
+                        if prop_name in core_allof[i]["properties"]:
+                            # Merge UI metadata into existing core property
+                            _merge_property_recursive(
+                                core_allof[i]["properties"][prop_name], prop_value
+                            )
+                        else:
+                            # Add new property from UI schema
+                            core_allof[i]["properties"][prop_name] = copy.deepcopy(
+                                prop_value
+                            )
+    elif "allOf" not in core_schema and "allOf" in ui_schema:
+        # If core doesn't have allOf but UI does, add it
+        merged["allOf"] = copy.deepcopy(ui_schema["allOf"])
+
+    # Merge top-level properties if they exist
+    if "properties" in ui_schema:
+        if "properties" not in merged:
+            merged["properties"] = {}
+        for prop_name, prop_value in ui_schema["properties"].items():
+            if prop_name in merged["properties"]:
+                _merge_property_recursive(merged["properties"][prop_name], prop_value)
+            else:
+                merged["properties"][prop_name] = copy.deepcopy(prop_value)
+
+    return merged
+
+
+def _merge_property_recursive(core_prop: dict, ui_prop: dict) -> None:
+    """
+    Recursively merge UI property metadata into core property.
+    Handles special cases:
+    - x-items.properties from UI should merge into items.properties from core (Case 1: object arrays)
+    - x-items from UI should merge into items from core (Case 2: primitive arrays)
+    - items.properties UI metadata should be extracted to x-items
+    - Top-level UI metadata (x-component, x-group, etc.) should be added to core
+
+    Args:
+        core_prop (dict): Core property definition (modified in place)
+        ui_prop (dict): UI property definition with metadata
+    """
+    # Track if we need to create x-items for array items UI metadata
+    ui_items_metadata = {}
+
+    for key, value in ui_prop.items():
+        if key == "x-items":
+            # Special case: x-items from UI needs to be merged based on structure
+            if isinstance(value, dict):
+                # Case 1: x-items has a properties object (for object arrays)
+                if (
+                    "properties" in value
+                    and "items" in core_prop
+                    and "properties" in core_prop["items"]
+                ):
+                    # Merge x-items.properties metadata into items.properties
+                    for prop_name, prop_ui_metadata in value["properties"].items():
+                        if prop_name in core_prop["items"]["properties"]:
+                            # Add UI metadata to existing property
+                            core_prop["items"]["properties"][prop_name].update(
+                                copy.deepcopy(prop_ui_metadata)
+                            )
+                        else:
+                            # Property doesn't exist in core, store for later
+                            if "properties" not in ui_items_metadata:
+                                ui_items_metadata["properties"] = {}
+                            ui_items_metadata["properties"][prop_name] = copy.deepcopy(
+                                prop_ui_metadata
+                            )
+                # Case 2: x-items contains direct UI metadata (for primitive arrays)
+                elif "items" in core_prop and "properties" not in core_prop["items"]:
+                    # Merge x-items directly into items (for primitive arrays like range_limits)
+                    core_prop["items"].update(copy.deepcopy(value))
+                # Case 3: x-items has properties but core doesn't have items.properties (old structure fallback)
+                elif "items" in core_prop and "properties" in core_prop["items"]:
+                    # Handle old structure where x-items directly contains property metadata
+                    for prop_name, prop_ui_metadata in value.items():
+                        if (
+                            prop_name != "properties"
+                            and prop_name in core_prop["items"]["properties"]
+                        ):
+                            # Add UI metadata to existing property
+                            core_prop["items"]["properties"][prop_name].update(
+                                copy.deepcopy(prop_ui_metadata)
+                            )
+                        elif prop_name != "properties":
+                            # Property doesn't exist in core, store for later
+                            if prop_name not in ui_items_metadata:
+                                ui_items_metadata[prop_name] = {}
+                            ui_items_metadata[prop_name].update(
+                                copy.deepcopy(prop_ui_metadata)
+                            )
+                else:
+                    # If core doesn't have items structure, keep x-items as is
+                    if "x-items" not in core_prop:
+                        core_prop["x-items"] = {}
+                    core_prop["x-items"].update(copy.deepcopy(value))
+
+        elif (
+            key == "items"
+            and isinstance(value, dict)
+            and isinstance(core_prop.get("items"), dict)
+        ):
+            # Special handling for items: merge nested properties recursively
+            if "properties" in value and "properties" in core_prop["items"]:
+                # Merge each property in items.properties
+                for prop_name, prop_value in value["properties"].items():
+                    if prop_name in core_prop["items"]["properties"]:
+                        # Extract UI metadata (x-* fields) from nested properties
+                        ui_metadata = {
+                            k: v for k, v in prop_value.items() if k.startswith("x-")
+                        }
+                        core_metadata = {
+                            k: v
+                            for k, v in prop_value.items()
+                            if not k.startswith("x-")
+                        }
+
+                        # Recursively merge non-UI metadata
+                        if core_metadata:
+                            _merge_property_recursive(
+                                core_prop["items"]["properties"][prop_name],
+                                core_metadata,
+                            )
+
+                        # Add UI metadata directly to items.properties
+                        if ui_metadata:
+                            core_prop["items"]["properties"][prop_name].update(
+                                ui_metadata
+                            )
+                    else:
+                        # Add new property (separate UI and core metadata)
+                        ui_metadata = {
+                            k: v for k, v in prop_value.items() if k.startswith("x-")
+                        }
+                        core_metadata = {
+                            k: v
+                            for k, v in prop_value.items()
+                            if not k.startswith("x-")
+                        }
+
+                        # Merge both core and UI metadata
+                        merged_property = copy.deepcopy(core_metadata)
+                        merged_property.update(ui_metadata)
+                        core_prop["items"]["properties"][prop_name] = merged_property
+            else:
+                # If no properties to merge, just update items directly
+                for item_key, item_value in value.items():
+                    if item_key == "properties":
+                        continue  # Already handled above
+                    if item_key not in core_prop["items"]:
+                        core_prop["items"][item_key] = copy.deepcopy(item_value)
+
+        elif (
+            key == "properties"
+            and isinstance(value, dict)
+            and isinstance(core_prop.get("properties"), dict)
+        ):
+            # Recursively merge nested properties (for object types)
+            for prop_name, prop_value in value.items():
+                if prop_name in core_prop["properties"]:
+                    _merge_property_recursive(
+                        core_prop["properties"][prop_name], prop_value
+                    )
+                else:
+                    core_prop["properties"][prop_name] = copy.deepcopy(prop_value)
+        else:
+            # Standard merge: add or update the property
+            # This handles x-component, x-group, x-depend-on, etc.
+            if key not in core_prop:
+                core_prop[key] = (
+                    copy.deepcopy(value) if isinstance(value, (dict, list)) else value
+                )
+            elif isinstance(core_prop[key], dict) and isinstance(value, dict):
+                # Deep merge for dict values
+                core_prop[key].update(copy.deepcopy(value))
+            else:
+                core_prop[key] = (
+                    copy.deepcopy(value) if isinstance(value, (dict, list)) else value
+                )
+
+    # If we collected UI metadata that couldn't be merged, keep it in x-items
+    if ui_items_metadata:
+        if "x-items" not in core_prop:
+            core_prop["x-items"] = {}
+        core_prop["x-items"].update(ui_items_metadata)

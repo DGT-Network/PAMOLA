@@ -42,7 +42,7 @@ The `clean_invalid_values` module provides a robust, configurable operation for 
 - `pamola_core.transformations.commons.visualization_utils` (visualizations)
 - `pamola_core.utils.ops.op_cache` (operation caching)
 - `pamola_core.utils.io` (data I/O)
-- `pamola_core.config` (configuration)
+- `pamola_core.configs` (configuration)
 
 ---
 

@@ -26,15 +26,13 @@ Key Features:
 """
 
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 import time
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, Optional, Union
 
 import dask
 import dask.dataframe as dd
-
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
@@ -51,19 +49,19 @@ from pamola_core.profiling.commons.numeric_utils import (
     calculate_percentiles,
     calculate_histogram,
 )
-from pamola_core.profiling.schemas.currency_schema import CurrencyOperationConfig
+from pamola_core.profiling.schemas.currency_core_schema import CurrencyOperationConfig
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_dataframe_to_csv,
     write_json,
-    load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_base import FieldOperation
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_processing import get_dataframe_chunks
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
@@ -75,6 +73,7 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -1391,6 +1390,10 @@ class CurrencyOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+
             if kwargs.get("logger"):
                 self.logger = kwargs["logger"]
 
@@ -1399,6 +1402,12 @@ class CurrencyOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
@@ -1417,32 +1426,29 @@ class CurrencyOperation(FieldOperation):
             total_steps = 5 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
-            current_steps = 0
 
             # Step 1: Preparation
             if progress_tracker:
                 progress_tracker.total = total_steps  # Define total steps for tracking
                 progress_tracker.update(
-                    current_steps,
+                    1,
                     {"step": "Preparation", "operation": self.operation_name},
                 )
 
             # Step 2: Data Loading
+            step = "Load data and validate input parameters"
             if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Data Loading"})
+                progress_tracker.update(
+                    1, {"step": step, "operation": self.operation_name}
+                )
 
             # Load data
             settings_operation = load_settings_operation(
                 data_source, dataset_name, **kwargs
             )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
-                error_message = "Failed to load input data"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
-                )
+            df = helpers.validate_and_get_dataframe(
+                data_source, dataset_name, **settings_operation
+            )
         except Exception as e:
             error_message = f"Error loading data: {str(e)}"
             self.logger.error(error_message)
@@ -1453,18 +1459,17 @@ class CurrencyOperation(FieldOperation):
         # Step 3: Check Cache (if enabled and not forced to recalculate)
         if self.use_cache and not self.force_recalculation:
             if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "Checking Cache"})
+                progress_tracker.update(1, {"step": "Checking Cache"})
 
             logger.info("Checking operation cache...")
-            cache_result = self._check_cache(df, dataset_name, **kwargs)
+            cache_result = self._check_cache(df)
 
             if cache_result:
                 self.logger.info("Cache hit! Using cached results.")
 
                 # Update progress
                 if progress_tracker:
-                    progress_tracker.update(total_steps, {"step": "Complete (cached)"})
+                    progress_tracker.update(1, {"step": "Complete (cached)"})
 
                 # Report cache hit to reporter
                 if reporter:
@@ -1499,8 +1504,7 @@ class CurrencyOperation(FieldOperation):
 
             # Step 4: Analysis
             if progress_tracker:
-                current_steps += 1
-                progress_tracker.update(current_steps, {"step": "K-Anonymity Analysis"})
+                progress_tracker.update(1, {"step": "K-Anonymity Analysis"})
 
             # Execute the analyzer
             analysis_results = self.analyzer.analyze(
@@ -1529,7 +1533,7 @@ class CurrencyOperation(FieldOperation):
             stats_filename = f"{self.field_name}_stats.json"
             stats_path = output_dir / stats_filename
 
-            encryption_mode = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode = get_encryption_mode(analysis_results, self.use_encryption)
             write_json(
                 analysis_results,
                 stats_path,
@@ -1553,10 +1557,7 @@ class CurrencyOperation(FieldOperation):
 
                 # Step 5: Creating Visualizations
                 if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(
-                        current_steps, {"step": "Creating Visualizations"}
-                    )
+                    progress_tracker.update(1, {"step": "Creating Visualizations"})
 
                 self._handle_visualizations(
                     analysis_results=analysis_results,
@@ -1588,9 +1589,8 @@ class CurrencyOperation(FieldOperation):
 
             # Step 6: Finalization
             if progress_tracker:
-                current_steps += 1
                 progress_tracker.update(
-                    current_steps, {"step": "Operation complete", "status": "success"}
+                    1, {"step": "Operation complete", "status": "success"}
                 )
 
             # Add final operation status to reporter
@@ -1610,14 +1610,20 @@ class CurrencyOperation(FieldOperation):
             if self.use_cache:
                 try:
                     self._save_to_cache(
-                        artifacts=result.artifacts,
                         original_df=df,
-                        metrics=result.metrics,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
 
             return result
 
@@ -1968,13 +1974,7 @@ class CurrencyOperation(FieldOperation):
             # Deduplicate and sort indices
             indices = sorted(set(indices))
 
-            # Create sample DataFrame
-            if df.index.name:
-                id_field = df.index.name
-            else:
-                id_field = "index"
-
-            sample_df = df.loc[indices, [self.field_name]].copy()
+            sample_df = df.loc[indices, [self.field_name]].copy(deep=True)
             sample_df = sample_df.reset_index()
 
             # Save to CSV
@@ -2105,9 +2105,6 @@ class CurrencyOperation(FieldOperation):
     def _check_cache(
         self,
         df: Union[pd.DataFrame, dd.DataFrame],
-        task_dir: Path,
-        reporter: Any,
-        **kwargs,
     ) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
@@ -2116,10 +2113,6 @@ class CurrencyOperation(FieldOperation):
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
-        task_dir : Path
-            Task directory
-        reporter : Any
-            The reporter to log artifacts to
 
         Returns:
         --------
@@ -2130,67 +2123,31 @@ class CurrencyOperation(FieldOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import OperationCache
-
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
 
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache_dir.get_cache(
+            cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                self.logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        cached_result.add_metric(key, value)
-
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        artifact_type = artifact.get("artifact_type", "")
-                        artifact_path = artifact.get("path", "")
-                        artifact_name = artifact.get("description", "")
-                        artifact_category = artifact.get("category", "output")
-                        cached_result.add_artifact(
-                            artifact_type,
-                            artifact_path,
-                            artifact_name,
-                            artifact_category,
-                        )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
 
     def _save_to_cache(
         self,
-        original_df: Union[pd.DataFrame, dd.DataFrame],
-        artifacts: List[OperationArtifact],
-        metrics: Dict[str, Any],
+        original_df: pd.DataFrame,
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -2198,10 +2155,10 @@ class CurrencyOperation(FieldOperation):
 
         Parameters:
         -----------
-        original_df : Union[pd.DataFrame, dd.DataFrame]
+        original_df : pd.DataFrame
             Original input data
-        metrics : dict
-            The metrics of operation
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
 
@@ -2210,31 +2167,21 @@ class CurrencyOperation(FieldOperation):
         bool
             True if successfully saved to cache, False otherwise
         """
-        if not self.use_cache or (not artifacts and not metrics):
+        if not self.use_cache:
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
-
-            artifacts_for_cache = [artifact.to_dict() for artifact in artifacts]
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "artifacts": artifacts_for_cache,
-                "metrics": metrics,
-            }
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,
@@ -2251,36 +2198,7 @@ class CurrencyOperation(FieldOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -2295,66 +2213,12 @@ class CurrencyOperation(FieldOperation):
             "bins": self.bins,
             "detect_outliers": self.detect_outliers,
             "test_normality": self.test_normality,
-            "use_dask": self.use_dask,
-            "npartitions": self.npartitions,
-            "use_vectorization": self.use_vectorization,
-            "parallel_processes": self.parallel_processes,
-            "chunk_size": self.chunk_size,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "use_cache": self.use_cache,
-            "use_encryption": self.use_encryption,
-            "encryption_mode": self.encryption_mode,
-            "encryption_key": self.encryption_key,
         }
 
         # Add operation-specific parameters
         parameters.update(self._get_cache_parameters())
 
         return parameters
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
-    def _generate_data_hash(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
         self,

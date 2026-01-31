@@ -124,7 +124,9 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_metrics_overview_visualization,
     sample_large_dataset,
 )
-from pamola_core.anonymization.schemas.numeric_op_schema import NumericGeneralizationConfig
+from pamola_core.anonymization.schemas.numeric_op_core_schema import (
+    NumericGeneralizationConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.utils.io import load_settings_operation
@@ -135,6 +137,7 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.helpers import filter_used_kwargs
+
 
 @register(version="1.0.0")
 class NumericGeneralizationOperation(AnonymizationOperation):
@@ -212,7 +215,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
@@ -262,11 +264,11 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             )
 
             # Prepare directories for artifacts
-            self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Save configuration to task directory
@@ -290,7 +292,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Data Loading & Validation, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data Loading & Validation, 2. Cache check, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -312,20 +314,55 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
+            # Step 1: Data Loading & Validation
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", "field": self.field_name}
+                )
+
+            # Validate and get dataframe
+            try:
+                # Validate configuration early
+                self._validate_configuration()
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+                # Validate field is suitable for numeric operations
+                validation_result = validate_numeric_field(
+                    df,
+                    self.field_name,
+                    allow_null=(self.null_strategy != NullStrategy.ERROR.value),
+                    logger_instance=self.logger,
+                )
+
+                if not validation_result.is_valid:
+                    raise FieldValueError(
+                        self.field_name,
+                        reason="Invalid numeric format",
+                    )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 2: Check if we have a cached result
             if self.use_cache and not self.force_recalculation:
                 try:
-                    # Step 1: Check if we have a cached result
                     if main_progress:
                         current_steps += 1
                         main_progress.update(
                             current_steps,
                             {"step": "Checking cache", "field": self.field_name},
                         )
-
-                    # Load data for cache check
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
 
                     # Generate cache key based on operation parameters
                     self.logger.info("Checking operation cache...")
@@ -363,45 +400,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                         error_message=error_message,
                         exception=e,
                     )
-
-            # Step 2: Data Loading & Validation
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Data Loading", "field": self.field_name}
-                )
-
-            # Validate and get dataframe
-            try:
-                # Validate configuration early
-                self._validate_configuration()
-                if df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-
-                # Validate field is suitable for numeric operations
-                validation_result = validate_numeric_field(
-                    df,
-                    self.field_name,
-                    allow_null=(self.null_strategy != NullStrategy.ERROR.value),
-                    logger_instance=self.logger,
-                )
-
-                if not validation_result.is_valid:
-                    raise FieldValueError(
-                        self.field_name,
-                        reason="Invalid numeric format",
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -519,38 +517,16 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 # Generate metrics file name (in self.name existed field_name)
                 metrics_file_name = f"{self.field_name}_anonymization_numeric_{self.strategy}_metrics_{operation_timestamp}"
 
-                # Save metrics using writer
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    file_name=metrics_file_name,
                 )
 
-                # Add metrics to result
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register metrics artifact
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"{self.field_name} generalization metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report artifact
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} generalization metrics",
-                        details={
-                            "artifact_type": "json",
-                            "path": str(metrics_result.path),
-                        },
-                    )
                 # Log summary
                 summary = get_process_summary(metrics.get("privacy_metrics", {}))
                 for key, message in summary.items():
@@ -571,14 +547,13 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
                         task_dir=task_dir,
@@ -611,21 +586,19 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 )
 
             # Save output data if required
-            output_result_path = None
             if self.save_output:
                 try:
                     # Save the processed DataFrame
                     safe_kwargs = filter_used_kwargs(
                         kwargs, NumericGeneralizationOperation._save_output_data
                     )
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        use_encryption=self.use_encryption,
                         **safe_kwargs,
                     )
                 except Exception as e:
@@ -643,11 +616,8 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                     self._save_to_cache(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
-                        metrics=metrics,
+                        result=result,
                         task_dir=task_dir,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -690,8 +660,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
                 exception=e,
             )
 
-    @classmethod
-    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data to generalize numeric values.
 
@@ -699,19 +668,17 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns:
         --------
         pd.DataFrame
             Processed DataFrame batch with generalized values
         """
-        # Extract parameters from kwargs
-        field_name = kwargs.get("field_name")
-        output_field_name = kwargs.get("output_field_name")
-        mode = kwargs.get("mode")
-        strategy = kwargs.get("strategy")
+        # Extract parameters from self
+        field_name = self.field_name
+        output_field_name = self.output_field_name
+        mode = self.mode
+        strategy = self.strategy
 
         # Check if the field exists
         if field_name not in batch.columns:
@@ -730,11 +697,11 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         # Apply generalization based on strategy
         if strategy == "binning":
-            generalized_values = cls._apply_binning(field_data, **kwargs)
+            generalized_values = self._apply_binning(field_data)
         elif strategy == "rounding":
-            generalized_values = cls._apply_rounding(field_data, **kwargs)
+            generalized_values = self._apply_rounding(field_data)
         elif strategy == "range":
-            generalized_values = cls._apply_range(field_data, **kwargs)
+            generalized_values = self._apply_range(field_data)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
 
@@ -746,8 +713,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         return batch
 
-    @classmethod
-    def process_batch_dask(cls, ddf: dd.DataFrame, **kwargs) -> dd.DataFrame:
+    def process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
@@ -755,8 +721,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -766,7 +730,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         # Default implementation: process each partition with process_batch
         def process_partition(partition):
-            return cls.process_batch(partition.copy(deep=True), **kwargs)
+            return self.process_batch(partition.copy(deep=True))
 
         return ddf.map_partitions(process_partition)
 
@@ -802,8 +766,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         if self.condition_operator not in ["in", "not_in", "gt", "lt", "eq", "range"]:
             raise ValueError(f"Unknown condition operator: {self.condition_operator}")
 
-    @staticmethod
-    def _apply_binning(series: pd.Series, **kwargs) -> pd.Series:
+    def _apply_binning(self, series: pd.Series) -> pd.Series:
         """
         Apply binning with specific parameters.
 
@@ -811,17 +774,15 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         series : pd.Series
             Series to generalize
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns:
         --------
         pd.Series
             Binned series
         """
-        # Extract parameters from kwargs
-        bin_count = kwargs.get("bin_count")
-        binning_method = kwargs.get("binning_method")
+        # Extract parameters from self
+        bin_count = getattr(self, "bin_count", 10)
+        binning_method = getattr(self, "binning_method", "equal_width")
 
         # Validate bin count
         validate_bin_count(bin_count)
@@ -849,7 +810,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             if min_val == max_val:
                 # Single-value edge case
                 label = f"{int(min_val)}" if is_int else f"{min_val:.2f}"
-                result = series.copy().astype("object")
+                result = series.copy(deep=True).astype("object")
                 result[non_null_mask] = label
                 return result
 
@@ -879,7 +840,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             labels = [f"{bins[i]:.2f}-{bins[i + 1]:.2f}" for i in range(len(bins) - 1)]
 
         # Apply pd.cut
-        result = series.copy().astype("object")
+        result = series.copy(deep=True).astype("object")
         binned_values = pd.cut(
             non_null_values,
             bins=bins,
@@ -891,8 +852,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
 
         return result
 
-    @staticmethod
-    def _apply_rounding(series: pd.Series, **kwargs) -> pd.Series:
+    def _apply_rounding(self, series: pd.Series) -> pd.Series:
         """
         Apply rounding with specific precision.
 
@@ -900,16 +860,14 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         series : pd.Series
             Series to round
-        kwargs : dict
-            Decimal places (positive) or power of 10 (negative)
 
         Returns:
         --------
         pd.Series
             Rounded series
         """
-        # Extract parameters from kwargs
-        precision = kwargs.get("precision")
+        # Extract parameters from self
+        precision = getattr(self, "precision", 0)
 
         # Validate precision
         validate_precision(precision)
@@ -929,8 +887,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             result = (series / factor).round() * factor
             return result.astype("Int64") if is_int else result
 
-    @staticmethod
-    def _apply_range(series: pd.Series, **kwargs) -> pd.Series:
+    def _apply_range(self, series: pd.Series) -> pd.Series:
         """
         Apply range-based generalization to a series.
 
@@ -938,8 +895,6 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         -----------
         series : pd.Series
             Series to generalize
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -947,7 +902,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             Range-generalized series
         """
         # Extract parameters from kwargs
-        range_limits = kwargs.get("range_limits")
+        range_limits = getattr(self, "range_limits", [])
 
         # Validate range limits
         validate_range_limits(range_limits)
@@ -1443,7 +1398,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         # Prepare operation parameters
         operation_params: Dict[str, Any] = {
             "strategy": self.strategy,
-            **self.process_kwargs,
+            **self.config.to_dict(),
         }
 
         operation_metrics = collect_operation_metrics(
@@ -1523,42 +1478,12 @@ class NumericGeneralizationOperation(AnonymizationOperation):
             Strategy-specific parameters for numeric generalization
         """
         params = dict(
-            field_name=self.field_name,
             strategy=self.strategy,
             bin_count=self.bin_count,
             binning_method=self.binning_method,
             precision=self.precision,
             range_limits=self.range_limits,
-            mode=self.mode,
-            output_field_name=self.output_field_name,
-            column_prefix=self.column_prefix,
             quasi_identifiers=self.quasi_identifiers,
-            condition_field=self.condition_field,
-            condition_values=self.condition_values,
-            condition_operator=self.condition_operator,
-            ka_risk_field=self.ka_risk_field,
-            risk_threshold=self.risk_threshold,
-            vulnerable_record_strategy=self.vulnerable_record_strategy,
-            optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_vectorization=self.use_vectorization,
-            parallel_processes=self.parallel_processes,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            output_format=self.output_format,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
-            save_output=self.save_output,
         )
 
         return params

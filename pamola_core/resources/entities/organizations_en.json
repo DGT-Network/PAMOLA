@@ -1,0 +1,457 @@
+{
+  "categories_hierarchy": {
+    "Organization": {
+      "alias": "organization",
+      "domain": "General",
+      "level": 0,
+      "children": ["Enterprise", "Government", "Education", "Non_Profit", "Healthcare", "Media", "Professional_Services", "International_Organizations", "Religious_Organization", "Sports_Organization", "Cultural_Institution"],
+      "language": ["en"]
+    },
+    "Enterprise": {
+      "alias": "enterprise",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Technology_Company", "Financial_Institution", "Manufacturing", "Retail", "Energy_Company", "Transportation_Company", "Telecommunications", "Agriculture_Business"],
+      "keywords": ["company", "business", "corporation", "enterprise", "firm", "corporate"],
+      "language": ["en"]
+    },
+    "Government": {
+      "alias": "government",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Federal_Agency", "Local_Government", "Military"],
+      "keywords": ["government", "agency", "ministry", "department", "authority"],
+      "language": ["en"]
+    },
+    "Education": {
+      "alias": "education",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["University", "School", "Research_Institution"],
+      "keywords": ["education", "academic", "institute"],
+      "language": ["en"]
+    },
+    "Non_Profit": {
+      "alias": "non_profit",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["NGO", "Charity", "Foundation"],
+      "keywords": ["non-profit", "nonprofit", "not-for-profit"],
+      "language": ["en"]
+    },
+    "Healthcare": {
+      "alias": "healthcare",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Hospital", "Clinic", "Pharmaceutical"],
+      "keywords": ["healthcare", "medical", "health"],
+      "language": ["en"]
+    },
+    "Technology_Company": {
+      "alias": "tech_company",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["tech company", "IT company", "software company", "technology corporation", "digital business"],
+      "language": ["en"]
+    },
+    "Financial_Institution": {
+      "alias": "financial_institution",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["bank", "financial", "investment", "insurance", "finance"],
+      "language": ["en"]
+    },
+    "Manufacturing": {
+      "alias": "manufacturing",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["manufacturing", "factory", "industrial", "production"],
+      "language": ["en"]
+    },
+    "Retail": {
+      "alias": "retail",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["retail", "store", "shop"],
+      "language": ["en"]
+    },
+    "Federal_Agency": {
+      "alias": "federal_agency",
+      "domain": "Government",
+      "level": 2,
+      "parent_category": "Government",
+      "keywords": ["federal agency", "national authority", "state department"],
+      "language": ["en"]
+    },
+    "Local_Government": {
+      "alias": "local_government",
+      "domain": "Government",
+      "level": 2,
+      "parent_category": "Government",
+      "keywords": ["local government", "municipal", "city council", "county"],
+      "language": ["en"]
+    },
+    "Military": {
+      "alias": "military",
+      "domain": "Government",
+      "level": 2,
+      "parent_category": "Government",
+      "keywords": ["military", "defense", "armed forces", "army", "navy", "air force"],
+      "language": ["en"]
+    },
+    "University": {
+      "alias": "university",
+      "domain": "Education",
+      "level": 2,
+      "parent_category": "Education",
+      "keywords": ["university", "college", "higher education"],
+      "language": ["en"]
+    },
+    "School": {
+      "alias": "school",
+      "domain": "Education",
+      "level": 2,
+      "parent_category": "Education",
+      "keywords": ["school", "academy", "elementary", "high school"],
+      "language": ["en"]
+    },
+    "Research_Institution": {
+      "alias": "research_institution",
+      "domain": "Education",
+      "level": 2,
+      "parent_category": "Education",
+      "keywords": ["research institute", "laboratory", "scientific center"],
+      "language": ["en"]
+    },
+    "NGO": {
+      "alias": "ngo",
+      "domain": "Non_Profit",
+      "level": 2,
+      "parent_category": "Non_Profit",
+      "keywords": ["NGO", "non-governmental organization"],
+      "language": ["en"]
+    },
+    "Charity": {
+      "alias": "charity",
+      "domain": "Non_Profit",
+      "level": 2,
+      "parent_category": "Non_Profit",
+      "keywords": ["charity", "charitable organization"],
+      "language": ["en"]
+    },
+    "Foundation": {
+      "alias": "foundation",
+      "domain": "Non_Profit",
+      "level": 2,
+      "parent_category": "Non_Profit",
+      "keywords": ["foundation", "endowment", "fund"],
+      "language": ["en"]
+    },
+    "Hospital": {
+      "alias": "hospital",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "keywords": ["hospital", "medical center"],
+      "language": ["en"]
+    },
+    "Clinic": {
+      "alias": "clinic",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "keywords": ["clinic", "health center"],
+      "language": ["en"]
+    },
+    "Pharmaceutical": {
+      "alias": "pharmaceutical",
+      "domain": "Healthcare",
+      "level": 2,
+      "parent_category": "Healthcare",
+      "keywords": ["pharmaceutical", "drug company", "pharmacy"],
+      "language": ["en"]
+    },
+    "Media": {
+      "alias": "media",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["News_Organization", "Entertainment_Company", "Social_Media"],
+      "keywords": ["media", "press", "broadcasting"],
+      "language": ["en"]
+    },
+    "News_Organization": {
+      "alias": "news_organization",
+      "domain": "Media",
+      "level": 2,
+      "parent_category": "Media",
+      "keywords": ["news agency", "newspaper", "magazine", "publisher"],
+      "language": ["en"]
+    },
+    "Entertainment_Company": {
+      "alias": "entertainment_company",
+      "domain": "Media",
+      "level": 2,
+      "parent_category": "Media",
+      "keywords": ["entertainment", "studio", "production"],
+      "language": ["en"]
+    },
+    "Social_Media": {
+      "alias": "social_media",
+      "domain": "Media",
+      "level": 2,
+      "parent_category": "Media",
+      "keywords": ["social media", "platform", "network"],
+      "language": ["en"]
+    },
+    "Professional_Services": {
+      "alias": "professional_services",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Law_Firm", "Consulting", "Accounting_Firm"],
+      "keywords": ["professional services", "services firm"],
+      "language": ["en"]
+    },
+    "Law_Firm": {
+      "alias": "law_firm",
+      "domain": "Professional_Services",
+      "level": 2,
+      "parent_category": "Professional_Services",
+      "keywords": ["law firm", "legal", "attorneys"],
+      "language": ["en"]
+    },
+    "Consulting": {
+      "alias": "consulting",
+      "domain": "Professional_Services",
+      "level": 2,
+      "parent_category": "Professional_Services",
+      "keywords": ["consulting", "consultancy", "advisory"],
+      "language": ["en"]
+    },
+    "Accounting_Firm": {
+      "alias": "accounting_firm",
+      "domain": "Professional_Services",
+      "level": 2,
+      "parent_category": "Professional_Services",
+      "keywords": ["accounting", "audit", "tax"],
+      "language": ["en"]
+    },
+    "International_Organizations": {
+      "alias": "international_organizations",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["UN_Organizations", "Regional_Organizations", "International_Financial_Institutions"],
+      "keywords": ["international organization", "global institution"],
+      "language": ["en"]
+    },
+    "UN_Organizations": {
+      "alias": "un_organizations",
+      "domain": "International_Organizations",
+      "level": 2,
+      "parent_category": "International_Organizations",
+      "keywords": ["United Nations", "UN agency"],
+      "language": ["en"]
+    },
+    "Regional_Organizations": {
+      "alias": "regional_organizations",
+      "domain": "International_Organizations",
+      "level": 2,
+      "parent_category": "International_Organizations",
+      "keywords": ["regional organization", "regional body", "regional union"],
+      "language": ["en"]
+    },
+    "International_Financial_Institutions": {
+      "alias": "international_financial_institutions",
+      "domain": "International_Organizations",
+      "level": 2,
+      "parent_category": "International_Organizations",
+      "keywords": ["world bank", "IMF", "development bank"],
+      "language": ["en"]
+    },
+    "Energy_Company": {
+      "alias": "energy_company",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["energy company", "oil company", "gas company", "utility company", "power company"],
+      "language": ["en"]
+    },
+    "Transportation_Company": {
+      "alias": "transportation_company",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["airline", "railway", "shipping company", "logistics company", "transportation"],
+      "language": ["en"]
+    },
+    "Telecommunications": {
+      "alias": "telecommunications",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["telecom", "telecommunications", "mobile operator", "internet provider"],
+      "language": ["en"]
+    },
+    "Agriculture_Business": {
+      "alias": "agriculture_business",
+      "domain": "Enterprise",
+      "level": 2,
+      "parent_category": "Enterprise",
+      "keywords": ["agricultural company", "farm", "agribusiness"],
+      "language": ["en"]
+    },
+    "Religious_Organization": {
+      "alias": "religious_organization",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Church", "Mosque", "Temple"],
+      "keywords": ["religious organization", "religious institution", "faith-based organization"],
+      "language": ["en"]
+    },
+    "Church": {
+      "alias": "church",
+      "domain": "Religious_Organization",
+      "level": 2,
+      "parent_category": "Religious_Organization",
+      "keywords": ["church", "christian", "cathedral", "chapel"],
+      "language": ["en"]
+    },
+    "Mosque": {
+      "alias": "mosque",
+      "domain": "Religious_Organization",
+      "level": 2,
+      "parent_category": "Religious_Organization",
+      "keywords": ["mosque", "islamic center"],
+      "language": ["en"]
+    },
+    "Temple": {
+      "alias": "temple",
+      "domain": "Religious_Organization",
+      "level": 2,
+      "parent_category": "Religious_Organization",
+      "keywords": ["temple", "synagogue", "buddhist temple", "hindu temple"],
+      "language": ["en"]
+    },
+    "Sports_Organization": {
+      "alias": "sports_organization",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Sports_Team", "Sports_Federation", "Sports_Club"],
+      "keywords": ["sports organization"],
+      "language": ["en"]
+    },
+    "Sports_Team": {
+      "alias": "sports_team",
+      "domain": "Sports_Organization",
+      "level": 2,
+      "parent_category": "Sports_Organization",
+      "keywords": ["sports team", "football team", "basketball team", "hockey team"],
+      "language": ["en"]
+    },
+    "Sports_Federation": {
+      "alias": "sports_federation",
+      "domain": "Sports_Organization",
+      "level": 2,
+      "parent_category": "Sports_Organization",
+      "keywords": ["sports federation", "sports association", "olympic committee"],
+      "language": ["en"]
+    },
+    "Sports_Club": {
+      "alias": "sports_club",
+      "domain": "Sports_Organization",
+      "level": 2,
+      "parent_category": "Sports_Organization",
+      "keywords": ["sports club", "athletic club", "fitness club"],
+      "language": ["en"]
+    },
+    "Cultural_Institution": {
+      "alias": "cultural_institution",
+      "domain": "Organization",
+      "level": 1,
+      "parent_category": "Organization",
+      "children": ["Museum", "Theater", "Library", "Art_Gallery"],
+      "keywords": ["cultural institution", "cultural center"],
+      "language": ["en"]
+    },
+    "Museum": {
+      "alias": "museum",
+      "domain": "Cultural_Institution",
+      "level": 2,
+      "parent_category": "Cultural_Institution",
+      "keywords": ["museum", "exhibition center"],
+      "language": ["en"]
+    },
+    "Theater": {
+      "alias": "theater",
+      "domain": "Cultural_Institution",
+      "level": 2,
+      "parent_category": "Cultural_Institution",
+      "keywords": ["theater", "theatre", "concert hall", "opera house"],
+      "language": ["en"]
+    },
+    "Library": {
+      "alias": "library",
+      "domain": "Cultural_Institution",
+      "level": 2,
+      "parent_category": "Cultural_Institution",
+      "keywords": ["library", "archive", "information center"],
+      "language": ["en"]
+    },
+    "Art_Gallery": {
+      "alias": "art_gallery",
+      "domain": "Cultural_Institution",
+      "level": 2,
+      "parent_category": "Cultural_Institution",
+      "keywords": ["art gallery", "exhibition hall"],
+      "language": ["en"]
+    }
+  },
+  "Unclassified": {
+    "alias": "unclassified",
+    "domain": "General",
+    "level": 0,
+    "parent_category": null,
+    "fallback_strategy": "uniform_distribution",
+    "generic_substitutes": [
+      "Organization",
+      "Institution",
+      "Entity",
+      "Establishment",
+      "Group",
+      "Association",
+      "Agency",
+      "Body",
+      "Enterprise",
+      "Firm"
+    ],
+    "language": ["en"],
+    "usage_rules": {
+      "apply_when": "no_confidence_or_unknown",
+      "selection_method": "random_uniform",
+      "min_confidence_threshold": 0.2
+    }
+  },
+  "fallback_rules": {
+    "min_occurrences_threshold": 3,
+    "fallback_order": ["level_2", "level_1", "level_0"],
+    "default_category": "Unclassified",
+    "confidence_thresholds": {
+      "high": 0.8,
+      "medium": 0.5,
+      "low": 0.2
+    }
+  }
+}

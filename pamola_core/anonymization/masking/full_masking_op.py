@@ -59,9 +59,11 @@ from pamola_core.anonymization.commons.visualization_utils import (
     create_comparison_visualization,
     sample_large_dataset,
 )
-from pamola_core.anonymization.schemas.full_masking_op_schema import FullMaskingConfig
+from pamola_core.anonymization.schemas.full_masking_op_core_schema import (
+    FullMaskingConfig,
+)
 from pamola_core.common.constants import Constants
-from pamola_core.io.base import DataWriter
+from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.helpers import filter_used_kwargs
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.utils.ops.op_cache import OperationCache
@@ -69,11 +71,11 @@ from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils.ops.op_data_writer import DataWriter
 
 # Default values
 DEFAULT_SAMPLE_SIZE = 10000
 DEFAULT_TOP_CATEGORIES_FOR_ANALYSIS = 20
+
 
 @register(version="1.0.0")
 class FullMaskingOperation(AnonymizationOperation):
@@ -164,18 +166,14 @@ class FullMaskingOperation(AnonymizationOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Additional logic for FullMaskingOperation
         if not self.format_patterns:
             self._setup_format_patterns()
 
-        self.process_kwargs["format_patterns"] = self.format_patterns
-
         # Setup random mask pool if needed
         if self.random_mask and not self.mask_char_pool:
             self.mask_char_pool = string.ascii_letters + string.digits + "!@#$%^&*"
-            self.process_kwargs["mask_char_pool"] = self.mask_char_pool
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
@@ -226,11 +224,11 @@ class FullMaskingOperation(AnonymizationOperation):
             )
 
             # Prepare directories for artifacts
-            self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Save configuration to task directory
@@ -254,7 +252,7 @@ class FullMaskingOperation(AnonymizationOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Data Loading & Validation, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data Loading & Validation, 2. Cache check, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -276,9 +274,36 @@ class FullMaskingOperation(AnonymizationOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
+            # Step 1: Data Loading & Validation
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", "field": self.field_name}
+                )
+
+            # Validate and get dataframe
+            try:
+                # Validate configuration early
+                self._validate_configuration()
+
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 1: Check if we have a cached result
             if self.use_cache and not self.force_recalculation:
                 try:
-                    # Step 1: Check if we have a cached result
                     if main_progress:
                         current_steps += 1
                         main_progress.update(
@@ -327,32 +352,6 @@ class FullMaskingOperation(AnonymizationOperation):
                         error_message=error_message,
                         exception=e,
                     )
-
-            # Step 2: Data Loading & Validation
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Data Loading", "field": self.field_name}
-                )
-
-            # Validate and get dataframe
-            try:
-                # Validate configuration early
-                self._validate_configuration()
-
-                if df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -465,40 +464,16 @@ class FullMaskingOperation(AnonymizationOperation):
                 # Generate metrics file name (in self.name existed field_name)
                 metrics_file_name = f"{self.field_name}_{self.name}_{self.null_strategy}_metrics_{operation_timestamp}"
 
-                # Save metrics using write
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        str(self.encryption_key)
-                        if self.use_encryption and self.encryption_key
-                        else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    file_name=metrics_file_name,
                 )
 
-                # Add metrics to result
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register metrics artifact
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"{self.field_name} generalization metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report artifact
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} generalization metrics",
-                        details={
-                            "artifact_type": "json",
-                            "path": str(metrics_result.path),
-                        },
-                    )
                 # Log summary
                 summary = get_process_summary(metrics.get("privacy_metrics", {}))
                 for key, message in summary.items():
@@ -519,14 +494,13 @@ class FullMaskingOperation(AnonymizationOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
                         task_dir=task_dir,
@@ -558,21 +532,19 @@ class FullMaskingOperation(AnonymizationOperation):
                 )
 
             # Save output data if required
-            output_result_path = None
             if self.save_output:
                 try:
                     # Save the processed DataFrame
                     safe_kwargs = filter_used_kwargs(
                         kwargs, FullMaskingOperation._save_output_data
                     )
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        use_encryption=self.use_encryption,
                         **safe_kwargs,
                     )
                 except Exception as e:
@@ -590,11 +562,8 @@ class FullMaskingOperation(AnonymizationOperation):
                     self._save_to_cache(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
-                        metrics=metrics,
+                        result=result,
                         task_dir=task_dir,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -704,8 +673,7 @@ class FullMaskingOperation(AnonymizationOperation):
                 except re.error as e:
                     raise ValueError(f"Invalid regex pattern for '{pattern_name}': {e}")
 
-    @classmethod
-    def _mask_with_format(cls, value: str, **kwargs) -> str:
+    def _mask_with_format(self, value: str) -> str:
         """
         Mask the value while preserving structural format using regex patterns.
 
@@ -713,14 +681,13 @@ class FullMaskingOperation(AnonymizationOperation):
 
         Args:
             value (str): The value to mask.
-            **kwargs: Additional masking parameters.
 
         Returns:
             str: Masked value with format preserved if possible.
         """
 
-        mask_char = kwargs.get("mask_char", "*")
-        format_patterns = kwargs.get("format_patterns", {})
+        mask_char = getattr(self, "mask_char", "*")
+        format_patterns = getattr(self, "format_patterns", {})
 
         if pd.isna(value) or value is None:
             return value
@@ -735,12 +702,13 @@ class FullMaskingOperation(AnonymizationOperation):
             for i, g in enumerate(groups, start=1):
                 masked_groups.append(mask_char * len(g))
 
-            return cls._reconstruct_format(masked_groups, match, value)
+            return self._reconstruct_format(masked_groups, match, value)
 
-        return cls._mask_value(value, **kwargs)
+        return self._mask_value(value)
 
-    @staticmethod
-    def _reconstruct_format(groups: List[str], match: re.Match, value: str) -> str:
+    def _reconstruct_format(
+        self, groups: List[str], match: re.Match, value: str
+    ) -> str:
         """
         Reconstruct string from masked/unmasked groups, preserving original separators.
 
@@ -769,8 +737,7 @@ class FullMaskingOperation(AnonymizationOperation):
             reconstructed += value[start + last_idx : end]
         return prefix + reconstructed + suffix
 
-    @staticmethod
-    def _mask_to_numeric(mask: str, value: str, **kwargs) -> Union[int, float]:
+    def _mask_to_numeric(self, mask: str, value: str) -> Union[int, float]:
         """
         Convert a masked string into a numeric representation, preserving
         the format (int, float, scientific notation) of the original value.
@@ -778,15 +745,14 @@ class FullMaskingOperation(AnonymizationOperation):
         Args:
             mask (str): The masked string (e.g. '******' or '@9#K$%').
             value (str): The original value as a string (e.g. '1234.56', '1.2e+04').
-            **kwargs: Additional masking parameters.
 
         Returns:
             int or float: Masked numeric representation.
         """
 
-        # Extract parameters from kwargs
-        random_mask = kwargs.get("random_mask", False)
-        mask_char = kwargs.get("mask_char", "*")
+        # Extract parameters from self
+        random_mask = getattr(self, "random_mask", False)
+        mask_char = getattr(self, "mask_char", "*")
 
         def is_scientific(s: str) -> bool:
             return bool(re.search(r"^[+-]?[\d.]+[eE][+-]?\d+$", s))
@@ -843,32 +809,30 @@ class FullMaskingOperation(AnonymizationOperation):
         except ValueError:
             return 0
 
-    @classmethod
-    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data with full masking.
 
         Args:
             batch (pd.DataFrame): Input DataFrame batch.
-            **kwargs: Masking configuration parameters.
 
         Returns:
             pd.DataFrame: DataFrame with masked values.
         """
 
         # Extract parameters from kwargs
-        field_name = kwargs.get("field_name", "field")
-        mode = kwargs.get("mode")
-        output_field_name = kwargs.get("output_field_name", "masked")
-        date_format = kwargs.get("date_format", None)
-        numeric_output = kwargs.get("numeric_output", "string")
-        preserve_format = kwargs.get("preserve_format", False)
+        field_name = self.field_name
+        mode = self.mode
+        output_field_name = self.output_field_name
+        date_format = self.date_format
+        numeric_output = self.numeric_output
+        preserve_format = self.preserve_format
 
         # Check if the field exists
         if field_name not in batch.columns:
             raise ValueError(f"Field {field_name} not found in DataFrame")
 
-        result = batch.copy()
+        result = batch.copy(deep=True)
 
         # Determine output column
         output_col = field_name if mode == "REPLACE" else output_field_name
@@ -885,28 +849,27 @@ class FullMaskingOperation(AnonymizationOperation):
                 result[output_col] = pd.to_datetime(result[field_name], errors="coerce")
                 result[output_col] = result[output_col].dt.strftime(date_format)
             except Exception:
-                cls.logger.warning(
+                self.logger.warning(
                     f"Failed to convert {field_name} to datetime with format {date_format}. "
                     "Falling back to string masking."
                 )
                 pass
 
         if numeric_output != "preserve" or not is_numeric_dtype(result[field_name]):
-            if preserve_format and cls._is_string_field(batch[field_name]):
+            if preserve_format and self._is_string_field(batch[field_name]):
                 # Format-aware masking
                 result[output_col] = result[output_col].apply(
-                    lambda x: cls._mask_with_format(x, **kwargs)
+                    lambda x: self._mask_with_format(x)
                 )
             else:
                 # Standard masking
                 result[output_col] = result[output_col].apply(
-                    lambda x: cls._mask_value(x, **kwargs)
+                    lambda x: self._mask_value(x)
                 )
 
         return result
 
-    @staticmethod
-    def _is_string_field(series: pd.Series) -> bool:
+    def _is_string_field(self, series: pd.Series) -> bool:
         """
         Check if a field contains string data.
 
@@ -929,23 +892,19 @@ class FullMaskingOperation(AnonymizationOperation):
                 return True
         return False
 
-    @staticmethod
-    def _can_vectorize(**kwargs) -> bool:
+    def _can_vectorize(self) -> bool:
         """
         Check if masking can be vectorized for performance.
-
-        Args:
-            **kwargs: Masking configuration parameters.
 
         Returns:
             bool: True if vectorization is possible.
         """
 
-        # Extract parameters from kwargs
-        random_mask = kwargs.get("random_mask", False)
-        date_format = kwargs.get("date_format", None)
-        numeric_output = kwargs.get("numeric_output", "string")
-        preserve_format = kwargs.get("preserve_format", False)
+        # Extract parameters from self
+        random_mask = getattr(self, "random_mask", False)
+        date_format = getattr(self, "date_format", None)
+        numeric_output = getattr(self, "numeric_output", "string")
+        preserve_format = getattr(self, "preserve_format", False)
 
         # Simple cases that can be vectorized
         return (
@@ -955,23 +914,21 @@ class FullMaskingOperation(AnonymizationOperation):
             and not date_format
         )
 
-    @staticmethod
-    def _vectorized_mask(series: pd.Series, **kwargs) -> pd.Series:
+    def _vectorized_mask(self, series: pd.Series) -> pd.Series:
         """
         Apply masking using vectorized operations.
 
         Args:
             series (pd.Series): Series to mask.
-            **kwargs: Masking configuration parameters.
 
         Returns:
             pd.Series: Masked series.
         """
 
         # Extract parameters from kwargs
-        fixed_length = kwargs.get("fixed_length", None)
-        preserve_length = kwargs.get("preserve_length", False)
-        mask_char = kwargs.get("mask_char", "*")
+        fixed_length = getattr(self, "fixed_length", None)
+        preserve_length = getattr(self, "preserve_length", False)
+        mask_char = getattr(self, "mask_char", "*")
 
         if fixed_length:
             # Fixed length masking
@@ -985,27 +942,25 @@ class FullMaskingOperation(AnonymizationOperation):
             # Default length
             return pd.Series([mask_char * 8] * len(series), index=series.index)
 
-    @classmethod
-    def _mask_value(cls, value: Any, **kwargs) -> Union[str, float, int, None]:
+    def _mask_value(self, value: Any) -> Union[str, float, int, None]:
         """
         Apply full masking to a single value.
 
         Args:
             value: Value to mask.
-            **kwargs: Masking configuration parameters.
 
         Returns:
             Masked value as string, number, or None.
         """
 
-        # Extract parameters from kwargs
-        null_strategy = kwargs.get("null_strategy", "PRESERVE")
-        preserve_length = kwargs.get("preserve_length", False)
-        mask_char = kwargs.get("mask_char", "*")
-        fixed_length = kwargs.get("fixed_length", None)
-        random_mask = kwargs.get("random_mask", False)
-        mask_char_pool = kwargs.get("mask_char_pool", None)
-        numeric_output = kwargs.get("numeric_output", "string")
+        # Extract parameters from self
+        null_strategy = getattr(self, "null_strategy", "PRESERVE")
+        preserve_length = getattr(self, "preserve_length", False)
+        mask_char = getattr(self, "mask_char", "*")
+        fixed_length = getattr(self, "fixed_length", None)
+        random_mask = getattr(self, "random_mask", False)
+        mask_char_pool = getattr(self, "mask_char_pool", None)
+        numeric_output = getattr(self, "numeric_output", "string")
 
         # Handle null values
         if pd.isna(value) and null_strategy == "PRESERVE":
@@ -1043,7 +998,7 @@ class FullMaskingOperation(AnonymizationOperation):
 
             if is_numeric:
                 if numeric_output == "numeric":
-                    return cls._mask_to_numeric(masked, str_value, **kwargs)
+                    return self._mask_to_numeric(masked, str_value)
                 elif numeric_output == "preserve":
                     return value
         except:
@@ -1051,14 +1006,12 @@ class FullMaskingOperation(AnonymizationOperation):
 
         return masked
 
-    @classmethod
-    def process_batch_dask(cls, ddf: dd.DataFrame, **kwargs) -> dd.DataFrame:
+    def process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:
         """
         Process Dask DataFrame with full masking.
 
         Args:
             ddf (dd.DataFrame): Input Dask DataFrame.
-            **kwargs: Masking configuration parameters.
 
         Returns:
             dd.DataFrame: Processed Dask DataFrame.
@@ -1066,7 +1019,7 @@ class FullMaskingOperation(AnonymizationOperation):
 
         # Define masking function for map_partitions
         def mask_partition(partition):
-            return cls.process_batch(partition.copy(deep=True), **kwargs)
+            return self.process_batch(partition.copy(deep=True))
 
         # Apply masking to each partition
         result = ddf.map_partitions(mask_partition, meta=ddf._meta)
@@ -1106,7 +1059,6 @@ class FullMaskingOperation(AnonymizationOperation):
         """
 
         params = dict(
-            field_name=self.field_name,
             mask_char=self.mask_char,
             preserve_length=self.preserve_length,
             fixed_length=self.fixed_length,
@@ -1116,37 +1068,6 @@ class FullMaskingOperation(AnonymizationOperation):
             format_patterns=self.format_patterns,
             numeric_output=self.numeric_output,
             date_format=self.date_format,
-            mode=self.mode,
-            output_field_name=self.output_field_name,
-            column_prefix=self.column_prefix,
-            null_strategy=self.null_strategy,
-            description=self.description,
-            condition_field=self.condition_field,
-            condition_values=self.condition_values,
-            condition_operator=self.condition_operator,
-            ka_risk_field=self.ka_risk_field,
-            risk_threshold=self.risk_threshold,
-            vulnerable_record_strategy=self.vulnerable_record_strategy,
-            optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_vectorization=self.use_vectorization,
-            parallel_processes=self.parallel_processes,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            output_format=self.output_format,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
-            save_output=self.save_output,
         )
 
         return params

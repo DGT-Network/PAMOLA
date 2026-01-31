@@ -249,9 +249,9 @@ def test_generate_cache_key(sample_df):
     key = op._generate_cache_key(sample_df)
     assert isinstance(key, str)
 
-def test_get_operation_parameters():
+def test_get_base_parameters():
     op = CleanInvalidValuesOperation()
-    params = op._get_operation_parameters()
+    params = op._get_base_parameters()
     assert isinstance(params, dict)
 
 def test_get_cache_parameters():
@@ -297,7 +297,7 @@ def test_check_cache_no_cache(temp_task_dir, sample_df):
     with patch("pamola_core.utils.ops.op_cache.operation_cache.get_cache", return_value=None), \
          patch("pamola_core.transformations.cleaning.clean_invalid_values.load_settings_operation", return_value={}), \
          patch("pamola_core.transformations.cleaning.clean_invalid_values.load_data_operation", return_value=sample_df.copy()):
-        result = op._check_cache(DummyDataSource(sample_df), DummyReporter(), dataset_name="main")
+        result = op._check_cache(DummyDataSource(sample_df), DummyReporter())
         assert result is None
 
 def test_check_cache_with_cache(temp_task_dir, sample_df):
@@ -314,7 +314,7 @@ def test_check_cache_with_cache(temp_task_dir, sample_df):
     with patch("pamola_core.utils.ops.op_cache.operation_cache.get_cache", return_value=dummy_cache), \
          patch("pamola_core.transformations.cleaning.clean_invalid_values.load_settings_operation", return_value={}), \
          patch("pamola_core.transformations.cleaning.clean_invalid_values.load_data_operation", return_value=sample_df.copy()):
-        result = op._check_cache(DummyDataSource(sample_df), DummyReporter(), dataset_name="main")
+        result = op._check_cache(DummyDataSource(sample_df), DummyReporter())
         assert hasattr(result, "status")
 
 def test_process_dataframe(sample_df):

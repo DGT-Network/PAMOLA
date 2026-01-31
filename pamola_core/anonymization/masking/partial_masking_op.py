@@ -46,7 +46,9 @@ from pamola_core.anonymization.commons.validation.exceptions import (
     FieldTypeError,
     InvalidDataFormatError,
 )
-from pamola_core.anonymization.schemas.partial_masking_op_schema import PartialMaskingConfig
+from pamola_core.anonymization.schemas.partial_masking_op_core_schema import (
+    PartialMaskingConfig,
+)
 from pamola_core.common.constants import Constants
 from pamola_core.anonymization.commons.metric_utils import (
     collect_operation_metrics,
@@ -221,15 +223,13 @@ class PartialMaskingOperation(AnonymizationOperation):
         # Save config attributes to self
         for k, v in config.to_dict().items():
             setattr(self, k, v)
-            self.process_kwargs[k] = v
 
         # Extra setup
         if mask_strategy == MaskStrategyEnum.PATTERN.value and pattern_type:
             self._pattern_config = MaskingPatterns.get_pattern(pattern_type)
-            self.process_kwargs["pattern_config"] = self._pattern_config
 
         if preset_type and preset_name:
-            self.process_kwargs["manager"] = MaskingPresetManager()
+            self._manager = MaskingPresetManager()
 
         # Operation metadata
         self.operation_name = self.__class__.__name__
@@ -279,11 +279,11 @@ class PartialMaskingOperation(AnonymizationOperation):
             )
 
             # Prepare directories for artifacts
-            self._prepare_directories(task_dir)
+            dirs = self._prepare_directories(task_dir)
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
-                cache_dir=task_dir / "cache",
+                cache_dir=dirs["cache"],
             )
 
             # Save configuration to task directory
@@ -307,7 +307,7 @@ class PartialMaskingOperation(AnonymizationOperation):
             )
 
             # Set up progress tracking with proper steps
-            # Main steps: 1. Cache check, 2. Data Loading & Validation, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
+            # Main steps: 1. Data Loading & Validation, 2. Cache check, 3. Prepare output field, 4. Processing, 5. Metrics, 6. Visualization, 7. Save output
             TOTAL_MAIN_STEPS = 6 + (
                 1 if self.use_cache and not self.force_recalculation else 0
             )
@@ -329,9 +329,35 @@ class PartialMaskingOperation(AnonymizationOperation):
                 except Exception as e:
                     self.logger.warning(f"Could not update progress tracker: {e}")
 
+            # Step 1: Data Loading & Validation
+            if main_progress:
+                current_steps += 1
+                main_progress.update(
+                    current_steps, {"step": "Data Loading", "field": self.field_name}
+                )
+
+            # Validate and get dataframe
+            try:
+                # Validate configuration early
+                self._validate_configuration()
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                df = self._validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
+
+            # Step 2: Check if we have a cached result
             if self.use_cache and not self.force_recalculation:
                 try:
-                    # Step 1: Check if we have a cached result
                     if main_progress:
                         current_steps += 1
                         main_progress.update(
@@ -380,31 +406,6 @@ class PartialMaskingOperation(AnonymizationOperation):
                         error_message=error_message,
                         exception=e,
                     )
-
-            # Step 2: Data Loading & Validation
-            if main_progress:
-                current_steps += 1
-                main_progress.update(
-                    current_steps, {"step": "Data Loading", "field": self.field_name}
-                )
-
-            # Validate and get dataframe
-            try:
-                # Validate configuration early
-                self._validate_configuration()
-                if df is None:
-                    self.logger.info(f"Loading data for field '{self.field_name}'")
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-            except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
 
             # Step 3: Prepare output field
             if main_progress:
@@ -519,38 +520,16 @@ class PartialMaskingOperation(AnonymizationOperation):
                     f"{self.field_name}_{self.name}_metrics_{operation_timestamp}"
                 )
 
-                # Save metrics using writer
-                metrics_result = writer.write_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    name=metrics_file_name,
-                    timestamp_in_name=False,
-                    encryption_key=(
-                        self.encryption_key if self.use_encryption else None
-                    ),
+                    writer=writer,
+                    result=result,
+                    reporter=reporter,
+                    progress_tracker=progress_tracker,
+                    operation_timestamp=operation_timestamp,
+                    file_name=metrics_file_name,
                 )
 
-                # Add metrics to result
-                for key, value in metrics.items():
-                    if isinstance(value, (int, float, str, bool)):
-                        result.add_metric(key, value)
-
-                # Register metrics artifact
-                result.add_artifact(
-                    artifact_type="json",
-                    path=metrics_result.path,
-                    description=f"{self.field_name} generalization metrics",
-                    category=Constants.Artifact_Category_Metrics,
-                )
-
-                # Report artifact
-                if reporter:
-                    reporter.add_operation(
-                        f"{self.field_name} generalization metrics",
-                        details={
-                            "artifact_type": "json",
-                            "path": str(metrics_result.path),
-                        },
-                    )
                 # Log summary
                 summary = get_process_summary(metrics.get("privacy_metrics", {}))
                 for key, message in summary.items():
@@ -571,14 +550,13 @@ class PartialMaskingOperation(AnonymizationOperation):
 
             # Generate visualizations if required
             # Initialize visualization paths dictionary
-            visualization_paths = {}
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
                     kwargs_encryption = {
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualization_paths = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
                         task_dir=task_dir,
@@ -610,21 +588,19 @@ class PartialMaskingOperation(AnonymizationOperation):
                 )
 
             # Save output data if required
-            output_result_path = None
             if self.save_output:
                 try:
                     # Save the processed DataFrame
                     safe_kwargs = filter_used_kwargs(
                         kwargs, PartialMaskingOperation._save_output_data
                     )
-                    output_result_path = self._save_output_data(
+                    self._save_output_data(
                         result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=main_progress,
                         timestamp=operation_timestamp,
-                        use_encryption=self.use_encryption,
                         **safe_kwargs,
                     )
                 except Exception as e:
@@ -642,11 +618,8 @@ class PartialMaskingOperation(AnonymizationOperation):
                     self._save_to_cache(
                         original_data=original_data,
                         anonymized_data=anonymized_data,
-                        metrics=metrics,
+                        result=result,
                         task_dir=task_dir,
-                        visualization_paths=visualization_paths,
-                        metrics_result_path=str(metrics_result.path),
-                        output_result_path=output_result_path,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -787,8 +760,7 @@ class PartialMaskingOperation(AnonymizationOperation):
                 sample_invalid=[pattern_value],
             )
 
-    @classmethod
-    def process_batch(cls, batch: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
         """
         Process a batch of data to partial mask values.
 
@@ -796,8 +768,6 @@ class PartialMaskingOperation(AnonymizationOperation):
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -805,10 +775,10 @@ class PartialMaskingOperation(AnonymizationOperation):
             Processed DataFrame batch with partial masked values
         """
         # Extract parameters from kwargs
-        field_name = kwargs.get("field_name", "field")
-        output_field_name = kwargs.get("output_field_name", "masked")
-        mode = kwargs.get("mode")
-        consistency_fields = kwargs.get("consistency_fields")
+        field_name = self.field_name
+        output_field_name = self.output_field_name
+        mode = self.mode
+        consistency_fields = self.consistency_fields
 
         if field_name not in batch.columns:
             raise ValueError(f"Field '{field_name}' not found in DataFrame.")
@@ -816,7 +786,7 @@ class PartialMaskingOperation(AnonymizationOperation):
         # Create consistency map if needed
         consistency_map = None
         if consistency_fields:
-            consistency_map = cls._create_consistency_map(batch, **kwargs)
+            consistency_map = self._create_consistency_map(batch)
 
         # --- Apply masking to main field ---
         def get_masked_value(val):
@@ -825,7 +795,7 @@ class PartialMaskingOperation(AnonymizationOperation):
             val_str = str(val).strip()
             if consistency_map:
                 return consistency_map.get(val_str, val)
-            return cls._apply_partial_mask(val, **kwargs)
+            return self._apply_partial_mask(val)
 
         if mode == "REPLACE":
             batch[field_name] = batch[field_name].apply(get_masked_value)
@@ -847,8 +817,7 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         return batch
 
-    @classmethod
-    def process_batch_dask(cls, ddf: dd.DataFrame, **kwargs) -> dd.DataFrame:
+    def process_batch_dask(self, ddf: dd.DataFrame) -> dd.DataFrame:
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
@@ -856,8 +825,6 @@ class PartialMaskingOperation(AnonymizationOperation):
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns:
         --------
@@ -867,12 +834,11 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         # Default implementation: process each partition with process_batch
         def process_partition(partition):
-            return cls.process_batch(partition.copy(deep=True), **kwargs)
+            return self.process_batch(partition.copy(deep=True))
 
         return ddf.map_partitions(process_partition)
 
-    @classmethod
-    def _apply_partial_mask(cls, value: Any, **kwargs) -> Union[str, Any]:
+    def _apply_partial_mask(self, value: Any) -> Union[str, Any]:
         """
         Apply partial masking to a given value based on the configured strategy or preset.
 
@@ -881,8 +847,6 @@ class PartialMaskingOperation(AnonymizationOperation):
         value : Any
             The value to be masked. Typically a string, but may be other types
             (e.g., numeric, None) which will be converted to string or returned unmodified.
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns
         -------
@@ -891,10 +855,10 @@ class PartialMaskingOperation(AnonymizationOperation):
             if no masking is applicable (e.g., value is NaN or None).
         """
         # Extract parameters from kwargs
-        preset_type = kwargs.get("preset_type", None)
-        preset_name = kwargs.get("preset_name", None)
-        case_sensitive = kwargs.get("case_sensitive", False)
-        mask_strategy = kwargs.get("mask_strategy", MaskStrategyEnum.FIXED.value)
+        preset_type = getattr(self, "preset_type", None)
+        preset_name = getattr(self, "preset_name", None)
+        case_sensitive = getattr(self, "case_sensitive", False)
+        mask_strategy = getattr(self, "mask_strategy", MaskStrategyEnum.FIXED.value)
 
         if pd.isna(value) or value is None:
             return value
@@ -903,7 +867,7 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         # Try preset masking
         if preset_type and preset_name:
-            masked = cls._apply_preset_masking(str_value, **kwargs)
+            masked = self._apply_preset_masking(str_value)
             if masked is not None:
                 return masked
 
@@ -914,20 +878,19 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         # Mapping strategy to function
         strategy_map = {
-            MaskStrategyEnum.FIXED.value: cls._position_based_mask,
-            MaskStrategyEnum.PATTERN.value: cls._pattern_based_mask,
-            MaskStrategyEnum.RANDOM.value: cls._random_percentage_mask,
-            MaskStrategyEnum.WORDS.value: cls._word_based_mask,
+            MaskStrategyEnum.FIXED.value: self._position_based_mask,
+            MaskStrategyEnum.PATTERN.value: self._pattern_based_mask,
+            MaskStrategyEnum.RANDOM.value: self._random_percentage_mask,
+            MaskStrategyEnum.WORDS.value: self._word_based_mask,
         }
 
         mask_func = strategy_map.get(mask_strategy)
         if mask_func:
-            return mask_func(normalized_value, **kwargs)
+            return mask_func(normalized_value)
 
         return str_value
 
-    @staticmethod
-    def _apply_preset_masking(value: str, **kwargs) -> Optional[str]:
+    def _apply_preset_masking(self, value: str) -> Optional[str]:
         """
         Apply masking using a predefined preset configuration.
 
@@ -935,8 +898,6 @@ class PartialMaskingOperation(AnonymizationOperation):
         ----------
         value : str
             The string value to be masked using a preset.
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns
         -------
@@ -945,11 +906,11 @@ class PartialMaskingOperation(AnonymizationOperation):
         """
         try:
             # Extract parameters from kwargs
-            preset_type = kwargs.get("preset_type", None)
-            preset_name = kwargs.get("preset_name", None)
-            random_mask = kwargs.get("random_mask", False)
+            preset_type = getattr(self, "preset_type", None)
+            preset_name = getattr(self, "preset_name", None)
+            random_mask = getattr(self, "random_mask", False)
             if preset_type and preset_name:
-                manager = kwargs.get("manager", MaskingPresetManager())
+                manager = getattr(self, "_manager", MaskingPresetManager())
                 mtype = MaskingType(preset_type.lower())
                 return manager.apply_masking(
                     value, mtype, preset_name.upper(), random_mask=random_mask
@@ -958,8 +919,7 @@ class PartialMaskingOperation(AnonymizationOperation):
         except (ValueError, KeyError) as e:
             return None
 
-    @staticmethod
-    def _random_percentage_mask(value: str, **kwargs) -> str:
+    def _random_percentage_mask(self, value: str) -> str:
         """
         Randomly mask a percentage of characters in the input string.
 
@@ -967,15 +927,13 @@ class PartialMaskingOperation(AnonymizationOperation):
         -------
         str
             The string with a random subset of characters replaced by mask_char or random characters.
-        kwargs : Any
-            Additional keyword arguments for processing
 
         """
         # Extract parameters from kwargs
-        mask_char = kwargs.get("mask_char", "*")
-        random_mask = kwargs.get("random_mask", False)
-        mask_char_pool = kwargs.get("mask_char_pool", None)
-        mask_percentage = kwargs.get("mask_percentage", None)
+        mask_char = getattr(self, "mask_char", "*")
+        random_mask = getattr(self, "random_mask", False)
+        mask_char_pool = getattr(self, "mask_char_pool", None)
+        mask_percentage = getattr(self, "mask_percentage", 0)
 
         if not value or not mask_percentage:
             return value
@@ -1002,8 +960,7 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         return "".join(masked_chars)
 
-    @classmethod
-    def _word_based_mask(cls, value: str, **kwargs) -> str:
+    def _word_based_mask(self, value: str) -> str:
         """
         Apply masking while preserving word boundaries.
 
@@ -1016,33 +973,30 @@ class PartialMaskingOperation(AnonymizationOperation):
         ----------
         value : str
             The input string to be masked.
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns
         -------
         str
             The masked string with word boundaries preserved.
         """
-        # Extract parameters from kwargs
-        mask_char = kwargs.get("mask_char", "*")
-        preserve_word_boundaries = kwargs.get("preserve_word_boundaries", False)
+        # Extract parameters from self
+        mask_char = getattr(self, "mask_char", "*")
+        preserve_word_boundaries = getattr(self, "preserve_word_boundaries", False)
 
         if not preserve_word_boundaries:
-            return cls._position_based_mask(value, **kwargs)
+            return self._position_based_mask(value)
 
         # Mask each word individually
         def _mask_word(word: str) -> str:
             if len(word) <= 3:
                 return mask_char * len(word)
-            return cls._position_based_mask(word, **kwargs)
+            return self._position_based_mask(word)
 
         words = value.split()
         masked_words = [_mask_word(word) for word in words]
         return " ".join(masked_words)
 
-    @staticmethod
-    def _pattern_based_mask(value: str, **kwargs) -> str:
+    def _pattern_based_mask(self, value: str) -> str:
         """
         Apply pattern-based masking to a string value.
 
@@ -1055,8 +1009,6 @@ class PartialMaskingOperation(AnonymizationOperation):
         ----------
         value : str
             Input string to be masked.
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns
         -------
@@ -1064,15 +1016,15 @@ class PartialMaskingOperation(AnonymizationOperation):
             Masked string based on the matching pattern.
             Returns original string if no pattern is configured.
         """
-        # Extract parameters from kwargs
-        mask_char = kwargs.get("mask_char", "*")
-        random_mask = kwargs.get("random_mask", False)
-        mask_char_pool = kwargs.get("mask_char_pool", None)
-        mask_pattern = kwargs.get("mask_pattern", None)
-        preserve_pattern = kwargs.get("preserve_pattern", None)
-        preserve_separators = kwargs.get("preserve_separators", True)
-        pattern_type = kwargs.get("pattern_type", None)
-        pattern_config = kwargs.get("pattern_config", None)
+        # Extract parameters from self
+        mask_char = getattr(self, "mask_char", "*")
+        random_mask = getattr(self, "random_mask", False)
+        mask_char_pool = getattr(self, "mask_char_pool", None)
+        mask_pattern = getattr(self, "mask_pattern", None)
+        preserve_pattern = getattr(self, "preserve_pattern", None)
+        preserve_separators = getattr(self, "preserve_separators", True)
+        pattern_type = getattr(self, "pattern_type", None)
+        pattern_config = getattr(self, "_pattern_config", None)
 
         if pattern_type and pattern_config:
             return apply_pattern_mask(value, pattern_config, mask_char)
@@ -1098,8 +1050,7 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         return value
 
-    @staticmethod
-    def _position_based_mask(value: str, **kwargs) -> str:
+    def _position_based_mask(self, value: str) -> str:
         """
         Apply masking to a string based on character positions.
 
@@ -1114,22 +1065,20 @@ class PartialMaskingOperation(AnonymizationOperation):
         ----------
         value : str
             The input string to mask.
-        kwargs : Any
-            Additional keyword arguments for processing
 
         Returns
         -------
         str
             The masked string with selected positions preserved.
         """
-        # Extract parameters from kwargs
-        mask_char = kwargs.get("mask_char", "*")
-        random_mask = kwargs.get("random_mask", False)
-        mask_char_pool = kwargs.get("mask_char_pool", None)
-        unmasked_positions = kwargs.get("unmasked_positions", None)
-        preserve_separators = kwargs.get("preserve_separators", True)
-        unmasked_prefix = kwargs.get("unmasked_prefix", 0)
-        unmasked_suffix = kwargs.get("unmasked_suffix", 0)
+        # Extract parameters from self
+        mask_char = getattr(self, "mask_char", "*")
+        random_mask = getattr(self, "random_mask", False)
+        mask_char_pool = getattr(self, "mask_char_pool", None)
+        unmasked_positions = getattr(self, "unmasked_positions", [])
+        preserve_separators = getattr(self, "preserve_separators", True)
+        unmasked_prefix = getattr(self, "unmasked_prefix", 0)
+        unmasked_suffix = getattr(self, "unmasked_suffix", 0)
         value_len = len(value)
 
         # Strategy 1: Use explicit unmasked positions
@@ -1163,8 +1112,7 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         return "".join(result)
 
-    @classmethod
-    def _create_consistency_map(cls, batch: pd.DataFrame, **kwargs) -> Dict[str, str]:
+    def _create_consistency_map(self, batch: pd.DataFrame) -> Dict[str, str]:
         """
         Create a map from original values to their consistently masked versions
         across `self.field_name` and `self.consistency_fields`.
@@ -1173,8 +1121,6 @@ class PartialMaskingOperation(AnonymizationOperation):
         ----------
         batch : pd.DataFrame
             The batch of data containing fields to process.
-        kwargs : dict
-            Additional keyword arguments for processing
 
         Returns
         -------
@@ -1182,9 +1128,9 @@ class PartialMaskingOperation(AnonymizationOperation):
             A dictionary mapping original string values to masked values.
         """
         # Extract parameters from kwargs
-        field_name = kwargs.get("field_name", "field")
-        random_mask = kwargs.get("random_mask", False)
-        consistency_fields = kwargs.get("consistency_fields", [])
+        field_name = self.field_name
+        random_mask = getattr(self, "random_mask", False)
+        consistency_fields = getattr(self, "consistency_fields", [])
         # Step 1: Collect all unique values across specified fields
         all_values = {
             str(val).strip()
@@ -1200,12 +1146,12 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         for value in all_values:
             retries = 0
-            masked = cls._apply_partial_mask(value, **kwargs)
+            masked = self._apply_partial_mask(value)
 
             if random_mask:
                 while masked in used_masks and retries < MAX_RETRIES:
                     retries += 1
-                    masked = cls._apply_partial_mask(value, **kwargs)
+                    masked = self._apply_partial_mask(value)
 
                 if retries >= MAX_RETRIES:
                     masked = f"MASKED_{hash(value) % 100000}"  # simple fallback or use original value
@@ -1442,12 +1388,6 @@ class PartialMaskingOperation(AnonymizationOperation):
             Strategy-specific parameters for partial masking operation
         """
         params = dict(
-            field_name=self.field_name,
-            mode=self.mode,
-            output_field_name=self.output_field_name,
-            column_prefix=self.column_prefix,
-            null_strategy=self.null_strategy,
-            description=self.description,
             mask_char=self.mask_char,
             mask_strategy=self.mask_strategy,  # fixed, pattern, random, words
             mask_percentage=self.mask_percentage,  # Random % to mask
@@ -1465,32 +1405,6 @@ class PartialMaskingOperation(AnonymizationOperation):
             preset_type=self.preset_type,
             preset_name=self.preset_name,
             consistency_fields=self.consistency_fields,
-            condition_field=self.condition_field,
-            condition_values=self.condition_values,
-            condition_operator=self.condition_operator,
-            ka_risk_field=self.ka_risk_field,
-            risk_threshold=self.risk_threshold,
-            vulnerable_record_strategy=self.vulnerable_record_strategy,
-            optimize_memory=self.optimize_memory,
-            adaptive_chunk_size=self.adaptive_chunk_size,
-            chunk_size=self.chunk_size,
-            use_dask=self.use_dask,
-            npartitions=self.npartitions,
-            dask_partition_size=self.dask_partition_size,
-            use_vectorization=self.use_vectorization,
-            parallel_processes=self.parallel_processes,
-            use_cache=self.use_cache,
-            use_encryption=self.use_encryption,
-            encryption_mode=self.encryption_mode,
-            encryption_key=self.encryption_key,
-            visualization_theme=self.visualization_theme,
-            visualization_backend=self.visualization_backend,
-            visualization_strict=self.visualization_strict,
-            visualization_timeout=self.visualization_timeout,
-            output_format=self.output_format,
-            force_recalculation=self.force_recalculation,
-            generate_visualization=self.generate_visualization,
-            save_output=self.save_output,
         )
 
         return params

@@ -25,30 +25,29 @@ Key Features:
 """
 
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 import time
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, Any, Optional, Union
 import pandas as pd
 from pamola_core.common.enum.language_enum import Language
 from pamola_core.profiling.commons.attribute_utils import (
     analyze_dataset_attributes,
     load_attribute_dictionary,
 )
-from pamola_core.profiling.schemas.attribute_schema import DataAttributeProfilerOperationConfig
+from pamola_core.profiling.schemas.attribute_core_schema import (
+    DataAttributeProfilerOperationConfig,
+)
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
-    ensure_directory,
     write_json,
     write_dataframe_to_csv,
-    load_data_operation,
     load_settings_operation,
 )
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import (
-    OperationArtifact,
     OperationResult,
     OperationStatus,
 )
@@ -60,6 +59,8 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
+from pamola_core.utils.ops.op_cache import OperationCache
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -162,6 +163,11 @@ class DataAttributeProfilerOperation(BaseOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+            entropy_df = None
+
             if kwargs.get("logger"):
                 self.logger = kwargs["logger"]
 
@@ -173,9 +179,14 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             # Prepare output directories for artifacts
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             output_dir = dirs["output"]
             visualizations_dir = dirs["visualizations"]
-            dictionaries_dir = dirs["dictionaries"]
 
             # Initialize operation result with success status
             result = OperationResult(status=OperationStatus.SUCCESS)
@@ -197,43 +208,27 @@ class DataAttributeProfilerOperation(BaseOperation):
                 )
                 progress_tracker.total = total_steps  # Define total steps for tracking
 
-            # Step 1: Check Cache (if enabled and not forced to recalculate)
-            if self.use_cache and not self.force_recalculation:
-                if progress_tracker:
-                    current_steps += 1
-                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
-
-                logger.info("Checking operation cache...")
-                cache_result = self._check_cache(
-                    data_source=data_source, data_source_name=dataset_name, **kwargs
+            # Step 1: Data Loading
+            if progress_tracker:
+                current_steps += 1
+                progress_tracker.update(current_steps, {"step": "Loading data"})
+            # Validate and get dataframe
+            try:
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
                 )
 
-                if cache_result:
-                    self.logger.info("Cache hit! Using cached results.")
-
-                    # Update progress
-                    if progress_tracker:
-                        progress_tracker.update(
-                            total_steps, {"step": "Complete (cached)"}
-                        )
-
-                    # Report cache hit to reporter
-                    if reporter:
-                        reporter.add_operation(
-                            f"Clean invalid values (from cache)",
-                            details={"cached": True},
-                        )
-                    return cache_result
-
-            # Retrieve DataFrame from data source
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = load_data_operation(data_source, dataset_name, **settings_operation)
-            if df is None:
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
                 return OperationResult(
                     status=OperationStatus.ERROR,
-                    error_message="No valid DataFrame found in data source",
+                    error_message=error_message,
+                    exception=e,
                 )
 
             # Log initial dataset information
@@ -253,7 +248,33 @@ class DataAttributeProfilerOperation(BaseOperation):
                     },
                 )
 
-            # Step 2: Data Loading
+            # Step 2: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
+                if progress_tracker:
+                    current_steps += 1
+                    progress_tracker.update(current_steps, {"step": "Checking Cache"})
+
+                logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df=df)
+
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(
+                            total_steps, {"step": "Complete (cached)"}
+                        )
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Clean invalid values (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
+
+            # Step 3: Data Loading dictionary and Preparation
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(
@@ -298,7 +319,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                 max_columns=self.max_columns,
             )
 
-            # Step 3: Analysis
+            # Step 4: Analysis
             if progress_tracker:
                 current_steps += 1
                 progress_tracker.update(
@@ -308,7 +329,9 @@ class DataAttributeProfilerOperation(BaseOperation):
             # Save attribute roles to JSON
             roles_filename = f"attribute_roles_{operation_timestamp}.json"
             roles_path = output_dir / roles_filename
-            encryption_mode_analysis = get_encryption_mode(analysis_results, **kwargs)
+            encryption_mode_analysis = get_encryption_mode(
+                analysis_results, self.use_encryption
+            )
             write_json(
                 analysis_results,
                 roles_path,
@@ -356,7 +379,9 @@ class DataAttributeProfilerOperation(BaseOperation):
 
             if entropy_data:
                 entropy_df = pd.DataFrame(entropy_data)
-                encryption_mode_entropy = get_encryption_mode(entropy_df, **kwargs)
+                encryption_mode_entropy = get_encryption_mode(
+                    entropy_df, self.use_encryption
+                )
                 write_dataframe_to_csv(
                     entropy_df,
                     entropy_path,
@@ -391,7 +416,9 @@ class DataAttributeProfilerOperation(BaseOperation):
                 if "statistics" in col_data and "samples" in col_data["statistics"]
             }
 
-            encryption_mode_sample_data = get_encryption_mode(sample_data, **kwargs)
+            encryption_mode_sample_data = get_encryption_mode(
+                sample_data, self.use_encryption
+            )
             write_json(
                 sample_data,
                 sample_path,
@@ -457,7 +484,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                 quasi_path = output_dir / quasi_filename
 
                 encryption_mode_quasi_identifier = get_encryption_mode(
-                    quasi_identifiers, **kwargs
+                    quasi_identifiers, self.use_encryption
                 )
                 write_json(
                     {"quasi_identifiers": quasi_identifiers},
@@ -543,14 +570,21 @@ class DataAttributeProfilerOperation(BaseOperation):
             if self.use_cache:
                 try:
                     self._save_to_cache(
-                        artifacts=result.artifacts,
                         original_df=df,
-                        metrics=result.metrics,
+                        result=result,
                         task_dir=task_dir,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
+
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                analyzed_df=entropy_df,
+                instance=self,
+            )
 
             return result
 
@@ -570,35 +604,6 @@ class DataAttributeProfilerOperation(BaseOperation):
                 error_message=f"Error in attribute profiling: {str(e)}",
                 exception=e,
             )
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare required directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary of directory paths
-        """
-        # Create required directories for output, visualizations, and dictionaries
-        output_dir = task_dir / "output"
-        visualizations_dir = task_dir / "visualizations"
-        dictionaries_dir = task_dir / "dictionaries"
-
-        ensure_directory(output_dir)
-        ensure_directory(visualizations_dir)
-        ensure_directory(dictionaries_dir)
-
-        return {
-            "output": output_dir,
-            "visualizations": visualizations_dir,
-            "dictionaries": dictionaries_dir,
-        }
 
     def _create_visualizations(
         self,
@@ -773,9 +778,7 @@ class DataAttributeProfilerOperation(BaseOperation):
                 details={"warning": f"Error creating some visualizations: {str(e)}"},
             )
 
-    def _check_cache(
-        self, data_source: DataSource, data_source_name: str = "main", **kwargs
-    ) -> Optional[OperationResult]:
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Check if a cached result exists for operation.
 
@@ -783,10 +786,6 @@ class DataAttributeProfilerOperation(BaseOperation):
         -----------
         data_source : DataSource
             Data source for the operation
-        task_dir : Path
-            Task directory
-        data_source_name: str
-            Dataset name
 
         Returns:
         --------
@@ -797,69 +796,22 @@ class DataAttributeProfilerOperation(BaseOperation):
             return None
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
-            # Get DataFrame from data source
-            settings_operation = load_settings_operation(
-                data_source, data_source_name, **kwargs
-            )
-            df = load_data_operation(
-                data_source, data_source_name, **settings_operation
-            )
-            if df is None:
-                self.logger.warning("No valid DataFrame found in data source")
-                return None
-
             # Generate cache key
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
             self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache.get_cache(
-                cache_key=cache_key, operation_type=self.__class__.__name__
+            cached_result = self.operation_cache.get_cache(
+                cache_key=cache_key, operation_type=self.operation_name
             )
 
-            if cached_data:
-                self.logger.info(f"Using cached result.")
+            if not cached_result:
+                self.logger.info("No cached result found, proceeding with operation")
+                return None
 
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
+            result = get_cache_result(cached_result)
 
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for key, value in metrics.items():
-                        if isinstance(value, (int, float, str, bool)):
-                            cached_result.add_metric(key, value)
-
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        if isinstance(artifact, dict):
-                            artifact_type = artifact.get("artifact_type", "")
-                            artifact_path = artifact.get("path", "")
-                            artifact_name = artifact.get("description", "")
-                            artifact_category = artifact.get("category", "output")
-                            cached_result.add_artifact(
-                                artifact_type,
-                                artifact_path,
-                                artifact_name,
-                                artifact_category,
-                            )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
+            return result
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
             return None
@@ -867,8 +819,7 @@ class DataAttributeProfilerOperation(BaseOperation):
     def _save_to_cache(
         self,
         original_df: pd.DataFrame,
-        artifacts: List[OperationArtifact],
-        metrics: Dict[str, Any],
+        result: OperationResult,
         task_dir: Path,
     ) -> bool:
         """
@@ -878,10 +829,8 @@ class DataAttributeProfilerOperation(BaseOperation):
         -----------
         original_df : pd.DataFrame
             Original input data
-        artifacts : list
-            List of artifacts generated by the operation
-        metrics : dict
-            The metrics of operation
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
             Task directory
 
@@ -890,32 +839,24 @@ class DataAttributeProfilerOperation(BaseOperation):
         bool
             True if successfully saved to cache, False otherwise
         """
-        if not self.use_cache or (not artifacts and not metrics):
+        if not self.use_cache:
             return False
 
         try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache
-
             # Generate cache key
             cache_key = self._generate_cache_key(original_df)
 
             # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
-
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "artifacts": artifacts,
-                "metrics": metrics,
-            }
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
+            )
 
             # Save to cache
             self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache.save_cache(
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
-                operation_type=self.__class__.__name__,
+                operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
@@ -929,36 +870,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             self.logger.warning(f"Error saving to cache: {str(e)}")
             return False
 
-    def _generate_cache_key(self, df: pd.DataFrame) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.__class__.__name__,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -974,51 +886,7 @@ class DataAttributeProfilerOperation(BaseOperation):
             "language": self.language,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
-
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
-    def _generate_data_hash(self, df: pd.DataFrame) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : pd.DataFrame
-            Input data for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        try:
-            # Create data characteristics summary for hashing
-            characteristics = df.describe(include="all")
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            json_str = f"{len(df)}_{json.dumps(df.dtypes.apply(str).to_dict())}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
 
     def _handle_visualizations(
         self,

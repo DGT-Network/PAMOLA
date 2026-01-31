@@ -29,16 +29,23 @@ from typing import Any, Dict, List, Tuple, Callable, Iterable, Iterator, Union, 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
+from pamola_core.transformations.commons.aggregation_utils import (
+    eval_condition,
+    eval_value,
+)
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_data_writer import DataWriter, WriterResult
+from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
-from pamola_core.utils.io import load_data_operation, load_settings_operation
+from pamola_core.utils.io import load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
-from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.transformations.schemas.add_modify_fields_schema import AddOrModifyFieldsOperationConfig
+from pamola_core.transformations.schemas.add_modify_fields_core_schema import (
+    AddOrModifyFieldsOperationConfig,
+)
+from pamola_core.utils.visualization import create_bar_plot
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -146,10 +153,12 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             )
 
             # Prepare directories for artifacts
-            directories = self._prepare_directories(task_dir)
-            output_dir = directories["output"]
-            visualizations_dir = directories["visualizations"]
-            metrics_dir = directories["metrics"]
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
 
             # Save configuration to task directory
             self.save_config(task_dir)
@@ -180,16 +189,9 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
                 )
-                df = load_data_operation(
+                df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-
-                if df is None:
-                    error_message = "Failed to load input data"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR, error_message=error_message
-                    )
             except Exception as e:
                 error_message = f"Error loading data: {str(e)}"
                 self.logger.error(error_message)
@@ -217,7 +219,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 # Validation
                 # Get a copy of the original data for metrics calculation
                 original_df = (
-                    df.map_partitions(lambda partition: partition.copy())
+                    df.map_partitions(lambda partition: partition.copy(deep=True))
                     if isinstance(df, dd.DataFrame)
                     else df.copy(deep=True)
                 )
@@ -236,9 +238,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     progress_tracker.update(1, {"step": "Checking Cache"})
 
                 self.logger.info("Checking operation cache...")
-                cache_result = self._check_cache(
-                    df=df, task_dir=task_dir, reporter=reporter
-                )
+                cache_result = self._check_cache(df, reporter)
 
                 if cache_result:
                     self.logger.info("Cache hit! Using cached results.")
@@ -277,7 +277,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
             # Initialize metrics in scope
             metrics = {}
-            metrics_result = DataWriter
             self.end_time = time.time()
             if self.end_time and self.start_time:
                 self.execution_time = self.end_time - self.start_time
@@ -285,9 +284,8 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             try:
                 metrics = self._calculate_all_metrics(original_df, processed_df)
 
-                metrics_result = self._save_metrics(
+                self._save_metrics(
                     metrics=metrics,
-                    task_dir=metrics_dir,
                     writer=writer,
                     result=result,
                     reporter=reporter,
@@ -303,7 +301,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             if progress_tracker:
                 progress_tracker.update(1, {"step": "Finalization"})
 
-            visualizations = {}
             # Generate visualizations if required
             if self.generate_visualization and self.visualization_backend is not None:
                 try:
@@ -311,7 +308,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                         "use_encryption": self.use_encryption,
                         "encryption_key": self.encryption_key,
                     }
-                    visualizations = self._handle_visualizations(
+                    self._handle_visualizations(
                         original_df=original_df,
                         processed_df=processed_df,
                         metrics=metrics,
@@ -331,18 +328,16 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                     self.logger.warning(error_message)
                     # Continue execution - visualization failure is not critical
 
-            output_result = DataWriter
             # Save output data if required
             if self.save_output:
                 try:
-                    output_result = self._save_output_data(
-                        processed_df=processed_df,
-                        task_dir=output_dir,
+                    self._save_output_data(
+                        result_df=processed_df,
                         writer=writer,
                         result=result,
                         reporter=reporter,
                         progress_tracker=progress_tracker,
-                        operation_timestamp=operation_timestamp,
+                        timestamp=operation_timestamp,
                         **kwargs,
                     )
                 except Exception as e:
@@ -359,10 +354,9 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 try:
                     self._save_to_cache(
                         original_df=original_df,
-                        processed_df=processed_df,
+                        transformed_data=processed_df,
                         task_dir=task_dir,
                         result=result,
-                        reporter=reporter,
                     )
                 except Exception as e:
                     # Failure to cache is non-critical
@@ -390,8 +384,12 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 # Add the operation to the reporter
                 reporter.add_operation(f"Add/modify fields completed", details=details)
 
-            # Cleanup memory
-            self._cleanup_memory(original_df, processed_df)
+            self.logger.info("Cleaning up memory after all file operations")
+            self._cleanup_memory(
+                result_df=processed_df,
+                original_data=original_df,
+                transformed_data=None,
+            )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
@@ -458,7 +456,9 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 ):
                     batch[field_name] = batch.apply(
                         lambda row: (
-                            value_if_true if eval(condition) else value_if_false
+                            eval_value(row, value_if_true)
+                            if eval_condition(row, condition)
+                            else eval_value(row, value_if_false)
                         ),
                         axis=1,
                     )
@@ -516,7 +516,9 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
                     batch[output_field_name] = batch.apply(
                         lambda row: (
-                            value_if_true if eval(condition) else value_if_false
+                            eval_value(row, value_if_true)
+                            if eval_condition(row, condition)
+                            else eval_value(row, value_if_false)
                         ),
                         axis=1,
                     )
@@ -563,157 +565,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         raise NotImplementedError("Not implement")
 
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Root task directory
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary with prepared directories
-        """
-        directories = {}
-
-        # Create standard directories
-        directories["root"] = task_dir
-        directories["output"] = task_dir / "output"
-        directories["cache"] = task_dir / "cache"
-        directories["logs"] = task_dir / "logs"
-        directories["dictionaries"] = task_dir / "dictionaries"
-        directories["visualizations"] = task_dir / "visualizations"
-        directories["metrics"] = task_dir / "metrics"
-
-        # Ensure all directories exist
-        for directory in directories.values():
-            directory.mkdir(parents=True, exist_ok=True)
-
-        return directories
-
-    def _check_cache(
-        self, df: Union[pd.DataFrame, dd.DataFrame], task_dir: Path, reporter: Any
-    ) -> Optional[OperationResult]:
-        """
-        Check if a cached result exists for operation.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-        task_dir : Path
-            Task directory
-        reporter : Any
-            The reporter to log artifacts to
-
-        Returns:
-        --------
-        Optional[OperationResult]
-            Cached result if found, None otherwise
-        """
-        if not self.use_cache:
-            return None
-
-        try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(df)
-
-            # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
-            cached_data = operation_cache_dir.get_cache(
-                cache_key=cache_key, operation_type=self.operation_name
-            )
-
-            if cached_data:
-                self.logger.info(f"Using cached result.")
-
-                # Create result object from cached data
-                cached_result = OperationResult(status=OperationStatus.SUCCESS)
-
-                # Add cached metrics to result
-                metrics = cached_data.get("metrics", {})
-                if isinstance(metrics, dict):
-                    for name, value in metrics.items():
-                        cached_result.add_metric(name, value)
-
-                # Add cached artifacts to result
-                artifacts = cached_data.get("artifacts", [])
-                if isinstance(artifacts, list):
-                    for artifact in artifacts:
-                        if isinstance(artifact, dict):
-                            artifact_type = artifact.get("artifact_type", "")
-                            path = artifact.get("path", "")
-                            description = artifact.get("description", "")
-                            category = artifact.get("category", "output")
-                            cached_result.add_artifact(
-                                artifact_type=artifact_type,
-                                path=path,
-                                description=description,
-                                category=category,
-                            )
-
-                            if reporter:
-                                reporter.add_operation(
-                                    name=description,
-                                    details={
-                                        "artifact_type": artifact_type,
-                                        "path": str(path),
-                                    },
-                                )
-
-                # Add cache information to result
-                cached_result.add_metric("cached", True)
-                cached_result.add_metric("cache_key", cache_key)
-                cached_result.add_metric(
-                    "cache_timestamp", cached_data.get("timestamp", "unknown")
-                )
-
-                return cached_result
-
-            self.logger.debug(f"No cache found for key: {cache_key}")
-            return None
-        except Exception as e:
-            self.logger.warning(f"Error checking cache: {str(e)}")
-            return None
-
-    def _generate_cache_key(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a deterministic cache key based on operation parameters and data characteristics.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-
-        Returns:
-        --------
-        str
-            Unique cache key
-        """
-        from pamola_core.utils.ops.op_cache import operation_cache
-
-        # Get operation parameters
-        parameters = self._get_operation_parameters()
-
-        # Generate data hash based on key characteristics
-        data_hash = self._generate_data_hash(df)
-
-        # Use the operation_cache utility to generate a consistent cache key
-        return operation_cache.generate_cache_key(
-            operation_name=self.operation_name,
-            parameters=parameters,
-            data_hash=data_hash,
-        )
-
-    def _get_operation_parameters(self) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation parameters for cache key generation.
 
@@ -723,102 +575,12 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             Operation parameters
         """
         # Get basic operation parameters
-        basic_parameters = {
-            "mode": self.mode,
-            "column_prefix": self.column_prefix,
-            "visualization_theme": self.visualization_theme,
-            "visualization_backend": self.visualization_backend,
-            "visualization_strict": self.visualization_strict,
-            "visualization_timeout": self.visualization_timeout,
-            "output_format": self.output_format,
-            "use_encryption": self.use_encryption,
-            "encryption_mode": self.encryption_mode,
-            "encryption_key": self.encryption_key,
-            "version": self.version,
-        }
-
-        # Get operation-specific parameters
-        parameters = self._get_operation_specific_parameters()
-
-        # Add basic parameters
-        parameters.update(basic_parameters)
-
-        return parameters
-
-    def _get_operation_specific_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns:
-        --------
-        Dict[str, Any]
-            Operation-specific parameters
-        """
-        return {
+        parameters = {
             "field_operations": self.field_operations,
             "lookup_tables": self.lookup_tables,
         }
 
-    def _generate_data_hash(self, df: Union[pd.DataFrame, dd.DataFrame]) -> str:
-        """
-        Generate a hash representing the key characteristics of the data.
-
-        Parameters:
-        -----------
-        df : Union[pd.DataFrame, dd.DataFrame]
-            DataFrame for the operation
-
-        Returns:
-        --------
-        str
-            Hash string representing the data
-        """
-        import hashlib
-
-        describe_order = [
-            "count",
-            "unique",
-            "top",
-            "freq",
-            "mean",
-            "std",
-            "min",
-            "25%",
-            "50%",
-            "75%",
-            "max",
-        ]
-        desired_order = ["count", "unique", "mean", "std", "min", "max"]
-
-        try:
-            # Create data characteristics
-            characteristics = df.describe(include="all")
-
-            # If df is a Dask DataFrame, you need to compute the result first
-            if isinstance(df, dd.DataFrame):
-                characteristics = characteristics.compute()
-
-            # Sort
-            characteristics = characteristics.loc[desired_order]
-
-            # Convert to JSON string and hash
-            json_str = characteristics.to_json(date_format="iso")
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-
-            # Fallback to a simple hash of the data length and type
-            df_len = (
-                int(df.map_partitions(len).sum().compute())
-                if isinstance(df, dd.DataFrame)
-                else len(df)
-            )
-            dtypes_dict = df.dtypes.apply(str).to_dict()
-            if isinstance(df, dd.DataFrame):
-                dtypes_dict = dtypes_dict.compute()
-
-            json_str = f"{df_len}_{json.dumps(dtypes_dict)}"
-
-        return hashlib.md5(json_str.encode()).hexdigest()
+        return parameters
 
     def _process_dataframe(
         self,
@@ -1293,56 +1055,62 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             and not original_sample[col].equals(processed_sample[col])
         ]
 
-        distribution_statistics = {}
+        # Summary statistics
+        summary_statistics = {}
+
         for processed_field in fields_modified + fields_added:
-            distribution_statistics.update(
-                {
-                    processed_field: processed_sample[processed_field]
-                    .describe()
-                    .to_dict()
-                }
+            summary_statistics[processed_field] = (
+                processed_sample[processed_field].describe().to_dict()
             )
 
+        # Correlations
         correlations = {}
+
         for processed_field in fields_modified + fields_added:
-            if processed_field.startswith(self.column_prefix):
-                original_field = processed_field[len(self.column_prefix) :]
-            else:
-                original_field = processed_field
 
-            if original_field in original_sample.columns:
-
-                if ptypes.is_numeric_dtype(
-                    original_sample[original_field]
-                ) and ptypes.is_numeric_dtype(processed_sample[processed_field]):
-                    x = pd.to_numeric(original_sample[original_field], errors="coerce")
-                    y = pd.to_numeric(
-                        processed_sample[processed_field], errors="coerce"
-                    )
-                    if x.std() == 0 or y.std() == 0 or x.isna().all() or y.isna().all():
-                        correlation = np.nan
-                    else:
-                        correlation = x.corr(y, method="pearson")
-
-                    correlations.update(
-                        {
-                            original_field: (
-                                "NaN" if np.isnan(correlation) else correlation
-                            )
-                        }
-                    )
-
-        missing_values = {}
-        for processed_field in fields_added:
-            missing_values.update(
-                {processed_field: int(processed_sample[processed_field].isnull().sum())}
+            original_field = (
+                processed_field[len(self.column_prefix) :]
+                if processed_field.startswith(self.column_prefix)
+                else processed_field
             )
+
+            # No original counterpart → cannot compute correlation
+            if original_field not in original_sample.columns:
+                correlations[processed_field] = np.nan
+                continue
+
+            if not (
+                ptypes.is_numeric_dtype(original_sample[original_field])
+                and ptypes.is_numeric_dtype(processed_sample[processed_field])
+            ):
+                correlations[processed_field] = np.nan
+                continue
+
+            x = pd.to_numeric(original_sample[original_field], errors="coerce")
+            y = pd.to_numeric(processed_sample[processed_field], errors="coerce")
+
+            if x.isna().all() or y.isna().all() or x.std() == 0 or y.std() == 0:
+                correlation = np.nan
+            else:
+                correlation = x.corr(y, method="pearson")
+
+            correlations[processed_field] = correlation
+
+        # Missing values
+        missing_values = {}
+
+        for field in fields_added:
+            if field not in processed_sample.columns:
+                missing_values[field] = np.nan
+                continue
+
+            missing_values[field] = int(processed_sample[field].isna().sum())
 
         metrics.update(
             {
                 "fields_added_count": len(fields_added),
                 "fields_modified_count": len(fields_modified),
-                "distribution_statistics": distribution_statistics,
+                "summary_statistics": summary_statistics,
                 "correlations": correlations,
                 "missing_values": missing_values,
             }
@@ -1703,79 +1471,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             ),
         }
 
-    def _save_metrics(
-        self,
-        metrics: Dict[str, Any],
-        task_dir: Path,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        operation_timestamp: Optional[str] = None,
-    ) -> WriterResult:
-        """
-        Save metrics.
-
-        Parameters:
-        -----------
-        metrics : dict
-            The metrics of operation
-        task_dir : Path
-            The task directory
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        operation_timestamp : str, optional
-            Timestamp of the operation, if any  (default: None)
-
-        Returns:
-        --------
-        WriterResult
-            Result object with path and metadata
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving metrics"})
-
-        # Use the DataWriter to save
-        metrics_filename = (
-            f"{self.operation_name.lower()}_metrics_{operation_timestamp}"
-        )
-
-        metrics_result = writer.write_metrics(
-            metrics=metrics,
-            name=metrics_filename,
-            timestamp_in_name=False,  # Already included in the filename
-            encryption_key=self.encryption_key if self.use_encryption else None,
-        )
-
-        # Add metrics to result
-        for key, value in metrics.items():
-            if isinstance(value, (int, float, str, bool)):
-                result.add_metric(key, value)
-
-        # Register metrics artifact
-        result.add_artifact(
-            artifact_type="json",
-            path=metrics_result.path,
-            description=f"Add/modify fields",
-            category=Constants.Artifact_Category_Metrics,
-        )
-
-        # Report artifact
-        if reporter:
-            reporter.add_artifact(
-                artifact_type="json",
-                path=str(metrics_result.path),
-                description=f"Add/modify fields metrics",
-            )
-
-        return metrics_result
-
     def _handle_visualizations(
         self,
         original_df: Union[pd.DataFrame, dd.DataFrame],
@@ -2037,11 +1732,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         Dict[str, Path]
             Dictionary with visualization types and paths
         """
-        from pamola_core.utils.visualization import create_bar_plot
-        from pamola_core.transformations.commons.visualization_utils import (
-            sample_large_dataset,
-        )
-
         visualization_paths = {}
         viz_dir = task_dir / "visualizations"
         viz_dir.mkdir(parents=True, exist_ok=True)
@@ -2101,10 +1791,10 @@ class AddOrModifyFieldsOperation(TransformationOperation):
 
             # Fields Count Comparison Before/After
             viz_data = {
-                "1.Before": len(original_for_viz.columns),
-                "2.After": len(processed_for_viz.columns),
-                "3.Modified": metrics["fields_modified_count"],
-                "4.Added": metrics["fields_added_count"],
+                "1.Before (Total)": len(original_for_viz.columns),
+                "2.After (Total)": len(processed_for_viz.columns),
+                "3.Modified (Count)": metrics["fields_modified_count"],
+                "4.Added (Count)": metrics["fields_added_count"],
             }
             viz_path = (
                 viz_dir
@@ -2114,8 +1804,8 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 data=viz_data,
                 output_path=viz_path,
                 title="Fields Count Comparison",
-                x_label="Fields Count",
-                y_label="Value",
+                x_label="Category",
+                y_label="Number of Fields",
                 sort_by="key",
                 backend=vis_backend,
                 theme=vis_theme,
@@ -2129,56 +1819,66 @@ class AddOrModifyFieldsOperation(TransformationOperation):
                 visualization_paths[f"fields_count_comparison"] = viz_path
 
             # Distribution statistics for new/modified fields
-            for field, distribution_statistic in metrics[
-                "distribution_statistics"
-            ].items():
-                viz_data = distribution_statistic
+            distribution_stats = metrics.get("distribution_statistics", {})
+
+            if distribution_stats:
+                for field, distribution_statistic in distribution_stats.items():
+                    viz_data = distribution_statistic
+                    
+                    # Check if viz_data is not empty before creating visualization
+                    if viz_data and len(viz_data) > 0:
+                        viz_path = (
+                            viz_dir
+                            / f"{self.operation_name.lower()}_distribution_statistic_{field.lower()}_{operation_timestamp}.png"
+                        )
+                        viz_result = create_bar_plot(
+                            data=viz_data,
+                            output_path=viz_path,
+                            title=f"Distribution Statistics For '{field.upper()}'",
+                            x_label="Statistic",
+                            y_label="Value",
+                            sort_by="key",
+                            backend=vis_backend,
+                            theme=vis_theme,
+                            strict=vis_strict,
+                            **kwargs,
+                        )
+
+                        if viz_result.startswith("Error"):
+                            self.logger.error(f"Failed to create visualization for field '{field}': {viz_result}")
+                        else:
+                            visualization_paths[f"distribution_statistic_{field.lower()}"] = viz_path
+                    else:
+                        self.logger.warning(f"No distribution statistics data for field '{field}' - skipping visualization")
+            else:
+                self.logger.info("No distribution statistics available - skipping all distribution visualizations")
+
+            # Correlation between original and modified fields
+            viz_data = metrics["correlations"]
+
+            # Check if viz_data is not empty before creating visualization
+            if viz_data:
                 viz_path = (
                     viz_dir
-                    / f"{self.operation_name.lower()}_distribution_statistic_{field.lower()}_{operation_timestamp}.png"
+                    / f"{self.operation_name.lower()}_correlations_{operation_timestamp}.png"
                 )
+
                 viz_result = create_bar_plot(
                     data=viz_data,
                     output_path=viz_path,
-                    title=f"Distribution Statistics For '{field.upper()}'",
-                    x_label="Statistic",
-                    y_label="Value",
+                    title=f"Correlations",
+                    x_label="Field",
+                    y_label="Correlation",
                     sort_by="key",
                     backend=vis_backend,
                     theme=vis_theme,
                     strict=vis_strict,
                     **kwargs,
                 )
-
                 if viz_result.startswith("Error"):
                     self.logger.error(f"Failed to create visualization: {viz_result}")
                 else:
-                    visualization_paths[f"distribution_statistic_{field.lower()}"] = (
-                        viz_path
-                    )
-
-            # Correlation between original and modified fields
-            viz_data = metrics["correlations"]
-            viz_path = (
-                viz_dir
-                / f"{self.operation_name.lower()}_correlations_{operation_timestamp}.png"
-            )
-            viz_result = create_bar_plot(
-                data=viz_data,
-                output_path=viz_path,
-                title=f"Correlations",
-                x_label="Field",
-                y_label="Correlation",
-                sort_by="key",
-                backend=vis_backend,
-                theme=vis_theme,
-                strict=vis_strict,
-                **kwargs,
-            )
-            if viz_result.startswith("Error"):
-                self.logger.error(f"Failed to create visualization: {viz_result}")
-            else:
-                visualization_paths[f"correlations"] = viz_path
+                    visualization_paths[f"correlations"] = viz_path
 
             self.logger.info(
                 f"[VIZ] Visualization generation completed. Created {len(visualization_paths)} visualizations"
@@ -2193,195 +1893,6 @@ class AddOrModifyFieldsOperation(TransformationOperation):
             self.logger.debug(f"[VIZ] Stack trace:", exc_info=True)
 
         return visualization_paths
-
-    def _save_output_data(
-        self,
-        processed_df: Union[pd.DataFrame, dd.DataFrame],
-        task_dir: Path,
-        writer: DataWriter,
-        result: OperationResult,
-        reporter: Any,
-        progress_tracker: Optional[HierarchicalProgressTracker],
-        operation_timestamp: Optional[str] = None,
-        **kwargs,
-    ) -> WriterResult:
-        """
-        Save the processed output data.
-
-        Parameters:
-        -----------
-        processed_df : Union[pd.DataFrame, dd.DataFrame]
-            The processed dataframe to save
-        task_dir : Path
-            The task directory
-        writer : DataWriter
-            The writer to use for saving data
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-        progress_tracker : Optional[HierarchicalProgressTracker]
-            Optional progress tracker
-        operation_timestamp : str, optional
-            Timestamp of the operation, if any  (default: None)
-
-        Returns:
-        --------
-        WriterResult
-            Result object with path and metadata
-        """
-        if progress_tracker:
-            progress_tracker.update(0, {"step": "Saving output data"})
-
-        # Use the DataWriter to save
-        output_filename = f"{self.operation_name.lower()}_output_{operation_timestamp}"
-
-        encryption_mode = get_encryption_mode(processed_df, **kwargs)
-        output_result = writer.write_dataframe(
-            df=processed_df,
-            name=output_filename,
-            format="csv",
-            subdir="output",
-            timestamp_in_name=False,  # Already included in the filename
-            encryption_key=self.encryption_key if self.use_encryption else None,
-            encryption_mode=encryption_mode,
-        )
-
-        # Register output artifact with the result
-        result.add_artifact(
-            artifact_type="csv",
-            path=output_result.path,
-            description=f"Add/modify fields",
-            category=Constants.Artifact_Category_Output,
-        )
-
-        # Report to reporter
-        if reporter:
-            reporter.add_artifact(
-                artifact_type="csv",
-                path=str(output_result.path),
-                description=f"Add/modify fields",
-            )
-
-        return output_result
-
-    def _save_to_cache(
-        self,
-        original_df: Union[pd.DataFrame, dd.DataFrame],
-        processed_df: Union[pd.DataFrame, dd.DataFrame],
-        task_dir: Path,
-        result: OperationResult,
-        reporter: Any,
-    ) -> bool:
-        """
-        Save operation results to cache.
-
-        Parameters:
-        -----------
-        original_df : Union[pd.DataFrame, dd.DataFrame]
-            Original input data
-        task_dir : Path
-            Task directory
-        result : OperationResult
-            The operation result to add artifacts to
-        reporter : Any
-            The reporter to log artifacts to
-
-        Returns:
-        --------
-        bool
-            True if successfully saved to cache, False otherwise
-        """
-        if not self.use_cache:
-            return False
-
-        try:
-            # Import and get global cache manager
-            from pamola_core.utils.ops.op_cache import operation_cache, OperationCache
-
-            # Generate operation cache
-            operation_cache_dir = OperationCache(cache_dir=task_dir / "cache")
-
-            # Generate cache key
-            cache_key = self._generate_cache_key(original_df)
-
-            # Prepare metadata for cache
-            operation_parameters = self._get_operation_parameters()
-
-            original_df_len = (
-                int(original_df.map_partitions(len).sum().compute())
-                if isinstance(original_df, dd.DataFrame)
-                else len(original_df)
-            )
-            processed_df_len = (
-                int(processed_df.map_partitions(len).sum().compute())
-                if isinstance(processed_df, dd.DataFrame)
-                else len(processed_df)
-            )
-            cache_data = {
-                "metrics": result.metrics,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
-                "timestamp": datetime.now().isoformat(),
-                "parameters": operation_parameters,
-                "data_info": {
-                    "original_df_length": original_df_len,
-                    "processed_df_length": processed_df_len,
-                },
-            }
-
-            # Save to cache
-            self.logger.debug(f"Saving to cache with key: {cache_key}")
-            success = operation_cache_dir.save_cache(
-                data=cache_data,
-                cache_key=cache_key,
-                operation_type=self.operation_name,
-                metadata={"task_dir": str(task_dir)},
-            )
-
-            if success:
-                self.logger.info(f"Successfully saved results to cache")
-            else:
-                self.logger.warning(f"Failed to save results to cache")
-
-            return success
-        except Exception as e:
-            self.logger.warning(f"Error saving to cache: {str(e)}")
-            return False
-
-    def _cleanup_memory(
-        self,
-        original_df: Optional[Union[pd.DataFrame, dd.DataFrame]],
-        processed_df: Optional[Union[pd.DataFrame, dd.DataFrame]],
-    ) -> None:
-        """
-        Clean up memory after operation completes.
-
-        For large datasets, explicitly free memory by deleting
-        temporary attributes and forcing garbage collection.
-
-        Parameters:
-        -----------
-        original_df : pd.DataFrame, optional
-            Original data before processing
-        processed_df : pd.DataFrame, optional
-            Anonymized data after processing
-        """
-        # Clear argument references
-        if original_df is not None:
-            del original_df
-
-        if processed_df is not None:
-            del processed_df
-
-        # Additional cleanup for any temporary attributes
-        for attr_name in list(vars(self).keys()):
-            if attr_name.startswith("_temp_"):
-                delattr(self, attr_name)
-
-        # Force garbage collection
-        import gc
-
-        gc.collect()
 
 
 # Helper function to create the operation easily

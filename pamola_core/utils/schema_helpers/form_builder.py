@@ -19,11 +19,7 @@ Usage:
 
 import copy
 from typing import Any, Dict, List, Optional, Union
-
 from pamola_core.common.enum.custom_components import CustomComponents
-
-from tomlkit import item
-
 from pamola_core.common.enum.custom_functions import CustomFunctions
 from pamola_core.common.enum.form_groups import (
     get_groups_with_titles,
@@ -319,18 +315,32 @@ def convert_property(
             field.pop("oneOf", None)
 
         if field["type"] == "array" or (isinstance(t, list) and "array" in t):
-            if (
-                "items" in field
-                and isinstance(field["items"], dict)
-                and "enum" in field["items"]
-            ):
-                field["enum"] = [
-                    {
-                        "value": value,
-                        "label": str(value),
-                    }
-                    for value in field["items"]["enum"]
-                ]
+            if "items" in field and isinstance(field["items"], dict):
+                # Handling cases with direct enums
+                if "enum" in field["items"]:
+                    field["enum"] = [
+                        {
+                            "value": value,
+                            "label": str(value),
+                        }
+                        for value in field["items"]["enum"]
+                    ]
+                    field["items"].pop("enum", None)
+
+                # Handle the case of oneOf
+                elif "oneOf" in field["items"]:
+                    field["enum"] = [
+                        {
+                            "value": opt["const"],
+                            "label": opt.get("description", str(opt["const"])),
+                        }
+                        for opt in field["items"]["oneOf"]
+                        if "const" in opt
+                    ]
+
+                # Cleanup
+                field["items"].pop("oneOf", None)
+                field["items"].pop("enum", None)
 
     elif field["x-component"] == "Switch":
         field["x-content"] = f"Enable {field['title']}"
@@ -391,6 +401,21 @@ def convert_property(
     elif field.get("x-component") in [
         CustomComponents.NUMERIC_RANGE_MODE,
         CustomComponents.DEPEND_SELECT,
+        CustomComponents.DATE_FORMAT,
+        CustomComponents.FORMAT_PATTERNS,
+        CustomComponents.VALUE_GROUP_ARRAY_AGGREGATIONS,
+        CustomComponents.CUSTOM_VALUE_GROUP_ARRAY_AGGREGATIONS,
+        CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT,
+        CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD,
+        CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG,
+        CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD_FAKE_NAME,
+        CustomComponents.FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY,
+        CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_ADD_OR_MODIFY,
+        CustomComponents.FORMAT_RATIO_SLIDER,
+        CustomComponents.FIELD_IMPUTE_STRATEGY,
+        CustomComponents.FIELD_DOUBLE_SELECT_INPUT_CLEAN_INVALID,
+        CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_CLEAN_INVALID,
+        CustomComponents.SEPARATOR_OPTIONS,
     ]:
         field = _handle_custom_component(field)
 
@@ -520,6 +545,506 @@ def _handle_custom_component(field: dict) -> dict:
         # Clean up custom properties
         field.pop("x-depend-map", None)
 
+    elif component == CustomComponents.DATE_FORMAT:
+
+        # Handle Date Format
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "DateFormat"
+        field["x-component-props"] = {
+            "formatActions": "{{ supportedFormatActions }}",
+            "placeholder": "e.g., %Y-%m-%d",
+        }
+
+    elif component == CustomComponents.FORMAT_PATTERNS:
+
+        # Handle Format Patterns
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "FormatPatterns"
+        field["x-component-props"] = {
+            "placeholder": "Value (e.g., r(\\d{3})-(\\d{3})-(\\d{4}))",
+        }
+        field["enum"] = [
+            {"value": "phone", "label": "Phone Number"},
+            {"value": "ssn", "label": "SSN"},
+            {"value": "credit_card", "label": "Credit Card"},
+            {"value": "email", "label": "Email"},
+            {"value": "date", "label": "Date"},
+        ]
+
+    elif component == CustomComponents.VALUE_GROUP_ARRAY_AGGREGATIONS:
+
+        # Handle Value Group Array
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "ValueGroupArray"
+        field["x-component-props"] = {
+            "getValueOptions": "{{(fieldName) => update_aggregation_options(fieldName)}}",
+            "editable": False,
+        }
+    elif component == CustomComponents.CUSTOM_VALUE_GROUP_ARRAY_AGGREGATIONS:
+
+        # Handle Custom Value Group Array
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = "ValueGroupArray"
+        field["x-component-props"] = {
+            "getValueOptions": "{{(fieldName) => update_custom_aggregation_options(fieldName)}}",
+            "editable": False,
+        }
+
+    elif component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_FAKE_ORG:
+
+        # Handle Field Select Upload File Input
+        field["x-component"] = CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "keyFieldLabel": "Organization type",
+            "enableAddOption": True,
+            "keyFieldOptions": [
+                {"value": "general", "label": "General"},
+                {"value": "educational", "label": "Educational"},
+                {"value": "manufacturing", "label": "Manufacturing"},
+                {"value": "government", "label": "Government"},
+                {"value": "industry", "label": "Industry"},
+            ],
+        }
+        field = _add_upload_reaction(field)
+
+    elif component == CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD_FAKE_NAME:
+
+        # Handle Field Multiple Select Upload File Input
+        field["x-component"] = CustomComponents.FIELD_MULTIPLE_SELECT_UPLOAD
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "languageOptions": [
+                {"value": "vi", "label": "Vietnamese"},
+                {"value": "en", "label": "English"},
+                {"value": "ru", "label": "Russian"},
+            ],
+            "dictionaryParamsByLanguage": {
+                "en": [
+                    {"label": "Female first names", "value": "femaleFirstNames"},
+                    {"label": "Last names", "value": "lastNames"},
+                    {"label": "Male first names", "value": "maleFirstNames"},
+                ],
+                "vi": [
+                    {"label": "Female first names", "value": "femaleFirstNames"},
+                    {"label": "Last names", "value": "lastNames"},
+                    {"label": "Male first names", "value": "maleFirstNames"},
+                ],
+                "ru": [
+                    {"label": "Female first names", "value": "femaleFirstNames"},
+                    {"label": "Female middle names", "value": "femaleMiddleNames"},
+                    {"label": "Last names", "value": "lastNames"},
+                    {"label": "Male middle names", "value": "maleMiddleNames"},
+                    {"label": "Male first names", "value": "maleFirstNames"},
+                ],
+            },
+        }
+        field = _add_upload_reaction(field)
+    
+    elif component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_ADD_OR_MODIFY:
+
+        # Handle Field Select Upload File Input
+        field["x-component"] = CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "keyFieldLabel": "Lookup table name",
+        }
+        field = _add_upload_reaction(field)
+
+    elif component == CustomComponents.FIELD_DOUBLE_SELECT_INPUT_ADD_OR_MODIFY:
+
+        # Handle field double select input add or modify
+        field["x-component"] = CustomComponents.FIELD_DOUBLE_SELECT_INPUT
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "targetFieldName": "operation_type",
+            "label": "Field operations",
+            "targetLabel": "Type",
+            "useConstraintFilter": True,
+            "targetOptions": [
+                {"value": "add_constant", "label": "Add constant"},
+                {"value": "add_from_lookup", "label": "Add from lookup"},
+                {"value": "add_conditional", "label": "Add conditional"},
+                {"value": "modify_constant", "label": "Modify constant"},
+                {"value": "modify_from_lookup", "label": "Modify from lookup"},
+                {"value": "modify_conditional", "label": "Modify conditional"},
+                {"value": "modify_expression", "label": "Modify expression"},
+            ],
+            "additionalParams": [
+                {
+                    "keyMappingTarget": "add_constant",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "constant_value",
+                            "inputType": "text",
+                            "placeholder": "Constant value",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "add_from_lookup",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "lookup_table_name",
+                            "inputType": "lookup_table",
+                            "placeholder": "Select lookup table",
+                            "sourceField": "lookup_tables",
+                        },
+                        {
+                            "additionalKeyValue": "base_on_column",
+                            "inputType": "field",
+                            "placeholder": "Select column",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "add_conditional",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "condition",
+                            "inputType": "textarea",
+                            "placeholder": "Condition",
+                            "fullWidth": True,
+                        },
+                        {
+                            "additionalKeyValue": "value_if_true",
+                            "inputType": "text",
+                            "placeholder": "Value if true",
+                        },
+                        {
+                            "additionalKeyValue": "value_if_false",
+                            "inputType": "text",
+                            "placeholder": "Value if false",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "modify_constant",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "constant_value",
+                            "inputType": "text",
+                            "placeholder": "Constant value",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "modify_from_lookup",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "lookup_table_name",
+                            "inputType": "lookup_table",
+                            "placeholder": "Select lookup table",
+                            "sourceField": "lookup_tables",
+                        },
+                        {
+                            "additionalKeyValue": "base_on_column",
+                            "inputType": "field",
+                            "placeholder": "Select column",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "modify_conditional",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "condition",
+                            "inputType": "textarea",
+                            "placeholder": "Condition",
+                            "fullWidth": True,
+                        },
+                        {
+                            "additionalKeyValue": "value_if_true",
+                            "inputType": "text",
+                            "placeholder": "Value if true",
+                        },
+                        {
+                            "additionalKeyValue": "value_if_false",
+                            "inputType": "text",
+                            "placeholder": "Value if false",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "modify_expression",
+                    "addNewField": True,
+                    "configs": [
+                        {
+                            "additionalKeyValue": "base_on_column",
+                            "inputType": "field",
+                            "placeholder": "Base on column",
+                        },
+                        {
+                            "additionalKeyValue": "expression_character",
+                            "inputType": "text",
+                            "placeholder": "Expression character",
+                        },
+                        {
+                            "additionalKeyValue": "expression",
+                            "inputType": "textarea",
+                            "placeholder": "Expression",
+                            "fullWidth": True,
+                        },
+                    ],
+                },
+            ],
+        }
+    if component == CustomComponents.FORMAT_RATIO_SLIDER:
+        # Handle Format Ratio Slider
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "description": "Set the probability ratio for each selected format. Total must equal 1.0",
+            "lockDescription": "You can lock values to prevent them from being adjusted when other values change.",
+            "totalLabel": "Total:",
+            "options": [
+                {"key": "_name _surname", "label": "Name Surname"},
+                {"key": "_surname _name", "label": "Surname Name"},
+                {"key": "_nickname", "label": "Nickname"},
+            ],
+            "totalMustBeOne": True,
+            "min": 0,
+            "max": 1,
+            "step": 0.01,
+            "showPercentage": True,
+            "lockable": True,
+        }
+
+    if component == CustomComponents.FIELD_IMPUTE_STRATEGY:
+        # Handle FIELD_IMPUTE_STRATEGY
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "getStrategies": "{{ get_strategies }}",
+            "requiresConstantValue": "{{ requires_constant_value }}",
+            "getDataGroupToStringMapping": "{{ get_data_group_to_string_mapping }}",
+        }
+
+    if component == CustomComponents.FIELD_DOUBLE_SELECT_INPUT_CLEAN_INVALID:
+        # Handle Field Double Select Input Clean Invalid
+        field["x-component"] = CustomComponents.FIELD_DOUBLE_SELECT_INPUT
+        field["x-decorator"] = "FormItem"
+        field["x-component-props"] = {
+            "targetFieldName": "constraint_type",
+            "label": "Field constraints",
+            "targetLabel": "Type",
+            "useCustomType": True,
+            "customTypeOptions": [
+                {"value": "numerical", "label": "Numerical"},
+                {"value": "categorical", "label": "Categorical"},
+                {"value": "date", "label": "Date"},
+                {"value": "text", "label": "Text"},
+            ],
+            "targetOptions": [
+                {"value": "min_value", "label": "Min value"},
+                {"value": "max_value", "label": "Max value"},
+                {"value": "valid_range", "label": "Valid range"},
+                {"value": "allowed_values", "label": "Allowed values"},
+                {"value": "disallowed_values", "label": "Disallowed values"},
+                {"value": "whitelist_file", "label": "Whitelist file"},
+                {"value": "blacklist_file", "label": "Blacklist file"},
+                {"value": "pattern", "label": "Pattern"},
+                {"value": "min_date", "label": "Min date"},
+                {"value": "max_date", "label": "Max date"},
+                {"value": "valid_format", "label": "Valid format"},
+                {"value": "date_range", "label": "Date range"},
+                {"value": "min_length", "label": "Min length"},
+                {"value": "max_length", "label": "Max length"},
+                {"value": "valid_pattern", "label": "Valid pattern"},
+            ],
+            "additionalParams": [
+                {
+                    "keyMappingTarget": "min_value",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_value",
+                            "inputType": "number",
+                            "placeholder": "Min value",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "max_value",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "max_value",
+                            "inputType": "number",
+                            "placeholder": "Max value",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "valid_range",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_value",
+                            "inputType": "number",
+                            "placeholder": "Min value",
+                        },
+                        {
+                            "additionalKeyValue": "max_value",
+                            "inputType": "number",
+                            "placeholder": "Max value",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "min_date",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_date",
+                            "inputType": "date",
+                            "placeholder": "Min date",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "max_date",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "max_date",
+                            "inputType": "date",
+                            "placeholder": "Max date",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "date_range",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_date",
+                            "inputType": "date",
+                            "placeholder": "Start date",
+                        },
+                        {
+                            "additionalKeyValue": "max_date",
+                            "inputType": "date",
+                            "placeholder": "End date",
+                        },
+                    ],
+                },
+                {
+                    "keyMappingTarget": "allowed_values",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "allowed_values",
+                            "inputType": "tags",
+                            "placeholder": "Allowed values (comma separated)",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "disallowed_values",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "disallowed_values",
+                            "inputType": "tags",
+                            "placeholder": "Disallowed values (comma separated)",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "whitelist_file",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "whitelist_file",
+                            "inputType": "text",
+                            "placeholder": "Whitelist file path",
+                            "fullWidth": True,
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "blacklist_file",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "blacklist_file",
+                            "inputType": "text",
+                            "placeholder": "Blacklist file path",
+                            "fullWidth": True,
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "pattern",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "pattern",
+                            "inputType": "text",
+                            "placeholder": "Pattern (regex, etc.)",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "valid_pattern",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "valid_pattern",
+                            "inputType": "text",
+                            "placeholder": "Valid pattern",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "min_length",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "min_length",
+                            "inputType": "number",
+                            "placeholder": "Min length",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "max_length",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "max_length",
+                            "inputType": "number",
+                            "placeholder": "Max length",
+                        }
+                    ],
+                },
+                {
+                    "keyMappingTarget": "valid_format",
+                    "configs": [
+                        {
+                            "additionalKeyValue": "valid_format",
+                            "inputType": "text",
+                            "placeholder": "Valid format",
+                        }
+                    ],
+                },
+            ],
+        }
+
+    if component == CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT_CLEAN_INVALID:
+        # Handle FIELD_IMPUTE_STRATEGY
+        field["x-decorator"] = "FormItem"
+        field["x-component"] = CustomComponents.FIELD_SELECT_UPLOAD_FILE_INPUT
+        field["x-component-props"] = {
+            "keyFieldLabel": "Select Option",
+            "isUsingFieldOptions": True,
+            "enableAddOption": True,
+        }
+    if component == CustomComponents.SEPARATOR_OPTIONS:
+        field["x-component"] = "Select"
+        field["x-component-props"] = {
+            "getPopupContainer": "{{(node) => node?.parentElement || document.body}}",
+            "showSearch": True,
+            "allowClear": True,
+            "optionFilterProp": "label",
+            "mode": "multiple",
+            "placeholder": "Select options",
+        }
+        field["enum"] = [
+            {"value": ".", "label": "Dot"},
+            {"value": "_", "label": "Underscore"},
+            {"value": "-", "label": "Dash"},
+            {"value": "", "label": "Blank"},
+        ]
     return field
 
 
@@ -569,9 +1094,9 @@ def _build_condition_expression(condition_value: Any, field_index: int) -> str:
         js_value = "true" if condition_value else "false"
         return f" $deps[{field_index}] === {js_value} "
     if condition_value == "not_null":
-        return f" !!$deps[{field_index}] "
+        return f" !!$deps[{field_index}] && (!Array.isArray($deps[{field_index}]) || $deps[{field_index}].length > 0) "
     if condition_value == "null" or condition_value is None:
-        return f" !$deps[{field_index}] "
+        return f" !$deps[{field_index}] || (Array.isArray($deps[{field_index}]) && $deps[{field_index}].length === 0) "
     if isinstance(condition_value, list):
         return " || ".join(
             f" $deps[{field_index}] === '{val}' " for val in condition_value
@@ -658,9 +1183,6 @@ def _add_x_reactions(
     has_dependencies = depend_fields and not is_ignore_depend_fields
     has_custom_function = "x-custom-function" in field
     custom_functions = field.get("x-custom-function", [])
-    function_name = (
-        custom_functions[0] if custom_functions else None
-    )
 
     # Case 1: Has dependencies (x-depend-on or x-required-on or x-disabled-on)
     if has_dependencies:
@@ -677,32 +1199,51 @@ def _add_x_reactions(
         if has_visible_or_required or has_custom_function:
             # Determine run script
             if has_custom_function:
-                if (
-                    function_name == CustomFunctions.UPDATE_INT64_FIELD_OPTIONS
-                ):
-                    run = f"{function_name}($self); $self.setValue({default_value_str})"
-                else:
-                    deps_expr = ", ".join(
-                        [f"$deps[{i}]" for i in range(len(depend_fields))]
-                    )
-                    run = f"{function_name}($self, {deps_expr})"
+                # Create separate reactions for each custom function
+                for function_name in custom_functions:
+                    func_reaction = {
+                        "dependencies": depend_fields,
+                        "fulfill": {
+                            "state": state,
+                        },
+                    }
+
+                    if function_name == CustomFunctions.UPDATE_INT64_FIELD_OPTIONS:
+                        run = f"{function_name}($self); $self.setValue({default_value_str})"
+                    else:
+                        deps_expr = ", ".join(
+                            [f"$deps[{i}]" for i in range(len(depend_fields))]
+                        )
+                        run = f"{function_name}($self, {deps_expr}); $self.setValue({default_value_str})"
+
+                    func_reaction["fulfill"]["run"] = f"{{{{ {run} }}}}"
+                    existing_reactions.append(func_reaction)
             else:
                 run = f"$self.setValue({default_value_str})"
+                reaction["fulfill"]["run"] = f"{{{{ {run} }}}}"
+                existing_reactions.append(reaction)
 
-            reaction["fulfill"]["run"] = f"{{{{ {run} }}}}"
+        else:
+            # x-disabled-on only case
+            existing_reactions.append(reaction)
 
-        existing_reactions.append(reaction)
         field["x-reactions"] = existing_reactions
 
     # Case 2: Has custom function but NO dependencies
     elif has_custom_function:
-        # Build run template
-        run_template = f"{function_name}($self); $self.setValue({default_value_str})"
+        # Check if non-toggle reaction already exists BEFORE adding new ones
+        has_non_toggle_reaction = any(
+            r for r in existing_reactions if "target" not in r
+        )
 
-        # Only add if no non-toggle reaction exists
-        if not any(r for r in existing_reactions if "target" not in r):
-            new_reaction = {"fulfill": {"run": f"{{{{ {run_template} }}}}"}}
-            existing_reactions.append(new_reaction)
+        if not has_non_toggle_reaction:
+            # Create separate reaction for each custom function
+            for function_name in custom_functions:
+                run_template = (
+                    f"{function_name}($self); $self.setValue({default_value_str})"
+                )
+                new_reaction = {"fulfill": {"run": f"{{{{ {run_template} }}}}"}}
+                existing_reactions.append(new_reaction)
 
         field["x-reactions"] = existing_reactions
 

@@ -24,25 +24,24 @@ Key Features:
   - Integration with PAMOLA.CORE operation framework for standardized input/output
 """
 
-import hashlib
-import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Union, Tuple
+from typing import Dict, List, Any, Optional
 import pandas as pd
 from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources,
 )
-from pamola_core.profiling.schemas.categorical_schema import CategoricalOperationConfig
+from pamola_core.profiling.schemas.categorical_core_schema import (
+    CategoricalOperationConfig,
+)
+from pamola_core.utils.helpers import build_base_cache
 from pamola_core.utils.io import (
     write_json,
-    ensure_directory,
-    load_data_operation,
     write_dataframe_to_csv,
     load_settings_operation,
 )
-from pamola_core.utils.ops.op_cache import operation_cache
+from pamola_core.utils.ops.op_cache import OperationCache
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.ops.op_base import FieldOperation
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -55,6 +54,7 @@ from pamola_core.utils.ops.op_result import (
 from pamola_core.utils.visualization import plot_value_distribution
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
+from pamola_core.profiling.commons import helpers
 
 
 class CategoricalAnalyzer:
@@ -223,6 +223,10 @@ class CategoricalOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
+            df = None
+            analysis_results = None
+
             # Set logger if provided in kwargs
             self.logger = kwargs.get("logger", self.logger)
 
@@ -246,6 +250,12 @@ class CategoricalOperation(FieldOperation):
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
             visualizations_dir = dirs["visualizations"]
             dictionaries_dir = dirs["dictionaries"]
             output_dir = dirs["output"]
@@ -262,47 +272,42 @@ class CategoricalOperation(FieldOperation):
                 )
 
             # Load data and validate input parameters
-            self.logger.info(
-                f"Operation: {self.operation_name}, Load data and validate input parameters"
-            )
-            if progress_tracker:
-                progress_tracker.update(
-                    1,
-                    {
-                        "step": "Load data and validate input parameters",
-                        "operation": self.operation_name,
-                    },
+            try:
+                self.logger.info(
+                    f"Operation: {self.operation_name}, Load data and validate input parameters"
+                )
+                step = "Load data and validate input parameters"
+                if progress_tracker:
+                    progress_tracker.update(
+                        1, {"step": step, "operation": self.operation_name}
+                    )
+
+                # Validate configuration early
+                dataset_name = kwargs.get("dataset_name", "main")
+
+                # Load settings operation
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
                 )
 
-            df, is_valid = self._load_data_and_validate_input_parameters(
-                data_source, **kwargs
-            )
+                self.logger.info(f"Loading data'")
 
-            if is_valid:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters successfully",
-                            "shape": df.shape,
-                        },
-                    )
-            else:
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Load data and validate input parameters",
-                            "message": "Load data and validate input parameters failed",
-                        },
-                    )
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message="Load data and validate input parameters failed",
-                    )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+
+                is_valid = self._validate_input_parameters(df)
+                if not is_valid:
+                    raise ValueError("Missing fields in DataFrame.")
+
+            except Exception as e:
+                error_message = f"Error loading data: {str(e)}"
+                self.logger.error(error_message)
+                return OperationResult(
+                    status=OperationStatus.ERROR,
+                    error_message=error_message,
+                    exception=e,
+                )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
@@ -318,9 +323,9 @@ class CategoricalOperation(FieldOperation):
                         },
                     )
 
-                cached_result = self._get_cache(
-                    df.copy(), **kwargs
-                )  # _get_cache now returns OperationResult or None
+                self.logger.info("Checking operation cache...")
+                cached_result = self._check_cache(df.copy(deep=True))
+
                 if cached_result is not None and isinstance(
                     cached_result, OperationResult
                 ):
@@ -501,25 +506,18 @@ class CategoricalOperation(FieldOperation):
                             },
                         )
 
-            # Save cache if required
+            # Cache the result if caching is enabled
             if self.use_cache:
-                self.logger.info(f"Operation: {self.operation_name}, Save cache")
-                if progress_tracker:
-                    progress_tracker.update(
-                        1, {"step": "Save cache", "operation": self.operation_name}
+                try:
+                    self.logger.info(f"Operation: {self.operation_name}, Save cache")
+                    self._save_to_cache(
+                        original_df=self._original_df,
+                        result=result,
+                        task_dir=task_dir,
                     )
-
-                self._save_cache(task_dir, result, **kwargs)
-
-                if reporter:
-                    reporter.add_operation(
-                        f"Operation {self.operation_name}",
-                        status="info",
-                        details={
-                            "step": "Save cache",
-                            "message": "Save cache successfully",
-                        },
-                    )
+                except Exception as e:
+                    # Failure to cache is non-critical
+                    self.logger.warning(f"Failed to cache results: {str(e)}")
 
             # Operation completed successfully
             self.logger.info(
@@ -534,6 +532,13 @@ class CategoricalOperation(FieldOperation):
                         "message": "Operation completed successfully",
                     },
                 )
+
+            # Clean up memory AFTER all write operations are complete
+            helpers.cleanup_memory(
+                df=df,
+                analysis_results=analysis_results,
+                instance=self,
+            )
 
             return result
 
@@ -554,35 +559,6 @@ class CategoricalOperation(FieldOperation):
             return OperationResult(
                 status=OperationStatus.ERROR, error_message=str(e), exception=e
             )
-
-    def _prepare_directories(self, task_dir: Path) -> Dict[str, Path]:
-        """
-        Prepare required directories for artifacts.
-
-        Parameters:
-        -----------
-        task_dir : Path
-            Base directory for the task
-
-        Returns:
-        --------
-        Dict[str, Path]
-            Dictionary of directory paths
-        """
-        # Create required directories
-        output_dir = task_dir / "output"
-        visualizations_dir = task_dir / "visualizations"
-        dictionaries_dir = task_dir / "dictionaries"
-
-        ensure_directory(output_dir)
-        ensure_directory(visualizations_dir)
-        ensure_directory(dictionaries_dir)
-
-        return {
-            "output": output_dir,
-            "visualizations": visualizations_dir,
-            "dictionaries": dictionaries_dir,
-        }
 
     def _collect_metrics(self, analysis_results: dict, result: OperationResult) -> None:
         """
@@ -630,7 +606,9 @@ class CategoricalOperation(FieldOperation):
         stats_filename = f"{self.field_name}_stats_{operation_timestamp}.json"
         stats_path = output_dir / stats_filename
 
-        encryption_mode_for_json = get_encryption_mode(analysis_results, **kwargs)
+        encryption_mode_for_json = get_encryption_mode(
+            analysis_results, self.use_encryption
+        )
         write_json(
             analysis_results,
             stats_path,
@@ -920,54 +898,61 @@ class CategoricalOperation(FieldOperation):
                     details={"warning": str(e)},
                 )
 
-    def _save_cache(self, task_dir: Path, result: OperationResult, **kwargs) -> None:
+    def _save_to_cache(
+        self,
+        original_df: pd.DataFrame,
+        result: OperationResult,
+        task_dir: Path,
+    ) -> bool:
         """
-        Save the operation result to cache.
+        Save operation results to cache.
 
-        Parameters
-        ----------
+        Parameters:
+        -----------
+        original_df : pd.DataFrame
+            Original input data
+        result: OperationResult
+            Result object OperationResult
         task_dir : Path
-            Root directory for the task.
-        result : OperationResult
-            The result object to be cached.
+            Task directory
+
+        Returns:
+        --------
+        bool
+            True if successfully saved to cache, False otherwise
         """
+        if not self.use_cache:
+            return False
+
         try:
-            result_data = {
-                "status": (
-                    result.status.name
-                    if isinstance(result.status, OperationStatus)
-                    else str(result.status)
-                ),
-                "metrics": result.metrics,
-                "error_message": result.error_message,
-                "execution_time": result.execution_time,
-                "error_trace": result.error_trace,
-                "artifacts": [artifact.to_dict() for artifact in result.artifacts],
-            }
+            # Generate cache key
+            cache_key = self._generate_cache_key(original_df)
 
-            cache_data = {
-                "result": result_data,
-                "parameters": self._get_cache_parameters(**kwargs),
-            }
-
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(self._original_df.copy()),
+            # Prepare metadata for cache
+            cache_data = build_base_cache(
+                parameters=self._get_base_parameters(), result=result
             )
 
-            operation_cache.save_cache(
+            # Save to cache
+            self.logger.debug(f"Saving to cache with key: {cache_key}")
+            success = self.operation_cache.save_cache(
                 data=cache_data,
                 cache_key=cache_key,
                 operation_type=self.operation_name,
                 metadata={"task_dir": str(task_dir)},
             )
 
-            self.logger.info(f"Saved result to cache with key: {cache_key}")
-        except Exception as e:
-            self.logger.warning(f"Failed to save cache: {e}")
+            if success:
+                self.logger.info(f"Successfully saved results to cache")
+            else:
+                self.logger.warning(f"Failed to save results to cache")
 
-    def _get_cache(self, df: pd.DataFrame, **kwargs) -> Optional[OperationResult]:
+            return success
+        except Exception as e:
+            self.logger.warning(f"Error saving to cache: {str(e)}")
+            return False
+
+    def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
         """
         Retrieve cached result if available and valid.
 
@@ -982,13 +967,9 @@ class CategoricalOperation(FieldOperation):
             The cached OperationResult if available, otherwise None.
         """
         try:
-            cache_key = operation_cache.generate_cache_key(
-                operation_name=self.operation_name,
-                parameters=self._get_cache_parameters(**kwargs),
-                data_hash=self._generate_data_hash(df),
-            )
+            cache_key = self._generate_cache_key(df)
 
-            cached = operation_cache.get_cache(
+            cached = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
@@ -1035,7 +1016,7 @@ class CategoricalOperation(FieldOperation):
             self.logger.warning(f"Failed to load cache: {e}")
             return None
 
-    def _get_cache_parameters(self, **kwargs) -> Dict[str, Any]:
+    def _get_cache_parameters(self) -> Dict[str, Any]:
         """
         Get operation-specific parameters required for generating a cache key.
 
@@ -1049,84 +1030,12 @@ class CategoricalOperation(FieldOperation):
         """
 
         return {
-            "operation": self.operation_name,
-            "version": self.version,
             "field_name": self.field_name,
             "top_n": self.top_n,
             "min_frequency": self.min_frequency,
-            "generate_visualization": self.generate_visualization,
             "profile_type": self.profile_type,
             "analyze_anomalies": self.analyze_anomalies,
-            "use_cache": self.use_cache,
-            "force_recalculation": self.force_recalculation,
-            "visualization_backend": self.visualization_backend,
-            "visualization_theme": self.visualization_theme,
-            "visualization_strict": self.visualization_strict,
-            "use_encryption": self.use_encryption,
-            "encryption_key": self.encryption_key,
         }
-
-    def _generate_data_hash(self, data: pd.DataFrame) -> str:
-        """
-        Generate a hash that represents key characteristics of the input DataFrame.
-
-        The hash is based on structure and summary statistics to detect changes
-        for caching purposes.
-
-        Parameters
-        ----------
-        data : pd.DataFrame
-            Input DataFrame to generate a representative hash from.
-
-        Returns
-        -------
-        str
-            A hash string representing the structure and key properties of the data.
-        """
-        try:
-            characteristics = {
-                "columns": list(data.columns),
-                "shape": data.shape,
-                "summary": {},
-            }
-
-            for col in data.columns:
-                col_data = data[col]
-                col_info = {
-                    "dtype": str(col_data.dtype),
-                    "null_count": int(col_data.isna().sum()),
-                    "unique_count": int(col_data.nunique()),
-                }
-
-                if pd.api.types.is_numeric_dtype(col_data):
-                    non_null = col_data.dropna()
-                    if not non_null.empty:
-                        col_info.update(
-                            {
-                                "min": float(non_null.min()),
-                                "max": float(non_null.max()),
-                                "mean": float(non_null.mean()),
-                                "median": float(non_null.median()),
-                                "std": float(non_null.std()),
-                            }
-                        )
-                elif pd.api.types.is_object_dtype(col_data) or isinstance(
-                    col_data.dtype, pd.CategoricalDtype
-                ):
-                    top_values = col_data.value_counts(dropna=True).head(5)
-                    col_info["top_values"] = {
-                        str(k): int(v) for k, v in top_values.items()
-                    }
-
-                characteristics["summary"][col] = col_info
-
-            json_str = json.dumps(characteristics, sort_keys=True)
-            return hashlib.md5(json_str.encode()).hexdigest()
-
-        except Exception as e:
-            self.logger.warning(f"Error generating data hash: {str(e)}")
-            fallback = f"{data.shape}_{list(data.dtypes)}"
-            return hashlib.md5(fallback.encode()).hexdigest()
 
     def _validate_input_parameters(self, df: pd.DataFrame) -> bool:
         """
@@ -1149,23 +1058,6 @@ class CategoricalOperation(FieldOperation):
 
         # All validations passed
         return True
-
-    def _load_data_and_validate_input_parameters(
-        self, data_source: DataSource, **kwargs
-    ) -> Tuple[Optional[pd.DataFrame], bool]:
-        dataset_name = kwargs.get("dataset_name", "main")
-        settings_operation = load_settings_operation(
-            data_source, dataset_name, **kwargs
-        )
-        df = load_data_operation(data_source, dataset_name, **settings_operation)
-
-        if df is None or df.empty:
-            self.logger.error("Error data frame is None or empty")
-            return None, False
-
-        self._original_df = df.copy(deep=True)
-
-        return df, self._validate_input_parameters(df)
 
     def _compute_total_steps(self) -> int:
         steps = 0
@@ -1257,7 +1149,7 @@ def analyze_categorical_fields(
             for col in df.columns:
                 try:
                     # Check if column is object type (usually string)
-                    if df[col].dtype == "object":
+                    if pd.api.types.is_string_dtype(df[col]):
                         cat_fields.append(col)
                     # Or check number of unique values relative to dataset size
                     elif pd.api.types.is_numeric_dtype(df[col]) and df[

@@ -65,13 +65,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from pamola_core.anonymization.schemas.uniform_temporal_op_core_schema import UniformTemporalNoiseConfig
+
 # Add project root to path for imports
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from pamola_core.anonymization.noise.uniform_temporal_op import (
     UniformTemporalNoiseOperation,
-    UniformTemporalNoiseConfig
 )
 from pamola_core.anonymization.commons.validation.exceptions import (
     ValidationError,
