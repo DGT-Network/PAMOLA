@@ -1,0 +1,40 @@
+{
+  "generation_info": {
+    "seed": 42,
+    "timestamp": "2026-01-10T22:54:43.581301"
+  },
+  "person_overlap": {
+    "total_unique_persons": 10000,
+    "in_all_three": 6531,
+    "bank_payment": 7224,
+    "bank_telecom": 7148,
+    "payment_telecom": 7219,
+    "bank_only": 518,
+    "payment_only": 459,
+    "telecom_only": 494
+  },
+  "linkage_key_overlap": {
+    "phone_hash": {
+      "bank_unique": 5924,
+      "payment_unique": 5925,
+      "telecom_unique": 5922,
+      "all_three_overlap": 4638,
+      "effective_coverage": 0.7102
+    },
+    "email_hash": {
+      "bank_unique": 5068,
+      "payment_unique": 5060,
+      "telecom_unique": 5040,
+      "all_three_overlap": 3973,
+      "effective_coverage": 0.6083
+    }
+  },
+  "fraud_distribution": {
+    "bank_fraud_count": 937,
+    "payment_fraud_count": 881,
+    "telecom_fraud_count": 471,
+    "bank_fraud_rate": 0.0204,
+    "payment_fraud_rate": 0.0191,
+    "telecom_fraud_rate": 0.0162
+  }
+}

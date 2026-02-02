@@ -1,0 +1,476 @@
+{
+  "dataset_name": "PAYMENT_ANTIFRAUD",
+  "fingerprint_pattern": "PMLA-PA...",
+  "generation": {
+    "timestamp": "2026-01-10T22:54:42.686241",
+    "seed": 42,
+    "generator_version": "1.0.0",
+    "synthetic": true
+  },
+  "size": {
+    "records": 46231,
+    "fields": 33
+  },
+  "schema": [
+    {
+      "name": "payment_record_id",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "gt_person_id",
+      "type": "string",
+      "pii_category": "ground_truth",
+      "remove_before_release": true
+    },
+    {
+      "name": "link_phone_hash",
+      "type": "string",
+      "pii_category": "linkage_key"
+    },
+    {
+      "name": "link_email_hash",
+      "type": "string",
+      "pii_category": "linkage_key"
+    },
+    {
+      "name": "link_device_hash",
+      "type": "string",
+      "pii_category": "linkage_key"
+    },
+    {
+      "name": "authorization_id",
+      "type": "string",
+      "pii_category": "direct_identifier"
+    },
+    {
+      "name": "authorization_ts",
+      "type": "datetime",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "card_network",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "card_type",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "amount",
+      "type": "float",
+      "pii_category": "sensitive"
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "merchant_id",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "merchant_mcc",
+      "type": "integer",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "merchant_name",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "merchant_country",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "pos_entry_mode",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "card_present",
+      "type": "boolean",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "recurring_flag",
+      "type": "boolean",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "cvv_match",
+      "type": "boolean",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "avs_match",
+      "type": "boolean",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "3ds_result",
+      "type": "string",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "velocity_1h",
+      "type": "integer",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "velocity_24h",
+      "type": "integer",
+      "pii_category": "behavioral"
+    },
+    {
+      "name": "cross_border_flag",
+      "type": "boolean",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "device_fingerprint",
+      "type": "string",
+      "pii_category": "device_identifier"
+    },
+    {
+      "name": "ip_geolocation",
+      "type": "string",
+      "pii_category": "quasi_identifier"
+    },
+    {
+      "name": "authorization_response",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "decline_reason",
+      "type": "string",
+      "pii_category": "categorical"
+    },
+    {
+      "name": "risk_score",
+      "type": "integer",
+      "pii_category": "model_output"
+    },
+    {
+      "name": "is_fraud_payment",
+      "type": "boolean",
+      "pii_category": "label"
+    },
+    {
+      "name": "fraud_type_payment",
+      "type": "string",
+      "pii_category": "label"
+    },
+    {
+      "name": "chargeback_date",
+      "type": "date",
+      "pii_category": "label"
+    },
+    {
+      "name": "chargeback_amount",
+      "type": "float",
+      "pii_category": "label"
+    }
+  ],
+  "field_statistics": {
+    "payment_record_id": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 46231,
+      "coverage": 1.0
+    },
+    "gt_person_id": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 8371,
+      "coverage": 1.0
+    },
+    "link_phone_hash": {
+      "non_null_count": 32777,
+      "null_count": 13454,
+      "unique_values": 5925,
+      "coverage": 0.709
+    },
+    "link_email_hash": {
+      "non_null_count": 27930,
+      "null_count": 18301,
+      "unique_values": 5060,
+      "coverage": 0.6041
+    },
+    "link_device_hash": {
+      "non_null_count": 18581,
+      "null_count": 27650,
+      "unique_values": 3376,
+      "coverage": 0.4019
+    },
+    "authorization_id": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 46231,
+      "coverage": 1.0
+    },
+    "authorization_ts": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 46195,
+      "coverage": 1.0
+    },
+    "card_network": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 3,
+      "coverage": 1.0,
+      "distribution": {
+        "Mastercard": 15478,
+        "Interac": 15429,
+        "Visa": 15324
+      }
+    },
+    "card_type": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 3,
+      "coverage": 1.0,
+      "distribution": {
+        "credit": 23178,
+        "debit": 18373,
+        "prepaid": 4680
+      }
+    },
+    "amount": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 25559,
+      "coverage": 1.0
+    },
+    "currency": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 1,
+      "coverage": 1.0,
+      "distribution": {
+        "CAD": 46231
+      }
+    },
+    "merchant_id": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 36038,
+      "coverage": 1.0,
+      "distribution": {
+        "MERCH-89959": 6,
+        "MERCH-11847": 5,
+        "MERCH-59645": 5,
+        "MERCH-19206": 5,
+        "MERCH-45591": 5,
+        "MERCH-24897": 5,
+        "MERCH-67457": 5,
+        "MERCH-20616": 5,
+        "MERCH-27000": 5,
+        "MERCH-23874": 5
+      }
+    },
+    "merchant_mcc": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 496,
+      "coverage": 1.0,
+      "distribution": {
+        "5541": 2445,
+        "7995": 2331,
+        "7994": 2294,
+        "5542": 2287,
+        "6012": 1620,
+        "6010": 1548,
+        "6011": 1541,
+        "5733": 1522,
+        "5813": 1518,
+        "5732": 1510
+      }
+    },
+    "merchant_name": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 11,
+      "coverage": 1.0,
+      "distribution": {
+        "Canadian Tire": 4295,
+        "Amazon": 4253,
+        "Petro-Canada": 4230,
+        "Uber": 4227,
+        "Loblaws": 4225,
+        "Netflix": 4198,
+        "Shopify Store": 4195,
+        "Rogers": 4189,
+        "Tim Hortons": 4164,
+        "Costco": 4142
+      }
+    },
+    "merchant_country": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 6,
+      "coverage": 1.0,
+      "distribution": {
+        "CA": 32308,
+        "US": 9360,
+        "CN": 1383,
+        "GB": 1368,
+        "DE": 921,
+        "IN": 891
+      }
+    },
+    "pos_entry_mode": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 5,
+      "coverage": 1.0,
+      "distribution": {
+        "ecommerce": 16111,
+        "contactless": 13987,
+        "chip": 11507,
+        "manual": 2343,
+        "swipe": 2283
+      }
+    },
+    "card_present": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0,
+      "distribution": {
+        "True": 27777,
+        "False": 18454
+      }
+    },
+    "recurring_flag": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0,
+      "distribution": {
+        "False": 43810,
+        "True": 2421
+      }
+    },
+    "cvv_match": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0
+    },
+    "avs_match": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0
+    },
+    "3ds_result": {
+      "non_null_count": 16223,
+      "null_count": 30008,
+      "unique_values": 5,
+      "coverage": 0.3509
+    },
+    "velocity_1h": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 18,
+      "coverage": 1.0
+    },
+    "velocity_24h": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 55,
+      "coverage": 1.0
+    },
+    "cross_border_flag": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0,
+      "distribution": {
+        "False": 32308,
+        "True": 13923
+      }
+    },
+    "device_fingerprint": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 30972,
+      "coverage": 1.0
+    },
+    "ip_geolocation": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 24,
+      "coverage": 1.0
+    },
+    "authorization_response": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 3,
+      "coverage": 1.0,
+      "distribution": {
+        "approved": 43010,
+        "declined": 2862,
+        "referred": 359
+      }
+    },
+    "decline_reason": {
+      "non_null_count": 2862,
+      "null_count": 43369,
+      "unique_values": 6,
+      "coverage": 0.0619,
+      "distribution": {
+        "expired_card": 510,
+        "insufficient_funds": 505,
+        "blocked_merchant": 476,
+        "suspected_fraud": 473,
+        "cvv_mismatch": 461,
+        "velocity_limit": 437
+      }
+    },
+    "risk_score": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 855,
+      "coverage": 1.0
+    },
+    "is_fraud_payment": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 2,
+      "coverage": 1.0
+    },
+    "fraud_type_payment": {
+      "non_null_count": 881,
+      "null_count": 45350,
+      "unique_values": 4,
+      "coverage": 0.0191
+    },
+    "chargeback_date": {
+      "non_null_count": 534,
+      "null_count": 45697,
+      "unique_values": 285,
+      "coverage": 0.0116
+    },
+    "chargeback_amount": {
+      "non_null_count": 46231,
+      "null_count": 0,
+      "unique_values": 528,
+      "coverage": 1.0
+    }
+  },
+  "linkage": {
+    "phone_hash_coverage": 0.709,
+    "email_hash_coverage": 0.6041,
+    "device_hash_coverage": 0.4019
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "generated_date": "2026-01-10",
+  "generator": "PAMOLA Epic 2 - generate_med_rare_lab.py",
+  "seed": 42,
+  "synthetic_notice": {
+    "is_synthetic": true,
+    "contains_real_phi": false,
+    "derived_from_real_data": false,
+    "collected_from_external": false,
+    "statement": "All data is artificially generated. No real patient information included."
+  },
+  "dataset_name": "MED_LAB",
+  "version": "1.0.0",
+  "file": "MED_LAB_10k.csv",
+  "statistics": {
+    "total_records": 10000,
+    "unique_patients": 3600,
+    "abnormal_rate_pct": 18.22,
+    "phi_in_text_pct": 2.47,
+    "with_link_shared_id_pct": 69.28
+  },
+  "linkage": {
+    "total_unique_patients": 6500,
+    "shared_patients": 2200,
+    "registry_only": 2900,
+    "lab_only": 1400,
+    "overlap_pct": 33.85
+  },
+  "fingerprints": {
+    "prefix": "PMLA",
+    "row_pattern": "PMLA-LR{index}-SYN",
+    "site_pattern": "PMLA-LAB{index}-SYN"
+  }
+}

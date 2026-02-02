@@ -1,0 +1,206 @@
+{
+  "dataset_name": "BANK_SYNTHETIC_MULTI_TABLE",
+  "version": "2.0.0",
+  "generated_date": "2026-01-10",
+  "generator": "PAMOLA Epic 2 - generate_bank_txs_v2.py",
+  "seed": 42,
+  "synthetic_notice": {
+    "is_synthetic": true,
+    "contains_real_pii": false,
+    "derived_from_real_data": false,
+    "collected_from_external": false,
+    "statement": "All data is artificially generated. No real personal information included."
+  },
+  "tables": {
+    "CUSTOMERS": {
+      "records": 1500,
+      "file": "CUSTOMERS.csv"
+    },
+    "ACCOUNTS": {
+      "records": 2100,
+      "file": "ACCOUNTS.csv"
+    },
+    "TRANSACTIONS": {
+      "records": 10000,
+      "file": "TRANSACTIONS.csv"
+    },
+    "LOANS": {
+      "records": 800,
+      "file": "LOANS.csv"
+    },
+    "CREDIT_CARDS": {
+      "records": 1200,
+      "file": "CREDIT_CARDS.csv"
+    },
+    "FEEDBACK": {
+      "records": 500,
+      "file": "FEEDBACK.csv"
+    }
+  },
+  "relationships": [
+    {
+      "from": "ACCOUNTS.customer_id",
+      "to": "CUSTOMERS.customer_id",
+      "type": "many-to-one"
+    },
+    {
+      "from": "TRANSACTIONS.account_id",
+      "to": "ACCOUNTS.account_id",
+      "type": "many-to-one"
+    },
+    {
+      "from": "LOANS.customer_id",
+      "to": "CUSTOMERS.customer_id",
+      "type": "many-to-one"
+    },
+    {
+      "from": "CREDIT_CARDS.customer_id",
+      "to": "CUSTOMERS.customer_id",
+      "type": "many-to-one"
+    },
+    {
+      "from": "FEEDBACK.customer_id",
+      "to": "CUSTOMERS.customer_id",
+      "type": "many-to-one"
+    }
+  ],
+  "data_quality_issues": {
+    "outliers": {
+      "accounts": 37,
+      "transactions": 212,
+      "description": "High-value records for anomaly detection testing"
+    },
+    "format_violations": {
+      "customers": 44,
+      "transactions": 305,
+      "types": [
+        "case",
+        "whitespace",
+        "encoding",
+        "truncation"
+      ],
+      "description": "Intentional format issues for data quality testing"
+    }
+  },
+  "fingerprints": {
+    "prefix": "PMLA",
+    "pattern": "PMLA-{TABLE_CODE}{INDEX}-SYN",
+    "description": "Synthetic markers for data lineage tracking"
+  },
+  "statistics": {
+    "customers": {
+      "total": 1500,
+      "by_segment": {
+        "RETAIL": 869,
+        "PREMIUM": 231,
+        "SMALL_BUSINESS": 326,
+        "PRIVATE": 74
+      },
+      "by_province": {
+        "ON": 499,
+        "MB": 59,
+        "NB": 70,
+        "QC": 176,
+        "BC": 195,
+        "SK": 130,
+        "NS": 60,
+        "AB": 126,
+        "YT": 58,
+        "PE": 70,
+        "NL": 57
+      },
+      "avg_age": 50.5,
+      "format_issues": 44
+    },
+    "accounts": {
+      "total": 2100,
+      "by_type": {
+        "SAVINGS": 726,
+        "CHECKING": 861,
+        "JOINT": 202,
+        "BUSINESS": 311
+      },
+      "by_status": {
+        "ACTIVE": 1898,
+        "DORMANT": 89,
+        "CLOSED": 70,
+        "FROZEN": 43
+      },
+      "outliers": 37
+    },
+    "transactions": {
+      "total": 10000,
+      "by_type": {
+        "TRANSFER_IN": 1429,
+        "POS_PURCHASE": 1063,
+        "BILL_PAYMENT": 1154,
+        "DEPOSIT": 1850,
+        "TRANSFER_OUT": 1470,
+        "WITHDRAWAL": 2026,
+        "INTERAC_ETRANSFER": 287,
+        "ATM_WITHDRAWAL": 505,
+        "PAYROLL": 216
+      },
+      "by_channel": {
+        "PHONE": 490,
+        "ATM": 1519,
+        "ONLINE": 3387,
+        "MOBILE": 3097,
+        "BRANCH": 1507
+      },
+      "outliers": 212,
+      "format_issues": 305
+    },
+    "loans": {
+      "total": 800,
+      "by_type": {
+        "PERSONAL": 198,
+        "AUTO": 226,
+        "STUDENT": 51,
+        "MORTGAGE": 234,
+        "BUSINESS": 36,
+        "LINE_OF_CREDIT": 55
+      },
+      "by_status": {
+        "APPROVED": 347,
+        "REJECTED": 71,
+        "CLOSED": 128,
+        "ACTIVE": 222,
+        "WRITTEN_OFF": 9,
+        "DEFAULTED": 23
+      }
+    },
+    "credit_cards": {
+      "total": 1200,
+      "by_type": {
+        "MASTERCARD": 415,
+        "AMEX": 247,
+        "VISA": 427,
+        "DISCOVER": 111
+      },
+      "by_tier": {
+        "CLASSIC": 483,
+        "PLATINUM": 237,
+        "INFINITE": 115,
+        "GOLD": 365
+      }
+    },
+    "feedback": {
+      "total": 500,
+      "by_type": {
+        "PRAISE": 98,
+        "INQUIRY": 82,
+        "COMPLAINT": 182,
+        "SUGGESTION": 114,
+        "DISPUTE": 24
+      },
+      "by_status": {
+        "CLOSED_NO_ACTION": 22,
+        "DUPLICATE": 27,
+        "RESOLVED": 280,
+        "PENDING": 110,
+        "ESCALATED": 61
+      }
+    }
+  }
+}
