@@ -33,6 +33,9 @@ from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import FeatureNotImplementedError
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io import load_settings_operation
 from pamola_core.transformations.base_transformation_op import TransformationOperation
@@ -130,19 +133,18 @@ class RemoveFieldsOperation(TransformationOperation):
         try:
             # Initialize timing and result
             self.start_time = time.time()
-
-            # Config logger task for operation
             self.logger = kwargs.get("logger", self.logger)
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
+            )
 
             result = OperationResult(status=OperationStatus.PENDING)
 
-            # Create DataWriter for consistent file operations
-            writer = DataWriter(
-                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
-            )
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -152,11 +154,19 @@ class RemoveFieldsOperation(TransformationOperation):
                 cache_dir=dirs["cache"],
             )
 
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
+
             # Save configuration to task directory
             self.save_config(task_dir)
-
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -187,12 +197,11 @@ class RemoveFieldsOperation(TransformationOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Check Cache (if enabled and not forced to recalculate)
@@ -239,14 +248,12 @@ class RemoveFieldsOperation(TransformationOperation):
                 # Get a copy of the original data for metrics calculation
                 original_df = df.copy(deep=True)
 
-                # Validation
             except Exception as e:
-                error_message = f"Validation error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_VALIDATION_ERROR,
+                    context={"operation": self.operation_name},
+                    message_kwargs={"context": "remove_fields", "reason": str(e)},
                 )
 
             # Step 4: Processing
@@ -257,12 +264,15 @@ class RemoveFieldsOperation(TransformationOperation):
             try:
                 processed_df = self._process_dataframe(df, progress_tracker)
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_label,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 5: Metrics
@@ -337,12 +347,14 @@ class RemoveFieldsOperation(TransformationOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_label},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -390,14 +402,23 @@ class RemoveFieldsOperation(TransformationOperation):
 
             # Set success status
             result.status = OperationStatus.SUCCESS
-
+            result.execution_time = self.execution_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
+            )
             return result
+
         except Exception as e:
-            # Handle unexpected errors
-            error_message = f"Error in remove fields operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_label},
+                message_kwargs={
+                    "field_name": self.field_label,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
@@ -444,7 +465,7 @@ class RemoveFieldsOperation(TransformationOperation):
         Any
             Processed value
         """
-        raise NotImplementedError("Not implement")
+        raise FeatureNotImplementedError("Not implement")
 
     def _get_cache_parameters(self) -> Dict[str, Any]:
         """
@@ -554,7 +575,7 @@ class RemoveFieldsOperation(TransformationOperation):
         Dict[str, Any]
             A dictionary of calculated metrics
         """
-        from pamola_core.utils.io_helpers import estimate_dataframe_size
+        from pamola_core.utils.io_helpers.memory_utils import estimate_dataframe_size
 
         # Basic metrics
         metrics: Dict[str, Any] = {}

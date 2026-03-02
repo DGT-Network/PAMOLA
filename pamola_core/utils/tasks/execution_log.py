@@ -34,8 +34,12 @@ from typing import Dict, Any, List, Optional, Union, Tuple, Protocol
 
 import filelock
 
+from pamola_core.errors.exceptions import ExecutionLogError
 from pamola_core.utils.io import read_json, write_json, ensure_directory
-from pamola_core.utils.tasks.task_config import find_project_root, validate_path_security
+from pamola_core.utils.tasks.task_config import (
+    find_project_root,
+    validate_path_security,
+)
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -65,11 +69,6 @@ class ProgressManagerProtocol(Protocol):
     def log_error(self, message: str) -> None:
         """Log an error message without breaking progress bars."""
         ...
-
-
-class ExecutionLogError(Exception):
-    """Exception raised for execution log errors."""
-    pass
 
 
 def _get_execution_log_path() -> Path:

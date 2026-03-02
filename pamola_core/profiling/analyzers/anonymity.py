@@ -63,6 +63,9 @@ from pamola_core.common.enum.analysis_mode_enum import AnalysisMode
 from pamola_core.profiling.schemas.anonymity_core_schema import (
     KAnonymityProfilerOperationConfig,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import ColumnNotFoundError, ValidationError
 from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_cache import OperationCache
@@ -87,7 +90,7 @@ from pamola_core.utils.io import (
 )
 from pamola_core.utils.visualization import create_bar_plot, create_spider_chart
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -212,13 +215,12 @@ class KAnonymityProfilerOperation(BaseOperation):
             Results of the operation
         """
         try:
-            # Prepare directories
-            dirs = self._prepare_directories(task_dir)
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
 
-            # Initialize operation cache
-            self.operation_cache = OperationCache(
-                cache_dir=dirs["cache"],
-            )
+            result = OperationResult(status=OperationStatus.PENDING)
 
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
@@ -231,8 +233,19 @@ class KAnonymityProfilerOperation(BaseOperation):
             # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
 
-            # Initialize result
-            result = OperationResult(status=OperationStatus.SUCCESS)
+            # Prepare directories
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -276,12 +289,11 @@ class KAnonymityProfilerOperation(BaseOperation):
                 )
 
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Check if field exists
@@ -289,8 +301,9 @@ class KAnonymityProfilerOperation(BaseOperation):
                 field for field in self.id_fields if field not in df.columns
             ]
             if missing_fields:
-                raise ValueError(
-                    f"The following id_fields are not in the DataFrame columns: {missing_fields}"
+                raise ColumnNotFoundError(
+                    column_name=missing_fields,
+                    available_columns=list(df.columns),
                 )
 
             # Prepare QI combinations
@@ -298,9 +311,14 @@ class KAnonymityProfilerOperation(BaseOperation):
                 df, self.quasi_identifier_sets, self.id_fields
             )
             if not qi_combinations:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message="No quasi-identifiers specified or detected",
+                return self.error_handler.handle_error(
+                    error=ValueError("No quasi-identifiers specified or detected"),
+                    error_code=ErrorCode.DATA_VALIDATION_ERROR,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "context": "quasi_identifiers",
+                        "reason": "No quasi-identifiers specified or detected",
+                    },
                 )
 
             self.logger.info(
@@ -328,7 +346,7 @@ class KAnonymityProfilerOperation(BaseOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Clean invalid values (from cache)",
+                            f"{self.operation_name} (from cache)",
                             details={"cached": True},
                         )
                     return cache_result
@@ -436,22 +454,28 @@ class KAnonymityProfilerOperation(BaseOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            self.logger.exception(f"Error in k-anonymity profiling: {e}")
-
-            if progress_tracker:
-                progress_tracker.update(0, {"step": "Error", "error": str(e)})
-
-            reporter.add_operation(
-                "K-Anonymity Profiling", status="error", details={"error": str(e)}
-            )
-
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"K-anonymity profiling failed: {str(e)}",
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": "<unspecified>",
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _prepare_qi_combinations(
@@ -876,7 +900,7 @@ class KAnonymityProfilerOperation(BaseOperation):
 
         # Step 6: Sanity checks
         if group_sizes is None or len(group_sizes) == 0:
-            raise ValueError(
+            raise ValidationError(
                 "Group size calculation failed: No valid equivalence classes found."
             )
 
@@ -1246,6 +1270,7 @@ class KAnonymityProfilerOperation(BaseOperation):
 
         except Exception as e:
             self.logger.warning(f"Error checking cache: {str(e)}")
+            return None
 
     def _save_to_cache(
         self,

@@ -76,6 +76,14 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
+from pamola_core.errors.exceptions import (
+    PseudonymizationError,
+    FieldNotFoundError,
+    InvalidParameterError,
+    PamolaFileNotFoundError,
+    ValidationError,
+)
+
 # Base anonymization operation import
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
 
@@ -322,8 +330,8 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             # Assume hex-encoded
             try:
                 self._encryption_key = bytes.fromhex(encryption_key)
-            except ValueError as e:
-                raise ValueError(f"Invalid hex encryption key: {e}")
+            except (ValidationError, ValueError) as e:
+                raise ValidationError(f"Invalid hex encryption key: {e}")
         else:
             self._encryption_key = encryption_key
 
@@ -332,7 +340,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             validate_key_size(self._encryption_key, 256)
         except Exception as e:
             # Don't expose internal details about expected size
-            raise ValueError("Invalid encryption key size") from e
+            raise ValidationError("Invalid encryption key size") from e
 
         # P-6: Validate pseudonym_length for random_string type
         if pseudonym_type == "random_string":
@@ -341,14 +349,16 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             effective_length = pseudonym_length - prefix_len - suffix_len
 
             if effective_length < 4:
-                raise ValueError(
+                raise ValidationError(
                     f"Pseudonym length ({pseudonym_length}) minus prefix/suffix "
                     f"({prefix_len + suffix_len}) must be at least 4 characters"
                 )
 
         # Validate compound mode
         if compound_mode and not additional_fields:
-            raise ValueError("compound_mode requires additional_fields to be specified")
+            raise ValidationError(
+                "compound_mode requires additional_fields to be specified"
+            )
 
         # Ensure additional_fields is always a list
         if additional_fields is None:
@@ -851,7 +861,10 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         all_fields = [self.field_name] + self.additional_fields
         for field in all_fields:
             if field not in batch.columns:
-                raise ValueError(f"Field '{field}' not found in DataFrame")
+                raise FieldNotFoundError(
+                    field_name=field,
+                    available_fields=list(batch.columns),
+                )
 
         # Create working series based on mode
         if self.compound_mode:
@@ -867,7 +880,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             processed_series = process_nulls(
                 working_series, self.null_strategy, anonymize_value="*REDACTED*"
             )
-        except ValueError as e:
+        except (ValidationError, ValueError) as e:
             # Handle ERROR strategy gracefully
             self.logger.warning(
                 f"Null processing error: {e}. Continuing with PRESERVE strategy."
@@ -992,7 +1005,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
 
             self.logger.info(f"Loaded {len(self._mapping)} existing mappings")
 
-        except FileNotFoundError:
+        except (PamolaFileNotFoundError, FileNotFoundError):
             if self.create_if_not_exists:
                 self.logger.info("Creating new mapping file")
                 self._mapping = {}
@@ -1015,7 +1028,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
             try:
                 seq_num = int(num_part)
                 max_seq = max(max_seq, seq_num)
-            except ValueError:
+            except (ValidationError, ValueError):
                 continue
         self._sequential_counter = max_seq
 
@@ -1071,11 +1084,19 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
                     )
 
                 if attempts > 100:
-                    raise RuntimeError(
-                        "Unable to generate unique pseudonym after 100 attempts"
+                    raise PseudonymizationError(
+                        field_name=self.field_name,
+                        reason="unable to generate unique pseudonym after 100 attempts",
+                        pseudonym_type=self.pseudonym_type,
+                        attempts=attempts,
+                        max_attempts=100,
                     )
         else:
-            raise ValueError(f"Unknown pseudonym type: {self.pseudonym_type}")
+            raise InvalidParameterError(
+                param_name="pseudonym_type",
+                param_value=self.pseudonym_type,
+                reason=f"Unknown pseudonym type: {self.pseudonym_type}",
+            )
 
         # Track generated pseudonym
         self._generated_pseudonyms.add(pseudonym)

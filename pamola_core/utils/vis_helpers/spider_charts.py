@@ -33,12 +33,17 @@ from matplotlib.colors import to_rgba
 import numpy as np
 import pandas as pd
 
-from pamola_core.utils.vis_helpers.base import MatplotlibFigure, PlotlyFigure, FigureRegistry
+from pamola_core.utils.vis_helpers.base import (
+    MatplotlibFigure,
+    PlotlyFigure,
+    FigureRegistry,
+)
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
     apply_theme_to_plotly_figure,
     get_theme_colors,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 from pamola_core.utils.vis_helpers.context import visualization_context
 
 # Configure logger
@@ -124,7 +129,7 @@ class PlotlySpiderChart(PlotlyFigure):
                 elif isinstance(data, pd.DataFrame):
                     df = data.copy()
                 else:
-                    raise TypeError(
+                    raise TypeValidationError(
                         f"Unsupported data type for spider chart: {type(data)}"
                     )
 
@@ -439,7 +444,7 @@ class MatplotlibSpiderChart(MatplotlibFigure):
                 elif isinstance(data, pd.DataFrame):
                     df = data.copy()
                 else:
-                    raise TypeError(
+                    raise TypeValidationError(
                         f"Unsupported data type for spider chart: {type(data)}"
                     )
 

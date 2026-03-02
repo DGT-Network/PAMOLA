@@ -42,14 +42,18 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 import dask.dataframe as dd
 import numpy as np
-from pamola_core.anonymization.commons.validation.exceptions import (
-    FieldTypeError,
-    InvalidDataFormatError,
-)
 from pamola_core.anonymization.schemas.partial_masking_op_core_schema import (
     PartialMaskingConfig,
 )
-from pamola_core.common.constants import Constants
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    FieldTypeError,
+    InvalidDataFormatError,
+    InvalidParameterError,
+    ValidationError,
+)
 from pamola_core.anonymization.commons.metric_utils import (
     collect_operation_metrics,
 )
@@ -264,19 +268,24 @@ class PartialMaskingOperation(AnonymizationOperation):
             Results of the operation
         """
         try:
-            # Initialize timing and result
+            # Start timing
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
             self.logger.info(
-                f"Starting {self.operation_name} operation at {self.start_time}"
+                f"Starting: {self.operation_name} operation at {self.start_time}"
             )
 
-            df = None
+            # Initialize result object
             result = OperationResult(status=OperationStatus.PENDING)
 
-            self.logger.info(
-                f"Starting execute for field '{self.field_name}' with strategy '{self.null_strategy}'"
-            )
+            # Initialize dataframe
+            df = None
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -286,16 +295,19 @@ class PartialMaskingOperation(AnonymizationOperation):
                 cache_dir=dirs["cache"],
             )
 
-            # Save configuration to task directory
-            self.save_config(task_dir)
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
+            # Save configuration to task directory
+            self.save_config(task_dir)
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -347,65 +359,52 @@ class PartialMaskingOperation(AnonymizationOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={
+                        "dataset": dataset_name,
+                        "operation": self.name,
+                    },
+                    message_kwargs={
+                        "source": dataset_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 2: Check if we have a cached result
             if self.use_cache and not self.force_recalculation:
-                try:
+                if main_progress:
+                    current_steps += 1
+                    main_progress.update(
+                        current_steps,
+                        {"step": "Checking cache", "field": self.field_name},
+                    )
+
+                # Generate cache key based on operation parameters
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
+
+                if cache_result:
+                    self.logger.info(
+                        f"Using cached result for {self.field_name} generalization"
+                    )
+
+                    # Update progress
                     if main_progress:
-                        current_steps += 1
                         main_progress.update(
                             current_steps,
-                            {"step": "Checking cache", "field": self.field_name},
+                            {"step": "Complete (cached)", "field": self.field_name},
                         )
 
-                    # Load data for cache check
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-
-                    # Generate cache key based on operation parameters
-                    self.logger.info("Checking operation cache...")
-                    cache_result = self._check_cache(df, reporter)
-
-                    if cache_result:
-                        self.logger.info(
-                            f"Using cached result for {self.field_name} generalization"
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Partial masking operation of {self.field_name} (cached)",
+                            details={"cached": True},
                         )
 
-                        # Update progress
-                        if main_progress:
-                            main_progress.update(
-                                current_steps,
-                                {"step": "Complete (cached)", "field": self.field_name},
-                            )
-
-                        # Report cache hit to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Partial masking operation of {self.field_name} (cached)",
-                                details={"cached": True},
-                            )
-
-                        return cache_result
-                    else:
-                        self.logger.info(
-                            "No cached result found, proceeding with operation"
-                        )
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                    return cache_result
 
             # Step 3: Prepare output field
             if main_progress:
@@ -420,12 +419,15 @@ class PartialMaskingOperation(AnonymizationOperation):
                 self.logger.info(f"Prepared output_field: '{self.output_field_name}'")
                 self._report_operation_details(reporter, self.output_field_name)
             except Exception as e:
-                error_message = f"Preparing output field error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "prepare_output_field", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 4: Processing
@@ -485,19 +487,21 @@ class PartialMaskingOperation(AnonymizationOperation):
                     except:
                         pass
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Record end time after processing metrics
             self.end_time = time.time()
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             # Step 5: Metrics Calculation
             if main_progress:
@@ -515,7 +519,7 @@ class PartialMaskingOperation(AnonymizationOperation):
                     original_data, anonymized_data, processed_df
                 )
 
-                # Generate metrics file name (in self.name existed field_name)
+                # Generate metrics file name
                 metrics_file_name = (
                     f"{self.field_name}_{self.name}_metrics_{operation_timestamp}"
                 )
@@ -604,12 +608,14 @@ class PartialMaskingOperation(AnonymizationOperation):
                         **safe_kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_name},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -633,33 +639,35 @@ class PartialMaskingOperation(AnonymizationOperation):
                 anonymized_data=anonymized_data,
             )
 
-            # Finalize timing
-            self.end_time = time.time()
-
             # Report completion
             if reporter:
                 reporter.add_operation(
                     f"Partial masking operation of {self.field_name} completed",
                     details={
                         "records_processed": self.process_count,
-                        "execution_time": self.end_time - self.start_time,
+                        "execution_time": self.execution_time,
                     },
                 )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
-            result.execution_time = self.end_time - self.start_time
+            result.execution_time = self.execution_time
             self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
             )
             return result
 
         except Exception as e:
-            self.logger.error(f"Error in Partial masking operation: {str(e)}")
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=str(e),
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _validate_configuration(self) -> None:
@@ -667,7 +675,7 @@ class PartialMaskingOperation(AnonymizationOperation):
 
         # --- Mask character ---
         if not self.mask_char or len(self.mask_char) != 1:
-            raise ValueError("mask_char must be a single character")
+            raise ValidationError("mask_char must be a single character")
 
         # --- Masking strategy ---
         valid_strategies = [
@@ -677,7 +685,7 @@ class PartialMaskingOperation(AnonymizationOperation):
             MaskStrategyEnum.WORDS.value,
         ]
         if self.mask_strategy not in valid_strategies:
-            raise ValueError(f"mask_strategy must be one of {valid_strategies}")
+            raise ValidationError(f"mask_strategy must be one of {valid_strategies}")
 
         if self.mask_pattern:
             self._validate_pattern(self.mask_pattern, "mask_pattern")
@@ -707,18 +715,24 @@ class PartialMaskingOperation(AnonymizationOperation):
             if not self.pattern_type and not (
                 self.mask_pattern or self.preserve_pattern
             ):
-                raise ValueError(
+                raise ValidationError(
                     "The 'pattern' strategy requires either a valid pattern_type "
                     "or a custom mask_pattern/preserve_pattern."
                 )
             if self.pattern_type and not self._pattern_config:
-                raise ValueError(f"Unknown pattern type: {self.pattern_type}")
+                raise InvalidParameterError(
+                    param_name="pattern_type",
+                    param_value=self.pattern_type,
+                    reason=f"Unknown pattern type: {self.pattern_type}",
+                )
 
         # --- Random strategy requires mask_percentage ---
         if self.mask_strategy == MaskStrategyEnum.RANDOM.value:
             if self.mask_percentage is None:
-                raise ValueError(
-                    "The 'random' strategy requires the mask_percentage parameter to be set"
+                raise InvalidParameterError(
+                    param_name="mask_strategy",
+                    param_value=self.mask_strategy,
+                    reason="The 'random' strategy requires the mask_percentage parameter to be set",
                 )
 
         # --- Consistency fields ---
@@ -781,7 +795,10 @@ class PartialMaskingOperation(AnonymizationOperation):
         consistency_fields = self.consistency_fields
 
         if field_name not in batch.columns:
-            raise ValueError(f"Field '{field_name}' not found in DataFrame.")
+            raise FieldNotFoundError(
+                field_name=field_name,
+                available_fields=list(batch.columns),
+            )
 
         # Create consistency map if needed
         consistency_map = None
@@ -916,7 +933,7 @@ class PartialMaskingOperation(AnonymizationOperation):
                     value, mtype, preset_name.upper(), random_mask=random_mask
                 )
             return value
-        except (ValueError, KeyError) as e:
+        except (ValidationError, ValueError, KeyError) as e:
             return None
 
     def _random_percentage_mask(self, value: str) -> str:

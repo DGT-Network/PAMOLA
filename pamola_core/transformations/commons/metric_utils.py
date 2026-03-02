@@ -24,6 +24,7 @@ from scipy import stats
 from pamola_core.utils.io import ensure_directory, write_json
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.errors.exceptions import ValidationError
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ def calculate_dataset_comparison(
         Dictionary containing comparison metrics.
     """
     if original_df is None or transformed_df is None:
-        raise ValueError("Both DataFrames must be provided")
+        raise ValidationError("Both DataFrames must be provided")
 
     start_time = time.time()
     logger.info("Calculating dataset comparison metrics")
@@ -252,7 +253,7 @@ def _count_value_changes(
             ~np.where(
                 original_col.isna() & transformed_col.isna(),
                 True,
-                original_col == transformed_col
+                original_col == transformed_col,
             )
         ).sum()
 
@@ -357,7 +358,7 @@ def calculate_field_statistics(
         - data_type: Field data type
     """
     if df is None:
-        raise ValueError("DataFrame must be provided")
+        raise ValidationError("DataFrame must be provided")
 
     if len(df) == 0:
         logger.warning("Empty DataFrame provided")
@@ -616,7 +617,7 @@ def calculate_transformation_impact(
         A dictionary containing the transformation impact metrics.
     """
     if original_df is None or transformed_df is None:
-        raise ValueError("Both DataFrames must be provided")
+        raise ValidationError("Both DataFrames must be provided")
 
     start_time = time.time()
 
@@ -646,9 +647,9 @@ def calculate_transformation_impact(
         col
         for col in original_df.columns
         if (
-                col in transformed_df.columns
-                and pd.api.types.is_numeric_dtype(original_df[col])
-                and pd.api.types.is_numeric_dtype(transformed_df[col])
+            col in transformed_df.columns
+            and pd.api.types.is_numeric_dtype(original_df[col])
+            and pd.api.types.is_numeric_dtype(transformed_df[col])
         )
     ]
     distribution_metrics = {}
@@ -1008,10 +1009,10 @@ def _validate_times(start_time: float, end_time: float) -> None:
         If start_time is None or greater than end_time.
     """
     if start_time is None or end_time is None:
-        raise ValueError("Start and end times must be provided")
+        raise ValidationError("Start and end times must be provided")
 
     if start_time > end_time:
-        raise ValueError("Start time cannot be after end time")
+        raise ValidationError("Start time cannot be after end time")
 
 
 def _calculate_elapsed_time(start_time: float, end_time: float) -> float:

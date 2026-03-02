@@ -32,6 +32,7 @@ from pamola_core.transformations.commons.aggregation_utils import (
     flatten_multiindex_columns,
     is_dask_compatible_function,
 )
+from pamola_core.errors.exceptions import DependencyMissingError, ValidationError
 from pamola_core.transformations.commons.validation_utils import (
     validate_dataframe,
     validate_group_and_aggregation_fields,
@@ -90,7 +91,7 @@ def process_dataframe_with_config(
     # Initialize task logger
     if task_logger:
         logger = task_logger
-        
+
     if len(df) == 0:
         logger.warning("Empty DataFrame provided! Returning as is")
         return df
@@ -807,7 +808,7 @@ def split_dataframe(
         if field != id_field and field not in df.columns
     ]
     if invalid_fields:
-        raise ValueError(f"Invalid fields in field_groups: {invalid_fields}")
+        raise ValidationError(f"Invalid fields in field_groups: {invalid_fields}")
 
     start_time = time.time()
     logger.info(f"Splitting DataFrame into {len(field_groups)} groups")
@@ -904,7 +905,7 @@ def merge_dataframes(
             try:
                 import dask.dataframe as dd
             except ImportError:
-                raise ImportError(
+                raise DependencyMissingError(
                     "Dask is required for distributed processing but not installed. "
                     "Install with: pip install dask[dataframe]"
                 )
@@ -913,12 +914,14 @@ def merge_dataframes(
             right_parts = _determine_partitions(right_df, chunk_size, npartitions)
             d_left = dd.from_pandas(left_df, npartitions=left_parts)
             d_right = dd.from_pandas(right_df, npartitions=right_parts)
-            
+
             logger.info("Parallel Enabled")
             logger.info("Parallel Engine: Dask")
             logger.info(f"Parallel Workers: left_parts {left_parts}")
             logger.info(f"Parallel Workers: right_parts {right_parts}")
-            logger.info(f"Using dask merging datasets processing with chunk size {chunk_size}")
+            logger.info(
+                f"Using dask merging datasets processing with chunk size {chunk_size}"
+            )
             # Update progress for Dask processing
             if progress_tracker:
                 progress_tracker.update(
@@ -944,7 +947,9 @@ def merge_dataframes(
 
             # Compute elapsed time
             elapsed_time = time.time() - start_time
-            logger.info(f"Dask merging processing completed in {elapsed_time:.2f} seconds")
+            logger.info(
+                f"Dask merging processing completed in {elapsed_time:.2f} seconds"
+            )
             if progress_tracker:
                 progress_tracker.update(
                     3,
@@ -961,7 +966,9 @@ def merge_dataframes(
             logger.info("Parallel Disabled")
             logger.info("Parallel Engine: None")
             logger.info(f"Parallel Workers: {npartitions}")
-            logger.info(f"Using pandas merging datasets processing with chunk size {chunk_size}")
+            logger.info(
+                f"Using pandas merging datasets processing with chunk size {chunk_size}"
+            )
             # Update progress for Dask processing
             if progress_tracker:
                 progress_tracker.update(
@@ -988,7 +995,9 @@ def merge_dataframes(
 
             # Compute elapsed time
             elapsed_time = time.time() - start_time
-            logger.info(f"Pandas merging processing completed in {elapsed_time:.2f} seconds")
+            logger.info(
+                f"Pandas merging processing completed in {elapsed_time:.2f} seconds"
+            )
             if progress_tracker:
                 progress_tracker.update(
                     3,
@@ -1034,7 +1043,7 @@ def aggregate_dataframe(
     use_dask: bool = False,
     npartitions: Optional[int] = None,
     progress_tracker: Optional[HierarchicalProgressTracker] = None,
-    task_logger: Optional[logging.Logger] = None
+    task_logger: Optional[logging.Logger] = None,
 ) -> pd.DataFrame:
     """
     Aggregate DataFrame by grouping fields, supporting both pandas and Dask.
@@ -1089,15 +1098,17 @@ def aggregate_dataframe(
             try:
                 import dask.dataframe as dd
             except ImportError:
-                raise ImportError(
+                raise DependencyMissingError(
                     "Dask is required for distributed processing but not installed. "
                     "Install with: pip install dask[dataframe]"
                 )
-            
+
             logger.info("Parallel Enabled")
             logger.info("Parallel Engine: Dask")
             logger.info(f"Parallel Workers: {npartitions}")
-            logger.info(f"Using dask to aggregate records processing with chunk size {chunk_size}")
+            logger.info(
+                f"Using dask to aggregate records processing with chunk size {chunk_size}"
+            )
             # Warn about custom aggregations with Dask
             if custom_aggregations:
                 logger.warning(
@@ -1164,7 +1175,9 @@ def aggregate_dataframe(
 
             # Compute elapsed time
             elapsed_time = time.time() - start_time
-            logger.info(f"Dask aggregation processing completed in {elapsed_time:.2f} seconds")
+            logger.info(
+                f"Dask aggregation processing completed in {elapsed_time:.2f} seconds"
+            )
             if progress_tracker:
                 progress_tracker.update(
                     3,
@@ -1179,7 +1192,9 @@ def aggregate_dataframe(
             logger.info("Parallel Disabled")
             logger.info("Parallel Engine: None")
             logger.info(f"Parallel Workers: {npartitions}")
-            logger.info(f"Using pandas aggregation records processing with chunk size {chunk_size}")
+            logger.info(
+                f"Using pandas aggregation records processing with chunk size {chunk_size}"
+            )
             # Update progress for Dask processing
             if progress_tracker:
                 progress_tracker.update(
@@ -1196,7 +1211,9 @@ def aggregate_dataframe(
 
             # Compute elapsed time
             elapsed_time = time.time() - start_time
-            logger.info(f"Pandas aggregation processing completed in {elapsed_time:.2f} seconds")
+            logger.info(
+                f"Pandas aggregation processing completed in {elapsed_time:.2f} seconds"
+            )
             if progress_tracker:
                 progress_tracker.update(
                     3,

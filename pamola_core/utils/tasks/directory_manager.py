@@ -26,18 +26,34 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, Protocol
 
+from pamola_core.errors.exceptions import (
+    DirectoryCreationError,
+    DirectoryManagerError,
+    PathValidationError,
+)
 from pamola_core.utils.io import ensure_directory
-from pamola_core.utils.tasks.path_security import validate_path_security, PathSecurityError
+from pamola_core.utils.tasks.path_security import (
+    validate_path_security,
+    PathSecurityError,
+)
+from pamola_core.utils.paths import get_project_root
 
 # Default directory suffixes if not specified in configuration
 DEFAULT_DIRECTORY_SUFFIXES = [
-    "input", "output", "temp", "logs", "dictionaries", "visualizations", "metrics"
+    "input",
+    "output",
+    "temp",
+    "logs",
+    "dictionaries",
+    "visualizations",
+    "metrics",
 ]
 
 
 # Protocol for task configuration interface
 class TaskConfigProtocol(Protocol):
     """Protocol defining the required interface for task configuration."""
+
     task_id: str
     project_root: Path
 
@@ -54,8 +70,14 @@ class TaskConfigProtocol(Protocol):
 class TaskProgressManager(Protocol):
     """Protocol defining the required interface for progress management."""
 
-    def create_operation_context(self, name: str, total: int, description: Optional[str] = None,
-                                 unit: str = "items", leave: bool = False) -> Any:
+    def create_operation_context(
+        self,
+        name: str,
+        total: int,
+        description: Optional[str] = None,
+        unit: str = "items",
+        leave: bool = False,
+    ) -> Any:
         """Create a context manager for tracking operation progress."""
         ...
 
@@ -76,21 +98,6 @@ class TaskProgressManager(Protocol):
         ...
 
 
-class DirectoryManagerError(Exception):
-    """Base exception for directory manager errors."""
-    pass
-
-
-class PathValidationError(DirectoryManagerError):
-    """Exception raised when a path fails validation."""
-    pass
-
-
-class DirectoryCreationError(DirectoryManagerError):
-    """Exception raised when directory creation fails."""
-    pass
-
-
 class TaskDirectoryManager:
     """
     Manager for task directory structures and path resolution.
@@ -100,10 +107,12 @@ class TaskDirectoryManager:
     path security validation.
     """
 
-    def __init__(self,
-                 task_config: Any,
-                 logger: Optional[logging.Logger] = None,
-                 progress_manager: Optional[TaskProgressManager] = None):
+    def __init__(
+        self,
+        task_config: Any,
+        logger: Optional[logging.Logger] = None,
+        progress_manager: Optional[TaskProgressManager] = None,
+    ):
         """
         Initialize the directory manager with task configuration.
 
@@ -118,16 +127,16 @@ class TaskDirectoryManager:
         self.progress_manager = progress_manager
 
         # Store references to key directories
-        self.task_id = getattr(task_config, 'task_id', 'unknown')
-        self.project_root = getattr(task_config, 'project_root', Path.cwd())
+        self.task_id = getattr(task_config, "task_id", "unknown")
+        self.project_root = getattr(task_config, "project_root", get_project_root())
         self.task_dir = self._resolve_task_dir()
 
         # Store reference to log_directory if available, for centralized logs/checkpoints/temp
-        self.log_directory = getattr(task_config, 'log_directory', None)
+        self.log_directory = getattr(task_config, "log_directory", None)
 
         # Get directory suffixes from configuration or use defaults
         self.directory_suffixes = getattr(
-            task_config, 'task_dir_suffixes', DEFAULT_DIRECTORY_SUFFIXES
+            task_config, "task_dir_suffixes", DEFAULT_DIRECTORY_SUFFIXES
         )
 
         # Initialize directories dictionary
@@ -149,30 +158,40 @@ class TaskDirectoryManager:
         """
         try:
             # Try to get task directory from configuration using API
-            if hasattr(self.config, 'get_task_dir'):
+            if hasattr(self.config, "get_task_dir"):
                 task_dir = self.config.get_task_dir()
                 if self.progress_manager:
-                    self.progress_manager.log_debug(f"Resolved task directory using API: {task_dir}")
+                    self.progress_manager.log_debug(
+                        f"Resolved task directory using API: {task_dir}"
+                    )
                 else:
                     self.logger.debug(f"Resolved task directory using API: {task_dir}")
                 return task_dir
 
             # Fall back to directly accessing task_dir attribute
-            if hasattr(self.config, 'task_dir'):
+            if hasattr(self.config, "task_dir"):
                 task_dir = self.config.task_dir
                 if self.progress_manager:
-                    self.progress_manager.log_debug(f"Resolved task directory from attribute: {task_dir}")
+                    self.progress_manager.log_debug(
+                        f"Resolved task directory from attribute: {task_dir}"
+                    )
                 else:
-                    self.logger.debug(f"Resolved task directory from attribute: {task_dir}")
+                    self.logger.debug(
+                        f"Resolved task directory from attribute: {task_dir}"
+                    )
                 return task_dir
 
             # Last resort: construct from processed_data_path
-            if hasattr(self.config, 'processed_data_path'):
+            if hasattr(self.config, "processed_data_path"):
                 task_dir = self.config.processed_data_path / self.task_id
                 if self.progress_manager:
-                    self.progress_manager.log_debug(f"Resolved task directory from processed_data_path: {task_dir}")
+                    self.progress_manager.log_debug(
+                        f"Resolved task directory from processed_data_path: {task_dir}"
+                    )
                 else:
-                    self.logger.debug(f"Resolved task directory from processed_data_path: {task_dir}")
+                    self.logger.debug(
+                        f"Resolved task directory from processed_data_path: {task_dir}"
+                    )
                 return task_dir
 
             # If all else fails, construct from project root
@@ -238,11 +257,11 @@ class TaskDirectoryManager:
 
         # Create a progress context
         with self.progress_manager.create_operation_context(
-                name="create_directories",
-                total=total_dirs,
-                description="Creating task directories",
-                unit="directories",
-                leave=False
+            name="create_directories",
+            total=total_dirs,
+            description="Creating task directories",
+            unit="directories",
+            leave=False,
         ) as progress:
             try:
                 # Validate task directory path
@@ -254,7 +273,9 @@ class TaskDirectoryManager:
                 # Create task directory if it doesn't exist
                 ensure_directory(self.task_dir)
                 self._created_directories.add(self.task_dir)
-                self.progress_manager.log_debug(f"Created task directory: {self.task_dir}")
+                self.progress_manager.log_debug(
+                    f"Created task directory: {self.task_dir}"
+                )
 
                 # Update progress
                 progress.update(1)
@@ -270,14 +291,18 @@ class TaskDirectoryManager:
 
                     # Validate path security
                     if not validate_path_security(dir_path):
-                        error_msg = f"Directory path failed security validation: {dir_path}"
+                        error_msg = (
+                            f"Directory path failed security validation: {dir_path}"
+                        )
                         self.progress_manager.log_error(error_msg)
                         raise PathValidationError(error_msg)
 
                     # Create directory
                     ensure_directory(dir_path)
                     self._created_directories.add(dir_path)
-                    self.progress_manager.log_debug(f"Created {suffix} directory: {dir_path}")
+                    self.progress_manager.log_debug(
+                        f"Created {suffix} directory: {dir_path}"
+                    )
 
                     # Add to directories dictionary
                     self.directories[suffix] = dir_path
@@ -292,7 +317,9 @@ class TaskDirectoryManager:
                     ensure_directory(central_temp_dir)
                     self._created_directories.add(central_temp_dir)
                     self.directories["temp"] = central_temp_dir
-                    self.progress_manager.log_debug(f"Using centralized temp directory: {central_temp_dir}")
+                    self.progress_manager.log_debug(
+                        f"Using centralized temp directory: {central_temp_dir}"
+                    )
                     progress.update(1)
 
                     # Create centralized logs directory
@@ -300,15 +327,19 @@ class TaskDirectoryManager:
                     ensure_directory(central_logs_dir)
                     self._created_directories.add(central_logs_dir)
                     self.directories["logs"] = central_logs_dir
-                    self.progress_manager.log_debug(f"Using centralized logs directory: {central_logs_dir}")
+                    self.progress_manager.log_debug(
+                        f"Using centralized logs directory: {central_logs_dir}"
+                    )
                     progress.update(1)
 
                 # Add 'reports' directory at data repository level if available
-                if hasattr(self.config, 'get_reports_dir'):
+                if hasattr(self.config, "get_reports_dir"):
                     reports_dir = self.config.get_reports_dir()
                     ensure_directory(reports_dir)
                     self.directories["reports"] = reports_dir
-                    self.progress_manager.log_debug(f"Using reports directory: {reports_dir}")
+                    self.progress_manager.log_debug(
+                        f"Using reports directory: {reports_dir}"
+                    )
 
                 # Mark as initialized
                 self._initialized = True
@@ -342,7 +373,9 @@ class TaskDirectoryManager:
         try:
             # Validate task directory path
             if not validate_path_security(self.task_dir):
-                error_msg = f"Task directory path failed security validation: {self.task_dir}"
+                error_msg = (
+                    f"Task directory path failed security validation: {self.task_dir}"
+                )
                 self.logger.error(error_msg)
                 raise PathValidationError(error_msg)
 
@@ -381,17 +414,21 @@ class TaskDirectoryManager:
                 ensure_directory(central_temp_dir)
                 self._created_directories.add(central_temp_dir)
                 self.directories["temp"] = central_temp_dir
-                self.logger.debug(f"Using centralized temp directory: {central_temp_dir}")
+                self.logger.debug(
+                    f"Using centralized temp directory: {central_temp_dir}"
+                )
 
                 # Create centralized logs directory
                 central_logs_dir = self.log_directory / "logs" / self.task_id
                 ensure_directory(central_logs_dir)
                 self._created_directories.add(central_logs_dir)
                 self.directories["logs"] = central_logs_dir
-                self.logger.debug(f"Using centralized logs directory: {central_logs_dir}")
+                self.logger.debug(
+                    f"Using centralized logs directory: {central_logs_dir}"
+                )
 
             # Add 'reports' directory at data repository level if available
-            if hasattr(self.config, 'get_reports_dir'):
+            if hasattr(self.config, "get_reports_dir"):
                 reports_dir = self.config.get_reports_dir()
                 ensure_directory(reports_dir)
                 self.directories["reports"] = reports_dir
@@ -440,11 +477,13 @@ class TaskDirectoryManager:
 
         return self.directories[dir_type]
 
-    def get_artifact_path(self,
-                          artifact_name: str,
-                          artifact_type: str = "json",
-                          subdir: str = "output",
-                          include_timestamp: bool = True) -> Path:
+    def get_artifact_path(
+        self,
+        artifact_name: str,
+        artifact_type: str = "json",
+        subdir: str = "output",
+        include_timestamp: bool = True,
+    ) -> Path:
         """
         Generate standardized path for an artifact.
 
@@ -471,7 +510,7 @@ class TaskDirectoryManager:
             self.directories[subdir] = artifact_dir
 
         # Ensure artifact type does not start with a dot
-        artifact_type = artifact_type.lstrip('.')
+        artifact_type = artifact_type.lstrip(".")
 
         # Generate filename
         if include_timestamp:
@@ -515,7 +554,9 @@ class TaskDirectoryManager:
             # Check if directory exists
             if not temp_dir.exists():
                 if self.progress_manager:
-                    self.progress_manager.log_warning(f"Temp directory does not exist: {temp_dir}")
+                    self.progress_manager.log_warning(
+                        f"Temp directory does not exist: {temp_dir}"
+                    )
                 else:
                     self.logger.warning(f"Temp directory does not exist: {temp_dir}")
                 return True
@@ -547,15 +588,17 @@ class TaskDirectoryManager:
             # Count items to clean
             items = list(temp_dir.iterdir())
             if not items:
-                self.progress_manager.log_info(f"Temp directory is already empty: {temp_dir}")
+                self.progress_manager.log_info(
+                    f"Temp directory is already empty: {temp_dir}"
+                )
                 return True
 
             with self.progress_manager.create_operation_context(
-                    name="clean_temp_directory",
-                    total=len(items),
-                    description="Cleaning temporary files",
-                    unit="items",
-                    leave=False
+                name="clean_temp_directory",
+                total=len(items),
+                description="Cleaning temporary files",
+                unit="items",
+                leave=False,
             ) as progress:
                 items_removed = 0
                 errors = 0
@@ -573,18 +616,22 @@ class TaskDirectoryManager:
                         progress.update(1, {"status": "success"})
 
                     except Exception as e:
-                        self.progress_manager.log_warning(f"Error removing item {item}: {str(e)}")
+                        self.progress_manager.log_warning(
+                            f"Error removing item {item}: {str(e)}"
+                        )
                         errors += 1
                         # Update progress with error status
                         progress.update(1, {"status": "error"})
 
                 if errors > 0:
                     self.progress_manager.log_warning(
-                        f"Cleaned {items_removed} items from temp directory with {errors} errors: {temp_dir}")
+                        f"Cleaned {items_removed} items from temp directory with {errors} errors: {temp_dir}"
+                    )
                     return False
                 else:
                     self.progress_manager.log_info(
-                        f"Successfully cleaned {items_removed} items from temp directory: {Path(temp_dir).name}")
+                        f"Successfully cleaned {items_removed} items from temp directory: {Path(temp_dir).name}"
+                    )
                     return True
 
         except Exception as e:
@@ -619,10 +666,13 @@ class TaskDirectoryManager:
 
         if errors > 0:
             self.logger.warning(
-                f"Cleaned {items_removed} items from temp directory with {errors} errors: {temp_dir}")
+                f"Cleaned {items_removed} items from temp directory with {errors} errors: {temp_dir}"
+            )
             return False
         else:
-            self.logger.info(f"Successfully cleaned {items_removed} items from temp directory: {Path(temp_dir).name}")
+            self.logger.info(
+                f"Successfully cleaned {items_removed} items from temp directory: {Path(temp_dir).name}"
+            )
             return True
 
     def get_timestamped_filename(self, base_name: str, extension: str = "json") -> str:
@@ -637,7 +687,7 @@ class TaskDirectoryManager:
             Timestamped filename
         """
         # Ensure extension does not start with a dot
-        extension = extension.lstrip('.')
+        extension = extension.lstrip(".")
 
         # Generate timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -689,7 +739,11 @@ class TaskDirectoryManager:
                 return []
 
             # Find matching files
-            return sorted(artifact_dir.glob(pattern), key=lambda p: p.stat().st_mtime, reverse=True)
+            return sorted(
+                artifact_dir.glob(pattern),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
 
         except Exception as e:
             if self.progress_manager:
@@ -698,10 +752,12 @@ class TaskDirectoryManager:
                 self.logger.error(f"Error listing artifacts in {subdir}", exc_info=True)
             return []
 
-    def import_external_file(self,
-                             source_path: Union[str, Path],
-                             subdir: str = "input",
-                             new_name: Optional[str] = None) -> Path:
+    def import_external_file(
+        self,
+        source_path: Union[str, Path],
+        subdir: str = "input",
+        new_name: Optional[str] = None,
+    ) -> Path:
         """
         Import an external file into the task directory structure.
 
@@ -754,7 +810,9 @@ class TaskDirectoryManager:
             # Copy file
             shutil.copy2(source_path, target_path)
             if self.progress_manager:
-                self.progress_manager.log_info(f"Imported file from {source_path} to {target_path}")
+                self.progress_manager.log_info(
+                    f"Imported file from {source_path} to {target_path}"
+                )
             else:
                 self.logger.info(f"Imported file from {source_path} to {target_path}")
 
@@ -810,7 +868,10 @@ class TaskDirectoryManager:
             True if cleanup was successful, False otherwise
         """
         # Clean temp directory if enabled in configuration
-        if hasattr(self.config, 'clean_temp_on_exit') and self.config.clean_temp_on_exit:
+        if (
+            hasattr(self.config, "clean_temp_on_exit")
+            and self.config.clean_temp_on_exit
+        ):
             return self.clean_temp_directory()
         return True
 
@@ -824,16 +885,21 @@ class TaskDirectoryManager:
 
         Performs cleanup operations when exiting the context.
         """
-        if hasattr(self.config, 'clean_temp_on_exit') and self.config.clean_temp_on_exit:
+        if (
+            hasattr(self.config, "clean_temp_on_exit")
+            and self.config.clean_temp_on_exit
+        ):
             self.clean_temp_directory()
         return False  # Don't suppress exceptions
 
 
 # Utility function to create a directory manager
-def create_directory_manager(task_config: Any,
-                             logger: Optional[logging.Logger] = None,
-                             progress_manager: Optional[TaskProgressManager] = None,
-                             initialize: bool = True) -> TaskDirectoryManager:
+def create_directory_manager(
+    task_config: Any,
+    logger: Optional[logging.Logger] = None,
+    progress_manager: Optional[TaskProgressManager] = None,
+    initialize: bool = True,
+) -> TaskDirectoryManager:
     """
     Create a directory manager for a task.
 
@@ -866,4 +932,6 @@ def create_directory_manager(task_config: Any,
             progress_manager.log_error(f"Error creating directory manager: {str(e)}")
         else:
             logging.error(f"Error creating directory manager", exc_info=True)
-        raise DirectoryManagerError(f"Failed to create directory manager: {str(e)}") from e
+        raise DirectoryManagerError(
+            f"Failed to create directory manager: {str(e)}"
+        ) from e

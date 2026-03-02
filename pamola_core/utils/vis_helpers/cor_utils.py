@@ -10,13 +10,15 @@ from typing import Dict, List, Optional, Union, Tuple
 
 import numpy as np
 import pandas as pd
+from pamola_core.errors.exceptions import TypeValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 
-def prepare_correlation_data(data: Union[pd.DataFrame, np.ndarray, Tuple]) -> Tuple[
-    np.ndarray, List[str], List[str], Optional[Union[pd.DataFrame, np.ndarray]]]:
+def prepare_correlation_data(
+    data: Union[pd.DataFrame, np.ndarray, Tuple],
+) -> Tuple[np.ndarray, List[str], List[str], Optional[Union[pd.DataFrame, np.ndarray]]]:
     """
     Prepare data for correlation matrix visualization.
 
@@ -54,14 +56,16 @@ def prepare_correlation_data(data: Union[pd.DataFrame, np.ndarray, Tuple]) -> Tu
         x_labels = [str(i) for i in range(matrix.shape[1])]
         y_labels = [str(i) for i in range(matrix.shape[0])]
     else:
-        raise TypeError(f"Unsupported data type for correlation matrix: {type(data)}")
+        raise TypeValidationError(
+            f"Unsupported data type for correlation matrix: {type(data)}"
+        )
 
     return matrix, x_labels, y_labels, methods
 
 
-def create_correlation_mask(matrix: np.ndarray,
-                            mask_upper: bool = False,
-                            mask_diagonal: bool = False) -> np.ndarray:
+def create_correlation_mask(
+    matrix: np.ndarray, mask_upper: bool = False, mask_diagonal: bool = False
+) -> np.ndarray:
     """
     Create a mask for correlation matrix visualization.
 
@@ -128,11 +132,11 @@ def get_text_color(value: float) -> str:
         Color code for the text
     """
     if np.isnan(value):
-        return 'rgba(0,0,0,0)'  # Transparent for NaN values
+        return "rgba(0,0,0,0)"  # Transparent for NaN values
     elif abs(value) > 0.5:  # Strong correlation
-        return 'white'
+        return "white"
     else:  # Weak correlation
-        return 'black'
+        return "black"
 
 
 def create_text_colors_array(matrix: np.ndarray) -> np.ndarray:
@@ -165,9 +169,9 @@ def create_text_colors_array(matrix: np.ndarray) -> np.ndarray:
     return text_colors
 
 
-def create_significance_mask(matrix: np.ndarray,
-                             masked_matrix: np.ndarray,
-                             threshold: float) -> np.ndarray:
+def create_significance_mask(
+    matrix: np.ndarray, masked_matrix: np.ndarray, threshold: float
+) -> np.ndarray:
     """
     Create a mask highlighting significant correlations.
 
@@ -185,17 +189,16 @@ def create_significance_mask(matrix: np.ndarray,
     np.ndarray
         Boolean mask where True indicates significant correlations
     """
-    return np.logical_and(
-        np.abs(matrix) >= threshold,
-        ~np.isnan(masked_matrix)
-    )
+    return np.logical_and(np.abs(matrix) >= threshold, ~np.isnan(masked_matrix))
 
 
-def prepare_hover_texts(matrix: np.ndarray,
-                        x_labels: List[str],
-                        y_labels: List[str],
-                        methods: Optional[Union[pd.DataFrame, np.ndarray]] = None,
-                        method_labels: Optional[Dict[str, str]] = None) -> List[List[str]]:
+def prepare_hover_texts(
+    matrix: np.ndarray,
+    x_labels: List[str],
+    y_labels: List[str],
+    methods: Optional[Union[pd.DataFrame, np.ndarray]] = None,
+    method_labels: Optional[Dict[str, str]] = None,
+) -> List[List[str]]:
     """
     Prepare hover texts for correlation matrix.
 
@@ -229,7 +232,9 @@ def prepare_hover_texts(matrix: np.ndarray,
             text = f"x: {x_labels[j]}<br>y: {y_labels[i]}<br>correlation: {val:.4f}"
 
             if methods is not None and method_labels is not None:
-                method_code = methods.iloc[i, j] if hasattr(methods, 'iloc') else methods[i, j]
+                method_code = (
+                    methods.iloc[i, j] if hasattr(methods, "iloc") else methods[i, j]
+                )
                 method_name = method_labels.get(method_code, method_code)
                 text += f"<br>method: {method_name}"
 
@@ -253,13 +258,13 @@ def parse_annotation_format(annotation_format: str) -> str:
     str
         Plotly format string for annotations
     """
-    if annotation_format.startswith('.') and annotation_format.endswith('f'):
+    if annotation_format.startswith(".") and annotation_format.endswith("f"):
         # Parse decimal format like ".2f" to get number of decimal places
         decimal_places = int(annotation_format[1:-1])
-        return f'%{{z:.{decimal_places}f}}'
+        return f"%{{z:.{decimal_places}f}}"
     else:
         # Use provided format string
-        return f'%{{z:{annotation_format}}}'
+        return f"%{{z:{annotation_format}}}"
 
 
 def calculate_symmetric_colorscale_range(matrix: np.ndarray) -> Tuple[float, float]:

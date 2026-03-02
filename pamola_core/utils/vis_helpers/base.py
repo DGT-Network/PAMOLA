@@ -26,6 +26,7 @@ from typing import Dict, List, Any, Optional, Union, Tuple, Type
 
 import pandas as pd
 import numpy as np
+from pamola_core.errors.exceptions import ValidationError, TypeValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ def set_backend(backend: str, strict: bool = False) -> None:
     if backend_lower not in _AVAILABLE_BACKENDS:
         error_msg = f"Unsupported backend: {backend}. Supported backends are: {', '.join(_AVAILABLE_BACKENDS)}"
         if strict:
-            raise ValueError(error_msg)
+            raise ValidationError(error_msg)
         else:
             logger.warning(f"{error_msg} Falling back to plotly.")
             _backend_context.set("plotly")
@@ -394,6 +395,15 @@ class FigureFactory:
         backend = backend or get_backend()
 
         try:
+            try:
+                from pamola_core.utils.vis_helpers.registry import (
+                    register_builtin_figures,
+                )
+                register_builtin_figures()
+            except Exception:
+                # If registration fails, fall back to whatever is available
+                pass
+
             # Get the implementation class
             implementation_class = FigureRegistry.get(figure_type, backend)
 
@@ -429,7 +439,7 @@ def ensure_series(
     elif isinstance(data, (list, np.ndarray)):
         return pd.Series(data)
     else:
-        raise TypeError(f"Cannot convert {type(data)} to pandas Series")
+        raise TypeValidationError(f"Cannot convert {type(data)} to pandas Series")
 
 
 def sort_series(
@@ -463,7 +473,9 @@ def sort_series(
         elif sort_by == "key":
             sorted_series = series.sort_index(ascending=ascending)
         else:
-            logger.warning(f"Unknown sort_by: {sort_by}. Falling back to sort by 'value'.")
+            logger.warning(
+                f"Unknown sort_by: {sort_by}. Falling back to sort by 'value'."
+            )
             sorted_series = series.sort_values(ascending=ascending)
 
         if max_items is not None and len(sorted_series) > max_items:
@@ -472,7 +484,9 @@ def sort_series(
         return sorted_series
 
     except TypeError as e:
-        logger.warning(f"TypeError during sorting: {e}. Series values might be non-comparable (e.g., dicts).")
+        logger.warning(
+            f"TypeError during sorting: {e}. Series values might be non-comparable (e.g., dicts)."
+        )
         return series
     except Exception as e:
         logger.warning(f"Unexpected error during sorting: {e}.")
@@ -508,4 +522,4 @@ def prepare_dataframe(
             logger.warning(f"Unknown orient value: {orient}. Using 'dict'.")
             return pd.DataFrame(data)
     else:
-        raise TypeError(f"Cannot convert {type(data)} to pandas DataFrame")
+        raise TypeValidationError(f"Cannot convert {type(data)} to pandas DataFrame")

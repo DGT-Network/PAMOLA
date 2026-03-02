@@ -12,8 +12,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from faker import Faker
 import pandas as pd
 
-from pamola_core.fake_data.commons import dict_helpers
-from pamola_core.fake_data.commons import utils
+import pamola_core.fake_data.commons.dict_helpers as dict_helpers
+import pamola_core.fake_data.commons.utils as utils
 from pamola_core.fake_data.commons.prgn import PRNGenerator
 from pamola_core.fake_data.generators.base_generator import BaseGenerator
 

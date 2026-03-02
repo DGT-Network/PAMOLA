@@ -41,6 +41,8 @@ from pamola_core.profiling.commons.identity_utils import (
     generate_field_distribution_vis,
     generate_identifier_statistics_vis,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.schemas.identity_core_schema import (
     IdentityAnalysisOperationConfig,
 )
@@ -57,7 +59,7 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.common.constants import Constants
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -295,16 +297,22 @@ class IdentityAnalysisOperation(FieldOperation):
             distribution_analysis = {}
             cross_match_analysis = {}
 
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             metrics = None
 
-            # Initialize timing and result
-            self.start_time = time.time()
-            self.logger = kwargs.get("logger", self.logger)
-            self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-            df = None
-            result = OperationResult(status=OperationStatus.PENDING)
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -314,6 +322,12 @@ class IdentityAnalysisOperation(FieldOperation):
                 cache_dir=dirs["cache"],
             )
 
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
             # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
@@ -321,9 +335,6 @@ class IdentityAnalysisOperation(FieldOperation):
 
             # Save configuration to task directory
             self.save_config(task_dir)
-
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -371,12 +382,11 @@ class IdentityAnalysisOperation(FieldOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Step 2: Validation
@@ -389,17 +399,29 @@ class IdentityAnalysisOperation(FieldOperation):
             # Validate input parameters
             # Validate main field
             if not self._field_exists(df, self.field_name):
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Field {self.field_name} not found in DataFrame",
+                return self.error_handler.handle_error(
+                    error=ValueError(f"Field {self.field_name} not found in DataFrame"),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Validate reference fields
             valid_refs, missing_refs = self._validate_reference_fields(df)
             if not valid_refs:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"None of the reference fields {self.reference_fields} found in DataFrame",
+                return self.error_handler.handle_error(
+                    error=ValueError(
+                        f"None of the reference fields {self.reference_fields} found in DataFrame"
+                    ),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": ", ".join(self.reference_fields),
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
             if missing_refs:
                 self._log_and_report_missing(
@@ -580,12 +602,15 @@ class IdentityAnalysisOperation(FieldOperation):
                         f"Sample of processed data (first 5 rows): {df.head(5).to_dict(orient='records')}"
                     )
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 5: Metrics Calculation
@@ -597,9 +622,6 @@ class IdentityAnalysisOperation(FieldOperation):
                     "Metrics Calculation",
                     main_progress,
                 )
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Initialize metrics in scope
             metrics = {}
@@ -846,17 +868,28 @@ class IdentityAnalysisOperation(FieldOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            # Handle any unexpected errors
-            error_message = f"Error in analyzing identity operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error analyzing identity field {self.field_name}: {str(e)}",
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _get_cache_parameters(self) -> Dict[str, Any]:

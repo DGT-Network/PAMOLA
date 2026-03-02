@@ -12,6 +12,11 @@ License: BSD 3-Clause
 import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 import pandas as pd
+from pamola_core.errors.exceptions import (
+    ColumnNotFoundError,
+    FieldNotFoundError,
+    TypeValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +41,11 @@ def validate_fields_exist(
     """
     if not isinstance(df, pd.DataFrame):
         logger.error("Input 'df' must be a pandas DataFrame")
-        raise TypeError("Input 'df' must be a pandas DataFrame")
+        raise TypeValidationError("Input 'df' must be a pandas DataFrame")
 
     if not isinstance(required_fields, list):
         logger.error("Input 'required_fields' must be a list")
-        raise TypeError("Input 'required_fields' must be a list")
+        raise TypeValidationError("Input 'required_fields' must be a list")
 
     existing_fields = set(df.columns)
     missing_fields = [
@@ -75,16 +80,18 @@ def validate_field_types(
     """
     if not isinstance(df, pd.DataFrame):
         logger.error("Input 'df' must be a pandas DataFrame")
-        raise TypeError("Input 'df' must be a pandas DataFrame")
+        raise TypeValidationError("Input 'df' must be a pandas DataFrame")
 
     if not isinstance(field_types, dict):
         logger.error("Input 'field_types' must be a dictionary")
-        raise TypeError("Input 'field_types' must be a dictionary")
+        raise TypeValidationError("Input 'field_types' must be a dictionary")
 
     fields_exist, missing_fields = validate_fields_exist(df, list(field_types.keys()))
     if not fields_exist:
         logger.error(f"Cannot validate types for missing fields: {missing_fields}")
-        raise ValueError(f"Missing fields: {missing_fields}")
+        raise FieldNotFoundError(
+            field_name=missing_fields,
+        )
 
     type_errors: Dict[str, str] = {}
 
@@ -130,15 +137,15 @@ def validate_parameters(
     """
     if not isinstance(parameters, dict):
         logger.error("Input 'parameters' must be a dictionary")
-        raise TypeError("Input 'parameters' must be a dictionary")
+        raise TypeValidationError("Input 'parameters' must be a dictionary")
 
     if not isinstance(required_params, list):
         logger.error("Input 'required_params' must be a list")
-        raise TypeError("Input 'required_params' must be a list")
+        raise TypeValidationError("Input 'required_params' must be a list")
 
     if not isinstance(param_types, dict):
         logger.error("Input 'param_types' must be a dictionary")
-        raise TypeError("Input 'param_types' must be a dictionary")
+        raise TypeValidationError("Input 'param_types' must be a dictionary")
 
     errors: List[str] = []
 
@@ -185,18 +192,20 @@ def validate_constraints(
     """
     if not isinstance(df, pd.DataFrame):
         logger.error("Input 'df' must be a pandas DataFrame")
-        raise TypeError("Input 'df' must be a pandas DataFrame")
+        raise TypeValidationError("Input 'df' must be a pandas DataFrame")
 
     if not isinstance(constraints, dict):
         logger.error("Input 'constraints' must be a dictionary")
-        raise TypeError("Input 'constraints' must be a dictionary")
+        raise TypeValidationError("Input 'constraints' must be a dictionary")
 
     fields_exist, missing_fields = validate_fields_exist(df, list(constraints.keys()))
     if not fields_exist:
         logger.error(
             f"Cannot validate constraints for missing fields: {missing_fields}"
         )
-        raise ValueError(f"Missing fields: {missing_fields}")
+        raise FieldNotFoundError(
+            field_name=missing_fields,
+        )
 
     violations: Dict[str, Dict[str, Any]] = {}
 
@@ -295,7 +304,10 @@ def validate_dataframe(df: pd.DataFrame, columns: List[str]) -> None:
     """
     missing_columns = [col for col in columns if col not in df.columns]
     if missing_columns:
-        raise ValueError(f"Missing columns in DataFrame: {missing_columns}")
+        raise ColumnNotFoundError(
+            column_name=missing_columns,
+            available_columns=list(df.columns),
+        )
 
 
 def validate_group_and_aggregation_fields(
@@ -343,13 +355,13 @@ def validate_join_type(join_type: str) -> None:
 
     Parameters:
         join_type (str): The type of join to validate. Expected values are
-                         "left", "right", "inner", or "outer".
+        left", "right", "inner", or "outer".
 
     Raises:
         ValueError: If the provided join_type is not one of the valid options.
     """
     valid_join_types = ["left", "right", "inner", "outer"]
     if join_type not in valid_join_types:
-        raise ValueError(
-            f"Invalid join type: {join_type}. Must be one of: {valid_join_types}"
+        raise TypeValidationError(
+            message=f"Invalid join type: {join_type}. Must be one of: {valid_join_types}",
         )

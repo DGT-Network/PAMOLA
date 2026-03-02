@@ -9,10 +9,11 @@ analyzes mapping relationships, and ensures data consistency.
 from typing import Any, Dict, List, Set
 
 from pamola_core.fake_data.commons.mapping_store import MappingStore
-from pamola_core.utils import logging as pamola_logging
+import pamola_core.utils.logging as pamola_logging
+from pamola_core.errors.exceptions import InvalidStrategyError
 
 # Configure logger
-logger = pamola_logging.get_logger("pamola_core.fake_data.mappers.transitivity_handler")
+logger = pamola_logging.getLogger(__name__)
 
 
 class TransitivityHandler:
@@ -79,7 +80,9 @@ class TransitivityHandler:
             chain.append(next_value)
 
             # Check if we've reached a value that already maps to something
-            original_for_next = self.mapping_store.restore_original(field_name, next_value)
+            original_for_next = self.mapping_store.restore_original(
+                field_name, next_value
+            )
 
             if original_for_next is not None and original_for_next != current_value:
                 # This value is already an original in another mapping
@@ -87,7 +90,9 @@ class TransitivityHandler:
                 if original_for_next in visited:
                     # We've found a cycle
                     cycle_start = chain.index(original_for_next)
-                    logger.warning(f"Cycle detected in mapping chain: {chain[cycle_start:]} -> {original_for_next}")
+                    logger.warning(
+                        f"Cycle detected in mapping chain: {chain[cycle_start:]} -> {original_for_next}"
+                    )
                     chain.append(original_for_next)  # Add it again to show the cycle
                     break
 
@@ -137,18 +142,22 @@ class TransitivityHandler:
             path = []
             path_set = set()
 
-            self._dfs_find_cycles(field_name, original, mappings, path, path_set, visited, cycles)
+            self._dfs_find_cycles(
+                field_name, original, mappings, path, path_set, visited, cycles
+            )
 
         return cycles
 
-    def _dfs_find_cycles(self,
-                         field_name: str,
-                         current: Any,
-                         mappings: Dict[Any, Any],
-                         path: List[Any],
-                         path_set: Set[Any],
-                         visited: Set[Any],
-                         cycles: List[List[Any]]):
+    def _dfs_find_cycles(
+        self,
+        field_name: str,
+        current: Any,
+        mappings: Dict[Any, Any],
+        path: List[Any],
+        path_set: Set[Any],
+        visited: Set[Any],
+        cycles: List[List[Any]],
+    ):
         """
         Helper for cycle detection using depth-first search.
 
@@ -187,10 +196,16 @@ class TransitivityHandler:
                 cycles.append(cycle)
             elif next_value not in visited:
                 # Continue DFS
-                self._dfs_find_cycles(field_name, next_value, mappings, path, path_set, visited, cycles)
+                self._dfs_find_cycles(
+                    field_name, next_value, mappings, path, path_set, visited, cycles
+                )
 
         # Check if the synthetic value maps back to an original value
-        orig_of_next = self.mapping_store.restore_original(field_name, next_value) if next_value is not None else None
+        orig_of_next = (
+            self.mapping_store.restore_original(field_name, next_value)
+            if next_value is not None
+            else None
+        )
 
         if orig_of_next is not None and orig_of_next != current:
             if orig_of_next in path_set:
@@ -200,13 +215,17 @@ class TransitivityHandler:
                 cycles.append(cycle)
             elif orig_of_next not in visited:
                 # Continue DFS with the original of the next value
-                self._dfs_find_cycles(field_name, orig_of_next, mappings, path, path_set, visited, cycles)
+                self._dfs_find_cycles(
+                    field_name, orig_of_next, mappings, path, path_set, visited, cycles
+                )
 
         # Backtrack
         path.pop()
         path_set.remove(current)
 
-    def resolve_cycle(self, field_name: str, cycle: List[Any], strategy: str = "break_at_start") -> None:
+    def resolve_cycle(
+        self, field_name: str, cycle: List[Any], strategy: str = "break_at_start"
+    ) -> None:
         """
         Resolves a cycle in the mappings.
 
@@ -243,7 +262,9 @@ class TransitivityHandler:
             to_remove = cycle[-2]
             remove_target = cycle[-1]  # Should be same as cycle[0]
 
-            logger.info(f"Breaking cycle by removing mapping: {to_remove} -> {remove_target}")
+            logger.info(
+                f"Breaking cycle by removing mapping: {to_remove} -> {remove_target}"
+            )
 
             # Remove the mapping
             self.mapping_store.remove_mapping(field_name, to_remove)
@@ -253,7 +274,9 @@ class TransitivityHandler:
             to_remove = cycle[-2]
             remove_target = cycle[-1]
 
-            logger.info(f"Breaking cycle by removing mapping: {to_remove} -> {remove_target}")
+            logger.info(
+                f"Breaking cycle by removing mapping: {to_remove} -> {remove_target}"
+            )
 
             # Remove the mapping
             self.mapping_store.remove_mapping(field_name, to_remove)
@@ -266,7 +289,9 @@ class TransitivityHandler:
 
             for i in range(len(cycle) - 1):
                 # Try breaking the link from cycle[i] to cycle[i+1]
-                chain_length = len(cycle) - 2  # -2 because we remove one link and the repeated cycle[0]
+                chain_length = (
+                    len(cycle) - 2
+                )  # -2 because we remove one link and the repeated cycle[0]
 
                 if chain_length > longest_chain:
                     longest_chain = chain_length
@@ -274,17 +299,27 @@ class TransitivityHandler:
                     break_to = cycle[i + 1]
 
             if break_from is not None and break_to is not None:
-                logger.info(f"Breaking cycle at longest chain: {break_from} -> {break_to}")
+                logger.info(
+                    f"Breaking cycle at longest chain: {break_from} -> {break_to}"
+                )
 
                 # Remove the mapping
                 self.mapping_store.remove_mapping(field_name, break_from)
             else:
-                logger.warning(f"Could not find suitable link to break in cycle: {cycle}")
+                logger.warning(
+                    f"Could not find suitable link to break in cycle: {cycle}"
+                )
 
         else:
-            raise ValueError(f"Unknown cycle resolution strategy: {strategy}")
+            raise InvalidStrategyError(
+                strategy=strategy,
+                valid_strategies=["break_at_start", "break_at_end", "break_longest"],
+                operation_type="resolve_cycle",
+            )
 
-    def resolve_all_cycles(self, field_name: str, strategy: str = "break_at_start") -> int:
+    def resolve_all_cycles(
+        self, field_name: str, strategy: str = "break_at_start"
+    ) -> int:
         """
         Finds and resolves all cycles in the mappings.
 
@@ -309,7 +344,9 @@ class TransitivityHandler:
             logger.info(f"No cycles found for field {field_name}")
             return 0
 
-        logger.info(f"Found {len(cycles)} cycles in field {field_name}, resolving with strategy '{strategy}'")
+        logger.info(
+            f"Found {len(cycles)} cycles in field {field_name}, resolving with strategy '{strategy}'"
+        )
 
         for cycle in cycles:
             self.resolve_cycle(field_name, cycle, strategy)
@@ -347,7 +384,7 @@ class TransitivityHandler:
             "max_chain_length": 0,
             "cycles_count": 0,
             "transitive_mappings": 0,
-            "problematic_mappings": []
+            "problematic_mappings": [],
         }
 
         # Find cycles
@@ -369,7 +406,9 @@ class TransitivityHandler:
             # Update statistics
             if len(chain) > 1:  # Only count non-trivial chains
                 results["chains_count"] += 1
-                results["max_chain_length"] = max(results["max_chain_length"], len(chain))
+                results["max_chain_length"] = max(
+                    results["max_chain_length"], len(chain)
+                )
 
                 # If chain length > 2, intermediate mappings are transitive
                 if len(chain) > 2:
@@ -389,14 +428,18 @@ class TransitivityHandler:
             # Find mappings that should be marked as transitive but aren't
             for original in all_mappings:
                 synthetic = all_mappings[original]
-                if self.mapping_store.restore_original(field_name,
-                                                       synthetic) is not None and not self.mapping_store.is_transitive(
-                        field_name, original):
-                    results["problematic_mappings"].append({
-                        "original": original,
-                        "synthetic": synthetic,
-                        "issue": "should_be_transitive"
-                    })
+                if self.mapping_store.restore_original(
+                    field_name, synthetic
+                ) is not None and not self.mapping_store.is_transitive(
+                    field_name, original
+                ):
+                    results["problematic_mappings"].append(
+                        {
+                            "original": original,
+                            "synthetic": synthetic,
+                            "issue": "should_be_transitive",
+                        }
+                    )
 
         return results
 
@@ -432,15 +475,21 @@ class TransitivityHandler:
             synthetic = mappings[original]
 
             # Check if the synthetic value is an original in another mapping
-            orig_of_synthetic = self.mapping_store.restore_original(field_name, synthetic)
+            orig_of_synthetic = self.mapping_store.restore_original(
+                field_name, synthetic
+            )
 
             if orig_of_synthetic is not None and orig_of_synthetic != original:
                 # This is a transitive mapping, but it's not marked as such
-                logger.info(f"Marking transitive mapping: {original} -> {synthetic} -> ...")
+                logger.info(
+                    f"Marking transitive mapping: {original} -> {synthetic} -> ..."
+                )
                 self.mapping_store.mark_as_transitive(field_name, original)
                 issues_fixed += 1
 
-        logger.info(f"Fixed {issues_fixed} transitive mapping issues for field {field_name}")
+        logger.info(
+            f"Fixed {issues_fixed} transitive mapping issues for field {field_name}"
+        )
         return cycles_resolved + issues_fixed
 
     def get_statistics(self, field_name: str) -> Dict[str, Any]:
@@ -473,27 +522,24 @@ class TransitivityHandler:
             "total_mappings": field_stats.get("count", 0),
             "transitive_mappings": field_stats.get("transitive_count", 0),
             "transitive_percentage": 0.0,
-            "chains": {
-                "count": 0,
-                "max_length": 0,
-                "avg_length": 0.0
-            },
-            "cycles": {
-                "count": 0
-            }
+            "chains": {"count": 0, "max_length": 0, "avg_length": 0.0},
+            "cycles": {"count": 0},
         }
 
         # Calculate transitive percentage
         if statistics["total_mappings"] > 0:
-            statistics["transitive_percentage"] = (statistics["transitive_mappings"] / statistics[
-                "total_mappings"]) * 100.0
+            statistics["transitive_percentage"] = (
+                statistics["transitive_mappings"] / statistics["total_mappings"]
+            ) * 100.0
 
         # Find cycles
         cycles = self.find_cycles(field_name)
         statistics["cycles"]["count"] = len(cycles)
 
         # Analyze chains (this is computationally expensive for large mappings)
-        if statistics["total_mappings"] <= 10000:  # Limit analysis for very large mappings
+        if (
+            statistics["total_mappings"] <= 10000
+        ):  # Limit analysis for very large mappings
             mappings = self.mapping_store.get_field_mappings(field_name)
             visited = set()
             chain_lengths = []
@@ -511,12 +557,16 @@ class TransitivityHandler:
                 # Update statistics
                 if len(chain) > 1:  # Only count non-trivial chains
                     statistics["chains"]["count"] += 1
-                    statistics["chains"]["max_length"] = max(statistics["chains"]["max_length"], len(chain))
+                    statistics["chains"]["max_length"] = max(
+                        statistics["chains"]["max_length"], len(chain)
+                    )
                     chain_lengths.append(len(chain))
 
             # Calculate average chain length
             if chain_lengths:
-                statistics["chains"]["avg_length"] = sum(chain_lengths) / float(len(chain_lengths))
+                statistics["chains"]["avg_length"] = sum(chain_lengths) / float(
+                    len(chain_lengths)
+                )
         else:
             # For large mappings, use a more limited analysis
             statistics["chains"]["note"] = "Limited analysis due to large mapping count"
@@ -540,10 +590,13 @@ class TransitivityHandler:
 
             # Extrapolate results
             statistics["chains"]["estimated_count"] = int(
-                chain_count * (statistics["total_mappings"] / float(sample_size)))
+                chain_count * (statistics["total_mappings"] / float(sample_size))
+            )
             statistics["chains"]["max_length"] = longest_chain
             if chain_lengths:
-                statistics["chains"]["avg_length"] = sum(chain_lengths) / float(len(chain_lengths))
+                statistics["chains"]["avg_length"] = sum(chain_lengths) / float(
+                    len(chain_lengths)
+                )
             else:
                 statistics["chains"]["avg_length"] = 0.0
 

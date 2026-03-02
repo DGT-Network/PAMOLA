@@ -1,16 +1,49 @@
 """
-PAMOLA.CORE - Common Utilities
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
 ----------------------------------------------------
-This package contains shared utilities used across the PAMOLA.CORE ecosystem.
-It includes helper functions, structured logging, and other common components 
-to support privacy-preserving AI data processing.
-
-Subpackages:
-- helpers: Utility functions for data transformation, profiling, and mathematical operations.
-- logging: Structured logging utilities for tracking anonymization processes.
-
-This module is part of PAMOLA.CORE, supporting privacy-preserving AI data processing.
+This file is part of the PAMOLA ecosystem, a comprehensive suite for
+anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
+foundation for anonymization-preserving data processing.
 
 (C) 2024 Realm Inveo Inc. and DGT Network Inc.
-Licensed under BSD 3-Clause License.
+
+This software is licensed under the BSD 3-Clause License.
+For details, see the LICENSE file or visit:
+
+    https://opensource.org/licenses/BSD-3-Clause
+    https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
+
+Package: pamola_core.common
+Type: Public API Package
+
+Author: Realm Inveo Inc. & DGT Network Inc.
 """
+
+import importlib
+from typing import Dict
+
+__all__ = [
+    # enum/
+    "EncryptionMode",
+]
+
+_LAZY_IMPORTS: Dict[str, str] = {
+    "EncryptionMode": "pamola_core.common.enum",
+}
+
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        target = _LAZY_IMPORTS[name]
+        if isinstance(target, tuple):
+            module_name, attr_name = target
+        else:
+            module_name = target
+            attr_name = name
+        module = importlib.import_module(module_name)
+        value = getattr(module, attr_name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__():
+    return sorted(set(list(globals().keys()) + __all__))

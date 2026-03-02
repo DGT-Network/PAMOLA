@@ -28,7 +28,7 @@ Changelog:
 1.0.0 - 2025-01-15 - Initial creation of split by ID values core schema
 """
 
-from pamola_core.transformations.splitting.split_by_id_values_op import PartitionMethod
+from pamola_core.transformations.commons.enum import PartitionMethod
 from pamola_core.utils.ops.op_config import OperationConfig
 from pamola_core.utils.ops.schemas.base_op_core_schema import BaseOperationConfig
 

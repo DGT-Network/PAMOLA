@@ -40,6 +40,13 @@ import numpy as np
 from typing import Optional, List, Union, Dict, Any, Tuple, Set
 import logging
 from pamola_core.utils.visualization import create_correlation_matrix, create_heatmap
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    ColumnNotFoundError,
+    TypeValidationError,
+    ValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,14 +80,14 @@ class CorrelationAnalyzer:
     def _validate_method(self, method: str) -> None:
         """Validate the correlation method."""
         if method not in self.SUPPORTED_METHODS:
-            raise ValueError(
+            raise ValidationError(
                 f"Method must be one of {self.SUPPORTED_METHODS}, got '{method}'"
             )
 
     def _validate_viz_format(self, viz_format: str) -> None:
         """Validate the vizualization format."""
         if viz_format not in self.SUPPORTED_VIZ_FORMATS:
-            raise ValueError(
+            raise ValidationError(
                 f"Vizualization format must be one of {self.SUPPORTED_VIZ_FORMATS}, got '{viz_format}'"
             )
 
@@ -91,16 +98,16 @@ class CorrelationAnalyzer:
         elif isinstance(output_chart, list):
             chart_types = output_chart
         else:
-            raise ValueError(
-                f"output_chart must be str or List[str], got {type(output_chart)}"
+            raise TypeValidationError(
+                message=f"output_chart must be str or List[str], got {type(output_chart)}",
             )
 
         invalid_charts = [
             chart for chart in chart_types if chart not in self.SUPPORTED_CHARTS
         ]
         if invalid_charts:
-            raise ValueError(
-                f"Invalid chart types: {invalid_charts}. Must be one of {self.SUPPORTED_CHARTS}"
+            raise TypeValidationError(
+                message=f"Invalid chart types: {invalid_charts}. Must be one of {self.SUPPORTED_CHARTS}",
             )
 
         return chart_types
@@ -110,7 +117,9 @@ class CorrelationAnalyzer:
         if columns is not None:
             missing_cols = [col for col in columns if col not in df.columns]
             if missing_cols:
-                raise ValueError(f"Columns not found in DataFrame: {missing_cols}")
+                raise ColumnNotFoundError(
+                    column_name=missing_cols,
+                )
 
     def _map_binary_to_numeric(self, series: pd.Series) -> pd.Series:
         """Convert binary columns (boolean or categorical strings with ≤2 values) to numeric."""
@@ -168,7 +177,10 @@ class CorrelationAnalyzer:
 
         # Filter to only processed columns
         if not processed_cols:
-            raise ValueError("No suitable columns found for correlation analysis")
+            raise DataError(
+                message="No suitable columns found for correlation analysis",
+                error_code=ErrorCode.DATA_EMPTY,
+            )
 
         final_data = data[processed_cols]
 
@@ -194,7 +206,10 @@ class CorrelationAnalyzer:
             # Return correlation of specified column with all others
             col_name = columns[0]
             if col_name not in clean_data.columns:
-                raise ValueError(f"Column '{col_name}' not found in numeric columns")
+                raise ColumnNotFoundError(
+                    column_name=col_name,
+                    available_columns=list(clean_data.columns),
+                )
 
             corr_matrix = clean_data.corr(method=method)
             correlation_series = corr_matrix[col_name].drop(
@@ -215,7 +230,10 @@ class CorrelationAnalyzer:
 
             missing = [col for col in [col1, col2] if col not in clean_data.columns]
             if missing:
-                raise ValueError(f"Columns not found in numeric columns: {missing}")
+                raise ColumnNotFoundError(
+                    column_name=missing,
+                    available_columns=list(clean_data.columns),
+                )
 
             # Return full 2x2 correlation matrix for better visualization
             result = clean_data[[col1, col2]].corr(method=method)
@@ -226,11 +244,15 @@ class CorrelationAnalyzer:
             available_cols = [col for col in columns if col in clean_data.columns]
 
             if not available_cols:
-                raise ValueError("None of the specified columns are numeric/boolean")
+                raise ValidationError(
+                    "None of the specified columns are numeric/boolean"
+                )
 
             if len(available_cols) < len(columns):
                 missing = [col for col in columns if col not in available_cols]
-                raise ValueError(f"Some columns are not numeric/boolean: {missing}")
+                raise ColumnNotFoundError(
+                    column_name=missing,
+                )
 
             result = clean_data[available_cols].corr(method=method)
             result_type = "selected_variables"
@@ -401,7 +423,10 @@ class CorrelationAnalyzer:
         chart_types = self._validate_output_chart(output_chart)
 
         if df.empty:
-            raise ValueError("Input DataFrame is empty")
+            raise DataError(
+                message="Input DataFrame is empty",
+                error_code=ErrorCode.DATA_EMPTY,
+            )
 
         # Prepare data
         clean_data = self._prepare_data(df, columns)

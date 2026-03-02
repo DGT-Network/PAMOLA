@@ -9,12 +9,14 @@ import abc
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Any, Optional, TypeVar, Union, Set, Callable
+from pamola_core.errors.exceptions import MappingError, FeatureNotImplementedError
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ResourceType(Enum):
     """Types of resources that can be estimated for operations."""
+
     MEMORY = "memory_mb"
     TIME = "time_seconds"
     CPU = "cpu_percent"
@@ -23,30 +25,11 @@ class ResourceType(Enum):
 
 class NullStrategy(Enum):
     """Strategies for handling NULL values in data."""
+
     PRESERVE = "preserve"  # Keep NULL values unchanged
     REPLACE = "replace"  # Replace NULL with a default or generated value
     EXCLUDE = "exclude"  # Skip NULL values during processing
     ERROR = "error"  # Raise an error when NULL is encountered
-
-
-class FakeDataError(Exception):
-    """Base exception class for fake_data module errors."""
-    pass
-
-
-class ValidationError(FakeDataError):
-    """Exception raised for validation errors."""
-    pass
-
-
-class ResourceError(FakeDataError):
-    """Exception raised for resource-related errors (memory, disk, etc.)."""
-    pass
-
-
-class MappingError(FakeDataError):
-    """Exception raised for mapping errors."""
-    pass
 
 
 class BaseGenerator(abc.ABC):
@@ -221,7 +204,9 @@ class BaseMapper(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def add_mapping(self, original: Any, synthetic: Any, is_transitive: bool = False) -> None:
+    def add_mapping(
+        self, original: Any, synthetic: Any, is_transitive: bool = False
+    ) -> None:
         """
         Adds a new mapping to the mapper.
 
@@ -305,7 +290,13 @@ class MappingStore:
         # Transitivity markers: {field_name: {original: is_transitive}}
         self.transitivity_markers = {}
 
-    def add_mapping(self, field_name: str, original: Any, synthetic: Any, is_transitive: bool = False) -> None:
+    def add_mapping(
+        self,
+        field_name: str,
+        original: Any,
+        synthetic: Any,
+        is_transitive: bool = False,
+    ) -> None:
         """
         Adds a mapping between original and synthetic values.
 
@@ -332,13 +323,21 @@ class MappingStore:
             self.transitivity_markers[field_name] = {}
 
         # Check for conflicts
-        if original in self.mappings[field_name] and self.mappings[field_name][original] != synthetic:
+        if (
+            original in self.mappings[field_name]
+            and self.mappings[field_name][original] != synthetic
+        ):
             raise MappingError(
-                f"Conflict: Original value already mapped to a different synthetic value for field {field_name}")
+                f"Conflict: Original value already mapped to a different synthetic value for field {field_name}"
+            )
 
-        if synthetic in self.reverse_mappings[field_name] and self.reverse_mappings[field_name][synthetic] != original:
+        if (
+            synthetic in self.reverse_mappings[field_name]
+            and self.reverse_mappings[field_name][synthetic] != original
+        ):
             raise MappingError(
-                f"Conflict: Synthetic value already mapped from a different original value for field {field_name}")
+                f"Conflict: Synthetic value already mapped from a different original value for field {field_name}"
+            )
 
         # Add direct and reverse mappings
         self.mappings[field_name][original] = synthetic
@@ -388,7 +387,6 @@ class MappingStore:
             return None
 
         return self.reverse_mappings[field_name].get(synthetic)
-    
 
     def is_transitive(self, field_name: str, original: Any) -> bool:
         """
@@ -410,8 +408,7 @@ class MappingStore:
             return False
 
         return self.transitivity_markers[field_name].get(original, False)
-    
-    
+
     def get_field_mappings(self, field_name: str) -> Dict[Any, Any]:
         """
         Gets all mappings for a field.
@@ -431,7 +428,6 @@ class MappingStore:
             return {}
 
         return self.mappings[field_name].copy()
-    
 
     def get_field_names(self) -> Set[str]:
         """
@@ -460,7 +456,7 @@ class MappingStore:
         """
         # This implementation should use appropriate I/O utilities
         # and handle serialization of complex types
-        raise NotImplementedError("Subclasses must implement save method")
+        raise FeatureNotImplementedError("Subclasses must implement save method")
 
     def load(self, path: Union[str, Path]) -> None:
         """
@@ -480,4 +476,4 @@ class MappingStore:
         """
         # This implementation should use appropriate I/O utilities
         # and handle deserialization of complex types
-        raise NotImplementedError("Subclasses must implement load method")
+        raise FeatureNotImplementedError("Subclasses must implement load method")

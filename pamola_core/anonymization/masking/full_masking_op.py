@@ -40,6 +40,13 @@ from typing import Any, Dict, List, Optional, Union
 import dask.dataframe as dd
 import pandas as pd
 from pandas.api.types import is_numeric_dtype
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Import base class
 from pamola_core.anonymization.base_anonymization_op import AnonymizationOperation
@@ -208,20 +215,24 @@ class FullMaskingOperation(AnonymizationOperation):
             Results of the operation
         """
         try:
-            # Initialize timing and result
+            # Start timing
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
             self.logger.info(
-                f"Starting {self.operation_name} operation at {self.start_time}"
+                f"Starting: {self.operation_name} operation at {self.start_time}"
             )
 
-            df = None
             # Initialize result object
             result = OperationResult(status=OperationStatus.PENDING)
 
-            self.logger.info(
-                f"Starting execute for field '{self.field_name}' with strategy '{self.null_strategy}'"
-            )
+            # Initialize dataframe
+            df = None
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -231,16 +242,19 @@ class FullMaskingOperation(AnonymizationOperation):
                 cache_dir=dirs["cache"],
             )
 
-            # Save configuration to task directory
-            self.save_config(task_dir)
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
+            # Save configuration to task directory
+            self.save_config(task_dir)
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -293,65 +307,52 @@ class FullMaskingOperation(AnonymizationOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={
+                        "dataset": dataset_name,
+                        "operation": self.name,
+                    },
+                    message_kwargs={
+                        "source": dataset_name,
+                        "reason": str(e),
+                    },
                 )
 
-            # Step 1: Check if we have a cached result
+            # Step 2: Check if we have a cached result
             if self.use_cache and not self.force_recalculation:
-                try:
+                if main_progress:
+                    current_steps += 1
+                    main_progress.update(
+                        current_steps,
+                        {"step": "Checking cache", "field": self.field_name},
+                    )
+
+                # Generate cache key based on operation parameters
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
+
+                if cache_result:
+                    self.logger.info(
+                        f"Using cached result for {self.field_name} generalization"
+                    )
+
+                    # Update progress
                     if main_progress:
-                        current_steps += 1
                         main_progress.update(
                             current_steps,
-                            {"step": "Checking cache", "field": self.field_name},
+                            {"step": "Complete (cached)", "field": self.field_name},
                         )
 
-                    # Load data for cache check
-                    df = self._validate_and_get_dataframe(
-                        data_source, dataset_name, **settings_operation
-                    )
-
-                    # Generate cache key based on operation parameters
-                    self.logger.info("Checking operation cache...")
-                    cache_result = self._check_cache(df, reporter)
-
-                    if cache_result:
-                        self.logger.info(
-                            f"Using cached result for {self.field_name} generalization"
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Full masking operation of {self.field_name} (cached)",
+                            details={"cached": True},
                         )
 
-                        # Update progress
-                        if main_progress:
-                            main_progress.update(
-                                current_steps,
-                                {"step": "Complete (cached)", "field": self.field_name},
-                            )
-
-                        # Report cache hit to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Full masking operation of {self.field_name} (cached)",
-                                details={"cached": True},
-                            )
-
-                        return cache_result
-                    else:
-                        self.logger.info(
-                            "No cached result found, proceeding with operation"
-                        )
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                    return cache_result
 
             # Step 3: Prepare output field
             if main_progress:
@@ -366,12 +367,15 @@ class FullMaskingOperation(AnonymizationOperation):
                 self.logger.info(f"Prepared output_field: '{self.output_field_name}'")
                 self._report_operation_details(reporter, self.output_field_name)
             except Exception as e:
-                error_message = f"Preparing output field error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "prepare_output_field", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 4: Processing
@@ -431,19 +435,21 @@ class FullMaskingOperation(AnonymizationOperation):
                     except:
                         pass
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "field": self.field_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Record end time after processing metrics
             self.end_time = time.time()
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             # Step 5: Metrics Calculation
             if main_progress:
@@ -461,7 +467,7 @@ class FullMaskingOperation(AnonymizationOperation):
                     original_data, anonymized_data, processed_df
                 )
 
-                # Generate metrics file name (in self.name existed field_name)
+                # Generate metrics file name
                 metrics_file_name = f"{self.field_name}_{self.name}_{self.null_strategy}_metrics_{operation_timestamp}"
 
                 self._save_metrics(
@@ -548,12 +554,14 @@ class FullMaskingOperation(AnonymizationOperation):
                         **safe_kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_name},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -577,33 +585,35 @@ class FullMaskingOperation(AnonymizationOperation):
                 anonymized_data=anonymized_data,
             )
 
-            # Finalize timing
-            self.end_time = time.time()
-
             # Report completion
             if reporter:
                 reporter.add_operation(
                     f"Full masking operation of {self.field_name} completed",
                     details={
                         "records_processed": self.process_count,
-                        "execution_time": self.end_time - self.start_time,
+                        "execution_time": self.execution_time,
                     },
                 )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
-            result.execution_time = self.end_time - self.start_time
+            result.execution_time = self.execution_time
             self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
             )
             return result
 
         except Exception as e:
-            self.logger.error(f"Error in Full masking operation: {str(e)}")
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=str(e),
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _setup_format_patterns(self):
@@ -635,43 +645,45 @@ class FullMaskingOperation(AnonymizationOperation):
 
         # Validate mask character
         if not self.mask_char or len(self.mask_char) != 1:
-            raise ValueError("mask_char must be a single character")
+            raise ValidationError("mask_char must be a single character")
 
         # Validate fixed length
         if self.fixed_length is not None and self.fixed_length < 0:
-            raise ValueError(
+            raise ValidationError(
                 "fixed_length must be non-negative"
             )  # Validate numeric output option
         if self.numeric_output not in ["string", "numeric", "preserve"]:
-            raise ValueError(
+            raise ValidationError(
                 "numeric_output must be 'string', 'numeric', or 'preserve'"
             )
 
         # Validate risk threshold
         if self.risk_threshold < 0:
-            raise ValueError("risk_threshold must be non-negative")
+            raise ValidationError("risk_threshold must be non-negative")
 
         # Validate format patterns
         if self.format_patterns is not None:
             if not isinstance(self.format_patterns, dict):
-                raise ValueError("format_patterns must be a dictionary")
+                raise ValidationError("format_patterns must be a dictionary")
 
             for pattern_name, pattern_regex in self.format_patterns.items():
                 if not isinstance(pattern_name, str):
-                    raise ValueError(
-                        f"format_patterns keys must be strings, got {type(pattern_name)}"
+                    raise TypeValidationError(
+                        message=f"format_patterns keys must be strings, got {type(pattern_name)}",
                     )
 
                 if not isinstance(pattern_regex, str):
-                    raise ValueError(
-                        f"format_patterns values must be regex strings, got {type(pattern_regex)} for pattern '{pattern_name}'"
+                    raise TypeValidationError(
+                        message=f"format_patterns values must be regex strings, got {type(pattern_regex)} for pattern '{pattern_name}'",
                     )
 
                 # Validate regex pattern
                 try:
                     re.compile(pattern_regex)
                 except re.error as e:
-                    raise ValueError(f"Invalid regex pattern for '{pattern_name}': {e}")
+                    raise ValidationError(
+                        f"Invalid regex pattern for '{pattern_name}': {e}"
+                    )
 
     def _mask_with_format(self, value: str) -> str:
         """
@@ -782,7 +794,7 @@ class FullMaskingOperation(AnonymizationOperation):
 
                 try:
                     return float(f"{base_str}e{exponent}")
-                except ValueError:
+                except (ValidationError, ValueError):
                     return 0.0
 
         # --- Handle float
@@ -800,13 +812,13 @@ class FullMaskingOperation(AnonymizationOperation):
 
             try:
                 return float(numeric)
-            except ValueError:
+            except (ValidationError, ValueError):
                 return 0.0
 
         # --- Default: integer output
         try:
             return int(digit_str)
-        except ValueError:
+        except (ValidationError, ValueError):
             return 0
 
     def process_batch(self, batch: pd.DataFrame) -> pd.DataFrame:
@@ -830,7 +842,10 @@ class FullMaskingOperation(AnonymizationOperation):
 
         # Check if the field exists
         if field_name not in batch.columns:
-            raise ValueError(f"Field {field_name} not found in DataFrame")
+            raise FieldNotFoundError(
+                field_name=field_name,
+                available_fields=list(batch.columns),
+            )
 
         result = batch.copy(deep=True)
 

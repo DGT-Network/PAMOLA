@@ -30,13 +30,14 @@ from typing import Dict, Any, Union, List, Optional, Tuple, Iterator
 
 import pandas as pd
 
-from pamola_core.utils import logging
-from pamola_core.utils import progress
-from pamola_core.utils.io_helpers import error_utils
-from pamola_core.utils.io_helpers import memory_utils
+from pamola_core.errors.exceptions import PamolaFileNotFoundError
+import logging
+import pamola_core.utils.progress as progress
+import pamola_core.utils.io_helpers.error_utils as error_utils
+import pamola_core.utils.io_helpers.memory_utils as memory_utils
 
 # Configure module logger
-logger = logging.get_logger("pamola_core.utils.io_helpers.csv_utils")
+logger = logging.getLogger(__name__)
 
 
 def estimate_csv_size(
@@ -221,7 +222,7 @@ def count_csv_lines(file_path: Union[str, Path], encoding: str = "utf-8") -> int
     file_path = Path(file_path)
 
     if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        raise PamolaFileNotFoundError(str(file_path))
 
     try:
         # First try to count lines with the specified encoding
@@ -427,7 +428,9 @@ def detect_csv_dialect(
 
     if not file_path.exists():
         return error_utils.create_error_info(
-            "FileNotFoundError", f"File not found: {file_path}", "Check the file path"
+            "PamolaFileNotFoundError",
+            f"File not found: {file_path}",
+            "Check the file path",
         )
 
     # Common delimiters to restrict sniffer from guessing random characters
@@ -565,7 +568,7 @@ def read_csv_in_efficient_chunks(
     file_path = Path(file_path)
 
     if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        raise PamolaFileNotFoundError(str(file_path))
 
     # Auto-determine chunk size if not specified
     if chunk_size is None:
@@ -664,7 +667,9 @@ def validate_csv_file(
 
     if not file_path.exists():
         return error_utils.create_error_info(
-            "FileNotFoundError", f"File not found: {file_path}", "Check the file path"
+            "PamolaFileNotFoundError",
+            f"File not found: {file_path}",
+            "Check the file path",
         )
 
     try:

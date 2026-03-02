@@ -1,31 +1,58 @@
 """
-    PAMOLA Core - IO Package Base Module
-    -----------------------------------
-    This module provides base interfaces and protocols for all IO operations in the PAMOLA Core
-    library. It defines the standard contracts that all format-specific handlers must implement.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+This file is part of the PAMOLA ecosystem, a comprehensive suite for
+anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
+foundation for anonymization-preserving data processing.
 
-    Key features:
-    - DataReader protocol for standardized data reading
-    - DataWriter protocol for standardized data writing
-    - Common parameter definitions and defaults
-    - Error type definitions for IO operations
-    - Configuration integration points
+(C) 2024 Realm Inveo Inc. and DGT Network Inc.
 
-    This module serves as the foundation for all IO operations in PAMOLA Core, ensuring
-    consistency across different data formats and storage methods.
+This software is licensed under the BSD 3-Clause License.
+For details, see the LICENSE file or visit:
 
-    (C) 2024 Realm Inveo Inc. and DGT Network Inc.
+    https://opensource.org/licenses/BSD-3-Clause
+    https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
-    This software is licensed under the BSD 3-Clause License.
-    For details, see the LICENSE file or visit:
-        https://opensource.org/licenses/BSD-3-Clause
-        https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
+Package: pamola_core.io
+Type: Public API Package
 
-    Author: Realm Inveo Inc. & DGT Network Inc.
+Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-from .paths import PathManager
-from .csv import read_csv, write_csv
-from .excel import read_excel, write_excel
-from .json import read_json, write_json
-from .parquet import read_parquet, write_parquet
+import importlib
+from typing import Dict
+
+__all__ = [
+    # csv/
+    "read_csv",
+    # json/
+    "read_json",
+    # excel/
+    "read_excel",
+    # parquet/
+    "read_parquet",
+]
+
+_LAZY_IMPORTS: Dict[str, str] = {
+    "read_csv": "pamola_core.io.csv",
+    "read_json": "pamola_core.io.json",
+    "read_excel": "pamola_core.io.excel",
+    "read_parquet": "pamola_core.io.parquet",
+}
+
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        target = _LAZY_IMPORTS[name]
+        if isinstance(target, tuple):
+            module_name, attr_name = target
+        else:
+            module_name = target
+            attr_name = name
+        module = importlib.import_module(module_name)
+        value = getattr(module, attr_name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__():
+    return sorted(set(list(globals().keys()) + __all__))

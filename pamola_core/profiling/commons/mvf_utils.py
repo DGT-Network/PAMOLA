@@ -26,6 +26,7 @@ import pandas as pd
 
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import plot_value_distribution
+from pamola_core.errors.exceptions import DependencyMissingError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -587,7 +588,7 @@ def analyze_mvf_field_with_parallel(
         )
 
         non_null_series = df[field_name].dropna()
-        
+
         # Split into chunks
         chunks = [
             non_null_series.iloc[i : i + chunk_size].copy(deep=True)
@@ -745,11 +746,11 @@ def analyze_mvf_field_with_dask(
     try:
         try:
             import dask.dataframe as dd
-        except ImportError:
-            raise ImportError(
-                "Dask is required for distributed processing but not installed. "
-                "Install with: pip install dask[dataframe]"
-            )
+        except ImportError as e:
+            raise DependencyMissingError(
+                dependency_name="dask",
+                reason=str(e),
+            ) from e
 
         # Initialize start time for performance tracking
         start_time = time.time()

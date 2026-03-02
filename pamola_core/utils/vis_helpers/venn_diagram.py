@@ -28,6 +28,7 @@ from pamola_core.utils.vis_helpers.base import (
     FigureRegistry,
     PlotlyFigure,
 )
+from pamola_core.errors.exceptions import DependencyMissingError
 from pamola_core.utils.vis_helpers.context import visualization_context
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
@@ -307,7 +308,7 @@ class MatplotlibVennDiagram(MatplotlibFigure):
             plt.Figure: Matplotlib figure containing the Venn diagram.
         """
         if venn2 is None:
-            raise ImportError(
+            raise DependencyMissingError(
                 "matplotlib_venn is not installed. Run `pip install matplotlib-venn`."
             )
 

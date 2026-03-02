@@ -75,12 +75,17 @@ from typing import Dict, List, Optional
 
 # Import canonical enums from their dedicated module to avoid duplicates
 # All enums now live in llm/enums.py as single source of truth
-from .enums import ResponseType, ProcessingStage
+from pamola_core.utils.nlp.llm.enums import (
+    ResponseType,
+    ProcessingStage,
+)
+from pamola_core.errors.exceptions import ValidationError
 
 
 # ------------------------------------------------------------------------------
 # Minimal Core Data Structures (Phase 1 Focus)
 # ------------------------------------------------------------------------------
+
 
 @dataclass(slots=True)
 class PreprocessResult:
@@ -90,6 +95,7 @@ class PreprocessResult:
     Contains only fields actively used in phase-1 implementation.
     Future extensions (NER, advanced metrics) will be added via mixins.
     """
+
     # Core results - always populated
     text: str  # Processed text ready for LLM
     canonical_text: str = ""  # Canonicalized text for cache keys
@@ -135,6 +141,7 @@ class PostprocessResult:
     Contains only fields actively used in phase-1 implementation.
     PII detection and advanced quality metrics will be added later.
     """
+
     # Core results - always populated
     text: str  # Final processed text
     success: bool = True  # Whether postprocessing succeeded
@@ -165,7 +172,11 @@ class PostprocessResult:
                 self.issues.append("service_response_detected")
 
         # Also fail for other non-valid response types
-        if self.response_type in (ResponseType.ERROR, ResponseType.EMPTY, ResponseType.INVALID):
+        if self.response_type in (
+            ResponseType.ERROR,
+            ResponseType.EMPTY,
+            ResponseType.INVALID,
+        ):
             self.success = False
             if f"response_type_{self.response_type.value}" not in self.issues:
                 self.issues.append(f"response_type_{self.response_type.value}")
@@ -176,7 +187,11 @@ class PostprocessResult:
 
     def is_successful(self) -> bool:
         """Helper method to check if processing was truly successful."""
-        return self.success and self.response_type == ResponseType.VALID and self.text.strip()
+        return (
+            self.success
+            and self.response_type == ResponseType.VALID
+            and self.text.strip()
+        )
 
 
 @dataclass(slots=True)
@@ -186,6 +201,7 @@ class ProcessingPipelineResult:
 
     Focuses only on essential aggregation and metrics needed for current phase.
     """
+
     # Final result - always populated
     final_text: str  # Final processed text
     success: bool = True  # Overall pipeline success
@@ -201,7 +217,9 @@ class ProcessingPipelineResult:
     # Core performance metrics
     total_latency: float = 0.0  # Total pipeline duration in seconds
     cache_hit: bool = False  # Whether result was cached
-    processing_timestamp: float = field(default_factory=time.time)  # Unix epoch seconds when processing started
+    processing_timestamp: float = field(
+        default_factory=time.time
+    )  # Unix epoch seconds when processing started
 
     # Issue aggregation - essential for debugging
     all_issues: List[str] = field(default_factory=list)
@@ -230,12 +248,13 @@ class ProcessingPipelineResult:
 # Helper Constructors (Avoid post_init mutations)
 # ------------------------------------------------------------------------------
 
+
 def create_failed_preprocess_result(
-        text: str,
-        canonical_text: str = "",
-        error_message: str = "Processing failed",
-        original_length: int = 0,
-        processing_duration: float = 0.0
+    text: str,
+    canonical_text: str = "",
+    error_message: str = "Processing failed",
+    original_length: int = 0,
+    processing_duration: float = 0.0,
 ) -> PreprocessResult:
     """
     Create a PreprocessResult indicating failure.
@@ -259,14 +278,12 @@ def create_failed_preprocess_result(
         truncated_tokens=0,
         issues=["processing_failed"],
         processing_duration=processing_duration,
-        error_message=error_message
+        error_message=error_message,
     )
 
 
 def create_service_response_result(
-        original_response: str,
-        service_category: str,
-        processing_duration: float = 0.0
+    original_response: str, service_category: str, processing_duration: float = 0.0
 ) -> PostprocessResult:
     """
     Create a PostprocessResult for detected service response.
@@ -283,13 +300,12 @@ def create_service_response_result(
         cleaning_applied=[],
         issues=["service_response_detected"],
         processing_duration=processing_duration,
-        error_message=f"Service response detected: {service_category}"
+        error_message=f"Service response detected: {service_category}",
     )
 
 
 def create_empty_response_result(
-        original_response: str,
-        processing_duration: float = 0.0
+    original_response: str, processing_duration: float = 0.0
 ) -> PostprocessResult:
     """
     Create a PostprocessResult for empty/invalid response.
@@ -304,18 +320,18 @@ def create_empty_response_result(
         cleaning_applied=[],
         issues=["empty_or_invalid_response"],
         processing_duration=processing_duration,
-        error_message="LLM returned empty or invalid response"
+        error_message="LLM returned empty or invalid response",
     )
 
 
 def create_successful_preprocess_result(
-        original_text: str,
-        processed_text: str,
-        canonical_text: str = "",
-        estimated_tokens: int = 0,
-        was_truncated: bool = False,
-        truncated_tokens: int = 0,
-        processing_duration: float = 0.0
+    original_text: str,
+    processed_text: str,
+    canonical_text: str = "",
+    estimated_tokens: int = 0,
+    was_truncated: bool = False,
+    truncated_tokens: int = 0,
+    processing_duration: float = 0.0,
 ) -> PreprocessResult:
     """
     Create a successful PreprocessResult with all required fields.
@@ -336,15 +352,15 @@ def create_successful_preprocess_result(
         truncated_tokens=truncated_tokens,
         issues=[],
         processing_duration=processing_duration,
-        error_message=None
+        error_message=None,
     )
 
 
 def create_successful_postprocess_result(
-        processed_text: str,
-        original_response: str,
-        cleaning_applied: Optional[List[str]] = None,
-        processing_duration: float = 0.0
+    processed_text: str,
+    original_response: str,
+    cleaning_applied: Optional[List[str]] = None,
+    processing_duration: float = 0.0,
 ) -> PostprocessResult:
     """
     Create a successful PostprocessResult with all required fields.
@@ -362,13 +378,14 @@ def create_successful_postprocess_result(
         cleaning_applied=cleaning_applied,
         issues=[],
         processing_duration=processing_duration,
-        error_message=None
+        error_message=None,
     )
 
 
 # ------------------------------------------------------------------------------
 # Batch Processing (Minimal for Phase 1)
 # ------------------------------------------------------------------------------
+
 
 @dataclass(slots=True)
 class BatchProcessingStats:
@@ -377,6 +394,7 @@ class BatchProcessingStats:
 
     Minimal version focusing only on metrics needed for current implementation.
     """
+
     total_processed: int = 0  # Total texts processed
     successful_count: int = 0  # Successfully processed count
     failed_count: int = 0  # Failed processing count
@@ -408,20 +426,21 @@ class BatchProcessingStats:
                 "success_rate": 0.0,
                 "failure_rate": 0.0,
                 "cache_hit_rate": 0.0,
-                "avg_processing_time": 0.0
+                "avg_processing_time": 0.0,
             }
 
         return {
             "success_rate": self.successful_count / self.total_processed,
             "failure_rate": self.failed_count / self.total_processed,
             "cache_hit_rate": self.cache_hit_count / self.total_processed,
-            "avg_processing_time": self.total_latency / self.total_processed
+            "avg_processing_time": self.total_latency / self.total_processed,
         }
 
 
 # ------------------------------------------------------------------------------
 # Extension Hooks for Future Development
 # ------------------------------------------------------------------------------
+
 
 class PreprocessResultExtension:
     """
@@ -433,6 +452,7 @@ class PreprocessResultExtension:
         entities_detected: List[DetectedEntity] = field(default_factory=list)
         pii_analysis: Optional[PIIAnalysis] = None
     """
+
     pass
 
 
@@ -447,12 +467,14 @@ class PostprocessResultExtension:
         quality_score: float = 1.0
         anonymization_quality: float = 1.0
     """
+
     pass
 
 
 # ------------------------------------------------------------------------------
 # Validation Helpers
 # ------------------------------------------------------------------------------
+
 
 def validate_processing_result(result: ProcessingPipelineResult) -> List[str]:
     """
@@ -467,10 +489,18 @@ def validate_processing_result(result: ProcessingPipelineResult) -> List[str]:
         issues.append("Success=True but final_text is empty")
 
     # Check stage result consistency
-    if result.preprocess_result and not result.preprocess_result.success and result.success:
+    if (
+        result.preprocess_result
+        and not result.preprocess_result.success
+        and result.success
+    ):
         issues.append("Preprocessing failed but overall result marked successful")
 
-    if result.postprocess_result and not result.postprocess_result.success and result.success:
+    if (
+        result.postprocess_result
+        and not result.postprocess_result.success
+        and result.success
+    ):
         issues.append("Postprocessing failed but overall result marked successful")
 
     # Check timestamp consistency (more lenient for CI environments)
@@ -497,17 +527,22 @@ def ensure_enum_consistency():
     if actual_response_types != expected_response_types:
         missing = expected_response_types - actual_response_types
         extra = actual_response_types - expected_response_types
-        raise ValueError(
+        raise ValidationError(
             f"ResponseType enum mismatch. Missing: {missing}, Extra: {extra}"
         )
 
     # Alternative: Check that critical values exist (more useful)
-    required_core_values = {"valid", "service", "error", "empty", "invalid", "pii_detected"}
+    required_core_values = {
+        "valid",
+        "service",
+        "error",
+        "empty",
+        "invalid",
+        "pii_detected",
+    }
     if not required_core_values.issubset(actual_response_types):
         missing_core = required_core_values - actual_response_types
-        raise ValueError(
-            f"ResponseType missing critical values: {missing_core}"
-        )
+        raise ValidationError(f"ResponseType missing critical values: {missing_core}")
 
 
 # Run consistency check on import

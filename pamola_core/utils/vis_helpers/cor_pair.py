@@ -29,6 +29,7 @@ from pamola_core.utils.vis_helpers.base import (
     PlotlyFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.utils.vis_helpers.context import visualization_context
 from pamola_core.utils.vis_helpers.cor_utils import calculate_correlation
 from pamola_core.utils.vis_helpers.theme import (
@@ -254,7 +255,8 @@ class PlotlyCorrelationPair(PlotlyFigure):
             except Exception as e:
                 logger.error(f"Error creating correlation pair plot: {e}")
                 return self.create_empty_figure(
-                    title=title, message=f"Error creating correlation pair plot: {str(e)}"
+                    title=title,
+                    message=f"Error creating correlation pair plot: {str(e)}",
                 )
 
     def update(
@@ -388,10 +390,15 @@ class PlotlyCorrelationPair(PlotlyFigure):
                             if isinstance(correlation, (np.ndarray, list, tuple)):
                                 try:
                                     correlation = float(correlation[0])
-                                except (IndexError, TypeError, ValueError):
+                                except (
+                                    ValidationError,
+                                    IndexError,
+                                    TypeError,
+                                    ValueError,
+                                ):
                                     try:
                                         correlation = float(correlation)
-                                    except (TypeError, ValueError):
+                                    except (ValidationError, TypeError, ValueError):
                                         logger.warning(
                                             "Could not convert correlation to float"
                                         )

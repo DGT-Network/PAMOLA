@@ -11,10 +11,10 @@ from typing import Union, Dict, Any, Optional, List, Type
 import ijson
 
 from pamola_core.utils.io_helpers.provider_interface import CryptoProvider
-from pamola_core.utils.crypto_helpers.errors import ModeError, FormatError
+from pamola_core.errors.exceptions import ValidationError, ModeError, FormatError
 
 # Configure logger
-logger = logging.getLogger("pamola_core.utils.io_helpers.crypto_router")
+logger = logging.getLogger(__name__)
 
 # Provider registry
 PROVIDERS: Dict[str, Type[CryptoProvider]] = {}
@@ -93,9 +93,9 @@ def is_likely_json(file_path: Path, chunk_size: int = 2048) -> bool:
         True if the file likely starts with '{' or '[', indicating JSON. False otherwise.
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             chunk = f.read(chunk_size).lstrip()
-            return chunk.startswith(('{', '['))
+            return chunk.startswith(("{", "["))
     except Exception as e:
         logger.debug(f"Failed to read file for JSON check: {e}")
         return False
@@ -127,8 +127,8 @@ def try_detect_json_structure(file_path: Path) -> Optional[str]:
         return None
 
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            parser = ijson.kvitems(f, '')  # Parse top-level JSON key-value pairs
+        with open(file_path, "r", encoding="utf-8") as f:
+            parser = ijson.kvitems(f, "")  # Parse top-level JSON key-value pairs
             keys_found = set()
 
             for key, value in parser:
@@ -143,7 +143,13 @@ def try_detect_json_structure(file_path: Path) -> Optional[str]:
                     logger.info("Detected 'simple' mode from JSON structure")
                     return "simple"
 
-    except (ijson.JSONError, UnicodeDecodeError, ValueError, OSError) as e:
+    except (
+        ValidationError,
+        ijson.JSONError,
+        UnicodeDecodeError,
+        ValueError,
+        OSError,
+    ) as e:
         logger.debug(f"Failed JSON detection using ijson: {e}")
 
     return None
@@ -183,7 +189,7 @@ def detect_encryption_mode(file_path: Union[str, Path]) -> str:
     # Step 2: Try to detect binary 'age' encryption mode from file header
     logger.info(f"Attempting to detect 'age' mode in {file_path}")
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             header = f.read(len(AGE_HEADER) + 10)
         if header.startswith(AGE_HEADER):
             logger.info("Detected 'age' mode from binary header")
@@ -202,15 +208,19 @@ def detect_encryption_mode(file_path: Union[str, Path]) -> str:
             logger.debug(f"Provider {provider.mode} failed on can_decrypt: {e}")
 
     # Step 4: Fallback
-    logger.warning(f"Could not detect encryption mode for {file_path}, defaulting to 'none'")
+    logger.warning(
+        f"Could not detect encryption mode for {file_path}, defaulting to 'none'"
+    )
     return "none"
 
 
-def encrypt_file_router(source_path: Union[str, Path],
-                        destination_path: Union[str, Path],
-                        key: Optional[str] = None,
-                        mode: str = "simple",
-                        **kwargs) -> Path:
+def encrypt_file_router(
+    source_path: Union[str, Path],
+    destination_path: Union[str, Path],
+    key: Optional[str] = None,
+    mode: str = "simple",
+    **kwargs,
+) -> Path:
     """
     Encrypt a file using the specified mode.
 
@@ -238,11 +248,13 @@ def encrypt_file_router(source_path: Union[str, Path],
     return provider.encrypt_file(source_path, destination_path, key, **kwargs)
 
 
-def decrypt_file_router(source_path: Union[str, Path],
-                        destination_path: Union[str, Path],
-                        key: Optional[str] = None,
-                        mode: Optional[str] = None,
-                        **kwargs) -> Path:
+def decrypt_file_router(
+    source_path: Union[str, Path],
+    destination_path: Union[str, Path],
+    key: Optional[str] = None,
+    mode: Optional[str] = None,
+    **kwargs,
+) -> Path:
     """
     Decrypt a file, detecting the mode if not specified.
 
@@ -274,10 +286,9 @@ def decrypt_file_router(source_path: Union[str, Path],
     return provider.decrypt_file(source_path, destination_path, key, **kwargs)
 
 
-def encrypt_data_router(data: Union[str, bytes],
-                        key: Optional[str] = None,
-                        mode: str = "simple",
-                        **kwargs) -> Union[str, bytes, Dict[str, Any]]:
+def encrypt_data_router(
+    data: Union[str, bytes], key: Optional[str] = None, mode: str = "simple", **kwargs
+) -> Union[str, bytes, Dict[str, Any]]:
     """
     Encrypt data using the specified mode.
 
@@ -310,10 +321,12 @@ def encrypt_data_router(data: Union[str, bytes],
     return encrypted
 
 
-def decrypt_data_router(data: Union[str, bytes, Dict[str, Any]],
-                        key: Optional[str] = None,
-                        mode: Optional[str] = None,
-                        **kwargs) -> Union[str, bytes]:
+def decrypt_data_router(
+    data: Union[str, bytes, Dict[str, Any]],
+    key: Optional[str] = None,
+    mode: Optional[str] = None,
+    **kwargs,
+) -> Union[str, bytes]:
     """
     Decrypt data, detecting the mode if not specified.
 

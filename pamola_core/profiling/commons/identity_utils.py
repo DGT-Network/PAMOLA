@@ -16,6 +16,7 @@ from typing import Dict, List, Any, Optional
 import pandas as pd
 
 from pamola_core.utils.visualization import create_bar_plot, plot_value_distribution
+from pamola_core.errors.exceptions import InvalidParameterError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -48,7 +49,11 @@ def calculate_hash(values: List[Any], algorithm: str = "md5") -> str:
     elif algorithm.lower() == "sha256":
         return hashlib.sha256(values_str.encode()).hexdigest().upper()
     else:
-        raise ValueError(f"Unsupported hash algorithm: {algorithm}")
+        raise InvalidParameterError(
+            param_name="algorithm",
+            param_value=algorithm,
+            reason=f"Unsupported hash algorithm: {algorithm}",
+        )
 
 
 def compute_identifier_stats(

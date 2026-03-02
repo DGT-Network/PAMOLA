@@ -39,6 +39,12 @@ from sklearn.metrics import pairwise_distances
 
 from pamola_core.common.enum.distance_metric_type import DistanceMetricType
 from pamola_core.metrics.commons.preprocessing import prepare_data_for_distance_metrics
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    InvalidParameterError,
+    ValidationError,
+)
 
 try:
     import faiss
@@ -343,7 +349,7 @@ class DistanceToClosestRecord:
         """
         # Validate data dimensions
         if orig_data.shape[1] != trans_data.shape[1]:
-            raise ValueError(
+            raise ValidationError(
                 f"Feature dimension mismatch: original {orig_data.shape[1]}, "
                 f"transformed {trans_data.shape[1]}"
             )
@@ -354,7 +360,10 @@ class DistanceToClosestRecord:
 
         # If either is empty after removing NaNs, raise error
         if orig_data.shape[0] == 0 or trans_data.shape[0] == 0:
-            raise ValueError("No data left after removing rows with NaN values.")
+            raise DataError(
+                message="No data left after removing rows with NaN values.",
+                error_code=ErrorCode.DATA_EMPTY,
+            )
 
         # Calculate pairwise distances
         distances = pairwise_distances(
@@ -373,7 +382,11 @@ class DistanceToClosestRecord:
             # Use 10th percentile as more robust measure
             dcr_values = np.percentile(distances, 10, axis=1)
         else:
-            raise ValueError(f"Unknown aggregation method: {self.aggregation}")
+            raise InvalidParameterError(
+                param_name="aggregation",
+                param_value=self.aggregation,
+                reason=f"Unknown aggregation method: {self.aggregation}",
+            )
 
         return dcr_values
 

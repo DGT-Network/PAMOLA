@@ -98,6 +98,7 @@ spacy==3.8.9
 phonenumbers==9.0.10
 base58==2.1.1
 cryptography==46.0.3
+PyYAML==6.0.2
 ```
 
 </details>

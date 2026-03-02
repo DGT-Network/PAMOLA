@@ -14,6 +14,7 @@ from typing import Dict, Any, Tuple, Optional, Union
 
 import numpy as np
 import pandas as pd
+from pamola_core.utils.paths import get_project_root
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -133,17 +134,28 @@ def load_attribute_dictionary(
                 # Optionally, you might want to raise an error here if user-provided dict is critical
 
     # If no explicit path, search in standard project directories
+    project_root = get_project_root()
     possible_paths = [
-        # Current working directory
-        Path.cwd() / 'DATA' / 'external_dictionaries' / 'attribute_roles_dictionary.json',
-        Path.cwd() / 'data' / 'external_dictionaries' / 'attribute_roles_dictionary.json',
+        # Project root
+        project_root / "DATA" / "external_dictionaries" / "attribute_roles_dictionary.json",
+        project_root / "data" / "external_dictionaries" / "attribute_roles_dictionary.json",
 
         # Relative to script location
-        Path(__file__).parent.parent.parent / 'DATA' / 'external_dictionaries' / 'attribute_roles_dictionary.json',
-        Path(__file__).parent.parent.parent / 'data' / 'external_dictionaries' / 'attribute_roles_dictionary.json',
+        Path(__file__).parent.parent.parent
+        / "DATA"
+        / "external_dictionaries"
+        / "attribute_roles_dictionary.json",
+        Path(__file__).parent.parent.parent
+        / "data"
+        / "external_dictionaries"
+        / "attribute_roles_dictionary.json",
 
         # Other potential locations
-        Path.home() / 'PAMOLA_PROJECT' / 'DATA' / 'external_dictionaries' / 'attribute_roles_dictionary.json'
+        Path.home()
+        / "PAMOLA_PROJECT"
+        / "DATA"
+        / "external_dictionaries"
+        / "attribute_roles_dictionary.json",
     ]
 
     for path in possible_paths:

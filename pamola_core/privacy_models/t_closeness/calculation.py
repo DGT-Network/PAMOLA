@@ -30,9 +30,11 @@ from scipy.stats import wasserstein_distance
 import logging
 
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
+from pamola_core.errors.exceptions import ValidationError
 
-# Set up logging configuration
-logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+# Configure logger
+logger = logging.getLogger(__name__)
+
 
 class TCloseness(BasePrivacyModelProcessor):
     """Class to calculate t-Closeness"""
@@ -52,7 +54,9 @@ class TCloseness(BasePrivacyModelProcessor):
         self.sensitive_column = sensitive_column
         self.t = t
 
-    def evaluate_privacy(self, data: pd.DataFrame, quasi_identifiers: List[str], **kwargs) -> Dict[str, Any]:
+    def evaluate_privacy(
+        self, data: pd.DataFrame, quasi_identifiers: List[str], **kwargs
+    ) -> Dict[str, Any]:
         """
         Calculate t-Closeness.
 
@@ -67,31 +71,45 @@ class TCloseness(BasePrivacyModelProcessor):
             {'max_t_value': float, 'is_t_close': bool} - The t-Closeness value and validity status.
         """
         try:
-            if not all(col in data.columns for col in self.quasi_identifiers + [self.sensitive_column]):
-                raise ValueError("Quasi-identifiers or sensitive column do not exist in the data!")
+            if not all(
+                col in data.columns
+                for col in self.quasi_identifiers + [self.sensitive_column]
+            ):
+                raise ValidationError(
+                    "Quasi-identifiers or sensitive column do not exist in the data!"
+                )
 
-            global_distribution = data[self.sensitive_column].value_counts(normalize=True)
+            global_distribution = data[self.sensitive_column].value_counts(
+                normalize=True
+            )
             max_t_value = 0
 
             for _, group in data.groupby(self.quasi_identifiers):
-                group_distribution = group[self.sensitive_column].value_counts(normalize=True).reindex(
-                    global_distribution.index, fill_value=0
+                group_distribution = (
+                    group[self.sensitive_column]
+                    .value_counts(normalize=True)
+                    .reindex(global_distribution.index, fill_value=0)
                 )
-                emd_value = wasserstein_distance(global_distribution.values, group_distribution.values)
+                emd_value = wasserstein_distance(
+                    global_distribution.values, group_distribution.values
+                )
                 max_t_value = max(max_t_value, emd_value)
 
             return {
                 "max_t_value": float(max_t_value),
-                "is_t_close": max_t_value <= self.t
+                "is_t_close": max_t_value <= self.t,
             }
         except Exception as e:
-            logging.error(f"An error occurred during t-Closeness evaluation: {e}")
-            return {
-                "max_t_value": None,
-                "is_t_close": False
-            }
+            logger.error(f"An error occurred during t-Closeness evaluation: {e}")
+            return {"max_t_value": None, "is_t_close": False}
 
-    def apply_model(self, data: pd.DataFrame, quasi_identifiers: List[str], suppression: bool = True, **kwargs) -> pd.DataFrame:
+    def apply_model(
+        self,
+        data: pd.DataFrame,
+        quasi_identifiers: List[str],
+        suppression: bool = True,
+        **kwargs,
+    ) -> pd.DataFrame:
         """
         Apply the t-Closeness model to the dataset.
 

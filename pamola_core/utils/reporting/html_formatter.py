@@ -12,15 +12,20 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Union, Tuple
 
 from pamola_core.utils.reporting.config import (
-    get_reports_dir, get_reporting_settings, categorize_tasks
+    get_reports_dir,
+    get_reporting_settings,
+    categorize_tasks,
 )
 from pamola_core.utils.reporting.dependency_graph import (
-    enrich_tasks_with_dependencies, create_dependency_graph_data,
-    check_missing_dependencies
+    enrich_tasks_with_dependencies,
+    create_dependency_graph_data,
+    check_missing_dependencies,
 )
 from pamola_core.utils.reporting.template_engine import (
-    render_template, copy_static_resources, include_external_resources,
-    get_relative_artifact_path
+    render_template,
+    copy_static_resources,
+    include_external_resources,
+    get_relative_artifact_path,
 )
 
 # Настройка логирования

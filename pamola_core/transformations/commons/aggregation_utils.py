@@ -25,6 +25,7 @@ from pamola_core.common.helpers.custom_aggregations_helper import (
     CUSTOM_AGG_FUNCTIONS,
     STANDARD_AGGREGATIONS,
 )
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.utils.visualization import create_bar_plot, create_histogram
 
 logger = logging.getLogger(__name__)
@@ -531,7 +532,7 @@ def _get_aggregation_function(agg_name: str) -> Callable:
     elif agg_name in CUSTOM_AGG_FUNCTIONS:
         return CUSTOM_AGG_FUNCTIONS[agg_name]
     else:
-        raise ValueError(
+        raise ValidationError(
             f"Aggregation function '{agg_name}' not found in allowed registries"
         )
 
@@ -694,7 +695,7 @@ def eval_condition(row, expr):
         return False
 
     if not isinstance(result, bool):
-        raise ValueError(
+        raise ValidationError(
             f"Condition must evaluate to bool, got {type(result).__name__}: {result}"
         )
 

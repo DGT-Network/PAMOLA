@@ -12,11 +12,12 @@ import pickle
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 import pandas as pd
-from pamola_core.utils import io as pamola_io
-from pamola_core.utils import logging as pamola_logging
+import pamola_core.utils.io as pamola_io
+import pamola_core.utils.logging as pamola_logging
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 
 # Configure module logger
-logger = pamola_logging.get_logger("pamola_core.fake_data.mapping_store")
+logger = pamola_logging.getLogger(__name__)
 
 
 class MappingStore:
@@ -53,7 +54,7 @@ class MappingStore:
             "version": "1.0",
             "fields": {},
             "created_at": None,
-            "updated_at": None
+            "updated_at": None,
         }
 
     def _update_timestamps(self) -> None:
@@ -77,8 +78,13 @@ class MappingStore:
         # Replace the entire metadata dictionary
         self.metadata = updated_metadata
 
-    def add_mapping(self, field_name: str, original: Any, synthetic: Any,
-                    is_transitive: bool = False) -> None:
+    def add_mapping(
+        self,
+        field_name: str,
+        original: Any,
+        synthetic: Any,
+        is_transitive: bool = False,
+    ) -> None:
         """
         Adds a mapping between original and synthetic values.
 
@@ -100,7 +106,7 @@ class MappingStore:
             self.transitivity_markers[field_name] = {}
             self.metadata["fields"][field_name] = {
                 "count": 0,
-                "type": str(type(original).__name__)
+                "type": str(type(original).__name__),
             }
 
         # Add direct and reverse mappings
@@ -116,8 +122,13 @@ class MappingStore:
         # Update timestamp
         self._update_timestamps()
 
-    def update_mapping(self, field_name: str, original: Any, new_synthetic: Any,
-                       update_transitivity: bool = True) -> bool:
+    def update_mapping(
+        self,
+        field_name: str,
+        original: Any,
+        new_synthetic: Any,
+        update_transitivity: bool = True,
+    ) -> bool:
         """
         Updates an existing mapping with a new synthetic value.
 
@@ -144,7 +155,10 @@ class MappingStore:
         old_synthetic = self.mappings[field_name][original]
 
         # Remove old reverse mapping
-        if field_name in self.reverse_mappings and old_synthetic in self.reverse_mappings[field_name]:
+        if (
+            field_name in self.reverse_mappings
+            and old_synthetic in self.reverse_mappings[field_name]
+        ):
             del self.reverse_mappings[field_name][old_synthetic]
 
         # Update with new synthetic value
@@ -289,11 +303,17 @@ class MappingStore:
         del self.mappings[field_name][original]
 
         # Remove from reverse mappings
-        if field_name in self.reverse_mappings and synthetic in self.reverse_mappings[field_name]:
+        if (
+            field_name in self.reverse_mappings
+            and synthetic in self.reverse_mappings[field_name]
+        ):
             del self.reverse_mappings[field_name][synthetic]
 
         # Remove from transitivity markers
-        if field_name in self.transitivity_markers and original in self.transitivity_markers[field_name]:
+        if (
+            field_name in self.transitivity_markers
+            and original in self.transitivity_markers[field_name]
+        ):
             del self.transitivity_markers[field_name][original]
 
         # Update metadata
@@ -336,18 +356,15 @@ class MappingStore:
             Dictionary of field statistics
         """
         if field_name not in self.metadata["fields"]:
-            return {
-                "count": 0,
-                "type": None,
-                "transitive_count": 0
-            }
+            return {"count": 0, "type": None, "transitive_count": 0}
 
         stats = self.metadata["fields"][field_name].copy()
 
         # Count transitive mappings
         if field_name in self.transitivity_markers:
             stats["transitive_count"] = sum(
-                1 for is_transitive in self.transitivity_markers[field_name].values()
+                1
+                for is_transitive in self.transitivity_markers[field_name].values()
                 if is_transitive
             )
         else:
@@ -369,7 +386,7 @@ class MappingStore:
             "total_mappings": sum(len(mappings) for mappings in self.mappings.values()),
             "created_at": self.metadata["created_at"],
             "updated_at": self.metadata["updated_at"],
-            "fields": {}
+            "fields": {},
         }
 
         # Get stats for each field
@@ -423,22 +440,21 @@ class MappingStore:
         Dict[str, Any]
             Serializable representation of the mapping store
         """
-        serializable_data = {
-            "metadata": self.metadata,
-            "mappings": {}
-        }
+        serializable_data = {"metadata": self.metadata, "mappings": {}}
 
         # Convert each field's mappings to a list of pairs for JSON serialization
         for field_name, mappings in self.mappings.items():
             serializable_data["mappings"][field_name] = []
 
             for original, synthetic in mappings.items():
-                is_transitive = self.transitivity_markers.get(field_name, {}).get(original, False)
+                is_transitive = self.transitivity_markers.get(field_name, {}).get(
+                    original, False
+                )
 
                 mapping_item = {
                     "original": original,
                     "synthetic": synthetic,
-                    "is_transitive": is_transitive
+                    "is_transitive": is_transitive,
                 }
 
                 serializable_data["mappings"][field_name].append(mapping_item)
@@ -460,12 +476,10 @@ class MappingStore:
         self.transitivity_markers = {}
 
         # Load metadata
-        self.metadata = data.get("metadata", {
-            "version": "1.0",
-            "fields": {},
-            "created_at": None,
-            "updated_at": None
-        })
+        self.metadata = data.get(
+            "metadata",
+            {"version": "1.0", "fields": {}, "created_at": None, "updated_at": None},
+        )
 
         # Load mappings
         for field_name, mapping_items in data.get("mappings", {}).items():
@@ -475,7 +489,7 @@ class MappingStore:
                 self.transitivity_markers[field_name] = {}
                 self.metadata["fields"][field_name] = {
                     "count": 0,
-                    "type": "str"  # Default to string type
+                    "type": "str",  # Default to string type
                 }
 
             for item in mapping_items:
@@ -490,10 +504,14 @@ class MappingStore:
 
                 # Update type information if available
                 if isinstance(original, (int, float, bool, str)):
-                    self.metadata["fields"][field_name]["type"] = type(original).__name__
+                    self.metadata["fields"][field_name]["type"] = type(
+                        original
+                    ).__name__
 
             # Update count
-            self.metadata["fields"][field_name]["count"] = len(self.mappings[field_name])
+            self.metadata["fields"][field_name]["count"] = len(
+                self.mappings[field_name]
+            )
 
     def save_json(self, path: Union[str, Path], io_module=None) -> None:
         """
@@ -541,12 +559,17 @@ class MappingStore:
         # Process the loaded data
         self._process_loaded_data(data)
 
-        logger.info(f"Loaded mapping store with {sum(len(m) for m in self.mappings.values())} total mappings")
+        logger.info(
+            f"Loaded mapping store with {sum(len(m) for m in self.mappings.values())} total mappings"
+        )
 
-    def update_from_json(self, path: Union[str, Path],
-                         overwrite_existing: bool = True,
-                         fields_to_update: Optional[List[str]] = None,
-                         io_module=None) -> Dict[str, int]:
+    def update_from_json(
+        self,
+        path: Union[str, Path],
+        overwrite_existing: bool = True,
+        fields_to_update: Optional[List[str]] = None,
+        io_module=None,
+    ) -> Dict[str, int]:
         """
         Incrementally updates mappings from a JSON file.
 
@@ -588,10 +611,7 @@ class MappingStore:
                 self.mappings[field_name] = {}
                 self.reverse_mappings[field_name] = {}
                 self.transitivity_markers[field_name] = {}
-                self.metadata["fields"][field_name] = {
-                    "count": 0,
-                    "type": None
-                }
+                self.metadata["fields"][field_name] = {"count": 0, "type": None}
 
             added_count = 0
 
@@ -610,7 +630,9 @@ class MappingStore:
 
             update_stats[field_name] = added_count
 
-        logger.info(f"Updated mapping store with {sum(update_stats.values())} new mappings")
+        logger.info(
+            f"Updated mapping store with {sum(update_stats.values())} new mappings"
+        )
         return update_stats
 
     def save_pickle(self, path: Union[str, Path]) -> None:
@@ -633,12 +655,12 @@ class MappingStore:
             "mappings": self.mappings,
             "reverse_mappings": self.reverse_mappings,
             "transitivity_markers": self.transitivity_markers,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
         # Write to file
-        with open(path, 'wb') as f:
-            pickle.dump(data_to_pickle, f) # type: ignore
+        with open(path, "wb") as f:
+            pickle.dump(data_to_pickle, f)  # type: ignore
 
         logger.info(f"Saved mapping store to pickle: {path}")
 
@@ -653,7 +675,7 @@ class MappingStore:
         """
         logger.info(f"Loading mapping store from pickle: {path}")
 
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             data = pickle.load(f)
 
         self.mappings = data["mappings"]
@@ -661,7 +683,9 @@ class MappingStore:
         self.transitivity_markers = data["transitivity_markers"]
         self.metadata = data["metadata"]
 
-        logger.info(f"Loaded mapping store with {sum(len(m) for m in self.mappings.values())} total mappings")
+        logger.info(
+            f"Loaded mapping store with {sum(len(m) for m in self.mappings.values())} total mappings"
+        )
 
     def to_dataframe(self, field_name: str) -> pd.DataFrame:
         """
@@ -683,21 +707,29 @@ class MappingStore:
         data = []
 
         for original, synthetic in self.mappings[field_name].items():
-            is_transitive = self.transitivity_markers.get(field_name, {}).get(original, False)
+            is_transitive = self.transitivity_markers.get(field_name, {}).get(
+                original, False
+            )
 
-            data.append({
-                "original": original,
-                "synthetic": synthetic,
-                "is_transitive": is_transitive
-            })
+            data.append(
+                {
+                    "original": original,
+                    "synthetic": synthetic,
+                    "is_transitive": is_transitive,
+                }
+            )
 
         return pd.DataFrame(data)
 
-    def from_dataframe(self, df: pd.DataFrame, field_name: str,
-                       original_col: str = "original",
-                       synthetic_col: str = "synthetic",
-                       transitive_col: str = "is_transitive",
-                       overwrite_existing: bool = True) -> int:
+    def from_dataframe(
+        self,
+        df: pd.DataFrame,
+        field_name: str,
+        original_col: str = "original",
+        synthetic_col: str = "synthetic",
+        transitive_col: str = "is_transitive",
+        overwrite_existing: bool = True,
+    ) -> int:
         """
         Loads mappings for a field from a DataFrame.
 
@@ -735,7 +767,11 @@ class MappingStore:
             is_transitive = row.get(transitive_col, False)
 
             # Skip if exists and not overwriting
-            if not overwrite_existing and field_name in self.mappings and original in self.mappings[field_name]:
+            if (
+                not overwrite_existing
+                and field_name in self.mappings
+                and original in self.mappings[field_name]
+            ):
                 continue
 
             self.add_mapping(field_name, original, synthetic, is_transitive)
@@ -757,14 +793,16 @@ class MappingStore:
 
         for field_name in self.mappings:
             for original, synthetic in self.mappings[field_name].items():
-                is_transitive = self.transitivity_markers.get(field_name, {}).get(original, False)
+                is_transitive = self.transitivity_markers.get(field_name, {}).get(
+                    original, False
+                )
 
                 record = {
                     "field_name": field_name,
                     "original": str(original),
                     "synthetic": str(synthetic),
                     "is_transitive": is_transitive,
-                    "original_type": str(type(original).__name__)
+                    "original_type": str(type(original).__name__),
                 }
                 all_records.append(record)
 
@@ -775,9 +813,12 @@ class MappingStore:
 
         logger.info(f"Saved mapping store to CSV: {path} ({len(all_records)} mappings)")
 
-    def load_csv(self, path: Union[str, Path],
-                 overwrite_existing: bool = True,
-                 fields_to_load: Optional[List[str]] = None) -> Dict[str, int]:
+    def load_csv(
+        self,
+        path: Union[str, Path],
+        overwrite_existing: bool = True,
+        fields_to_load: Optional[List[str]] = None,
+    ) -> Dict[str, int]:
         """
         Loads mappings from a CSV file.
 
@@ -831,12 +872,16 @@ class MappingStore:
                     original = original_str.lower() == "true"
                 else:
                     original = original_str
-            except (ValueError, TypeError):
+            except (ValidationError, ValueError, TypeError):
                 # Fallback to string if conversion fails
                 original = original_str
 
             # Skip if exists and not overwriting
-            if not overwrite_existing and field_name in self.mappings and original in self.mappings[field_name]:
+            if (
+                not overwrite_existing
+                and field_name in self.mappings
+                and original in self.mappings[field_name]
+            ):
                 continue
 
             # Add the mapping
@@ -869,11 +914,19 @@ class MappingStore:
         elif format.lower() == "csv":
             self.save_csv(path)
         else:
-            raise ValueError(f"Unsupported format: {format}")
+            raise InvalidParameterError(
+                param_name="format",
+                param_value=format,
+                reason=f"Unsupported format: {format}",
+            )
 
-    def load(self, path: Union[str, Path], format: str = None,
-             overwrite_existing: bool = True,
-             fields_to_load: Optional[List[str]] = None) -> Dict[str, int]:
+    def load(
+        self,
+        path: Union[str, Path],
+        format: str = None,
+        overwrite_existing: bool = True,
+        fields_to_load: Optional[List[str]] = None,
+    ) -> Dict[str, int]:
         """
         Loads the mapping store from a file.
 
@@ -906,7 +959,9 @@ class MappingStore:
             elif path.suffix.lower() == ".csv":
                 format = "csv"
             else:
-                raise ValueError(f"Could not infer format from file extension: {path}")
+                raise ValidationError(
+                    f"Could not infer format from file extension: {path}"
+                )
 
         # If not overwriting, we need to use incremental methods
         if not overwrite_existing and format.lower() == "json":
@@ -924,11 +979,18 @@ class MappingStore:
         elif format.lower() == "csv":
             return self.load_csv(path, True, fields_to_load)
         else:
-            raise ValueError(f"Unsupported format: {format}")
+            raise InvalidParameterError(
+                param_name="format",
+                param_value=format,
+                reason=f"Unsupported format: {format}",
+            )
 
-    def merge_with_store(self, other_store: 'MappingStore',
-                         overwrite_existing: bool = True,
-                         fields_to_merge: Optional[List[str]] = None) -> Dict[str, int]:
+    def merge_with_store(
+        self,
+        other_store: "MappingStore",
+        overwrite_existing: bool = True,
+        fields_to_merge: Optional[List[str]] = None,
+    ) -> Dict[str, int]:
         """
         Merges another MappingStore into this one.
 
@@ -965,7 +1027,9 @@ class MappingStore:
                 self.transitivity_markers[field_name] = {}
                 self.metadata["fields"][field_name] = {
                     "count": 0,
-                    "type": other_store.metadata.get("fields", {}).get(field_name, {}).get("type")
+                    "type": other_store.metadata.get("fields", {})
+                    .get(field_name, {})
+                    .get("type"),
                 }
 
             added_count = 0
@@ -976,7 +1040,9 @@ class MappingStore:
                     continue
 
                 # Get transitivity from other store
-                is_transitive = other_store.transitivity_markers.get(field_name, {}).get(original, False)
+                is_transitive = other_store.transitivity_markers.get(
+                    field_name, {}
+                ).get(original, False)
 
                 # Add the mapping
                 self.add_mapping(field_name, original, synthetic, is_transitive)
@@ -984,5 +1050,7 @@ class MappingStore:
 
             merge_stats[field_name] = added_count
 
-        logger.info(f"Merged mapping stores: added {sum(merge_stats.values())} mappings")
+        logger.info(
+            f"Merged mapping stores: added {sum(merge_stats.values())} mappings"
+        )
         return merge_stats

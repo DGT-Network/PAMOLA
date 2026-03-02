@@ -39,12 +39,17 @@ from typing import List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from .base import BaseValidator, ValidationResult
-from .exceptions import (
+from pamola_core.anonymization.commons.validation.base import (
+    BaseValidator,
+    ValidationResult,
+)
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
     FieldTypeError,
     FieldValueError,
-    RangeValidationError,
     InvalidDataFormatError,
+    InvalidParameterError,
+    RangeValidationError,
 )
 
 
@@ -565,11 +570,7 @@ class FieldExistsValidator(BaseValidator):
         """
         result = ValidationResult(is_valid=True, field_name=field_name)
         if field_name not in df.columns:
-            raise FieldTypeError(
-                field_name=field_name,
-                expected_type="existing column",
-                actual_type="missing",
-            )
+            raise FieldNotFoundError(field_name, list(df.columns))
         return result
 
 
@@ -669,22 +670,11 @@ def create_field_validator(field_type: str, **kwargs) -> BaseValidator:
     }
 
     if field_type not in validators:
-        raise ValueError(
-            f"Unknown field type: {field_type}. "
-            f"Valid types: {list(validators.keys())}"
+        raise InvalidParameterError(
+            param_name="field",
+            param_value=field_type,
+            reason=f"Unknown field type: {field_type}. "
+            f"Valid types: {list(validators.keys())}",
         )
 
     return validators[field_type](**kwargs)
-
-
-# Module exports
-__all__ = [
-    "NumericFieldValidator",
-    "CategoricalFieldValidator",
-    "DateTimeFieldValidator",
-    "BooleanFieldValidator",
-    "TextFieldValidator",
-    "FieldExistsValidator",
-    "PatternValidator",
-    "create_field_validator",
-]

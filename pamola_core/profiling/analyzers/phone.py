@@ -37,6 +37,8 @@ from pamola_core.utils.helpers import (
     filter_used_kwargs,
     get_cache_result,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.commons.phone_utils import (
     analyze_phone_field,
     analyze_phone_field_with_chunk,
@@ -60,7 +62,7 @@ from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -401,40 +403,49 @@ class PhoneOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
             global logger
             if kwargs.get("logger"):
                 logger = kwargs.get("logger")
+            logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
 
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
 
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            # Save configuration
-            self.save_config(task_dir)
-
-            # Initialize timing and result
-            self.start_time = time.time()
-            result = OperationResult(status=OperationStatus.SUCCESS)
-
-            logger.info(
-                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
-                f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
-            )
-
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+            output_dir = dirs["output"]
+            visualizations_dir = dirs["visualizations"]
+            dictionaries_dir = dirs["dictionaries"]
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
                 cache_dir=dirs["cache"],
             )
 
-            output_dir = dirs["output"]
-            visualizations_dir = dirs["visualizations"]
-            dictionaries_dir = dirs["dictionaries"]
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=logger,
+                operation_name=self.operation_name,
+            )
+
+            # Save configuration
+            self.save_config(task_dir)
+
+            logger.info(
+                f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, "
+                f"strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
+            )
 
             # Update progress if tracker provided
             if progress_tracker:
@@ -443,7 +454,6 @@ class PhoneOperation(FieldOperation):
                 )
 
             # Get DataFrame from data source
-            dataset_name = kwargs.get("dataset_name", "main")
             try:
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
@@ -452,19 +462,23 @@ class PhoneOperation(FieldOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Data loading error: {str(e)}"
-                logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Check if field exists
             if self.field_name not in df.columns:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Field {self.field_name} not found in DataFrame",
+                return self.error_handler.handle_error(
+                    error=ValueError(f"Field {self.field_name} not found in DataFrame"),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Add operation to reporter
@@ -479,16 +493,8 @@ class PhoneOperation(FieldOperation):
 
             # Check for cached results if caching is enabled
             if self.use_cache and not self.force_recalculation:
-                try:
-                    cached_result = self._check_cache(df)
-                except Exception as e:
-                    error_message = f"Check cache error: {str(e)}"
-                    logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                logger.info("Checking operation cache...")
+                cached_result = self._check_cache(df)
 
                 if cached_result:
                     logger.info(f"Using cached results for {self.field_name}")
@@ -525,19 +531,28 @@ class PhoneOperation(FieldOperation):
                     **safe_kwargs,
                 )
             except Exception as e:
-                error_message = f"Attribute analysis error: {str(e)}"
-                logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Check for errors
             if "error" in analysis_results:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=analysis_results["error"],
+                return self.error_handler.handle_error(
+                    error=RuntimeError(analysis_results["error"]),
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": analysis_results["error"],
+                    },
                 )
 
             artifacts = []
@@ -922,25 +937,25 @@ class PhoneOperation(FieldOperation):
                 instance=self,
             )
 
-            return result
-        except Exception as e:
-            logger.exception(f"Error in phone operation for {self.field_name}: {e}")
-
-            # Update progress tracker on error
-            if progress_tracker:
-                progress_tracker.update(0, {"step": "Error", "error": str(e)})
-
-            # Add error to reporter
-            reporter.add_operation(
-                f"Error analyzing {self.field_name}",
-                status="error",
-                details={"error": str(e)},
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
             )
+            return result
 
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error analyzing phone field {self.field_name}: {str(e)}",
-                exception=e,
+        except Exception as e:
+            logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _check_cache(self, df: pd.DataFrame) -> Optional[OperationResult]:
@@ -965,13 +980,13 @@ class PhoneOperation(FieldOperation):
             cache_key = self._generate_cache_key(df)
 
             # Check for cached result
-            self.logger.debug(f"Checking cache for key: {cache_key}")
+            logger.debug(f"Checking cache for key: {cache_key}")
             cached_result = self.operation_cache.get_cache(
                 cache_key=cache_key, operation_type=self.operation_name
             )
 
             if not cached_result:
-                self.logger.info("No cached result found, proceeding with operation")
+                logger.info("No cached result found, proceeding with operation")
                 return None
 
             result = get_cache_result(cached_result)

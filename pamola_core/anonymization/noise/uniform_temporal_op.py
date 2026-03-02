@@ -70,10 +70,10 @@ from pamola_core.anonymization.commons.statistical_utils import (
 )
 
 # Import validation utilities
-from pamola_core.anonymization.commons.validation import (
-    InvalidParameterError,
+from pamola_core.anonymization.commons.validation.field_validators import (
     DateTimeFieldValidator,
 )
+from pamola_core.errors.exceptions import ValidationError, InvalidParameterError
 from pamola_core.anonymization.schemas.uniform_temporal_op_core_schema import (
     UniformTemporalNoiseConfig,
 )
@@ -539,7 +539,7 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
                 datetime_series = DataHelper.convert_to_datetime(batch[field_name])
                 result[field_name] = datetime_series
             except Exception as e:
-                raise ValueError(
+                raise ValidationError(
                     f"Field '{field_name}' cannot be converted to datetime: {e}"
                 )
         else:
@@ -548,7 +548,9 @@ class UniformTemporalNoiseOperation(AnonymizationOperation):
         # Validate the datetime series
         validation_result = validator.validate(datetime_series, field_name=field_name)
         if not validation_result.is_valid:
-            raise ValueError(f"Datetime validation failed: {validation_result.errors}")
+            raise ValidationError(
+                f"Datetime validation failed: {validation_result.errors}"
+            )
 
         # Handle nulls
         non_null_mask = datetime_series.notna()

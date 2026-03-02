@@ -20,8 +20,9 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List
 
+from pamola_core.utils.paths import get_project_root
 # Configure module logger
-logger = logging.getLogger("pamola_core.configs")
+logger = logging.getLogger(__name__)
 
 # Default configuration
 DEFAULT_CONFIG = {
@@ -66,7 +67,7 @@ def get_config_file_paths() -> List[Path]:
 
     # 2. From project directory
     try:
-        project_dir = Path(__file__).resolve().parent.parent.parent
+        project_dir = get_project_root()
         paths.append(project_dir / "configs" / "prj_config.json")
     except:
         pass
@@ -78,8 +79,8 @@ def get_config_file_paths() -> List[Path]:
     except:
         pass
 
-    # 4. From current directory
-    paths.append(Path.cwd() / "prj_config.json")
+    # 4. From project root (fallback)
+    paths.append(get_project_root() / "prj_config.json")
 
     return paths
 
@@ -140,17 +141,26 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> Dict[str, Any
         else:
             # Try to detect based on current file location
             try:
-                module_dir = Path(__file__).resolve().parent.parent.parent
-                potential_data_dir = module_dir / "data"
-                if potential_data_dir.exists() and potential_data_dir.is_dir():
-                    config["data_repository"] = str(potential_data_dir)  # type: ignore
-                    logger.info(f"Auto-detected data repository: {config['data_repository']}")  # type: ignore
+                project_root = get_project_root()
+                candidates = [project_root / "data", project_root / "DATA"]
+                for candidate in candidates:
+                    if candidate.exists() and candidate.is_dir():
+                        config["data_repository"] = str(candidate)  # type: ignore
+                        logger.info(
+                            f"Auto-detected data repository: {config['data_repository']}"  # type: ignore
+                        )
+                        break
                 else:
-                    logger.warning(f"Could not auto-detect data repository. Using current directory.")
-                    config["data_repository"] = str(Path.cwd())  # type: ignore
+                    logger.warning(
+                        "Could not auto-detect data repository. Using project root."
+                    )
+                    config["data_repository"] = str(project_root)  # type: ignore
             except Exception as e:
-                logger.warning(f"Error detecting data repository: {e}. Using current directory.")
-                config["data_repository"] = str(Path.cwd())  # type: ignore
+                project_root = get_project_root()
+                logger.warning(
+                    f"Error detecting data repository: {e}. Using project root."
+                )
+                config["data_repository"] = str(project_root)  # type: ignore
 
     # Set log level from config
     if "logging" in config and "level" in config["logging"]:
@@ -294,14 +304,16 @@ def save_config(config_path: Optional[Union[str, Path]] = None) -> Path:
     if config_path is None:
         # Use the first path from standard locations if none specified
         try:
-            project_dir = Path(__file__).resolve().parent.parent.parent
+            project_dir = get_project_root()
             configs_dir = project_dir / "configs"
             if not configs_dir.exists():
                 configs_dir.mkdir(parents=True, exist_ok=True)
             config_path = configs_dir / "prj_config.json"
         except Exception as e:
-            logger.warning(f"Failed to determine config path: {e}. Using current directory.")
-            config_path = Path.cwd() / "prj_config.json"
+            logger.warning(
+                f"Failed to determine config path: {e}. Using project root."
+            )
+            config_path = get_project_root() / "prj_config.json"
 
     config_path = Path(config_path)
 
@@ -316,6 +328,4 @@ def save_config(config_path: Optional[Union[str, Path]] = None) -> Path:
     return config_path
 
 
-# Initialize configuration when module is imported
-if __name__ != "__main__":
-    load_config()
+# Avoid loading configuration at import time to prevent side effects.

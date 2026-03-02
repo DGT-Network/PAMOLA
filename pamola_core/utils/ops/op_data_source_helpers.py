@@ -26,8 +26,7 @@ from typing import Dict, Any, List, Optional, Tuple, Generator, Callable
 import pandas as pd
 import psutil
 
-from pamola_core.utils import logging as custom_logging
-from pamola_core.utils.io import optimize_dataframe_memory
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.progress import track_operation_safely
 
 
@@ -49,7 +48,7 @@ def get_system_memory() -> Dict[str, float]:
             "percent": memory.percent
         }
     except Exception as e:
-        logger = custom_logging.get_logger("memory_helpers")
+        logger = pamola_logging.getLogger("memory_helpers")
         logger.warning(f"Could not get system memory info: {e}")
         return {
             "total_gb": 0,
@@ -76,7 +75,7 @@ def get_process_memory_usage() -> Dict[str, float]:
             "vms_mb": memory_info.vms / (1024 * 1024),  # Virtual Memory Size in MB
         }
     except Exception as e:
-        logger = custom_logging.get_logger("memory_helpers")
+        logger = pamola_logging.getLogger("memory_helpers")
         logger.warning(f"Could not get process memory usage: {e}")
         return {
             "rss_mb": 0,
@@ -108,7 +107,7 @@ def validate_schema(
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("schema_helpers")
+        logger = pamola_logging.getLogger("schema_helpers")
 
     errors = []
 
@@ -283,7 +282,7 @@ def generate_dataframe_chunks(
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("chunk_helpers")
+        logger = pamola_logging.getLogger("chunk_helpers")
 
     # Select specific columns if requested
     if columns is not None:
@@ -364,7 +363,7 @@ def optimize_memory_usage(
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("memory_helpers")
+        logger = pamola_logging.getLogger("memory_helpers")
 
     # Initialize result dictionary
     result = {
@@ -417,6 +416,8 @@ def optimize_memory_usage(
     # Optimize memory usage
     logger.info(f"Memory usage ({memory_percent:.1f}%) exceeds threshold ({threshold_percent:.1f}%), optimizing")
     optimization_results = {}
+    # import optimize_dataframe_memory
+    from pamola_core.utils.io import optimize_dataframe_memory
 
     # First pass: Optimize all DataFrames in place using io.py
     for name, df in list(dataframes.items()):
@@ -500,7 +501,7 @@ def analyze_dataframe(
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("dataframe_helpers")
+        logger = pamola_logging.getLogger("dataframe_helpers")
 
     # Initialize result
     result = {
@@ -638,7 +639,7 @@ def create_sample_dataframe(
     """
     # Initialize logger if not provided
     if logger is None:
-        logger = custom_logging.get_logger("dataframe_helpers")
+        logger = pamola_logging.getLogger("dataframe_helpers")
 
     if len(df) <= sample_size:
         logger.debug(

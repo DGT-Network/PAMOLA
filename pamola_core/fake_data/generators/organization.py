@@ -11,9 +11,9 @@ import re
 from typing import Dict, Any, List, Optional
 import pandas as pd
 
-from pamola_core.fake_data.commons import dict_helpers
+import pamola_core.fake_data.commons.dict_helpers as dict_helpers
 from pamola_core.fake_data.commons.prgn import PRNGenerator
-from pamola_core.fake_data.dictionaries import organizations
+import pamola_core.fake_data.dictionaries.organizations as organizations
 from pamola_core.fake_data.generators.base_generator import BaseGenerator
 
 

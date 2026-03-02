@@ -18,18 +18,12 @@ from pamola_core.utils.nlp.base import normalize_language_code
 from pamola_core.utils.nlp.cache import get_cache
 from pamola_core.utils.nlp.category_matching import CategoryDictionary
 from pamola_core.utils.nlp.language import detect_language
-from pamola_core.utils.nlp.model_manager import NLPModelManager
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
-# Get cache instances
-file_cache = get_cache('file')
-memory_cache = get_cache('memory')
-model_cache = get_cache('model')
-
-# NLP model manager instance
-nlp_model_manager = NLPModelManager()
+def _get_file_cache():
+    return get_cache("file")
 
 
 def get_dictionaries_path() -> Path:
@@ -297,7 +291,7 @@ class BaseEntityExtractor(ABC):
             cache_key = f"entity_dict:{dictionary_path}"
 
             if self.use_cache:
-                dict_obj = file_cache.get(cache_key)
+                dict_obj = _get_file_cache().get(cache_key)
                 if dict_obj is not None:
                     self.category_dictionary = dict_obj.dictionary
                     self.hierarchy = dict_obj.hierarchy
@@ -312,7 +306,7 @@ class BaseEntityExtractor(ABC):
 
             # Store in cache
             if self.use_cache:
-                file_cache.set(cache_key, dict_obj, file_path=dictionary_path)
+                _get_file_cache().set(cache_key, dict_obj, file_path=dictionary_path)
 
             logger.info(f"Loaded entity dictionary from {dictionary_path}")
             return True

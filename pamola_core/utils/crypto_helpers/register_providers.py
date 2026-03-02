@@ -7,7 +7,15 @@ It is kept separate to avoid circular imports.
 
 import os
 from pamola_core.utils.io_helpers.crypto_router import register_provider
-from pamola_core.utils.crypto_helpers.providers import AVAILABLE_PROVIDERS
+from pamola_core.utils.crypto_helpers.providers.age_provider import AgeProvider
+from pamola_core.utils.crypto_helpers.providers.none_provider import NoneProvider
+from pamola_core.utils.crypto_helpers.providers.simple_provider import SimpleProvider
+
+AVAILABLE_PROVIDERS = [
+    NoneProvider,
+    SimpleProvider,
+    AgeProvider,
+]
 
 # Lazy registration of providers to avoid initialization issues
 PROVIDER_CLASSES = []

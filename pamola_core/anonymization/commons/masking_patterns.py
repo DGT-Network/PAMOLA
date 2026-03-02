@@ -39,9 +39,9 @@ import string
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 
-logger = logging.getLogger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 @dataclass

@@ -30,6 +30,7 @@ from pamola_core.utils.vis_helpers.base import (
     PlotlyFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 from pamola_core.utils.vis_helpers.context import visualization_context
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
@@ -72,7 +73,9 @@ def prepare_data_for_combined_chart(
             )
             return data.iloc[:, 0]
     else:
-        raise TypeError(f"Unsupported data type for combined chart: {type(data)}")
+        raise TypeValidationError(
+            f"Unsupported data type for combined chart: {type(data)}"
+        )
 
 
 class PlotlyCombinedChart(PlotlyFigure):

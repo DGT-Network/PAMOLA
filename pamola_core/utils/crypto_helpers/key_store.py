@@ -15,19 +15,24 @@ from pathlib import Path
 from typing import Optional, Dict, Any, Union, List
 
 from pamola_core.utils.crypto_helpers.audit import log_key_access
-from pamola_core.utils.crypto_helpers.errors import KeyStoreError, MasterKeyError, TaskKeyError
+from pamola_core.errors.exceptions import KeyStoreError, MasterKeyError, TaskKeyError
 from pamola_core.utils.crypto_helpers.providers.simple_provider import SimpleProvider
-from dotenv import load_dotenv
-load_dotenv()
+from pamola_core.utils.env import load_dotenv_once
 
 # Configure logger
-logger = logging.getLogger("pamola_core.utils.crypto_helpers.key_store")
+logger = logging.getLogger(__name__)
 
 # Constants
-DEFAULT_KEYS_DB_PATH = os.environ.get("KEY_STORE_PATH", "pamola_datasets/configs/keys.db")
-DEFAULT_MASTER_KEY_PATH = os.environ.get("MASTER_KEY_PATH", "pamola_datasets/configs/master.key")
+DEFAULT_KEYS_DB_PATH = "pamola_datasets/configs/keys.db"
+DEFAULT_MASTER_KEY_PATH = "pamola_datasets/configs/master.key"
 MASTER_KEY_LENGTH = 32  # 256 bits
-DEFAULT_CONFIGS_PATH = os.environ.get("CONFIGS_PATH", "pamola_datasets/configs/")
+DEFAULT_CONFIGS_PATH = "pamola_datasets/configs/"
+
+
+def _get_env_path(var_name: str, default_value: str) -> str:
+    load_dotenv_once()
+    return os.environ.get(var_name, default_value)
+
 
 class EncryptedKeyStore:
     """
@@ -37,9 +42,11 @@ class EncryptedKeyStore:
     storing them in an encrypted database using a master key.
     """
 
-    def __init__(self,
-                 keys_db_path: Optional[Union[str, Path]] = None,
-                 master_key_path: Optional[Union[str, Path]] = None):
+    def __init__(
+        self,
+        keys_db_path: Optional[Union[str, Path]] = None,
+        master_key_path: Optional[Union[str, Path]] = None,
+    ):
         """
         Initialize the key store.
 
@@ -50,8 +57,13 @@ class EncryptedKeyStore:
         master_key_path : str or Path, optional
             Path to the master key file
         """
-        self.keys_db_path = Path(keys_db_path or DEFAULT_KEYS_DB_PATH)
-        self.master_key_path = Path(master_key_path or DEFAULT_MASTER_KEY_PATH)
+        self.keys_db_path = Path(
+            keys_db_path or _get_env_path("KEY_STORE_PATH", DEFAULT_KEYS_DB_PATH)
+        )
+        self.master_key_path = Path(
+            master_key_path
+            or _get_env_path("MASTER_KEY_PATH", DEFAULT_MASTER_KEY_PATH)
+        )
         self.provider = SimpleProvider()
 
         # Ensure the keys database directory exists
@@ -67,23 +79,16 @@ class EncryptedKeyStore:
 
         Creates an empty, encrypted keys database file.
         """
-        keys_db = {
-            "version": "1.0",
-            "created": datetime.now().isoformat(),
-            "keys": {}
-        }
+        keys_db = {"version": "1.0", "created": datetime.now().isoformat(), "keys": {}}
 
         # Get master key
         master_key = self._get_master_key()
 
         # Encrypt and save the database
-        encrypted = self.provider.encrypt_data(
-            data=json.dumps(keys_db),
-            key=master_key
-        )
+        encrypted = self.provider.encrypt_data(data=json.dumps(keys_db), key=master_key)
 
-        with open(self.keys_db_path, 'w', encoding='utf-8') as f:
-            json.dump(encrypted, f) # type: ignore
+        with open(self.keys_db_path, "w", encoding="utf-8") as f:
+            json.dump(encrypted, f)  # type: ignore
 
         # Set secure permissions
         os.chmod(self.keys_db_path, stat.S_IRUSR | stat.S_IWUSR)
@@ -112,7 +117,7 @@ class EncryptedKeyStore:
                 return self._generate_master_key()
 
             # Read the master key
-            with open(self.master_key_path, 'r', encoding='utf-8') as f:
+            with open(self.master_key_path, "r", encoding="utf-8") as f:
                 master_key = f.read().strip()
 
             # Check if the key is a valid base64-encoded string
@@ -154,14 +159,15 @@ class EncryptedKeyStore:
         try:
             # Generate a random key
             import os
+
             key_bytes = os.urandom(MASTER_KEY_LENGTH)
-            master_key = base64.b64encode(key_bytes).decode('utf-8')
+            master_key = base64.b64encode(key_bytes).decode("utf-8")
 
             # Ensure the directory exists
             self.master_key_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Save the key to file
-            with open(self.master_key_path, 'w', encoding='utf-8') as f:
+            with open(self.master_key_path, "w", encoding="utf-8") as f:
                 f.write(master_key)
 
             # Set secure permissions
@@ -204,14 +210,14 @@ class EncryptedKeyStore:
             master_key = self._get_master_key()
 
             # Read and decrypt the database
-            with open(self.keys_db_path, 'r', encoding='utf-8') as f:
+            with open(self.keys_db_path, "r", encoding="utf-8") as f:
                 encrypted = json.load(f)
 
             decrypted = self.provider.decrypt_data(encrypted, master_key)
 
             # Parse the JSON database
             if isinstance(decrypted, bytes):
-                db = json.loads(decrypted.decode('utf-8'))
+                db = json.loads(decrypted.decode("utf-8"))
             else:
                 db = json.loads(decrypted)
 
@@ -239,14 +245,11 @@ class EncryptedKeyStore:
             master_key = self._get_master_key()
 
             # Encrypt the database
-            encrypted = self.provider.encrypt_data(
-                data=json.dumps(db),
-                key=master_key
-            )
+            encrypted = self.provider.encrypt_data(data=json.dumps(db), key=master_key)
 
             # Save the encrypted database
-            with open(self.keys_db_path, 'w', encoding='utf-8') as f:
-                json.dump(encrypted, f) # type: ignore
+            with open(self.keys_db_path, "w", encoding="utf-8") as f:
+                json.dump(encrypted, f)  # type: ignore
 
             # Set secure permissions
             os.chmod(self.keys_db_path, stat.S_IRUSR | stat.S_IWUSR)
@@ -254,7 +257,9 @@ class EncryptedKeyStore:
         except Exception as e:
             raise KeyStoreError(f"Error saving keys database: {e}")
 
-    def store_task_key(self, task_id: str, key: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def store_task_key(
+        self, task_id: str, key: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> None:
         """
         Store an encryption key for a specific task.
 
@@ -281,7 +286,7 @@ class EncryptedKeyStore:
                 "key": key,
                 "created": datetime.now().isoformat(),
                 "last_used": datetime.now().isoformat(),
-                "metadata": metadata or {}
+                "metadata": metadata or {},
             }
 
             # Save the updated database
@@ -335,7 +340,9 @@ class EncryptedKeyStore:
             return db["keys"][task_id]["key"]
 
         except TaskKeyError:
-            log_key_access("load", task_id, "failure", metadata={"error": "Key not found"})
+            log_key_access(
+                "load", task_id, "failure", metadata={"error": "Key not found"}
+            )
             raise
         except Exception as e:
             log_key_access("load", task_id, "failure", metadata={"error": str(e)})
@@ -375,7 +382,9 @@ class EncryptedKeyStore:
             logger.info(f"Deleted encryption key for task '{task_id}'")
 
         except TaskKeyError:
-            log_key_access("delete", task_id, "failure", metadata={"error": "Key not found"})
+            log_key_access(
+                "delete", task_id, "failure", metadata={"error": "Key not found"}
+            )
             raise
         except Exception as e:
             log_key_access("delete", task_id, "failure", metadata={"error": str(e)})
@@ -402,19 +411,23 @@ class EncryptedKeyStore:
             # Create a list of tasks with metadata (excluding the actual keys)
             tasks = []
             for task_id, task_data in db.get("keys", {}).items():
-                tasks.append({
-                    "task_id": task_id,
-                    "created": task_data.get("created", ""),
-                    "last_used": task_data.get("last_used", ""),
-                    "metadata": task_data.get("metadata", {})
-                })
+                tasks.append(
+                    {
+                        "task_id": task_id,
+                        "created": task_data.get("created", ""),
+                        "last_used": task_data.get("last_used", ""),
+                        "metadata": task_data.get("metadata", {}),
+                    }
+                )
 
             return tasks
 
         except Exception as e:
             raise KeyStoreError(f"Error listing task keys: {e}")
 
-    def generate_task_key(self, task_id: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+    def generate_task_key(
+        self, task_id: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
         Generate and store a new random encryption key for a task.
 
@@ -438,8 +451,9 @@ class EncryptedKeyStore:
         try:
             # Generate a random key
             import os
+
             key_bytes = os.urandom(MASTER_KEY_LENGTH)
-            key = base64.b64encode(key_bytes).decode('utf-8')
+            key = base64.b64encode(key_bytes).decode("utf-8")
 
             # Store the key
             self.store_task_key(task_id, key, metadata)
@@ -467,7 +481,9 @@ class EncryptedKeyStore:
             mode = os.stat(self.master_key_path).st_mode
 
             # Check if group or others have read permissions
-            return bool(mode & (stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH))
+            return bool(
+                mode & (stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
+            )
 
         except Exception as e:
             logger.warning(f"Error checking master key permissions: {e}")
@@ -495,20 +511,23 @@ def get_key_for_task(task_id: str) -> str:
     KeyStoreError
         If there's an error accessing the key store
     """
-        
-    configs_path = Path(DEFAULT_CONFIGS_PATH)
+
+    configs_path = Path(_get_env_path("CONFIGS_PATH", DEFAULT_CONFIGS_PATH))
     os.makedirs(configs_path, exist_ok=True)
     from filelock import FileLock, Timeout
+
     keys_db_lock = configs_path / "keys_db_path.lock"
     try:
-        with FileLock(keys_db_lock, timeout=30): # Waits max 30 seconds
+        with FileLock(keys_db_lock, timeout=30):  # Waits max 30 seconds
             key_store = EncryptedKeyStore()
             try:
                 # Try to load the key
                 return key_store.load_task_key(task_id)
             except TaskKeyError:
                 # Generate a new key if it doesn't exist
-                logger.warning(f"task_id is not existed - generate a new key for: {task_id}")
+                logger.warning(
+                    f"task_id is not existed - generate a new key for: {task_id}"
+                )
                 return key_store.generate_task_key(task_id)
     except Timeout:
         logger.error(f"Could not acquire lock for task {task_id} after waiting.")

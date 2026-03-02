@@ -44,13 +44,19 @@ from pamola_core.metrics.utility.classification import ClassificationUtility
 from pamola_core.metrics.utility.regression import RegressionUtility
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.metrics.commons.validation import validate_dataframe
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    InvalidParameterError,
+    ValidationError,
+)
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 # Factory mapping for utility metrics
 UTILITY_METRIC_FACTORY = {
@@ -155,10 +161,16 @@ class UtilityMetricOperation(MetricsOperation):
             return result
 
         except Exception as e:
-            error_message = f"Error in transformation operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name} metrics: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.name},
+                message_kwargs={
+                    "field_name": "<metrics>",
+                    "operation": self.name,
+                    "reason": str(e),
+                },
             )
 
     def calculate_metrics(
@@ -196,8 +208,9 @@ class UtilityMetricOperation(MetricsOperation):
         validate_dataframe(transformed_df)
 
         if not utility_metrics:
-            raise ValueError(
-                "No utility metrics specified. 'utility_metrics' list is empty."
+            raise DataError(
+                message="No utility metrics specified. 'utility_metrics' list is empty.",
+                error_code=ErrorCode.DATA_EMPTY,
             )
 
         results: Dict[str, Any] = {}
@@ -235,7 +248,11 @@ class UtilityMetricOperation(MetricsOperation):
 
                 metric_class = UTILITY_METRIC_FACTORY.get(metric_type)
                 if not metric_class:
-                    raise ValueError(f"Unsupported utility metric: {metric_type}")
+                    raise InvalidParameterError(
+                        param_name="utility",
+                        param_value=metric_type,
+                        reason=f"Unsupported utility metric: {metric_type}",
+                    )
 
                 init_params = {
                     k: v
@@ -281,7 +298,7 @@ class UtilityMetricOperation(MetricsOperation):
 
             except Exception as e:
                 self.logger.error(f"[{metric_type.upper()}] Metric failed: {e}")
-                raise ValueError(
+                raise ValidationError(
                     f"Failed to calculate {metric_type} metric: {str(e)}"
                 ) from e
 

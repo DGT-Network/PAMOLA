@@ -39,6 +39,7 @@ from pamola_core.utils.visualization import (
     create_histogram,
     create_sunburst_chart,
 )
+from pamola_core.errors.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -476,9 +477,7 @@ def create_comparison_visualization(
 
 
 def generate_flat_counts(
-    data: Dict[str, Any],
-    data_type: str,
-    max_items: int = DEFAULT_MAX_CATEGORIES
+    data: Dict[str, Any], data_type: str, max_items: int = DEFAULT_MAX_CATEGORIES
 ) -> Dict[str, Any]:
     """
     Generate flattened counts for Original and Anonymized data.
@@ -1001,7 +1000,7 @@ def _convert_flat_to_nested_hierarchy(
     """
     # Validate input
     if not isinstance(flat_data, dict):
-        raise ValueError("Input hierarchy data must be a dictionary.")
+        raise ValidationError("Input hierarchy data must be a dictionary.")
 
     # Detect and handle tree format
     if "name" in flat_data and "children" in flat_data:
@@ -1048,10 +1047,10 @@ def _convert_tree_to_nested(
         List[str]
             List of path segments
         """
-        if ' > ' not in path:
+        if " > " not in path:
             return [path]
 
-        segments = [s.strip() for s in path.split(' > ')]
+        segments = [s.strip() for s in path.split(" > ")]
 
         # Remove parent prefix if it matches
         if parent_name and segments and segments[0] == parent_name:
@@ -1106,9 +1105,7 @@ def _convert_tree_to_nested(
             else:
                 target[key] = value
 
-    def traverse_tree(
-        node: Dict[str, Any], current_depth: int = 0
-    ) -> Dict[str, Any]:
+    def traverse_tree(node: Dict[str, Any], current_depth: int = 0) -> Dict[str, Any]:
         """
         Recursively traverse tree structure and build nested dict.
 
@@ -1246,7 +1243,7 @@ def sample_large_dataset(
         Sampled subset of the original data
     """
     if not isinstance(data, (pd.Series, pd.DataFrame)):
-        raise ValueError("Input must be a pandas Series or DataFrame")
+        raise ValidationError("Input must be a pandas Series or DataFrame")
 
     if len(data) <= max_samples:
         return data

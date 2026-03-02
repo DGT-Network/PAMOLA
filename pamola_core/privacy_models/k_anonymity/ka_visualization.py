@@ -37,17 +37,22 @@ import seaborn as sns
 
 from pathlib import Path
 from pamola_core.utils.io import save_plot  # Use centralized function
+from pamola_core.errors.exceptions import ColumnNotFoundError, ValidationError
 
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-def visualize_k_distribution(data, k_column: str,
-                             save_path: Optional[str] = None,
-                             title: str = "Distribution of k-Anonymity Group Sizes",
-                             figsize: Tuple[int, int] = (10, 6),
-                             bins: int = 20,
-                             save_format: str = "png") -> Tuple[plt.Figure, Optional[str]]:
+
+def visualize_k_distribution(
+    data,
+    k_column: str,
+    save_path: Optional[str] = None,
+    title: str = "Distribution of k-Anonymity Group Sizes",
+    figsize: Tuple[int, int] = (10, 6),
+    bins: int = 20,
+    save_format: str = "png",
+) -> Tuple[plt.Figure, Optional[str]]:
     """
     Creates and optionally saves a visualization of k-anonymity distribution.
 
@@ -76,9 +81,12 @@ def visualize_k_distribution(data, k_column: str,
     """
     # Validate input
     if data is None:
-        raise ValueError("Input data cannot be None")
+        raise ValidationError("Input data cannot be None")
     if k_column not in data.columns:
-        raise ValueError(f"Column {k_column} not found in dataset")
+        raise ColumnNotFoundError(
+            column_name=k_column,
+            available_columns=list(data.columns),
+        )
 
     try:
         # Create figure
@@ -88,10 +96,14 @@ def visualize_k_distribution(data, k_column: str,
         sns.histplot(data[k_column].clip(upper=20), bins=bins, kde=True, ax=ax)
 
         # Add reference line for k threshold if present in dataset attributes
-        if 'k' in data.attrs:
-            k_threshold = data.attrs['k']
-            ax.axvline(x=k_threshold, color='red', linestyle='--',
-                       label=f'k-threshold = {k_threshold}')
+        if "k" in data.attrs:
+            k_threshold = data.attrs["k"]
+            ax.axvline(
+                x=k_threshold,
+                color="red",
+                linestyle="--",
+                label=f"k-threshold = {k_threshold}",
+            )
             ax.legend()
 
         # Set labels and title
@@ -118,14 +130,15 @@ def visualize_k_distribution(data, k_column: str,
         raise
 
 
-
-def visualize_risk_heatmap(data: pd.DataFrame,
-                           risk_column: str,
-                           feature_columns: List[str],
-                           save_path: Optional[str] = None,
-                           title: str = "Re-identification Risk Heatmap",
-                           figsize: Tuple[int, int] = (12, 10),
-                           save_format: str = "png") -> Tuple[plt.Figure, Optional[str]]:
+def visualize_risk_heatmap(
+    data: pd.DataFrame,
+    risk_column: str,
+    feature_columns: List[str],
+    save_path: Optional[str] = None,
+    title: str = "Re-identification Risk Heatmap",
+    figsize: Tuple[int, int] = (12, 10),
+    save_format: str = "png",
+) -> Tuple[plt.Figure, Optional[str]]:
     """
     Creates a heatmap visualizing re-identification risk across feature combinations
     based on k-anonymity values.
@@ -154,11 +167,14 @@ def visualize_risk_heatmap(data: pd.DataFrame,
     """
     # Validate input
     if data is None:
-        raise ValueError("Input data cannot be None")
+        raise ValidationError("Input data cannot be None")
     if risk_column not in data.columns:
-        raise ValueError(f"Column {risk_column} not found in dataset")
+        raise ColumnNotFoundError(
+            column_name=risk_column,
+            available_columns=list(data.columns),
+        )
     if feature_columns is None:
-        raise ValueError("Feature columns list cannot be None")
+        raise ValidationError("Feature columns list cannot be None")
 
     try:
         # Prepare data for heatmap
@@ -207,11 +223,15 @@ def visualize_risk_heatmap(data: pd.DataFrame,
         logger.error(f"Error during risk heatmap visualization: {e}")
         raise
 
-def visualize_attribute_correlation(data, quasi_identifiers: List[str],
-                                    sensitive_attributes: List[str],
-                                    save_path: Optional[str] = None,
-                                    figsize: Tuple[int, int] = (12, 10),
-                                    save_format: str = "png") -> Tuple[plt.Figure, Optional[str]]:
+
+def visualize_attribute_correlation(
+    data,
+    quasi_identifiers: List[str],
+    sensitive_attributes: List[str],
+    save_path: Optional[str] = None,
+    figsize: Tuple[int, int] = (12, 10),
+    save_format: str = "png",
+) -> Tuple[plt.Figure, Optional[str]]:
     """
     Creates a correlation heatmap between quasi-identifiers and sensitive attributes
     to assess potential information leaks in k-anonymized data.
@@ -238,23 +258,32 @@ def visualize_attribute_correlation(data, quasi_identifiers: List[str],
     """
     # Validate input
     if data is None:
-        raise ValueError("Input data cannot be None")
+        raise ValidationError("Input data cannot be None")
 
     # Check if columns exist in dataframe
-    missing_columns = [col for col in quasi_identifiers + sensitive_attributes if col not in data.columns]
+    missing_columns = [
+        col
+        for col in quasi_identifiers + sensitive_attributes
+        if col not in data.columns
+    ]
     if missing_columns:
-        raise ValueError(f"Columns not found in dataset: {missing_columns}")
+        raise ColumnNotFoundError(
+            column_name=missing_columns,
+            available_columns=list(data.columns),
+        )
 
     try:
         # Select only numeric columns
-        numeric_data = data.select_dtypes(include=['number'])
+        numeric_data = data.select_dtypes(include=["number"])
 
         # Filter columns
         valid_qi = [col for col in quasi_identifiers if col in numeric_data.columns]
         valid_sa = [col for col in sensitive_attributes if col in numeric_data.columns]
 
         if not valid_qi or not valid_sa:
-            raise ValueError("Insufficient numeric columns for correlation analysis")
+            raise ValidationError(
+                "Insufficient numeric columns for correlation analysis"
+            )
 
         # Calculate correlation matrix
         correlation = numeric_data[valid_qi + valid_sa].corr()

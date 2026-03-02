@@ -47,8 +47,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
-
 import pandas as pd
+
+# Standardized validation exceptions
+from pamola_core.errors.exceptions import (
+    InvalidParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Import exceptions from separate module
 if TYPE_CHECKING:
@@ -61,6 +67,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Validation Result Structure
 # =============================================================================
+
 
 @dataclass
 class ValidationResult:
@@ -78,6 +85,7 @@ class ValidationResult:
         details: Additional validation details
         metadata: Optional metadata (timing, cache info, etc.)
     """
+
     is_valid: bool
     field_name: Optional[str] = None
     errors: List[str] = field(default_factory=list)
@@ -94,7 +102,7 @@ class ValidationResult:
         """Add warning message without affecting validity."""
         self.warnings.append(message)
 
-    def merge(self, other: 'ValidationResult') -> 'ValidationResult':
+    def merge(self, other: "ValidationResult") -> "ValidationResult":
         """
         Merge another validation result into this one.
 
@@ -113,18 +121,19 @@ class ValidationResult:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
-            'is_valid': self.is_valid,
-            'field_name': self.field_name,
-            'errors': self.errors,
-            'warnings': self.warnings,
-            'details': self.details,
-            'metadata': self.metadata
+            "is_valid": self.is_valid,
+            "field_name": self.field_name,
+            "errors": self.errors,
+            "warnings": self.warnings,
+            "details": self.details,
+            "metadata": self.metadata,
         }
 
 
 # =============================================================================
 # Base Validator Classes
 # =============================================================================
+
 
 class BaseValidator(ABC):
     """
@@ -170,8 +179,9 @@ class CompositeValidator(BaseValidator):
     Executes validators in sequence and merges results.
     """
 
-    def __init__(self, validators: List[BaseValidator],
-                 stop_on_first_error: bool = False):
+    def __init__(
+        self, validators: List[BaseValidator], stop_on_first_error: bool = False
+    ):
         """
         Initialize composite validator.
 
@@ -195,7 +205,7 @@ class CompositeValidator(BaseValidator):
 
         return result
 
-    def add(self, validator: BaseValidator) -> 'CompositeValidator':
+    def add(self, validator: BaseValidator) -> "CompositeValidator":
         """Add validator to chain."""
         self.validators.append(validator)
         return self
@@ -205,6 +215,7 @@ class CompositeValidator(BaseValidator):
 # Validation Context
 # =============================================================================
 
+
 class ValidationContext:
     """
     Context manager for validation operations.
@@ -212,8 +223,11 @@ class ValidationContext:
     Manages logger instances and shared validation state.
     """
 
-    def __init__(self, logger_instance: Optional[logging.Logger] = None,
-                 cache_enabled: bool = True):
+    def __init__(
+        self,
+        logger_instance: Optional[logging.Logger] = None,
+        cache_enabled: bool = True,
+    ):
         """
         Initialize validation context.
 
@@ -243,6 +257,7 @@ class ValidationContext:
 # =============================================================================
 # Validation Cache
 # =============================================================================
+
 
 class ValidationCache:
     """
@@ -279,8 +294,7 @@ class ValidationCache:
         """Cache validation result."""
         # Simple LRU: remove oldest if at capacity
         if len(self._cache) >= self.max_size:
-            oldest_key = min(self._cache.keys(),
-                             key=lambda k: self._cache[k][1])
+            oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][1])
             del self._cache[oldest_key]
 
         self._cache[key] = (result, time.time())
@@ -293,6 +307,7 @@ class ValidationCache:
 # =============================================================================
 # Common Validation Utilities
 # =============================================================================
+
 
 def check_field_exists(df: pd.DataFrame, field_name: str) -> bool:
     """
@@ -308,8 +323,9 @@ def check_field_exists(df: pd.DataFrame, field_name: str) -> bool:
     return field_name in df.columns
 
 
-def check_multiple_fields_exist(df: pd.DataFrame,
-                                field_names: List[str]) -> Tuple[bool, List[str]]:
+def check_multiple_fields_exist(
+    df: pd.DataFrame, field_names: List[str]
+) -> Tuple[bool, List[str]]:
     """
     Check if multiple fields exist in DataFrame.
 
@@ -331,9 +347,11 @@ def is_numeric_type(series: pd.Series) -> bool:
 
 def is_categorical_type(series: pd.Series) -> bool:
     """Check if series is categorical or string type."""
-    return (isinstance(series.dtype, pd.CategoricalDtype) or
-            pd.api.types.is_string_dtype(series) or
-            pd.api.types.is_object_dtype(series))
+    return (
+        isinstance(series.dtype, pd.CategoricalDtype)
+        or pd.api.types.is_string_dtype(series)
+        or pd.api.types.is_object_dtype(series)
+    )
 
 
 def is_datetime_type(series: pd.Series) -> bool:
@@ -364,6 +382,7 @@ def safe_sample(data: pd.Series, sample_size: int = 100) -> pd.Series:
 # Validation Decorators
 # =============================================================================
 
+
 def cached_validation(cache_key_func: Optional[Callable] = None):
     """
     Decorator to cache validation results.
@@ -371,6 +390,7 @@ def cached_validation(cache_key_func: Optional[Callable] = None):
     Args:
         cache_key_func: Function to generate cache key from args
     """
+
     def decorator(func):
         # Create cache instance per decorated function
         cache = ValidationCache()
@@ -387,7 +407,7 @@ def cached_validation(cache_key_func: Optional[Callable] = None):
             # Check cache
             cached_result = cache.get(key)
             if cached_result is not None:
-                cached_result.metadata['from_cache'] = True
+                cached_result.metadata["from_cache"] = True
                 return cached_result
 
             # Execute validation
@@ -395,7 +415,7 @@ def cached_validation(cache_key_func: Optional[Callable] = None):
 
             # Cache result
             cache.set(key, result)
-            result.metadata['cached_at'] = time.time()
+            result.metadata["cached_at"] = time.time()
 
             return result
 
@@ -413,29 +433,29 @@ def validation_handler(func):
     Wraps validation functions to provide consistent error handling
     and result formatting. Catches ValidationError from exceptions module.
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs) -> ValidationResult:
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            # Check if it's a ValidationError from exceptions module
-            if e.__class__.__name__ == 'ValidationError':
+            # Check if it's a ValidationError (including subclasses)
+            if isinstance(e, ValidationError):
                 # Try to use to_validation_result if available
-                if hasattr(e, 'to_validation_result'):
+                if hasattr(e, "to_validation_result"):
                     return e.to_validation_result()
                 else:
                     return ValidationResult(
                         is_valid=False,
                         errors=[str(e)],
-                        field_name=getattr(e, 'field_name', None),
-                        details=getattr(e, 'details', {})
+                        field_name=getattr(e, "field_name", None),
+                        details=getattr(e, "details", {}),
                     )
             else:
                 # Unexpected error
                 logger.error(f"Unexpected error in {func.__name__}: {e}")
                 return ValidationResult(
-                    is_valid=False,
-                    errors=[f"Internal validation error: {str(e)}"]
+                    is_valid=False, errors=[f"Internal validation error: {str(e)}"]
                 )
 
     return wrapper
@@ -445,8 +465,10 @@ def validation_handler(func):
 # Type Checking Utilities
 # =============================================================================
 
-def validate_type(value: Any, expected_types: Union[type, Tuple[type, ...]],
-                  param_name: str) -> None:
+
+def validate_type(
+    value: Any, expected_types: Union[type, Tuple[type, ...]], param_name: str
+) -> None:
     """
     Validate parameter type.
 
@@ -464,14 +486,17 @@ def validate_type(value: Any, expected_types: Union[type, Tuple[type, ...]],
         else:
             type_names = expected_types.__name__
 
-        raise TypeError(
-            f"{param_name} must be {type_names}, "
-            f"got {type(value).__name__}"
-        )
+    raise TypeValidationError(
+        f"{param_name} must be {type_names}, " f"got {type(value).__name__}"
+    )
 
 
-def validate_range(value: Union[int, float], min_val: Optional[float] = None,
-                   max_val: Optional[float] = None, param_name: str = "value") -> None:
+def validate_range(
+    value: Union[int, float],
+    min_val: Optional[float] = None,
+    max_val: Optional[float] = None,
+    param_name: str = "value",
+) -> None:
     """
     Validate numeric value is within range.
 
@@ -485,32 +510,15 @@ def validate_range(value: Union[int, float], min_val: Optional[float] = None,
         ValueError: If value out of range
     """
     if min_val is not None and value < min_val:
-        raise ValueError(f"{param_name} must be >= {min_val}, got {value}")
+        raise InvalidParameterError(
+            param_name=param_name,
+            param_value=value,
+            reason=f"{param_name} must be >= {min_val}, got {value}",
+        )
 
     if max_val is not None and value > max_val:
-        raise ValueError(f"{param_name} must be <= {max_val}, got {value}")
-
-
-# Module exports
-__all__ = [
-    # Core classes
-    'ValidationResult',
-    'BaseValidator',
-    'CompositeValidator',
-    'ValidationContext',
-    'ValidationCache',
-
-    # Decorators
-    'cached_validation',
-    'validation_handler',
-
-    # Utilities
-    'check_field_exists',
-    'check_multiple_fields_exist',
-    'is_numeric_type',
-    'is_categorical_type',
-    'is_datetime_type',
-    'safe_sample',
-    'validate_type',
-    'validate_range'
-]
+        raise InvalidParameterError(
+            param_name=param_name,
+            param_value=value,
+            reason=f"{param_name} must be <= {max_val}, got {value}",
+        )

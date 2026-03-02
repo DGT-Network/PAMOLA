@@ -15,7 +15,6 @@ Key features:
 
 """
 
-
 import atexit
 import os
 import shutil
@@ -26,10 +25,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Callable, Union, Optional
 
-from pamola_core.utils import logging
+import logging
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    PathSecurityError,
+    PathValidationError,
+    PamolaFileNotFoundError,
+    ValidationError,
+)
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Dictionary to track temporary resources for cleanup
 _temp_resources = {
@@ -64,9 +70,7 @@ def _cleanup_temp_resources():
 atexit.register(_cleanup_temp_resources)
 
 
-def ensure_directory(
-        directory: Union[str, Path]
-) -> Path:
+def ensure_directory(directory: Union[str, Path]) -> Path:
     """
     Ensures the specified directory exists, creating it if necessary.
 
@@ -90,9 +94,7 @@ def ensure_directory(
 
 
 def list_directory_contents(
-        directory: Union[str, Path],
-        pattern: str = "*",
-        recursive: bool = False
+    directory: Union[str, Path], pattern: str = "*", recursive: bool = False
 ) -> List[Path]:
     """
     Lists the contents of a directory.
@@ -113,7 +115,7 @@ def list_directory_contents(
 
     Raises:
     -------
-    FileNotFoundError
+    PathValidationError
         If directory doesn't exist
     ValueError
         If path is not a directory
@@ -121,10 +123,16 @@ def list_directory_contents(
     directory = Path(directory)
 
     if not directory.exists():
-        raise FileNotFoundError(f"Directory not found: {directory}")
+        raise PathValidationError(
+            path=str(directory),
+            reason="Directory not found",
+        )
 
     if not directory.is_dir():
-        raise ValueError(f"Path is not a directory: {directory}")
+        raise PathValidationError(
+            message=f"Path is not a directory: {directory}",
+            error_code=ErrorCode.PATH_INVALID,
+        )
 
     if recursive:
         return list(directory.glob(f"**/{pattern}"))
@@ -133,9 +141,9 @@ def list_directory_contents(
 
 
 def clear_directory(
-        directory: Union[str, Path],
-        ignore_patterns: Optional[List[str]] = None,
-        confirm: bool = True
+    directory: Union[str, Path],
+    ignore_patterns: Optional[List[str]] = None,
+    confirm: bool = True,
 ) -> int:
     """
     Clears all files and subdirectories in the specified directory.
@@ -156,7 +164,7 @@ def clear_directory(
 
     Raises:
     -------
-    FileNotFoundError
+    PathValidationError
         If directory doesn't exist
     ValueError
         If path is not a directory
@@ -164,10 +172,16 @@ def clear_directory(
     directory = Path(directory)
 
     if not directory.exists():
-        raise FileNotFoundError(f"Directory not found: {directory}")
+        raise PathValidationError(
+            path=str(directory),
+            reason="Directory not found",
+        )
 
     if not directory.is_dir():
-        raise ValueError(f"Path is not a directory: {directory}")
+        raise PathValidationError(
+            message=f"Path is not a directory: {directory}",
+            error_code=ErrorCode.PATH_INVALID,
+        )
 
     # Prepare ignore patterns
     if ignore_patterns is None:
@@ -213,9 +227,7 @@ def clear_directory(
     return removed_count
 
 
-def ensure_parent_directory(
-        file_path: Union[str, Path]
-) -> bool:
+def ensure_parent_directory(file_path: Union[str, Path]) -> bool:
     """
     Ensures the parent directory of a file exists.
 
@@ -239,9 +251,7 @@ def ensure_parent_directory(
         return False
 
 
-def get_file_stats(
-        file_path: Union[str, Path]
-) -> Dict[str, Any]:
+def get_file_stats(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Gets statistics about a file.
 
@@ -257,13 +267,13 @@ def get_file_stats(
 
     Raises:
     -------
-    FileNotFoundError
+    PamolaFileNotFoundError
         If file doesn't exist
     """
     file_path = Path(file_path)
 
     if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        raise PamolaFileNotFoundError(str(file_path))
 
     stat_result = file_path.stat()
 
@@ -272,8 +282,12 @@ def get_file_stats(
         "path": str(file_path),
         "size_bytes": stat_result.st_size,
         "size_mb": stat_result.st_size / (1024 * 1024),
-        "creation_time": datetime.fromtimestamp(stat_result.st_ctime).strftime("%Y-%m-%d %H:%M:%S"),
-        "modification_time": datetime.fromtimestamp(stat_result.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+        "creation_time": datetime.fromtimestamp(stat_result.st_ctime).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
+        "modification_time": datetime.fromtimestamp(stat_result.st_mtime).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
         "extension": file_path.suffix,
         "is_directory": file_path.is_dir(),
         "is_file": file_path.is_file(),
@@ -281,14 +295,12 @@ def get_file_stats(
         "permissions": stat_result.st_mode & 0o777,  # Extract permission bits
         "owner_readable": bool(stat_result.st_mode & stat.S_IRUSR),
         "owner_writable": bool(stat_result.st_mode & stat.S_IWUSR),
-        "owner_executable": bool(stat_result.st_mode & stat.S_IXUSR)
+        "owner_executable": bool(stat_result.st_mode & stat.S_IXUSR),
     }
 
 
 def get_timestamped_filename(
-        base_name: str,
-        extension: str = "csv",
-        include_timestamp: bool = True
+    base_name: str, extension: str = "csv", include_timestamp: bool = True
 ) -> str:
     """
     Creates a timestamped filename.
@@ -315,10 +327,10 @@ def get_timestamped_filename(
 
 
 def get_unique_filename(
-        directory: Union[str, Path],
-        base_name: str,
-        extension: str,
-        include_timestamp: bool = True
+    directory: Union[str, Path],
+    base_name: str,
+    extension: str,
+    include_timestamp: bool = True,
 ) -> Path:
     """
     Generates a unique filename in a directory.
@@ -360,9 +372,7 @@ def get_unique_filename(
 
 
 def get_temp_file(
-        original_file: Union[str, Path],
-        suffix: str = ".tmp",
-        create: bool = True
+    original_file: Union[str, Path], suffix: str = ".tmp", create: bool = True
 ) -> Path:
     """
     Creates a temporary file path.
@@ -413,9 +423,7 @@ def get_temp_file(
 
 
 def get_temp_file_for_encryption(
-        original_file: Union[str, Path],
-        suffix: str = ".enc",
-        create: bool = True
+    original_file: Union[str, Path], suffix: str = ".enc", create: bool = True
 ) -> Path:
     """
     Creates a temporary file path for encryption operations.
@@ -439,9 +447,7 @@ def get_temp_file_for_encryption(
 
 
 def get_temp_file_for_decryption(
-        original_file: Union[str, Path],
-        suffix: str = ".dec",
-        create: bool = True
+    original_file: Union[str, Path], suffix: str = ".dec", create: bool = True
 ) -> Path:
     """
     Creates a temporary file path for decryption operations.
@@ -465,8 +471,7 @@ def get_temp_file_for_decryption(
 
 
 def safe_remove_temp_file(
-        file_path: Union[str, Path],
-        logger_obj: logging.logging.Logger = None
+    file_path: Union[str, Path], logger_obj: logging.Logger = None
 ) -> bool:
     """
     Safely removes a temporary file with error handling.
@@ -507,9 +512,7 @@ def safe_remove_temp_file(
 
 
 def make_unique_path(
-        base_path: Union[str, Path],
-        separator: str = "_",
-        create: bool = False
+    base_path: Union[str, Path], separator: str = "_", create: bool = False
 ) -> Path:
     """
     Creates a unique path by appending a counter if the path already exists.
@@ -563,9 +566,7 @@ def make_unique_path(
 
 
 def normalize_path(
-        path: Union[str, Path],
-        make_absolute: bool = False,
-        resolve_symlinks: bool = False
+    path: Union[str, Path], make_absolute: bool = False, resolve_symlinks: bool = False
 ) -> Path:
     """
     Normalizes a path for consistent handling.
@@ -596,9 +597,7 @@ def normalize_path(
 
 
 def is_path_in_directory(
-        path: Union[str, Path],
-        directory: Union[str, Path],
-        include_subdirs: bool = True
+    path: Union[str, Path], directory: Union[str, Path], include_subdirs: bool = True
 ) -> bool:
     """
     Checks if a path is inside a directory.
@@ -631,16 +630,14 @@ def is_path_in_directory(
             # Use relative_to to check if path is a descendant
             path.relative_to(directory)
             return True
-        except ValueError:
+        except (ValidationError, ValueError):
             return False
     else:
         # Only check if path is a direct child of directory
         return path.parent == directory
 
 
-def is_path_directory(
-        path: Union[str, Path]
-) -> bool:
+def is_path_directory(path: Union[str, Path]) -> bool:
     """
     Checks if a path is directory.
 
@@ -668,9 +665,7 @@ def is_path_directory(
     return False
 
 
-def is_path_writable(
-        path: Union[str, Path]
-) -> bool:
+def is_path_writable(path: Union[str, Path]) -> bool:
     """
     Checks if a path is writable.
 
@@ -694,10 +689,7 @@ def is_path_writable(
         return os.access(path.parent, os.W_OK)
 
 
-def protect_path(
-        path: Union[str, Path],
-        readonly: bool = True
-) -> None:
+def protect_path(path: Union[str, Path], readonly: bool = True) -> None:
     """
     Sets or removes write protection for a file.
 
@@ -711,7 +703,7 @@ def protect_path(
     path = Path(path)
 
     if not path.exists():
-        raise FileNotFoundError(f"File not found: {path}")
+        raise PamolaFileNotFoundError(str(path))
 
     if readonly:
         # Make read-only
@@ -734,9 +726,7 @@ def protect_path(
 
 
 def create_secure_directory_structure(
-        base_dir: Union[str, Path],
-        subdirs: List[str],
-        permissions: int = 0o700
+    base_dir: Union[str, Path], subdirs: List[str], permissions: int = 0o700
 ) -> Dict[str, Path]:
     """
     Creates a secure directory structure with controlled permissions.
@@ -786,10 +776,11 @@ def create_secure_directory_structure(
 
     return result
 
+
 def create_secure_temp_directory(
-        prefix: str = "pamola_",
-        parent_dir: Optional[Union[str, Path]] = None,
-        register_for_cleanup: bool = True
+    prefix: str = "pamola_",
+    parent_dir: Optional[Union[str, Path]] = None,
+    register_for_cleanup: bool = True,
 ) -> Path:
     """
     Creates a secure temporary directory.
@@ -831,11 +822,11 @@ def create_secure_temp_directory(
 
 
 def create_secure_temp_file(
-        prefix: str = "pamola_",
-        suffix: str = ".tmp",
-        directory: Optional[Union[str, Path]] = None,
-        register_for_cleanup: bool = True,
-        text: bool = False
+    prefix: str = "pamola_",
+    suffix: str = ".tmp",
+    directory: Optional[Union[str, Path]] = None,
+    register_for_cleanup: bool = True,
+    text: bool = False,
 ) -> Path:
     """
     Creates a secure temporary file.
@@ -881,9 +872,7 @@ def create_secure_temp_file(
 
 
 def create_secure_path(
-        base_dir: Union[str, Path],
-        subpath: str,
-        create: bool = False
+    base_dir: Union[str, Path], subpath: str, create: bool = False
 ) -> Path:
     """
     Creates a secure path by ensuring it doesn't escape the base directory.
@@ -933,7 +922,10 @@ def create_secure_path(
 
     # Verify the path is still within the base directory
     if not is_path_in_directory(secure_path, base_dir):
-        raise ValueError(f"Subpath '{subpath}' would escape the base directory")
+        raise PathSecurityError(
+            message=f"Subpath '{subpath}' would escape the base directory",
+            error_code=ErrorCode.PATH_SECURITY_VIOLATION,
+        )
 
     # Create directories if requested
     if create:
@@ -946,9 +938,9 @@ def create_secure_path(
 
 
 def secure_cleanup(
-        paths: List[Union[str, Path]],
-        secure_delete: bool = False,
-        ignore_errors: bool = False
+    paths: List[Union[str, Path]],
+    secure_delete: bool = False,
+    ignore_errors: bool = False,
 ) -> List[str]:
     """
     Securely cleans up files and directories.
@@ -982,7 +974,9 @@ def secure_cleanup(
                     try:
                         file_size = path.stat().st_size
                         with open(path, "wb") as f:
-                            f.write(b"\x00" * min(file_size, 1024 * 1024))  # Overwrite with zeros (max 1MB)
+                            f.write(
+                                b"\x00" * min(file_size, 1024 * 1024)
+                            )  # Overwrite with zeros (max 1MB)
                             f.flush()
                             os.fsync(f.fileno())
                     except Exception as e:
@@ -1002,10 +996,16 @@ def secure_cleanup(
                     for file_path in path.glob("**/*"):
                         if file_path.is_file():
                             try:
-                                secure_cleanup(paths=[file_path], secure_delete=True, ignore_errors=True)
+                                secure_cleanup(
+                                    paths=[file_path],
+                                    secure_delete=True,
+                                    ignore_errors=True,
+                                )
                             except Exception as e:
                                 if not ignore_errors:
-                                    logger.warning(f"Error during secure deletion of {file_path}: {e}")
+                                    logger.warning(
+                                        f"Error during secure deletion of {file_path}: {e}"
+                                    )
 
                 # Remove the directory
                 shutil.rmtree(path, ignore_errors=ignore_errors)
@@ -1028,9 +1028,7 @@ def secure_cleanup(
     return failed_paths
 
 
-def with_secure_temp_directory(
-        func: Callable
-) -> Callable:
+def with_secure_temp_directory(func: Callable) -> Callable:
     """
     Decorator that provides a secure temporary directory to a function.
 
@@ -1044,6 +1042,7 @@ def with_secure_temp_directory(
     Callable
         Decorated function
     """
+
     def wrapper(*args, **kwargs):
         # Create a secure temporary directory
         temp_dir = create_secure_temp_directory()

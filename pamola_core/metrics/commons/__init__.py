@@ -1,112 +1,62 @@
-from .aggregation import (
-    aggregate_column_metrics,
-    create_composite_score,
-    create_value_dictionary,
-)
-from .normalize import (
-    normalize_metric_value,
-    normalize_array_np,
-    normalize_array_sklearn,
-    round_metric_values,
-)
-from .validation import validate_dataset_compatibility, validate_metric_inputs
-from .safe_instantiate import safe_instantiate
-from .preprocessing import prepare_data_for_distance_metrics
-from .risk_scoring import calculate_provisional_risk
-from .predicted_utility_scoring import calculate_predicted_utility
+"""
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+This file is part of the PAMOLA ecosystem, a comprehensive suite for
+anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
+foundation for anonymization-preserving data processing.
 
-# Import main components for easy access
-from .validation_rules import (
-    ValidationRule,
-    ValidationResult,
-    RequiredRule,
-    UniqueRule,
-    DatatypeRule,
-    MinMaxRule,
-    ValidValuesRule,
-    RegexRule,
-    FormatRule,
-    FormatValidator,
-    EmailValidator,
-    PhoneValidator,
-    URLValidator,
-    IPValidator,
-    CreditCardValidator,
-    PostalCodeValidator,
-    SSNValidator,
-    UUIDValidator,
-    ValidationRuleRegistry,
-    rule_registry,
-    RuleType,
-    RuleCode,
-)
+(C) 2024 Realm Inveo Inc. and DGT Network Inc.
 
-from .schema_manager import FieldDefinition, SchemaManager
+This software is licensed under the BSD 3-Clause License.
+For details, see the LICENSE file or visit:
 
-from .quality_scoring import (
-    QualityWeights,
-    ColumnQualityMetrics,
-    DatasetQualityMetrics,
-    DataQualityCalculator,
-)
+    https://opensource.org/licenses/BSD-3-Clause
+    https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
-# Version information
-__version__ = "1.0.0"
-__author__ = "PAMOLA Core Team"
-__status__ = "stable"
+Package: pamola_core.metrics.commons
+Type: Internal (Non-Public API)
 
-# Main exports for public API
+Author: Realm Inveo Inc. & DGT Network Inc.
+"""
+
+from __future__ import annotations
+
+import importlib
+from typing import Dict, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pamola_core.metrics.commons.schema_manager import SchemaManager
+    from pamola_core.metrics.commons.quality_scoring import (
+        DataQualityCalculator,
+        QualityWeights,
+    )
+
 __all__ = [
-    "aggregate_column_metrics",
-    "create_composite_score",
-    "create_value_dictionary",
-    "normalize_metric_value",
-    "normalize_array_np",
-    "normalize_array_sklearn",
-    "round_metric_values",
-    "validate_dataset_compatibility",
-    "validate_metric_inputs",
-    "safe_instantiate",
-    "prepare_data_for_distance_metrics",
-    "calculate_provisional_risk",
-    "calculate_predicted_utility",
-    # Validation Rules
-    "ValidationRule",
-    "ValidationResult",
-    "RequiredRule",
-    "UniqueRule",
-    "DatatypeRule",
-    "MinMaxRule",
-    "ValidValuesRule",
-    "RegexRule",
-    "FormatRule",
-    "ValidationRuleRegistry",
-    "rule_registry",
-    "RuleType",
-    "RuleCode",
-    # Format validators
-    "FormatValidator",
-    "EmailValidator",
-    "PhoneValidator",
-    "URLValidator",
-    "IPValidator",
-    "CreditCardValidator",
-    "PostalCodeValidator",
-    "SSNValidator",
-    "UUIDValidator",
-    # Schema Management
-    "FieldDefinition",
+    # schema_manager.py
     "SchemaManager",
-    # Quality Calculation
-    "QualityWeights",
-    "ColumnQualityMetrics",
-    "DatasetQualityMetrics",
+    # quality_scoring.py
     "DataQualityCalculator",
-    # Version info
-    "__version__",
-    "__author__",
-    "__status__",
+    "QualityWeights",
+    # convenience functions
+    "create_quality_calculator",
+    "create_schema_from_dataframe",
+    "calculate_quality_with_rules",
+    # risk_scoring.py
+    "calculate_provisional_risk",
+    # predicted_utility_scoring.py
+    "calculate_predicted_utility",
+    # validation_rules.py
+    "RuleCode",
 ]
+
+_LAZY_IMPORTS: Dict[str, str] = {
+    "SchemaManager": "pamola_core.metrics.commons.schema_manager",
+    "DataQualityCalculator": "pamola_core.metrics.commons.quality_scoring",
+    "QualityWeights": "pamola_core.metrics.commons.quality_scoring",
+    "calculate_provisional_risk": "pamola_core.metrics.commons.risk_scoring",
+    "calculate_predicted_utility": "pamola_core.metrics.commons.predicted_utility_scoring",
+    "RuleCode": "pamola_core.metrics.commons.validation_rules",
+}
 
 
 def create_quality_calculator(weights: dict = None) -> DataQualityCalculator:
@@ -126,16 +76,18 @@ def create_quality_calculator(weights: dict = None) -> DataQualityCalculator:
 
     Examples
     --------
-    >>> # Use default weights
     >>> calculator = create_quality_calculator()
-
-    >>> # Use custom weights
     >>> calculator = create_quality_calculator({
     ...     'completeness': 0.6,
     ...     'validity': 0.3,
     ...     'diversity': 0.1
     ... })
     """
+    from pamola_core.metrics.commons.quality_scoring import (
+        DataQualityCalculator,
+        QualityWeights,
+    )
+
     if weights is None:
         return DataQualityCalculator()
 
@@ -170,6 +122,8 @@ def create_schema_from_dataframe(df, auto_detect: bool = True) -> SchemaManager:
     >>> df = pd.DataFrame({'id': [1, 2, 3], 'name': ['A', 'B', 'C']})
     >>> schema = create_schema_from_dataframe(df)
     """
+    from pamola_core.metrics.commons.schema_manager import SchemaManager
+
     schema = SchemaManager()
     if auto_detect:
         schema.auto_detect_schema(df)
@@ -220,11 +174,20 @@ def calculate_quality_with_rules(
     )
 
 
-# Add convenience functions to __all__
-__all__.extend(
-    [
-        "create_quality_calculator",
-        "create_schema_from_dataframe",
-        "calculate_quality_with_rules",
-    ]
-)
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        target = _LAZY_IMPORTS[name]
+        if isinstance(target, tuple):
+            module_name, attr_name = target
+        else:
+            module_name = target
+            attr_name = name
+        module = importlib.import_module(module_name)
+        value = getattr(module, attr_name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(list(globals().keys()) + __all__))

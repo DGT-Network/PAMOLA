@@ -29,6 +29,8 @@ import pandas as pd
 from typing import Dict, Any
 
 import logging
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import DataError, FieldTypeError, ValidationError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -59,20 +61,23 @@ class R2Score:
             if not isinstance(real_data, pd.DataFrame) or not isinstance(
                 synthetic_data, pd.DataFrame
             ):
-                raise ValueError(
+                raise ValidationError(
                     "Both real_data and synthetic_data must be pandas DataFrames."
                 )
 
             # Check if the DataFrames are empty
             if real_data.empty or synthetic_data.empty:
-                raise ValueError("Real data or synthetic data cannot be empty.")
+                raise DataError(
+                    message="Real data or synthetic data cannot be empty.",
+                    error_code=ErrorCode.DATA_EMPTY,
+                )
 
             # Check if the target column exists in both DataFrames
             if (
                 target_column not in real_data.columns
                 or target_column not in synthetic_data.columns
             ):
-                raise ValueError(
+                raise ValidationError(
                     f"Column '{target_column}' does not exist in the data!"
                 )
 
@@ -84,7 +89,11 @@ class R2Score:
             if not np.issubdtype(y_true.dtype, np.number) or not np.issubdtype(
                 y_pred.dtype, np.number
             ):
-                raise ValueError("The target column must contain numeric values.")
+                raise FieldTypeError(
+                    field_name=target_column,
+                    expected_type="numeric",
+                    actual_type="non-numeric",
+                )
 
             # Calculate R² Score
             r2 = r2_score(y_true, y_pred)

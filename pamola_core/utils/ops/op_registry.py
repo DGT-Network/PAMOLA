@@ -47,16 +47,6 @@ _OPERATION_DEPENDENCIES = {}
 _OPERATION_VERSIONS = {}
 
 
-class OpsError(Exception):
-    """Base class for all operation-related errors."""
-    pass
-
-
-class RegistryError(OpsError):
-    """Errors related to operation registration and lookup."""
-    pass
-
-
 def _is_base_operation(operation_class) -> bool:
     """
     Duck-typing check: is the class a subclass of BaseOperation

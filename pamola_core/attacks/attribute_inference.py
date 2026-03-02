@@ -27,6 +27,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import numpy as np
 import pandas as pd
 from pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.errors.exceptions import ValidationError, FieldNotFoundError
 
 
 class AttributeInference(PreprocessData):
@@ -59,13 +60,15 @@ class AttributeInference(PreprocessData):
             return pd.Series(dtype=object)
 
         if target_attribute not in data_train.columns:
-            raise KeyError(
-                f"Target attribute '{target_attribute}' not found in training data."
+            raise FieldNotFoundError(
+                target_attribute,
+                list(data_train.columns),
+                dataset_name="training data",
             )
 
         features = [col for col in data_train.columns if col != target_attribute]
         if not features:
-            raise ValueError("No features available for inference.")
+            raise ValidationError("No features available for inference.")
 
         # Compute entropy for each candidate feature
         entropy_values = {}

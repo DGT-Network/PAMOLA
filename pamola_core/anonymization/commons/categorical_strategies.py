@@ -93,23 +93,22 @@ import pandas as pd
 
 # Import from commons
 from pamola_core.anonymization.commons.hierarchy_dictionary import HierarchyDictionary
-from pamola_core.anonymization.commons.category_mapping import (
-    CategoryMappingEngine
-)
+from pamola_core.anonymization.commons.category_mapping import CategoryMappingEngine
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 from pamola_core.anonymization.commons.category_utils import (
     identify_rare_categories,
-    group_rare_categories
+    group_rare_categories,
 )
 from pamola_core.anonymization.commons.text_processing_utils import (
     normalize_text,
-    find_closest_category
+    find_closest_category,
 )
 
 # Import configuration enums
-from .categorical_config import (
+from pamola_core.anonymization.commons.categorical_config import (
     NullStrategy,
     GroupRareAs,
-    OperationMode
+    OperationMode,
 )
 
 logger = logging.getLogger(__name__)
@@ -121,11 +120,13 @@ BATCH_LOG_THRESHOLD = 100000  # Log progress for large batches
 DEFAULT_PREFIX_PATTERN = r"^(OTHER|RARE|CATEGORY)_(\d+)"
 
 # Pre-compiled regex patterns for performance
-NUMERIC_SUFFIX_PATTERN = re.compile(r'(\d+)$')
+NUMERIC_SUFFIX_PATTERN = re.compile(r"(\d+)$")
 PREFIX_NUMBER_PATTERN = re.compile(DEFAULT_PREFIX_PATTERN)
 
 
-def _check_enrich_mode_safety(context: Dict[str, Any], logger: Optional[logging.Logger] = None) -> None:
+def _check_enrich_mode_safety(
+    context: Dict[str, Any], logger: Optional[logging.Logger] = None
+) -> None:
     """
     Check for ENRICH mode field conflicts and issue warnings.
 
@@ -136,7 +137,7 @@ def _check_enrich_mode_safety(context: Dict[str, Any], logger: Optional[logging.
     logger : Optional[logging.Logger]
         Logger instance
     """
-    mode = context.get('mode', OperationMode.REPLACE.value)
+    mode = context.get("mode", OperationMode.REPLACE.value)
     # Handle both string and Enum
     if isinstance(mode, Enum):
         mode_value = mode.value
@@ -144,19 +145,19 @@ def _check_enrich_mode_safety(context: Dict[str, Any], logger: Optional[logging.
         mode_value = mode
 
     if mode_value == OperationMode.ENRICH.value:
-        output_field = context.get('output_field_name')
+        output_field = context.get("output_field_name")
         if not output_field:
             warnings.warn(
                 "ENRICH mode without output_field_name may overwrite source field",
-                RuntimeWarning
+                RuntimeWarning,
             )
 
 
 def apply_hierarchy(
-        series: pd.Series,
-        config: Dict[str, Any],
-        context: Dict[str, Any],
-        logger: Optional[logging.Logger] = None
+    series: pd.Series,
+    config: Dict[str, Any],
+    context: Dict[str, Any],
+    logger: Optional[logging.Logger] = None,
 ) -> pd.Series:
     """
     Apply hierarchical generalization using external dictionary.
@@ -199,25 +200,27 @@ def apply_hierarchy(
         If hierarchy not provided or invalid configuration
     """
     if logger:
-        logger.debug(f"[{context.get('batch_id', 'unknown')}] Applying hierarchy strategy")
+        logger.debug(
+            f"[{context.get('batch_id', 'unknown')}] Applying hierarchy strategy"
+        )
 
     # Check for ENRICH mode field conflicts
     _check_enrich_mode_safety(context, logger)
 
     # Validate inputs
-    hierarchy = context.get('hierarchy')
+    hierarchy = context.get("hierarchy")
     if not hierarchy or not isinstance(hierarchy, HierarchyDictionary):
-        raise ValueError("Hierarchy dictionary not provided in context")
+        raise ValidationError("Hierarchy dictionary not provided in context")
 
     # Extract configuration
-    hierarchy_level = config.get('hierarchy_level', 1)
-    text_normalization = config.get('text_normalization', 'basic')
-    case_sensitive = config.get('case_sensitive', False)
-    fuzzy_matching = config.get('fuzzy_matching', False)
-    similarity_threshold = config.get('similarity_threshold', 0.85)
-    unknown_value = config.get('unknown_value', DEFAULT_UNKNOWN_VALUE)
-    allow_unknown = config.get('allow_unknown', True)
-    random_seed = config.get('random_seed')
+    hierarchy_level = config.get("hierarchy_level", 1)
+    text_normalization = config.get("text_normalization", "basic")
+    case_sensitive = config.get("case_sensitive", False)
+    fuzzy_matching = config.get("fuzzy_matching", False)
+    similarity_threshold = config.get("similarity_threshold", 0.85)
+    unknown_value = config.get("unknown_value", DEFAULT_UNKNOWN_VALUE)
+    allow_unknown = config.get("allow_unknown", True)
+    random_seed = config.get("random_seed")
 
     # Create local RNG for thread safety
     rng = np.random.default_rng(random_seed)
@@ -228,8 +231,7 @@ def apply_hierarchy(
 
     # Initialize mapping engine with cached size
     engine = CategoryMappingEngine(
-        unknown_value=unknown_value,
-        cache_size=min(10000, unique_count * 2)
+        unknown_value=unknown_value, cache_size=min(10000, unique_count * 2)
     )
 
     # Track statistics
@@ -238,7 +240,7 @@ def apply_hierarchy(
 
     # Vectorized normalization
     normalized_series = unique_series.astype(str)
-    if text_normalization != 'none':
+    if text_normalization != "none":
         # Apply normalization (vectorized where possible)
         normalized_series = normalized_series.apply(
             lambda x: normalize_text(x, text_normalization, case_sensitive)
@@ -258,7 +260,9 @@ def apply_hierarchy(
     if fuzzy_matching:
         all_hierarchy_values = list(hierarchy.get_all_values_at_level(0))
         if logger:
-            logger.debug(f"Cached {len(all_hierarchy_values)} hierarchy values for fuzzy matching")
+            logger.debug(
+                f"Cached {len(all_hierarchy_values)} hierarchy values for fuzzy matching"
+            )
 
     # Log progress for large datasets
     if unique_count > BATCH_LOG_THRESHOLD and logger:
@@ -269,29 +273,27 @@ def apply_hierarchy(
         str_value = str(orig_value)
 
         # Try direct hierarchy lookup
-        category = hierarchy.get_hierarchy(
-            norm_value,
-            hierarchy_level,
-            normalize=True
-        )
+        category = hierarchy.get_hierarchy(norm_value, hierarchy_level, normalize=True)
 
         if category:
             engine.add_mapping(str_value, category)
         elif fuzzy_matching and all_hierarchy_values:
             # Try fuzzy matching with cached values
             closest = find_closest_category(
-                norm_value,
-                all_hierarchy_values,
-                similarity_threshold
+                norm_value, all_hierarchy_values, similarity_threshold
             )
 
             if closest:
-                category = hierarchy.get_hierarchy(closest, hierarchy_level, normalize=True)
+                category = hierarchy.get_hierarchy(
+                    closest, hierarchy_level, normalize=True
+                )
                 if category:
                     engine.add_mapping(str_value, category)
                     fuzzy_matches += 1
                     if logger:
-                        logger.debug(f"Fuzzy matched '{str_value}' to '{closest}' → '{category}'")
+                        logger.debug(
+                            f"Fuzzy matched '{str_value}' to '{closest}' → '{category}'"
+                        )
                 else:
                     unknown_values.add(str_value)
             else:
@@ -299,7 +301,11 @@ def apply_hierarchy(
         else:
             # Handle unknown value
             if not allow_unknown:
-                raise ValueError(f"Unknown value not allowed: '{str_value}'")
+                raise InvalidParameterError(
+                    param_name="value",
+                    param_value=str_value,
+                    reason=f"Unknown value not allowed: '{str_value}'",
+                )
             unknown_values.add(str_value)
 
         # Log progress for very large sets
@@ -310,12 +316,14 @@ def apply_hierarchy(
     result = engine.apply_to_series(series)
 
     # Update context with statistics
-    context['fuzzy_matches'] = context.get('fuzzy_matches', 0) + fuzzy_matches
-    context['unknown_values'] = context.get('unknown_values', set()).union(unknown_values)
-    context['category_mapping'] = engine.get_mapping_dict()
-    context['hierarchy_info'] = {
-        'level': hierarchy_level,
-        'coverage': original_coverage
+    context["fuzzy_matches"] = context.get("fuzzy_matches", 0) + fuzzy_matches
+    context["unknown_values"] = context.get("unknown_values", set()).union(
+        unknown_values
+    )
+    context["category_mapping"] = engine.get_mapping_dict()
+    context["hierarchy_info"] = {
+        "level": hierarchy_level,
+        "coverage": original_coverage,
     }
 
     # Log summary
@@ -331,10 +339,10 @@ def apply_hierarchy(
 
 
 def apply_merge_low_freq(
-        series: pd.Series,
-        config: Dict[str, Any],
-        context: Dict[str, Any],
-        logger: Optional[logging.Logger] = None
+    series: pd.Series,
+    config: Dict[str, Any],
+    context: Dict[str, Any],
+    logger: Optional[logging.Logger] = None,
 ) -> pd.Series:
     """
     Apply merging of low frequency categories.
@@ -366,27 +374,29 @@ def apply_merge_low_freq(
         Series with merged categories
     """
     if logger:
-        logger.debug(f"[{context.get('batch_id', 'unknown')}] Applying merge low frequency strategy")
+        logger.debug(
+            f"[{context.get('batch_id', 'unknown')}] Applying merge low frequency strategy"
+        )
 
     # Check for ENRICH mode field conflicts
     _check_enrich_mode_safety(context, logger)
 
     # Extract configuration
-    min_group_size = config.get('min_group_size', 10)
-    freq_threshold = config.get('freq_threshold', 0.01)
-    group_rare_as = config.get('group_rare_as', GroupRareAs.OTHER.value)
-    rare_value_template = config.get('rare_value_template', 'OTHER_{n}')
-    max_categories = config.get('max_categories', 1000)
-    random_seed = config.get('random_seed')
+    min_group_size = config.get("min_group_size", 10)
+    freq_threshold = config.get("freq_threshold", 0.01)
+    group_rare_as = config.get("group_rare_as", GroupRareAs.OTHER.value)
+    rare_value_template = config.get("rare_value_template", "OTHER_{n}")
+    max_categories = config.get("max_categories", 1000)
+    random_seed = config.get("random_seed")
 
     # Create local RNG for thread safety
     rng = np.random.default_rng(random_seed)
 
     # Get value counts (cache if available)
-    value_counts = context.get('value_counts')
+    value_counts = context.get("value_counts")
     if value_counts is None:
         value_counts = series.value_counts()
-        context['value_counts'] = value_counts
+        context["value_counts"] = value_counts
 
     # Identify rare categories
     rare_categories, rare_info = identify_rare_categories(
@@ -394,7 +404,7 @@ def apply_merge_low_freq(
         count_threshold=min_group_size,
         percent_threshold=freq_threshold,
         combined_criteria=True,
-        value_counts=value_counts
+        value_counts=value_counts,
     )
 
     # Determine grouping strategy
@@ -416,23 +426,21 @@ def apply_merge_low_freq(
         max_groups=100,  # Reasonable limit
         group_prefix=group_prefix,
         preserve_top_n=max_categories,
-        other_label=config.get('unknown_value', DEFAULT_UNKNOWN_VALUE),
-        value_counts=value_counts
+        other_label=config.get("unknown_value", DEFAULT_UNKNOWN_VALUE),
+        value_counts=value_counts,
     )
 
     # Update context
-    context['rare_categories'] = rare_categories
-    context['rare_info'] = rare_info
-    context['category_mapping'] = grouping_info.get('group_mapping', {})
-    context['grouping_info'] = grouping_info
+    context["rare_categories"] = rare_categories
+    context["rare_info"] = rare_info
+    context["category_mapping"] = grouping_info.get("group_mapping", {})
+    context["grouping_info"] = grouping_info
 
     # Handle template formatting if needed
     if group_rare_as in [GroupRareAs.CATEGORY_N.value, GroupRareAs.RARE_N.value]:
         # Apply template formatting with None to use default pattern
         grouped_series = _apply_rare_value_template(
-            grouped_series,
-            rare_value_template,
-            None  # Use default pattern
+            grouped_series, rare_value_template, None  # Use default pattern
         )
 
     # Log summary
@@ -448,10 +456,10 @@ def apply_merge_low_freq(
 
 
 def apply_frequency_based(
-        series: pd.Series,
-        config: Dict[str, Any],
-        context: Dict[str, Any],
-        logger: Optional[logging.Logger] = None
+    series: pd.Series,
+    config: Dict[str, Any],
+    context: Dict[str, Any],
+    logger: Optional[logging.Logger] = None,
 ) -> pd.Series:
     """
     Apply frequency-based generalization.
@@ -482,35 +490,35 @@ def apply_frequency_based(
         Series with frequency-based generalization
     """
     if logger:
-        logger.debug(f"[{context.get('batch_id', 'unknown')}] Applying frequency-based strategy")
+        logger.debug(
+            f"[{context.get('batch_id', 'unknown')}] Applying frequency-based strategy"
+        )
 
     # Check for ENRICH mode field conflicts
     _check_enrich_mode_safety(context, logger)
 
     # Extract configuration
-    max_categories = config.get('max_categories', 100)
-    min_group_size = config.get('min_group_size', 10)
-    group_rare_as = config.get('group_rare_as', GroupRareAs.OTHER.value)
-    rare_value_template = config.get('rare_value_template', 'OTHER_{n}')
-    unknown_value = config.get('unknown_value', DEFAULT_UNKNOWN_VALUE)
-    random_seed = config.get('random_seed')
+    max_categories = config.get("max_categories", 100)
+    min_group_size = config.get("min_group_size", 10)
+    group_rare_as = config.get("group_rare_as", GroupRareAs.OTHER.value)
+    rare_value_template = config.get("rare_value_template", "OTHER_{n}")
+    unknown_value = config.get("unknown_value", DEFAULT_UNKNOWN_VALUE)
+    random_seed = config.get("random_seed")
 
     # Create local RNG for thread safety
     rng = np.random.default_rng(random_seed)
 
     # Get value counts
-    value_counts = context.get('value_counts')
+    value_counts = context.get("value_counts")
     if value_counts is None:
         value_counts = series.value_counts()
-        context['value_counts'] = value_counts
+        context["value_counts"] = value_counts
 
     # Get top categories
     top_categories = set(value_counts.head(max_categories).index)
 
     # Create mapping engine
-    engine = CategoryMappingEngine(
-        unknown_value=unknown_value
-    )
+    engine = CategoryMappingEngine(unknown_value=unknown_value)
 
     # Add mappings for top categories (map to themselves)
     for category in top_categories:
@@ -542,11 +550,11 @@ def apply_frequency_based(
                 grouping_strategy="numbered",
                 threshold=min_group_size,
                 group_prefix=group_prefix,
-                value_counts=value_counts[value_counts.index.isin(rare_values)]
+                value_counts=value_counts[value_counts.index.isin(rare_values)],
             )
 
             # Create mapping from grouping info
-            for original, grouped in grouping_info['group_mapping'].items():
+            for original, grouped in grouping_info["group_mapping"].items():
                 engine.add_mapping(str(original), grouped)
 
             # Apply template if needed
@@ -554,14 +562,12 @@ def apply_frequency_based(
                 # Get all unique grouped values and apply template
                 result_series = engine.apply_to_series(series)
                 result_series = _apply_rare_value_template(
-                    result_series,
-                    rare_value_template,
-                    None  # Use default pattern
+                    result_series, rare_value_template, None  # Use default pattern
                 )
                 # Update context with final mapping
-                context['category_mapping'] = engine.get_mapping_dict()
-                context['top_categories'] = list(top_categories)
-                context['rare_count'] = len(rare_values)
+                context["category_mapping"] = engine.get_mapping_dict()
+                context["top_categories"] = list(top_categories)
+                context["rare_count"] = len(rare_values)
 
                 # Log summary
                 if logger:
@@ -577,9 +583,9 @@ def apply_frequency_based(
     result = engine.apply_to_series(series)
 
     # Update context
-    context['category_mapping'] = engine.get_mapping_dict()
-    context['top_categories'] = list(top_categories)
-    context['rare_count'] = len(rare_values)
+    context["category_mapping"] = engine.get_mapping_dict()
+    context["top_categories"] = list(top_categories)
+    context["rare_count"] = len(rare_values)
 
     # Log summary
     if logger:
@@ -593,12 +599,12 @@ def apply_frequency_based(
 
 
 def apply_null_and_unknown_strategy(
-        series: pd.Series,
-        null_strategy: Union[str, NullStrategy],
-        unknown_value: str = DEFAULT_UNKNOWN_VALUE,
-        rare_value_template: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-        logger: Optional[logging.Logger] = None
+    series: pd.Series,
+    null_strategy: Union[str, NullStrategy],
+    unknown_value: str = DEFAULT_UNKNOWN_VALUE,
+    rare_value_template: Optional[str] = None,
+    context: Optional[Dict[str, Any]] = None,
+    logger: Optional[logging.Logger] = None,
 ) -> pd.Series:
     """
     Apply NULL and unknown value handling strategy.
@@ -648,7 +654,9 @@ def apply_null_and_unknown_strategy(
     null_count = series.isna().sum()
 
     if strategy_value == NullStrategy.ERROR.value and null_count > 0:
-        raise ValueError(f"Found {null_count} NULL values but null_strategy is ERROR")
+        raise ValidationError(
+            f"Found {null_count} NULL values but null_strategy is ERROR"
+        )
 
     elif strategy_value == NullStrategy.ANONYMIZE.value:
         # Replace NULLs with unknown_value
@@ -660,7 +668,7 @@ def apply_null_and_unknown_strategy(
         # EXCLUDE is typically handled by filtering before this function
         # But we can mark in context for later filtering
         if context is not None:
-            context['null_indices'] = series[series.isna()].index.tolist()
+            context["null_indices"] = series[series.isna()].index.tolist()
         if logger:
             logger.debug(f"Marked {null_count} NULL values for exclusion")
 
@@ -669,9 +677,7 @@ def apply_null_and_unknown_strategy(
     # Apply rare value template if provided
     if rare_value_template and "{n}" in rare_value_template:
         series = _apply_rare_value_template(
-            series,
-            rare_value_template,
-            None  # Use default pattern
+            series, rare_value_template, None  # Use default pattern
         )
 
     return series
@@ -698,10 +704,9 @@ def format_rare_value(template: str, index: int) -> str:
 
 # Helper functions
 
+
 def _apply_rare_value_template(
-        series: pd.Series,
-        template: str,
-        prefix_pattern: Union[str, None] = None
+    series: pd.Series, template: str, prefix_pattern: Union[str, None] = None
 ) -> pd.Series:
     """
     Apply template formatting to rare/grouped values.
@@ -740,7 +745,7 @@ def _apply_rare_value_template(
             try:
                 index = int(match.group(2))
                 return template.format(n=index)
-            except (ValueError, IndexError):
+            except (ValidationError, ValueError, IndexError):
                 pass
 
         return val
@@ -752,11 +757,12 @@ def _apply_rare_value_template(
 
 # Dask implementations (placeholders for future)
 
+
 def apply_hierarchy_dask(
-        series: "dd.Series",
-        config: Dict[str, Any],
-        context: Dict[str, Any],
-        logger: Optional[logging.Logger] = None
+    series: "dd.Series",
+    config: Dict[str, Any],
+    context: Dict[str, Any],
+    logger: Optional[logging.Logger] = None,
 ) -> "dd.Series":
     """
     Apply hierarchy strategy using Dask for large datasets.
@@ -771,10 +777,10 @@ def apply_hierarchy_dask(
 
 
 def apply_merge_low_freq_dask(
-        series: "dd.Series",
-        config: Dict[str, Any],
-        context: Dict[str, Any],
-        logger: Optional[logging.Logger] = None
+    series: "dd.Series",
+    config: Dict[str, Any],
+    context: Dict[str, Any],
+    logger: Optional[logging.Logger] = None,
 ) -> "dd.Series":
     """
     Apply merge low frequency strategy using Dask.
@@ -788,10 +794,10 @@ def apply_merge_low_freq_dask(
 
 
 def apply_frequency_based_dask(
-        series: "dd.Series",
-        config: Dict[str, Any],
-        context: Dict[str, Any],
-        logger: Optional[logging.Logger] = None
+    series: "dd.Series",
+    config: Dict[str, Any],
+    context: Dict[str, Any],
+    logger: Optional[logging.Logger] = None,
 ) -> "dd.Series":
     """
     Apply frequency-based strategy using Dask.
@@ -804,27 +810,6 @@ def apply_frequency_based_dask(
     return apply_frequency_based(_to_pandas(series), config, context, logger)
 
 
-# Module metadata
-__version__ = "1.2.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export strategy functions
-__all__ = [
-    # Main strategies
-    'apply_hierarchy',
-    'apply_merge_low_freq',
-    'apply_frequency_based',
-    'apply_null_and_unknown_strategy',
-
-    # Helper functions
-    'format_rare_value',
-
-    # Dask versions (future)
-    'apply_hierarchy_dask',
-    'apply_merge_low_freq_dask',
-    'apply_frequency_based_dask'
-]
 def _to_pandas(series):
     """Return pandas Series whether input is pandas or Dask."""
     if hasattr(series, "compute"):

@@ -40,14 +40,22 @@ import time
 from typing import Dict, Any, Optional, List, Union, Tuple, Type, TypeVar
 from pathlib import Path
 import os
+from pamola_core.errors.exceptions import (
+    ValidationError,
+    TaskDependencyError,
+    TaskInitializationError,
+    DependencyMissingError,
+    FeatureNotImplementedError,
+)
 from pamola_core.common.enum.encryption_mode import EncryptionMode
-from pamola_core.utils.ops import op_registry  # Import registry module for operations
+import pamola_core.utils.ops.op_registry as op_registry
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.tasks.context_manager import create_task_context_manager
-from pamola_core.utils.tasks.dependency_manager import TaskDependencyManager, DependencyMissingError
+from pamola_core.utils.tasks.dependency_manager import TaskDependencyManager
+
 # Import component managers
 from pamola_core.utils.tasks.directory_manager import create_directory_manager
 from pamola_core.utils.tasks.encryption_manager import TaskEncryptionManager
@@ -56,10 +64,14 @@ from pamola_core.utils.tasks.operation_executor import create_operation_executor
 from pamola_core.utils.tasks.progress_manager import create_task_progress_manager
 from pamola_core.utils.tasks.task_config import load_task_config
 from pamola_core.utils.tasks.task_reporting import TaskReporter
-from dotenv import load_dotenv
-load_dotenv()
+from pamola_core.utils.env import load_dotenv_once
 
-DEFAULT_KEYS_DB_PATH = os.environ.get("KEY_STORE_PATH", "pamola_datasets/configs/keys.db")
+DEFAULT_KEYS_DB_PATH = "pamola_datasets/configs/keys.db"
+
+
+def _get_default_keys_db_path() -> str:
+    load_dotenv_once()
+    return os.environ.get("KEY_STORE_PATH", DEFAULT_KEYS_DB_PATH)
 
 # Reserved parameter names that are handled directly by the framework
 # These should not be included in operation configuration
@@ -68,14 +80,12 @@ RESERVED_OPERATION_PARAMS = {
     "task_dir",  # Directory for operation artifacts
     "reporter",  # Reporter for logging operation progress
     "progress_tracker",  # Tracker for operation progress
-
     # Performance parameters
     "parallel_processes",
     "use_vectorization",
     "use_dask",
     "npartitions",
     "chunk_size"
-
     # Ignore parameters
     "dataset_name",
     "force_recalculation",
@@ -87,49 +97,8 @@ RESERVED_OPERATION_PARAMS = {
 }
 
 # Type variables for better type hinting
-T = TypeVar('T', bound='BaseTask')
-OpType = TypeVar('OpType', bound=BaseOperation)
-
-
-class TaskError(Exception):
-    """Base exception for task-related errors."""
-    pass
-
-
-class TaskInitializationError(TaskError):
-    """
-    Exception raised when task initialization fails.
-
-    This can occur due to:
-    - Missing or invalid configuration
-    - Failed directory creation
-    - Logging setup failure
-    - Data source initialization problems
-    - Path security violations
-    """
-    pass
-
-
-class TaskDependencyError(TaskError):
-    """
-    Exception raised when task dependencies are not satisfied.
-
-    This can occur when previous tasks that this task depends on:
-    - Have not been executed
-    - Failed during execution
-    - Did not produce required outputs
-    """
-    pass
-
-
-class TaskExecutionError(TaskError):
-    """Base exception for task-related errors."""
-    pass
-
-
-class TaskFinalizationError(TaskError):
-    """Base exception for task-related errors."""
-    pass
+T = TypeVar("T", bound="BaseTask")
+OpType = TypeVar("OpType", bound=BaseOperation)
 
 
 class BaseTask:
@@ -154,16 +123,18 @@ class BaseTask:
     - Error handling
     """
 
-    def __init__(self,
-                 task_id: str,
-                 task_type: str,
-                 description: str,
-                 input_datasets: Optional[Dict[str, str]] = None,
-                 data_types: Optional[Dict[str, Any]] = None,
-                 auxiliary_datasets: Optional[Dict[str, str]] = None,
-                 version: str = "1.0.0",
-                 use_encryption: Optional[bool] = False,
-                 encryption_keys: Optional[Dict[str, str]] = None):
+    def __init__(
+        self,
+        task_id: str,
+        task_type: str,
+        description: str,
+        input_datasets: Optional[Dict[str, str]] = None,
+        data_types: Optional[Dict[str, Any]] = None,
+        auxiliary_datasets: Optional[Dict[str, str]] = None,
+        version: str = "1.0.0",
+        use_encryption: Optional[bool] = False,
+        encryption_keys: Optional[Dict[str, str]] = None,
+    ):
         """
         Initialize the task with basic information and defaults.
 
@@ -176,6 +147,7 @@ class BaseTask:
                            These are secondary inputs like dictionaries or lookup tables.
             version: Version of the task implementation. Used for tracking and compatibility.
         """
+        load_dotenv_once()
         # Pamola Core task metadata
         self.task_id = task_id
         self.task_type = task_type
@@ -255,11 +227,13 @@ class BaseTask:
             "description": self.description,
             "task_type": self.task_type,
             "version": self.version,
-            "dependencies": self.dependencies.copy() if hasattr(self, 'dependencies') else [],
+            "dependencies": (
+                self.dependencies.copy() if hasattr(self, "dependencies") else []
+            ),
             "continue_on_error": False,
             "use_encryption": self.use_encryption,
             "encryption_mode": "simple",
-            "encryption_key_path": DEFAULT_KEYS_DB_PATH,
+            "encryption_key_path": _get_default_keys_db_path(),
             # Default logging configuration
             "log_level": "INFO",
             "log_file": "",
@@ -267,11 +241,16 @@ class BaseTask:
             # Default report path (will be overridden by task_config.py)
             "report_path": "",
             # Default for checkpointing
-            "enable_checkpoints": False
+            "enable_checkpoints": False,
         }
 
-    def initialize(self, args: Optional[Dict[str, Any]] = None, force_restart: bool = False,
-                   enable_checkpoints: Optional[bool] = None, force_recreate_config_file: Optional[bool] = False) -> bool:
+    def initialize(
+        self,
+        args: Optional[Dict[str, Any]] = None,
+        force_restart: bool = False,
+        enable_checkpoints: Optional[bool] = None,
+        force_recreate_config_file: Optional[bool] = False,
+    ) -> bool:
         """
         Initialize the task by loading configuration, creating directories,
         setting up logging, and checking dependencies.
@@ -306,7 +285,7 @@ class BaseTask:
                 task_type=self.task_type,
                 args=args,
                 default_config=default_config,
-                force_recreate_config_file=force_recreate_config_file
+                force_recreate_config_file=force_recreate_config_file,
             )
 
             # 2. Set up logging with both project-level and task-specific logs
@@ -315,13 +294,15 @@ class BaseTask:
 
             # Now it's safe to use the logger
             self.logger.debug(
-                f"Loaded config: continue_on_error={getattr(self.config, 'continue_on_error', False)}, dependencies={getattr(self.config, 'dependencies', [])}")
-            self.logger.info(f"Initializing task: {self.task_id} ({self.task_type}) - {self.description}")
+                f"Loaded config: continue_on_error={getattr(self.config, 'continue_on_error', False)}, dependencies={getattr(self.config, 'dependencies', [])}"
+            )
+            self.logger.info(
+                f"Initializing task: {self.task_id} ({self.task_type}) - {self.description}"
+            )
 
             # 3. Initialize directory manager and create directories
             self.directory_manager = create_directory_manager(
-                task_config=self.config,
-                logger=self.logger
+                task_config=self.config, logger=self.logger
             )
 
             # Ensure directories are created
@@ -330,10 +311,7 @@ class BaseTask:
 
             # 4. Create reporter with the report path from configuration
             self.reporter = TaskReporter(
-                self.task_id,
-                self.task_type,
-                self.description,
-                self.config.report_path
+                self.task_id, self.task_type, self.description, self.config.report_path
             )
 
             # 5. Initialize dependency manager using factory method
@@ -344,8 +322,7 @@ class BaseTask:
 
             # 6. Initialize encryption manager
             self.encryption_manager = TaskEncryptionManager(
-                task_config=self.config,
-                logger=self.logger
+                task_config=self.config, logger=self.logger
             )
 
             # Initialize encryption
@@ -355,20 +332,28 @@ class BaseTask:
             encryption_info = self.encryption_manager.get_encryption_info()
             self.use_encryption = encryption_info["enabled"]
             self.encryption_mode = EncryptionMode.from_string(encryption_info["mode"])
-            self.logger.debug(f"Encryption initialized: {self.use_encryption}, mode: {self.encryption_mode.value}")
+            self.logger.debug(
+                f"Encryption initialized: {self.use_encryption}, mode: {self.encryption_mode.value}"
+            )
 
             # 7. Initialize context manager for task state
             # Use log_directory for centralized checkpoint storage
             self.context_manager = create_task_context_manager(
                 task_id=self.task_id,
                 task_dir=self.task_dir,
-                log_directory=self.config.log_directory if hasattr(self.config, "log_directory") else None
+                log_directory=(
+                    self.config.log_directory
+                    if hasattr(self.config, "log_directory")
+                    else None
+                ),
             )
 
             # Use configuration value if enable_checkpoints is None
             if enable_checkpoints is None:
                 enable_checkpoints = getattr(self.config, "enable_checkpoints", False)
-                self.logger.debug(f"Using enable_checkpoints={enable_checkpoints} from configuration")
+                self.logger.debug(
+                    f"Using enable_checkpoints={enable_checkpoints} from configuration"
+                )
 
             # Store the enable_checkpoints value for future reference
             self.enable_checkpoints = enable_checkpoints
@@ -377,7 +362,8 @@ class BaseTask:
             if force_restart or not enable_checkpoints:
                 if self.context_manager:
                     self.logger.info(
-                        f"Clearing checkpoints: force_restart={force_restart}, enable_checkpoints={enable_checkpoints}")
+                        f"Clearing checkpoints: force_restart={force_restart}, enable_checkpoints={enable_checkpoints}"
+                    )
                     self.context_manager.clear_checkpoints()
 
                     # Explicitly reset checkpoint state
@@ -388,22 +374,35 @@ class BaseTask:
             # Only check for checkpoints if explicitly enabled and not forcing restart
             elif enable_checkpoints and not force_restart:
                 # Check if task can be resumed from checkpoint
-                self._resuming_from_checkpoint, self._restored_checkpoint_name = self.context_manager.can_resume_execution()
+                self._resuming_from_checkpoint, self._restored_checkpoint_name = (
+                    self.context_manager.can_resume_execution()
+                )
                 if self._resuming_from_checkpoint:
-                    self.logger.info(f"Found checkpoint for task {self.task_id}: {self._restored_checkpoint_name}")
+                    self.logger.info(
+                        f"Found checkpoint for task {self.task_id}: {self._restored_checkpoint_name}"
+                    )
 
                     # Restore execution state
                     try:
-                        self._restored_state = self.context_manager.restore_execution_state(
-                            self._restored_checkpoint_name)
-                        self.logger.info(f"Restored execution state from checkpoint: {self._restored_checkpoint_name}")
+                        self._restored_state = (
+                            self.context_manager.restore_execution_state(
+                                self._restored_checkpoint_name
+                            )
+                        )
+                        self.logger.info(
+                            f"Restored execution state from checkpoint: {self._restored_checkpoint_name}"
+                        )
                     except Exception as e:
-                        self.logger.warning(f"Could not restore from checkpoint: {e}, will perform full execution")
+                        self.logger.warning(
+                            f"Could not restore from checkpoint: {e}, will perform full execution"
+                        )
                         self._resuming_from_checkpoint = False
                         self._restored_checkpoint_name = None
                         self._restored_state = None
                 else:
-                    self.logger.info(f"No valid checkpoints found for task {self.task_id}, starting from beginning")
+                    self.logger.info(
+                        f"No valid checkpoints found for task {self.task_id}, starting from beginning"
+                    )
 
             # 8. Initialize progress manager
             # Start with 0 operations, will be updated after configure_operations()
@@ -412,14 +411,12 @@ class BaseTask:
                 task_type=self.task_type,
                 logger=self.logger,
                 reporter=self.reporter,
-                total_operations=0
+                total_operations=0,
             )
 
             # 9. Initialize operation executor
             self.operation_executor = create_operation_executor(
-                task_config=self.config,
-                logger=self.logger,
-                reporter=self.reporter
+                task_config=self.config, logger=self.logger, reporter=self.reporter
             )
 
             # 10. Create data source with input and auxiliary datasets
@@ -443,17 +440,19 @@ class BaseTask:
                     "task_id": self.task_id,
                     "task_type": self.task_type,
                     "start_time": self.start_time,
-                    "directories": {name: str(path) for name, path in self.directories.items()},
+                    "directories": {
+                        name: str(path) for name, path in self.directories.items()
+                    },
                     "encryption": {
                         "enabled": self.use_encryption,
-                        "mode": self.encryption_mode.value
+                        "mode": self.encryption_mode.value,
                     },
                     "checkpoints": {
                         "enabled": enable_checkpoints,
                         "force_restart": force_restart,
-                        "resuming": self._resuming_from_checkpoint
-                    }
-                }
+                        "resuming": self._resuming_from_checkpoint,
+                    },
+                },
             )
 
             self.logger.info(f"Task initialization complete: {self.task_id}")
@@ -466,13 +465,17 @@ class BaseTask:
             self.error_info = {
                 "type": "dependency_error",
                 "message": str(e),
-                "dependencies": getattr(self.config, "dependencies", [])
+                "dependencies": getattr(self.config, "dependencies", []),
             }
 
             # Check if we should continue despite dependency errors
-            if hasattr(self.config, "continue_on_error") and self.config.continue_on_error:
+            if (
+                hasattr(self.config, "continue_on_error")
+                and self.config.continue_on_error
+            ):
                 self.logger.warning(
-                    f"Task dependencies not satisfied, but continue_on_error=True - continuing execution")
+                    f"Task dependencies not satisfied, but continue_on_error=True - continuing execution"
+                )
                 # Reset status to pending to reflect that task is continuing despite errors
                 self.status = "pending"
                 return True
@@ -486,10 +489,7 @@ class BaseTask:
                 self.logger.exception(error_msg)
             else:
                 logging.exception(error_msg)
-            self.error_info = {
-                "type": "initialization_error",
-                "message": str(e)
-            }
+            self.error_info = {"type": "initialization_error", "message": str(e)}
             self.status = "initialization_error"
             return False
 
@@ -531,12 +531,16 @@ class BaseTask:
         except (DependencyMissingError, TaskDependencyError) as e:
             # If continue_on_error is enabled, log warning and proceed
             if getattr(self.config, "continue_on_error", False):
-                self.logger.warning(f"Dependency error: {e} (continuing due to continue_on_error=True)")
+                self.logger.warning(
+                    f"Dependency error: {e} (continuing due to continue_on_error=True)"
+                )
                 # Don't update status here - let initialize() handle it for consistency
                 return True
             else:
                 # Otherwise, propagate the error to fail initialization
-                raise TaskDependencyError(f"Task dependencies not satisfied for {self.task_id}: {e}") from e
+                raise TaskDependencyError(
+                    f"Task dependencies not satisfied for {self.task_id}: {e}"
+                ) from e
 
     def _setup_logging(self) -> None:
         """
@@ -560,23 +564,23 @@ class BaseTask:
         console_handler = logging.StreamHandler(sys.stderr)
         console_handler.setLevel(log_level)
         formatter = logging.Formatter(
-            '%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(message)s'
+            "%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(message)s"
         )
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
 
-        file_formatter = logging.Formatter(
-            '%(asctime)s | %(levelname)s | %(message)s'
-        )
+        file_formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
         file_formatter.converter = time.localtime
         # Add file handlers for both project and task logs
         if project_log_file:
             try:
                 # Ensure log directory exists
-                if hasattr(project_log_file, 'parent'):
+                if hasattr(project_log_file, "parent"):
                     project_log_file.parent.mkdir(parents=True, exist_ok=True)
 
-                project_handler = logging.FileHandler(project_log_file, encoding='utf-8', mode='w')
+                project_handler = logging.FileHandler(
+                    project_log_file, encoding="utf-8", mode="w"
+                )
                 project_handler.setLevel(log_level)
                 project_handler.setFormatter(file_formatter)
                 self.logger.addHandler(project_handler)
@@ -587,10 +591,12 @@ class BaseTask:
         if task_log_file and str(task_log_file) != str(project_log_file):
             try:
                 # Ensure log directory exists
-                if hasattr(task_log_file, 'parent'):
+                if hasattr(task_log_file, "parent"):
                     task_log_file.parent.mkdir(parents=True, exist_ok=True)
 
-                task_handler = logging.FileHandler(task_log_file, encoding='utf-8', mode='w')
+                task_handler = logging.FileHandler(
+                    task_log_file, encoding="utf-8", mode="w"
+                )
                 task_handler.setLevel(logging.DEBUG)  # Task log gets more detail
                 task_handler.setFormatter(file_formatter)
                 self.logger.addHandler(task_handler)
@@ -599,7 +605,9 @@ class BaseTask:
                 logging.warning(f"Failed to create task log file handler: {e}")
 
         # Log setup completion
-        logging.debug(f"Logging initialized for task {self.task_id} with level {log_level_str}")
+        logging.debug(
+            f"Logging initialized for task {self.task_id} with level {log_level_str}"
+        )
 
     def _initialize_data_source(self) -> None:
         """
@@ -614,16 +622,18 @@ class BaseTask:
 
         # Check if we have any input datasets to process
         if not self.input_datasets:
-            self.logger.warning("No input datasets defined for task. DataSource initialization may be incomplete.")
+            self.logger.warning(
+                "No input datasets defined for task. DataSource initialization may be incomplete."
+            )
             # Don't create a progress bar for empty datasets to avoid hanging
             return
 
         # Process input datasets with progress tracking
         with self.progress_manager.create_operation_context(
-                name="initialize_input_data",
-                total=len(self.input_datasets),
-                description="Initializing input datasets",
-                unit="datasets"
+            name="initialize_input_data",
+            total=len(self.input_datasets),
+            description="Initializing input datasets",
+            unit="datasets",
         ) as progress:
             for name, path in self.input_datasets.items():
                 try:
@@ -639,7 +649,9 @@ class BaseTask:
                 except Exception as e:
                     self.logger.error(f"Error adding input dataset '{name}': {str(e)}")
                     progress.update(1, {"status": "error"})
-                    raise TaskInitializationError(f"Failed to add input dataset '{name}': {str(e)}")
+                    raise TaskInitializationError(
+                        f"Failed to add input dataset '{name}': {str(e)}"
+                    )
 
         # Check if we have any auxiliary datasets to process
         if not self.auxiliary_datasets:
@@ -647,10 +659,10 @@ class BaseTask:
 
         # Process auxiliary datasets
         with self.progress_manager.create_operation_context(
-                name="initialize_auxiliary_data",
-                total=len(self.auxiliary_datasets),
-                description="Initializing auxiliary datasets",
-                unit="datasets"
+            name="initialize_auxiliary_data",
+            total=len(self.auxiliary_datasets),
+            description="Initializing auxiliary datasets",
+            unit="datasets",
         ) as progress:
             for name, path in self.auxiliary_datasets.items():
                 try:
@@ -659,14 +671,20 @@ class BaseTask:
 
                     # Add to data source
                     self.data_source.add_file_path(name, path_obj)
-                    self.logger.debug(f"Added auxiliary dataset: {name} from {path_obj}")
+                    self.logger.debug(
+                        f"Added auxiliary dataset: {name} from {path_obj}"
+                    )
 
                     # Update progress
                     progress.update(1)
                 except Exception as e:
-                    self.logger.error(f"Error adding auxiliary dataset '{name}': {str(e)}")
+                    self.logger.error(
+                        f"Error adding auxiliary dataset '{name}': {str(e)}"
+                    )
                     progress.update(1, {"status": "error"})
-                    raise TaskInitializationError(f"Failed to add auxiliary dataset '{name}': {str(e)}")
+                    raise TaskInitializationError(
+                        f"Failed to add auxiliary dataset '{name}': {str(e)}"
+                    )
 
         # Check encryption status if enabled
         if self.use_encryption:
@@ -686,7 +704,7 @@ class BaseTask:
             logger=self.logger,
             use_encryption=self.use_encryption,
             encryption_key=self.encryption_manager.get_encryption_context(),
-            encryption_mode=self.encryption_mode.value
+            encryption_mode=self.encryption_mode.value,
         )
 
         self.logger.debug(
@@ -724,7 +742,9 @@ class BaseTask:
         Raises:
             NotImplementedError: If not overridden in a subclass.
         """
-        raise NotImplementedError("Subclasses must implement configure_operations()")
+        raise FeatureNotImplementedError(
+            "Subclasses must implement configure_operations()"
+        )
 
     def _run_operations(self, start_idx: int = 0) -> bool:
         """
@@ -742,7 +762,9 @@ class BaseTask:
         # Execute operations using the operation executor
         for i in range(start_idx, len(self.operations)):
             operation = self.operations[i]
-            operation_name = operation.name if hasattr(operation, 'name') else f"Operation {i + 1}"
+            operation_name = (
+                operation.name if hasattr(operation, "name") else f"Operation {i + 1}"
+            )
 
             # Prepare operation parameters
             operation_params = self._prepare_operation_parameters(operation)
@@ -751,24 +773,25 @@ class BaseTask:
             try:
                 # Execute operation
                 result = self.operation_executor.execute_with_retry(
-                    operation=operation,
-                    params=operation_params
+                    operation=operation, params=operation_params
                 )
 
                 # Store the result
                 self.results[operation_name] = result
 
                 # Register artifacts from the operation
-                if hasattr(result, 'artifacts') and result.artifacts:
+                if hasattr(result, "artifacts") and result.artifacts:
                     self.artifacts.extend(result.artifacts)
 
                 # Collect metrics from the operation
-                if hasattr(result, 'metrics') and result.metrics:
+                if hasattr(result, "metrics") and result.metrics:
                     self.metrics[operation_name] = result.metrics
 
                 # Check result status
                 if result.status == OperationStatus.ERROR:
-                    self.logger.error(f"Operation {operation_name} failed: {result.error_message}")
+                    self.logger.error(
+                        f"Operation {operation_name} failed: {result.error_message}"
+                    )
 
                     # Check if we should continue on error
                     if not self.config.continue_on_error:
@@ -776,7 +799,7 @@ class BaseTask:
                         self.error_info = {
                             "type": "operation_error",
                             "operation": operation_name,
-                            "message": result.error_message
+                            "message": result.error_message,
                         }
                         self.status = "operation_error"
                         return False
@@ -785,8 +808,7 @@ class BaseTask:
                 if self.context_manager:
                     try:
                         self.context_manager.create_automatic_checkpoint(
-                            operation_index=i,
-                            metrics=self.metrics
+                            operation_index=i, metrics=self.metrics
                         )
                     except Exception as e:
                         self.logger.warning(f"Could not create checkpoint: {e}")
@@ -797,7 +819,7 @@ class BaseTask:
                 self.error_info = {
                     "type": "keyboard_interrupt",
                     "operation": operation_name,
-                    "message": "Task execution interrupted by user"
+                    "message": "Task execution interrupted by user",
                 }
                 self.status = "interrupted"
                 raise  # Re-raise KeyboardInterrupt to ensure it's properly handled
@@ -805,16 +827,20 @@ class BaseTask:
             except Exception as e:
                 # Check for KeyboardInterrupt before general exception handling
                 if isinstance(e, KeyboardInterrupt):
-                    self.logger.info("Keyboard interrupt detected, stopping task execution")
+                    self.logger.info(
+                        "Keyboard interrupt detected, stopping task execution"
+                    )
                     self.error_info = {
                         "type": "keyboard_interrupt",
                         "operation": operation_name,
-                        "message": "Task execution interrupted by user"
+                        "message": "Task execution interrupted by user",
                     }
                     self.status = "interrupted"
                     raise  # Re-raise KeyboardInterrupt
 
-                self.logger.exception(f"Error executing operation {operation_name}: {str(e)}")
+                self.logger.exception(
+                    f"Error executing operation {operation_name}: {str(e)}"
+                )
 
                 # Check if we should continue on error - centralized error handling
                 if not self.config.continue_on_error:
@@ -822,7 +848,7 @@ class BaseTask:
                     self.error_info = {
                         "type": "exception",
                         "operation": operation_name,
-                        "message": str(e)
+                        "message": str(e),
                     }
                     self.status = "exception"
                     return False
@@ -850,7 +876,7 @@ class BaseTask:
                 self.logger.error("No operations configured for this task")
                 self.error_info = {
                     "type": "configuration_error",
-                    "message": "No operations configured for this task"
+                    "message": "No operations configured for this task",
                 }
                 self.status = "configuration_error"
                 return False
@@ -870,20 +896,31 @@ class BaseTask:
                     # Log skipped operations
                     for i in range(last_completed_index + 1):
                         operation = self.operations[i]
-                        operation_name = operation.name if hasattr(operation, 'name') else f"Operation {i + 1}"
-                        self.logger.info(f"Skipping already completed operation: {operation_name}")                       
+                        operation_name = (
+                            operation.name
+                            if hasattr(operation, "name")
+                            else f"Operation {i + 1}"
+                        )
+                        self.logger.info(
+                            f"Skipping already completed operation: {operation_name}"
+                        )
 
                         # Update progress manager
                         if self.progress_manager:
-                            if hasattr(self.progress_manager, 'complete_operation'):
-                                self.progress_manager.complete_operation(operation_name, success=True)
+                            if hasattr(self.progress_manager, "complete_operation"):
+                                self.progress_manager.complete_operation(
+                                    operation_name, success=True
+                                )
                             else:
                                 self.logger.debug(
-                                    f"Progress manager does not support operation completion tracking for {operation_name}")
+                                    f"Progress manager does not support operation completion tracking for {operation_name}"
+                                )
 
                     # Start from the next operation
                     start_idx = last_completed_index + 1
-                    self.logger.info(f"Resuming execution from operation index {start_idx}")
+                    self.logger.info(
+                        f"Resuming execution from operation index {start_idx}"
+                    )
 
             # Run operations starting from the determined index
             return self._run_operations(start_idx)
@@ -893,7 +930,7 @@ class BaseTask:
             self.logger.info("Keyboard interrupt detected, stopping task execution")
             self.error_info = {
                 "type": "keyboard_interrupt",
-                "message": "Task execution interrupted by user"
+                "message": "Task execution interrupted by user",
             }
             self.status = "interrupted"
             raise  # Re-raise KeyboardInterrupt to ensure proper shutdown
@@ -904,7 +941,7 @@ class BaseTask:
                 self.logger.info("Keyboard interrupt detected, stopping task execution")
                 self.error_info = {
                     "type": "keyboard_interrupt",
-                    "message": "Task execution interrupted by user"
+                    "message": "Task execution interrupted by user",
                 }
                 self.status = "interrupted"
                 raise  # Re-raise KeyboardInterrupt
@@ -912,10 +949,7 @@ class BaseTask:
             # Handle unexpected execution errors
             error_msg = f"Unhandled error in task execution {self.task_id}: {str(e)}"
             self.logger.exception(error_msg)
-            self.error_info = {
-                "type": "unhandled_exception",
-                "message": str(e)
-            }
+            self.error_info = {"type": "unhandled_exception", "message": str(e)}
             self.status = "unhandled_exception"
             return False
 
@@ -934,7 +968,7 @@ class BaseTask:
         operation_params = {}
 
         # Add operation-specific parameters from config, skipping reserved keys
-        if hasattr(operation, 'config') and operation.config:
+        if hasattr(operation, "config") and operation.config:
             for key, value in operation.config.to_dict().items():
                 if key not in RESERVED_OPERATION_PARAMS:
                     operation_params[key] = value
@@ -951,9 +985,9 @@ class BaseTask:
         supports_vectorization = False
 
         # First check if operation has explicit support flags
-        if hasattr(operation, 'supports_encryption'):
+        if hasattr(operation, "supports_encryption"):
             supports_encryption = operation.supports_encryption
-        if hasattr(operation, 'supports_vectorization'):
+        if hasattr(operation, "supports_vectorization"):
             supports_vectorization = operation.supports_vectorization
 
         # If not explicitly defined, use parameter inspection
@@ -973,7 +1007,9 @@ class BaseTask:
             operation_params["use_encryption"] = self.use_encryption
             # Always provide encryption_context (may be None) for consistent interface
             operation_params["encryption_context"] = (
-                self.encryption_manager.get_encryption_context() if self.use_encryption else None
+                self.encryption_manager.get_encryption_context()
+                if self.use_encryption
+                else None
             )
             operation_params["encryption_mode"] = self.encryption_mode.value
 
@@ -986,7 +1022,9 @@ class BaseTask:
 
         return operation_params
 
-    def _get_operation_supported_parameters(self, operation: Union[BaseOperation, Type[BaseOperation]]) -> set:
+    def _get_operation_supported_parameters(
+        self, operation: Union[BaseOperation, Type[BaseOperation]]
+    ) -> set:
         """
         Get the set of parameters that an operation's constructor accepts.
 
@@ -1006,7 +1044,7 @@ class BaseTask:
             cls = operation.__class__
 
         # Use local cache for parameters
-        if not hasattr(self, '_operation_parameter_cache'):
+        if not hasattr(self, "_operation_parameter_cache"):
             self._operation_parameter_cache = {}
 
         cache_key = f"{cls.__module__}.{cls.__name__}"
@@ -1018,9 +1056,11 @@ class BaseTask:
         # Create parameter set from constructor signature
         try:
             params = set(inspect.signature(cls.__init__).parameters.keys())
-            params.discard('self')  # Remove 'self' parameter
-        except (ValueError, TypeError) as e:
-            self.logger.warning(f"Could not inspect parameters for {cls.__name__}: {e}. Using empty set.")
+            params.discard("self")  # Remove 'self' parameter
+        except (ValidationError, ValueError, TypeError) as e:
+            self.logger.warning(
+                f"Could not inspect parameters for {cls.__name__}: {e}. Using empty set."
+            )
             params = set()
 
         # Cache and return
@@ -1058,8 +1098,8 @@ class BaseTask:
                 error_info=self.error_info,
                 encryption={
                     "enabled": self.use_encryption,
-                    "mode": self.encryption_mode.value
-                }
+                    "mode": self.encryption_mode.value,
+                },
             )
 
             # Summarize artifacts
@@ -1070,14 +1110,18 @@ class BaseTask:
                     encrypted = False
                     encryption_mode = EncryptionMode.NONE.value
 
-                    if self.use_encryption and hasattr(artifact, 'path'):
+                    if self.use_encryption and hasattr(artifact, "path"):
                         # Use encryption manager to check if artifact is encrypted
                         try:
-                            encrypted = self.encryption_manager.is_file_encrypted(artifact.path)
+                            encrypted = self.encryption_manager.is_file_encrypted(
+                                artifact.path
+                            )
                             if encrypted:
                                 encryption_mode = self.encryption_mode.value
                         except Exception as e:
-                            self.logger.debug(f"Error checking encryption status of artifact: {str(e)}")
+                            self.logger.debug(
+                                f"Error checking encryption status of artifact: {str(e)}"
+                            )
 
                     self.reporter.add_artifact(
                         artifact_type=artifact.artifact_type,
@@ -1087,8 +1131,8 @@ class BaseTask:
                         tags=artifact.tags,
                         metadata={
                             "encrypted": encrypted,
-                            "encryption_mode": encryption_mode
-                        }
+                            "encryption_mode": encryption_mode,
+                        },
                     )
 
             # Generate and save report
@@ -1097,10 +1141,7 @@ class BaseTask:
                 self.logger.info(f"Task report saved to: {Path(report_path).name}")
             except Exception as e:
                 self.logger.error(f"Error saving task report: {str(e)}")
-                self.error_info = {
-                    "type": "report_error",
-                    "message": str(e)
-                }
+                self.error_info = {"type": "report_error", "message": str(e)}
                 self.status = "report_error"
                 return False
 
@@ -1113,14 +1154,11 @@ class BaseTask:
                     execution_time=self.execution_time,
                     report_path=report_path,
                     input_datasets=self.input_datasets,
-                    output_artifacts=self.artifacts
+                    output_artifacts=self.artifacts,
                 )
             except Exception as e:
                 self.logger.error(f"Error recording task execution: {str(e)}")
-                self.error_info = {
-                    "type": "log_error",
-                    "message": str(e)
-                }
+                self.error_info = {"type": "log_error", "message": str(e)}
                 self.status = "log_error"
                 # Continue with cleanup despite the error
 
@@ -1136,7 +1174,7 @@ class BaseTask:
 
                 # Close other managers if they have cleanup methods
                 for manager in [self.context_manager, self.encryption_manager]:
-                    if manager and hasattr(manager, 'cleanup'):
+                    if manager and hasattr(manager, "cleanup"):
                         manager.cleanup()
             except Exception as e:
                 self.logger.warning(f"Error during resource cleanup: {str(e)}")
@@ -1147,15 +1185,16 @@ class BaseTask:
             # Handle finalization errors
             error_msg = f"Error finalizing task {self.task_id}: {str(e)}"
             self.logger.exception(error_msg)
-            self.error_info = {
-                "type": "finalization_error",
-                "message": str(e)
-            }
+            self.error_info = {"type": "finalization_error", "message": str(e)}
             self.status = "finalization_error"
             return False
 
-    def run(self, args: Optional[Dict[str, Any]] = None, force_restart: bool = False,
-            enable_checkpoints: Optional[bool] = None) -> bool:
+    def run(
+        self,
+        args: Optional[Dict[str, Any]] = None,
+        force_restart: bool = False,
+        enable_checkpoints: Optional[bool] = None,
+    ) -> bool:
         """
         Run the complete task lifecycle: initialize, configure, execute, finalize.
 
@@ -1177,7 +1216,9 @@ class BaseTask:
         """
         try:
             # Initialize with checkpoint settings
-            if not self.initialize(args, force_restart=force_restart, enable_checkpoints=enable_checkpoints):
+            if not self.initialize(
+                args, force_restart=force_restart, enable_checkpoints=enable_checkpoints
+            ):
                 self.logger.error(f"Failed to initialize task: {self.task_id}")
                 self.finalize(False)
                 return False
@@ -1189,21 +1230,22 @@ class BaseTask:
 
                 # Validate that operations were properly configured
                 if not self.operations:
-                    self.logger.warning("No operations were configured - task may not perform any work")
+                    self.logger.warning(
+                        "No operations were configured - task may not perform any work"
+                    )
                 else:
                     self.logger.info(f"Configured {len(self.operations)} operations")
 
                 # Update progress manager with total operations
                 if self.progress_manager:
                     total_ops = len(self.operations)
-                    self.logger.debug(f"Updating progress manager with {total_ops} total operations")
+                    self.logger.debug(
+                        f"Updating progress manager with {total_ops} total operations"
+                    )
                     self.progress_manager.set_total_operations(total_ops)
             except Exception as e:
                 self.logger.exception(f"Error configuring operations: {str(e)}")
-                self.error_info = {
-                    "type": "configuration_error",
-                    "message": str(e)
-                }
+                self.error_info = {"type": "configuration_error", "message": str(e)}
                 self.status = "configuration_error"
                 self.finalize(False)
                 return False
@@ -1231,13 +1273,17 @@ class BaseTask:
             except Exception:
                 # If finalization itself fails, just log and continue
                 if self.logger:
-                    self.logger.exception("Error during finalization after task failure")
+                    self.logger.exception(
+                        "Error during finalization after task failure"
+                    )
                 else:
                     logging.exception("Error during finalization after task failure")
 
             return False
 
-    def add_operation(self, operation_class: Union[str, Type[BaseOperation]], **kwargs) -> bool:
+    def add_operation(
+        self, operation_class: Union[str, Type[BaseOperation]], **kwargs
+    ) -> bool:
         """
         Add an operation to the task's execution queue.
 
@@ -1259,8 +1305,9 @@ class BaseTask:
         """
         try:
             # 1. Filter out Reserved Keys
-            filtered_kwargs = {k: v for k, v in kwargs.items()
-                               if k not in RESERVED_OPERATION_PARAMS}
+            filtered_kwargs = {
+                k: v for k, v in kwargs.items() if k not in RESERVED_OPERATION_PARAMS
+            }
 
             # 2. Get the operation class
             if isinstance(operation_class, str):
@@ -1275,14 +1322,14 @@ class BaseTask:
 
                 # Infrastructure-level flags that can be overridden via kwargs
                 infra_flags = {
-                    'use_encryption': getattr(self, 'use_encryption', None),
-                    'encryption_mode': getattr(self, 'encryption_mode', None),
-                    'use_vectorization': getattr(self, 'use_vectorization', None),
-                    'parallel_processes': getattr(self, 'parallel_processes', None),
-                    'use_dask': getattr(self, 'use_dask', None),
-                    'npartitions': getattr(self, 'npartitions', None),
-                    'chunk_size': getattr(self, 'chunk_size', None),
-                    'use_cache': filtered_kwargs.get('use_cache', False),
+                    "use_encryption": getattr(self, "use_encryption", None),
+                    "encryption_mode": getattr(self, "encryption_mode", None),
+                    "use_vectorization": getattr(self, "use_vectorization", None),
+                    "parallel_processes": getattr(self, "parallel_processes", None),
+                    "use_dask": getattr(self, "use_dask", None),
+                    "npartitions": getattr(self, "npartitions", None),
+                    "chunk_size": getattr(self, "chunk_size", None),
+                    "use_cache": filtered_kwargs.get("use_cache", False),
                 }
 
                 for key, default_value in infra_flags.items():
@@ -1293,14 +1340,18 @@ class BaseTask:
                         if hasattr(value, "value"):
                             value = value.value
                         if value is not None:
-                            filtered_kwargs[key] = value 
+                            filtered_kwargs[key] = value
             elif isinstance(operation_class, str):
                 # If the class is not found, log it, but give the factory a chance (it has lazy-load)
-                self.logger.warning(f"Operation class {operation_class} not found in registry, attempting lazy load")
+                self.logger.warning(
+                    f"Operation class {operation_class} not found in registry, attempting lazy load"
+                )
 
             # 4. Create Instance
             operation = (
-                op_registry.create_operation_instance(operation_class, **filtered_kwargs)
+                op_registry.create_operation_instance(
+                    operation_class, **filtered_kwargs
+                )
                 if isinstance(operation_class, str)
                 else op_cls(**filtered_kwargs)
             )
@@ -1387,7 +1438,7 @@ class BaseTask:
             return {
                 "enabled": self.use_encryption,
                 "mode": self.encryption_mode.value,
-                "key_available": False
+                "key_available": False,
             }
 
     def get_checkpoint_status(self) -> Dict[str, Any]:
@@ -1401,10 +1452,14 @@ class BaseTask:
             "resuming_from_checkpoint": self._resuming_from_checkpoint,
             "checkpoint_name": self._restored_checkpoint_name,
             "has_restored_state": self._restored_state is not None,
-            "operation_index": self._restored_state.get("operation_index", -1) if self._restored_state else -1
+            "operation_index": (
+                self._restored_state.get("operation_index", -1)
+                if self._restored_state
+                else -1
+            ),
         }
 
-    def __enter__(self) -> 'BaseTask':
+    def __enter__(self) -> "BaseTask":
         """
         Enter the context manager.
 
@@ -1434,11 +1489,13 @@ class BaseTask:
         """
         if exc_type is not None:
             # An exception occurred during the with block
-            self.logger.error(f"Exception during task execution: {exc_type.__name__}: {exc_val}")
+            self.logger.error(
+                f"Exception during task execution: {exc_type.__name__}: {exc_val}"
+            )
             self.error_info = {
                 "type": "context_exception",
                 "message": str(exc_val),
-                "exception_type": exc_type.__name__
+                "exception_type": exc_type.__name__,
             }
             self.status = "context_exception"
             self.finalize(False)

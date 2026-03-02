@@ -39,6 +39,7 @@ import logging
 import os
 import sys
 from typing import Dict, Any, Optional, List, Callable, Tuple
+from pamola_core.errors.exceptions import FeatureNotImplementedError
 
 try:
     from packaging.version import Version, InvalidVersion
@@ -70,130 +71,20 @@ ENTITIES_DIR = os.environ.get(
     "PAMOLA_ENTITIES_DIR", os.path.join(RESOURCES_DIR, "entities")
 )
 
-# Ensure resource directories exist
-for directory in [RESOURCES_DIR, STOPWORDS_DIR, TOKENIZATION_DIR, DICTIONARIES_DIR, ENTITIES_DIR]:
-    os.makedirs(directory, exist_ok=True)
-
-
-# -----------------------------------------------------------------------------
-# Error classes for package-specific exceptions
-# -----------------------------------------------------------------------------
-
-
-class NLPError(Exception):
+def ensure_resource_dirs() -> None:
     """
-    Base class for all NLP module exceptions.
+    Ensure NLP resource directories exist.
 
-    This serves as the root of the exception hierarchy for all NLP-related
-    errors in PAMOLA.CORE. All custom exceptions in the NLP module should
-    inherit from this class.
+    This is a runtime setup step to avoid import-time side effects.
     """
-
-    pass
-
-
-class ResourceNotFoundError(NLPError):
-    """
-    Exception raised when a required resource is not found.
-
-    This typically occurs when looking for resource files like stopwords,
-    tokenization rules, or dictionaries.
-    """
-
-    pass
-
-
-class ModelNotAvailableError(NLPError):
-    """
-    Exception raised when a required model is not available.
-
-    This can occur when a specific NLP model (e.g., spaCy model) is not
-    installed or cannot be loaded.
-    """
-
-    pass
-
-
-class UnsupportedLanguageError(NLPError):
-    """
-    Exception raised when the requested language is not supported.
-
-    This occurs when operations are requested for a language that the
-    system does not have resources or models for.
-    """
-
-    pass
-
-
-class ConfigurationError(NLPError):
-    """
-    Exception raised for configuration-related errors.
-
-    This includes invalid configuration values, missing required
-    configuration parameters, or configuration conflicts.
-    """
-
-    pass
-
-
-# -----------------------------------------------------------------------------
-# LLM-specific error hierarchy
-# -----------------------------------------------------------------------------
-
-
-class LLMError(NLPError):
-    """
-    Base exception for LLM operations.
-
-    This serves as the root for all Large Language Model related errors,
-    providing a way to catch all LLM-specific exceptions at once.
-    """
-
-    pass
-
-
-class LLMConnectionError(LLMError):
-    """
-    Exception raised when LLM connection fails.
-
-    This includes:
-    - Failed to connect to LLM service (network issues)
-    - Authentication failures
-    - Service unavailable errors
-    - Timeout during connection establishment
-    """
-
-    pass
-
-
-class LLMGenerationError(LLMError):
-    """
-    Exception raised during text generation.
-
-    This includes:
-    - Model failures during generation
-    - Token limit exceeded
-    - Invalid generation parameters
-    - Timeout during generation
-    - Model-specific errors
-    """
-
-    pass
-
-
-class LLMResponseError(LLMError):
-    """
-    Exception raised when response is invalid.
-
-    This includes:
-    - Empty or null responses
-    - Malformed response format
-    - Response parsing failures
-    - Response validation failures
-    - Unexpected response structure
-    """
-
-    pass
+    for directory in [
+        RESOURCES_DIR,
+        STOPWORDS_DIR,
+        TOKENIZATION_DIR,
+        DICTIONARIES_DIR,
+        ENTITIES_DIR,
+    ]:
+        os.makedirs(directory, exist_ok=True)
 
 
 # -----------------------------------------------------------------------------
@@ -564,7 +455,7 @@ class CacheBase:
         Any
             The cached value, or None if not found.
         """
-        raise NotImplementedError
+        raise FeatureNotImplementedError
 
     def set(self, key: str, value: Any, **kwargs) -> None:
         """
@@ -579,7 +470,7 @@ class CacheBase:
         **kwargs
             Implementation-specific arguments (e.g., ttl, tags).
         """
-        raise NotImplementedError
+        raise FeatureNotImplementedError
 
     def delete(self, key: str) -> bool:
         """
@@ -595,13 +486,13 @@ class CacheBase:
         bool
             True if the key was found and deleted, False otherwise.
         """
-        raise NotImplementedError
+        raise FeatureNotImplementedError
 
     def clear(self) -> None:
         """
         Clear all items from the cache.
         """
-        raise NotImplementedError
+        raise FeatureNotImplementedError
 
     def get_stats(self) -> Dict[str, Any]:
         """
@@ -612,7 +503,7 @@ class CacheBase:
         Dict[str, Any]
             Cache statistics such as hits, misses, size, etc.
         """
-        raise NotImplementedError
+        raise FeatureNotImplementedError
 
     def get_or_set(self, key: str, default_func: Callable[[], Any], **kwargs) -> Any:
         """
@@ -655,43 +546,4 @@ class CacheBase:
         Dict[str, Any]
             A dictionary of metadata or an empty dict if not implemented.
         """
-        raise NotImplementedError("This cache does not support get_model_info.")
-
-
-# -----------------------------------------------------------------------------
-# Module exports
-# -----------------------------------------------------------------------------
-
-__all__ = [
-    # Base error classes
-    "NLPError",
-    "ResourceNotFoundError",
-    "ModelNotAvailableError",
-    "UnsupportedLanguageError",
-    "ConfigurationError",
-    # LLM error classes
-    "LLMError",
-    "LLMConnectionError",
-    "LLMGenerationError",
-    "LLMResponseError",
-    # Utility classes
-    "DependencyManager",
-    "CacheBase",
-    "MISSING",
-    # Utility functions
-    "normalize_language_code",
-    "batch_process",
-    # Constants
-    "BASE_DIR",
-    "RESOURCES_DIR",
-    "STOPWORDS_DIR",
-    "TOKENIZATION_DIR",
-    "DICTIONARIES_DIR",
-]
-
-# Module metadata
-__version__ = "1.2.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-__maintainer__ = "PAMOLA Core Team"
-__status__ = "stable"
+        raise FeatureNotImplementedError("This cache does not support get_model_info.")

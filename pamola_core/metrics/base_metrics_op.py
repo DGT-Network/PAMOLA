@@ -62,7 +62,14 @@ from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
-from pamola_core.utils import helpers
+import pamola_core.utils.helpers as helpers
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    ColumnNotFoundError,
+    ValidationError,
+    FeatureNotImplementedError,
+)
 
 
 class MetricsOperation(BaseOperation):
@@ -154,12 +161,25 @@ class MetricsOperation(BaseOperation):
             # Start timing
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
-            self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-            original_df = None
-            transformed_df = None
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
+            )
 
             # Initialize result object
             result = OperationResult(status=OperationStatus.PENDING)
+
+            # Initialize dataframes
+            original_df = None
+            transformed_df = None
+
+            # Extract original and transformed dataset name from kwargs (default to "main")
+            self.original_dataset_name = kwargs.get("original_dataset_name", "main")
+            self.transformed_dataset_name = kwargs.get(
+                "transformed_dataset_name", "main"
+            )
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -169,19 +189,19 @@ class MetricsOperation(BaseOperation):
                 cache_dir=dirs["cache"],
             )
 
-            # Create writer for consistent output handling
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
+            # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
             # Save operation configuration
             self.save_config(task_dir)
-
-            # Extract original and transformed dataset name from kwargs (default to "main")
-            self.original_dataset_name = kwargs.get("original_dataset_name", "main")
-            self.transformed_dataset_name = kwargs.get(
-                "transformed_dataset_name", "main"
-            )
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -203,7 +223,7 @@ class MetricsOperation(BaseOperation):
                     main_progress.update(
                         current_steps,
                         {
-                            "step": f"Starting {self.name}",
+                            "step": f"Starting {self.operation_name}",
                             "columns": self.columns,
                         },
                     )
@@ -212,69 +232,65 @@ class MetricsOperation(BaseOperation):
 
             # Step 1: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
-                try:
+                if main_progress:
+                    current_steps += 1
+                    main_progress.update(
+                        current_steps,
+                        {"step": "Checking cache", "name": self.operation_name},
+                    )
+
+                # Load original dataset for check cache
+                self.logger.info("Load original dataset for check cache...")
+                original_df = self._get_dataset_by_name(
+                    data_source, self.original_dataset_name, **kwargs
+                )
+                self.logger.info(
+                    f"Original dataset '{self.original_dataset_name}' loaded with {len(original_df)} records."
+                )
+
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(original_df, reporter)
+
+                if cache_result:
+                    self.logger.info(f"Using cached result for {self.operation_name}")
+
+                    # Update progress
                     if main_progress:
-                        current_steps += 1
                         main_progress.update(
                             current_steps,
-                            {"step": "Checking cache", "name": self.name},
+                            {"step": "Complete (cached)", "name": self.operation_name},
                         )
 
-                    # Load original dataset for check cache
-                    self.logger.info("Load original dataset for check cache...")
-                    original_df = self._get_dataset_by_name(
-                        data_source, self.original_dataset_name, **kwargs
-                    )
-                    self.logger.info(
-                        f"Original dataset '{self.original_dataset_name}' loaded with {len(original_df)} records."
-                    )
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Metric of {self.operation_name} (from cache)",
+                            details={"cached": True},
+                        )
 
-                    self.logger.info("Checking operation cache...")
-                    cache_result = self._check_cache(original_df, reporter)
-
-                    if cache_result:
-                        self.logger.info(f"Using cached result for {self.name}")
-
-                        # Update progress
-                        if main_progress:
-                            main_progress.update(
-                                current_steps,
-                                {"step": "Complete (cached)", "name": self.name},
-                            )
-
-                        # Report cache hit to reporter
-                        if reporter:
-                            reporter.add_operation(
-                                f"Metric of {self.name} (from cache)",
-                                details={"cached": True},
-                            )
-
-                        return cache_result
-                except Exception as e:
-                    error_message = f"Error checking cache: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                    return cache_result
 
             # Step 2: Data Loading & Validation
             if main_progress:
                 current_steps += 1
                 main_progress.update(
-                    current_steps, {"step": "Data Loading", "name": self.name}
+                    current_steps,
+                    {"step": "Data Loading", "operation_name": self.operation_name},
                 )
 
             # Validate and get dataframe
             try:
                 if original_df is None:
-                    self.logger.info(f"Loading original data for name '{self.name}'")
+                    self.logger.info(
+                        f"Loading original data for operation_name '{self.operation_name}'"
+                    )
                     original_df = self._get_dataset_by_name(
                         data_source, self.original_dataset_name, **kwargs
                     )
                 if transformed_df is None:
-                    self.logger.info(f"Loading transformed data for name '{self.name}'")
+                    self.logger.info(
+                        f"Loading transformed data for operation_name '{self.operation_name}'"
+                    )
                     transformed_df = self._get_dataset_by_name(
                         data_source, self.transformed_dataset_name, **kwargs
                     )
@@ -282,19 +298,26 @@ class MetricsOperation(BaseOperation):
                 # Validate loaded dataframes
                 self._validate_inputs(original_df, transformed_df)
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={
+                        "original_dataset": self.original_dataset_name,
+                        "transformed_dataset": self.transformed_dataset_name,
+                        "operation": self.operation_name,
+                    },
+                    message_kwargs={
+                        "source": f"{self.original_dataset_name},{self.transformed_dataset_name}",
+                        "reason": str(e),
+                    },
                 )
 
             # Step 3: Processing
             if main_progress:
                 current_steps += 1
                 main_progress.update(
-                    current_steps, {"step": "Processing", "name": self.name}
+                    current_steps,
+                    {"step": "Processing", "operation_name": self.operation_name},
                 )
 
             try:
@@ -335,26 +358,31 @@ class MetricsOperation(BaseOperation):
                     except:
                         pass
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": "<metrics>",
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Record end time after processing metrics
             self.end_time = time.time()
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             # Step 4: Metrics Calculation
             if main_progress:
                 current_steps += 1
                 main_progress.update(
                     current_steps,
-                    {"step": "Metrics Calculation", "name": self.name},
+                    {
+                        "step": "Metrics Calculation",
+                        "operation_name": self.operation_name,
+                    },
                 )
 
             try:
@@ -365,8 +393,8 @@ class MetricsOperation(BaseOperation):
                 # Update processed metrics
                 processed_metrics.update(basic_metrics)
 
-                # Generate metrics file name (in self.name)
-                metrics_file_name = f"{self.name}_{operation_timestamp}"
+                # Generate metrics file name
+                metrics_file_name = f"{self.operation_name}_{operation_timestamp}"
 
                 # Save metrics using writer
                 metrics_result = writer.write_metrics(
@@ -387,14 +415,14 @@ class MetricsOperation(BaseOperation):
                 result.add_artifact(
                     artifact_type="json",
                     path=metrics_result.path,
-                    description=f"{self.name} metrics",
+                    description=f"{self.operation_name} metrics",
                     category=Constants.Artifact_Category_Metrics,
                 )
 
                 # Report artifact
                 if reporter:
                     reporter.add_operation(
-                        f"{self.name} metrics",
+                        f"{self.operation_name} metrics",
                         details={
                             "artifact_type": "json",
                             "path": str(metrics_result.path),
@@ -410,7 +438,10 @@ class MetricsOperation(BaseOperation):
                 current_steps += 1
                 main_progress.update(
                     current_steps,
-                    {"step": "Generating Visualizations", "name": self.name},
+                    {
+                        "step": "Generating Visualizations",
+                        "operation_name": self.operation_name,
+                    },
                 )
 
             # Generate visualizations if required
@@ -449,7 +480,7 @@ class MetricsOperation(BaseOperation):
                 current_steps += 1
                 main_progress.update(
                     current_steps,
-                    {"step": "Saving Cache", "name": self.name},
+                    {"step": "Saving Cache", "operation_name": self.operation_name},
                 )
 
             # Cache the result if caching is enabled
@@ -474,33 +505,35 @@ class MetricsOperation(BaseOperation):
                 transformed_df=transformed_df,
             )
 
-            # Finalize timing
-            self.end_time = time.time()
-
             # Report completion
             if reporter:
                 reporter.add_operation(
-                    f"Metrics of {self.name} completed",
+                    f"Metrics of {self.operation_name} completed",
                     details={
                         "records_processed": self.process_count,
-                        "execution_time": self.end_time - self.start_time,
+                        "execution_time": self.execution_time,
                     },
                 )
 
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
             self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
             )
             return result
 
         except Exception as e:
-            error_message = f"Error in transformation operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=error_message,
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": "<metrics>"},
+                message_kwargs={
+                    "field_name": "<metrics>",
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _validate_inputs(
@@ -519,7 +552,7 @@ class MetricsOperation(BaseOperation):
         if not isinstance(original_df, pd.DataFrame) or not isinstance(
             transformed_df, pd.DataFrame
         ):
-            raise ValueError(
+            raise ValidationError(
                 "Both original_df and transformed_df must be pandas DataFrames"
             )
 
@@ -527,12 +560,16 @@ class MetricsOperation(BaseOperation):
 
         for col in columns_to_check:
             if col not in original_df.columns:
-                raise ValueError(f"Column '{col}' not found in original_df")
+                raise ColumnNotFoundError(
+                    column_name=col,
+                    available_columns=list(original_df.columns),
+                )
 
             mapped_col = self.column_mapping.get(col, col)
             if mapped_col not in transformed_df.columns:
-                raise ValueError(
-                    f"Mapped column '{mapped_col}' not found in transformed_df"
+                raise ColumnNotFoundError(
+                    column_name=mapped_col,
+                    available_columns=list(transformed_df.columns),
                 )
 
     def _get_dataset_by_name(
@@ -569,7 +606,7 @@ class MetricsOperation(BaseOperation):
         if df is None:
             error_message = f"Failed to load input data!"
             self.logger.error(error_message)
-            raise ValueError(error_message)
+            raise ValidationError(error_message)
 
         df = self._optimize_data(df)
 
@@ -654,8 +691,9 @@ class MetricsOperation(BaseOperation):
             col for col in mapped_columns if col not in transformed_df.columns
         ]
         if missing_cols:
-            raise ValueError(
-                f"Mapped columns {missing_cols} not found in transformed_df"
+            raise ColumnNotFoundError(
+                column_name=missing_cols,
+                available_columns=list(transformed_df.columns),
             )
 
         transformed_df = transformed_df[mapped_columns].copy()
@@ -664,7 +702,7 @@ class MetricsOperation(BaseOperation):
         # Step 3: Get common indices
         common_indices = original_df.index.intersection(transformed_df.index)
         if sample_size is not None and sample_size > len(common_indices):
-            raise ValueError(
+            raise ValidationError(
                 f"sample_size={sample_size} exceeds number of common rows: {len(common_indices)}"
             )
 
@@ -767,7 +805,9 @@ class MetricsOperation(BaseOperation):
         Dict[str, Any]
             Dictionary containing the calculated metrics
         """
-        raise NotImplementedError("Subclasses must implement calculate_metrics method")
+        raise FeatureNotImplementedError(
+            "Subclasses must implement calculate_metrics method"
+        )
 
     def _collect_basic_metrics(
         self,
@@ -879,7 +919,7 @@ class MetricsOperation(BaseOperation):
                     f"[DIAG] Visualization thread started - Thread ID: {thread_id}, Name: {thread_name}"
                 )
                 self.logger.info(
-                    f"[DIAG] Name Operation: {self.name}, Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
+                    f"[DIAG] Name Operation: {self.operation_name}, Backend: {vis_backend}, Theme: {vis_theme}, Strict: {vis_strict}"
                 )
 
                 start_time = time.time()
@@ -954,7 +994,7 @@ class MetricsOperation(BaseOperation):
             viz_thread = threading.Thread(
                 target=ctx.run,
                 args=(generate_viz_with_diagnostics,),
-                name=f"VizThread-{self.name}",
+                name=f"VizThread-{self.operation_name}",
                 daemon=False,  # Changed from True to ensure proper cleanup
             )
 
@@ -1010,14 +1050,14 @@ class MetricsOperation(BaseOperation):
             result.add_artifact(
                 artifact_type="png",
                 path=path,
-                description=f"{self.name} {viz_type} visualization",
+                description=f"{self.operation_name} {viz_type} visualization",
                 category=Constants.Artifact_Category_Visualization,
             )
 
             # Report to reporter
             if reporter:
                 reporter.add_operation(
-                    f"{self.name} {viz_type} visualization",
+                    f"{self.operation_name} {viz_type} visualization",
                     details={"artifact_type": "png", "path": str(path)},
                 )
 
@@ -1064,7 +1104,7 @@ class MetricsOperation(BaseOperation):
         Dict[str, Path]
             Dictionary with visualization types and paths
         """
-        raise NotImplementedError(
+        raise FeatureNotImplementedError(
             "Subclasses must implement _generate_visualizations method"
         )
 
@@ -1140,7 +1180,9 @@ class MetricsOperation(BaseOperation):
 
             result = helpers.get_cache_result(cached_result)
 
-            self.logger.info(f"Using cached result for {self.name} generalization")
+            self.logger.info(
+                f"Using cached result for {self.operation_name} generalization"
+            )
 
             if reporter:
                 reporter.add_operation(

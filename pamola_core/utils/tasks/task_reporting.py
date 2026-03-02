@@ -25,14 +25,9 @@ import socket
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
-
+from pamola_core.errors.exceptions import ReportingError
 from pamola_core.utils.io import write_json, ensure_directory
 from pamola_core.utils.tasks.task_config import validate_path_security
-
-
-class ReportingError(Exception):
-    """Exception raised for reporting errors."""
-    pass
 
 
 class ArtifactGroup:
@@ -76,7 +71,7 @@ class ArtifactGroup:
             "description": self.description,
             "artifacts": self.artifacts,
             "created_at": self.created_at,
-            "count": len(self.artifacts)
+            "count": len(self.artifacts),
         }
 
 
@@ -89,8 +84,14 @@ class TaskReporter:
     for coordinated progress tracking during report generation.
     """
 
-    def __init__(self, task_id: str, task_type: str, description: str, report_path: Union[str, Path],
-                 progress_manager: Optional[Any] = None):
+    def __init__(
+        self,
+        task_id: str,
+        task_type: str,
+        description: str,
+        report_path: Union[str, Path],
+        progress_manager: Optional[Any] = None,
+    ):
         """
         Initialize the task reporter.
 
@@ -154,7 +155,7 @@ class TaskReporter:
             "user": os.environ.get("USERNAME") or os.environ.get("USER") or "unknown",
             "machine": socket.gethostname(),
             "cpu_count": os.cpu_count() or 0,
-            "pamola_version": os.environ.get("PAMOLA_VERSION", "unknown")
+            "pamola_version": os.environ.get("PAMOLA_VERSION", "unknown"),
         }
 
     def _get_current_memory_usage(self) -> float:
@@ -166,13 +167,16 @@ class TaskReporter:
         """
         try:
             import psutil
+
             process = psutil.Process(os.getpid())
             memory_info = process.memory_info()
             return memory_info.rss / (1024 * 1024)  # Convert to MB
         except (ImportError, Exception):
             return 0.0
 
-    def add_operation(self, name: str, status: str = "success", details: Dict[str, Any] = None):
+    def add_operation(
+        self, name: str, status: str = "success", details: Dict[str, Any] = None
+    ):
         """
         Add an operation to the report.
 
@@ -185,26 +189,30 @@ class TaskReporter:
             "operation": name,
             "timestamp": datetime.now().isoformat(),
             "status": status,
-            "details": details or {}
+            "details": details or {},
         }
 
         self.operations.append(operation)
 
         # Track errors and warnings
         if status == "error":
-            self.errors.append({
-                "operation": name,
-                "timestamp": operation["timestamp"],
-                "message": details.get("error_message", "Unknown error"),
-                "details": details
-            })
+            self.errors.append(
+                {
+                    "operation": name,
+                    "timestamp": operation["timestamp"],
+                    "message": details.get("error_message", "Unknown error"),
+                    "details": details,
+                }
+            )
         elif status == "warning":
-            self.warnings.append({
-                "operation": name,
-                "timestamp": operation["timestamp"],
-                "message": details.get("warning_message", "Unknown warning"),
-                "details": details
-            })
+            self.warnings.append(
+                {
+                    "operation": name,
+                    "timestamp": operation["timestamp"],
+                    "message": details.get("warning_message", "Unknown warning"),
+                    "details": details,
+                }
+            )
 
         # Update memory usage
         current_memory = self._get_current_memory_usage()
@@ -213,11 +221,20 @@ class TaskReporter:
 
         # Log operation addition via progress manager if available
         if self.progress_manager:
-            self.progress_manager.log_info(f"Added operation: {name} (status: {status})")
+            self.progress_manager.log_info(
+                f"Added operation: {name} (status: {status})"
+            )
 
-    def add_artifact(self, artifact_type: str, path: Union[str, Path], description: str = "",
-                     category: str = "output", tags: Optional[List[str]] = None,
-                     group_name: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
+    def add_artifact(
+        self,
+        artifact_type: str,
+        path: Union[str, Path],
+        description: str = "",
+        category: str = "output",
+        tags: Optional[List[str]] = None,
+        group_name: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
         """
         Add an artifact to the report.
 
@@ -233,10 +250,10 @@ class TaskReporter:
         # Use progress manager for artifact addition if available
         if self.progress_manager:
             with self.progress_manager.create_operation_context(
-                    name="add_artifact",
-                    total=2,  # validate + add
-                    description=f"Adding artifact: {artifact_type}",
-                    leave=False
+                name="add_artifact",
+                total=2,  # validate + add
+                description=f"Adding artifact: {artifact_type}",
+                leave=False,
             ) as progress:
                 try:
                     # Validate path security
@@ -248,8 +265,13 @@ class TaskReporter:
 
                     # Process artifact (use helper method to avoid code duplication)
                     self._process_artifact(
-                        artifact_type, path, description, category,
-                        tags or [], group_name, metadata or {}
+                        artifact_type,
+                        path,
+                        description,
+                        category,
+                        tags or [],
+                        group_name,
+                        metadata or {},
                     )
 
                     progress.update(1, {"status": "added"})
@@ -263,12 +285,25 @@ class TaskReporter:
 
             # Process artifact without progress tracking
             self._process_artifact(
-                artifact_type, path, description, category,
-                tags or [], group_name, metadata or {}
+                artifact_type,
+                path,
+                description,
+                category,
+                tags or [],
+                group_name,
+                metadata or {},
             )
 
-    def _process_artifact(self, artifact_type: str, path: Union[str, Path], description: str,
-                          category: str, tags: List[str], group_name: Optional[str], metadata: Dict[str, Any]):
+    def _process_artifact(
+        self,
+        artifact_type: str,
+        path: Union[str, Path],
+        description: str,
+        category: str,
+        tags: List[str],
+        group_name: Optional[str],
+        metadata: Dict[str, Any],
+    ):
         """
         Process and add an artifact to the report (internal helper method).
 
@@ -306,7 +341,7 @@ class TaskReporter:
             "tags": tags,
             "size_bytes": size_bytes,
             "timestamp": timestamp or datetime.now().isoformat(),
-            "metadata": metadata
+            "metadata": metadata,
         }
 
         self.artifacts.append(artifact)
@@ -414,11 +449,18 @@ class TaskReporter:
 
         # Log nested metric addition via progress manager if available
         if self.progress_manager:
-            self.progress_manager.log_debug(f"Added metric: {category}.{name} = {value}")
+            self.progress_manager.log_debug(
+                f"Added metric: {category}.{name} = {value}"
+            )
 
-    def add_task_summary(self, success: bool, execution_time: float = None,
-                         metrics: Dict[str, Any] = None, error_info: Dict[str, Any] = None,
-                         encryption: Dict[str, Any] = None):
+    def add_task_summary(
+        self,
+        success: bool,
+        execution_time: float = None,
+        metrics: Dict[str, Any] = None,
+        error_info: Dict[str, Any] = None,
+        encryption: Dict[str, Any] = None,
+    ):
         """
         Add task summary to the report.
 
@@ -432,10 +474,10 @@ class TaskReporter:
         # Use progress manager for task summary if available
         if self.progress_manager:
             with self.progress_manager.create_operation_context(
-                    name="add_task_summary",
-                    total=4,  # update state, add metrics, add errors, update memory
-                    description="Adding task summary",
-                    leave=False
+                name="add_task_summary",
+                total=4,  # update state, add metrics, add errors, update memory
+                description="Adding task summary",
+                leave=False,
             ) as progress:
                 self._add_task_summary_internal(
                     success, execution_time, metrics, error_info, encryption, progress
@@ -446,9 +488,15 @@ class TaskReporter:
                 success, execution_time, metrics, error_info, encryption
             )
 
-    def _add_task_summary_internal(self, success: bool, execution_time: float = None,
-                                   metrics: Dict[str, Any] = None, error_info: Dict[str, Any] = None,
-                                   encryption: Dict[str, Any] = None, progress=None):
+    def _add_task_summary_internal(
+        self,
+        success: bool,
+        execution_time: float = None,
+        metrics: Dict[str, Any] = None,
+        error_info: Dict[str, Any] = None,
+        encryption: Dict[str, Any] = None,
+        progress=None,
+    ):
         """
         Internal helper for adding task summary with progress tracking support.
         """
@@ -482,12 +530,14 @@ class TaskReporter:
 
         # Add error information if provided
         if error_info and not success:
-            self.errors.append({
-                "timestamp": datetime.now().isoformat(),
-                "type": error_info.get("type", "unknown"),
-                "message": error_info.get("message", "Unknown error"),
-                "details": error_info
-            })
+            self.errors.append(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "type": error_info.get("type", "unknown"),
+                    "message": error_info.get("message", "Unknown error"),
+                    "details": error_info,
+                }
+            )
 
         if progress:
             progress.update(1, {"status": "added_errors"})
@@ -514,9 +564,7 @@ class TaskReporter:
         # Use progress manager for report generation if available
         if self.progress_manager:
             with self.progress_manager.create_operation_context(
-                    name="generate_report",
-                    total=1,
-                    description="Generating task report"
+                name="generate_report", total=1, description="Generating task report"
             ) as progress:
                 try:
                     report = self._generate_report_internal()
@@ -545,7 +593,7 @@ class TaskReporter:
             "task_id": self.task_id,
             "task_description": self.description,
             "task_type": self.task_type,
-            "script_path": os.path.abspath(os.path.realpath(os.path.join(os.getcwd(), __file__))),
+            "script_path": os.path.abspath(os.path.realpath(__file__)),
             "system_info": self.system_info,
             "start_time": self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
             "end_time": self.end_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -553,11 +601,13 @@ class TaskReporter:
             "status": self.status,
             "operations": self.operations,
             "artifacts": self.artifacts,
-            "artifact_groups": {name: group.to_dict() for name, group in self.artifact_groups.items()},
+            "artifact_groups": {
+                name: group.to_dict() for name, group in self.artifact_groups.items()
+            },
             "metrics": self.metrics,
             "errors": self.errors,
             "warnings": self.warnings,
-            "memory_usage_mb": round(self.peak_memory_usage, 2)
+            "memory_usage_mb": round(self.peak_memory_usage, 2),
         }
 
         return report
@@ -575,9 +625,9 @@ class TaskReporter:
         # Use progress manager for report saving if available
         if self.progress_manager:
             with self.progress_manager.create_operation_context(
-                    name="save_report",
-                    total=3,  # generate report, ensure directory, write to disk
-                    description="Saving task report"
+                name="save_report",
+                total=3,  # generate report, ensure directory, write to disk
+                description="Saving task report",
             ) as progress:
                 try:
                     # Generate report
@@ -593,7 +643,9 @@ class TaskReporter:
                         write_json(report, self.report_path)
                         progress.update(1, {"status": "written"})
 
-                        self.progress_manager.log_info(f"Report saved to {self.report_path}")
+                        self.progress_manager.log_info(
+                            f"Report saved to {self.report_path}"
+                        )
                         return self.report_path
                     except Exception as e:
                         progress.update(1, {"status": "error", "error": str(e)})
@@ -635,9 +687,9 @@ class TaskReporter:
         # Use progress manager for report finalization if available
         if self.progress_manager:
             with self.progress_manager.create_operation_context(
-                    name="finalize_report",
-                    total=2,  # add summary, save report
-                    description="Finalizing task report"
+                name="finalize_report",
+                total=2,  # add summary, save report
+                description="Finalizing task report",
             ) as progress:
                 try:
                     # Check if an exception occurred
@@ -650,15 +702,16 @@ class TaskReporter:
                     # Add error information if exception occurred
                     if exc_type is not None:
                         import traceback
+
                         error_info = {
                             "type": exc_type.__name__,
                             "message": str(exc_val),
-                            "traceback": traceback.format_exc()
+                            "traceback": traceback.format_exc(),
                         }
                         self.add_operation(
                             name=f"Exception: {exc_type.__name__}",
                             status="error",
-                            details=error_info
+                            details=error_info,
                         )
 
                     # Save report
@@ -667,11 +720,15 @@ class TaskReporter:
                         progress.update(1, {"status": "report_saved"})
                     except Exception as e:
                         progress.update(1, {"status": "save_error", "error": str(e)})
-                        self.progress_manager.log_error(f"Failed to save report: {str(e)}")
+                        self.progress_manager.log_error(
+                            f"Failed to save report: {str(e)}"
+                        )
                 except Exception as e:
                     if progress:
                         progress.update(1, {"status": "error", "error": str(e)})
-                    self.progress_manager.log_error(f"Error during report finalization: {str(e)}")
+                    self.progress_manager.log_error(
+                        f"Error during report finalization: {str(e)}"
+                    )
         else:
             # Check if an exception occurred
             success = exc_type is None
@@ -682,15 +739,16 @@ class TaskReporter:
             # Add error information if exception occurred
             if exc_type is not None:
                 import traceback
+
                 error_info = {
                     "type": exc_type.__name__,
                     "message": str(exc_val),
-                    "traceback": traceback.format_exc()
+                    "traceback": traceback.format_exc(),
                 }
                 self.add_operation(
                     name=f"Exception: {exc_type.__name__}",
                     status="error",
-                    details=error_info
+                    details=error_info,
                 )
 
             # Save report
@@ -698,6 +756,7 @@ class TaskReporter:
                 self.save_report()
             except Exception as e:
                 import logging
+
                 logging.error(f"Failed to save report: {str(e)}")
 
         # Don't suppress exceptions

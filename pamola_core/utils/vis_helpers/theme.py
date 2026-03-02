@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 import plotly
 from matplotlib.colors import Colormap
 from matplotlib.figure import Figure
+from pamola_core.errors.exceptions import ValidationError
 
 # pamola_core/utils/vis_helpers/colormap.py
 
@@ -174,7 +175,7 @@ def set_theme(theme_name: str, strict: bool = False) -> None:
     if theme_name not in THEMES:
         error_msg = f"Theme '{theme_name}' not found. Available themes: {', '.join(THEMES.keys())}"
         if strict:
-            raise ValueError(error_msg)
+            raise ValidationError(error_msg)
         else:
             logger.warning(f"{error_msg} Using default theme.")
             _theme_context.set("default")
@@ -235,7 +236,7 @@ def create_custom_theme(
     if missing_keys:
         error_msg = f"Custom theme '{name}' is missing required keys: {missing_keys}"
         if strict:
-            raise ValueError(f"{error_msg}. Theme not created.")
+            raise ValidationError(f"{error_msg}. Theme not created.")
         else:
             logger.warning(f"{error_msg}. Using defaults for these keys.")
 

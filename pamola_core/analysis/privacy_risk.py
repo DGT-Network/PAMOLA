@@ -36,10 +36,15 @@ from typing import Any, Dict, List, Tuple, Optional
 import numpy as np
 import pandas as pd
 from scipy.stats import wasserstein_distance
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
+from pamola_core.errors.exceptions import (
+    ColumnNotFoundError,
+    InvalidParameterError,
+    ValidationError,
+)
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 def calculate_full_risk(
@@ -90,7 +95,7 @@ def calculate_full_risk(
     # Validate weight sum
     total_weight = sum(weights.values())
     if abs(total_weight - 1.0) > 1e-6:
-        raise ValueError(f"Weights must sum to 1.0 (got {total_weight}).")
+        raise ValidationError(f"Weights must sum to 1.0 (got {total_weight}).")
 
     # --- 2. Formal Privacy Metrics ---
     # k-anonymity: measures minimum group size under quasi-identifiers
@@ -187,10 +192,13 @@ def _calculate_k_anonymity(
 
     # --- 2. Validate QI columns ---
     if not quasi_identifiers:
-        raise ValueError("At least one quasi-identifier must be provided.")
+        raise ValidationError("At least one quasi-identifier must be provided.")
     missing_cols = [c for c in quasi_identifiers if c not in df.columns]
     if missing_cols:
-        raise KeyError(f"Columns {missing_cols} not found in DataFrame.")
+        raise ColumnNotFoundError(
+            column_name=missing_cols,
+            available_columns=list(df.columns),
+        )
 
     # --- 3. Compute equivalence class sizes ---
     equivalence_class_sizes = (
@@ -249,15 +257,18 @@ def _calculate_l_diversity(
         }, 0.0
 
     if not quasi_identifiers:
-        raise ValueError("At least one quasi-identifier must be provided.")
+        raise ValidationError("At least one quasi-identifier must be provided.")
 
     if not sensitive_attributes:
-        raise ValueError("At least one sensitive attribute must be provided.")
+        raise ValidationError("At least one sensitive attribute must be provided.")
 
     missing_qi = [c for c in quasi_identifiers if c not in df.columns]
     missing_sa = [c for c in sensitive_attributes if c not in df.columns]
     if missing_qi or missing_sa:
-        raise KeyError(f"Missing columns in DataFrame: {missing_qi + missing_sa}")
+        raise ColumnNotFoundError(
+            column_name=missing_qi + missing_sa,
+            available_columns=list(df.columns),
+        )
 
     # --- 2. Group by quasi-identifiers to form equivalence classes ---
     grouped = df.groupby(quasi_identifiers, observed=True)
@@ -330,16 +341,19 @@ def _calculate_t_closeness(
         return {"t": 0.0, "distance_metric": distance_metric, "num_classes": 0}
 
     if not quasi_identifiers:
-        raise ValueError("At least one quasi-identifier must be provided.")
+        raise ValidationError("At least one quasi-identifier must be provided.")
 
     if not sensitive_attributes:
-        raise ValueError("At least one sensitive attribute must be provided.")
+        raise ValidationError("At least one sensitive attribute must be provided.")
 
     missing_cols = [
         c for c in quasi_identifiers + sensitive_attributes if c not in df.columns
     ]
     if missing_cols:
-        raise KeyError(f"Missing columns in DataFrame: {missing_cols}")
+        raise ColumnNotFoundError(
+            column_name=missing_cols,
+            available_columns=list(df.columns),
+        )
 
     # --- 2. Overall distribution of sensitive attributes ---
     overall_dist = (
@@ -373,8 +387,10 @@ def _calculate_t_closeness(
                 v_weights=class_aligned.values,
             )
         else:
-            raise NotImplementedError(
-                f"Distance metric '{distance_metric}' is not supported."
+            raise InvalidParameterError(
+                param_name="distance_metric",
+                param_value=distance_metric,
+                reason="distance metric is not supported",
             )
 
         t_values.append(distance_value)
@@ -420,7 +436,7 @@ def _simulate_linkage_attack(
         return 0.0
 
     if not quasi_identifiers and not sensitive_attributes:
-        raise ValueError(
+        raise ValidationError(
             "At least one quasi-identifier or sensitive attribute must be provided."
         )
 
@@ -480,7 +496,7 @@ def _simulate_attribute_inference(
         return 0.0
 
     if not quasi_identifiers and not sensitive_attributes:
-        raise ValueError(
+        raise ValidationError(
             "At least one quasi-identifier or sensitive attribute must be provided."
         )
 
@@ -543,13 +559,16 @@ def _simulate_membership_inference(
     # --- 2. Validate and filter grouping columns ---
     grouping_cols = list(quasi_identifiers) + list(sensitive_attributes)
     if not grouping_cols:
-        raise ValueError(
+        raise ValidationError(
             "At least one quasi-identifier or sensitive attribute must be provided."
         )
 
     missing_cols = [c for c in grouping_cols if c not in df.columns]
     if missing_cols:
-        raise KeyError(f"Columns {missing_cols} not found in DataFrame.")
+        raise ColumnNotFoundError(
+            column_name=missing_cols,
+            available_columns=list(df.columns),
+        )
 
     # --- 3. Compute equivalence class sizes ---
     class_sizes = df.groupby(grouping_cols, observed=True).size().rename("group_size")

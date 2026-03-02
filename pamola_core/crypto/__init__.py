@@ -13,11 +13,8 @@ For details, see the LICENSE file or visit:
     https://opensource.org/licenses/BSD-3-Clause
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
-Package: pamola_core
------------------------
-This is the public pamola_core package of PAMOLA.CORE, an open-source anonymization-preserving data processing library.
-It contains all essential modules for data transformation, anonymization, metrics, and interfaces.
-
+Package: pamola_core.crypto
+Type: Internal (Non-Public API)
 
 Author: Realm Inveo Inc. & DGT Network Inc.
 """

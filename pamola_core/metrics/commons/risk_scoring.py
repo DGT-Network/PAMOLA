@@ -39,10 +39,10 @@ import pandas as pd
 
 from pamola_core.analysis.privacy_risk import _calculate_k_anonymity
 from pamola_core.profiling.commons.attribute_utils import categorize_column_by_name
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 # Default attribute role categories
 DEFAULT_ATTRIBUTE_ROLES = {

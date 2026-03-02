@@ -1,0 +1,645 @@
+suggestions:
+  DATA_LOAD_FAILED:
+  - Verify the file path exists and is accessible.
+  - Check file permissions and network connectivity if loading from remote.
+  - Ensure the file is not corrupted by opening it manually.
+  - Try loading a subset of the data to isolate the issue.
+  DATA_SOURCE_INVALID:
+  - Verify the data source format (CSV, Excel, Parquet, etc.).
+  - Check that the file extension matches the actual format.
+  - Ensure the data source is not empty or corrupted.
+  - Review the data loading parameters (delimiter, encoding, etc.).
+  DATA_VALIDATION_ERROR:
+  - Review the data quality and ensure it meets expected schema.
+  - Check for missing values, incorrect types, or outliers.
+  - Validate the data against the operation requirements.
+  - Use data profiling tools to identify anomalies.
+  DATA_EMPTY:
+  - Verify the data source contains records.
+  - Check if filters or conditions accidentally excluded all data.
+  - Ensure the data loading step completed successfully.
+  - Review any preprocessing steps that might have removed all rows.
+  DATA_WRITE_FAILED:
+  - Check write permissions for the destination path.
+  - Ensure sufficient disk space is available.
+  - Verify the destination directory exists.
+  - Check if the file is locked by another process.
+  DATA_FRAME_PROCESSING_ERROR:
+  - Review the DataFrame schema and data types.
+  - Check for null values or unexpected data formats.
+  - Try processing a smaller sample to isolate the issue.
+  - Enable debug logging to see detailed error information.
+  FIELD_NOT_FOUND:
+  - Check the field name spelling and case sensitivity.
+  - Review the data schema using df.columns or dataset.columns.
+  - Ensure the data was loaded from the correct source.
+  - Verify that preprocessing steps haven't renamed or removed the field.
+  FIELD_TYPE_ERROR:
+  - Check the actual data type using df.dtypes or df.info().
+  - Consider using type conversion utilities (e.g., pd.to_numeric, pd.to_datetime).
+  - Review if the field contains mixed types or nulls causing type inference issues.
+  - Enable automatic type conversion if supported by the operation.
+  FIELD_VALUE_ERROR:
+  - Inspect invalid values using data profiling or filtering.
+  - Check for unexpected nulls, special characters, or format issues.
+  - Validate data against expected ranges, patterns, or categories.
+  - Consider data cleaning steps before applying the operation.
+  COLUMN_NOT_FOUND:
+  - 'List all DataFrame columns: df.columns.tolist()'
+  - Check for whitespace or special characters in column names.
+  - Verify the column wasn't dropped in preprocessing.
+  - Use case-insensitive search if column names might vary.
+  PARAM_MISSING:
+  - Review the operation signature to identify required parameters.
+  - Check the documentation for parameter descriptions and examples.
+  - Ensure all mandatory fields are provided in the configuration.
+  - Look for default values that might be available.
+  PARAM_INVALID:
+  - Verify the parameter value is within the acceptable range.
+  - Check for type mismatches (string vs number, etc.).
+  - Review constraints and validation rules for the parameter.
+  - Try using example values from the documentation.
+  PARAM_TYPE_ERROR:
+  - Check the expected parameter type in documentation.
+  - Use explicit type conversion (str(), int(), float(), etc.).
+  - Review if the parameter accepts multiple types.
+  - Ensure serialization format is correct for complex types.
+  STRATEGY_INVALID:
+  - Check the list of supported strategies in the documentation.
+  - Ensure the strategy name is spelled correctly (case-sensitive).
+  - Verify the strategy is compatible with your data type.
+  - Review example configurations for the desired strategy.
+  MODE_INVALID:
+  - Review available operation modes in the documentation.
+  - Check for typos in the mode name.
+  - Verify the mode is supported for your data type.
+  - Try using the default mode if unsure.
+  NULL_STRATEGY_INVALID:
+  - Review supported null handling strategies (skip, drop, fill, etc.).
+  - Check strategy name spelling and case.
+  - Verify the strategy is appropriate for your data type.
+  - Consider using 'skip' as a safe default.
+  VALIDATION_CONDITIONAL_FAILED:
+  - Verify the condition field exists in your dataset.
+  - Check that the condition operator is valid (==, !=, >, <, etc.).
+  - Ensure the condition value matches the field's data type.
+  - Review the conditional logic for syntax errors.
+  VALIDATION_RANGE_FAILED:
+  - Check the actual min/max values in your data using df.describe().
+  - Verify expected ranges match your data characteristics.
+  - Consider data cleaning to remove outliers.
+  - Review if the range constraints are too restrictive.
+  VALIDATION_FORMAT_INVALID:
+  - Review format requirements in the documentation (e.g., ISO datetime).
+  - Check for inconsistent formats within the same field.
+  - Use format validation tools to identify problematic values.
+  - Consider standardizing formats before processing.
+  VALIDATION_MARKER_FAILED:
+  - Review marker requirements in the documentation.
+  - Check marker syntax and format.
+  - Verify marker values are within allowed constraints.
+  - Try using example markers from documentation.
+  FILE_ERROR:
+  - Verify the file path is correct and accessible.
+  - Check file permissions (read/write access).
+  - Ensure the file is not locked by another process.
+  - Try using an absolute path instead of relative path.
+  FILE_NOT_FOUND:
+  - Double-check the file path spelling and location.
+  - Ensure the file hasn't been moved or deleted.
+  - Use os.path.exists() to verify file existence programmatically.
+  - Check working directory using os.getcwd().
+  FILE_FORMAT_INVALID:
+  - Verify the file extension matches the content format.
+  - Check if the file can be opened manually.
+  - Ensure the file format is supported by the operation.
+  - Try converting the file to a supported format.
+  FILE_ACCESS_DENIED:
+  - Check file permissions using os.stat() or file properties.
+  - Ensure the current user has read/write access.
+  - Run the process with appropriate permissions (avoid sudo if possible).
+  - Check if the file is locked by another application.
+  FILE_CORRUPTED:
+  - Try opening the file with the appropriate application.
+  - Restore from backup if available.
+  - Re-download or re-generate the file.
+  - Check disk health if corruption is frequent.
+  MULTIPLE_ERRORS:
+  - Address each error individually in the order they appear.
+  - Fix fundamental issues (missing fields, type errors) first.
+  - Rerun validation after each fix to see remaining issues.
+  - Consider using batch validation mode for comprehensive checks.
+  PROCESSING_FAILED:
+  - Check the quality and completeness of input data.
+  - Verify operation parameters against the documentation.
+  - Enable debug logging to inspect detailed tracebacks.
+  - Retry with a small sample dataset to isolate the issue.
+  - Check for resource constraints (memory, disk space).
+  PROCESSING_BATCH_FAILED:
+  - Reduce batch size to process fewer records at once.
+  - Check if specific batches are causing the failure.
+  - Enable error tolerance mode if available.
+  - Review logs to identify the failing batch.
+  PROCESSING_CHUNK_FAILED:
+  - Reduce chunk size to lower memory usage.
+  - Check if specific chunks contain problematic data.
+  - Enable chunked error handling and skip problematic chunks.
+  - Review chunk boundaries to avoid splitting related records.
+  PROCESSING_TIMEOUT:
+  - Increase the timeout parameter if available.
+  - Process data in smaller batches to reduce execution time.
+  - Check for performance bottlenecks in the data pipeline.
+  - Consider using asynchronous processing for long operations.
+  PROCESSING_INTERRUPTED:
+  - Check system logs for the cause of interruption.
+  - Implement checkpoint/resume functionality if available.
+  - Ensure stable system resources during long operations.
+  - Monitor for external signals (SIGTERM, SIGKILL, etc.).
+  FEATURE_NOT_IMPLEMENTED:
+  - Check the documentation to confirm feature availability.
+  - Upgrade to a newer version that may include this feature.
+  - Use an alternative supported strategy or operation.
+  - Contact support or file an issue if the feature is required.
+  RESOURCE_MEMORY_EXCEEDED:
+  - Reduce the chunk_size or batch_size parameters.
+  - Enable memory optimization with optimize_memory=True if supported.
+  - Split the data into smaller parts and process incrementally.
+  - Consider using Dask for large datasets.
+  - Close unused resources and clear memory caches.
+  RESOURCE_DISK_FULL:
+  - Free up disk space by removing unnecessary files.
+  - Move processing to a volume with more available space.
+  - Enable compression to reduce output size.
+  - Configure cleanup of temporary files.
+  RESOURCE_CPU_THROTTLED:
+  - Reduce parallel processing workers.
+  - Add delays between intensive operations.
+  - Monitor CPU usage with system tools.
+  - Consider running during off-peak hours.
+  RESOURCE_NOT_FOUND:
+  - Verify the resource name or identifier.
+  - Check if the resource was created successfully.
+  - Ensure the resource hasn't been deleted.
+  - Review resource lifecycle and retention policies.
+  CACHE_READ_FAILED:
+  - Verify cache directory exists and has read permissions.
+  - Check if cache files are corrupted.
+  - Clear the cache and retry the operation.
+  - Ensure sufficient disk space for cache operations.
+  CACHE_WRITE_FAILED:
+  - Check write permissions for the cache directory.
+  - Ensure sufficient disk space is available.
+  - Verify the cache path is accessible.
+  - Consider disabling cache if issues persist.
+  CACHE_KEY_INVALID:
+  - Review the parameters used for cache key generation.
+  - Ensure all inputs are serializable.
+  - Check for circular references in input objects.
+  - Consider simplifying cache key generation logic.
+  CACHE_EXPIRED:
+  - Clear the cache to regenerate fresh data.
+  - Increase cache TTL (time-to-live) if appropriate.
+  - Implement cache warming strategies.
+  - Consider using cache invalidation patterns.
+  CACHE_CORRUPTED:
+  - Clear the related cache keys and rerun the operation.
+  - Review cache key generation logic to avoid collisions.
+  - Ensure the cached data format has not changed.
+  - Consider implementing cache versioning.
+  ARTIFACT_VALIDATION_FAILED:
+  - Review artifact schema and validation rules.
+  - Check that all required fields are present.
+  - Verify data types match artifact specifications.
+  - Inspect the artifact content for malformed data.
+  ARTIFACT_NOT_FOUND:
+  - Verify the artifact ID or path is correct.
+  - Check if the artifact was deleted or moved.
+  - Ensure the artifact storage is accessible.
+  - Review artifact lifecycle and retention policies.
+  ARTIFACT_WRITE_FAILED:
+  - Check write permissions for the artifact directory.
+  - Ensure sufficient disk space is available.
+  - Verify the artifact path is valid and accessible.
+  - Check for file locking issues.
+  ARTIFACT_CORRUPTED:
+  - Try to restore from backup if available.
+  - Re-generate the artifact from source data.
+  - Check storage integrity and disk health.
+  - Review logs for errors during artifact creation.
+  VISUALIZATION_FAILED:
+  - Verify visualization data is complete and valid.
+  - Check that required libraries are installed.
+  - Ensure data dimensions match visualization requirements.
+  - Try a simpler visualization type to isolate the issue.
+  VISUALIZATION_BACKEND_ERROR:
+  - Check if the visualization library is properly installed.
+  - Verify compatible versions of dependencies.
+  - Review backend configuration and settings.
+  - Try using a different visualization backend.
+  VISUALIZATION_TIMEOUT:
+  - Reduce the amount of data being visualized.
+  - Simplify the visualization complexity.
+  - Increase timeout settings if available.
+  - Consider pre-aggregating data before visualization.
+  CONFIG_INVALID:
+  - Compare the configuration file against the supported schema.
+  - Check required fields and data types.
+  - Remove deprecated or unsupported configuration keys.
+  - Use configuration validation tools if available.
+  CONFIG_MISSING:
+  - Verify the configuration file exists at the expected path.
+  - Check if the configuration was properly initialized.
+  - Review default configuration locations.
+  - Consider creating a configuration from template.
+  CONFIG_PARSE_ERROR:
+  - Check for syntax errors in the configuration file (JSON, YAML, etc.).
+  - Verify proper formatting and indentation.
+  - Look for missing commas, quotes, or brackets.
+  - Use a linter or validator for the configuration format.
+  CONFIG_SAVE_FAILED:
+  - Check write permissions for the configuration directory.
+  - Ensure sufficient disk space is available.
+  - Verify the configuration path is accessible.
+  - Check for file locking issues.
+  ENCRYPTION_FAILED:
+  - Verify encryption key is valid and accessible.
+  - Check that data to be encrypted is properly formatted.
+  - Ensure encryption library is properly installed.
+  - Review encryption parameters and algorithm settings.
+  ENCRYPTION_INIT_FAILED:
+  - Check encryption configuration parameters.
+  - Verify required libraries are installed.
+  - Review system crypto capabilities.
+  - Check for missing environment variables.
+  DECRYPTION_FAILED:
+  - Verify the correct decryption key is being used.
+  - Check that encrypted data has not been corrupted.
+  - Ensure encryption/decryption algorithms match.
+  - Review key format and encoding.
+  KEY_GENERATION_FAILED:
+  - Check system entropy sources are available.
+  - Verify sufficient permissions for key generation.
+  - Review key generation parameters (length, algorithm).
+  - Ensure crypto libraries are properly installed.
+  KEY_LOADING_FAILED:
+  - Verify the key file exists at the specified path.
+  - Check file permissions for the key file.
+  - Ensure key format is correct (PEM, DER, etc.).
+  - Review key file encoding.
+  KEY_INVALID:
+  - Verify key format matches expected format (PEM, DER, etc.).
+  - Check key length meets algorithm requirements.
+  - Ensure key has not expired if applicable.
+  - Generate a new key if the current one is corrupted.
+  KEY_EXPIRED:
+  - Generate a new encryption key.
+  - Review key rotation policies.
+  - Update key expiration dates if configurable.
+  - Implement automated key rotation.
+  KEY_MASTER_ERROR:
+  - Verify master key is properly configured.
+  - Check master key storage and access permissions.
+  - Review master key rotation policies.
+  - Ensure master key backup exists.
+  KEY_TASK_ERROR:
+  - Verify task-specific key generation succeeded.
+  - Check task key storage configuration.
+  - Review task key lifecycle management.
+  - Ensure task key is properly scoped.
+  KEY_STORE_ERROR:
+  - Verify key store is accessible.
+  - Check key store permissions and configuration.
+  - Review key store backup and recovery procedures.
+  - Ensure key store is not corrupted.
+  CRYPTO_ERROR:
+  - Review crypto operation parameters.
+  - Check input data format and encoding.
+  - Verify crypto library compatibility.
+  - Enable debug logging for detailed error information.
+  CRYPTO_PROVIDER_ERROR:
+  - Verify the crypto provider is properly installed.
+  - Check provider configuration and settings.
+  - Review provider compatibility with your system.
+  - Try using a different crypto provider.
+  CRYPTO_MODE_ERROR:
+  - Review supported crypto modes in documentation.
+  - Verify mode compatibility with your algorithm.
+  - Check mode configuration parameters.
+  - Try using a standard mode (CBC, GCM, etc.).
+  CRYPTO_FORMAT_ERROR:
+  - Review expected encrypted data format.
+  - Check for data corruption during transmission/storage.
+  - Verify format version compatibility.
+  - Review format specifications in documentation.
+  CRYPTO_ALGORITHM_UNSUPPORTED:
+  - Check list of supported algorithms in documentation.
+  - Verify algorithm name spelling.
+  - Update crypto libraries to support newer algorithms.
+  - Use a widely-supported algorithm (AES, RSA, etc.).
+  PSEUDONYMIZATION_FAILED:
+  - Review pseudonymization strategy configuration.
+  - Check input data format and quality.
+  - Verify pseudonymization keys are available.
+  - Review consistency requirements.
+  HASH_COLLISION_DETECTED:
+  - Review hash algorithm selection (consider stronger hash).
+  - Check if collision is expected (e.g., birthday attack).
+  - Implement collision resolution strategy.
+  - Consider using salted hashes.
+  DATA_REDACTION_FAILED:
+  - Review redaction rules and patterns.
+  - Check data format compatibility.
+  - Verify redaction engine configuration.
+  - Test redaction rules on sample data.
+  CRYPTO_MIGRATION_FAILED:
+  - Review migration strategy and steps.
+  - Verify source and target crypto formats.
+  - Check for data compatibility issues.
+  - Implement rollback procedure.
+  CRYPTO_TOOL_ERROR:
+  - Verify crypto tool is properly installed.
+  - Check tool version compatibility.
+  - Review tool configuration and parameters.
+  - Check tool documentation for known issues.
+  TASK_ERROR:
+  - Review task configuration and parameters.
+  - Check task logs for detailed error information.
+  - Verify all task dependencies are satisfied.
+  - Test task with minimal input data.
+  TASK_INIT_FAILED:
+  - Review task initialization parameters.
+  - Check required resources are available.
+  - Verify task configuration is valid.
+  - Review initialization logs for details.
+  TASK_EXECUTION_FAILED:
+  - Check task input data quality.
+  - Review task execution logs.
+  - Verify required resources are available.
+  - Test task with sample data.
+  TASK_FINALIZATION_FAILED:
+  - Review task cleanup procedures.
+  - Check for resource cleanup issues.
+  - Verify output data was written successfully.
+  - Review finalization logs.
+  TASK_DEPENDENCY_ERROR:
+  - Review task dependency graph.
+  - Check for circular dependencies.
+  - Verify dependency versions are compatible.
+  - Review dependency configuration.
+  TASK_DEPENDENCY_MISSING:
+  - Install missing task dependencies.
+  - Review required dependencies in documentation.
+  - Check dependency version requirements.
+  - Verify dependency configuration.
+  TASK_DEPENDENCY_FAILED:
+  - Review failed dependency task logs.
+  - Fix issues in dependency task first.
+  - Check if dependency can be skipped.
+  - Review dependency chain for root cause.
+  DEPENDENCY_MISSING:
+  - Install the missing dependency and retry.
+  - Verify the dependency version matches project requirements.
+  - Check your virtual environment or container image.
+  - Ensure the dependency is available on the runtime PATH.
+  TASK_REGISTRY_ERROR:
+  - Verify task is properly registered.
+  - Check task name and identifier.
+  - Review task registry configuration.
+  - Clear and rebuild task registry if needed.
+  TASK_CONTEXT_ERROR:
+  - Review task context requirements.
+  - Verify context data is properly initialized.
+  - Check context serialization/deserialization.
+  - Review context lifecycle management.
+  EXECUTION_ERROR:
+  - Review execution logs for details.
+  - Check system resources during execution.
+  - Verify execution environment is properly configured.
+  - Test execution with minimal input.
+  EXECUTION_LOG_ERROR:
+  - Verify log directory permissions.
+  - Check disk space for log storage.
+  - Review log configuration settings.
+  - Clear old logs if disk is full.
+  CHECKPOINT_ERROR:
+  - Verify checkpoint directory permissions.
+  - Check disk space for checkpoint storage.
+  - Review checkpoint configuration.
+  - Clear corrupted checkpoints.
+  STATE_SERIALIZATION_FAILED:
+  - Review state objects for serializability.
+  - Check for circular references in state.
+  - Verify serialization format compatibility.
+  - Implement custom serialization if needed.
+  STATE_RESTORATION_FAILED:
+  - Verify checkpoint file exists and is accessible.
+  - Check checkpoint file integrity.
+  - Review state format compatibility.
+  - Start fresh if checkpoint is corrupted.
+  MAX_RETRIES_EXCEEDED:
+  - Review retry configuration (max attempts, backoff).
+  - Investigate root cause of repeated failures.
+  - Increase max retries if failures are transient.
+  - Fix underlying issue before retrying.
+  NON_RETRIABLE_ERROR:
+  - Review error type to understand why not retriable.
+  - Fix the underlying issue before attempting again.
+  - Check if error categorization is correct.
+  - Review error handling logic.
+  OPERATION_ERROR:
+  - Review operation parameters and configuration.
+  - Check operation logs for details.
+  - Verify operation prerequisites are met.
+  - Test operation with minimal input.
+  PATH_INVALID:
+  - Review path format and syntax.
+  - Check for invalid characters in path.
+  - Verify path separators are correct for OS.
+  - Use os.path or pathlib for path construction.
+  PATH_SECURITY_VIOLATION:
+  - Review path traversal prevention rules.
+  - Verify path is within allowed directories.
+  - Check for path injection attempts.
+  - Use safe path joining methods.
+  DIRECTORY_CREATE_FAILED:
+  - Check parent directory permissions.
+  - Verify sufficient disk space.
+  - Review directory path for validity.
+  - Check if directory already exists.
+  DIRECTORY_MANAGER_ERROR:
+  - Review directory manager configuration.
+  - Check directory permissions.
+  - Verify directory structure.
+  - Review directory lifecycle management.
+  NLP_ERROR:
+  - Review NLP operation parameters.
+  - Check input text format and encoding.
+  - Verify NLP model is loaded correctly.
+  - Test with simpler text input.
+  NLP_PROMPT_INVALID:
+  - Review prompt format and syntax.
+  - Check prompt length constraints.
+  - Verify prompt template variables.
+  - Test with example prompts.
+  LLM_ERROR:
+  - Review LLM service configuration.
+  - Check API credentials and endpoints.
+  - Verify network connectivity.
+  - Review LLM usage limits.
+  LLM_CONNECTION_FAILED:
+  - Check network connectivity to LLM service.
+  - Verify API endpoint URL is correct.
+  - Review authentication credentials.
+  - Check for service outages.
+  LLM_GENERATION_FAILED:
+  - Review generation parameters (temperature, max_tokens, etc.).
+  - Check prompt format and content.
+  - Verify model compatibility with task.
+  - Test with simpler prompts.
+  LLM_RESPONSE_INVALID:
+  - Review expected response format.
+  - Check for rate limiting or quota issues.
+  - Verify response parsing logic.
+  - Review LLM model configuration.
+  MODEL_NOT_AVAILABLE:
+  - Verify model name and version.
+  - Check if model needs to be downloaded.
+  - Review model storage configuration.
+  - Ensure model repository is accessible.
+  MODEL_LOAD_FAILED:
+  - Check model file integrity.
+  - Verify sufficient memory for model.
+  - Review model format compatibility.
+  - Check model dependencies are installed.
+  LANGUAGE_UNSUPPORTED:
+  - Review list of supported languages.
+  - Check language code format (ISO 639-1, etc.).
+  - Verify language model availability.
+  - Consider using multi-lingual fallback.
+  DATETIME_PARSE_FAILED:
+  - Review datetime format specification.
+  - Check for timezone handling issues.
+  - Verify input data contains valid dates.
+  - Try different datetime parsing strategies.
+  DATETIME_GENERALIZATION_FAILED:
+  - Review generalization strategy parameters.
+  - Check datetime field format.
+  - Verify generalization level is supported.
+  - Test with sample datetime values.
+  PRIVACY_INSUFFICIENT:
+  - Review privacy constraints and thresholds.
+  - Increase generalization or suppression levels.
+  - Check k-anonymity requirements.
+  - Consider adding more data to satisfy constraints.
+  MAPPING_ERROR:
+  - Review mapping rules and configuration.
+  - Check input data format.
+  - Verify mapping consistency requirements.
+  - Test mapping with sample data.
+  MAPPING_STORAGE_ERROR:
+  - Check mapping storage permissions.
+  - Verify sufficient disk space.
+  - Review mapping serialization format.
+  - Check for mapping corruption.
+  FAKE_DATA_GENERATION_FAILED:
+  - Review fake data generation strategy.
+  - Check generation parameters and constraints.
+  - Verify data type compatibility.
+  - Test generation with simpler requirements.
+  REPORTING_ERROR:
+  - Review report configuration and template.
+  - Check report data availability.
+  - Verify report output format.
+  - Test report generation with sample data.
+  NETWORK_CONNECTION_FAILED:
+  - Check network connectivity.
+  - Verify host and port are correct.
+  - Check firewall and proxy settings.
+  - Verify service is running and accessible.
+  NETWORK_TIMEOUT:
+  - Increase timeout value if appropriate.
+  - Check network latency and bandwidth.
+  - Verify service response time.
+  - Consider implementing retry logic.
+  NETWORK_DNS_FAILED:
+  - Check DNS server configuration.
+  - Verify hostname spelling.
+  - Try using IP address instead of hostname.
+  - Check network connectivity to DNS server.
+  NETWORK_SSL_ERROR:
+  - Verify SSL certificate validity.
+  - Check certificate trust chain.
+  - Review SSL/TLS version compatibility.
+  - Try disabling SSL verification (only for debugging).
+  AUTH_REQUIRED:
+  - Provide authentication credentials.
+  - Check authentication configuration.
+  - Verify authentication service is accessible.
+  - Review authentication requirements.
+  AUTH_INVALID_CREDENTIALS:
+  - Verify username and password are correct.
+  - Check if credentials have expired.
+  - Review authentication method (API key, token, etc.).
+  - Ensure credentials are properly encoded.
+  AUTH_TOKEN_EXPIRED:
+  - Refresh authentication token.
+  - Implement automatic token refresh.
+  - Review token expiration policies.
+  - Re-authenticate to obtain new token.
+  AUTH_PERMISSION_DENIED:
+  - Verify user has required permissions.
+  - Check role-based access control (RBAC) configuration.
+  - Review permission requirements for operation.
+  - Contact administrator to grant necessary permissions.
+category_suggestions:
+  validation:
+  - Review input data quality and completeness.
+  - Check operation parameters against documentation.
+  - Enable validation warnings to catch issues early.
+  - Use data profiling to understand your data better.
+  data:
+  - Verify data source integrity and accessibility.
+  - Check data format and schema consistency.
+  - Review data loading and preprocessing steps.
+  - Ensure data meets operation requirements.
+  processing:
+  - Enable debug logging for detailed error information.
+  - Try processing a smaller subset to isolate issues.
+  - Check resource availability (memory, disk, CPU).
+  - Review operation parameters and constraints.
+  configuration:
+  - Validate configuration against schema.
+  - Check for typos in configuration keys.
+  - Ensure all required settings are provided.
+  - Review documentation for configuration examples.
+  resource:
+  - Monitor system resources (memory, disk, CPU).
+  - Optimize resource usage parameters.
+  - Consider scaling resources if needed.
+  - Review resource allocation and limits.
+  encryption:
+  - Verify cryptographic keys are valid and accessible.
+  - Review crypto configuration and parameters.
+  - Check crypto library versions and compatibility.
+  - Test crypto operations with sample data.
+  network:
+  - Verify network connectivity.
+  - Check firewall and proxy settings.
+  - Review service endpoints and configuration.
+  - Test network connectivity with diagnostic tools.
+  authentication:
+  - Verify authentication credentials are valid.
+  - Check authentication service status.
+  - Review permission and access control settings.
+  - Ensure proper authentication flow.
+  system:
+  - Check system resources (memory, disk space).
+  - Verify file permissions and access rights.
+  - Review logs for additional error context.
+  - Ensure all dependencies are properly installed.
+default:
+- Review the operation documentation for requirements and constraints.
+- Enable verbose or debug logging to gather more context.
+- Try with a smaller dataset to isolate the issue.
+- Check recent changes that might have affected the operation.
+- Contact support if the issue persists with details from logs.

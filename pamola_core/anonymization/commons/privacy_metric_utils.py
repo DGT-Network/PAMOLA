@@ -689,30 +689,3 @@ def calculate_batch_metrics(
         metrics["error"] = str(e)
 
     return metrics
-
-
-# Module metadata
-__version__ = "2.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    # Coverage metrics
-    "calculate_anonymization_coverage",
-    "calculate_suppression_rate",
-    # Group metrics
-    "get_group_size_distribution",
-    "calculate_min_group_size",
-    "calculate_vulnerable_records_ratio",
-    # Generalization metrics
-    "calculate_generalization_level",
-    "calculate_value_reduction_ratio",
-    # Risk indicators
-    "calculate_uniqueness_score",
-    "calculate_simple_disclosure_risk",
-    # Process control
-    "check_anonymization_thresholds",
-    "get_process_summary",
-    "calculate_batch_metrics",
-]

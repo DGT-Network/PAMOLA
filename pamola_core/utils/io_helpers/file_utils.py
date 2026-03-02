@@ -54,7 +54,6 @@ TODO:
 - Support for cloud storage paths (S3, GCS, etc.)
 """
 
-
 import hashlib
 import os
 import time
@@ -63,10 +62,17 @@ from pathlib import Path
 from typing import Any, Dict, Union, Optional
 
 from pamola_core.common.type_aliases import PathLike
-from pamola_core.utils import logging
+import logging
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DirectoryCreationError,
+    FileValidationError,
+    RangeValidationError,
+    ValidationError,
+)
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Constants
 CHUNK_SIZE = 8 * (2**10)  # 8KB chunks for file operations
@@ -74,9 +80,7 @@ MAX_RETRY_ATTEMPTS = 3
 RETRY_DELAY = 0.1  # seconds
 
 
-def get_file_metadata(
-        file_path: PathLike
-) -> Dict[str, Any]:
+def get_file_metadata(file_path: PathLike) -> Dict[str, Any]:
     """
     Get comprehensive metadata about a file.
 
@@ -105,7 +109,7 @@ def get_file_metadata(
         "filename": file_path.name,
         "extension": file_path.suffix.lower(),
         "path": str(file_path.absolute()),
-        "directory": str(file_path.parent)
+        "directory": str(file_path.parent),
     }
 
     if metadata["exists"]:
@@ -118,7 +122,7 @@ def get_file_metadata(
                     "modified_at": datetime.fromtimestamp(stats.st_mtime).isoformat(),
                     "accessed_at": datetime.fromtimestamp(stats.st_atime).isoformat(),
                     "is_file": file_path.is_file(),
-                    "is_dir": file_path.is_dir()
+                    "is_dir": file_path.is_dir(),
                 }
             )
         except OSError as e:
@@ -131,16 +135,14 @@ def get_file_metadata(
                     "accessed_at": None,
                     "is_file": None,
                     "is_dir": None,
-                    "error": str(e)
+                    "error": str(e),
                 }
             )
 
     return metadata
 
 
-def get_file_size(
-        file_path: PathLike
-) -> Optional[int]:
+def get_file_size(file_path: PathLike) -> Optional[int]:
     """
     Get the size of a file in bytes.
 
@@ -167,9 +169,7 @@ def get_file_size(
         return None
 
 
-def get_file_age(
-        file_path: PathLike
-) -> Optional[float]:
+def get_file_age(file_path: PathLike) -> Optional[float]:
     """
     Get the age of a file in seconds since last modification.
 
@@ -191,16 +191,14 @@ def get_file_age(
 
     try:
         mtime = file_path.stat().st_mtime
-        current_time = time.time() # Use time.time() for consistency
+        current_time = time.time()  # Use time.time() for consistency
         return current_time - mtime
     except (IOError, OSError) as e:
         logger.error(f"Error getting file age for {file_path}: {e}")
         return None
 
 
-def file_exists(
-        file_path: PathLike
-) -> bool:
+def file_exists(file_path: PathLike) -> bool:
     """
     Check if a file exists.
 
@@ -218,9 +216,7 @@ def file_exists(
     return file_path.exists() and file_path.is_file()
 
 
-def is_file_locked(
-        file_path: PathLike
-) -> bool:
+def is_file_locked(file_path: PathLike) -> bool:
     """
     Check if a file is locked (not writable).
 
@@ -249,10 +245,7 @@ def is_file_locked(
         return True
 
 
-def validate_file_type(
-        file_path: PathLike,
-        expected_extension: str
-) -> bool:
+def validate_file_type(file_path: PathLike, expected_extension: str) -> bool:
     """
     Validate that a file has the expected extension.
 
@@ -281,10 +274,7 @@ def validate_file_type(
     return actual_ext == expected_ext
 
 
-def calculate_checksum(
-        file_path: PathLike,
-        algorithm: str = "sha256"
-) -> Optional[str]:
+def calculate_checksum(file_path: PathLike, algorithm: str = "sha256") -> Optional[str]:
     """
     Calculate a checksum for a file.
 
@@ -330,10 +320,7 @@ def calculate_checksum(
         return None
 
 
-def safe_remove_file(
-        file_path: PathLike,
-        secure: bool = False
-) -> Optional[bool]:
+def safe_remove_file(file_path: PathLike, secure: bool = False) -> Optional[bool]:
     """
     Safely remove a file with optional secure deletion.
 
@@ -386,10 +373,10 @@ def safe_remove_file(
 
 
 def resolve_writable_path(
-        file_path: PathLike,
-        add_timestamp: bool = True,
-        timestamp_format: str = "%Y%m%d_%H%M%S",
-        max_attempts: int = 10
+    file_path: PathLike,
+    add_timestamp: bool = True,
+    timestamp_format: str = "%Y%m%d_%H%M%S",
+    max_attempts: int = 10,
 ) -> Path:
     """
     Return a writable path. If the original file is locked/unwritable,
@@ -419,14 +406,18 @@ def resolve_writable_path(
         If no writable path can be found
     """
     if max_attempts < 1:
-        raise ValueError("max_attempts must be >= 1")
+        raise RangeValidationError(
+            field_name="max_attempts",
+            min_value=1,
+            actual_max=max_attempts,
+        )
 
     # Validate timestamp format
     if add_timestamp:
         try:
             datetime.now().strftime(timestamp_format)
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid timestamp format: {e}")
+        except (ValidationError, ValueError, TypeError) as e:
+            raise ValidationError(f"Invalid timestamp format: {e}")
 
     original_path = Path(file_path)
 
@@ -434,7 +425,10 @@ def resolve_writable_path(
     try:
         original_path.parent.mkdir(parents=True, exist_ok=True)
     except OSError as e:
-        raise OSError(f"Cannot create parent directory: {e}")
+        raise DirectoryCreationError(
+            path=str(original_path.parent),
+            reason=str(e),
+        ) from e
 
     # Check if original path is writable
     if _is_path_writable(file_path=original_path):
@@ -445,17 +439,19 @@ def resolve_writable_path(
         original_path=original_path,
         add_timestamp=add_timestamp,
         timestamp_format=timestamp_format,
-        max_attempts=max_attempts
+        max_attempts=max_attempts,
     )
     if alternative is None:
-        raise OSError(f"No writable path found after {max_attempts} attempts")
+        raise FileValidationError(
+            file_path=str(original_path),
+            reason=f"No writable path found after {max_attempts} attempts",
+            error_type=ErrorCode.FILE_ACCESS_DENIED,
+        )
 
     return alternative
 
 
-def _is_path_writable(
-        file_path: Path
-) -> bool:
+def _is_path_writable(file_path: Path) -> bool:
     """
     Check if a path is writable by testing write operations.
 
@@ -483,7 +479,7 @@ def _is_path_writable(
                 pass
             can_write = True
         except Exception as e:
-            logger.debug(f"Cannot write to existing file {str(file_path)}: {e}") # noqa
+            logger.debug(f"Cannot write to existing file {str(file_path)}: {e}")  # noqa
             can_write = False
     else:
         # File doesn't exist, try to create a test file
@@ -510,10 +506,7 @@ def _is_path_writable(
 
 
 def _find_alternative_path(
-        original_path: Path,
-        add_timestamp: bool,
-        timestamp_format: str,
-        max_attempts: int
+    original_path: Path, add_timestamp: bool, timestamp_format: str, max_attempts: int
 ) -> Optional[Path]:
     """
     Find an alternative path when original is not writable.

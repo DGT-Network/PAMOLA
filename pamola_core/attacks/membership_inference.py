@@ -29,9 +29,8 @@ import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestClassifier
 from pamola_core.attacks.distance_to_closest_record import DistanceToClosestRecord
-from pamola_core.attacks.nearest_neighbor_distance_ratio import (
-    NearestNeighborDistanceRatio,
-)
+from pamola_core.attacks.nearest_neighbor_distance_ratio import NearestNeighborDistanceRatio
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.attacks.preprocess_data import PreprocessData
 
 
@@ -183,7 +182,7 @@ class MembershipInference(PreprocessData):
             1 = predicted as member of data_train, 0 = non-member.
         """
         if data_train is None or data_test is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
 
         # Preprocess consistently
         data1_transform, data2_transform = self.preprocess_data(data_train, data_test)

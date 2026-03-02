@@ -62,6 +62,7 @@ import pandas as pd
 # Import core utilities
 from pamola_core.utils.io import write_json, ensure_directory
 from pamola_core.utils.ops.op_data_writer import DataWriter
+from pamola_core.errors.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -421,7 +422,9 @@ def calculate_generalization_height(
 
         # Validate same length
         if len(original_values) != len(generalized_values):
-            raise ValueError("Original and generalized values must have same length")
+            raise ValidationError(
+                "Original and generalized values must have same length"
+            )
 
         heights = []
 
@@ -967,29 +970,3 @@ def get_process_summary_message(metrics: Dict[str, Any]) -> str:
     except Exception as e:
         logger.error(f"Error creating summary: {e}")
         return "Process completed"
-
-
-# Module metadata
-__version__ = "2.1.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    # Basic metrics
-    "calculate_anonymization_effectiveness",
-    "calculate_generalization_metrics",
-    "calculate_masking_metrics",
-    "calculate_suppression_metrics",
-    # Categorical metrics
-    "calculate_categorical_information_loss",
-    "calculate_generalization_height",
-    # Performance metrics
-    "calculate_process_performance",
-    # Distribution summaries
-    "get_value_distribution_summary",
-    # Collection and persistence
-    "collect_operation_metrics",
-    "save_process_metrics",
-    "get_process_summary_message",
-]

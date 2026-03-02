@@ -39,6 +39,9 @@ from pamola_core.profiling.commons.group_utils import (
     analyze_group,
     calculate_field_metrics,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.profiling.schemas.group_core_schema import GroupAnalyzerOperationConfig
 from pamola_core.utils.helpers import (
     build_base_cache,
@@ -58,7 +61,7 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import create_histogram, create_heatmap
 from pamola_core.utils.io import load_data_operation, load_settings_operation
 from pamola_core.common.constants import Constants
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -355,20 +358,16 @@ class GroupAnalyzerOperation(FieldOperation):
             Results of the operation
         """
         try:
-            dirs = self._prepare_directories(task_dir)
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
 
-            # Initialize operation cache
-            self.operation_cache = OperationCache(
-                cache_dir=dirs["cache"],
-            )
-            visualizations_dir = dirs["visualizations"]
+            result = OperationResult(status=OperationStatus.PENDING)
 
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             metrics = None
-
-            if kwargs.get("logger"):
-                self.logger = kwargs["logger"]
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -376,10 +375,19 @@ class GroupAnalyzerOperation(FieldOperation):
             # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
 
-            self.logger.info(f"Starting group analysis for field: {self.field_name}")
+            dirs = self._prepare_directories(task_dir)
+            visualizations_dir = dirs["visualizations"]
 
-            # Initialize result object
-            result = OperationResult(status=OperationStatus.PENDING)
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -388,6 +396,8 @@ class GroupAnalyzerOperation(FieldOperation):
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
+
+            self.logger.info(f"Starting group analysis for field: {self.field_name}")
 
             # Preparation, Cache Check, Data Loading, Grouping, Visualizations, Saving results
             total_steps = 5 + (
@@ -408,20 +418,34 @@ class GroupAnalyzerOperation(FieldOperation):
                 current_steps += 1
                 progress_tracker.update(current_steps, {"step": "Loading data"})
 
-            self.logger.info(f"Loading data for: {self.field_name}")
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = helpers.validate_and_get_dataframe(
-                data_source, dataset_name, **settings_operation
-            )
+            try:
+                self.logger.info(f"Loading data for: {self.field_name}")
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
+                )
 
             # Check if field_name exists
             if self.field_name not in df.columns:
                 error_message = f"Field '{self.field_name}' not found in DataFrame"
                 self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                return self.error_handler.handle_error(
+                    error=ValueError(error_message),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Validate fields to analyze exist in the DataFrame
@@ -433,8 +457,14 @@ class GroupAnalyzerOperation(FieldOperation):
             if missing_fields:
                 error_message = f"Fields not found in DataFrame: {missing_fields}"
                 self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR, error_message=error_message
+                return self.error_handler.handle_error(
+                    error=ValueError(error_message),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": ", ".join(missing_fields),
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Step 3: Check Cache (if enabled and not forced to recalculate)
@@ -458,7 +488,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Clean invalid values (from cache)",
+                            f"{self.operation_name} (from cache)",
                             details={"cached": True},
                         )
                     return cache_result
@@ -557,13 +587,6 @@ class GroupAnalyzerOperation(FieldOperation):
                     # Failure to cache is non-critical
                     self.logger.warning(f"Failed to cache results: {str(e)}")
 
-            # Set success status
-            result.status = OperationStatus.SUCCESS
-
-            self.logger.info(
-                f"Group analysis for {self.field_name} completed successfully"
-            )
-
             # Group data by field_name
             grouped = df.groupby(self.field_name)
             group_keys = list(grouped.groups.keys())
@@ -592,13 +615,28 @@ class GroupAnalyzerOperation(FieldOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            error_message = f"Error executing group analysis: {str(e)}"
-            self.logger.error(error_message, exc_info=True)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _calculate_field_variance(self, field_series: pd.Series) -> Tuple[float, float]:
@@ -791,7 +829,7 @@ class GroupAnalyzerOperation(FieldOperation):
                 nums = key.strip("[]").split(",")
                 sig = [int(n.strip()) for n in nums if n.strip()]
                 parsed_signatures.append((key, sig))
-            except (ValueError, AttributeError):
+            except (ValidationError, ValueError, AttributeError):
                 # Skip keys that can't be parsed as signatures
                 continue
 
@@ -908,7 +946,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     kde=False,
                     **kwargs,
                 )
-            except (TypeError, ValueError) as e:
+            except (ValidationError, TypeError, ValueError) as e:
                 # Fallback to matplotlib for proper histogram
                 plt.figure(figsize=(10, 6))
                 plt.bar(list(data.keys()), list(data.values()), color="skyblue")
@@ -997,7 +1035,7 @@ class GroupAnalyzerOperation(FieldOperation):
                     annotation_format=".3f",
                     **kwargs,
                 )
-            except (TypeError, ValueError) as e:
+            except (ValidationError, TypeError, ValueError) as e:
                 # Fallback to matplotlib for the heatmap
                 plt.figure(figsize=(12, len(field_names) * 0.8))
                 im = plt.imshow(df_data.values, cmap="viridis")

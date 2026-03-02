@@ -65,6 +65,11 @@ from pamola_core.anonymization.commons.text_processing_utils import normalize_te
 
 # Import core utilities
 from pamola_core.utils.io import read_json, read_full_csv, get_file_metadata
+from pamola_core.errors.exceptions import (
+    InvalidParameterError,
+    PamolaFileNotFoundError,
+    ValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -151,13 +156,13 @@ class HierarchyDictionary:
 
             # Check file exists
             if not filepath.exists():
-                raise FileNotFoundError(f"Dictionary file not found: {filepath}")
+                raise PamolaFileNotFoundError(str(filepath))
 
             # Check file size
             file_info = get_file_metadata(filepath)
             size_mb = file_info.get("size_mb", 0)
             if size_mb > MAX_DICTIONARY_SIZE_MB:
-                raise ValueError(
+                raise ValidationError(
                     f"Dictionary file too large ({size_mb:.1f}MB). "
                     f"Maximum supported size is {MAX_DICTIONARY_SIZE_MB}MB"
                 )
@@ -170,9 +175,11 @@ class HierarchyDictionary:
                 format_type = self._detect_format(filepath)
 
             if format_type not in SUPPORTED_FORMATS:
-                raise ValueError(
-                    f"Unsupported format '{format_type}'. "
-                    f"Supported formats: {SUPPORTED_FORMATS}"
+                raise InvalidParameterError(
+                    param_name="format",
+                    param_value=format_type,
+                    reason=f"Unsupported format '{format_type}'. "
+                    f"Supported formats: {SUPPORTED_FORMATS}",
                 )
 
             self._format = format_type
@@ -493,7 +500,7 @@ class HierarchyDictionary:
         elif suffix == ".csv":
             return "csv"
         else:
-            raise ValueError(f"Cannot detect format from extension: {suffix}")
+            raise ValidationError(f"Cannot detect format from extension: {suffix}")
 
     def _parse_json_hierarchy(self, data: Dict[str, Any]) -> None:
         """Parse JSON hierarchy format."""
@@ -553,7 +560,7 @@ class HierarchyDictionary:
 
         # First column is the key
         if not columns:
-            raise ValueError("CSV file has no columns")
+            raise ValidationError("CSV file has no columns")
 
         key_column = columns[0]
 
@@ -671,12 +678,3 @@ class HierarchyDictionary:
                     return True
 
         return False
-
-
-# Module metadata
-__version__ = "2.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main class
-__all__ = ["HierarchyDictionary"]

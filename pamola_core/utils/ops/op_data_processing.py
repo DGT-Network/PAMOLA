@@ -36,6 +36,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
+from pamola_core.errors.exceptions import ColumnNotFoundError, InvalidStrategyError
 
 
 # Configure module logger
@@ -188,7 +189,11 @@ def process_null_values(
                 fill_value = ""
         return series.fillna(fill_value)
     else:
-        raise ValueError(f"Unknown null strategy: {strategy}")
+        raise InvalidStrategyError(
+            strategy=strategy,
+            valid_strategies=["preserve", "drop", "fill"],
+            operation_type="process_null_values",
+        )
 
 
 def safe_convert_to_numeric(
@@ -268,7 +273,10 @@ def apply_to_column(
         DataFrame with applied transformation
     """
     if column not in df.columns:
-        raise ValueError(f"Column '{column}' not found in DataFrame")
+        raise ColumnNotFoundError(
+            column_name=column,
+            available_columns=list(df.columns),
+        )
 
     result = func(df[column], **kwargs)
 
@@ -318,21 +326,3 @@ def force_garbage_collection() -> None:
     Useful between processing large chunks of data.
     """
     gc.collect()
-
-
-# Module metadata
-__version__ = "2.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    "optimize_dataframe_dtypes",
-    "get_dataframe_chunks",
-    "process_null_values",
-    "safe_convert_to_numeric",
-    "get_memory_usage",
-    "apply_to_column",
-    "create_sample",
-    "force_garbage_collection",
-]

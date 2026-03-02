@@ -27,6 +27,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import numpy as np
 import pandas as pd
 from typing import Dict, Any
+from pamola_core.errors.exceptions import ValidationError
 
 
 class MeanSquaredError:
@@ -46,7 +47,7 @@ class MeanSquaredError:
         real_data: pd.DataFrame,
         synthetic_data: pd.DataFrame,
         columns: list,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Calculate Mean Squared Error (MSE).
@@ -68,12 +69,14 @@ class MeanSquaredError:
         if not isinstance(real_data, pd.DataFrame) or not isinstance(
             synthetic_data, pd.DataFrame
         ):
-            raise ValueError(
+            raise ValidationError(
                 "Both real_data and synthetic_data must be pandas DataFrames."
             )
 
         if not columns:
-            raise ValueError("A list of columns must be provided to calculate MSE!")
+            raise ValidationError(
+                "A list of columns must be provided to calculate MSE!"
+            )
 
         mse_values = {}
         overall_mse = 0

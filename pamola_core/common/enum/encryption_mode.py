@@ -1,4 +1,5 @@
 from enum import Enum
+from pamola_core.errors.exceptions import ValidationError
 
 
 class EncryptionMode(Enum):
@@ -9,14 +10,15 @@ class EncryptionMode(Enum):
     - SIMPLE: Simple symmetric encryption
     - AGE: Age encryption (more secure, supports key rotation)
     """
+
     NONE = "none"
     SIMPLE = "simple"
     AGE = "age"
 
     @classmethod
-    def from_string(cls, value: str) -> 'EncryptionMode':
+    def from_string(cls, value: str) -> "EncryptionMode":
         """Convert string to EncryptionMode enum value."""
         try:
             return cls(value.lower())
-        except (ValueError, AttributeError):
+        except (ValidationError, ValueError, AttributeError):
             return cls.SIMPLE

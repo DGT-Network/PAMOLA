@@ -18,10 +18,10 @@ from sklearn.svm import SVR
 from sklearn.model_selection import train_test_split, KFold, StratifiedKFold
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 class RegressionUtility:

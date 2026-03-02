@@ -30,12 +30,16 @@ from typing import Dict, Any, Optional
 
 import yaml
 
+from pamola_core.errors.exceptions import ValidationError, PamolaFileNotFoundError
+from pamola_core.utils.paths import get_project_root
+
 # Initialize with default values
 Template = None  # initial value
 JINJA2_AVAILABLE = False
 
 try:
     from jinja2 import Template as _JinjaTemplate
+
     Template = _JinjaTemplate  # reassign to the imported class
     JINJA2_AVAILABLE = True
 except ImportError:  # pragma: no cover
@@ -75,7 +79,9 @@ def find_project_root() -> Path:
     env_root = os.getenv("PAMOLA_PROJECT_ROOT")
     if env_root:
         root = Path(env_root).resolve()
-        if root.is_dir() and ((root / ".pamolaProject").exists() or (root / "configs").is_dir()):
+        if root.is_dir() and (
+            (root / ".pamolaProject").exists() or (root / "configs").is_dir()
+        ):
             logger.debug("Using project root from environment variable: %s", root)
             return root
         logger.warning("PAMOLA_PROJECT_ROOT points to invalid directory: %s", root)
@@ -89,8 +95,10 @@ def find_project_root() -> Path:
             return current
 
         cfg = current / "configs"
-        if cfg.is_dir() and ((cfg / PROJECT_CONFIG_FILENAME).exists() or
-                             (cfg / PROJECT_CONFIG_LEGACY_FILENAME).exists()):
+        if cfg.is_dir() and (
+            (cfg / PROJECT_CONFIG_FILENAME).exists()
+            or (cfg / PROJECT_CONFIG_LEGACY_FILENAME).exists()
+        ):
             logger.debug("Found project root by configs directory: %s", current)
             return current
 
@@ -128,15 +136,19 @@ def find_project_root() -> Path:
             break
         current = parent
 
-    # -- 4. Fallback to current working directory ------------------
+    # -- 4. Fallback to resolved project root ----------------------
+    fallback_root = get_project_root()
     logger.warning(
-        "Could not determine project root - using current directory: %s. "
-        "Set PAMOLA_PROJECT_ROOT or create .pamolaProject marker file.", cwd
+        "Could not determine project root - using resolved root: %s. "
+        "Set PAMOLA_PROJECT_ROOT or create .pamolaProject marker file.",
+        fallback_root,
     )
-    return cwd
+    return fallback_root
 
 
-def substitute_variables(config_data: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+def substitute_variables(
+    config_data: Dict[str, Any], context: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Perform variable substitution in configuration values using Jinja2.
 
@@ -211,9 +223,9 @@ def substitute_item(item: Any, context: Dict[str, Any]) -> Any:
 
 
 def load_project_config(
-        project_root: Optional[Path] = None,
-        config_filename: Optional[str] = None,
-        use_cache: bool = True
+    project_root: Optional[Path] = None,
+    config_filename: Optional[str] = None,
+    use_cache: bool = True,
 ) -> Dict[str, Any]:
     """
     Load the project configuration from a YAML file with JSON fallback.
@@ -240,7 +252,9 @@ def load_project_config(
 
     # Resolve config paths
     config_path_yaml = project_root / "configs" / config_filename
-    config_path_json = project_root / "configs" / config_filename.replace('.yaml', '.json')
+    config_path_json = (
+        project_root / "configs" / config_filename.replace(".yaml", ".json")
+    )
 
     # Check cache first for YAML path
     cache_key_yaml = str(config_path_yaml)
@@ -262,7 +276,7 @@ def load_project_config(
     if config_path_yaml.exists():
         try:
             # Load YAML configuration
-            with open(config_path_yaml, 'r', encoding='utf-8') as f:
+            with open(config_path_yaml, "r", encoding="utf-8") as f:
                 config_data = yaml.safe_load(f) or {}
 
             logger.debug(f"Loaded project configuration from YAML: {config_path_yaml}")
@@ -270,26 +284,28 @@ def load_project_config(
         except yaml.YAMLError as e:
             error_msg = f"Error parsing project configuration YAML: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg) from e
+            raise ValidationError(error_msg) from e
 
     # If YAML loading didn't succeed, try JSON
     if config_data is None and config_path_json.exists():
         try:
             # Load JSON configuration
-            with open(config_path_json, 'r', encoding='utf-8') as f:
+            with open(config_path_json, "r", encoding="utf-8") as f:
                 config_data = json.load(f) or {}
 
-            logger.warning(f"Using legacy JSON configuration from: {config_path_json}. Consider migrating to YAML.")
+            logger.warning(
+                f"Using legacy JSON configuration from: {config_path_json}. Consider migrating to YAML."
+            )
             logger.debug(f"Loaded project configuration from JSON: {config_path_json}")
             cache_key = cache_key_json
         except json.JSONDecodeError as e:
             error_msg = f"Error parsing project configuration JSON: {e}"
             logger.error(error_msg)
-            raise ValueError(error_msg) from e
+            raise ValidationError(error_msg) from e
 
     # If neither YAML nor JSON was loaded successfully, raise error
     if config_data is None:
-        raise FileNotFoundError(f"Project configuration file not found at {config_path_yaml} or {config_path_json}")
+        raise PamolaFileNotFoundError(f"{config_path_yaml} or {config_path_json}")
 
     # Apply default values to loaded configuration
     config_data = apply_default_values(config_data)
@@ -297,7 +313,7 @@ def load_project_config(
     # Prepare context for variable substitution
     context = {
         "project_root": str(project_root),
-        **{k: v for k, v in config_data.items() if not isinstance(v, (dict, list))}
+        **{k: v for k, v in config_data.items() if not isinstance(v, (dict, list))},
     }
 
     # Perform variable substitution
@@ -327,15 +343,9 @@ def apply_default_values(config_data: Dict[str, Any]) -> Dict[str, Any]:
             "processed": "processed",
             "reports": "reports",
             "logs": "logs",
-            "configs": "configs"
+            "configs": "configs",
         },
-        "task_dir_suffixes": [
-            "input",
-            "output",
-            "temp",
-            "logs",
-            "dictionaries"
-        ],
+        "task_dir_suffixes": ["input", "output", "temp", "logs", "dictionaries"],
         "logging": {
             "level": "INFO",
         },
@@ -343,21 +353,21 @@ def apply_default_values(config_data: Dict[str, Any]) -> Dict[str, Any]:
             "chunk_size": 100000,
             "default_encoding": "utf-8",
             "default_delimiter": ",",
-            "default_quotechar": "\"",  # Added missing parameter
+            "default_quotechar": '"',  # Added missing parameter
             "memory_limit_mb": 1000,
-            "use_dask": False,  
-            "npartitions": 4
+            "use_dask": False,
+            "npartitions": 4,
         },
         "encryption": {
             "use_encryption": False,
             "encryption_mode": "none",
-            "key_path": None
+            "key_path": None,
         },
         "task_defaults": {
             "continue_on_error": True,
             "parallel_processes": 4,
-            "use_vectorization": False
-        }
+            "use_vectorization": False,
+        },
     }
 
     # Copy configuration to avoid modifying the original
@@ -393,7 +403,9 @@ def clear_config_cache() -> None:
     logger.debug("Project configuration cache cleared")
 
 
-def get_project_paths(config: Dict[str, Any], project_root: Optional[Path] = None) -> Dict[str, Path]:
+def get_project_paths(
+    config: Dict[str, Any], project_root: Optional[Path] = None
+) -> Dict[str, Path]:
     """
     Get standard project paths from configuration.
 
@@ -426,16 +438,16 @@ def get_project_paths(config: Dict[str, Any], project_root: Optional[Path] = Non
         "logs_dir": project_root / dir_structure.get("logs", "logs"),
         "raw_dir": data_repo / dir_structure.get("raw", "raw"),
         "processed_dir": data_repo / dir_structure.get("processed", "processed"),
-        "reports_dir": data_repo / dir_structure.get("reports", "reports")
+        "reports_dir": data_repo / dir_structure.get("reports", "reports"),
     }
 
     return paths
 
 
 def save_project_config(
-        config_data: Dict[str, Any],
-        project_root: Optional[Path] = None,
-        format: str = "yaml"
+    config_data: Dict[str, Any],
+    project_root: Optional[Path] = None,
+    format: str = "yaml",
 ) -> Path:
     """
     Save the project configuration to a file.
@@ -466,7 +478,7 @@ def save_project_config(
         # Save in appropriate format
         if format.lower() == "yaml":
             try:
-                with open(config_path, 'w', encoding='utf-8') as f:
+                with open(config_path, "w", encoding="utf-8") as f:
                     yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
             except Exception as e:
                 logger.error(f"Error saving YAML configuration: {e}")
@@ -474,7 +486,7 @@ def save_project_config(
         else:
             # Use JSON format
             try:
-                with open(config_path, 'w', encoding='utf-8') as f:
+                with open(config_path, "w", encoding="utf-8") as f:
                     json.dump(config_data, f, indent=2)
             except Exception as e:
                 logger.error(f"Error saving JSON configuration: {e}")
@@ -517,7 +529,9 @@ def is_valid_project_root(path: Path) -> bool:
     return yaml_config.exists() or json_config.exists()
 
 
-def create_default_project_structure(root_path: Path, data_path: Optional[Path] = None) -> Dict[str, Path]:
+def create_default_project_structure(
+    root_path: Path, data_path: Optional[Path] = None
+) -> Dict[str, Path]:
     """
     Create a default project structure at the specified location.
 
@@ -549,7 +563,7 @@ def create_default_project_structure(root_path: Path, data_path: Optional[Path] 
         "data": data_path,
         "raw": data_path / "raw",
         "processed": data_path / "processed",
-        "reports": data_path / "reports"
+        "reports": data_path / "reports",
     }
 
     # Create each directory
@@ -566,35 +580,24 @@ def create_default_project_structure(root_path: Path, data_path: Optional[Path] 
             "processed": "processed",
             "reports": "reports",
             "logs": "logs",
-            "configs": "configs"
+            "configs": "configs",
         },
-        "task_dir_suffixes": [
-            "input",
-            "output",
-            "temp",
-            "logs",
-            "dictionaries"
-        ],
-        "logging": {
-            "level": "INFO"
-        },
+        "task_dir_suffixes": ["input", "output", "temp", "logs", "dictionaries"],
+        "logging": {"level": "INFO"},
         "performance": {
             "chunk_size": 100000,
             "default_encoding": "utf-8",
             "default_delimiter": ",",
-            "default_quotechar": "\"",
+            "default_quotechar": '"',
             "memory_limit_mb": 1000,
-            "use_dask": False
+            "use_dask": False,
         },
         "encryption": {
             "use_encryption": False,
             "encryption_mode": "none",
-            "key_path": None
+            "key_path": None,
         },
-        "task_defaults": {
-            "continue_on_error": True,
-            "parallel_processes": 4
-        }
+        "task_defaults": {"continue_on_error": True, "parallel_processes": 4},
     }
 
     # Save config in YAML format

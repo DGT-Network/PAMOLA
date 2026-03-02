@@ -33,6 +33,7 @@ Dependencies:
 from typing import Dict, List, Optional
 import numpy as np
 import pandas as pd
+from pamola_core.errors.exceptions import FieldNotFoundError, InvalidParameterError
 
 
 def aggregate_column_metrics(
@@ -158,7 +159,11 @@ def create_value_dictionary(
         - Each value is the result of the aggregation applied to that group.
     """
     if value_field is not None and value_field not in df.columns:
-        raise KeyError(f"Value field '{value_field}' not found in DataFrame.")
+        raise FieldNotFoundError(
+            value_field,
+            list(df.columns),
+            dataset_name="DataFrame",
+        )
 
     if value_field is None or aggregation == "count":
         grouped = df.groupby(key_fields).size()
@@ -176,7 +181,11 @@ def create_value_dictionary(
         }
 
         if aggregation not in agg_func_map:
-            raise ValueError(f"Unsupported aggregation: '{aggregation}'")
+            raise InvalidParameterError(
+                param_name="aggregation",
+                param_value=aggregation,
+                reason=f"Unsupported aggregation: '{aggregation}'",
+            )
 
         grouped = agg_func_map[aggregation]()
 

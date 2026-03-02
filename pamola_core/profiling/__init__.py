@@ -1,51 +1,74 @@
 """
-Core package for data profiling in the anonymization project.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+This file is part of the PAMOLA ecosystem, a comprehensive suite for
+anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
+foundation for anonymization-preserving data processing.
 
-This package provides tools for profiling data sources, analyzing field characteristics,
-and generating reports to support data anonymization decisions.
+(C) 2024 Realm Inveo Inc. and DGT Network Inc.
+
+This software is licensed under the BSD 3-Clause License.
+For details, see the LICENSE file or visit:
+
+    https://opensource.org/licenses/BSD-3-Clause
+    https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
+
+Package: pamola_core.profiling
+Type: Public API Package
+
+Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-from pamola_core.profiling.commons.data_types import DataType, AnalysisType, ResultType, ArtifactType, OperationStatus, PrivacyLevel
+import importlib
+from typing import Dict
 
-__version__ = "1.0.0"
-
-# First export the type checking functions which are the most fundamental
-from pamola_core.profiling.commons.dtype_helpers import (
-    is_numeric_dtype, is_bool_dtype, is_object_dtype, is_string_dtype,
-    is_datetime64_dtype, is_categorical_dtype, is_integer_dtype,
-    is_float_dtype, is_list_like, is_dict_like
-)
-
-
-# Import operations to register them
-from pamola_core.profiling.analyzers.anonymity import KAnonymityProfilerOperation
-from pamola_core.profiling.analyzers.attribute import DataAttributeProfilerOperation
-from pamola_core.profiling.analyzers.categorical import CategoricalOperation
-from pamola_core.profiling.analyzers.correlation import CorrelationOperation, CorrelationMatrixOperation
-from pamola_core.profiling.analyzers.date import DateOperation
-from pamola_core.profiling.analyzers.email import EmailOperation
-from pamola_core.profiling.analyzers.group import GroupAnalyzerOperation
-from pamola_core.profiling.analyzers.identity import IdentityAnalysisOperation
-from pamola_core.profiling.analyzers.mvf import MVFOperation
-from pamola_core.profiling.analyzers.numeric import NumericOperation
-from pamola_core.profiling.analyzers.phone import PhoneOperation
-from pamola_core.profiling.analyzers.text import TextSemanticCategorizerOperation  
-from pamola_core.profiling.analyzers.currency import CurrencyOperation
-
-# Make operations available at package level
 __all__ = [
-    'KAnonymityProfilerOperation', 
-    'DataAttributeProfilerOperation', 
-    'CategoricalOperation', 
-    'CorrelationOperation',
-    'CorrelationMatrixOperation', 
-    'DateOperation', 
-    'EmailOperation', 
-    'GroupAnalyzerOperation',
-    'IdentityAnalysisOperation', 
-    'MVFOperation', 
-    'NumericOperation', 
-    'PhoneOperation', 
-    'TextSemanticCategorizerOperation',
-    'CurrencyOperation'
-    ]
+    "CategoricalOperation",
+    "CorrelationMatrixOperation",
+    "CorrelationOperation",
+    "CurrencyOperation",
+    "DataAttributeProfilerOperation",
+    "DateOperation",
+    "EmailOperation",
+    "GroupAnalyzerOperation",
+    "IdentityAnalysisOperation",
+    "KAnonymityProfilerOperation",
+    "MVFOperation",
+    "NumericOperation",
+    "PhoneOperation",
+    "TextSemanticCategorizerOperation",
+]
+
+_LAZY_IMPORTS: Dict[str, str] = {
+    "CategoricalOperation": "pamola_core.profiling.analyzers.categorical",
+    "CorrelationMatrixOperation": "pamola_core.profiling.analyzers.correlation",
+    "CorrelationOperation": "pamola_core.profiling.analyzers.correlation",
+    "CurrencyOperation": "pamola_core.profiling.analyzers.currency",
+    "DataAttributeProfilerOperation": "pamola_core.profiling.analyzers.attribute",
+    "DateOperation": "pamola_core.profiling.analyzers.date",
+    "EmailOperation": "pamola_core.profiling.analyzers.email",
+    "GroupAnalyzerOperation": "pamola_core.profiling.analyzers.group",
+    "IdentityAnalysisOperation": "pamola_core.profiling.analyzers.identity",
+    "KAnonymityProfilerOperation": "pamola_core.profiling.analyzers.anonymity",
+    "MVFOperation": "pamola_core.profiling.analyzers.mvf",
+    "NumericOperation": "pamola_core.profiling.analyzers.numeric",
+    "PhoneOperation": "pamola_core.profiling.analyzers.phone",
+    "TextSemanticCategorizerOperation": "pamola_core.profiling.analyzers.text",
+}
+
+def __getattr__(name: str):
+    if name in _LAZY_IMPORTS:
+        target = _LAZY_IMPORTS[name]
+        if isinstance(target, tuple):
+            module_name, attr_name = target
+        else:
+            module_name = target
+            attr_name = name
+        module = importlib.import_module(module_name)
+        value = getattr(module, attr_name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+def __dir__():
+    return sorted(set(list(globals().keys()) + __all__))

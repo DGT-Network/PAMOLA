@@ -14,10 +14,10 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple, Union
 
 from pamola_core.utils.io import ensure_directory
-from pamola_core.utils.logging import configure_logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure logger using the custom logging utility
-logger = configure_logging(level=logging.INFO)
+logger = pamola_logging.configure_logging(level=logging.INFO)
 
 
 def save_profiling_results(

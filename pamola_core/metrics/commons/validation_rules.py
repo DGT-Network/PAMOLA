@@ -39,6 +39,7 @@ from enum import Enum
 import logging
 
 from pamola_core.common.helpers.data_helper import DataHelper
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -559,7 +560,7 @@ class DatatypeRule(ValidationRule):
                 ]
             else:
                 return True  # Unknown type, assume valid
-        except (ValueError, TypeError):
+        except (ValidationError, ValueError, TypeError):
             return False
 
     def _is_numeric_string(self, value: str) -> bool:
@@ -567,7 +568,7 @@ class DatatypeRule(ValidationRule):
         try:
             float(value)
             return True
-        except (ValueError, TypeError):
+        except (ValidationError, ValueError, TypeError):
             return False
 
     def _is_valid_date(self, value: Any) -> bool:
@@ -577,7 +578,7 @@ class DatatypeRule(ValidationRule):
                 return True
             pd.to_datetime(str(value))
             return True
-        except (ValueError, TypeError, pd.errors.ParserError):
+        except (ValidationError, ValueError, TypeError, pd.errors.ParserError):
             return False
 
     def get_description(self) -> str:
@@ -623,8 +624,10 @@ class FormatRule(ValidationRule):
         }
 
         if format_type not in self._validators:
-            raise ValueError(
-                f"Unsupported format type: {format_type}. Available types: {list(self._validators.keys())}"
+            raise InvalidParameterError(
+                param_name="format",
+                param_value=format_type,
+                reason=f"Unsupported format type: {format_type}. Available types: {list(self._validators.keys())}",
             )
 
         super().__init__(
@@ -681,7 +684,7 @@ class FormatRule(ValidationRule):
             Class that implements FormatValidator interface
         """
         if not issubclass(validator_class, FormatValidator):
-            raise ValueError("Validator class must inherit from FormatValidator")
+            raise ValidationError("Validator class must inherit from FormatValidator")
 
         cls._validators[format_type] = validator_class
         logger.info(f"Registered new format validator: {format_type}")
@@ -759,7 +762,7 @@ class MinMaxRule(ValidationRule):
                     error_messages.append(
                         f"Value {numeric_value} is above maximum {self.max_value}"
                     )
-            except (ValueError, TypeError):
+            except (ValidationError, ValueError, TypeError):
                 error_indices.append(idx)
                 error_messages.append(f"Value '{value}' is not numeric")
 
@@ -991,30 +994,57 @@ class ValidationRuleRegistry:
         return False
 
 
-# Global registry instance
-rule_registry = ValidationRuleRegistry()
+class _LazyRuleRegistry:
+    """Lazy proxy for the default validation rule registry."""
 
-# Register system default rules
-rule_registry.register_rule(RequiredRule(), is_system_rule=True)
-rule_registry.register_rule(UniqueRule(), is_system_rule=True)
-rule_registry.register_rule(DatatypeRule("int"), is_system_rule=True)
-rule_registry.register_rule(DatatypeRule("float"), is_system_rule=True)
-rule_registry.register_rule(DatatypeRule("date"), is_system_rule=True)
-rule_registry.register_rule(DatatypeRule("bool"), is_system_rule=True)
+    def __getattr__(self, name: str):
+        return getattr(get_rule_registry(), name)
 
-# Register format rules
-rule_registry.register_rule(FormatRule("email"), is_system_rule=True)
-rule_registry.register_rule(FormatRule("phone"), is_system_rule=True)
-rule_registry.register_rule(FormatRule("url"), is_system_rule=True)
-rule_registry.register_rule(FormatRule("ip"), is_system_rule=True)
-rule_registry.register_rule(FormatRule("credit_card"), is_system_rule=True)
-rule_registry.register_rule(FormatRule("postal_code"), is_system_rule=True)
-rule_registry.register_rule(FormatRule("ssn"), is_system_rule=True)
-rule_registry.register_rule(FormatRule("uuid"), is_system_rule=True)
+    def __repr__(self) -> str:
+        return repr(get_rule_registry())
 
-# Optionally pre-register parameterized rule prototypes by alias for lookups
-# Note: these are templates; actual parameterized instances are constructed
-#       per-field using FieldDefinition.metadata in the calculator when needed.
-rule_registry.register_rule(MinMaxRule(), is_system_rule=False)
-rule_registry.register_rule(ValidValuesRule(valid_values=[]), is_system_rule=False)
-rule_registry.register_rule(RegexRule(pattern=r""), is_system_rule=False)
+
+_default_rule_registry: Optional[ValidationRuleRegistry] = None
+
+
+def _build_default_rule_registry() -> ValidationRuleRegistry:
+    registry = ValidationRuleRegistry()
+
+    # Register system default rules
+    registry.register_rule(RequiredRule(), is_system_rule=True)
+    registry.register_rule(UniqueRule(), is_system_rule=True)
+    registry.register_rule(DatatypeRule("int"), is_system_rule=True)
+    registry.register_rule(DatatypeRule("float"), is_system_rule=True)
+    registry.register_rule(DatatypeRule("date"), is_system_rule=True)
+    registry.register_rule(DatatypeRule("bool"), is_system_rule=True)
+
+    # Register format rules
+    registry.register_rule(FormatRule("email"), is_system_rule=True)
+    registry.register_rule(FormatRule("phone"), is_system_rule=True)
+    registry.register_rule(FormatRule("url"), is_system_rule=True)
+    registry.register_rule(FormatRule("ip"), is_system_rule=True)
+    registry.register_rule(FormatRule("credit_card"), is_system_rule=True)
+    registry.register_rule(FormatRule("postal_code"), is_system_rule=True)
+    registry.register_rule(FormatRule("ssn"), is_system_rule=True)
+    registry.register_rule(FormatRule("uuid"), is_system_rule=True)
+
+    # Optionally pre-register parameterized rule prototypes by alias for lookups
+    # Note: these are templates; actual parameterized instances are constructed
+    #       per-field using FieldDefinition.metadata in the calculator when needed.
+    registry.register_rule(MinMaxRule(), is_system_rule=False)
+    registry.register_rule(ValidValuesRule(valid_values=[]), is_system_rule=False)
+    registry.register_rule(RegexRule(pattern=r""), is_system_rule=False)
+
+    return registry
+
+
+def get_rule_registry() -> ValidationRuleRegistry:
+    """Return the default ValidationRuleRegistry (initialized on first use)."""
+    global _default_rule_registry
+    if _default_rule_registry is None:
+        _default_rule_registry = _build_default_rule_registry()
+    return _default_rule_registry
+
+
+# Backwards-compatible module-level registry handle
+rule_registry = _LazyRuleRegistry()

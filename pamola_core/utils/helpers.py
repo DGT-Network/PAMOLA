@@ -26,6 +26,7 @@ from pamola_core.utils.ops.op_result import (
     OperationResult,
     OperationStatus,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -66,6 +67,10 @@ def cleanup_memory(instance: Optional[Any] = None, force_gc: bool = True) -> Non
         # Clear operation cache
         if hasattr(instance, "operation_cache"):
             instance.operation_cache = None
+
+        # Clear error handler
+        if hasattr(instance, "error_handler"):
+            instance.error_handler = None
 
         # Clear filter mask
         if hasattr(instance, "filter_mask"):
@@ -291,7 +296,7 @@ def generate_data_hash(
         elif isinstance(data, dd.DataFrame):
             sig = get_dask_df_signature(data, sample_size)
         else:
-            raise TypeError(
+            raise TypeValidationError(
                 f"Unsupported data type: {type(data).__name__}. "
                 "Expected pandas.Series, pandas.DataFrame, or dask.dataframe.DataFrame"
             )
@@ -335,7 +340,9 @@ def build_base_cache(
     }
 
 
-def get_cache_result(result_data: Optional[Dict[str, Any]]) -> Optional[OperationResult]:
+def get_cache_result(
+    result_data: Optional[Dict[str, Any]],
+) -> Optional[OperationResult]:
     """
     Retrieve cached result if available and valid.
 

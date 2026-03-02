@@ -83,16 +83,14 @@ import pandas as pd
 from scipy import stats
 
 # Import validation exceptions with correct signatures
-from pamola_core.anonymization.commons.validation.exceptions import (
-    InvalidParameterError
-)
+from pamola_core.errors.exceptions import InvalidParameterError
 
 # Configure module logger
 logger = logging.getLogger(__name__)
 
 # Constants for noise operations
-NOISE_DISTRIBUTIONS = ['uniform', 'normal', 'laplace', 'exponential']
-TEMPORAL_UNITS = ['seconds', 'minutes', 'hours', 'days', 'weeks']
+NOISE_DISTRIBUTIONS = ["uniform", "normal", "laplace", "exponential"]
+TEMPORAL_UNITS = ["seconds", "minutes", "hours", "days", "weeks"]
 DEFAULT_HISTOGRAM_BINS = 20
 MAX_SAMPLE_SIZE = 10000  # For performance in statistical tests
 
@@ -189,8 +187,12 @@ class SecureRandomGenerator:
         else:
             self._rng = np.random.default_rng(seed)
 
-    def uniform(self, low: float = 0.0, high: float = 1.0,
-                size: Optional[Union[int, Tuple[int, ...]]] = None) -> Union[float, np.ndarray]:
+    def uniform(
+        self,
+        low: float = 0.0,
+        high: float = 1.0,
+        size: Optional[Union[int, Tuple[int, ...]]] = None,
+    ) -> Union[float, np.ndarray]:
         """
         Generate uniform random values in [low, high).
 
@@ -209,7 +211,7 @@ class SecureRandomGenerator:
             raise InvalidParameterError(
                 param_name="low",
                 param_value=low,
-                reason=f"must be less than 'high' ({high})"
+                reason=f"must be less than 'high' ({high})",
             )
 
         with self._lock:
@@ -219,19 +221,21 @@ class SecureRandomGenerator:
                 # Handle multi-dimensional sizes
                 if isinstance(size, tuple):
                     total_size = np.prod(size)
-                    values = np.array([
-                        self._rng.uniform(low, high) for _ in range(total_size)
-                    ])
+                    values = np.array(
+                        [self._rng.uniform(low, high) for _ in range(total_size)]
+                    )
                     return values.reshape(size)
                 else:
-                    return np.array([
-                        self._rng.uniform(low, high) for _ in range(size)
-                    ])
+                    return np.array([self._rng.uniform(low, high) for _ in range(size)])
             else:
                 return self._rng.uniform(low, high, size)
 
-    def normal(self, loc: float = 0.0, scale: float = 1.0,
-               size: Optional[Union[int, Tuple[int, ...]]] = None) -> Union[float, np.ndarray]:
+    def normal(
+        self,
+        loc: float = 0.0,
+        scale: float = 1.0,
+        size: Optional[Union[int, Tuple[int, ...]]] = None,
+    ) -> Union[float, np.ndarray]:
         """
         Generate normal (Gaussian) random values.
 
@@ -250,7 +254,7 @@ class SecureRandomGenerator:
             raise InvalidParameterError(
                 param_name="scale",
                 param_value=scale,
-                reason="standard deviation must be positive"
+                reason="standard deviation must be positive",
             )
 
         with self._lock:
@@ -259,7 +263,9 @@ class SecureRandomGenerator:
                     # Box-Muller transform for single value
                     u1 = self._rng.random()
                     u2 = self._rng.random()
-                    z0 = np.sqrt(BOX_MULLER_CONST * np.log(u1)) * np.cos(BOX_MULLER_ANGLE * PI * u2)
+                    z0 = np.sqrt(BOX_MULLER_CONST * np.log(u1)) * np.cos(
+                        BOX_MULLER_ANGLE * PI * u2
+                    )
                     return loc + scale * z0
 
                 # Generate for array
@@ -273,8 +279,12 @@ class SecureRandomGenerator:
                 u1 = np.array([self._rng.random() for _ in range(n_pairs)])
                 u2 = np.array([self._rng.random() for _ in range(n_pairs)])
 
-                z0 = np.sqrt(BOX_MULLER_CONST * np.log(u1)) * np.cos(BOX_MULLER_ANGLE * PI * u2)
-                z1 = np.sqrt(BOX_MULLER_CONST * np.log(u1)) * np.sin(BOX_MULLER_ANGLE * PI * u2)
+                z0 = np.sqrt(BOX_MULLER_CONST * np.log(u1)) * np.cos(
+                    BOX_MULLER_ANGLE * PI * u2
+                )
+                z1 = np.sqrt(BOX_MULLER_CONST * np.log(u1)) * np.sin(
+                    BOX_MULLER_ANGLE * PI * u2
+                )
 
                 # Interleave z0 and z1
                 values = np.empty(2 * n_pairs)
@@ -289,8 +299,12 @@ class SecureRandomGenerator:
             else:
                 return self._rng.normal(loc, scale, size)
 
-    def laplace(self, loc: float = 0.0, scale: float = 1.0,
-                size: Optional[Union[int, Tuple[int, ...]]] = None) -> Union[float, np.ndarray]:
+    def laplace(
+        self,
+        loc: float = 0.0,
+        scale: float = 1.0,
+        size: Optional[Union[int, Tuple[int, ...]]] = None,
+    ) -> Union[float, np.ndarray]:
         """
         Generate Laplace random values (for differential privacy).
 
@@ -309,7 +323,7 @@ class SecureRandomGenerator:
             raise InvalidParameterError(
                 param_name="scale",
                 param_value=scale,
-                reason="must be positive for Laplace distribution"
+                reason="must be positive for Laplace distribution",
             )
 
         with self._lock:
@@ -325,9 +339,7 @@ class SecureRandomGenerator:
                 else:
                     total_size = size
 
-                u = np.array([
-                    self._rng.uniform(-0.5, 0.5) for _ in range(total_size)
-                ])
+                u = np.array([self._rng.uniform(-0.5, 0.5) for _ in range(total_size)])
                 values = loc - scale * np.sign(u) * np.log(1 - 2 * np.abs(u))
 
                 if isinstance(size, tuple):
@@ -336,8 +348,13 @@ class SecureRandomGenerator:
             else:
                 return self._rng.laplace(loc, scale, size)
 
-    def choice(self, a: Union[int, np.ndarray], size: Optional[int] = None,
-               replace: bool = True, p: Optional[np.ndarray] = None) -> Union[Any, np.ndarray]:
+    def choice(
+        self,
+        a: Union[int, np.ndarray],
+        size: Optional[int] = None,
+        replace: bool = True,
+        p: Optional[np.ndarray] = None,
+    ) -> Union[Any, np.ndarray]:
         """
         Generate random sample from given array or range.
 
@@ -377,18 +394,18 @@ class SecureRandomGenerator:
                         return self._rng.choice(population)
                     else:
                         if replace:
-                            return np.array([
-                                self._rng.choice(population) for _ in range(size)
-                            ])
+                            return np.array(
+                                [self._rng.choice(population) for _ in range(size)]
+                            )
                         else:
                             return np.array(self._rng.sample(population, size))
             else:
                 return self._rng.choice(a, size, replace, p)
 
 
-def calculate_noise_impact(original: pd.Series,
-                           noisy: pd.Series,
-                           sample_size: Optional[int] = None) -> Dict[str, float]:
+def calculate_noise_impact(
+    original: pd.Series, noisy: pd.Series, sample_size: Optional[int] = None
+) -> Dict[str, float]:
     """
     Calculate comprehensive metrics measuring the impact of noise on data utility.
 
@@ -437,11 +454,11 @@ def calculate_noise_impact(original: pd.Series,
     noise = noisy_clean - orig_clean
 
     # Basic error metrics
-    rmse = float(np.sqrt(np.mean(noise ** 2)))
+    rmse = float(np.sqrt(np.mean(noise**2)))
     mae = float(np.mean(np.abs(noise)))
 
     # Relative error (avoid division by zero)
-    with np.errstate(divide='ignore', invalid='ignore'):
+    with np.errstate(divide="ignore", invalid="ignore"):
         relative_errors = np.abs(noise) / (np.abs(orig_clean) + EPSILON)
         relative_error = float(np.mean(relative_errors[np.isfinite(relative_errors)]))
 
@@ -451,7 +468,7 @@ def calculate_noise_impact(original: pd.Series,
 
     # Correlation metrics
     correlation = float(orig_clean.corr(noisy_clean))
-    rank_correlation = float(orig_clean.corr(noisy_clean, method='spearman'))
+    rank_correlation = float(orig_clean.corr(noisy_clean, method="spearman"))
 
     # Maximum error
     max_absolute_error = float(np.max(np.abs(noise)))
@@ -462,7 +479,7 @@ def calculate_noise_impact(original: pd.Series,
     if noise_power > 0:
         snr_db = DB_CONVERSION_FACTOR * np.log10(signal_power / noise_power)
     else:
-        snr_db = float('inf')
+        snr_db = float("inf")
 
     return {
         "rmse": rmse,
@@ -472,14 +489,16 @@ def calculate_noise_impact(original: pd.Series,
         "rank_correlation": rank_correlation,
         "relative_error": relative_error,
         "max_absolute_error": max_absolute_error,
-        "snr": snr_db
+        "snr": snr_db,
     }
 
 
-def calculate_distribution_preservation(original: pd.Series,
-                                        noisy: pd.Series,
-                                        n_bins: int = DEFAULT_HISTOGRAM_BINS,
-                                        percentiles: Optional[List[int]] = None) -> Dict[str, Any]:
+def calculate_distribution_preservation(
+    original: pd.Series,
+    noisy: pd.Series,
+    n_bins: int = DEFAULT_HISTOGRAM_BINS,
+    percentiles: Optional[List[int]] = None,
+) -> Dict[str, Any]:
     """
     Analyze how well noise addition preserves the data distribution.
 
@@ -528,7 +547,7 @@ def calculate_distribution_preservation(original: pd.Series,
     ks_stat, ks_pvalue = stats.ks_2samp(orig_clean, noisy_clean)
 
     # Wasserstein distance (Earth Mover's Distance)
-    wasserstein_dist = stats.wasserstein_distance(orig_clean, noisy_clean) #type: ignore
+    wasserstein_dist = stats.wasserstein_distance(orig_clean, noisy_clean)  # type: ignore
 
     # Histogram comparison
     # Create common bins based on combined range
@@ -545,7 +564,7 @@ def calculate_distribution_preservation(original: pd.Series,
     mean_shift = float(noisy_clean.mean() - orig_clean.mean())
     std_orig = orig_clean.std()
     std_noisy = noisy_clean.std()
-    std_ratio = float(std_noisy / std_orig) if std_orig > 0 else float('inf')
+    std_ratio = float(std_noisy / std_orig) if std_orig > 0 else float("inf")
 
     # Higher moments
     skewness_diff = float(noisy_clean.skew() - orig_clean.skew())
@@ -570,14 +589,16 @@ def calculate_distribution_preservation(original: pd.Series,
         "std_ratio": std_ratio,
         "skewness_diff": skewness_diff,
         "kurtosis_diff": kurtosis_diff,
-        "percentile_shifts": percentile_shifts
+        "percentile_shifts": percentile_shifts,
     }
 
 
-def suggest_noise_range(series: pd.Series,
-                        target_snr: float = DEFAULT_TARGET_SNR,
-                        noise_type: str = "additive",
-                        distribution: str = "uniform") -> float:
+def suggest_noise_range(
+    series: pd.Series,
+    target_snr: float = DEFAULT_TARGET_SNR,
+    noise_type: str = "additive",
+    distribution: str = "uniform",
+) -> float:
     """
     Suggest appropriate noise range based on target signal-to-noise ratio.
 
@@ -606,12 +627,12 @@ def suggest_noise_range(series: pd.Series,
         raise InvalidParameterError(
             param_name="distribution",
             param_value=distribution,
-            reason=f"must be one of {NOISE_DISTRIBUTIONS}"
+            reason=f"must be one of {NOISE_DISTRIBUTIONS}",
         )
 
     # Calculate signal statistics
     signal_std = series.std()
-    signal_var = signal_std ** 2
+    signal_var = signal_std**2
 
     # Target noise variance
     target_noise_var = signal_var / target_snr
@@ -649,17 +670,21 @@ def suggest_noise_range(series: pd.Series,
             else:
                 suggested_range = relative_std
         else:
-            logger.warning("Mean is near zero, multiplicative noise may not be appropriate")
+            logger.warning(
+                "Mean is near zero, multiplicative noise may not be appropriate"
+            )
             suggested_range = MULTIPLICATIVE_DEFAULT_RANGE  # Default 10% variation
 
     return float(suggested_range)
 
 
-def validate_noise_bounds(series: pd.Series,
-                          noise_range: Union[float, Tuple[float, float]],
-                          output_min: Optional[float] = None,
-                          output_max: Optional[float] = None,
-                          percentile_check: float = PERCENTILE_CHECK_DEFAULT) -> Dict[str, Any]:
+def validate_noise_bounds(
+    series: pd.Series,
+    noise_range: Union[float, Tuple[float, float]],
+    output_min: Optional[float] = None,
+    output_max: Optional[float] = None,
+    percentile_check: float = PERCENTILE_CHECK_DEFAULT,
+) -> Dict[str, Any]:
     """
     Validate that noise bounds are reasonable for the data.
 
@@ -708,7 +733,9 @@ def validate_noise_bounds(series: pd.Series,
     recommendations = []
 
     # Check if noise is too large relative to data
-    noise_to_data_ratio = noise_magnitude / data_range if data_range > 0 else float('inf')
+    noise_to_data_ratio = (
+        noise_magnitude / data_range if data_range > 0 else float("inf")
+    )
 
     if noise_to_data_ratio > NOISE_RATIO_EXCESSIVE:
         warnings.append(
@@ -727,7 +754,9 @@ def validate_noise_bounds(series: pd.Series,
 
     if output_min is not None or output_max is not None:
         # Estimate bound violations using percentiles
-        percentiles = series.quantile([PERCENTILE_LOWER_CHECK, 0.05, 0.95, PERCENTILE_UPPER_CHECK])
+        percentiles = series.quantile(
+            [PERCENTILE_LOWER_CHECK, 0.05, 0.95, PERCENTILE_UPPER_CHECK]
+        )
 
         if output_min is not None:
             # Check lower bound
@@ -776,10 +805,10 @@ def validate_noise_bounds(series: pd.Series,
     # Check for distribution compatibility
     if not is_symmetric:
         skewness = series.skew()
-        if abs(skewness) > SKEWNESS_THRESHOLD and np.sign(skewness) != np.sign(noise_min + noise_max):
-            warnings.append(
-                "Asymmetric noise direction conflicts with data skewness"
-            )
+        if abs(skewness) > SKEWNESS_THRESHOLD and np.sign(skewness) != np.sign(
+            noise_min + noise_max
+        ):
+            warnings.append("Asymmetric noise direction conflicts with data skewness")
             recommendations.append(
                 "Consider using symmetric noise or adjusting noise direction"
             )
@@ -794,17 +823,19 @@ def validate_noise_bounds(series: pd.Series,
         "data_stats": {
             "mean": float(series.mean()),
             "std": float(data_std),
-            "skewness": float(series.skew())
+            "skewness": float(series.skew()),
         },
-        "noise_magnitude": noise_magnitude
+        "noise_magnitude": noise_magnitude,
     }
 
 
-def generate_numeric_noise(size: int,
-                           distribution: str = "uniform",
-                           params: Optional[Dict[str, float]] = None,
-                           secure: bool = True,
-                           seed: Optional[int] = None) -> np.ndarray:
+def generate_numeric_noise(
+    size: int,
+    distribution: str = "uniform",
+    params: Optional[Dict[str, float]] = None,
+    secure: bool = True,
+    seed: Optional[int] = None,
+) -> np.ndarray:
     """
     Generate numeric noise values with specified distribution.
 
@@ -836,16 +867,14 @@ def generate_numeric_noise(size: int,
     """
     if size <= 0:
         raise InvalidParameterError(
-            param_name="size",  # ← NEW
-            param_value=size,
-            reason="size must be positive"
+            param_name="size", param_value=size, reason="size must be positive"  # ← NEW
         )
 
     if distribution not in NOISE_DISTRIBUTIONS:
         raise InvalidParameterError(
             param_name="distribution",  # ← NEW
             param_value=distribution,
-            reason=f"must be one of {NOISE_DISTRIBUTIONS}"
+            reason=f"must be one of {NOISE_DISTRIBUTIONS}",
         )
 
     # Default parameters
@@ -857,26 +886,25 @@ def generate_numeric_noise(size: int,
 
     # Generate noise based on distribution
     if distribution == "uniform":
-        low = params.get('low', -UNIFORM_RANGE_DEFAULT)
-        high = params.get('high', UNIFORM_RANGE_DEFAULT)
+        low = params.get("low", -UNIFORM_RANGE_DEFAULT)
+        high = params.get("high", UNIFORM_RANGE_DEFAULT)
         return rng.uniform(low, high, size)
 
     elif distribution == "normal":
-        loc = params.get('loc', NORMAL_LOC_DEFAULT)
-        scale = params.get('scale', NORMAL_SCALE_DEFAULT)
+        loc = params.get("loc", NORMAL_LOC_DEFAULT)
+        scale = params.get("scale", NORMAL_SCALE_DEFAULT)
         return rng.normal(loc, scale, size)
 
     elif distribution == "laplace":
-        loc = params.get('loc', LAPLACE_LOC_DEFAULT)
-        scale = params.get('scale', LAPLACE_SCALE_DEFAULT)
+        loc = params.get("loc", LAPLACE_LOC_DEFAULT)
+        scale = params.get("scale", LAPLACE_SCALE_DEFAULT)
         return rng.laplace(loc, scale, size)
-
 
     elif distribution == "exponential":
 
-        scale = params.get('scale', EXPONENTIAL_SCALE_DEFAULT)
+        scale = params.get("scale", EXPONENTIAL_SCALE_DEFAULT)
 
-        if params.get('symmetric', False):
+        if params.get("symmetric", False):
 
             exp_values = np.random.exponential(scale, size)
             signs = rng.choice(np.array([-1, 1], dtype=int), size=size)
@@ -891,12 +919,14 @@ def generate_numeric_noise(size: int,
         return rng.uniform(-UNIFORM_RANGE_DEFAULT, UNIFORM_RANGE_DEFAULT, size)
 
 
-def generate_temporal_noise(size: int,
-                            range_value: float,
-                            unit: str = "days",
-                            distribution: str = "uniform",
-                            secure: bool = True,
-                            seed: Optional[int] = None) -> pd.TimedeltaIndex:
+def generate_temporal_noise(
+    size: int,
+    range_value: float,
+    unit: str = "days",
+    distribution: str = "uniform",
+    secure: bool = True,
+    seed: Optional[int] = None,
+) -> pd.TimedeltaIndex:
     """
     Generate temporal noise values as time deltas.
 
@@ -928,16 +958,16 @@ def generate_temporal_noise(size: int,
         raise InvalidParameterError(
             param_name="unit",
             param_value=unit,
-            reason=f"must be one of {TEMPORAL_UNITS}"
+            reason=f"must be one of {TEMPORAL_UNITS}",
         )
 
     # Convert range to seconds
     unit_multipliers = {
-        'seconds': 1,
-        'minutes': SECONDS_PER_MINUTE,
-        'hours': SECONDS_PER_HOUR,
-        'days': SECONDS_PER_DAY,
-        'weeks': SECONDS_PER_WEEK
+        "seconds": 1,
+        "minutes": SECONDS_PER_MINUTE,
+        "hours": SECONDS_PER_HOUR,
+        "days": SECONDS_PER_DAY,
+        "weeks": SECONDS_PER_WEEK,
     }
 
     range_seconds = range_value * unit_multipliers[unit]
@@ -945,27 +975,33 @@ def generate_temporal_noise(size: int,
     # Generate noise values
     if distribution == "uniform":
         noise_seconds = generate_numeric_noise(
-            size, 'uniform',
-            {'low': -range_seconds, 'high': range_seconds},
-            secure=secure, seed=seed
+            size,
+            "uniform",
+            {"low": -range_seconds, "high": range_seconds},
+            secure=secure,
+            seed=seed,
         )
     else:
         # For other distributions, generate and scale
         noise_values = generate_numeric_noise(
-            size, distribution,
-            {'scale': range_seconds / NOISE_SCALE_DIVISOR},  # Rough scaling
-            secure=secure, seed=seed
+            size,
+            distribution,
+            {"scale": range_seconds / NOISE_SCALE_DIVISOR},  # Rough scaling
+            secure=secure,
+            seed=seed,
         )
         noise_seconds = np.clip(noise_values, -range_seconds, range_seconds)
 
     # Convert to TimedeltaIndex
-    return pd.to_timedelta(noise_seconds, unit='s')
+    return pd.to_timedelta(noise_seconds, unit="s")
 
 
-def analyze_noise_effectiveness(original: pd.Series,
-                                noisy: pd.Series,
-                                privacy_metric: str = "snr",
-                                target_value: Optional[float] = None) -> Dict[str, Any]:
+def analyze_noise_effectiveness(
+    original: pd.Series,
+    noisy: pd.Series,
+    privacy_metric: str = "snr",
+    target_value: Optional[float] = None,
+) -> Dict[str, Any]:
     """
     Analyze the effectiveness of noise addition for privacy protection.
 
@@ -998,15 +1034,17 @@ def analyze_noise_effectiveness(original: pd.Series,
 
     # Evaluate privacy metric
     if privacy_metric == "snr":
-        actual_value = 10 ** (impact['snr'] / DB_CONVERSION_FACTOR)  # Convert from dB to linear
+        actual_value = 10 ** (
+            impact["snr"] / DB_CONVERSION_FACTOR
+        )  # Convert from dB to linear
         effective = actual_value <= target_value if target_value else True
         metric_direction = "lower"
     elif privacy_metric == "rmse":
-        actual_value = impact['rmse']
+        actual_value = impact["rmse"]
         effective = actual_value >= target_value if target_value else True
         metric_direction = "higher"
     elif privacy_metric == "correlation":
-        actual_value = impact['correlation']
+        actual_value = impact["correlation"]
         effective = actual_value <= target_value if target_value else True
         metric_direction = "lower"
     else:
@@ -1016,11 +1054,13 @@ def analyze_noise_effectiveness(original: pd.Series,
 
     # Calculate utility score (0-1, higher is better)
     utility_components = [
-        min(1.0, impact['correlation']),  # Correlation preservation
-        min(1.0, 1.0 / (1.0 + impact['relative_error'])),  # Low relative error
-        min(1.0, 1.0 / (1.0 + abs(distribution['mean_shift']))),  # Mean preservation
-        min(1.0, 2.0 - abs(distribution['std_ratio'] - 1.0)),  # Std preservation
-        min(1.0, distribution['ks_pvalue'] * DB_CONVERSION_FACTOR)  # Distribution similarity
+        min(1.0, impact["correlation"]),  # Correlation preservation
+        min(1.0, 1.0 / (1.0 + impact["relative_error"])),  # Low relative error
+        min(1.0, 1.0 / (1.0 + abs(distribution["mean_shift"]))),  # Mean preservation
+        min(1.0, 2.0 - abs(distribution["std_ratio"] - 1.0)),  # Std preservation
+        min(
+            1.0, distribution["ks_pvalue"] * DB_CONVERSION_FACTOR
+        ),  # Distribution similarity
     ]
     utility_score = np.mean(utility_components)
 
@@ -1040,12 +1080,12 @@ def analyze_noise_effectiveness(original: pd.Series,
     if utility_score < UTILITY_SCORE_LOW:
         recommendations.append("Consider reducing noise magnitude to improve utility")
 
-    if distribution['ks_pvalue'] < DISTRIBUTION_PVALUE_THRESHOLD:
+    if distribution["ks_pvalue"] < DISTRIBUTION_PVALUE_THRESHOLD:
         recommendations.append(
             "Noise significantly alters distribution - consider distribution-preserving noise"
         )
 
-    if impact['correlation'] < CORRELATION_LOW_THRESHOLD:
+    if impact["correlation"] < CORRELATION_LOW_THRESHOLD:
         recommendations.append(
             "Low correlation with original data - verify noise range is appropriate"
         )
@@ -1061,15 +1101,15 @@ def analyze_noise_effectiveness(original: pd.Series,
             "relative_error": float(utility_components[1]),
             "mean_preservation": float(utility_components[2]),
             "std_preservation": float(utility_components[3]),
-            "distribution_similarity": float(utility_components[4])
+            "distribution_similarity": float(utility_components[4]),
         },
-        "recommendations": recommendations
+        "recommendations": recommendations,
     }
 
 
-def create_noise_report(original: pd.Series,
-                        noisy: pd.Series,
-                        noise_params: Dict[str, Any]) -> Dict[str, Any]:
+def create_noise_report(
+    original: pd.Series, noisy: pd.Series, noise_params: Dict[str, Any]
+) -> Dict[str, Any]:
     """
     Create comprehensive noise analysis report.
 
@@ -1101,23 +1141,24 @@ def create_noise_report(original: pd.Series,
                 "mean": float(original.mean()),
                 "std": float(original.std()),
                 "min": float(original.min()),
-                "max": float(original.max())
+                "max": float(original.max()),
             },
             "noisy": {
                 "count": int(noisy.count()),
                 "mean": float(noisy.mean()),
                 "std": float(noisy.std()),
                 "min": float(noisy.min()),
-                "max": float(noisy.max())
-            }
+                "max": float(noisy.max()),
+            },
         },
         "impact_metrics": calculate_noise_impact(original, noisy),
         "distribution_analysis": calculate_distribution_preservation(original, noisy),
         "effectiveness": analyze_noise_effectiveness(
-            original, noisy,
-            privacy_metric=noise_params.get('privacy_metric', 'snr'),
-            target_value=noise_params.get('target_value')
-        )
+            original,
+            noisy,
+            privacy_metric=noise_params.get("privacy_metric", "snr"),
+            target_value=noise_params.get("target_value"),
+        ),
     }
 
     # Add actual noise statistics
@@ -1127,38 +1168,7 @@ def create_noise_report(original: pd.Series,
         "std": float(actual_noise.std()),
         "min": float(actual_noise.min()),
         "max": float(actual_noise.max()),
-        "zero_noise_count": int((actual_noise == 0).sum())
+        "zero_noise_count": int((actual_noise == 0).sum()),
     }
 
     return report
-
-
-# Module metadata
-__version__ = "1.0.0"
-__author__ = "PAMOLA Core Team"
-
-# Export public API
-__all__ = [
-    # Main classes
-    'SecureRandomGenerator',
-
-    # Analysis functions
-    'calculate_noise_impact',
-    'calculate_distribution_preservation',
-    'suggest_noise_range',
-    'validate_noise_bounds',
-
-    # Generation functions
-    'generate_numeric_noise',
-    'generate_temporal_noise',
-
-    # Analysis and reporting
-    'analyze_noise_effectiveness',
-    'create_noise_report',
-
-    # Constants
-    'NOISE_DISTRIBUTIONS',
-    'TEMPORAL_UNITS',
-    'DEFAULT_HISTOGRAM_BINS',
-    'MAX_SAMPLE_SIZE'
-]

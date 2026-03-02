@@ -946,34 +946,3 @@ def _empty_grouping_result(error: Optional[str] = None) -> GroupingInfo:
     # TypedDict doesn't allow extra keys, so we return as-is without error field
     # If error handling is needed, it should be done at the caller level
     return result
-
-
-# Module metadata
-__version__ = "2.1.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    # Core analysis functions
-    "analyze_category_distribution",
-    "identify_rare_categories",
-    "group_rare_categories",
-    # Metrics functions
-    "calculate_category_entropy",
-    "calculate_semantic_diversity_safe",
-    # Validation functions
-    "validate_category_mapping",
-    # Type definitions
-    "RareCategoryInfo",
-    "GroupingInfo",
-    "ValidationResult",
-    # Constants
-    "DEFAULT_TOP_N",
-    "DEFAULT_RARE_THRESHOLD",
-    "DEFAULT_RARE_PERCENT",
-    "DEFAULT_GROUP_PREFIX",
-    "DEFAULT_OTHER_LABEL",
-    "MAX_GROUPS",
-    "DEFAULT_COVERAGE_WARNING_THRESHOLD",
-]

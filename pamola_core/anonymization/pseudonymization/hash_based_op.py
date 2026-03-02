@@ -77,6 +77,11 @@ from pamola_core.anonymization.commons.metric_utils import (
     calculate_process_performance,
     collect_operation_metrics,
 )
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    InvalidParameterError,
+    ValidationError,
+)
 
 # Privacy metric utilities imports
 from pamola_core.anonymization.commons.privacy_metric_utils import (
@@ -314,10 +319,12 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
         """
         # Validate parameters
         if output_length is not None and output_length < 8:
-            raise ValueError("output_length must be at least 8 characters")
+            raise ValidationError("output_length must be at least 8 characters")
 
         if compound_mode and not additional_fields:
-            raise ValueError("compound_mode requires additional_fields to be specified")
+            raise ValidationError(
+                "compound_mode requires additional_fields to be specified"
+            )
 
         # Default salt config if not provided
         if salt_config is None:
@@ -815,7 +822,10 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
         all_fields = [self.field_name] + self.additional_fields
         for field in all_fields:
             if field not in batch.columns:
-                raise ValueError(f"Field '{field}' not found in DataFrame")
+                raise FieldNotFoundError(
+                    field_name=field,
+                    available_fields=list(batch.columns),
+                )
 
         # Create working series based on mode
         if self.compound_mode:
@@ -972,7 +982,11 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
             uuid_bytes = hash_bytes[:16]
             pseudonym = str(uuid.UUID(bytes=uuid_bytes))
         else:
-            raise ValueError(f"Unknown output format: {self.output_format}")
+            raise InvalidParameterError(
+                param_name="output_format",
+                param_value=self.output_format,
+                reason=f"Unknown output format: {self.output_format}",
+            )
 
         # Apply length limit if specified
         if self.output_length and len(pseudonym) > self.output_length:

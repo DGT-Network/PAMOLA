@@ -36,10 +36,11 @@ from typing import Any, Dict, Optional
 import pandas as pd
 from pamola_core.analysis.descriptive_stats import analyze_descriptive_stats
 from pamola_core.analysis.distribution import visualize_distribution_df
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
+from pamola_core.utils.paths import get_project_root
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 def analyze_field_level(
@@ -77,7 +78,7 @@ def analyze_field_level(
     )
 
     if viz_dir is None:
-        viz_dir = Path.cwd()
+        viz_dir = get_project_root()
 
     field_level_visualization = visualize_distribution_df(
         df=df,

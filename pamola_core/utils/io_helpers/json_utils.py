@@ -21,10 +21,10 @@ from typing import Dict, Any, Optional, List, Tuple, Type
 
 import numpy as np
 
-from pamola_core.utils import logging
+import logging
 
 # Configure module logger
-logger = logging.get_logger("pamola_core.utils.io_helpers.json_utils")
+logger = logging.getLogger(__name__)
 
 
 def convert_numpy_types(obj: Any) -> Any:
@@ -59,9 +59,11 @@ def convert_numpy_types(obj: Any) -> Any:
         return str(obj)
 
 
-def validate_json_structure(data: Any,
-                            expected_type: Optional[type] = None,
-                            schema: Optional[Dict[str, Any]] = None) -> Tuple[bool, List[str]]:
+def validate_json_structure(
+    data: Any,
+    expected_type: Optional[type] = None,
+    schema: Optional[Dict[str, Any]] = None,
+) -> Tuple[bool, List[str]]:
     """
     Validates JSON structure.
 
@@ -92,7 +94,7 @@ def validate_json_structure(data: Any,
         # Check required keys
         for key, value_info in schema.items():
             # Skip optional fields
-            if value_info.get('optional', False) and key not in data:
+            if value_info.get("optional", False) and key not in data:
                 continue
 
             # Check if required key is present
@@ -101,7 +103,7 @@ def validate_json_structure(data: Any,
                 continue
 
             # Check value type if specified
-            if 'type' in value_info and not isinstance(data[key], value_info['type']):
+            if "type" in value_info and not isinstance(data[key], value_info["type"]):
                 errors.append(
                     f"Key '{key}' has wrong type. "
                     f"Expected: {value_info['type'].__name__}, "
@@ -109,11 +111,9 @@ def validate_json_structure(data: Any,
                 )
 
             # Check nested schema if specified
-            if 'schema' in value_info and isinstance(data[key], dict):
+            if "schema" in value_info and isinstance(data[key], dict):
                 nested_valid, nested_errors = validate_json_structure(
-                    data[key],
-                    expected_type=dict,
-                    schema=value_info['schema']
+                    data[key], expected_type=dict, schema=value_info["schema"]
                 )
                 if not nested_valid:
                     # Prefix errors with key name
@@ -122,9 +122,11 @@ def validate_json_structure(data: Any,
     return len(errors) == 0, errors
 
 
-def validate_json_schema(data: Dict[str, Any],
-                         schema: Dict[str, Any],
-                         error_class: Optional[Type[Exception]] = None) -> None:
+def validate_json_schema(
+    data: Dict[str, Any],
+    schema: Dict[str, Any],
+    error_class: Optional[Type[Exception]] = None,
+) -> None:
     """
     Validate data against a JSON schema with graceful fallback.
 
@@ -153,6 +155,7 @@ def validate_json_schema(data: Dict[str, Any],
 
     try:
         import jsonschema
+
         jsonschema.validate(instance=data, schema=schema)
     except ImportError:
         # jsonschema not installed, log warning and continue
@@ -162,10 +165,12 @@ def validate_json_schema(data: Dict[str, Any],
         raise error_class(f"Schema validation failed: {e.message}") from e
 
 
-def merge_json_objects_in_memory(base_obj: Dict[str, Any],
-                                 new_obj: Dict[str, Any],
-                                 overwrite_existing: bool = True,
-                                 recursive_merge: bool = False) -> Dict[str, Any]:
+def merge_json_objects_in_memory(
+    base_obj: Dict[str, Any],
+    new_obj: Dict[str, Any],
+    overwrite_existing: bool = True,
+    recursive_merge: bool = False,
+) -> Dict[str, Any]:
     """
     Merges two JSON objects in memory.
 
@@ -193,15 +198,14 @@ def merge_json_objects_in_memory(base_obj: Dict[str, Any],
             continue
 
         # Handle recursive merge for nested dictionaries
-        if (recursive_merge and
-                key in result and
-                isinstance(result[key], dict) and
-                isinstance(value, dict)):
+        if (
+            recursive_merge
+            and key in result
+            and isinstance(result[key], dict)
+            and isinstance(value, dict)
+        ):
             result[key] = merge_json_objects_in_memory(
-                result[key],
-                value,
-                overwrite_existing,
-                recursive_merge
+                result[key], value, overwrite_existing, recursive_merge
             )
         else:
             result[key] = value
@@ -229,10 +233,7 @@ def prettify_json(data: Dict[str, Any], indent: int = 2) -> str:
     converted_data = convert_numpy_types(data)
 
     return json.dumps(
-        converted_data,
-        indent=indent,
-        ensure_ascii=False,
-        sort_keys=False
+        converted_data, indent=indent, ensure_ascii=False, sort_keys=False
     )
 
 
@@ -255,14 +256,14 @@ def detect_array_or_object(json_str: str) -> str:
         stripped = json_str.strip()
 
         # Check first character
-        if stripped.startswith('['):
-            return 'array'
-        elif stripped.startswith('{'):
-            return 'object'
+        if stripped.startswith("["):
+            return "array"
+        elif stripped.startswith("{"):
+            return "object"
         else:
-            return 'invalid'
+            return "invalid"
     except Exception:
-        return 'invalid'
+        return "invalid"
 
 
 def extract_json_subset(data: Dict[str, Any], keys: List[str]) -> Dict[str, Any]:
@@ -290,9 +291,9 @@ def extract_json_subset(data: Dict[str, Any], keys: List[str]) -> Dict[str, Any]
     return result
 
 
-def prepare_json_writer_options(ensure_ascii: bool = False,
-                                indent: int = 2,
-                                **kwargs) -> Dict[str, Any]:
+def prepare_json_writer_options(
+    ensure_ascii: bool = False, indent: int = 2, **kwargs
+) -> Dict[str, Any]:
     """
     Prepares options for JSON writing.
 
@@ -310,10 +311,7 @@ def prepare_json_writer_options(ensure_ascii: bool = False,
     Dict[str, Any]
         Dictionary with JSON writer options
     """
-    options = {
-        'ensure_ascii': ensure_ascii,
-        'indent': indent
-    }
+    options = {"ensure_ascii": ensure_ascii, "indent": indent}
 
     # Add all other kwargs
     for key, value in kwargs.items():

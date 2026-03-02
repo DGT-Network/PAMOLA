@@ -44,6 +44,7 @@ import string
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
+from pamola_core.errors.exceptions import ValidationError
 
 
 class MaskingType(Enum):
@@ -148,7 +149,7 @@ class BaseMaskingPresets(ABC):
         """
         presets = self.get_presets()
         if preset_name not in presets:
-            raise ValueError(f"Preset '{preset_name}' not found")
+            raise ValidationError(f"Preset '{preset_name}' not found")
 
         config = presets[preset_name]
         return {
@@ -254,7 +255,7 @@ class EmailMaskingPresets(BaseMaskingPresets):
         """
         presets = self.get_presets()
         if preset_name not in presets:
-            raise ValueError(f"Preset '{preset_name}' not found")
+            raise ValidationError(f"Preset '{preset_name}' not found")
 
         config = presets[preset_name]
         email_pattern = r"^([^@]+)@(.+)$"
@@ -385,7 +386,7 @@ class PhoneMaskingPresets(BaseMaskingPresets):
         """
         presets = self.get_presets()
         if preset_name not in presets:
-            raise ValueError(f"Preset '{preset_name}' not found")
+            raise ValidationError(f"Preset '{preset_name}' not found")
         config = presets[preset_name]
         digits = re.sub(r"\D", "", phone)
         if len(digits) < 10:
@@ -577,7 +578,7 @@ class CreditCardMaskingPresets(BaseMaskingPresets):
         """
         presets = self.get_presets()
         if preset_name not in presets:
-            raise ValueError(f"Preset '{preset_name}' not found")
+            raise ValidationError(f"Preset '{preset_name}' not found")
         config = presets[preset_name]
 
         digits = re.sub(r"\D", "", card_number)
@@ -709,7 +710,7 @@ class SSNMaskingPresets(BaseMaskingPresets):
         """
         presets = self.get_presets()
         if preset_name not in presets:
-            raise ValueError(f"Preset '{preset_name}' not found")
+            raise ValidationError(f"Preset '{preset_name}' not found")
 
         config = presets[preset_name]
         digits = re.sub(r"\D", "", ssn)
@@ -816,7 +817,7 @@ class IPAddressMaskingPresets(BaseMaskingPresets):
         """
         presets = self.get_presets()
         if preset_name not in presets:
-            raise ValueError(f"Preset '{preset_name}' not found")
+            raise ValidationError(f"Preset '{preset_name}' not found")
 
         config = presets[preset_name]
 
@@ -930,7 +931,7 @@ class HealthcareMaskingPresets(BaseMaskingPresets):
         """
         presets = self.get_presets()
         if preset_name not in presets:
-            raise ValueError(f"Preset '{preset_name}' not found")
+            raise ValidationError(f"Preset '{preset_name}' not found")
 
         config = presets[preset_name]
         return self._mask_string(data, config, random_mask=random_mask)
@@ -1060,7 +1061,7 @@ class FinancialMaskingPresets(BaseMaskingPresets):
         """
         presets = self.get_presets()
         if preset_name not in presets:
-            raise ValueError(f"Preset '{preset_name}' not found")
+            raise ValidationError(f"Preset '{preset_name}' not found")
 
         config = presets[preset_name]
 
@@ -1221,8 +1222,7 @@ class DateMaskingPresets(BaseMaskingPresets):
         }
 
     def apply_masking(
-        self,
-        date_str: str, preset_name: str, random_mask: bool = False
+        self, date_str: str, preset_name: str, random_mask: bool = False
     ) -> str:
         """
         Apply masking to a given date string using the specified preset.
@@ -1237,7 +1237,7 @@ class DateMaskingPresets(BaseMaskingPresets):
         """
         presets = self.get_presets()
         if preset_name not in presets:
-            raise ValueError(f"Preset '{preset_name}' not found")
+            raise ValidationError(f"Preset '{preset_name}' not found")
 
         config = presets[preset_name]
         pattern = config.mask_pattern
@@ -1281,7 +1281,7 @@ class MaskingPresetManager:
         - BaseMaskingPresets: Corresponding preset manager instance.
         """
         if masking_type not in self.presets:
-            raise ValueError(f"Masking type '{masking_type}' not supported")
+            raise ValidationError(f"Masking type '{masking_type}' not supported")
         return self.presets[masking_type]
 
     def list_all_presets(self) -> Dict[str, List[str]]:
@@ -1316,7 +1316,7 @@ class MaskingPresetManager:
         - str: Masked data.
         """
         if masking_type not in self.presets:
-            raise ValueError(f"Masking type '{masking_type}' not supported")
+            raise ValidationError(f"Masking type '{masking_type}' not supported")
 
         manager = self.presets[masking_type]
         return manager.apply_masking(data, preset_name, random_mask=random_mask)

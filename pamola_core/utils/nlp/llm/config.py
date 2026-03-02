@@ -85,6 +85,7 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, Tuple, cast
+from pamola_core.errors.exceptions import RangeValidationError, ValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -97,8 +98,10 @@ _model_availability_cache: Dict[str, Tuple[bool, float]] = {}
 # Enumerations
 # ------------------------------------------------------------------------------
 
+
 class Provider(str, Enum):
     """Supported LLM providers."""
+
     LMSTUDIO = "lmstudio"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -108,6 +111,7 @@ class Provider(str, Enum):
 
 class CacheType(str, Enum):
     """Cache backend types."""
+
     MEMORY = "memory"
     FILE = "file"
     REDIS = "redis"
@@ -116,6 +120,7 @@ class CacheType(str, Enum):
 
 class TokenEstimationMethod(str, Enum):
     """Token estimation methods."""
+
     SIMPLE = "simple"  # Character-based estimation
     TIKTOKEN = "tiktoken"  # OpenAI tiktoken library
     CUSTOM = "custom"  # Custom tokenizer
@@ -123,6 +128,7 @@ class TokenEstimationMethod(str, Enum):
 
 class TruncationStrategy(str, Enum):
     """Text truncation strategies."""
+
     END = "end"  # Keep beginning, truncate end
     MIDDLE = "middle"  # Keep beginning and end, truncate middle
     SMART = "smart"  # Try to preserve sentence boundaries
@@ -130,6 +136,7 @@ class TruncationStrategy(str, Enum):
 
 class ValidationResult(str, Enum):
     """Model validation result types."""
+
     VALID_ALIAS = "valid_alias"
     VALID_PRESET = "valid_preset"
     VALID_NAME = "valid_name"
@@ -151,7 +158,6 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
         "repeat_penalty": 1.1,
         "stop_sequences": ["</text>", "\n\n", "<end_of_turn>"],
     },
-
     # Balanced model - moderate settings
     "google/gemma-3-4b": {
         "temperature": 0.4,  # Slightly higher for variety
@@ -161,7 +167,6 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
         "repeat_penalty": 1.05,
         "stop_sequences": ["</text>", "\n\n", "<end_of_turn>"],
     },
-
     # Alternative uncensored model
     "gemma-3-it-4b-uncensored-db1-x": {
         "temperature": 0.5,
@@ -171,7 +176,6 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
         "repeat_penalty": 1.05,
         "stop_sequences": ["</text>", "\n\n"],
     },
-
     # Ultra-fast model - minimal settings
     "gemma-3-1b-it-qat": {
         "temperature": 0.3,
@@ -181,7 +185,6 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
         "repeat_penalty": 1.0,
         "stop_sequences": ["\n\n"],
     },
-
     # Llama models
     "llama-3.1-8b-lexi-uncensored": {
         "temperature": 0.3,
@@ -191,7 +194,6 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
         "repeat_penalty": 1.1,
         "stop_sequences": ["</text>", "\n\n", "Human:", "Assistant:"],
     },
-
     # Specialized anonymization model
     "deid-anonymization-llama3": {
         "temperature": 0.2,  # Very low for deterministic anonymization
@@ -201,7 +203,6 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
         "repeat_penalty": 1.0,
         "stop_sequences": ["</text>", "\n\n"],
     },
-
     # Fast Phi model - optimized for speed
     "phi-3-mini-128k-it-russian-q4-k-m": {
         "temperature": 0.2,  # Low for consistency
@@ -211,7 +212,6 @@ MODEL_PRESETS: Dict[str, Dict[str, Any]] = {
         "repeat_penalty": 1.0,
         "stop_sequences": ["\n\n", "###"],
     },
-
     # DeepSeek models
     "deepseek/deepseek-r1-0528-qwen3-8b": {
         "temperature": 0.3,
@@ -249,6 +249,7 @@ MODEL_ALIAS_SYNONYMS = {
 # Configuration Dataclasses
 # ------------------------------------------------------------------------------
 
+
 @dataclass
 class LLMConfig:
     """
@@ -277,6 +278,7 @@ class LLMConfig:
     thread_safe_model : bool
         Whether model supports concurrent requests
     """
+
     provider: Union[str, Provider] = Provider.LMSTUDIO
     api_url: str = "http://localhost:1234/v1"
     model_name: str = "gemma-2-9b-it-russian-function-calling"
@@ -298,7 +300,10 @@ class LLMConfig:
             self.provider = Provider(self.provider.lower())
 
         # Set default API URLs based on provider
-        if self.api_url == "http://localhost:1234/v1" and self.provider != Provider.LMSTUDIO:
+        if (
+            self.api_url == "http://localhost:1234/v1"
+            and self.provider != Provider.LMSTUDIO
+        ):
             if self.provider == Provider.OPENAI:
                 self.api_url = "https://api.openai.com/v1"
             elif self.provider == Provider.ANTHROPIC:
@@ -337,9 +342,12 @@ class ProcessingConfig:
     memory_cleanup_interval : int
         Records between memory cleanup
     """
+
     batch_size: int = 1
     max_input_tokens: int = 1000
-    token_estimation_method: Union[str, TokenEstimationMethod] = TokenEstimationMethod.SIMPLE
+    token_estimation_method: Union[str, TokenEstimationMethod] = (
+        TokenEstimationMethod.SIMPLE
+    )
     truncation_strategy: Union[str, TruncationStrategy] = TruncationStrategy.SMART
     use_processing_marker: bool = True
     processing_marker: str = "~"
@@ -354,15 +362,22 @@ class ProcessingConfig:
         """Validate and normalize configuration."""
         # Ensure enums
         if isinstance(self.token_estimation_method, str):
-            self.token_estimation_method = TokenEstimationMethod(self.token_estimation_method)
+            self.token_estimation_method = TokenEstimationMethod(
+                self.token_estimation_method
+            )
         if isinstance(self.truncation_strategy, str):
             self.truncation_strategy = TruncationStrategy(self.truncation_strategy)
 
         # Validate batch sizes
         if self.min_batch_size > self.max_batch_size:
-            self.min_batch_size, self.max_batch_size = self.max_batch_size, self.min_batch_size
+            self.min_batch_size, self.max_batch_size = (
+                self.max_batch_size,
+                self.min_batch_size,
+            )
 
-        self.batch_size = max(self.min_batch_size, min(self.batch_size, self.max_batch_size))
+        self.batch_size = max(
+            self.min_batch_size, min(self.batch_size, self.max_batch_size)
+        )
 
 
 @dataclass
@@ -393,19 +408,22 @@ class GenerationConfig:
     seed : int, optional
         Random seed for reproducibility
     """
+
     temperature: float = field(
-        default_factory=lambda: float(os.getenv('PAMOLA_DEFAULT_TEMPERATURE', '0.7'))
+        default_factory=lambda: float(os.getenv("PAMOLA_DEFAULT_TEMPERATURE", "0.7"))
     )
     top_p: float = field(
-        default_factory=lambda: float(os.getenv('PAMOLA_DEFAULT_TOP_P', '0.95'))
+        default_factory=lambda: float(os.getenv("PAMOLA_DEFAULT_TOP_P", "0.95"))
     )
     top_k: int = field(
-        default_factory=lambda: int(os.getenv('PAMOLA_DEFAULT_TOP_K', '40'))
+        default_factory=lambda: int(os.getenv("PAMOLA_DEFAULT_TOP_K", "40"))
     )
     max_tokens: int = field(
-        default_factory=lambda: int(os.getenv('PAMOLA_DEFAULT_MAX_TOKENS', '512'))
+        default_factory=lambda: int(os.getenv("PAMOLA_DEFAULT_MAX_TOKENS", "512"))
     )
-    stop_sequences: List[str] = field(default_factory=lambda: ["</text>", "\n\n", "<end_of_turn>"])
+    stop_sequences: List[str] = field(
+        default_factory=lambda: ["</text>", "\n\n", "<end_of_turn>"]
+    )
     repeat_penalty: Optional[float] = None
     presence_penalty: Optional[float] = None
     frequency_penalty: Optional[float] = None
@@ -416,19 +434,37 @@ class GenerationConfig:
         """Validate generation parameters."""
         # Validate temperature range
         if self.temperature < 0.0 or self.temperature > 2.0:
-            raise ValueError(f"Temperature must be between 0.0 and 2.0, got {self.temperature}")
+            raise RangeValidationError(
+                field_name="temperature",
+                min_value=0.0,
+                max_value=2.0,
+                actual_max=self.temperature,
+            )
 
         # Validate top_p range
         if self.top_p < 0.0 or self.top_p > 1.0:
-            raise ValueError(f"top_p must be between 0.0 and 1.0, got {self.top_p}")
+            raise RangeValidationError(
+                field_name="top_p",
+                min_value=0.0,
+                max_value=1.0,
+                actual_max=self.top_p,
+            )
 
         # Validate top_k
         if self.top_k < 1:
-            raise ValueError(f"top_k must be >= 1, got {self.top_k}")
+            raise RangeValidationError(
+                field_name="top_k",
+                min_value=1.0,
+                actual_max=self.top_k,
+            )
 
         # Validate max_tokens
         if self.max_tokens < 1:
-            raise ValueError(f"max_tokens must be >= 1, got {self.max_tokens}")
+            raise RangeValidationError(
+                field_name="max_tokens",
+                min_value=1.0,
+                actual_max=self.max_tokens,
+            )
 
     def to_api_params(self, provider: Union[str, Provider]) -> Dict[str, Any]:
         """
@@ -477,36 +513,36 @@ class GenerationConfig:
             # Build params with only non-None values
             # Explicit type annotation to allow mixed types
             params: Dict[str, Any] = {
-                'temperature': self.temperature,
-                'max_tokens': self.max_tokens,
-                'top_p': self.top_p,
-                'stream': self.stream,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+                "top_p": self.top_p,
+                "stream": self.stream,
             }
 
             # Only include optional parameters if set and not default
             if self.presence_penalty is not None and self.presence_penalty != 0.0:
-                params['presence_penalty'] = self.presence_penalty
+                params["presence_penalty"] = self.presence_penalty
             if self.frequency_penalty is not None and self.frequency_penalty != 0.0:
-                params['frequency_penalty'] = self.frequency_penalty
+                params["frequency_penalty"] = self.frequency_penalty
             if self.seed is not None:
-                params['seed'] = self.seed
+                params["seed"] = self.seed
             if self.stop_sequences:
-                params['stop'] = self.stop_sequences
+                params["stop"] = self.stop_sequences
 
             return params
 
         elif provider == Provider.ANTHROPIC:
             # Explicit type annotation for mixed value types
             params: Dict[str, Any] = {
-                'top_p': self.top_p,
-                'top_k': self.top_k,
-                'stream': self.stream,
-                'max_tokens_to_sample': self.max_tokens,
-                'temperature': self.temperature,
+                "top_p": self.top_p,
+                "top_k": self.top_k,
+                "stream": self.stream,
+                "max_tokens_to_sample": self.max_tokens,
+                "temperature": self.temperature,
             }
 
             if self.stop_sequences:
-                params['stop_sequences'] = self.stop_sequences
+                params["stop_sequences"] = self.stop_sequences
 
             return params
 
@@ -514,26 +550,26 @@ class GenerationConfig:
             # Generic format for other providers
             # Explicit annotation to prevent type inference issues
             params: Dict[str, Any] = {
-                'temperature': self.temperature,
-                'max_tokens': self.max_tokens,
-                'stop': self.stop_sequences,
-                'stream': self.stream,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+                "stop": self.stop_sequences,
+                "stream": self.stream,
             }
 
             # Add all available parameters
             if self.top_p is not None:
-                params['top_p'] = self.top_p
+                params["top_p"] = self.top_p
             if self.top_k is not None:
-                params['top_k'] = self.top_k
+                params["top_k"] = self.top_k
             if self.repeat_penalty is not None and self.repeat_penalty > 0:
-                params['repeat_penalty'] = self.repeat_penalty
+                params["repeat_penalty"] = self.repeat_penalty
             if self.seed is not None:
-                params['seed'] = self.seed
+                params["seed"] = self.seed
 
             # Remove None values
             return {k: v for k, v in params.items() if v is not None}
 
-    def merge_with_model_defaults(self, model_name: str) -> 'GenerationConfig':
+    def merge_with_model_defaults(self, model_name: str) -> "GenerationConfig":
         """
         Merge with model-specific defaults.
 
@@ -589,6 +625,7 @@ class CacheConfig:
     eviction_policy : str
         Cache eviction policy
     """
+
     enabled: bool = True
     cache_type: Union[str, CacheType] = CacheType.MEMORY
     ttl: int = 86400  # 24 hours
@@ -628,6 +665,7 @@ class MonitoringConfig:
     slow_request_threshold : float
         Threshold for slow request warnings (seconds)
     """
+
     debug_mode: bool = False
     debug_log_file: Optional[Path] = None
     log_requests: bool = False
@@ -645,6 +683,7 @@ class MonitoringConfig:
 # ------------------------------------------------------------------------------
 # Model Management Functions
 # ------------------------------------------------------------------------------
+
 
 def resolve_model_name(model_input: str) -> str:
     """
@@ -715,8 +754,7 @@ def get_all_aliases() -> Dict[str, str]:
 
 
 def validate_model_name(
-        model_name: str,
-        available_models: Optional[List[str]] = None
+    model_name: str, available_models: Optional[List[str]] = None
 ) -> Tuple[bool, str, ValidationResult]:
     """
     Validate if model name or alias is valid.
@@ -769,7 +807,9 @@ def validate_model_name(
         return False, resolved, ValidationResult.NOT_AVAILABLE
 
     # Heuristic check
-    looks_like_model = len(resolved) > 5 and ('-' in resolved or '_' in resolved or '/' in resolved)
+    looks_like_model = len(resolved) > 5 and (
+        "-" in resolved or "_" in resolved or "/" in resolved
+    )
     if looks_like_model:
         return True, resolved, ValidationResult.VALID_NAME
 
@@ -777,8 +817,7 @@ def validate_model_name(
 
 
 def check_model_availability(
-        model_name: str,
-        lm_studio_url: str = "http://localhost:1234/v1"
+    model_name: str, lm_studio_url: str = "http://localhost:1234/v1"
 ) -> bool:
     """
     Check if model is available in LM Studio with per-model caching.
@@ -813,13 +852,13 @@ def check_model_availability(
 
     try:
         import requests
+
         response = requests.get(f"{lm_studio_url}/models", timeout=5)
         if response.status_code == 200:
-            models = response.json().get('data', [])
+            models = response.json().get("data", [])
             # Check both 'id' and 'name' fields
             for model in models:
-                if (model.get('id') == model_name or
-                        model.get('name') == model_name):
+                if model.get("id") == model_name or model.get("name") == model_name:
                     _model_availability_cache[cache_key] = (True, current_time)
                     return True
 
@@ -848,22 +887,27 @@ def get_model_info(model_name: str) -> Dict[str, Any]:
     resolved = resolve_model_name(model_name)
 
     info = {
-        'input': model_name,
-        'resolved': resolved,
-        'is_alias': model_name.upper() in get_all_aliases(),
-        'is_primary_alias': model_name.upper() in MODEL_ALIASES,
-        'is_synonym': model_name.upper() in MODEL_ALIAS_SYNONYMS,
-        'has_preset': resolved in MODEL_PRESETS,
-        'preset': MODEL_PRESETS.get(resolved, {}),
-        'aliases': [alias for alias, name in MODEL_ALIASES.items() if name == resolved],
-        'synonyms': [syn for syn, primary in MODEL_ALIAS_SYNONYMS.items()
-                     if MODEL_ALIASES.get(primary) == resolved],
+        "input": model_name,
+        "resolved": resolved,
+        "is_alias": model_name.upper() in get_all_aliases(),
+        "is_primary_alias": model_name.upper() in MODEL_ALIASES,
+        "is_synonym": model_name.upper() in MODEL_ALIAS_SYNONYMS,
+        "has_preset": resolved in MODEL_PRESETS,
+        "preset": MODEL_PRESETS.get(resolved, {}),
+        "aliases": [alias for alias, name in MODEL_ALIASES.items() if name == resolved],
+        "synonyms": [
+            syn
+            for syn, primary in MODEL_ALIAS_SYNONYMS.items()
+            if MODEL_ALIASES.get(primary) == resolved
+        ],
     }
 
     return info
 
 
-def get_model_debug_info(model_name: str, provider: Provider = Provider.LMSTUDIO) -> Dict[str, Any]:
+def get_model_debug_info(
+    model_name: str, provider: Provider = Provider.LMSTUDIO
+) -> Dict[str, Any]:
     """
     Get complete debug information for a model.
 
@@ -889,21 +933,23 @@ def get_model_debug_info(model_name: str, provider: Provider = Provider.LMSTUDIO
         default_gen = GenerationConfig()
         merged_gen = default_gen.merge_with_model_defaults(resolved)
 
-        info['generation'] = {
-            'defaults': asdict(default_gen),
-            'preset': preset,
-            'merged': asdict(merged_gen),
-            'api_params': {
-                'lmstudio': merged_gen.to_api_params(Provider.LMSTUDIO),
-                'openai': merged_gen.to_api_params(Provider.OPENAI),
-                'anthropic': merged_gen.to_api_params(Provider.ANTHROPIC),
-            }
+        info["generation"] = {
+            "defaults": asdict(default_gen),
+            "preset": preset,
+            "merged": asdict(merged_gen),
+            "api_params": {
+                "lmstudio": merged_gen.to_api_params(Provider.LMSTUDIO),
+                "openai": merged_gen.to_api_params(Provider.OPENAI),
+                "anthropic": merged_gen.to_api_params(Provider.ANTHROPIC),
+            },
         }
 
     return info
 
 
-def validate_generation_config(config: GenerationConfig, provider: Provider) -> List[str]:
+def validate_generation_config(
+    config: GenerationConfig, provider: Provider
+) -> List[str]:
     """
     Validate generation config for specific provider.
 
@@ -942,7 +988,9 @@ def validate_generation_config(config: GenerationConfig, provider: Provider) -> 
 
     # General validations
     if config.max_tokens > 4096:
-        issues.append(f"max_tokens={config.max_tokens} may exceed model's context window")
+        issues.append(
+            f"max_tokens={config.max_tokens} may exceed model's context window"
+        )
 
     if config.temperature == 0.0 and config.top_p < 1.0:
         issues.append("temperature=0 with top_p<1.0 may produce unexpected results")
@@ -953,6 +1001,7 @@ def validate_generation_config(config: GenerationConfig, provider: Provider) -> 
 # ------------------------------------------------------------------------------
 # Configuration Utilities
 # ------------------------------------------------------------------------------
+
 
 def _convert_paths_to_strings(obj: Any) -> Any:
     """
@@ -980,8 +1029,7 @@ def _convert_paths_to_strings(obj: Any) -> Any:
 
 
 def create_default_config(
-        provider: Union[str, Provider] = Provider.LMSTUDIO,
-        model_name: str = "QUALITY"
+    provider: Union[str, Provider] = Provider.LMSTUDIO, model_name: str = "QUALITY"
 ) -> Dict[str, Any]:
     """
     Create default configuration for a provider and model.
@@ -1007,11 +1055,11 @@ def create_default_config(
     monitoring_config = MonitoringConfig()
 
     config_dict = {
-        'llm': asdict(llm_config),
-        'processing': asdict(processing_config),
-        'generation': asdict(generation_config),
-        'cache': asdict(cache_config),
-        'monitoring': asdict(monitoring_config),
+        "llm": asdict(llm_config),
+        "processing": asdict(processing_config),
+        "generation": asdict(generation_config),
+        "cache": asdict(cache_config),
+        "monitoring": asdict(monitoring_config),
     }
 
     # Convert any Path objects to strings for JSON serialization
@@ -1021,6 +1069,7 @@ def create_default_config(
 # ------------------------------------------------------------------------------
 # Validation on module import
 # ------------------------------------------------------------------------------
+
 
 def _validate_aliases(strict: bool = False):
     """
@@ -1033,7 +1082,7 @@ def _validate_aliases(strict: bool = False):
         Can also be controlled by PAMOLA_STRICT_VALIDATION env var
     """
     # Check environment variable
-    if os.getenv('PAMOLA_STRICT_VALIDATION', '').lower() == 'true':
+    if os.getenv("PAMOLA_STRICT_VALIDATION", "").lower() == "true":
         strict = True
 
     # Check primary aliases for duplicate model mappings
@@ -1058,14 +1107,12 @@ def _validate_aliases(strict: bool = False):
     # Check for synonym/primary conflicts
     for synonym in MODEL_ALIAS_SYNONYMS:
         if synonym in MODEL_ALIASES:
-            duplicates.append(
-                f"'{synonym}' exists as both primary alias and synonym"
-            )
+            duplicates.append(f"'{synonym}' exists as both primary alias and synonym")
 
     if duplicates:
         message = "Alias configuration errors:\n" + "\n".join(duplicates)
         if strict:
-            raise ValueError(message)
+            raise ValidationError(message)
         else:
             warnings.warn(message)
 

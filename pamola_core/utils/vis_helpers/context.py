@@ -20,6 +20,7 @@ when multiple visualization operations run in parallel.
 import contextlib
 import logging
 from typing import Optional, Generator, Any, Dict, Union, Tuple, Callable
+from pamola_core.errors.exceptions import ValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -58,8 +59,14 @@ def visualization_context(
     Dict[str, Any]
         Context information dictionary
     """
-    from pamola_core.utils.vis_helpers.base import get_backend, set_backend
-    from pamola_core.utils.vis_helpers.theme import get_current_theme_name, set_theme
+    from pamola_core.utils.vis_helpers.base import (
+        get_backend,
+        set_backend,
+    )
+    from pamola_core.utils.vis_helpers.theme import (
+        get_current_theme_name,
+        set_theme,
+    )
 
     # Store original values to restore later
     original_backend = get_backend()
@@ -84,7 +91,7 @@ def visualization_context(
                 try:
                     set_backend(backend, strict=strict)
                     context_info["current_backend"] = backend
-                except ValueError as e:
+                except (ValidationError, ValueError) as e:
                     if strict:
                         raise
                     else:
@@ -97,7 +104,7 @@ def visualization_context(
                 try:
                     set_theme(theme, strict=strict)
                     context_info["current_theme"] = theme
-                except ValueError as e:
+                except (ValidationError, ValueError) as e:
                     if strict:
                         raise
                     else:

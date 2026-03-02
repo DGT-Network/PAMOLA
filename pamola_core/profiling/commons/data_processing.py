@@ -10,11 +10,11 @@ from typing import Dict, List, Any, Optional, Tuple, Callable
 
 import pandas as pd
 import numpy as np
-from pamola_core.utils.logging import configure_logging
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.progress import ProgressTracker, process_dataframe_in_chunks
 
 # Configure logger using the custom logging utility
-logger = configure_logging(level=logging.INFO)
+logger = pamola_logging.configure_logging(level=logging.INFO)
 
 
 def prepare_numeric_data(

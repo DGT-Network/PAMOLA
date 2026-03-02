@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 from scipy.spatial import KDTree, distance
 from pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 
 
 class DistanceToClosestRecord(PreprocessData):
@@ -70,7 +71,7 @@ class DistanceToClosestRecord(PreprocessData):
         """
         # --- 1. Input validation ---
         if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
         if data1.empty or data2.empty:
             return np.array([])
 
@@ -85,8 +86,10 @@ class DistanceToClosestRecord(PreprocessData):
             distances = distance.cdist(data2_vec, data1_vec, metric=metric)
             dcr_values = np.min(distances, axis=1)
         else:
-            raise ValueError(
-                f"Unknown DCR method: {method}. Must be 'kdtree' or 'cdist'."
+            raise InvalidParameterError(
+                param_name="method",
+                param_value=method,
+                reason=f"Unknown DCR method: {method}. Must be 'kdtree' or 'cdist'.",
             )
 
         return dcr_values

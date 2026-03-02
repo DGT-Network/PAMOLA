@@ -31,6 +31,7 @@ from scipy import stats
 from pamola_core.metrics.commons.aggregation import create_value_dictionary
 from pamola_core.metrics.commons.normalize import normalize_array_sklearn
 from pamola_core.metrics.commons.validation import validate_confidence_level
+from pamola_core.errors.exceptions import ValidationError
 
 
 class KolmogorovSmirnovTest:
@@ -111,7 +112,7 @@ class KolmogorovSmirnovTest:
             # Fallback to standard KS test (1D distributions)
             columns = list(set(original_df.columns) & set(transformed_df.columns))
             if not columns:
-                raise ValueError("No common columns to compare.")
+                raise ValidationError("No common columns to compare.")
 
             col = columns[0]
             orig_data = original_df[col].dropna().values
