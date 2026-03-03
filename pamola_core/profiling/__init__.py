@@ -34,6 +34,7 @@ __all__ = [
     "NumericOperation",
     "PhoneOperation",
     "TextSemanticCategorizerOperation",
+    "analyze_dataset_attributes",
 ]
 
 from pamola_core.profiling.analyzers.categorical import CategoricalOperation
@@ -62,4 +63,6 @@ from pamola_core.profiling.analyzers.numeric import NumericOperation
 from pamola_core.profiling.analyzers.phone import PhoneOperation
 
 from pamola_core.profiling.analyzers.text import TextSemanticCategorizerOperation
+
+from pamola_core.profiling.commons.attribute_utils import analyze_dataset_attributes
 

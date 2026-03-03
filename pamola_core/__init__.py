@@ -53,6 +53,7 @@ __all__ = [
     "NumericOperation",
     "PhoneOperation",
     "TextSemanticCategorizerOperation",
+    "analyze_dataset_attributes",
     # transformations
     "AddOrModifyFieldsOperation",
     "AggregateRecordsOperation",
@@ -143,6 +144,7 @@ from pamola_core.profiling import (
     NumericOperation,
     PhoneOperation,
     TextSemanticCategorizerOperation,
+    analyze_dataset_attributes,
 )
 
 # ── transformations ────────────────────────────────────────────────────────
