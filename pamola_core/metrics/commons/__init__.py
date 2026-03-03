@@ -21,8 +21,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 from __future__ import annotations
 
-import importlib
-from typing import Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pamola_core.metrics.commons.schema_manager import SchemaManager
@@ -49,15 +48,16 @@ __all__ = [
     "RuleCode",
 ]
 
-_LAZY_IMPORTS: Dict[str, str] = {
-    "SchemaManager": "pamola_core.metrics.commons.schema_manager",
-    "DataQualityCalculator": "pamola_core.metrics.commons.quality_scoring",
-    "QualityWeights": "pamola_core.metrics.commons.quality_scoring",
-    "calculate_provisional_risk": "pamola_core.metrics.commons.risk_scoring",
-    "calculate_predicted_utility": "pamola_core.metrics.commons.predicted_utility_scoring",
-    "RuleCode": "pamola_core.metrics.commons.validation_rules",
-}
+from pamola_core.metrics.commons.schema_manager import SchemaManager
 
+from pamola_core.metrics.commons.quality_scoring import DataQualityCalculator
+from pamola_core.metrics.commons.quality_scoring import QualityWeights
+
+from pamola_core.metrics.commons.risk_scoring import calculate_provisional_risk
+
+from pamola_core.metrics.commons.predicted_utility_scoring import calculate_predicted_utility
+
+from pamola_core.metrics.commons.validation_rules import RuleCode
 
 def create_quality_calculator(weights: dict = None) -> DataQualityCalculator:
     """
@@ -99,7 +99,6 @@ def create_quality_calculator(weights: dict = None) -> DataQualityCalculator:
 
     return DataQualityCalculator(quality_weights)
 
-
 def create_schema_from_dataframe(df, auto_detect: bool = True) -> SchemaManager:
     """
     Convenience function to create a SchemaManager from a DataFrame.
@@ -128,7 +127,6 @@ def create_schema_from_dataframe(df, auto_detect: bool = True) -> SchemaManager:
     if auto_detect:
         schema.auto_detect_schema(df)
     return schema
-
 
 def calculate_quality_with_rules(
     df,
@@ -172,22 +170,3 @@ def calculate_quality_with_rules(
     return calculator.calculate_quality(
         df, schema, analyze_scope=analyze_scope, columns=columns
     )
-
-
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))

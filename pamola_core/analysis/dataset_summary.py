@@ -33,10 +33,6 @@ import pandas as pd
 import logging
 from dataclasses import dataclass
 
-# Use standardized outlier detection (IQR)
-from pamola_core.profiling.commons.statistical_analysis import detect_outliers_iqr
-
-
 @dataclass
 class DatasetSummary:
     """Data class for structured dataset summary results."""
@@ -152,6 +148,10 @@ class DatasetAnalyzer:
         Returns:
             Tuple of (outlier_count, outlier_fields)
         """
+        from pamola_core.profiling.commons.statistical_analysis import (
+            detect_outliers_iqr,
+        )
+
         outlier_count = 0
         outlier_fields = []
 

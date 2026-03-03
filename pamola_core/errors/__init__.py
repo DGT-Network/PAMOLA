@@ -19,9 +19,6 @@ Type: Public API Package
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-import importlib
-from typing import Dict
-
 __all__ = [
     # base.py
     "BasePamolaError",
@@ -31,26 +28,9 @@ __all__ = [
     "TaskInitializationError",
 ]
 
-_LAZY_IMPORTS: Dict[str, str] = {
-    "BasePamolaError": "pamola_core.errors.base",
-    "auto_exception": "pamola_core.errors.base",
-    "_format_field_list": "pamola_core.errors.base",
-    "TaskInitializationError": "pamola_core.errors.exceptions.tasks",
-}
+from pamola_core.errors.base import BasePamolaError
+from pamola_core.errors.base import auto_exception
+from pamola_core.errors.base import _format_field_list
 
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from pamola_core.errors.exceptions.tasks import TaskInitializationError
 
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))

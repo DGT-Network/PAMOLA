@@ -21,25 +21,27 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 
 from __future__ import annotations
 
-import importlib
 import logging
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, List, Optional, TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pamola_core.utils.nlp.entity.base import BaseEntityExtractor
 
-_LAZY_IMPORTS: Dict[str, str] = {
-    "BaseEntityExtractor": "pamola_core.utils.nlp.entity.base",
-    "GenericDictionaryExtractor": "pamola_core.utils.nlp.entity.dictionary",
-    "JobPositionExtractor": "pamola_core.utils.nlp.entity.job",
-    "OrganizationExtractor": "pamola_core.utils.nlp.entity.organization",
-    "SkillExtractor": "pamola_core.utils.nlp.entity.skill",
-    "TransactionPurposeExtractor": "pamola_core.utils.nlp.entity.transaction",
-}
+from pamola_core.utils.nlp.entity.base import BaseEntityExtractor
 
-_EXTRACTOR_REGISTRY: Dict[str, tuple[str, str]] = {
+from pamola_core.utils.nlp.entity.dictionary import GenericDictionaryExtractor
+
+from pamola_core.utils.nlp.entity.job import JobPositionExtractor
+
+from pamola_core.utils.nlp.entity.organization import OrganizationExtractor
+
+from pamola_core.utils.nlp.entity.skill import SkillExtractor
+
+from pamola_core.utils.nlp.entity.transaction import TransactionPurposeExtractor
+
+_EXTRACTOR_REGISTRY: dict[str, tuple[str, str]] = {
     "job": ("pamola_core.utils.nlp.entity.job", "JobPositionExtractor"),
     "job_position": ("pamola_core.utils.nlp.entity.job", "JobPositionExtractor"),
     "organization": ("pamola_core.utils.nlp.entity.organization", "OrganizationExtractor"),
@@ -50,12 +52,9 @@ _EXTRACTOR_REGISTRY: Dict[str, tuple[str, str]] = {
     "dictionary": ("pamola_core.utils.nlp.entity.dictionary", "GenericDictionaryExtractor"),
 }
 
-
 def _load_extractor_class(entity_type: str):
-    module_name, class_name = _EXTRACTOR_REGISTRY[entity_type]
-    module = importlib.import_module(module_name)
-    return getattr(module, class_name)
-
+    _, class_name = _EXTRACTOR_REGISTRY[entity_type]
+    return globals()[class_name]
 
 def create_entity_extractor(
     entity_type: str,
@@ -113,7 +112,6 @@ def create_entity_extractor(
         **kwargs,
     )
 
-
 def extract_entities(
     texts: List[str],
     entity_type: str = "generic",
@@ -122,7 +120,7 @@ def extract_entities(
     match_strategy: str = "specific_first",
     use_ner: bool = True,
     **kwargs,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Extract entities from a list of texts.
 
@@ -145,7 +143,7 @@ def extract_entities(
 
     Returns
     -------
-    Dict[str, Any]
+    dict[str, Any]
         Extraction results containing entities, categories, and statistics
     """
     extractor = create_entity_extractor(
@@ -157,7 +155,6 @@ def extract_entities(
         **kwargs,
     )
     return extractor.extract_entities(texts)
-
 
 __all__ = [
     # base classes
@@ -171,22 +168,3 @@ __all__ = [
     "create_entity_extractor",
     "extract_entities",
 ]
-
-
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))

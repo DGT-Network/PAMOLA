@@ -19,9 +19,6 @@ Type: Public API Package
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-import importlib
-from typing import Dict
-
 __all__ = [
     "AddOrModifyFieldsOperation",
     "AggregateRecordsOperation",
@@ -33,30 +30,19 @@ __all__ = [
     "SplitFieldsOperation",
 ]
 
-_LAZY_IMPORTS: Dict[str, str] = {
-    "AddOrModifyFieldsOperation": "pamola_core.transformations.field_ops.add_modify_fields",
-    "AggregateRecordsOperation": "pamola_core.transformations.grouping.aggregate_records_op",
-    "CleanInvalidValuesOperation": "pamola_core.transformations.cleaning.clean_invalid_values",
-    "ImputeMissingValuesOperation": "pamola_core.transformations.imputation.impute_missing_values",
-    "MergeDatasetsOperation": "pamola_core.transformations.merging.merge_datasets_op",
-    "RemoveFieldsOperation": "pamola_core.transformations.field_ops.remove_fields",
-    "SplitByIDValuesOperation": "pamola_core.transformations.splitting.split_by_id_values_op",
-    "SplitFieldsOperation": "pamola_core.transformations.splitting.split_fields_op",
-}
+from pamola_core.transformations.field_ops.add_modify_fields import AddOrModifyFieldsOperation
 
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from pamola_core.transformations.grouping.aggregate_records_op import AggregateRecordsOperation
 
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))
+from pamola_core.transformations.cleaning.clean_invalid_values import CleanInvalidValuesOperation
+
+from pamola_core.transformations.imputation.impute_missing_values import ImputeMissingValuesOperation
+
+from pamola_core.transformations.merging.merge_datasets_op import MergeDatasetsOperation
+
+from pamola_core.transformations.field_ops.remove_fields import RemoveFieldsOperation
+
+from pamola_core.transformations.splitting.split_by_id_values_op import SplitByIDValuesOperation
+
+from pamola_core.transformations.splitting.split_fields_op import SplitFieldsOperation
+

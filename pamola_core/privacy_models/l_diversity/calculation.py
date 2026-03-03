@@ -42,8 +42,6 @@ import numpy as np
 import pandas as pd
 from dask import dataframe as dd
 
-from pamola_core.configs.config_variables import L_DIVERSITY_DEFAULTS
-
 # PAMOLA pamola core imports
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
 import pamola_core.utils.progress as progress
@@ -70,6 +68,8 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         Initialize L-Diversity Processor
         """
+        from pamola_core.configs.config_variables import L_DIVERSITY_DEFAULTS
+
         # Initialize configuration
         self.config = dict(L_DIVERSITY_DEFAULTS)
         if config_override:

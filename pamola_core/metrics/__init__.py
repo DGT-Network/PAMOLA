@@ -19,9 +19,6 @@ Type: Public API Package
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-import importlib
-from typing import Dict
-
 __all__ = [
     # operations/
     "FidelityOperation",
@@ -35,30 +32,15 @@ __all__ = [
     "calculate_predicted_utility",
 ]
 
-_LAZY_IMPORTS: Dict[str, str] = {
-    "FidelityOperation": "pamola_core.metrics.operations.fidelity_ops",
-    "PrivacyMetricOperation": "pamola_core.metrics.operations.privacy_ops",
-    "UtilityMetricOperation": "pamola_core.metrics.operations.utility_ops",
-    "RuleCode": "pamola_core.metrics.commons",
-    "SchemaManager": "pamola_core.metrics.commons",
-    "calculate_quality_with_rules": "pamola_core.metrics.commons",
-    "calculate_provisional_risk": "pamola_core.metrics.commons",
-    "calculate_predicted_utility": "pamola_core.metrics.commons",
-}
+from pamola_core.metrics.operations.fidelity_ops import FidelityOperation
 
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from pamola_core.metrics.operations.privacy_ops import PrivacyMetricOperation
 
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))
+from pamola_core.metrics.operations.utility_ops import UtilityMetricOperation
+
+from pamola_core.metrics.commons import RuleCode
+from pamola_core.metrics.commons import SchemaManager
+from pamola_core.metrics.commons import calculate_quality_with_rules
+from pamola_core.metrics.commons import calculate_provisional_risk
+from pamola_core.metrics.commons import calculate_predicted_utility
+

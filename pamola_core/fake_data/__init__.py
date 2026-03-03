@@ -19,9 +19,6 @@ Type: Public API Package
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-import importlib
-from typing import Dict
-
 __all__ = [
     "FakeEmailOperation",
     "FakeNameOperation",
@@ -29,26 +26,11 @@ __all__ = [
     "FakePhoneOperation",
 ]
 
-_LAZY_IMPORTS: Dict[str, str] = {
-    "FakeEmailOperation": "pamola_core.fake_data.operations.email_op",
-    "FakeNameOperation": "pamola_core.fake_data.operations.name_op",
-    "FakeOrganizationOperation": "pamola_core.fake_data.operations.organization_op",
-    "FakePhoneOperation": "pamola_core.fake_data.operations.phone_op",
-}
+from pamola_core.fake_data.operations.email_op import FakeEmailOperation
 
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from pamola_core.fake_data.operations.name_op import FakeNameOperation
 
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))
+from pamola_core.fake_data.operations.organization_op import FakeOrganizationOperation
+
+from pamola_core.fake_data.operations.phone_op import FakePhoneOperation
+

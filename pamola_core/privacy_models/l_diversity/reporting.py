@@ -27,12 +27,17 @@ import pandas as pd
 import numpy as np
 
 # Import from pamola_core utilities
-from pamola_core import configs
 from pamola_core.utils.base_reporting import PrivacyReport
 from pamola_core.utils.io import write_json, write_csv
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+def _get_pamola_version() -> str:
+    import pamola_core.configs.settings as config_settings
+
+    return getattr(config_settings, "PAMOLA_VERSION", "unknown")
 
 
 class LDiversityReport(PrivacyReport):
@@ -116,7 +121,7 @@ class LDiversityReport(PrivacyReport):
         collected_data = {
             "report_metadata": {
                 "creation_time": datetime.now().isoformat(),
-                "pamola_version": getattr(configs, "PAMOLA_VERSION", "unknown"),
+                "pamola_version": _get_pamola_version(),
                 "report_type": "l-diversity"
             }
         }
@@ -825,7 +830,7 @@ class LDiversityReport(PrivacyReport):
         compliance_report = {
             "report_metadata": {
                 "creation_time": datetime.now().isoformat(),
-                "pamola_version": getattr(configs, "PAMOLA_VERSION", "unknown"),
+                "pamola_version": _get_pamola_version(),
                 "report_type": f"l-diversity {regulation} compliance"
             },
             "regulation": regulation,
@@ -1006,7 +1011,7 @@ class LDiversityReport(PrivacyReport):
         technical_report = {
             "report_metadata": {
                 "creation_time": datetime.now().isoformat(),
-                "pamola_version": getattr(configs, "PAMOLA_VERSION", "unknown"),
+                "pamola_version": _get_pamola_version(),
                 "report_type": "l-diversity technical analysis",
                 "diversity_type": self.diversity_type
             }

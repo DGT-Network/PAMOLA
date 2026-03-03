@@ -19,11 +19,13 @@ Key features:
 - Integration with task reporting
 """
 
+from __future__ import annotations
+
 import logging
 import random
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Dict, Any, List, Optional, Type, Set, Callable
+from typing import TYPE_CHECKING, Dict, Any, List, Optional, Type, Set, Callable
 
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors import BasePamolaError
@@ -33,10 +35,12 @@ from pamola_core.errors.exceptions import (
     MaxRetriesExceededError,
     NonRetriableError,
 )
-from pamola_core.utils.ops.op_base import BaseOperation
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.tasks.task_reporting import TaskReporter
+
+if TYPE_CHECKING:
+    from pamola_core.utils.ops.op_base import BaseOperation
+    from pamola_core.utils.ops.op_result import OperationResult
 
 # Define a generic exception type for better type annotations
 ExceptionType = Type[BaseException]
@@ -200,6 +204,8 @@ class TaskOperationExecutor:
         Raises:
             Exception: Any exception raised by the operation is propagated up
         """
+        from pamola_core.utils.ops.op_result import OperationStatus
+
         operation_name = operation.__class__.__name__
         self.logger.info(f"Executing operation: {operation_name}")
 
@@ -257,6 +263,8 @@ class TaskOperationExecutor:
         Returns:
             OperationResult with ERROR status and appropriate error information
         """
+        from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+
         error_message = str(exception)
         if additional_message:
             error_message += f" {additional_message}"
@@ -332,6 +340,8 @@ class TaskOperationExecutor:
             The execution_time in the returned OperationResult represents the total time
             across all retry attempts, not just the final successful attempt.
         """
+        from pamola_core.utils.ops.op_result import OperationStatus
+
         # Use provided values or defaults
         max_retries = (
             max_retries if max_retries is not None else self.default_max_retries
@@ -466,6 +476,8 @@ class TaskOperationExecutor:
         Returns:
             Dictionary mapping operation names to their results
         """
+        from pamola_core.utils.ops.op_result import OperationStatus
+
         # Use provided value or default from config
         if continue_on_error is None:
             continue_on_error = getattr(self.config, "continue_on_error", False)
@@ -665,6 +677,8 @@ class TaskOperationExecutor:
             For parallel execution, all BaseOperation instances must be pickleable.
             Progress tracking in parallel mode has limitations due to process separation.
         """
+        from pamola_core.utils.ops.op_result import OperationStatus
+
         # Use provided value or default from config
         if continue_on_error is None:
             continue_on_error = getattr(self.config, "continue_on_error", False)

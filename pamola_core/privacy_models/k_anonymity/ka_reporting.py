@@ -30,7 +30,6 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional, Any
 
-from pamola_core import configs
 from pamola_core.utils.base_reporting import PrivacyReport
 from pamola_core.utils.io import write_json
 
@@ -235,6 +234,8 @@ def generate_compliance_report(report_data: Dict[str, Any],
         The compliance report.
     """
     try:
+        import pamola_core.configs.settings as config_settings
+
         # Create base report
         report = KAnonymityReport(report_data)
         base_report = report.generate(include_visualizations=False)
@@ -243,7 +244,9 @@ def generate_compliance_report(report_data: Dict[str, Any],
         compliance_report = {
             "report_metadata": {
                 "creation_time": datetime.now().isoformat(),
-                "pamola_version": getattr(configs, "PAMOLA_VERSION", "unknown"),
+                "pamola_version": getattr(
+                    config_settings, "PAMOLA_VERSION", "unknown"
+                ),
                 "report_type": f"k-anonymity {regulation} compliance"
             },
             "regulation": regulation,

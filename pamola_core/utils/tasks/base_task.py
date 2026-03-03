@@ -33,11 +33,13 @@ Tasks follow a standard lifecycle:
 4. Finalization (generate reports, cleanup resources)
 """
 
+from __future__ import annotations
+
 import inspect
 import logging
 import sys
 import time
-from typing import Dict, Any, Optional, List, Union, Tuple, Type, TypeVar
+from typing import TYPE_CHECKING, Dict, Any, Optional, List, Union, Tuple, Type, TypeVar
 from pathlib import Path
 import os
 from pamola_core.errors.exceptions import (
@@ -48,13 +50,14 @@ from pamola_core.errors.exceptions import (
     FeatureNotImplementedError,
 )
 from pamola_core.common.enum.encryption_mode import EncryptionMode
-import pamola_core.utils.ops.op_registry as op_registry
-from pamola_core.utils.ops.op_base import BaseOperation
-from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_data_writer import DataWriter
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.tasks.context_manager import create_task_context_manager
 from pamola_core.utils.tasks.dependency_manager import TaskDependencyManager
+
+if TYPE_CHECKING:
+    from pamola_core.utils.ops.op_base import BaseOperation
+    from pamola_core.utils.ops.op_data_source import DataSource
+    from pamola_core.utils.ops.op_data_writer import DataWriter
+    from pamola_core.utils.ops.op_result import OperationResult
 
 # Import component managers
 from pamola_core.utils.tasks.directory_manager import create_directory_manager
@@ -98,7 +101,7 @@ RESERVED_OPERATION_PARAMS = {
 
 # Type variables for better type hinting
 T = TypeVar("T", bound="BaseTask")
-OpType = TypeVar("OpType", bound=BaseOperation)
+OpType = TypeVar("OpType", bound="BaseOperation")
 
 
 class BaseTask:
@@ -618,6 +621,8 @@ class BaseTask:
         2. Adding all input datasets
         3. Adding all auxiliary datasets
         """
+        from pamola_core.utils.ops.op_data_source import DataSource
+
         self.data_source = DataSource()
 
         # Check if we have any input datasets to process
@@ -698,6 +703,8 @@ class BaseTask:
         to the appropriate locations within the task directory structure, with
         proper encryption handling.
         """
+        from pamola_core.utils.ops.op_data_writer import DataWriter
+
         # Create data writer instance with encryption configuration
         self.data_writer = DataWriter(
             task_dir=self.task_dir,
@@ -868,6 +875,8 @@ class BaseTask:
         Returns:
             True if execution is successful, False otherwise.
         """
+        from pamola_core.utils.ops.op_result import OperationStatus
+
         try:
             self.logger.info(f"Executing task: {self.task_id}")
 
@@ -1303,6 +1312,8 @@ class BaseTask:
         Returns:
             True if operation was added successfully, False otherwise.
         """
+        import pamola_core.utils.ops.op_registry as op_registry
+
         try:
             # 1. Filter out Reserved Keys
             filtered_kwargs = {

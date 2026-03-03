@@ -49,10 +49,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 import pandas as pd
 
-# Import anonymization-specific utilities
-from pamola_core.anonymization.commons.data_utils import (
-    process_nulls,
-)
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.exceptions import (
@@ -745,6 +741,8 @@ class GeneratorOperation(FieldOperation):
 
         # Handle null values based on strategy
         if self.null_strategy != "PRESERVE":
+            from pamola_core.anonymization.commons.data_utils import process_nulls
+
             df[self.field_name] = process_nulls(
                 df[self.field_name], strategy=self.null_strategy.upper()
             )

@@ -19,9 +19,6 @@ Type: Public API Package
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-import importlib
-from typing import Dict
-
 __all__ = [
     # Base
     "BasePrivacyModelProcessor",
@@ -51,43 +48,36 @@ __all__ = [
     "LDiversityModelApplicator",
 ]
 
-_LAZY_IMPORTS: Dict[str, tuple[str, str] | str] = {
-    "BasePrivacyModelProcessor": "pamola_core.privacy_models.base",
-    "PrivacyModel": ("pamola_core.privacy_models.base", "BasePrivacyModelProcessor"),
-    "KAnonymityProcessor": "pamola_core.privacy_models.k_anonymity.calculation",
-    "KAnonymityModel": ("pamola_core.privacy_models.k_anonymity.calculation", "KAnonymityProcessor"),
-    "LDiversityCalculator": "pamola_core.privacy_models.l_diversity.calculation",
-    "LDiversityModel": ("pamola_core.privacy_models.l_diversity.calculation", "LDiversityCalculator"),
-    "TCloseness": "pamola_core.privacy_models.t_closeness.calculation",
-    "TClosenessModel": ("pamola_core.privacy_models.t_closeness.calculation", "TCloseness"),
-    "DifferentialPrivacyProcessor": "pamola_core.privacy_models.differential_privacy.calculation",
-    "DifferentialPrivacyModel": ("pamola_core.privacy_models.differential_privacy.calculation", "DifferentialPrivacyProcessor"),
-    "KAnonymityReport": "pamola_core.privacy_models.k_anonymity.ka_reporting",
-    "LDiversityReport": "pamola_core.privacy_models.l_diversity.reporting",
-    "LDiversityMetricsCalculator": "pamola_core.privacy_models.l_diversity.metrics",
-    "LDiversityPrivacyRiskAssessor": "pamola_core.privacy_models.l_diversity.privacy",
-    "AttributeDisclosureRiskAnalyzer": "pamola_core.privacy_models.l_diversity.attribute_risk",
-    "RiskInterpreter": "pamola_core.privacy_models.l_diversity.interpretation",
-    "AnonymizationStrategy": "pamola_core.privacy_models.l_diversity.apply_model",
-    "SuppressionStrategy": "pamola_core.privacy_models.l_diversity.apply_model",
-    "FullMaskingStrategy": "pamola_core.privacy_models.l_diversity.apply_model",
-    "PartialMaskingStrategy": "pamola_core.privacy_models.l_diversity.apply_model",
-    "LDiversityModelApplicator": "pamola_core.privacy_models.l_diversity.apply_model",
-}
+from pamola_core.privacy_models.base import BasePrivacyModelProcessor
+from pamola_core.privacy_models.base import BasePrivacyModelProcessor as PrivacyModel
 
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from pamola_core.privacy_models.k_anonymity.calculation import KAnonymityProcessor
+from pamola_core.privacy_models.k_anonymity.calculation import KAnonymityProcessor as KAnonymityModel
 
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))
+from pamola_core.privacy_models.l_diversity.calculation import LDiversityCalculator
+from pamola_core.privacy_models.l_diversity.calculation import LDiversityCalculator as LDiversityModel
+
+from pamola_core.privacy_models.t_closeness.calculation import TCloseness
+from pamola_core.privacy_models.t_closeness.calculation import TCloseness as TClosenessModel
+
+from pamola_core.privacy_models.differential_privacy.calculation import DifferentialPrivacyProcessor
+from pamola_core.privacy_models.differential_privacy.calculation import DifferentialPrivacyProcessor as DifferentialPrivacyModel
+
+from pamola_core.privacy_models.k_anonymity.ka_reporting import KAnonymityReport
+
+from pamola_core.privacy_models.l_diversity.reporting import LDiversityReport
+
+from pamola_core.privacy_models.l_diversity.metrics import LDiversityMetricsCalculator
+
+from pamola_core.privacy_models.l_diversity.privacy import LDiversityPrivacyRiskAssessor
+
+from pamola_core.privacy_models.l_diversity.attribute_risk import AttributeDisclosureRiskAnalyzer
+
+from pamola_core.privacy_models.l_diversity.interpretation import RiskInterpreter
+
+from pamola_core.privacy_models.l_diversity.apply_model import AnonymizationStrategy
+from pamola_core.privacy_models.l_diversity.apply_model import SuppressionStrategy
+from pamola_core.privacy_models.l_diversity.apply_model import FullMaskingStrategy
+from pamola_core.privacy_models.l_diversity.apply_model import PartialMaskingStrategy
+from pamola_core.privacy_models.l_diversity.apply_model import LDiversityModelApplicator
+

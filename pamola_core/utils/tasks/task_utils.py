@@ -22,14 +22,16 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 
 from pamola_core.utils.io import ensure_directory, get_timestamped_filename
-from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.progress import SimpleProgressBar
 from pamola_core.utils.tasks.task_config import validate_path_security
 from pamola_core.errors.codes import ErrorCode
 from pamola_core.errors.exceptions import PathSecurityError, InvalidParameterError
+
+if TYPE_CHECKING:
+    from pamola_core.utils.ops.op_data_source import DataSource
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -75,7 +77,7 @@ def create_task_directories(task_dir: Path) -> Dict[str, Path]:
 
 def prepare_data_source_from_paths(
     file_paths: Dict[str, str], show_progress: bool = True
-) -> DataSource:
+) -> "DataSource":
     """
     Prepare a data source from file paths.
 
@@ -89,6 +91,8 @@ def prepare_data_source_from_paths(
     Returns:
         DataSource with file paths added
     """
+    from pamola_core.utils.ops.op_data_source import DataSource
+
     data_source = DataSource()
 
     # Create progress tracker if requested

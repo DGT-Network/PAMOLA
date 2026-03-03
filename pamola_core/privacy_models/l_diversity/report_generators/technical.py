@@ -61,7 +61,6 @@ def generate_distinct_diversity_report(
         Distinct l-diversity technical report
     """
     # Import main report class
-    from pamola_core.privacy_models import LDiversityReport
     from pamola_core.privacy_models.l_diversity.reporting import generate_technical_report
 
     # Create base technical report
@@ -120,7 +119,6 @@ def generate_entropy_diversity_report(
         Entropy l-diversity technical report
     """
     # Import main report class
-    from pamola_core.privacy_models import LDiversityReport
     from pamola_core.privacy_models.l_diversity.reporting import generate_technical_report
 
     # Create base technical report
@@ -179,7 +177,6 @@ def generate_recursive_diversity_report(
         Recursive l-diversity technical report
     """
     # Import main report class
-    from pamola_core.privacy_models import LDiversityReport
     from pamola_core.privacy_models.l_diversity.reporting import generate_technical_report
 
     # Create base technical report

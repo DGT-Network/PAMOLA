@@ -50,29 +50,11 @@ from typing import Dict, List, Tuple, Optional, Any
 import pandas as pd
 from dask import dataframe as dd
 
-# PAMOLA imports
-from pamola_core import configs
-
 # Import reporting modules
 from pamola_core.privacy_models.k_anonymity.ka_reporting import generate_compliance_report
 from pamola_core.errors.exceptions import ValidationError
 from pamola_core.utils.io import write_json, write_csv
 from pamola_core.privacy_models.base import BasePrivacyModelProcessor
-from pamola_core.metrics.fidelity.statistical_fidelity import (
-    StatisticalFidelityMetric,
-    calculate_fidelity_metrics,
-)
-
-# Import metrics modules
-from pamola_core.metrics.privacy.disclosure_risk import (
-    DisclosureRiskMetric,
-    KAnonymityRiskMetric,
-    calculate_disclosure_risk_metrics,
-)
-from pamola_core.metrics.utility.information_loss import (
-    InformationLossMetric,
-    calculate_information_loss_metrics,
-)
 import pamola_core.utils.progress as progress
 from pamola_core.utils.group_processing import (
     compute_group_sizes,
@@ -139,21 +121,28 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         config_override : dict, optional
             Dictionary with configuration values to override defaults.
         """
-        # Merge configuration: defaults from config, overridden by explicit parameters
-        self.config = getattr(
-            configs,
-            "K_ANONYMITY_DEFAULTS",
-            {
-                "k": 5,
-                "use_dask": False,
-                "mask_value": "MASKED",
-                "suppression": True,
-                "visualization": {
-                    "hist_bins": 20,
-                    "save_format": "png",
-                },
-            },
+        from pamola_core.metrics.fidelity.statistical_fidelity import (
+            StatisticalFidelityMetric,
         )
+        from pamola_core.metrics.privacy.disclosure_risk import (
+            DisclosureRiskMetric,
+            KAnonymityRiskMetric,
+        )
+        from pamola_core.metrics.utility.information_loss import InformationLossMetric
+        import pamola_core.configs.settings as config_settings
+
+        # Merge configuration defaults, overridden by explicit parameters.
+        default_config = {
+            "k": 5,
+            "use_dask": False,
+            "mask_value": "MASKED",
+            "suppression": True,
+            "visualization": {
+                "hist_bins": 20,
+                "save_format": "png",
+            },
+        }
+        self.config = dict(getattr(config_settings, "K_ANONYMITY_DEFAULTS", default_config))
 
         # Apply configuration overrides if provided
         if config_override:
@@ -246,6 +235,10 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - "compliant": Whether the dataset meets k-anonymity
             - Additional metrics if detailed_metrics=True
         """
+        from pamola_core.metrics.privacy.disclosure_risk import (
+            calculate_disclosure_risk_metrics,
+        )
+
         start_time = time()
         logger.info(
             f"Evaluating k-anonymity for {len(data)} records with {len(quasi_identifiers)} quasi-identifiers"
@@ -635,6 +628,16 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - "utility_metrics": Information loss metrics
             - "fidelity_metrics": Statistical fidelity metrics
         """
+        from pamola_core.metrics.fidelity.statistical_fidelity import (
+            calculate_fidelity_metrics,
+        )
+        from pamola_core.metrics.privacy.disclosure_risk import (
+            calculate_disclosure_risk_metrics,
+        )
+        from pamola_core.metrics.utility.information_loss import (
+            calculate_information_loss_metrics,
+        )
+
         logger.info("Calculating comprehensive metrics for anonymized data")
 
         try:
@@ -969,6 +972,9 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         dict
             Comparison results with privacy and utility metrics for both datasets.
         """
+        from pamola_core.metrics.privacy.disclosure_risk import KAnonymityRiskMetric
+        from pamola_core.metrics.utility.information_loss import InformationLossMetric
+
         try:
             logger.info("Comparing two anonymized datasets")
 

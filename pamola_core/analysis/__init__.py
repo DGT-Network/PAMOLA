@@ -19,9 +19,6 @@ Type: Public API Package
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-import importlib
-from typing import Dict
-
 __all__ = [
     # dataset_summary.py
     "analyze_dataset_summary",
@@ -35,27 +32,13 @@ __all__ = [
     "analyze_correlation",
 ]
 
-_LAZY_IMPORTS: Dict[str, str] = {
-    "analyze_dataset_summary": "pamola_core.analysis.dataset_summary",
-    "calculate_full_risk": "pamola_core.analysis.privacy_risk",
-    "analyze_descriptive_stats": "pamola_core.analysis.descriptive_stats",
-    "visualize_distribution_df": "pamola_core.analysis.distribution",
-    "analyze_correlation": "pamola_core.analysis.correlation",
-}
+from pamola_core.analysis.correlation import analyze_correlation
 
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from pamola_core.analysis.dataset_summary import analyze_dataset_summary
 
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))
+from pamola_core.analysis.descriptive_stats import analyze_descriptive_stats
+
+from pamola_core.analysis.privacy_risk import calculate_full_risk
+
+from pamola_core.analysis.distribution import visualize_distribution_df
+

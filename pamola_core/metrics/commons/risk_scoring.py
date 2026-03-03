@@ -37,8 +37,6 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from pamola_core.analysis.privacy_risk import _calculate_k_anonymity
-from pamola_core.profiling.commons.attribute_utils import categorize_column_by_name
 import pamola_core.utils.logging as pamola_logging
 
 # Configure module logger
@@ -230,6 +228,8 @@ def calculate_provisional_risk(
     provisional_score = min(max(provisional_score, 0.0), 1.0)
 
     # --- 8. Supplementary metrics ---
+    from pamola_core.analysis.privacy_risk import _calculate_k_anonymity
+
     k_result = (
         _calculate_k_anonymity(df, quasi_identifiers) if quasi_identifiers else {"k": 0}
     )
@@ -308,6 +308,7 @@ def _detect_fields_by_role_category(
         List of field names that match the given role category.
     """
     categorized_fields = []
+    from pamola_core.profiling.commons.attribute_utils import categorize_column_by_name
 
     # Load attribute dictionary (either custom or default)
     # TODO: Extend to support loading custom dictionaries from dictionary_path

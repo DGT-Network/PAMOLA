@@ -25,7 +25,6 @@ from datetime import datetime
 import pandas as pd
 
 # Import from pamola_core utilities
-from pamola_core import configs
 from pamola_core.utils.io import write_json
 
 # Configure logging
@@ -61,7 +60,7 @@ def generate_gdpr_compliance_report(
         GDPR compliance report
     """
     # Import main report class
-    from pamola_core.privacy_models import LDiversityReport
+    from pamola_core.privacy_models.l_diversity.reporting import LDiversityReport
 
     # Create reporter instance
     reporter = LDiversityReport(processor)
@@ -118,7 +117,7 @@ def generate_hipaa_compliance_report(
         HIPAA compliance report
     """
     # Import main report class
-    from pamola_core.privacy_models import LDiversityReport
+    from pamola_core.privacy_models.l_diversity.reporting import LDiversityReport
 
     # Create reporter instance
     reporter = LDiversityReport(processor)
@@ -176,7 +175,7 @@ def generate_ccpa_compliance_report(
         CCPA compliance report
     """
     # Import main report class
-    from pamola_core.privacy_models import LDiversityReport
+    from pamola_core.privacy_models.l_diversity.reporting import LDiversityReport
 
     # Create reporter instance
     reporter = LDiversityReport(processor)

@@ -33,8 +33,6 @@ from typing import Dict, Any, Optional, List, Union
 
 # Import PAMOLA Core modules
 from pamola_core.utils.tasks.base_task import BaseTask
-from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.errors.exceptions import ValidationError
 
 

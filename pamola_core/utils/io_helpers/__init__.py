@@ -19,9 +19,6 @@ Type: Internal (Non-Public API)
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-import importlib
-from typing import Dict
-
 __all__ = [
     # crypto_utils.py
     "decrypt_file",
@@ -33,27 +30,11 @@ __all__ = [
     "detect_encryption_mode",
 ]
 
-_LAZY_IMPORTS: Dict[str, str] = {
-    "decrypt_file": "pamola_core.utils.io_helpers.crypto_utils",
-    "decrypt_data": "pamola_core.utils.io_helpers.crypto_utils",
-    "encrypt_file": "pamola_core.utils.io_helpers.crypto_utils",
-    "safe_remove_temp_file": "pamola_core.utils.io_helpers.directory_utils",
-    "detect_encryption_mode": "pamola_core.utils.io_helpers.crypto_router",
-}
+from pamola_core.utils.io_helpers.crypto_utils import decrypt_file
+from pamola_core.utils.io_helpers.crypto_utils import decrypt_data
+from pamola_core.utils.io_helpers.crypto_utils import encrypt_file
 
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from pamola_core.utils.io_helpers.directory_utils import safe_remove_temp_file
 
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))
+from pamola_core.utils.io_helpers.crypto_router import detect_encryption_mode
+

@@ -28,6 +28,7 @@ from pamola_core.utils.paths import get_project_root
 
 _ALL_OP_CONFIGS = None
 
+
 def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.anonymization.schemas.attribute_op_ui_schema import (
         AttributeSuppressionUIConfig,
@@ -35,7 +36,9 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.anonymization.schemas.categorical_op_ui_schema import (
         CategoricalGeneralizationUIConfig,
     )
-    from pamola_core.anonymization.schemas.cell_op_ui_schema import CellSuppressionUIConfig
+    from pamola_core.anonymization.schemas.cell_op_ui_schema import (
+        CellSuppressionUIConfig,
+    )
     from pamola_core.anonymization.schemas.datetime_op_ui_schema import (
         DateTimeGeneralizationUIConfig,
     )
@@ -78,18 +81,26 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.anonymization.schemas.uniform_temporal_op_ui_schema import (
         UniformTemporalNoiseUIConfig,
     )
-    from pamola_core.fake_data.schemas.email_op_core_schema import FakeEmailOperationConfig
+    from pamola_core.fake_data.schemas.email_op_core_schema import (
+        FakeEmailOperationConfig,
+    )
     from pamola_core.fake_data.schemas.email_op_schema_exclude import (
         EMAIL_FAKE_EXCLUDE_FIELDS,
     )
     from pamola_core.fake_data.schemas.email_op_tooltip import FakeEmailOperationTooltip
-    from pamola_core.fake_data.schemas.email_op_ui_schema import FakeEmailOperationUIConfig
-    from pamola_core.fake_data.schemas.name_op_core_schema import FakeNameOperationConfig
+    from pamola_core.fake_data.schemas.email_op_ui_schema import (
+        FakeEmailOperationUIConfig,
+    )
+    from pamola_core.fake_data.schemas.name_op_core_schema import (
+        FakeNameOperationConfig,
+    )
     from pamola_core.fake_data.schemas.name_op_schema_exclude import (
         NAME_FAKE_EXCLUDE_FIELDS,
     )
     from pamola_core.fake_data.schemas.name_op_tooltip import FakeNameOperationTooltip
-    from pamola_core.fake_data.schemas.name_op_ui_schema import FakeNameOperationUIConfig
+    from pamola_core.fake_data.schemas.name_op_ui_schema import (
+        FakeNameOperationUIConfig,
+    )
     from pamola_core.fake_data.schemas.organization_op_core_schema import (
         FakeOrganizationOperationConfig,
     )
@@ -102,13 +113,17 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.fake_data.schemas.organization_op_ui_schema import (
         FakeOrganizationOperationUIConfig,
     )
-    from pamola_core.fake_data.schemas.phone_op_core_schema import FakePhoneOperationConfig
+    from pamola_core.fake_data.schemas.phone_op_core_schema import (
+        FakePhoneOperationConfig,
+    )
     from pamola_core.fake_data.schemas.phone_op_schema_exclude import (
         PHONE_FAKE_EXCLUDE_FIELDS,
     )
 
     from pamola_core.fake_data.schemas.phone_op_tooltip import FakePhoneOperationTooltip
-    from pamola_core.fake_data.schemas.phone_op_ui_schema import FakePhoneOperationUIConfig
+    from pamola_core.fake_data.schemas.phone_op_ui_schema import (
+        FakePhoneOperationUIConfig,
+    )
     from pamola_core.profiling.schemas.anonymity_tooltip import (
         KAnonymityProfilerOperationTooltip,
     )
@@ -140,12 +155,18 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.profiling.schemas.correlation_ui_schema import (
         CorrelationOperationUIConfig,
     )
-    from pamola_core.profiling.schemas.currency_ui_schema import CurrencyOperationUIConfig
+    from pamola_core.profiling.schemas.currency_ui_schema import (
+        CurrencyOperationUIConfig,
+    )
     from pamola_core.profiling.schemas.date_ui_schema import DateOperationUIConfig
     from pamola_core.profiling.schemas.email_tooltip import EmailOperationTooltip
     from pamola_core.profiling.schemas.email_ui_schema import EmailOperationUIConfig
-    from pamola_core.profiling.schemas.group_tooltip import GroupAnalyzerOperationTooltip
-    from pamola_core.profiling.schemas.group_ui_schema import GroupAnalyzerOperationUIConfig
+    from pamola_core.profiling.schemas.group_tooltip import (
+        GroupAnalyzerOperationTooltip,
+    )
+    from pamola_core.profiling.schemas.group_ui_schema import (
+        GroupAnalyzerOperationUIConfig,
+    )
     from pamola_core.profiling.schemas.identity_tooltip import (
         IdentityAnalysisOperationTooltip,
     )
@@ -287,8 +308,12 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.anonymization.schemas.attribute_op_schema_exclude import (
         ATTRIBUTE_SUPPRESSION_EXCLUDE_FIELDS,
     )
-    from pamola_core.anonymization.schemas.cell_op_core_schema import CellSuppressionConfig
-    from pamola_core.anonymization.schemas.cell_op_schema_exclude import CELL_EXCLUDE_FIELDS
+    from pamola_core.anonymization.schemas.cell_op_core_schema import (
+        CellSuppressionConfig,
+    )
+    from pamola_core.anonymization.schemas.cell_op_schema_exclude import (
+        CELL_EXCLUDE_FIELDS,
+    )
     from pamola_core.anonymization.schemas.record_op_core_schema import (
         RecordSuppressionConfig,
     )
@@ -345,7 +370,9 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.profiling.schemas.correlation_schema_exclude import (
         CORRELATION_EXCLUDE_FIELDS,
     )
-    from pamola_core.profiling.schemas.currency_core_schema import CurrencyOperationConfig
+    from pamola_core.profiling.schemas.currency_core_schema import (
+        CurrencyOperationConfig,
+    )
     from pamola_core.profiling.schemas.currency_schema_exclude import (
         CURRENCY_EXCLUDE_FIELDS,
     )
@@ -353,7 +380,9 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.profiling.schemas.date_schema_exclude import DATE_EXCLUDE_FIELDS
     from pamola_core.profiling.schemas.email_core_schema import EmailOperationConfig
     from pamola_core.profiling.schemas.email_schema_exclude import EMAIL_EXCLUDE_FIELDS
-    from pamola_core.profiling.schemas.group_core_schema import GroupAnalyzerOperationConfig
+    from pamola_core.profiling.schemas.group_core_schema import (
+        GroupAnalyzerOperationConfig,
+    )
     from pamola_core.profiling.schemas.group_schema_exclude import GROUP_EXCLUDE_FIELDS
     from pamola_core.profiling.schemas.identity_core_schema import (
         IdentityAnalysisOperationConfig,
@@ -364,7 +393,9 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.profiling.schemas.mvf_core_schema import MVFAnalysisOperationConfig
     from pamola_core.profiling.schemas.mvf_schema_exclude import MVF_EXCLUDE_FIELDS
     from pamola_core.profiling.schemas.numeric_core_schema import NumericOperationConfig
-    from pamola_core.profiling.schemas.numeric_schema_exclude import NUMERIC_EXCLUDE_FIELDS
+    from pamola_core.profiling.schemas.numeric_schema_exclude import (
+        NUMERIC_EXCLUDE_FIELDS,
+    )
     from pamola_core.profiling.schemas.phone_core_schema import PhoneOperationConfig
     from pamola_core.profiling.schemas.phone_schema_exclude import PHONE_EXCLUDE_FIELDS
     from pamola_core.profiling.schemas.text_core_schema import (
@@ -375,7 +406,9 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     from pamola_core.anonymization.schemas.categorical_op_tooltip import (
         CategoricalOpTooltip,
     )
-    from pamola_core.anonymization.schemas.cell_op_tooltip import CellSuppressionOpTooltip
+    from pamola_core.anonymization.schemas.cell_op_tooltip import (
+        CellSuppressionOpTooltip,
+    )
     from pamola_core.anonymization.schemas.attribute_op_tooltip import (
         AttributeSuppressionOpTooltip,
     )
@@ -619,21 +652,27 @@ def _build_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     ]
     return configs
 
+
 def get_all_op_configs() -> List[Tuple[Any, Any, Any, Any]]:
     global _ALL_OP_CONFIGS
     if _ALL_OP_CONFIGS is None:
         _ALL_OP_CONFIGS = _build_all_op_configs()
     return _ALL_OP_CONFIGS
 
+
 class _LazyOpConfigs:
     def __iter__(self):
         return iter(get_all_op_configs())
+
     def __len__(self):
         return len(get_all_op_configs())
+
     def __getitem__(self, idx):
         return get_all_op_configs()[idx]
 
+
 ALL_OP_CONFIGS = _LazyOpConfigs()
+
 
 def generate_all_op_schemas(
     task_dir: Path, generate_formily_schema: bool = True

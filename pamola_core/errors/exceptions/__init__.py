@@ -19,9 +19,6 @@ Type: Internal (Non-Public API)
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-import importlib
-from typing import Dict
-
 __all__ = [
     # core_domain.py
     "DataError",
@@ -121,111 +118,99 @@ __all__ = [
     "DirectoryCreationError",
 ]
 
-_LAZY_IMPORTS: Dict[str, str] = {
-    "DataError": "pamola_core.errors.exceptions.core_domain",
-    "DataWriteError": "pamola_core.errors.exceptions.core_domain",
-    "DataFrameProcessingError": "pamola_core.errors.exceptions.core_domain",
-    "ConfigurationError": "pamola_core.errors.exceptions.core_domain",
-    "ConfigSaveError": "pamola_core.errors.exceptions.core_domain",
-    "ProcessingError": "pamola_core.errors.exceptions.core_domain",
-    "BatchProcessingError": "pamola_core.errors.exceptions.core_domain",
-    "ChunkProcessingError": "pamola_core.errors.exceptions.core_domain",
-    "CacheError": "pamola_core.errors.exceptions.core_domain",
-    "ArtifactError": "pamola_core.errors.exceptions.core_domain",
-    "VisualizationError": "pamola_core.errors.exceptions.core_domain",
-    "EncryptionError": "pamola_core.errors.exceptions.crypto",
-    "DecryptionError": "pamola_core.errors.exceptions.crypto",
-    "EncryptionInitializationError": "pamola_core.errors.exceptions.crypto",
-    "KeyGenerationError": "pamola_core.errors.exceptions.crypto",
-    "KeyLoadingError": "pamola_core.errors.exceptions.crypto",
-    "MasterKeyError": "pamola_core.errors.exceptions.crypto",
-    "TaskKeyError": "pamola_core.errors.exceptions.crypto",
-    "CryptoKeyError": "pamola_core.errors.exceptions.crypto",
-    "KeyStoreError": "pamola_core.errors.exceptions.crypto",
-    "CryptoError": "pamola_core.errors.exceptions.crypto",
-    "PseudonymizationError": "pamola_core.errors.exceptions.crypto",
-    "HashCollisionError": "pamola_core.errors.exceptions.crypto",
-    "DataRedactionError": "pamola_core.errors.exceptions.crypto",
-    "FormatError": "pamola_core.errors.exceptions.crypto",
-    "ProviderError": "pamola_core.errors.exceptions.crypto",
-    "ModeError": "pamola_core.errors.exceptions.crypto",
-    "LegacyMigrationError": "pamola_core.errors.exceptions.crypto",
-    "AgeToolError": "pamola_core.errors.exceptions.crypto",
-    "TaskError": "pamola_core.errors.exceptions.tasks",
-    "TaskInitializationError": "pamola_core.errors.exceptions.tasks",
-    "TaskExecutionError": "pamola_core.errors.exceptions.tasks",
-    "TaskFinalizationError": "pamola_core.errors.exceptions.tasks",
-    "TaskDependencyError": "pamola_core.errors.exceptions.tasks",
-    "DependencyError": "pamola_core.errors.exceptions.tasks",
-    "DependencyMissingError": "pamola_core.errors.exceptions.tasks",
-    "DependencyFailedError": "pamola_core.errors.exceptions.tasks",
-    "TaskRegistryError": "pamola_core.errors.exceptions.tasks",
-    "ExecutionError": "pamola_core.errors.exceptions.tasks",
-    "ExecutionLogError": "pamola_core.errors.exceptions.tasks",
-    "CheckpointError": "pamola_core.errors.exceptions.tasks",
-    "StateSerializationError": "pamola_core.errors.exceptions.tasks",
-    "StateRestorationError": "pamola_core.errors.exceptions.tasks",
-    "ContextManagerError": "pamola_core.errors.exceptions.tasks",
-    "MaxRetriesExceededError": "pamola_core.errors.exceptions.tasks",
-    "NonRetriableError": "pamola_core.errors.exceptions.tasks",
-    "OpsError": "pamola_core.errors.exceptions.tasks",
-    "FeatureNotImplementedError": "pamola_core.errors.exceptions.tasks",
-    "ValidationError": "pamola_core.errors.exceptions.validation",
-    "FieldNotFoundError": "pamola_core.errors.exceptions.validation",
-    "FieldTypeError": "pamola_core.errors.exceptions.validation",
-    "FieldValueError": "pamola_core.errors.exceptions.validation",
-    "ColumnNotFoundError": "pamola_core.errors.exceptions.validation",
-    "InvalidParameterError": "pamola_core.errors.exceptions.validation",
-    "MissingParameterError": "pamola_core.errors.exceptions.validation",
-    "TypeValidationError": "pamola_core.errors.exceptions.validation",
-    "InvalidStrategyError": "pamola_core.errors.exceptions.validation",
-    "FileValidationError": "pamola_core.errors.exceptions.validation",
-    "PamolaFileNotFoundError": "pamola_core.errors.exceptions.validation",
-    "InvalidFileFormatError": "pamola_core.errors.exceptions.validation",
-    "InvalidDataFormatError": "pamola_core.errors.exceptions.validation",
-    "RangeValidationError": "pamola_core.errors.exceptions.validation",
-    "ConditionalValidationError": "pamola_core.errors.exceptions.validation",
-    "MarkerValidationError": "pamola_core.errors.exceptions.validation",
-    "MultipleValidationErrors": "pamola_core.errors.exceptions.validation",
-    "ValidationErrorInfo": "pamola_core.errors.exceptions.validation",
-    "raise_if_errors": "pamola_core.errors.exceptions.validation",
-    "ResourceError": "pamola_core.errors.exceptions.resources",
-    "DateTimeParsingError": "pamola_core.errors.exceptions.resources",
-    "DateTimeGeneralizationError": "pamola_core.errors.exceptions.resources",
-    "InsufficientPrivacyError": "pamola_core.errors.exceptions.resources",
-    "MappingError": "pamola_core.errors.exceptions.resources",
-    "MappingStorageError": "pamola_core.errors.exceptions.resources",
-    "FakeDataError": "pamola_core.errors.exceptions.resources",
-    "ReportingError": "pamola_core.errors.exceptions.resources",
-    "NLPError": "pamola_core.errors.exceptions.nlp",
-    "PromptValidationError": "pamola_core.errors.exceptions.nlp",
-    "LLMError": "pamola_core.errors.exceptions.nlp",
-    "LLMConnectionError": "pamola_core.errors.exceptions.nlp",
-    "LLMGenerationError": "pamola_core.errors.exceptions.nlp",
-    "LLMResponseError": "pamola_core.errors.exceptions.nlp",
-    "ResourceNotFoundError": "pamola_core.errors.exceptions.nlp",
-    "ModelNotAvailableError": "pamola_core.errors.exceptions.nlp",
-    "ModelLoadError": "pamola_core.errors.exceptions.nlp",
-    "UnsupportedLanguageError": "pamola_core.errors.exceptions.nlp",
-    "PathValidationError": "pamola_core.errors.exceptions.filesystem",
-    "PathSecurityError": "pamola_core.errors.exceptions.filesystem",
-    "DirectoryManagerError": "pamola_core.errors.exceptions.filesystem",
-    "DirectoryCreationError": "pamola_core.errors.exceptions.filesystem",
-}
+from pamola_core.errors.exceptions.core_domain import DataError
+from pamola_core.errors.exceptions.core_domain import DataWriteError
+from pamola_core.errors.exceptions.core_domain import DataFrameProcessingError
+from pamola_core.errors.exceptions.core_domain import ConfigurationError
+from pamola_core.errors.exceptions.core_domain import ConfigSaveError
+from pamola_core.errors.exceptions.core_domain import ProcessingError
+from pamola_core.errors.exceptions.core_domain import BatchProcessingError
+from pamola_core.errors.exceptions.core_domain import ChunkProcessingError
+from pamola_core.errors.exceptions.core_domain import CacheError
+from pamola_core.errors.exceptions.core_domain import ArtifactError
+from pamola_core.errors.exceptions.core_domain import VisualizationError
 
-def __getattr__(name: str):
-    if name in _LAZY_IMPORTS:
-        target = _LAZY_IMPORTS[name]
-        if isinstance(target, tuple):
-            module_name, attr_name = target
-        else:
-            module_name = target
-            attr_name = name
-        module = importlib.import_module(module_name)
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from pamola_core.errors.exceptions.crypto import EncryptionError
+from pamola_core.errors.exceptions.crypto import DecryptionError
+from pamola_core.errors.exceptions.crypto import EncryptionInitializationError
+from pamola_core.errors.exceptions.crypto import KeyGenerationError
+from pamola_core.errors.exceptions.crypto import KeyLoadingError
+from pamola_core.errors.exceptions.crypto import MasterKeyError
+from pamola_core.errors.exceptions.crypto import TaskKeyError
+from pamola_core.errors.exceptions.crypto import CryptoKeyError
+from pamola_core.errors.exceptions.crypto import KeyStoreError
+from pamola_core.errors.exceptions.crypto import CryptoError
+from pamola_core.errors.exceptions.crypto import PseudonymizationError
+from pamola_core.errors.exceptions.crypto import HashCollisionError
+from pamola_core.errors.exceptions.crypto import DataRedactionError
+from pamola_core.errors.exceptions.crypto import FormatError
+from pamola_core.errors.exceptions.crypto import ProviderError
+from pamola_core.errors.exceptions.crypto import ModeError
+from pamola_core.errors.exceptions.crypto import LegacyMigrationError
+from pamola_core.errors.exceptions.crypto import AgeToolError
 
-def __dir__():
-    return sorted(set(list(globals().keys()) + __all__))
+from pamola_core.errors.exceptions.tasks import TaskError
+from pamola_core.errors.exceptions.tasks import TaskInitializationError
+from pamola_core.errors.exceptions.tasks import TaskExecutionError
+from pamola_core.errors.exceptions.tasks import TaskFinalizationError
+from pamola_core.errors.exceptions.tasks import TaskDependencyError
+from pamola_core.errors.exceptions.tasks import DependencyError
+from pamola_core.errors.exceptions.tasks import DependencyMissingError
+from pamola_core.errors.exceptions.tasks import DependencyFailedError
+from pamola_core.errors.exceptions.tasks import TaskRegistryError
+from pamola_core.errors.exceptions.tasks import ExecutionError
+from pamola_core.errors.exceptions.tasks import ExecutionLogError
+from pamola_core.errors.exceptions.tasks import CheckpointError
+from pamola_core.errors.exceptions.tasks import StateSerializationError
+from pamola_core.errors.exceptions.tasks import StateRestorationError
+from pamola_core.errors.exceptions.tasks import ContextManagerError
+from pamola_core.errors.exceptions.tasks import MaxRetriesExceededError
+from pamola_core.errors.exceptions.tasks import NonRetriableError
+from pamola_core.errors.exceptions.tasks import OpsError
+from pamola_core.errors.exceptions.tasks import FeatureNotImplementedError
+
+from pamola_core.errors.exceptions.validation import ValidationError
+from pamola_core.errors.exceptions.validation import FieldNotFoundError
+from pamola_core.errors.exceptions.validation import FieldTypeError
+from pamola_core.errors.exceptions.validation import FieldValueError
+from pamola_core.errors.exceptions.validation import ColumnNotFoundError
+from pamola_core.errors.exceptions.validation import InvalidParameterError
+from pamola_core.errors.exceptions.validation import MissingParameterError
+from pamola_core.errors.exceptions.validation import TypeValidationError
+from pamola_core.errors.exceptions.validation import InvalidStrategyError
+from pamola_core.errors.exceptions.validation import FileValidationError
+from pamola_core.errors.exceptions.validation import PamolaFileNotFoundError
+from pamola_core.errors.exceptions.validation import InvalidFileFormatError
+from pamola_core.errors.exceptions.validation import InvalidDataFormatError
+from pamola_core.errors.exceptions.validation import RangeValidationError
+from pamola_core.errors.exceptions.validation import ConditionalValidationError
+from pamola_core.errors.exceptions.validation import MarkerValidationError
+from pamola_core.errors.exceptions.validation import MultipleValidationErrors
+from pamola_core.errors.exceptions.validation import ValidationErrorInfo
+from pamola_core.errors.exceptions.validation import raise_if_errors
+
+from pamola_core.errors.exceptions.resources import ResourceError
+from pamola_core.errors.exceptions.resources import DateTimeParsingError
+from pamola_core.errors.exceptions.resources import DateTimeGeneralizationError
+from pamola_core.errors.exceptions.resources import InsufficientPrivacyError
+from pamola_core.errors.exceptions.resources import MappingError
+from pamola_core.errors.exceptions.resources import MappingStorageError
+from pamola_core.errors.exceptions.resources import FakeDataError
+from pamola_core.errors.exceptions.resources import ReportingError
+
+from pamola_core.errors.exceptions.nlp import NLPError
+from pamola_core.errors.exceptions.nlp import PromptValidationError
+from pamola_core.errors.exceptions.nlp import LLMError
+from pamola_core.errors.exceptions.nlp import LLMConnectionError
+from pamola_core.errors.exceptions.nlp import LLMGenerationError
+from pamola_core.errors.exceptions.nlp import LLMResponseError
+from pamola_core.errors.exceptions.nlp import ResourceNotFoundError
+from pamola_core.errors.exceptions.nlp import ModelNotAvailableError
+from pamola_core.errors.exceptions.nlp import ModelLoadError
+from pamola_core.errors.exceptions.nlp import UnsupportedLanguageError
+
+from pamola_core.errors.exceptions.filesystem import PathValidationError
+from pamola_core.errors.exceptions.filesystem import PathSecurityError
+from pamola_core.errors.exceptions.filesystem import DirectoryManagerError
+from pamola_core.errors.exceptions.filesystem import DirectoryCreationError
+

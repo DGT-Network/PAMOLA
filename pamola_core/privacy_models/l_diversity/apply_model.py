@@ -30,7 +30,6 @@ from pamola_core.errors.exceptions import (
     InvalidStrategyError,
     ValidationError,
 )
-from pamola_core.configs.config_variables import L_DIVERSITY_DEFAULTS
 from pamola_core.privacy_models.l_diversity.calculation import (
     LDiversityCalculator,
     apply_model_impl as _apply_model_impl,
@@ -236,6 +235,8 @@ class LDiversityModelApplicator:
         self.processor = processor or LDiversityCalculator()
 
         # Configuration setup
+        from pamola_core.configs.config_variables import L_DIVERSITY_DEFAULTS
+
         self.config = dict(L_DIVERSITY_DEFAULTS)
         if config:
             self.config.update(config)
