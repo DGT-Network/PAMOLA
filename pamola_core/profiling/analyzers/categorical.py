@@ -25,6 +25,7 @@ Key Features:
 """
 
 from datetime import datetime
+import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import pandas as pd
@@ -32,10 +33,13 @@ from pamola_core.profiling.commons.categorical_utils import (
     analyze_categorical_field,
     estimate_resources,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import FieldNotFoundError
 from pamola_core.profiling.schemas.categorical_core_schema import (
     CategoricalOperationConfig,
 )
-from pamola_core.utils.helpers import build_base_cache
+from pamola_core.utils.helpers import build_base_cache, get_cache_result
 from pamola_core.utils.io import (
     write_json,
     write_dataframe_to_csv,
@@ -54,7 +58,7 @@ from pamola_core.utils.ops.op_result import (
 from pamola_core.utils.visualization import plot_value_distribution
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 
 class CategoricalAnalyzer:
@@ -223,15 +227,36 @@ class CategoricalOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
 
-            # Set logger if provided in kwargs
-            self.logger = kwargs.get("logger", self.logger)
-
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Set up directories
+            dirs = self._prepare_directories(task_dir)
+            visualizations_dir = dirs["visualizations"]
+            dictionaries_dir = dirs["dictionaries"]
+            output_dir = dirs["output"]
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -247,18 +272,6 @@ class CategoricalOperation(FieldOperation):
                         "operation": self.operation_name,
                     },
                 )
-
-            # Set up directories
-            dirs = self._prepare_directories(task_dir)
-
-            # Initialize operation cache
-            self.operation_cache = OperationCache(
-                cache_dir=dirs["cache"],
-            )
-
-            visualizations_dir = dirs["visualizations"]
-            dictionaries_dir = dirs["dictionaries"]
-            output_dir = dirs["output"]
 
             if reporter:
                 reporter.add_operation(
@@ -298,15 +311,17 @@ class CategoricalOperation(FieldOperation):
 
                 is_valid = self._validate_input_parameters(df)
                 if not is_valid:
-                    raise ValueError("Missing fields in DataFrame.")
+                    raise FieldNotFoundError(
+                        field_name=self.field_name,
+                        available_fields=list(df.columns),
+                    )
 
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Handle cache if required
@@ -384,9 +399,15 @@ class CategoricalOperation(FieldOperation):
                             "operation_type": "categorical_analysis",
                         },
                     )
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=analysis_results["error"],
+                return self.error_handler.handle_error(
+                    error=RuntimeError(analysis_results["error"]),
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": analysis_results["error"],
+                    },
                 )
             else:
                 if reporter:
@@ -409,8 +430,6 @@ class CategoricalOperation(FieldOperation):
                 progress_tracker.update(
                     1, {"step": "Collect metric", "operation": self.operation_name}
                 )
-
-            result = OperationResult(status=OperationStatus.SUCCESS)
 
             self._collect_metrics(analysis_results, result)
 
@@ -540,24 +559,29 @@ class CategoricalOperation(FieldOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
+
             return result
 
         except Exception as e:
-            self.logger.error(f"Operation: {self.operation_name}, error occurred: {e}")
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": "Exception",
-                        "message": "Operation failed due to an exception",
-                        "error": str(e),
-                    },
-                )
-
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=str(e), exception=e
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _collect_metrics(self, analysis_results: dict, result: OperationResult) -> None:
@@ -974,43 +998,7 @@ class CategoricalOperation(FieldOperation):
             )
 
             result_data = cached.get("result")
-            if not isinstance(result_data, dict):
-                return None
-
-            # Parse enum safely
-            status_str = result_data.get("status", OperationStatus.ERROR.name)
-            status = (
-                OperationStatus[status_str]
-                if isinstance(status_str, str)
-                and status_str in OperationStatus.__members__
-                else OperationStatus.ERROR
-            )
-
-            # Rebuild artifacts
-            artifacts = []
-            for art_dict in result_data.get("artifacts", []):
-                if isinstance(art_dict, dict):
-                    try:
-                        artifacts.append(
-                            OperationArtifact(
-                                artifact_type=art_dict.get("type"),
-                                path=art_dict.get("path"),
-                                description=art_dict.get("description", ""),
-                                category=art_dict.get("category", "output"),
-                                tags=art_dict.get("tags", []),
-                            )
-                        )
-                    except Exception as e:
-                        self.logger.warning(f"Failed to deserialize artifact: {e}")
-
-            return OperationResult(
-                status=status,
-                artifacts=artifacts,
-                metrics=result_data.get("metrics", {}),
-                error_message=result_data.get("error_message"),
-                execution_time=result_data.get("execution_time"),
-                error_trace=result_data.get("error_trace"),
-            )
+            return get_cache_result(result_data)
 
         except Exception as e:
             self.logger.warning(f"Failed to load cache: {e}")

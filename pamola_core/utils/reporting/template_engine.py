@@ -3,6 +3,7 @@
 
 Функции для загрузки, рендеринга и копирования шаблонов с использованием Jinja2.
 """
+
 import json
 import logging
 import os
@@ -12,7 +13,11 @@ from typing import Dict, Any, Optional, List, Union
 
 import jinja2
 
-from pamola_core.utils.reporting.config import get_template_path, get_templates_dir
+from pamola_core.utils.reporting.config import (
+    get_template_path,
+    get_templates_dir,
+)
+from pamola_core.errors.exceptions import ValidationError
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -45,21 +50,21 @@ def get_jinja_environment(template_name: Optional[str] = None) -> jinja2.Environ
     # Создаем окружение
     env = jinja2.Environment(
         loader=file_system_loader,
-        autoescape=jinja2.select_autoescape(['html', 'xml']),
+        autoescape=jinja2.select_autoescape(["html", "xml"]),
         trim_blocks=True,
-        lstrip_blocks=True
+        lstrip_blocks=True,
     )
 
     # Добавляем пользовательские фильтры
-    env.filters['format_size'] = format_file_size
-    env.filters['to_json'] = to_json
+    env.filters["format_size"] = format_file_size
+    env.filters["to_json"] = to_json
 
     return env
 
 
-def render_template(template_name: str,
-                    context: Dict[str, Any],
-                    template_dir: Optional[str] = None) -> str:
+def render_template(
+    template_name: str, context: Dict[str, Any], template_dir: Optional[str] = None
+) -> str:
     """
     Рендерит шаблон с заданным контекстом.
 
@@ -89,7 +94,9 @@ def render_template(template_name: str,
         return f"<p>Ошибка при рендеринге шаблона: {str(e)}</p>"
 
 
-def copy_static_resources(target_dir: Path, template_name: Optional[str] = None) -> bool:
+def copy_static_resources(
+    target_dir: Path, template_name: Optional[str] = None
+) -> bool:
     """
     Копирует статические ресурсы шаблона (CSS, JS) в директорию отчета.
 
@@ -177,24 +184,24 @@ def include_external_resources(target_dir: Path) -> bool:
         resources = [
             {
                 "url": "https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css",
-                "path": styles_dir / "bootstrap.min.css"
+                "path": styles_dir / "bootstrap.min.css",
             },
             {
                 "url": "https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js",
-                "path": scripts_dir / "bootstrap.bundle.min.js"
+                "path": scripts_dir / "bootstrap.bundle.min.js",
             },
             {
                 "url": "https://cdn.jsdelivr.net/npm/chart.js",
-                "path": scripts_dir / "chart.min.js"
+                "path": scripts_dir / "chart.min.js",
             },
             {
                 "url": "https://cdnjs.cloudflare.com/ajax/libs/d3/7.0.0/d3.min.js",
-                "path": scripts_dir / "d3.min.js"
+                "path": scripts_dir / "d3.min.js",
             },
             {
                 "url": "https://cdnjs.cloudflare.com/ajax/libs/dagre-d3/0.6.4/dagre-d3.min.js",
-                "path": scripts_dir / "dagre-d3.min.js"
-            }
+                "path": scripts_dir / "dagre-d3.min.js",
+            },
         ]
 
         # Загружаем каждый ресурс
@@ -202,16 +209,20 @@ def include_external_resources(target_dir: Path) -> bool:
             response = requests.get(resource["url"], timeout=10)
 
             if response.status_code == 200:
-                with open(resource["path"], 'wb') as f:
+                with open(resource["path"], "wb") as f:
                     f.write(response.content)
                 logger.info(f"Загружен ресурс: {resource['url']}")
             else:
-                logger.error(f"Ошибка при загрузке ресурса {resource['url']}: {response.status_code}")
+                logger.error(
+                    f"Ошибка при загрузке ресурса {resource['url']}: {response.status_code}"
+                )
                 return False
 
         return True
     except ImportError:
-        logger.warning("Модуль requests не установлен. Включение внешних ресурсов невозможно.")
+        logger.warning(
+            "Модуль requests не установлен. Включение внешних ресурсов невозможно."
+        )
         return False
     except Exception as e:
         logger.error(f"Ошибка при включении внешних ресурсов: {e}")
@@ -235,11 +246,7 @@ def check_template_exists(template_name: Optional[str] = None) -> bool:
     template_path = get_template_path(template_name)
 
     # Проверяем наличие основных файлов шаблона
-    required_files = [
-        "base.html",
-        "partials/header.html",
-        "partials/sidebar.html"
-    ]
+    required_files = ["base.html", "partials/header.html", "partials/sidebar.html"]
 
     for file in required_files:
         if not (template_path / file).exists():
@@ -268,7 +275,9 @@ def initialize_template(template_name: str) -> bool:
 
         # Если директория уже существует и не пустая, уточняем
         if template_path.exists() and any(template_path.iterdir()):
-            logger.warning(f"Директория шаблона {template_name} уже существует и не пустая")
+            logger.warning(
+                f"Директория шаблона {template_name} уже существует и не пустая"
+            )
             return False
 
         # Если директория по умолчанию не существует, создаем ее и базовые файлы
@@ -333,7 +342,7 @@ def create_default_template() -> bool:
             template_path / "partials",
             template_path / "styles",
             template_path / "scripts",
-            template_path / "images"
+            template_path / "images",
         ]
 
         for directory in dirs:
@@ -413,12 +422,12 @@ def create_empty_report(output_path: Path, title: str = "Пустой отчет
             "tasks": [],
             "tasks_by_category": {},
             "has_dependencies": False,
-            "dependency_data": "{}"
+            "dependency_data": "{}",
         }
 
         html = render_template("base.html", context)
 
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(html)
 
         return True
@@ -427,7 +436,9 @@ def create_empty_report(output_path: Path, title: str = "Пустой отчет
         return False
 
 
-def get_relative_artifact_path(artifact_path: Union[str, Path], html_report_dir: Path) -> str:
+def get_relative_artifact_path(
+    artifact_path: Union[str, Path], html_report_dir: Path
+) -> str:
     """
     Вычисляет относительный путь к артефакту от директории отчета.
 
@@ -449,7 +460,7 @@ def get_relative_artifact_path(artifact_path: Union[str, Path], html_report_dir:
         # Пытаемся вычислить относительный путь
         rel_path = os.path.relpath(artifact_path, html_report_dir)
         return rel_path.replace("\\", "/")  # Для совместимости с URL в HTML
-    except ValueError:
+    except (ValidationError, ValueError):
         # В случае ошибки (например, разные диски в Windows)
         logger.warning(f"Не удалось вычислить относительный путь для {artifact_path}")
         return str(artifact_path)

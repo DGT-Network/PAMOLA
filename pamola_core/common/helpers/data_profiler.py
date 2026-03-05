@@ -26,6 +26,7 @@ Author: Realm Inveo Inc. & DGT Network Inc.
 import pandas as pd
 import logging
 from scipy.stats import entropy
+from pamola_core.errors.exceptions import TypeValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class DataProfiler:
             The calculated Shannon entropy value. Returns 0.0 if the input column is empty.
         """
         if not isinstance(column, pd.Series):
-            raise TypeError("Input must be a Pandas Series.")
+            raise TypeValidationError("Input must be a Pandas Series.")
 
         # Remove NaN values
         column_clean = column.dropna()

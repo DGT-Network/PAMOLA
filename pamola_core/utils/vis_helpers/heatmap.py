@@ -38,12 +38,16 @@ from pamola_core.utils.vis_helpers.base import (
     MatplotlibFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_plotly_figure,
     apply_theme_to_matplotlib_figure,
     get_matplotlib_colormap,
 )
-from pamola_core.utils.vis_helpers.context import visualization_context, register_figure
+from pamola_core.utils.vis_helpers.context import (
+    visualization_context,
+    register_figure,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -84,7 +88,9 @@ def prepare_data_for_heatmap(
             x_labels = [str(i) for i in range(matrix.shape[1])]
             y_labels = [str(i) for i in range(matrix.shape[0])]
         else:
-            raise TypeError(f"Unsupported data type for heatmap: {type(data)}")
+            raise TypeValidationError(
+                f"Unsupported data type for heatmap: {type(data)}"
+            )
 
         return matrix, x_labels, y_labels
     except Exception as e:
@@ -170,18 +176,18 @@ def prepare_text_values(
     try:
         # Convert to float first
         matrix_float = matrix.astype(float)
-        
+
         if annotation_format.startswith(".") and annotation_format.endswith("f"):
             decimal_places = int(annotation_format[1:-1])
         else:
             decimal_places = 2
-        
+
         # Format as strings with exact decimal places for heatmap annotations
         format_func = np.vectorize(lambda x: f"{x:.{decimal_places}f}")
         text_array = format_func(matrix_float)
-        
+
         return text_array
-        
+
     except Exception as e:
         logger.error(f"Error preparing text values: {e}")
         # Fallback: convert to string with 2 decimals
@@ -425,14 +431,18 @@ class PlotlyHeatmap(PlotlyFigure):
                 # Add text annotations via scatter overlay if annotate is enabled
                 if annotate:
                     # Create text template
-                    if annotation_format.startswith(".") and annotation_format.endswith("f"):
+                    if annotation_format.startswith(".") and annotation_format.endswith(
+                        "f"
+                    ):
                         decimal_places = int(annotation_format[1:-1])
                         text_template = f"%{{z:.{decimal_places}f}}"
                     else:
                         text_template = f"%{{z:{annotation_format}}}"
 
                     text_values = prepare_text_values(matrix, annotation_format)
-                    text_colors = prepare_text_colors(matrix, annotation_color_threshold)
+                    text_colors = prepare_text_colors(
+                        matrix, annotation_color_threshold
+                    )
 
                     # Flatten for 2D loop
                     for i, y in enumerate(y_labels):

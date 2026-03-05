@@ -74,7 +74,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Pattern, Tuple
 
-from .enums import ServiceCategory
+from pamola_core.utils.nlp.llm.enums import ServiceCategory
+from pamola_core.errors.exceptions import ValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -88,6 +89,7 @@ DEFAULT_MAX_RESPONSE_LENGTH = 500  # Service responses are typically short
 # ------------------------------------------------------------------------------
 # Configuration and Data Structures
 # ------------------------------------------------------------------------------
+
 
 @dataclass
 class PatternConfig:
@@ -104,18 +106,21 @@ class PatternConfig:
     - High thresholds (>0.7): Short responses marked as non-service (allowing through)
     - Lower thresholds (≤0.7): Short responses marked as service with threshold confidence
     """
+
     confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD
     min_response_length: int = DEFAULT_MIN_RESPONSE_LENGTH
     max_response_length: int = DEFAULT_MAX_RESPONSE_LENGTH
     case_sensitive: bool = False
     enable_debug_logging: bool = False
     # Pattern weights for confidence calculation
-    pattern_weights: Dict[str, float] = field(default_factory=lambda: {
-        'exact_match': 1.0,
-        'strong_indicator': 0.9,
-        'moderate_indicator': 0.7,
-        'weak_indicator': 0.5
-    })
+    pattern_weights: Dict[str, float] = field(
+        default_factory=lambda: {
+            "exact_match": 1.0,
+            "strong_indicator": 0.9,
+            "moderate_indicator": 0.7,
+            "weak_indicator": 0.5,
+        }
+    )
 
 
 @dataclass
@@ -128,6 +133,7 @@ class DetectionResult:
     F6: matched_patterns uses mutable list for convenience during detection.
     If result caching is needed, consider converting to tuple for immutability.
     """
+
     is_service_response: bool
     confidence: float
     category: Optional[ServiceCategory]
@@ -143,7 +149,9 @@ class DetectionResult:
         # ISSUE #4 FIX: Only warn for very high confidence non-service responses
         # This prevents legitimate "too long" responses from triggering warnings
         if not self.is_service_response and self.confidence > 0.9:
-            logger.warning(f"Non-service response but very high confidence: {self.confidence}")
+            logger.warning(
+                f"Non-service response but very high confidence: {self.confidence}"
+            )
 
 
 # ------------------------------------------------------------------------------
@@ -154,70 +162,61 @@ class DetectionResult:
 SERVICE_PATTERNS = {
     # Requests for input/clarification (highest priority)
     ServiceCategory.REQUEST_FOR_INPUT: {
-        'russian': [
+        "russian": [
             # Direct requests for input
             r"(?i)^\s*пожалуйста\s+предоставьте.*текст",
             r"(?i)^\s*дайте\s+мне.*текст",
             r"(?i)^\s*укажите.*текст",
             r"(?i)^\s*отправьте.*текст",
             r"(?i)^\s*пришлите.*текст",
-
             # Waiting/expecting patterns
             r"(?i)^\s*жду.*исходн.*текст",
             r"(?i)^\s*ожидаю.*текст",
             r"(?i)^\s*где.*текст",
             r"(?i)^\s*нужен.*текст",
-
             # Request formulations
             r"(?i)^\s*мне\s+нужн.*текст.*для.*анонимизац",
             r"(?i)^\s*необходим.*исходн.*материал",
             r"(?i)^\s*требуется.*текст.*опыта",
-
             # Question patterns
             r"(?i)^\s*какой.*текст.*анонимизировать",
             r"(?i)^\s*что.*нужно.*анонимизировать",
             r"(?i)^\s*вы\s+можете.*предоставить.*текст",
-
             # Incomplete task indicators
             r"(?i)текст.*не.*предоставлен",
             r"(?i)отсутствует.*исходн.*текст",
             r"(?i)не.*вижу.*текст",
-
             # Professional request patterns
             r"(?i)для\s+выполнения.*задач.*необходим.*текст",
             r"(?i)чтобы.*анонимизировать.*нужно.*предоставить",
         ],
-        'english': [
+        "english": [
             # Direct requests
             r"(?i)^\s*please\s+provide.*text",
             r"(?i)^\s*send\s+me.*text",
             r"(?i)^\s*give\s+me.*text",
             r"(?i)^\s*share.*text",
             r"(?i)^\s*submit.*text",
-
             # Waiting patterns
             r"(?i)^\s*waiting\s+for.*text",
             r"(?i)^\s*i\s+need.*text.*to.*anonymize",
             r"(?i)^\s*where\s+is.*text",
             r"(?i)^\s*i\s+don't\s+see.*text",
-
             # Question patterns
             r"(?i)^\s*what\s+text.*should.*anonymize",
             r"(?i)^\s*which.*text.*to.*process",
             r"(?i)^\s*could\s+you.*provide.*text",
             r"(?i)^\s*can\s+you.*send.*text",
-
             # Professional patterns
             r"(?i)to\s+complete.*task.*need.*text",
             r"(?i)in\s+order\s+to.*anonymize.*provide",
             r"(?i)text.*not.*provided",
             r"(?i)missing.*source.*text",
-        ]
+        ],
     },
-
     # Simple acknowledgments (should fail processing)
     ServiceCategory.ACKNOWLEDGMENT: {
-        'russian': [
+        "russian": [
             r"(?i)^\s*(конечно|разумеется|безусловно)[\s,.!]*$",
             r"(?i)^\s*(да|хорошо|ладно|понятно)[\s,.!]*$",
             r"(?i)^\s*(готов|готова)(\s+помочь)?[\s,.!]*$",
@@ -226,7 +225,7 @@ SERVICE_PATTERNS = {
             r"(?i)^\s*разумеется[\s,.!]*$",
             r"(?i)^\s*(принято|понял|понятно)[\s,.!]*$",
         ],
-        'english': [
+        "english": [
             r"(?i)^\s*(sure|certainly|absolutely|definitely)[\s,.!]*$",
             r"(?i)^\s*(yes|yeah|yep|ok|okay)[\s,.!]*$",
             r"(?i)^\s*(understood|got\s+it|i\s+see)[\s,.!]*$",
@@ -234,12 +233,11 @@ SERVICE_PATTERNS = {
             r"(?i)^\s*no\s+problem[\s,.!]*$",
             r"(?i)^\s*will\s+do[\s,.!]*$",
             r"(?i)^\s*happy\s+to\s+help[\s,.!]*$",
-        ]
+        ],
     },
-
     # Error responses
     ServiceCategory.ERROR_RESPONSE: {
-        'russian': [
+        "russian": [
             r"(?i)извините.*не\s+могу",
             r"(?i)прошу\s+прощения.*ошибка",
             r"(?i)произошла\s+ошибка",
@@ -248,7 +246,7 @@ SERVICE_PATTERNS = {
             r"(?i)технические\s+неполадки",
             r"(?i)сервис\s+недоступен",
         ],
-        'english': [
+        "english": [
             r"(?i)sorry.*cannot.*process",
             r"(?i)apologize.*error.*occurred",
             r"(?i)error.*processing.*request",
@@ -256,48 +254,42 @@ SERVICE_PATTERNS = {
             r"(?i)service.*unavailable",
             r"(?i)technical.*difficulties",
             r"(?i)unable.*to.*proceed",
-        ]
+        ],
     },
-
     # Meta commentary about the task
     ServiceCategory.META_COMMENTARY: {
-        'russian': [
+        "russian": [
             # Bracketed comments
             r"(?i)^\s*\[.*\]\s*$",
             r"(?i)^\s*\(.*\)\s*$",
-
             # Note patterns
             r"(?i)^\s*примечание:",
             r"(?i)^\s*важно:",
             r"(?i)^\s*обратите\s+внимание",
             r"(?i)^\s*следует\s+отметить",
-
             # Task commentary
             r"(?i)это\s+задача.*анонимизации",
             r"(?i)данный\s+текст.*требует",
             r"(?i)для\s+анонимизации.*необходимо",
         ],
-        'english': [
+        "english": [
             # Bracketed comments
             r"(?i)^\s*\[.*\]\s*$",
             r"(?i)^\s*\(.*\)\s*$",
-
             # Note patterns
             r"(?i)^\s*note:",
             r"(?i)^\s*important:",
             r"(?i)^\s*please\s+note",
             r"(?i)^\s*keep\s+in\s+mind",
-
             # Task commentary
             r"(?i)this\s+is.*anonymization.*task",
             r"(?i)the\s+text.*requires.*anonymization",
             r"(?i)for\s+anonymization.*purposes",
-        ]
+        ],
     },
-
     # Clarification requests
     ServiceCategory.CLARIFICATION: {
-        'russian': [
+        "russian": [
             r"(?i)уточните.*пожалуйста",
             r"(?i)не\s+совсем\s+понятно",
             r"(?i)можете.*пояснить",
@@ -306,7 +298,7 @@ SERVICE_PATTERNS = {
             r"(?i)какой\s+именно.*формат",
             r"(?i)в\s+каком\s+виде.*представить",
         ],
-        'english': [
+        "english": [
             r"(?i)could\s+you.*clarify",
             r"(?i)please\s+specify",
             r"(?i)not\s+entirely\s+clear",
@@ -314,32 +306,32 @@ SERVICE_PATTERNS = {
             r"(?i)requires.*clarification",
             r"(?i)what\s+format.*should",
             r"(?i)how\s+should.*present",
-        ]
+        ],
     },
-
     # Task refusal
     ServiceCategory.REFUSAL: {
-        'russian': [
+        "russian": [
             r"(?i)не\s+могу.*выполнить.*задачу",
             r"(?i)отказываюсь.*анонимизировать",
             r"(?i)это\s+противоречит.*принципам",
             r"(?i)не\s+буду.*обрабатывать",
             r"(?i)задача.*невыполнима",
         ],
-        'english': [
+        "english": [
             r"(?i)cannot.*complete.*task",
             r"(?i)refuse.*to.*anonymize",
             r"(?i)against.*my.*principles",
             r"(?i)will\s+not.*process",
             r"(?i)task.*is.*impossible",
-        ]
-    }
+        ],
+    },
 }
 
 
 # ------------------------------------------------------------------------------
 # Service Response Detector
 # ------------------------------------------------------------------------------
+
 
 class ServiceResponseDetector:
     """
@@ -377,7 +369,9 @@ class ServiceResponseDetector:
         self._compile_patterns()
         self._validate_patterns()
 
-        logger.info(f"ServiceResponseDetector initialized with {self._count_total_patterns()} patterns")
+        logger.info(
+            f"ServiceResponseDetector initialized with {self._count_total_patterns()} patterns"
+        )
 
     def _compile_patterns(self):
         """Compile all regex patterns for optimal performance."""
@@ -396,23 +390,29 @@ class ServiceResponseDetector:
                     compiled = []
                     for i, pattern_str in enumerate(patterns):
                         try:
-                            flags = 0 if self.config.case_sensitive else re.IGNORECASE | re.MULTILINE
+                            flags = (
+                                0
+                                if self.config.case_sensitive
+                                else re.IGNORECASE | re.MULTILINE
+                            )
                             compiled_pattern = re.compile(pattern_str, flags)
                             compiled.append(compiled_pattern)
 
                             # Store metadata for debugging
                             pattern_id = f"{category.value}_{language}_{i}"
                             new_pattern_metadata[pattern_id] = {
-                                'category': category,
-                                'language': language,
-                                'pattern': pattern_str,
-                                'compiled': compiled_pattern,
-                                'matches': 0,
-                                'false_positives': 0
+                                "category": category,
+                                "language": language,
+                                "pattern": pattern_str,
+                                "compiled": compiled_pattern,
+                                "matches": 0,
+                                "false_positives": 0,
                             }
 
                         except re.error as e:
-                            logger.error(f"Invalid regex pattern in {category.value}/{language}: {pattern_str} - {e}")
+                            logger.error(
+                                f"Invalid regex pattern in {category.value}/{language}: {pattern_str} - {e}"
+                            )
                             continue
 
                     new_compiled_patterns[category][language] = compiled
@@ -456,7 +456,9 @@ class ServiceResponseDetector:
         # This is a simplified check - could be more sophisticated
         short_patterns = [p for p in all_pattern_strings if len(p) < 50]
         if len(short_patterns) > len(all_pattern_strings) * 0.8:
-            issues.append("Many short patterns detected - potential for false positives")
+            issues.append(
+                "Many short patterns detected - potential for false positives"
+            )
 
         # Log validation results
         if issues:
@@ -473,7 +475,9 @@ class ServiceResponseDetector:
                 total += len(lang_patterns)
         return total
 
-    def detect_with_confidence(self, text: str) -> Tuple[bool, float, Optional[ServiceCategory]]:
+    def detect_with_confidence(
+        self, text: str
+    ) -> Tuple[bool, float, Optional[ServiceCategory]]:
         """
         Detect service response with confidence scoring.
 
@@ -549,7 +553,7 @@ class ServiceResponseDetector:
                 is_service_response=False,
                 confidence=0.0,
                 category=None,
-                reasons=["Empty or invalid input"]
+                reasons=["Empty or invalid input"],
             )
 
         # Normalize text for analysis
@@ -564,16 +568,17 @@ class ServiceResponseDetector:
             if self.config.confidence_threshold > short_response_threshold:
                 return DetectionResult(
                     is_service_response=False,  # Let legitimate short answers pass
-                    confidence=1.0 - short_response_threshold,  # High confidence in NOT being service
+                    confidence=1.0
+                    - short_response_threshold,  # High confidence in NOT being service
                     category=None,
-                    reasons=["Response short but threshold high - allowing through"]
+                    reasons=["Response short but threshold high - allowing through"],
                 )
             else:
                 return DetectionResult(
                     is_service_response=True,
                     confidence=short_response_threshold,  # Scaled with main threshold
                     category=ServiceCategory.ACKNOWLEDGMENT,
-                    reasons=["Response potentially too short for meaningful content"]
+                    reasons=["Response potentially too short for meaningful content"],
                 )
 
         # Very long responses are unlikely to be service responses
@@ -582,38 +587,39 @@ class ServiceResponseDetector:
                 is_service_response=False,
                 confidence=0.9,
                 category=None,
-                reasons=["Response too long for service message"]
+                reasons=["Response too long for service message"],
             )
 
         # Pattern matching
         best_match = self._find_best_pattern_match(normalized_text)
 
-        if best_match['confidence'] >= self.config.confidence_threshold:
+        if best_match["confidence"] >= self.config.confidence_threshold:
             return DetectionResult(
                 is_service_response=True,
-                confidence=best_match['confidence'],
-                category=best_match['category'],
-                matched_patterns=best_match['patterns'],
-                reasons=best_match['reasons']
+                confidence=best_match["confidence"],
+                category=best_match["category"],
+                matched_patterns=best_match["patterns"],
+                reasons=best_match["reasons"],
             )
 
         # Additional heuristics for edge cases
         heuristic_result = self._apply_heuristics(normalized_text)
 
-        if heuristic_result['is_service']:
+        if heuristic_result["is_service"]:
             return DetectionResult(
                 is_service_response=True,
-                confidence=heuristic_result['confidence'],
-                category=heuristic_result['category'],
-                reasons=heuristic_result['reasons']
+                confidence=heuristic_result["confidence"],
+                category=heuristic_result["category"],
+                reasons=heuristic_result["reasons"],
             )
 
         # Not a service response
         return DetectionResult(
             is_service_response=False,
-            confidence=1.0 - best_match['confidence'],  # Confidence in NOT being service
+            confidence=1.0
+            - best_match["confidence"],  # Confidence in NOT being service
             category=None,
-            reasons=["No service patterns matched"]
+            reasons=["No service patterns matched"],
         )
 
     def _find_best_pattern_match(self, text: str) -> Dict[str, Any]:
@@ -649,8 +655,8 @@ class ServiceResponseDetector:
             if category not in self._compiled_patterns:
                 continue
 
-            category_confidence, category_patterns, category_reasons = self._test_category_patterns(
-                text, category
+            category_confidence, category_patterns, category_reasons = (
+                self._test_category_patterns(text, category)
             )
 
             if category_confidence > best_confidence:
@@ -660,13 +666,15 @@ class ServiceResponseDetector:
                 reasons = category_reasons
 
         return {
-            'confidence': best_confidence,
-            'category': best_category,
-            'patterns': matched_patterns,
-            'reasons': reasons
+            "confidence": best_confidence,
+            "category": best_category,
+            "patterns": matched_patterns,
+            "reasons": reasons,
         }
 
-    def _test_category_patterns(self, text: str, category: ServiceCategory) -> Tuple[float, List[str], List[str]]:
+    def _test_category_patterns(
+        self, text: str, category: ServiceCategory
+    ) -> Tuple[float, List[str], List[str]]:
         """
         Test all patterns for a specific category.
 
@@ -703,24 +711,24 @@ class ServiceResponseDetector:
 
                         pattern_id = f"{category.value}_{language}_{i}"
                         matched_patterns.append(pattern_id)
-                        reasons.append(f"Matched {language} pattern: {pattern.pattern[:50]}...")
+                        reasons.append(
+                            f"Matched {language} pattern: {pattern.pattern[:50]}..."
+                        )
 
                         # Update pattern statistics
                         if pattern_id in self._pattern_metadata:
-                            self._pattern_metadata[pattern_id]['matches'] += 1
+                            self._pattern_metadata[pattern_id]["matches"] += 1
 
                 except Exception as e:
-                    logger.warning(f"Error testing pattern {category.value}/{language}: {e}")
+                    logger.warning(
+                        f"Error testing pattern {category.value}/{language}: {e}"
+                    )
                     continue
 
         return max_confidence, matched_patterns, reasons
 
     def _calculate_pattern_confidence(
-            self,
-            match: re.Match,
-            text: str,
-            category: ServiceCategory,
-            language: str
+        self, match: re.Match, text: str, category: ServiceCategory, language: str
     ) -> float:
         """
         Calculate confidence score for a pattern match.
@@ -741,7 +749,7 @@ class ServiceResponseDetector:
         float
             Confidence score (0.0 to 1.0, guaranteed to be within bounds)
         """
-        base_confidence = self.config.pattern_weights.get('moderate_indicator', 0.7)
+        base_confidence = self.config.pattern_weights.get("moderate_indicator", 0.7)
 
         # ISSUE #3 FIX: Use additive model to prevent confidence > 1.0
         confidence_adjustments = 0.0
@@ -785,52 +793,52 @@ class ServiceResponseDetector:
         reasons = []
 
         # Check for repeated characters (often indicates confusion)
-        if re.search(r'(.)\1{3,}', text):
+        if re.search(r"(.)\1{3,}", text):
             reasons.append("Contains repeated characters")
             return {
-                'is_service': True,
-                'confidence': 0.6,
-                'category': ServiceCategory.ERROR_RESPONSE,
-                'reasons': reasons
+                "is_service": True,
+                "confidence": 0.6,
+                "category": ServiceCategory.ERROR_RESPONSE,
+                "reasons": reasons,
             }
 
         # Check for excessive punctuation
         # ISSUE #9 FIX: Guard against division by zero
         text_length = max(len(text), 1)  # Prevent division by zero
-        punct_ratio = len(re.findall(r'[!?.,;:]', text)) / text_length
+        punct_ratio = len(re.findall(r"[!?.,;:]", text)) / text_length
         if punct_ratio > 0.3:
             reasons.append("Excessive punctuation")
             return {
-                'is_service': True,
-                'confidence': 0.5,
-                'category': ServiceCategory.META_COMMENTARY,
-                'reasons': reasons
+                "is_service": True,
+                "confidence": 0.5,
+                "category": ServiceCategory.META_COMMENTARY,
+                "reasons": reasons,
             }
 
         # Check for question-only responses
-        if text.strip().endswith('?') and len(text.split()) <= 10:
+        if text.strip().endswith("?") and len(text.split()) <= 10:
             reasons.append("Short question-only response")
             return {
-                'is_service': True,
-                'confidence': 0.7,
-                'category': ServiceCategory.CLARIFICATION,
-                'reasons': reasons
+                "is_service": True,
+                "confidence": 0.7,
+                "category": ServiceCategory.CLARIFICATION,
+                "reasons": reasons,
             }
 
         # Not detected as service response
         return {
-            'is_service': False,
-            'confidence': 0.0,
-            'category': None,
-            'reasons': ["No heuristic indicators"]
+            "is_service": False,
+            "confidence": 0.0,
+            "category": None,
+            "reasons": ["No heuristic indicators"],
         }
 
     def add_custom_pattern(
-            self,
-            category: ServiceCategory,
-            language: str,
-            pattern: str,
-            recompile: bool = True
+        self,
+        category: ServiceCategory,
+        language: str,
+        pattern: str,
+        recompile: bool = True,
     ):
         """
         Add a custom pattern to the detector.
@@ -869,7 +877,7 @@ class ServiceResponseDetector:
 
             except re.error as e:
                 logger.error(f"Invalid custom pattern: {pattern} - {e}")
-                raise ValueError(f"Invalid regex pattern: {e}")
+                raise ValidationError(f"Invalid regex pattern: {e}")
 
     def get_statistics(self) -> Dict[str, Any]:
         """
@@ -888,31 +896,32 @@ class ServiceResponseDetector:
             pattern_metadata_snapshot = dict(self._pattern_metadata)
 
         avg_detection_time = (
-            total_detection_time / detection_count
-            if detection_count > 0 else 0.0
+            total_detection_time / detection_count if detection_count > 0 else 0.0
         )
 
         pattern_stats = {}
         for pattern_id, metadata in pattern_metadata_snapshot.items():
-            if metadata['matches'] > 0:
+            if metadata["matches"] > 0:
                 pattern_stats[pattern_id] = {
-                    'matches': metadata['matches'],
-                    'category': metadata['category'].value,
-                    'language': metadata['language'],
-                    'pattern_preview': metadata['pattern'][:50] + "..."
+                    "matches": metadata["matches"],
+                    "category": metadata["category"].value,
+                    "language": metadata["language"],
+                    "pattern_preview": metadata["pattern"][:50] + "...",
                 }
 
         return {
-            'total_detections': detection_count,
-            'average_detection_time': avg_detection_time,
-            'total_patterns': self._count_total_patterns(),
-            'active_patterns': len([p for p in pattern_metadata_snapshot.values() if p['matches'] > 0]),
-            'pattern_statistics': pattern_stats,
-            'configuration': {
-                'confidence_threshold': self.config.confidence_threshold,
-                'min_response_length': self.config.min_response_length,
-                'max_response_length': self.config.max_response_length
-            }
+            "total_detections": detection_count,
+            "average_detection_time": avg_detection_time,
+            "total_patterns": self._count_total_patterns(),
+            "active_patterns": len(
+                [p for p in pattern_metadata_snapshot.values() if p["matches"] > 0]
+            ),
+            "pattern_statistics": pattern_stats,
+            "configuration": {
+                "confidence_threshold": self.config.confidence_threshold,
+                "min_response_length": self.config.min_response_length,
+                "max_response_length": self.config.max_response_length,
+            },
         }
 
     def test_pattern(self, pattern: str, test_cases: List[str]) -> Dict[str, Any]:
@@ -937,26 +946,24 @@ class ServiceResponseDetector:
 
             for test_case in test_cases:
                 match = compiled_pattern.search(test_case)
-                results.append({
-                    'text': test_case,
-                    'matched': bool(match),
-                    'match_span': (match.start(), match.end()) if match else None,
-                    'matched_text': match.group() if match else None
-                })
+                results.append(
+                    {
+                        "text": test_case,
+                        "matched": bool(match),
+                        "match_span": (match.start(), match.end()) if match else None,
+                        "matched_text": match.group() if match else None,
+                    }
+                )
 
             return {
-                'pattern': pattern,
-                'total_tests': len(test_cases),
-                'matches': sum(1 for r in results if r['matched']),
-                'results': results
+                "pattern": pattern,
+                "total_tests": len(test_cases),
+                "matches": sum(1 for r in results if r["matched"]),
+                "results": results,
             }
 
         except re.error as e:
-            return {
-                'pattern': pattern,
-                'error': str(e),
-                'results': []
-            }
+            return {"pattern": pattern, "error": str(e), "results": []}
 
 
 # ------------------------------------------------------------------------------
@@ -988,6 +995,7 @@ def _get_default_detector() -> ServiceResponseDetector:
 # Convenience Functions
 # ------------------------------------------------------------------------------
 
+
 def create_default_detector() -> ServiceResponseDetector:
     """Create detector with default configuration."""
     return ServiceResponseDetector()
@@ -996,9 +1004,7 @@ def create_default_detector() -> ServiceResponseDetector:
 def create_strict_detector() -> ServiceResponseDetector:
     """Create detector with strict detection settings."""
     config = PatternConfig(
-        confidence_threshold=0.8,
-        min_response_length=3,
-        max_response_length=300
+        confidence_threshold=0.8, min_response_length=3, max_response_length=300
     )
     return ServiceResponseDetector(config)
 
@@ -1006,9 +1012,7 @@ def create_strict_detector() -> ServiceResponseDetector:
 def create_lenient_detector() -> ServiceResponseDetector:
     """Create detector with lenient detection settings."""
     config = PatternConfig(
-        confidence_threshold=0.5,
-        min_response_length=10,
-        max_response_length=800
+        confidence_threshold=0.5, min_response_length=10, max_response_length=800
     )
     return ServiceResponseDetector(config)
 

@@ -11,10 +11,10 @@ from typing import Dict, List, Any, Optional, Tuple
 import pandas as pd
 import numpy as np
 from scipy import stats
-from pamola_core.utils.logging import configure_logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure logger using the custom logging utility
-logger = configure_logging(level=logging.INFO)
+logger = pamola_logging.configure_logging(level=logging.INFO)
 
 
 def calculate_distribution_metrics(data: pd.Series) -> Dict[str, float]:

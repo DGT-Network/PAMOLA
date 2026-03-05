@@ -10,7 +10,7 @@ from typing import Dict, List, Any, Optional, Tuple
 
 import pandas as pd
 from pamola_core.profiling.commons.currency_utils import analyze_currency_stats
-from pamola_core.utils.logging import configure_logging
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.profiling.commons.numeric_utils import (
     calculate_extended_stats,
     calculate_percentiles,
@@ -22,7 +22,7 @@ from pamola_core.profiling.commons.numeric_utils import (
 from pamola_core.profiling.commons.data_types import DataType
 
 # Configure logger using the custom logging utility
-logger = configure_logging(level=logging.INFO)
+logger = pamola_logging.configure_logging(level=logging.INFO)
 
 
 def analyze_currency_field(

@@ -14,7 +14,12 @@ from pathlib import Path
 from typing import Union, Dict, Any, Optional, Tuple
 
 from pamola_core.utils.io_helpers.provider_interface import CryptoProvider
-from pamola_core.utils.crypto_helpers.errors import EncryptionError, DecryptionError, FormatError
+from pamola_core.errors.exceptions import (
+    ValidationError,
+    DecryptionError,
+    EncryptionError,
+    FormatError,
+)
 
 # Direct imports from cryptography library
 from cryptography.hazmat.primitives import hashes
@@ -41,11 +46,13 @@ class SimpleProvider(CryptoProvider):
         """Return the provider's encryption mode identifier."""
         return "simple"
 
-    def derive_key(self,
-                   password: str,
-                   salt: Optional[bytes] = None,
-                   iterations: int = DEFAULT_ITERATIONS,
-                   key_length: int = DEFAULT_KEY_LENGTH) -> Tuple[bytes, bytes]:
+    def derive_key(
+        self,
+        password: str,
+        salt: Optional[bytes] = None,
+        iterations: int = DEFAULT_ITERATIONS,
+        key_length: int = DEFAULT_KEY_LENGTH,
+    ) -> Tuple[bytes, bytes]:
         """
         Derive a cryptographic key from a password.
 
@@ -77,7 +84,7 @@ class SimpleProvider(CryptoProvider):
 
             # Convert password to bytes if it's a string
             if isinstance(password, str):
-                password = password.encode('utf-8')
+                password = password.encode("utf-8")
 
             # Derive the key using PBKDF2
             kdf = PBKDF2HMAC(
@@ -93,10 +100,9 @@ class SimpleProvider(CryptoProvider):
         except Exception as e:
             raise EncryptionError(f"Error deriving key: {e}")
 
-    def encrypt_data(self,
-                     data: Union[str, bytes],
-                     key: Optional[str] = None,
-                     **kwargs) -> Dict[str, Any]:
+    def encrypt_data(
+        self, data: Union[str, bytes], key: Optional[str] = None, **kwargs
+    ) -> Dict[str, Any]:
         """
         Encrypt data using AES-GCM.
 
@@ -126,7 +132,7 @@ class SimpleProvider(CryptoProvider):
         try:
             # Convert input data to bytes if it's a string
             if isinstance(data, str):
-                data = data.encode('utf-8')
+                data = data.encode("utf-8")
 
             # Derive a key from the password
             actual_key, salt = self.derive_key(key)
@@ -140,9 +146,10 @@ class SimpleProvider(CryptoProvider):
 
             # Encode binary data as base64 for JSON serialization
             import base64
-            iv_b64 = base64.b64encode(iv).decode('utf-8')
-            salt_b64 = base64.b64encode(salt).decode('utf-8')
-            ciphertext_b64 = base64.b64encode(ciphertext).decode('utf-8')
+
+            iv_b64 = base64.b64encode(iv).decode("utf-8")
+            salt_b64 = base64.b64encode(salt).decode("utf-8")
+            ciphertext_b64 = base64.b64encode(ciphertext).decode("utf-8")
 
             # Create metadata
             timestamp = datetime.now().isoformat()
@@ -171,10 +178,12 @@ class SimpleProvider(CryptoProvider):
         except Exception as e:
             raise EncryptionError(f"Error encrypting data: {e}")
 
-    def decrypt_data(self,
-                     data: Union[str, bytes, Dict[str, Any]],
-                     key: Optional[str] = None,
-                     **kwargs) -> bytes:
+    def decrypt_data(
+        self,
+        data: Union[str, bytes, Dict[str, Any]],
+        key: Optional[str] = None,
+        **kwargs,
+    ) -> bytes:
         """
         Decrypt data encrypted with AES-GCM.
 
@@ -214,7 +223,7 @@ class SimpleProvider(CryptoProvider):
             elif isinstance(data, bytes):
                 try:
                     # Try to parse as JSON
-                    data_dict = json.loads(data.decode('utf-8'))
+                    data_dict = json.loads(data.decode("utf-8"))
                     if not isinstance(data_dict, dict):
                         raise DecryptionError("Invalid JSON format")
                     data = data_dict
@@ -236,15 +245,14 @@ class SimpleProvider(CryptoProvider):
 
             # Decode from base64
             import base64
+
             iv = base64.b64decode(data["iv"])
             salt = base64.b64decode(data["salt"])
             ciphertext = base64.b64decode(data["data"])
 
             # Derive the key
             actual_key, _ = self.derive_key(
-                key,
-                salt,
-                iterations=data.get("iterations", DEFAULT_ITERATIONS)
+                key, salt, iterations=data.get("iterations", DEFAULT_ITERATIONS)
             )
 
             # Decrypt the data
@@ -256,11 +264,13 @@ class SimpleProvider(CryptoProvider):
         except Exception as e:
             raise DecryptionError(f"Error decrypting data: {e}")
 
-    def encrypt_file(self,
-                     source_path: Union[str, Path],
-                     destination_path: Union[str, Path],
-                     key: Optional[str] = None,
-                     **kwargs) -> Path:
+    def encrypt_file(
+        self,
+        source_path: Union[str, Path],
+        destination_path: Union[str, Path],
+        key: Optional[str] = None,
+        **kwargs,
+    ) -> Path:
         """
         Encrypt a file using AES-GCM and save with JSON metadata.
 
@@ -297,7 +307,7 @@ class SimpleProvider(CryptoProvider):
             destination_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Read the source file
-            with open(source_path, 'rb') as f:
+            with open(source_path, "rb") as f:
                 data = f.read()
 
             # Add file metadata
@@ -308,29 +318,28 @@ class SimpleProvider(CryptoProvider):
             file_info["original_filename"] = source_path.name
             file_info["original_size"] = len(data)
             file_info["original_modified"] = datetime.fromtimestamp(
-                source_path.stat().st_mtime).isoformat()
+                source_path.stat().st_mtime
+            ).isoformat()
 
             # Encrypt the data
-            encrypted = self.encrypt_data(
-                data=data,
-                key=key,
-                data_info=file_info
-            )
+            encrypted = self.encrypt_data(data=data, key=key, data_info=file_info)
 
             # Save as JSON
-            with open(destination_path, 'w', encoding='utf-8') as f:
-                json.dump(encrypted, f, indent=None) # type: ignore
+            with open(destination_path, "w", encoding="utf-8") as f:
+                json.dump(encrypted, f, indent=None)  # type: ignore
 
             return destination_path
 
         except Exception as e:
             raise EncryptionError(f"Error encrypting file: {e}")
 
-    def decrypt_file(self,
-                     source_path: Union[str, Path],
-                     destination_path: Union[str, Path],
-                     key: Optional[str] = None,
-                     **kwargs) -> Path:
+    def decrypt_file(
+        self,
+        source_path: Union[str, Path],
+        destination_path: Union[str, Path],
+        key: Optional[str] = None,
+        **kwargs,
+    ) -> Path:
         """
         Decrypt a file encrypted with AES-GCM.
 
@@ -367,7 +376,7 @@ class SimpleProvider(CryptoProvider):
 
             # Read the encrypted file
             try:
-                with open(source_path, 'r', encoding='utf-8') as f:
+                with open(source_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
             except (json.JSONDecodeError, UnicodeDecodeError):
                 raise FormatError(f"Not a valid simple encrypted file: {source_path}")
@@ -376,7 +385,7 @@ class SimpleProvider(CryptoProvider):
             decrypted = self.decrypt_data(data, key)
 
             # Save to destination
-            with open(destination_path, 'wb') as f:
+            with open(destination_path, "wb") as f:
                 f.write(decrypted)
 
             # Try to restore file modification time if available
@@ -384,9 +393,11 @@ class SimpleProvider(CryptoProvider):
                 file_info = data["data_info"]
                 if "original_modified" in file_info:
                     try:
-                        mtime = datetime.fromisoformat(file_info["original_modified"]).timestamp()
+                        mtime = datetime.fromisoformat(
+                            file_info["original_modified"]
+                        ).timestamp()
                         os.utime(destination_path, (time.time(), mtime))
-                    except (ValueError, OSError):
+                    except (ValidationError, ValueError, OSError):
                         # Ignore errors when setting mtime
                         pass
 
@@ -397,8 +408,7 @@ class SimpleProvider(CryptoProvider):
         except Exception as e:
             raise DecryptionError(f"Error decrypting file: {e}")
 
-    def can_decrypt(self,
-                    source_path: Union[str, Path]) -> bool:
+    def can_decrypt(self, source_path: Union[str, Path]) -> bool:
         """
         Check if this provider can decrypt the given file.
 
@@ -419,7 +429,7 @@ class SimpleProvider(CryptoProvider):
 
         try:
             # Try to read as JSON
-            with open(source_path, 'r', encoding='utf-8') as f:
+            with open(source_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             # Check for simple mode indicators

@@ -45,6 +45,8 @@ from pamola_core.profiling.commons.currency_utils import (
     generate_currency_samples,
     create_empty_currency_stats,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.profiling.commons.numeric_utils import (
     calculate_percentiles,
     calculate_histogram,
@@ -73,7 +75,7 @@ from pamola_core.utils.visualization import (
 )
 from pamola_core.common.constants import Constants
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.profiling.commons import helpers
+import pamola_core.profiling.commons.helpers as helpers
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -1390,33 +1392,39 @@ class CurrencyOperation(FieldOperation):
             Results of the operation
         """
         try:
+            # Initialize timing and result
+            self.start_time = time.time()
+            self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(f"Starting: {self.operation_name} at {self.start_time}")
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
             # Initialize variables to None for safe cleanup in case of early exceptions or undefined parameters
             df = None
             analysis_results = None
 
-            if kwargs.get("logger"):
-                self.logger = kwargs["logger"]
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Extract dataset name from kwargs (default to "main")
             dataset_name = kwargs.get("dataset_name", "main")
 
             # Set up directories
             dirs = self._prepare_directories(task_dir)
+            output_dir = dirs["output"]
+            visualizations_dir = dirs["visualizations"]
+            dictionaries_dir = dirs["dictionaries"]
 
             # Initialize operation cache
             self.operation_cache = OperationCache(
                 cache_dir=dirs["cache"],
             )
 
-            output_dir = dirs["output"]
-            visualizations_dir = dirs["visualizations"]
-            dictionaries_dir = dirs["dictionaries"]
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-            # Create the main result object with initial status
-            result = OperationResult(status=OperationStatus.SUCCESS)
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -1441,51 +1449,59 @@ class CurrencyOperation(FieldOperation):
                 progress_tracker.update(
                     1, {"step": step, "operation": self.operation_name}
                 )
+            # Validate and get dataframe
+            try:
+                # Load data
+                settings_operation = load_settings_operation(
+                    data_source, dataset_name, **kwargs
+                )
+                df = helpers.validate_and_get_dataframe(
+                    data_source, dataset_name, **settings_operation
+                )
+            except Exception as e:
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
+                )
 
-            # Load data
-            settings_operation = load_settings_operation(
-                data_source, dataset_name, **kwargs
-            )
-            df = helpers.validate_and_get_dataframe(
-                data_source, dataset_name, **settings_operation
-            )
-        except Exception as e:
-            error_message = f"Error loading data: {str(e)}"
-            self.logger.error(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
-            )
-
-        # Step 3: Check Cache (if enabled and not forced to recalculate)
-        if self.use_cache and not self.force_recalculation:
-            if progress_tracker:
-                progress_tracker.update(1, {"step": "Checking Cache"})
-
-            logger.info("Checking operation cache...")
-            cache_result = self._check_cache(df)
-
-            if cache_result:
-                self.logger.info("Cache hit! Using cached results.")
-
-                # Update progress
+            # Step 3: Check Cache (if enabled and not forced to recalculate)
+            if self.use_cache and not self.force_recalculation:
                 if progress_tracker:
-                    progress_tracker.update(1, {"step": "Complete (cached)"})
+                    progress_tracker.update(1, {"step": "Checking Cache"})
 
-                # Report cache hit to reporter
-                if reporter:
-                    reporter.add_operation(
-                        f"Date field analysis for '{self.field_name}' (from cache)",
-                        details={"cached": True},
-                    )
-                return cache_result
+                logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df)
 
-        try:
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(1, {"step": "Complete (cached)"})
+
+                    # Report cache hit to reporter
+                    if reporter:
+                        reporter.add_operation(
+                            f"Date field analysis for '{self.field_name}' (from cache)",
+                            details={"cached": True},
+                        )
+                    return cache_result
 
             # Check if field exists
             if self.field_name not in df.columns:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=f"Field {self.field_name} not found in DataFrame",
+                return self.error_handler.handle_error(
+                    error=ValueError(f"Field {self.field_name} not found in DataFrame"),
+                    error_code=ErrorCode.FIELD_NOT_FOUND,
+                    context={
+                        "dataset": dataset_name,
+                        "operation": self.operation_name,
+                    },
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "available_fields": ", ".join(df.columns),
+                    },
                 )
 
             # Add operation to reporter
@@ -1524,9 +1540,15 @@ class CurrencyOperation(FieldOperation):
 
             # Check for errors
             if "error" in analysis_results:
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=analysis_results["error"],
+                return self.error_handler.handle_error(
+                    error=RuntimeError(analysis_results["error"]),
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_name,
+                        "operation": self.operation_name,
+                        "reason": analysis_results["error"],
+                    },
                 )
 
             # Save analysis results to JSON
@@ -1625,24 +1647,28 @@ class CurrencyOperation(FieldOperation):
                 instance=self,
             )
 
+            # Finalize timing
+            self.end_time = time.time()
+
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.end_time - self.start_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            self.logger.exception(
-                f"Error in currency operation for {self.field_name}: {e}"
-            )
-
-            # Add error to reporter
-            reporter.add_operation(
-                f"Error analyzing currency field {self.field_name}",
-                status="error",
-                details={"error": str(e)},
-            )
-
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=f"Error analyzing currency field {self.field_name}: {str(e)}",
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name} profiling: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name},
+                message_kwargs={
+                    "field_name": self.field_name,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _generate_visualizations(

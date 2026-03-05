@@ -13,19 +13,24 @@ import tempfile
 from pathlib import Path
 from typing import Union, Dict, Any, Optional, List
 
-from pamola_core.utils.crypto_helpers.errors import (
+from pamola_core.errors.exceptions import (
+    ValidationError,
+    ConfigurationError,
     EncryptionError,
     DecryptionError,
-    ConfigurationError,
-    AgeToolError
+    AgeToolError,
 )
 from pamola_core.utils.io_helpers.provider_interface import CryptoProvider
-from dotenv import load_dotenv
-load_dotenv()
+from pamola_core.utils.env import load_dotenv_once
 
 # Constants - only keep constant values at module level
 AGE_HEADER = b"age-encryption.org/"
-AGE_BINARY = os.environ.get("PAMOLA_AGE_BINARY", "pamola_datasets/age_binary/age")
+DEFAULT_AGE_BINARY = "pamola_datasets/age_binary/age"
+
+
+def _get_age_binary() -> str:
+    load_dotenv_once()
+    return os.environ.get("PAMOLA_AGE_BINARY", DEFAULT_AGE_BINARY)
 
 
 class AgeProvider(CryptoProvider):
@@ -63,7 +68,11 @@ class AgeProvider(CryptoProvider):
         # Skip if already checked
         if self.available is not None:
             if not self.available:
-                raise RuntimeError("Age encryption requested, but age binary not found")
+                raise AgeToolError(
+                    tool_name="age",
+                    reason="age binary not found",
+                    details={"binary_path": _get_age_binary()},
+                )
             return
 
         try:
@@ -71,7 +80,11 @@ class AgeProvider(CryptoProvider):
             self.available = True
         except Exception as e:
             self.available = False
-            raise RuntimeError(f"Age encryption unavailable: {str(e)}")
+            raise AgeToolError(
+                tool_name="age",
+                reason=str(e),
+                details={"binary_path": _get_age_binary()},
+            ) from e
 
     def _check_age_installed(self) -> None:
         """
@@ -83,11 +96,12 @@ class AgeProvider(CryptoProvider):
             If 'age' is not installed or not found
         """
         try:
+            load_dotenv_once()
             result = subprocess.run(
-                [AGE_BINARY, "--version"],
+                [_get_age_binary(), "--version"],
                 capture_output=True,  # This captures stdout and stderr properly
                 text=True,
-                check=False  # Don't raise on non-zero exit
+                check=False,  # Don't raise on non-zero exit
             )
 
             if result.returncode != 0:
@@ -116,9 +130,15 @@ class AgeProvider(CryptoProvider):
         ConfigurationError
             If no recipients are available
         """
+        load_dotenv_once()
         # Read environment variables at method call time, not module import time
-        age_recipients = os.environ.get("PAMOLA_AGE_RECIPIENTS", "age1zz3p45xsyk569u6k4mqhryuppjmhcgn4rfjnnac40gjhaes354sqfq2s9z").split(',')
-        age_recipients_file = os.environ.get("PAMOLA_AGE_RECIPIENTS_FILE", "pamola_datasets/age_binary/recipient.txt")
+        age_recipients = os.environ.get(
+            "PAMOLA_AGE_RECIPIENTS",
+            "age1zz3p45xsyk569u6k4mqhryuppjmhcgn4rfjnnac40gjhaes354sqfq2s9z",
+        ).split(",")
+        age_recipients_file = os.environ.get(
+            "PAMOLA_AGE_RECIPIENTS_FILE", "pamola_datasets/age_binary/recipient.txt"
+        )
         recipients = []
 
         # Add recipients from environment
@@ -153,8 +173,11 @@ class AgeProvider(CryptoProvider):
         ConfigurationError
             If no identity file is available
         """
+        load_dotenv_once()
         # Read environment variable at method call time
-        age_identity_file = os.environ.get("PAMOLA_AGE_IDENTITY_FILE", "pamola_datasets/age_binary/age.key")
+        age_identity_file = os.environ.get(
+            "PAMOLA_AGE_IDENTITY_FILE", "pamola_datasets/age_binary/age.key"
+        )
 
         # Use identity file
         if not age_identity_file:
@@ -165,11 +188,13 @@ class AgeProvider(CryptoProvider):
 
         return ["-i", age_identity_file]
 
-    def encrypt_file(self,
-                     source_path: Union[str, Path],
-                     destination_path: Union[str, Path],
-                     key: Optional[str] = None,
-                     **kwargs) -> Path:
+    def encrypt_file(
+        self,
+        source_path: Union[str, Path],
+        destination_path: Union[str, Path],
+        key: Optional[str] = None,
+        **kwargs,
+    ) -> Path:
         """
         Encrypt a file using the age tool with public key cryptography.
 
@@ -228,21 +253,16 @@ class AgeProvider(CryptoProvider):
                 }
 
                 # Save metadata file
-                with open(metadata_file, 'w', encoding='utf-8') as f:
+                with open(metadata_file, "w", encoding="utf-8") as f:
                     json.dump(metadata, f)  # type: ignore
 
             # Build the age command
-            cmd = [AGE_BINARY]
+            cmd = [_get_age_binary()]
             cmd.extend(self._get_recipients())
             cmd.extend(["-o", str(destination_path), str(source_path)])
 
             # Execute the command
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 raise AgeToolError(
@@ -252,8 +272,8 @@ class AgeProvider(CryptoProvider):
             # If we have metadata, add it as an adjacent file
             if metadata_file:
                 metadata_dest = str(destination_path) + ".meta"
-                with open(metadata_file, 'r', encoding='utf-8') as src:
-                    with open(metadata_dest, 'w', encoding='utf-8') as dst:
+                with open(metadata_file, "r", encoding="utf-8") as src:
+                    with open(metadata_dest, "w", encoding="utf-8") as dst:
                         dst.write(src.read())
 
                 # Clean up temp file
@@ -269,11 +289,13 @@ class AgeProvider(CryptoProvider):
 
             raise EncryptionError(f"Error encrypting file with age: {e}")
 
-    def decrypt_file(self,
-                     source_path: Union[str, Path],
-                     destination_path: Union[str, Path],
-                     key: Optional[str] = None,
-                     **kwargs) -> Path:
+    def decrypt_file(
+        self,
+        source_path: Union[str, Path],
+        destination_path: Union[str, Path],
+        key: Optional[str] = None,
+        **kwargs,
+    ) -> Path:
         """
         Decrypt a file using the age tool with private key cryptography.
 
@@ -317,24 +339,19 @@ class AgeProvider(CryptoProvider):
 
             if os.path.exists(metadata_file):
                 try:
-                    with open(metadata_file, 'r', encoding='utf-8') as f:
+                    with open(metadata_file, "r", encoding="utf-8") as f:
                         metadata = json.load(f)
                 except (json.JSONDecodeError, UnicodeDecodeError):
                     # Ignore errors reading metadata
                     pass
 
             # Build the age command
-            cmd = [AGE_BINARY]
+            cmd = [_get_age_binary()]
             cmd.extend(self._get_identity())
             cmd.extend(["-d", "-o", str(destination_path), str(source_path)])
 
             # Execute the command
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 raise AgeToolError(
@@ -346,9 +363,12 @@ class AgeProvider(CryptoProvider):
                 try:
                     os.utime(
                         destination_path,
-                        (os.path.getatime(destination_path), metadata["original_modified"])
+                        (
+                            os.path.getatime(destination_path),
+                            metadata["original_modified"],
+                        ),
                     )
-                except (ValueError, OSError):
+                except (ValidationError, ValueError, OSError):
                     # Ignore errors when setting mtime
                     pass
 
@@ -357,10 +377,9 @@ class AgeProvider(CryptoProvider):
         except Exception as e:
             raise DecryptionError(f"Error decrypting file with age: {e}")
 
-    def encrypt_data(self,
-                     data: Union[str, bytes],
-                     key: Optional[str] = None,
-                     **kwargs) -> bytes:
+    def encrypt_data(
+        self, data: Union[str, bytes], key: Optional[str] = None, **kwargs
+    ) -> bytes:
         """
         Encrypt data using the age tool with public key cryptography.
 
@@ -394,7 +413,7 @@ class AgeProvider(CryptoProvider):
             with tempfile.NamedTemporaryFile(delete=False) as temp_in:
                 # Write data to temp file
                 if isinstance(data, str):
-                    temp_in.write(data.encode('utf-8'))
+                    temp_in.write(data.encode("utf-8"))
                 else:
                     temp_in.write(data)
                 temp_in_path = temp_in.name
@@ -404,17 +423,12 @@ class AgeProvider(CryptoProvider):
             os.close(fd)
 
             # Build the age command
-            cmd = [AGE_BINARY]
+            cmd = [_get_age_binary()]
             cmd.extend(self._get_recipients())
             cmd.extend(["-o", temp_out_path, temp_in_path])
 
             # Execute the command
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 raise AgeToolError(
@@ -422,7 +436,7 @@ class AgeProvider(CryptoProvider):
                 )
 
             # Read the encrypted data
-            with open(temp_out_path, 'rb') as f:
+            with open(temp_out_path, "rb") as f:
                 encrypted_data = f.read()
 
             return encrypted_data
@@ -436,10 +450,12 @@ class AgeProvider(CryptoProvider):
             if temp_out_path and os.path.exists(temp_out_path):
                 os.unlink(temp_out_path)
 
-    def decrypt_data(self,
-                     data: Union[str, bytes, Dict[str, Any]],
-                     key: Optional[str] = None,
-                     **kwargs) -> bytes:
+    def decrypt_data(
+        self,
+        data: Union[str, bytes, Dict[str, Any]],
+        key: Optional[str] = None,
+        **kwargs,
+    ) -> bytes:
         """
         Decrypt data using the age tool with private key cryptography.
 
@@ -471,11 +487,11 @@ class AgeProvider(CryptoProvider):
         try:
             # Ensure data is in bytes format
             if isinstance(data, str):
-                binary_data = data.encode('utf-8')
+                binary_data = data.encode("utf-8")
             elif isinstance(data, dict) and "data" in data:
                 # If it's a dictionary with data field, extract the data
                 if isinstance(data["data"], str):
-                    binary_data = data["data"].encode('utf-8')
+                    binary_data = data["data"].encode("utf-8")
                 else:
                     binary_data = data["data"]
             else:
@@ -491,17 +507,12 @@ class AgeProvider(CryptoProvider):
             os.close(fd)
 
             # Build the age command
-            cmd = [AGE_BINARY]
+            cmd = [_get_age_binary()]
             cmd.extend(self._get_identity())
             cmd.extend(["-d", "-o", temp_out_path, temp_in_path])
 
             # Execute the command
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False
-            )
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
             if result.returncode != 0:
                 raise AgeToolError(
@@ -509,7 +520,7 @@ class AgeProvider(CryptoProvider):
                 )
 
             # Read the decrypted data
-            with open(temp_out_path, 'rb') as f:
+            with open(temp_out_path, "rb") as f:
                 decrypted_data = f.read()
 
             return decrypted_data
@@ -523,8 +534,7 @@ class AgeProvider(CryptoProvider):
             if temp_out_path and os.path.exists(temp_out_path):
                 os.unlink(temp_out_path)
 
-    def can_decrypt(self,
-                    source_path: Union[str, Path]) -> bool:
+    def can_decrypt(self, source_path: Union[str, Path]) -> bool:
         """
         Check if this provider can decrypt the given file.
 
@@ -549,7 +559,7 @@ class AgeProvider(CryptoProvider):
             metadata_file = str(source_path) + ".meta"
             if os.path.exists(metadata_file):
                 try:
-                    with open(metadata_file, 'r', encoding='utf-8') as f:
+                    with open(metadata_file, "r", encoding="utf-8") as f:
                         metadata = json.load(f)
 
                     if metadata.get("mode") == self.mode:
@@ -559,7 +569,7 @@ class AgeProvider(CryptoProvider):
                     pass
 
             # Check file header
-            with open(source_path, 'rb') as f:
+            with open(source_path, "rb") as f:
                 header = f.read(len(AGE_HEADER) + 10)
 
             return header.startswith(AGE_HEADER)

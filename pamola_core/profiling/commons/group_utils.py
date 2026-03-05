@@ -12,12 +12,15 @@ from typing import Dict, List, Any, Set, Tuple, Optional, Union
 
 import numpy as np
 import pandas as pd
+from pamola_core.errors.exceptions import ValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 
-def calculate_field_variation(group: pd.DataFrame, field: str, handle_nulls: str = 'as_value') -> float:
+def calculate_field_variation(
+    group: pd.DataFrame, field: str, handle_nulls: str = "as_value"
+) -> float:
     """
     Calculate variation for a single field within a group.
 
@@ -43,19 +46,26 @@ def calculate_field_variation(group: pd.DataFrame, field: str, handle_nulls: str
     # Extract the field values
     values = group[field]
 
-    if handle_nulls == 'exclude':
+    if handle_nulls == "exclude":
         values = values.dropna()
         if len(values) <= 1:
             return 0.0
 
     # For MVF fields (stored as string representations of lists)
-    if pd.api.types.is_string_dtype(values) and values.iloc[0] is not None and isinstance(values.iloc[0], str) and values.iloc[
-        0].startswith('['):
+    if (
+        pd.api.types.is_string_dtype(values)
+        and values.iloc[0] is not None
+        and isinstance(values.iloc[0], str)
+        and values.iloc[0].startswith("[")
+    ):
         try:
             # Try to interpret as list representation
             import ast
-            processed_values = values.apply(lambda x: tuple(sorted(ast.literal_eval(x))) if pd.notna(x) else None)
-        except (SyntaxError, ValueError):
+
+            processed_values = values.apply(
+                lambda x: tuple(sorted(ast.literal_eval(x))) if pd.notna(x) else None
+            )
+        except (ValidationError, SyntaxError, ValueError):
             # If parsing fails, treat as regular strings
             processed_values = values
     else:
@@ -74,8 +84,11 @@ def calculate_field_variation(group: pd.DataFrame, field: str, handle_nulls: str
     return variation
 
 
-def calculate_weighted_variation(group: pd.DataFrame, fields_weights: Dict[str, float],
-                                 handle_nulls: str = 'as_value') -> float:
+def calculate_weighted_variation(
+    group: pd.DataFrame,
+    fields_weights: Dict[str, float],
+    handle_nulls: str = "as_value",
+) -> float:
     """
     Calculate weighted variation across multiple fields within a group.
 
@@ -112,8 +125,9 @@ def calculate_weighted_variation(group: pd.DataFrame, fields_weights: Dict[str, 
     return weighted_sum / total_weight
 
 
-def calculate_change_frequency(group: pd.DataFrame, fields: List[str],
-                               handle_nulls: str = 'as_value') -> Dict[str, float]:
+def calculate_change_frequency(
+    group: pd.DataFrame, fields: List[str], handle_nulls: str = "as_value"
+) -> Dict[str, float]:
     """
     Calculate how often fields change within a group.
 
@@ -142,7 +156,7 @@ def calculate_change_frequency(group: pd.DataFrame, fields: List[str],
 
         values = group[field]
 
-        if handle_nulls == 'exclude':
+        if handle_nulls == "exclude":
             values = values.dropna()
             if len(values) <= 1:
                 change_freqs[field] = 0.0
@@ -152,7 +166,9 @@ def calculate_change_frequency(group: pd.DataFrame, fields: List[str],
         transitions = len(values) - 1
 
         # Count actual changes
-        changes = sum(values.iloc[i] != values.iloc[i + 1] for i in range(len(values) - 1))
+        changes = sum(
+            values.iloc[i] != values.iloc[i + 1] for i in range(len(values) - 1)
+        )
 
         # Calculate change frequency
         change_freqs[field] = changes / transitions if transitions > 0 else 0.0
@@ -181,15 +197,18 @@ def create_identifier_hash(row: pd.Series, fields: List[str]) -> Optional[str]:
         return None
 
     # Concatenate values and create hash
-    values = ''.join(str(row[field]) for field in fields if field in row)
-    return hashlib.md5(values.encode('utf-8')).hexdigest()
+    values = "".join(str(row[field]) for field in fields if field in row)
+    return hashlib.md5(values.encode("utf-8")).hexdigest()
 
 
-def analyze_cross_groups(df: pd.DataFrame, primary_group_field: str,
-                         secondary_identifier_fields: List[str],
-                         min_group_size: int = 2,
-                         handle_nulls: str = 'exclude',
-                         threshold: float = 0.8) -> Dict[str, Any]:
+def analyze_cross_groups(
+    df: pd.DataFrame,
+    primary_group_field: str,
+    secondary_identifier_fields: List[str],
+    min_group_size: int = 2,
+    handle_nulls: str = "exclude",
+    threshold: float = 0.8,
+) -> Dict[str, Any]:
     """
     Analyze relationships between different group identifiers.
 
@@ -215,22 +234,25 @@ def analyze_cross_groups(df: pd.DataFrame, primary_group_field: str,
     """
     # Check for required fields
     if primary_group_field not in df.columns:
-        return {'error': f"Primary group field {primary_group_field} not found in DataFrame"}
+        return {
+            "error": f"Primary group field {primary_group_field} not found in DataFrame"
+        }
 
     for field in secondary_identifier_fields:
         if field not in df.columns:
-            return {'error': f"Secondary identifier field {field} not found in DataFrame"}
+            return {
+                "error": f"Secondary identifier field {field} not found in DataFrame"
+            }
 
     # Create secondary identifier hash
     df = df.copy()  # Avoid modifying the original DataFrame
-    df['secondary_id_hash'] = df.apply(
-        lambda row: create_identifier_hash(row, secondary_identifier_fields),
-        axis=1
+    df["secondary_id_hash"] = df.apply(
+        lambda row: create_identifier_hash(row, secondary_identifier_fields), axis=1
     )
 
     # Filter out rows with missing hash values if requested
-    if handle_nulls == 'exclude':
-        df_filtered = df.dropna(subset=['secondary_id_hash'])
+    if handle_nulls == "exclude":
+        df_filtered = df.dropna(subset=["secondary_id_hash"])
     else:
         df_filtered = df.copy()
 
@@ -238,16 +260,18 @@ def analyze_cross_groups(df: pd.DataFrame, primary_group_field: str,
     primary_groups = df_filtered.groupby(primary_group_field)
 
     # Filter by minimum group size
-    primary_groups_filtered = [group for name, group in primary_groups if len(group) >= min_group_size]
+    primary_groups_filtered = [
+        group for name, group in primary_groups if len(group) >= min_group_size
+    ]
 
     # Analyze cross-group relationships
     cross_group_data = []
 
     # Count unique secondary IDs
-    secondary_id_count = df_filtered['secondary_id_hash'].nunique()
+    secondary_id_count = df_filtered["secondary_id_hash"].nunique()
 
     # Group by secondary ID
-    secondary_groups = df_filtered.groupby('secondary_id_hash')
+    secondary_groups = df_filtered.groupby("secondary_id_hash")
 
     # Identify cross-group relationships
     for sec_id, sec_group in secondary_groups:
@@ -258,31 +282,38 @@ def analyze_cross_groups(df: pd.DataFrame, primary_group_field: str,
 
         if len(primary_ids) > 1:
             # This secondary ID spans multiple primary groups
-            cross_group_data.append({
-                'secondary_id': sec_id,
-                'count': len(sec_group),
-                'primary_ids': primary_ids.tolist(),
-                'primary_ids_count': len(primary_ids),
-                'fields_used': secondary_identifier_fields,
-                'confidence': 1.0 if not pd.isna(sec_id) else 0.0
-            })
+            cross_group_data.append(
+                {
+                    "secondary_id": sec_id,
+                    "count": len(sec_group),
+                    "primary_ids": primary_ids.tolist(),
+                    "primary_ids_count": len(primary_ids),
+                    "fields_used": secondary_identifier_fields,
+                    "confidence": 1.0 if not pd.isna(sec_id) else 0.0,
+                }
+            )
 
     # Prepare result
     result = {
-        'primary_group_field': primary_group_field,
-        'secondary_identifier_fields': secondary_identifier_fields,
-        'total_records': len(df),
-        'valid_secondary_ids': secondary_id_count,
-        'cross_group_count': len(cross_group_data),
-        'cross_group_details': cross_group_data,
-        'cross_group_percentage': round((len(cross_group_data) / secondary_id_count) * 100,
-                                        2) if secondary_id_count > 0 else 0
+        "primary_group_field": primary_group_field,
+        "secondary_identifier_fields": secondary_identifier_fields,
+        "total_records": len(df),
+        "valid_secondary_ids": secondary_id_count,
+        "cross_group_count": len(cross_group_data),
+        "cross_group_details": cross_group_data,
+        "cross_group_percentage": (
+            round((len(cross_group_data) / secondary_id_count) * 100, 2)
+            if secondary_id_count > 0
+            else 0
+        ),
     }
 
     return result
 
 
-def extract_group_metadata(group: pd.DataFrame, metadata_fields: List[str]) -> Dict[str, Any]:
+def extract_group_metadata(
+    group: pd.DataFrame, metadata_fields: List[str]
+) -> Dict[str, Any]:
     """
     Extract metadata about a group based on specified fields.
 
@@ -298,22 +329,24 @@ def extract_group_metadata(group: pd.DataFrame, metadata_fields: List[str]) -> D
     Dict[str, Any]
         Dictionary with group metadata
     """
-    metadata = {
-        'group_size': len(group)
-    }
+    metadata = {"group_size": len(group)}
 
     for field in metadata_fields:
         if field in group.columns:
             metadata[f"{field}_unique_count"] = group[field].nunique(dropna=False)
-            metadata[f"{field}_most_common"] = group[field].value_counts(dropna=False).index[0] if len(
-                group) > 0 else None
+            metadata[f"{field}_most_common"] = (
+                group[field].value_counts(dropna=False).index[0]
+                if len(group) > 0
+                else None
+            )
             metadata[f"{field}_null_count"] = group[field].isna().sum()
 
     return metadata
 
 
-def analyze_collapsibility(variation_results: List[Dict[str, Any]],
-                           threshold: float = 0.2) -> Dict[str, Any]:
+def analyze_collapsibility(
+    variation_results: List[Dict[str, Any]], threshold: float = 0.2
+) -> Dict[str, Any]:
     """
     Analyze potential for collapsing records within groups.
 
@@ -334,32 +367,40 @@ def analyze_collapsibility(variation_results: List[Dict[str, Any]],
     total_records = 0
 
     for result in variation_results:
-        group_id = result.get('group_id')
-        variation = result.get('variation', 1.0)
-        size = result.get('size', 0)
+        group_id = result.get("group_id")
+        variation = result.get("variation", 1.0)
+        size = result.get("size", 0)
 
         total_records += size
 
         if variation <= threshold:
-            collapsible_groups.append({
-                'group_id': group_id,
-                'variation': variation,
-                'size': size,
-                'field_variations': result.get('field_variations', {})
-            })
+            collapsible_groups.append(
+                {
+                    "group_id": group_id,
+                    "variation": variation,
+                    "size": size,
+                    "field_variations": result.get("field_variations", {}),
+                }
+            )
             collapsible_records += size
 
     return {
-        'threshold': threshold,
-        'collapsible_groups_count': len(collapsible_groups),
-        'total_groups_count': len(variation_results),
-        'collapsible_groups_percentage': round((len(collapsible_groups) / len(variation_results)) * 100,
-                                               2) if variation_results else 0,
-        'collapsible_records_count': collapsible_records,
-        'total_records_count': total_records,
-        'collapsible_records_percentage': round((collapsible_records / total_records) * 100,
-                                                2) if total_records > 0 else 0,
-        'collapsible_groups': collapsible_groups
+        "threshold": threshold,
+        "collapsible_groups_count": len(collapsible_groups),
+        "total_groups_count": len(variation_results),
+        "collapsible_groups_percentage": (
+            round((len(collapsible_groups) / len(variation_results)) * 100, 2)
+            if variation_results
+            else 0
+        ),
+        "collapsible_records_count": collapsible_records,
+        "total_records_count": total_records,
+        "collapsible_records_percentage": (
+            round((collapsible_records / total_records) * 100, 2)
+            if total_records > 0
+            else 0
+        ),
+        "collapsible_groups": collapsible_groups,
     }
 
 
@@ -381,7 +422,7 @@ def identify_change_patterns(variation_results: List[Dict[str, Any]]) -> Dict[st
     all_field_variations = {}
 
     for result in variation_results:
-        field_variations = result.get('field_variations', {})
+        field_variations = result.get("field_variations", {})
 
         for field, variation in field_variations.items():
             if field not in all_field_variations:
@@ -399,13 +440,13 @@ def identify_change_patterns(variation_results: List[Dict[str, Any]]) -> Dict[st
         variations_array = np.array(variations)
 
         field_stats[field] = {
-            'min': float(np.min(variations_array)),
-            'max': float(np.max(variations_array)),
-            'mean': float(np.mean(variations_array)),
-            'median': float(np.median(variations_array)),
-            'std': float(np.std(variations_array)),
-            'low_variation_percentage': float(np.mean(variations_array <= 0.2) * 100),
-            'high_variation_percentage': float(np.mean(variations_array >= 0.8) * 100)
+            "min": float(np.min(variations_array)),
+            "max": float(np.max(variations_array)),
+            "mean": float(np.mean(variations_array)),
+            "median": float(np.median(variations_array)),
+            "std": float(np.std(variations_array)),
+            "low_variation_percentage": float(np.mean(variations_array <= 0.2) * 100),
+            "high_variation_percentage": float(np.mean(variations_array >= 0.8) * 100),
         }
 
     # Identify correlated field changes
@@ -420,20 +461,21 @@ def identify_change_patterns(variation_results: List[Dict[str, Any]]) -> Dict[st
                 continue
 
             # Calculate correlation
-            corr = np.corrcoef(all_field_variations[field1], all_field_variations[field2])[0, 1]
+            corr = np.corrcoef(
+                all_field_variations[field1], all_field_variations[field2]
+            )[0, 1]
 
             # Store significant correlations
             if abs(corr) > 0.5:
                 key = f"{field1}_{field2}"
                 correlation_matrix[key] = float(corr)
 
-    return {
-        'field_statistics': field_stats,
-        'field_correlations': correlation_matrix
-    }
+    return {"field_statistics": field_stats, "field_correlations": correlation_matrix}
 
 
-def calculate_variation_distribution(variations: List[float], bins: int = 10) -> Dict[str, int]:
+def calculate_variation_distribution(
+    variations: List[float], bins: int = 10
+) -> Dict[str, int]:
     """
     Calculate distribution of variation values.
 
@@ -465,12 +507,14 @@ def calculate_variation_distribution(variations: List[float], bins: int = 10) ->
     return distribution
 
 
-def analyze_group_in_chunks(df: pd.DataFrame,
-                            group_field: str,
-                            fields_weights: Dict[str, float],
-                            chunk_size: int = 50000,
-                            min_group_size: int = 2,
-                            handle_nulls: str = 'as_value') -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def analyze_group_in_chunks(
+    df: pd.DataFrame,
+    group_field: str,
+    fields_weights: Dict[str, float],
+    chunk_size: int = 50000,
+    min_group_size: int = 2,
+    handle_nulls: str = "as_value",
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Analyze groups in chunks for large datasets.
 
@@ -500,7 +544,9 @@ def analyze_group_in_chunks(df: pd.DataFrame,
     total_rows = len(df)
     chunk_count = (total_rows + chunk_size - 1) // chunk_size
 
-    logger.info(f"Processing {total_rows} rows in {chunk_count} chunks, chunk size: {chunk_size}")
+    logger.info(
+        f"Processing {total_rows} rows in {chunk_count} chunks, chunk size: {chunk_size}"
+    )
 
     # Store results for all chunks
     all_results = []
@@ -538,24 +584,25 @@ def analyze_group_in_chunks(df: pd.DataFrame,
 
         # Calculate variation
         variation = calculate_weighted_variation(
-            combined_group,
-            fields_weights,
-            handle_nulls
+            combined_group, fields_weights, handle_nulls
         )
 
         # Calculate field variations
         field_variations = {
             field: calculate_field_variation(combined_group, field, handle_nulls)
-            for field in fields_weights if field in combined_group.columns
+            for field in fields_weights
+            if field in combined_group.columns
         }
 
         # Add result
-        all_results.append({
-            'group_id': group_id,
-            'size': size,
-            'variation': variation,
-            'field_variations': field_variations
-        })
+        all_results.append(
+            {
+                "group_id": group_id,
+                "size": size,
+                "variation": variation,
+                "field_variations": field_variations,
+            }
+        )
 
         # Clean up to save memory
         del combined_group
@@ -568,24 +615,26 @@ def analyze_group_in_chunks(df: pd.DataFrame,
     analyzed_groups = len(all_results)
 
     overall_stats = {
-        'total_groups': total_groups,
-        'analyzed_groups': analyzed_groups,
-        'min_group_size': min_group_size
+        "total_groups": total_groups,
+        "analyzed_groups": analyzed_groups,
+        "min_group_size": min_group_size,
     }
 
     if analyzed_groups > 0:
-        variations = [r['variation'] for r in all_results]
-        overall_stats['overall_stats'] = {
-            'min_variation': min(variations),
-            'max_variation': max(variations),
-            'mean_variation': sum(variations) / len(variations),
-            'median_variation': sorted(variations)[len(variations) // 2]
+        variations = [r["variation"] for r in all_results]
+        overall_stats["overall_stats"] = {
+            "min_variation": min(variations),
+            "max_variation": max(variations),
+            "mean_variation": sum(variations) / len(variations),
+            "median_variation": sorted(variations)[len(variations) // 2],
         }
 
     return all_results, overall_stats
 
 
-def estimate_resources(df: pd.DataFrame, group_field: str, fields_weights: Dict[str, float]) -> Dict[str, Any]:
+def estimate_resources(
+    df: pd.DataFrame, group_field: str, fields_weights: Dict[str, float]
+) -> Dict[str, Any]:
     """
     Estimate resources needed for group analysis.
 
@@ -642,29 +691,32 @@ def estimate_resources(df: pd.DataFrame, group_field: str, fields_weights: Dict[
         recommended_chunk_size = min(100000, max(10000, row_count // 10))
 
         return {
-            'estimated_memory_mb': estimated_memory_mb,
-            'estimated_time_seconds': estimated_time_seconds,
-            'group_count': group_count,
-            'avg_group_size': avg_group_size,
-            'field_count': field_count,
-            'recommended_chunk_size': recommended_chunk_size,
-            'use_chunks_recommended': row_count > 100000 or group_count > 10000
+            "estimated_memory_mb": estimated_memory_mb,
+            "estimated_time_seconds": estimated_time_seconds,
+            "group_count": group_count,
+            "avg_group_size": avg_group_size,
+            "field_count": field_count,
+            "recommended_chunk_size": recommended_chunk_size,
+            "use_chunks_recommended": row_count > 100000 or group_count > 10000,
         }
     else:
         # Field not found
         return {
-            'estimated_memory_mb': 10,
-            'estimated_time_seconds': 1,
-            'error': f"Group field {group_field} not found in DataFrame"
+            "estimated_memory_mb": 10,
+            "estimated_time_seconds": 1,
+            "error": f"Group field {group_field} not found in DataFrame",
         }
 
-def calculate_field_variance(field_series: pd.Series,
-                            text_length_threshold: int,
-                            hash_algorithm: str,
-                            use_minhash: bool,
-                            minhash_similarity_threshold: float,
-                            minhash_cache: Dict[str, Any],
-                            logger: logging.Logger) -> Tuple[float, float]:
+
+def calculate_field_variance(
+    field_series: pd.Series,
+    text_length_threshold: int,
+    hash_algorithm: str,
+    use_minhash: bool,
+    minhash_similarity_threshold: float,
+    minhash_cache: Dict[str, Any],
+    logger: logging.Logger,
+) -> Tuple[float, float]:
     """
     Calculate the variance and duplication ratio for a single field.
 
@@ -703,7 +755,7 @@ def calculate_field_variance(field_series: pd.Series,
         use_minhash=use_minhash,
         minhash_similarity_threshold=minhash_similarity_threshold,
         minhash_cache=minhash_cache,
-        logger=logger
+        logger=logger,
     )
     unique_count = len(unique_values)
 
@@ -717,13 +769,16 @@ def calculate_field_variance(field_series: pd.Series,
 
     return float(variance), float(duplication_ratio)
 
-def get_unique_values_improved(field_series: pd.Series,
-                                text_length_threshold: int,
-                                hash_algorithm: str,
-                                use_minhash: bool,
-                                minhash_similarity_threshold: float,
-                                minhash_cache: Dict[str, Any],
-                                logger: logging.Logger) -> Tuple[Set[Any], Dict[Any, int]]:
+
+def get_unique_values_improved(
+    field_series: pd.Series,
+    text_length_threshold: int,
+    hash_algorithm: str,
+    use_minhash: bool,
+    minhash_similarity_threshold: float,
+    minhash_cache: Dict[str, Any],
+    logger: logging.Logger,
+) -> Tuple[Set[Any], Dict[Any, int]]:
     """
     Get unique values from a field series, handling text and NULL values.
     Improved version with better categorical data handling.
@@ -772,10 +827,13 @@ def get_unique_values_improved(field_series: pd.Series,
                         try:
                             # Dynamically import minhash module when needed
                             from pamola_core.utils.nlp.minhash import compute_minhash
+
                             _compute_minhash = compute_minhash
                             _minhash_imported = True
                         except ImportError:
-                            logger.warning("MinHash library not available, falling back to MD5")
+                            logger.warning(
+                                "MinHash library not available, falling back to MD5"
+                            )
                             use_minhash = False
                             _minhash_imported = False
                             _compute_minhash = lambda _: []
@@ -787,14 +845,16 @@ def get_unique_values_improved(field_series: pd.Series,
 
                         # Use the first 8 elements of the signature as the key
                         signature = minhash_cache[text]
-                        signature_str = str(signature[:8])  # Convert to string for consistent keys
+                        signature_str = str(
+                            signature[:8]
+                        )  # Convert to string for consistent keys
                         key = signature_str
                     else:
                         # Fallback to MD5 if MinHash is not available
-                        key = hashlib.md5(text.encode('utf-8')).hexdigest()
+                        key = hashlib.md5(text.encode("utf-8")).hexdigest()
                 else:
                     # Use MD5 for exact matching of long texts
-                    key = hashlib.md5(text.encode('utf-8')).hexdigest()
+                    key = hashlib.md5(text.encode("utf-8")).hexdigest()
             else:
                 # Use the text directly for short strings
                 key = text
@@ -808,7 +868,9 @@ def get_unique_values_improved(field_series: pd.Series,
 
     # For MinHash, we could cluster similar signatures here if needed
     if use_minhash and _minhash_imported:
-        minhash_keys = [k for k in counts.keys() if isinstance(k, str) and k.startswith('[')]
+        minhash_keys = [
+            k for k in counts.keys() if isinstance(k, str) and k.startswith("[")
+        ]
 
         if len(minhash_keys) > 1:
             # Group similar signatures
@@ -834,8 +896,10 @@ def get_unique_values_improved(field_series: pd.Series,
 
     return unique_keys, counts
 
-def cluster_minhash_signatures_from_keys(signature_keys: List[str], 
-                                        minhash_similarity_threshold: float) -> List[List[str]]:
+
+def cluster_minhash_signatures_from_keys(
+    signature_keys: List[str], minhash_similarity_threshold: float
+) -> List[List[str]]:
     """
     Cluster similar MinHash signature keys.
 
@@ -859,10 +923,10 @@ def cluster_minhash_signatures_from_keys(signature_keys: List[str],
     for key in signature_keys:
         try:
             # Extract numbers from string representation like '[1, 2, 3, 4]'
-            nums = key.strip('[]').split(',')
+            nums = key.strip("[]").split(",")
             sig = [int(n.strip()) for n in nums if n.strip()]
             parsed_signatures.append((key, sig))
-        except (ValueError, AttributeError):
+        except (ValidationError, ValueError, AttributeError):
             # Skip keys that can't be parsed as signatures
             continue
 
@@ -880,7 +944,7 @@ def cluster_minhash_signatures_from_keys(signature_keys: List[str],
         processed.add(key1)
 
         # Compare with all other signatures
-        for key2, sig2 in parsed_signatures[i + 1:]:
+        for key2, sig2 in parsed_signatures[i + 1 :]:
             if key2 in processed:
                 continue
 
@@ -896,6 +960,7 @@ def cluster_minhash_signatures_from_keys(signature_keys: List[str],
         clusters.append(cluster)
 
     return clusters
+
 
 def calculate_simple_jaccard(sig1: List[int], sig2: List[int]) -> float:
     """
@@ -927,8 +992,10 @@ def calculate_simple_jaccard(sig1: List[int], sig2: List[int]) -> float:
 
     return intersection / union if union > 0 else 0.0
 
-def calculate_weighted_variance(field_variances: Dict[str, float], 
-                                fields_config: Dict[str, int]) -> float:
+
+def calculate_weighted_variance(
+    field_variances: Dict[str, float], fields_config: Dict[str, int]
+) -> float:
     """
     Calculate weighted variance across all fields.
 
@@ -954,11 +1021,14 @@ def calculate_weighted_variance(field_variances: Dict[str, float],
 
     return weighted_sum / total_weight if total_weight > 0 else 0
 
-def should_aggregate(weighted_variance: float, 
-                    group_size: int,
-                    variance_threshold: float,
-                    large_group_threshold: int,
-                    large_group_variance_threshold: float) -> bool:
+
+def should_aggregate(
+    weighted_variance: float,
+    group_size: int,
+    variance_threshold: float,
+    large_group_threshold: int,
+    large_group_variance_threshold: float,
+) -> bool:
     """
     Determine if a group should be aggregated based on variance and size.
 
@@ -986,8 +1056,10 @@ def should_aggregate(weighted_variance: float,
     else:
         return weighted_variance <= variance_threshold
 
-def calculate_field_metrics(group_metrics: Dict[str, Dict[str, Any]], 
-                            fields: List[str]) -> Dict[str, Dict[str, float]]:
+
+def calculate_field_metrics(
+    group_metrics: Dict[str, Dict[str, Any]], fields: List[str]
+) -> Dict[str, Dict[str, float]]:
     """
     Calculate metrics for each field across all groups.
 
@@ -1011,7 +1083,7 @@ def calculate_field_metrics(group_metrics: Dict[str, Dict[str, Any]],
             "avg_variance": 0,
             "max_variance": 0,
             "avg_duplication_ratio": 0,
-            "unique_values_total": 0
+            "unique_values_total": 0,
         }
 
         # Collect variances and duplication ratios for this field
@@ -1028,126 +1100,147 @@ def calculate_field_metrics(group_metrics: Dict[str, Dict[str, Any]],
 
                 # Estimate unique values from duplication ratio: total_records / duplication_ratio
                 if group_data["duplication_ratios"][field] > 0:
-                    unique_values_count += group_data["total_records"] / group_data["duplication_ratios"][field]
+                    unique_values_count += (
+                        group_data["total_records"]
+                        / group_data["duplication_ratios"][field]
+                    )
 
         # Calculate average and max values
-        field_metrics[field]["avg_variance"] = float(np.mean(variances)) if variances else 0
-        field_metrics[field]["max_variance"] = float(np.max(variances)) if variances else 0
-        field_metrics[field]["avg_duplication_ratio"] = float(
-            np.mean(duplication_ratios)) if duplication_ratios else 0
+        field_metrics[field]["avg_variance"] = (
+            float(np.mean(variances)) if variances else 0
+        )
+        field_metrics[field]["max_variance"] = (
+            float(np.max(variances)) if variances else 0
+        )
+        field_metrics[field]["avg_duplication_ratio"] = (
+            float(np.mean(duplication_ratios)) if duplication_ratios else 0
+        )
         field_metrics[field]["unique_values_total"] = int(unique_values_count)
 
     return field_metrics
 
-def analyze_group(group_df: pd.DataFrame,
-                  fields: List[str],
-                  fields_config: Dict[str, int],
-                  text_length_threshold: int,
-                  hash_algorithm: str,
-                  use_minhash: bool,
-                  minhash_similarity_threshold: float,
-                  minhash_cache: Dict[str, Any],
-                  large_group_threshold: int,
-                  large_group_variance_threshold: float,
-                  variance_threshold: float) -> Dict[str, Any]:
-        """
-        Analyze a single group of records.
 
-        Parameters:
-        -----------
-        group_df : pd.DataFrame
-            DataFrame containing records for a single group.
-        fields : List[str]
-            List of field names to analyze.
-        fields_config : Dict[str, int]
-            Dictionary mapping field names to their weights for weighted variance calculation.
-        text_length_threshold : int
-            Threshold for text length to determine when to use hashing or MinHash.
-        hash_algorithm : str
-            Hash algorithm to use for text fields (e.g., 'md5').
-        use_minhash : bool
-            Whether to use MinHash for long text fields.
-        minhash_similarity_threshold : float
-            Similarity threshold for clustering MinHash signatures.
-        minhash_cache : Dict[str, Any]
-            Cache for MinHash signatures to avoid recomputation.
-        large_group_threshold : int
-            Size above which a group is considered "large" for aggregation logic.
-        large_group_variance_threshold : float
-            Variance threshold for large groups.
-        variance_threshold : float
-            Variance threshold for normal groups.
+def analyze_group(
+    group_df: pd.DataFrame,
+    fields: List[str],
+    fields_config: Dict[str, int],
+    text_length_threshold: int,
+    hash_algorithm: str,
+    use_minhash: bool,
+    minhash_similarity_threshold: float,
+    minhash_cache: Dict[str, Any],
+    large_group_threshold: int,
+    large_group_variance_threshold: float,
+    variance_threshold: float,
+) -> Dict[str, Any]:
+    """
+    Analyze a single group of records.
 
-        Returns:
-        --------
-        Dict[str, Any]
-            Dictionary with group metrics
-        """
-        # Initialize metrics
-        field_variances = {}
-        duplication_ratios = {}
+    Parameters:
+    -----------
+    group_df : pd.DataFrame
+        DataFrame containing records for a single group.
+    fields : List[str]
+        List of field names to analyze.
+    fields_config : Dict[str, int]
+        Dictionary mapping field names to their weights for weighted variance calculation.
+    text_length_threshold : int
+        Threshold for text length to determine when to use hashing or MinHash.
+    hash_algorithm : str
+        Hash algorithm to use for text fields (e.g., 'md5').
+    use_minhash : bool
+        Whether to use MinHash for long text fields.
+    minhash_similarity_threshold : float
+        Similarity threshold for clustering MinHash signatures.
+    minhash_cache : Dict[str, Any]
+        Cache for MinHash signatures to avoid recomputation.
+    large_group_threshold : int
+        Size above which a group is considered "large" for aggregation logic.
+    large_group_variance_threshold : float
+        Variance threshold for large groups.
+    variance_threshold : float
+        Variance threshold for normal groups.
 
-        # Calculate variance and duplication ratio for each field
-        for field in fields:
-            # Calculate variance for this field
-            variance, duplications = calculate_field_variance(group_df[field],
-                                                              text_length_threshold,
-                                                              hash_algorithm,
-                                                              use_minhash,
-                                                              minhash_similarity_threshold,
-                                                              minhash_cache,
-                                                              logger)
+    Returns:
+    --------
+    Dict[str, Any]
+        Dictionary with group metrics
+    """
+    # Initialize metrics
+    field_variances = {}
+    duplication_ratios = {}
 
-            field_variances[field] = variance
-            duplication_ratios[field] = duplications
+    # Calculate variance and duplication ratio for each field
+    for field in fields:
+        # Calculate variance for this field
+        variance, duplications = calculate_field_variance(
+            group_df[field],
+            text_length_threshold,
+            hash_algorithm,
+            use_minhash,
+            minhash_similarity_threshold,
+            minhash_cache,
+            logger,
+        )
 
-        # Calculate weighted variance
-        weighted_variance = calculate_weighted_variance(field_variances, fields_config)
+        field_variances[field] = variance
+        duplication_ratios[field] = duplications
 
-        # Determine if this group should be aggregated
-        should_aggregate = is_group_aggregatable(weighted_variance, len(group_df),
-                                            large_group_threshold, large_group_variance_threshold,variance_threshold)
+    # Calculate weighted variance
+    weighted_variance = calculate_weighted_variance(field_variances, fields_config)
 
-        # Get max field variance
-        max_field_variance = max(field_variances.values()) if field_variances else 0
+    # Determine if this group should be aggregated
+    should_aggregate = is_group_aggregatable(
+        weighted_variance,
+        len(group_df),
+        large_group_threshold,
+        large_group_variance_threshold,
+        variance_threshold,
+    )
 
-        return {
-            "weighted_variance": weighted_variance,
-            "max_field_variance": max_field_variance,
-            "total_records": len(group_df),
-            "field_variances": field_variances,
-            "duplication_ratios": duplication_ratios,
-            "should_aggregate": should_aggregate
-        }
+    # Get max field variance
+    max_field_variance = max(field_variances.values()) if field_variances else 0
 
-def is_group_aggregatable(weighted_variance: float,
-                     group_size: int,
-                     large_group_threshold: int,
-                     large_group_variance_threshold: float,
-                     variance_threshold: float) -> bool:
-        """
-        Determine if a group should be aggregated based on variance and size.
+    return {
+        "weighted_variance": weighted_variance,
+        "max_field_variance": max_field_variance,
+        "total_records": len(group_df),
+        "field_variances": field_variances,
+        "duplication_ratios": duplication_ratios,
+        "should_aggregate": should_aggregate,
+    }
 
-        Parameters:
-        -----------
-        weighted_variance : float
-            Weighted variance of the group
-        group_size : int
-            Number of records in the group
-        variance_threshold : float
-            Variance threshold for normal groups
-        large_group_threshold : int
-            Threshold for large group size
-        large_group_variance_threshold : float
-            Variance threshold for large groups
 
-        Returns:
-        --------
-        bool
-            True if the group should be aggregated, False otherwise
-        """
-        # Apply different thresholds based on group size
-        if group_size > large_group_threshold:
-            return weighted_variance <= large_group_variance_threshold
-        else:
-            return weighted_variance <= variance_threshold
+def is_group_aggregatable(
+    weighted_variance: float,
+    group_size: int,
+    large_group_threshold: int,
+    large_group_variance_threshold: float,
+    variance_threshold: float,
+) -> bool:
+    """
+    Determine if a group should be aggregated based on variance and size.
+
+    Parameters:
+    -----------
+    weighted_variance : float
+        Weighted variance of the group
+    group_size : int
+        Number of records in the group
+    variance_threshold : float
+        Variance threshold for normal groups
+    large_group_threshold : int
+        Threshold for large group size
+    large_group_variance_threshold : float
+        Variance threshold for large groups
+
+    Returns:
+    --------
+    bool
+        True if the group should be aggregated, False otherwise
+    """
+    # Apply different thresholds based on group size
+    if group_size > large_group_threshold:
+        return weighted_variance <= large_group_variance_threshold
+    else:
+        return weighted_variance <= variance_threshold

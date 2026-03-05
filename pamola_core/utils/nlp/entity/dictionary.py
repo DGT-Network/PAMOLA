@@ -9,14 +9,14 @@ specialized extractors provided in the package.
 import logging
 from typing import Optional
 
-from pamola_core.utils.nlp.entity.base import BaseEntityExtractor, EntityMatchResult
-from pamola_core.utils.nlp.model_manager import NLPModelManager
+from pamola_core.utils.nlp.entity.base import (
+    BaseEntityExtractor,
+    EntityMatchResult,
+)
+from pamola_core.utils.nlp.model_manager import nlp_model_manager
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-# NLP model manager instance
-nlp_model_manager = NLPModelManager()
 
 
 class GenericDictionaryExtractor(BaseEntityExtractor):

@@ -71,9 +71,7 @@ from pamola_core.anonymization.commons.statistical_utils import (
 )
 
 # Import validation utilities
-from pamola_core.anonymization.commons.validation import (
-    InvalidParameterError,
-)
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 
 # Import framework utilities
 from pamola_core.anonymization.commons.validation_utils import validate_numeric_field
@@ -341,7 +339,7 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         round_to_integer = getattr(self, "round_to_integer", False)
 
         if len(values) != len(noise):
-            raise ValueError("Length of values and noise must match.")
+            raise ValidationError("Length of values and noise must match.")
 
         # Handle noise type
         if noise_type == "additive":
@@ -349,7 +347,11 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         elif noise_type == "multiplicative":
             noisy_values = values * (1 + noise)
         else:
-            raise ValueError(f"Unknown noise type: {noise_type}")
+            raise InvalidParameterError(
+                param_name="noise_type",
+                param_value=noise_type,
+                reason=f"Unknown noise type: {noise_type}",
+            )
 
         # Apply bounds if specified
         if output_min is not None:
@@ -397,7 +399,7 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         if not validate_numeric_field(
             batch, field_name, allow_null=(null_strategy != "ERROR")
         ):
-            raise ValueError(
+            raise ValidationError(
                 f"Field '{field_name}' is not numeric or validation failed"
             )
 

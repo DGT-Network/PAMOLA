@@ -23,6 +23,7 @@ from pamola_core.common.helpers.data_helper import DataHelper
 from pamola_core.common.regex.patterns import CommonPatterns
 from pamola_core.utils.io_helpers.dask_utils import get_computed_df
 from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.errors.exceptions import FieldNotFoundError, ValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -163,7 +164,10 @@ def prepare_date_data(
     """
     # Check if field exists
     if field_name not in df.columns:
-        raise ValueError(f"Field {field_name} not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=field_name,
+            available_fields=list(df.columns),
+        )
 
     # Default common date formats to try
     date_formats = date_formats or Constants.COMMON_DATE_FORMATS
@@ -178,7 +182,7 @@ def prepare_date_data(
         try:
             dates = convert_to_datetime_flexible(field_data, date_formats, is_dask=True)
         except Exception as e:
-            raise ValueError(
+            raise ValidationError(
                 f"Field '{field_name}' cannot be converted to datetime with any attempted format: {e}"
             )
 
@@ -197,7 +201,7 @@ def prepare_date_data(
                 field_data, date_formats, is_dask=False
             )
         except Exception as e:
-            raise ValueError(
+            raise ValidationError(
                 f"Field '{field_name}' cannot be converted to datetime with any attempted format: {e}"
             )
 

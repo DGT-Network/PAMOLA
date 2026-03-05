@@ -23,7 +23,10 @@
 
 import pandas as pd
 from typing import Any
-from .base import data_read, data_write
+from pamola_core.io.base import (
+    data_read,
+    data_write,
+)
 
 class DataExcel:
     def __init__(self): ...

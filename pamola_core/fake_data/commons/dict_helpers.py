@@ -11,13 +11,18 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Tuple, Set, BinaryIO, TextIO
 import chardet
 import pandas as pd
-from pamola_core.utils import io, logging
+import pamola_core.utils.io as io
+import pamola_core.utils.logging as pamola_logging
 
 # Import embedded dictionaries
-from pamola_core.fake_data.dictionaries import names, domains, phones, addresses, organizations
+import pamola_core.fake_data.dictionaries.names as names
+import pamola_core.fake_data.dictionaries.domains as domains
+import pamola_core.fake_data.dictionaries.phones as phones
+import pamola_core.fake_data.dictionaries.addresses as addresses
+import pamola_core.fake_data.dictionaries.organizations as organizations
 
 # Configure logger
-logger = logging.get_logger("pamola_core.fake_data.commons.dict_helpers")
+logger = pamola_logging.getLogger(__name__)
 
 # Dictionary cache for performance
 _dictionary_cache = {}

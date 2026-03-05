@@ -7,8 +7,8 @@ Created: 2025-05-10
 Author: PAMOLA Core Team
 
 Description:
-This template provides a structure for creating tasks that support checkpoints and resumable 
-execution for processing large datasets or long-running operations. It demonstrates how to use 
+This template provides a structure for creating tasks that support checkpoints and resumable
+execution for processing large datasets or long-running operations. It demonstrates how to use
 the context_manager for creating checkpoints and recovering from interruptions.
 
 Usage:
@@ -33,8 +33,7 @@ from typing import Dict, Any, Optional, List, Union
 
 # Import PAMOLA Core modules
 from pamola_core.utils.tasks.base_task import BaseTask
-from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_result import OperationResult
+from pamola_core.errors.exceptions import ValidationError
 
 
 class CheckpointTask(BaseTask):
@@ -56,19 +55,16 @@ class CheckpointTask(BaseTask):
             task_id="t_2C_checkpoint_task",  # Replace with your task ID
             task_type="batch_processing",  # Replace with appropriate type
             description="Checkpoint-enabled task for processing large datasets",
-
             # Define your input datasets
             input_datasets={
                 "large_dataset": "DATA/raw/large_dataset.csv",
                 # Add more datasets if needed
             },
-
             # Optional: Add reference datasets
             auxiliary_datasets={
                 # "reference_data": "DATA/dictionaries/reference.csv",
             },
-
-            version="1.0.0"
+            version="1.0.0",
         )
 
         # Additional checkpoint-specific attributes
@@ -97,16 +93,24 @@ class CheckpointTask(BaseTask):
         # Log checkpoint status if resuming from checkpoint
         checkpoint_status = self.get_checkpoint_status()
         if checkpoint_status["resuming_from_checkpoint"]:
-            self.logger.info(f"Resuming from checkpoint: {checkpoint_status['checkpoint_name']}")
-            self.logger.info(f"Last completed operation index: {checkpoint_status['operation_index']}")
+            self.logger.info(
+                f"Resuming from checkpoint: {checkpoint_status['checkpoint_name']}"
+            )
+            self.logger.info(
+                f"Last completed operation index: {checkpoint_status['operation_index']}"
+            )
 
             # Load custom state if available
             if checkpoint_status["has_restored_state"]:
                 restored_state = self.context_manager._restored_state
-                if 'custom_state' in restored_state:
-                    custom_state = restored_state['custom_state']
-                    self._total_batches_processed = custom_state.get('batches_processed', 0)
-                    self.logger.info(f"Restored {self._total_batches_processed} previously processed batches")
+                if "custom_state" in restored_state:
+                    custom_state = restored_state["custom_state"]
+                    self._total_batches_processed = custom_state.get(
+                        "batches_processed", 0
+                    )
+                    self.logger.info(
+                        f"Restored {self._total_batches_processed} previously processed batches"
+                    )
         else:
             self.logger.info("Starting new task execution (no checkpoint found)")
 
@@ -115,15 +119,19 @@ class CheckpointTask(BaseTask):
             try:
                 self._batch_size = int(args["batch_size"])
                 self.logger.info(f"Using batch size: {self._batch_size}")
-            except (ValueError, TypeError):
-                self.logger.warning(f"Invalid batch size: {args['batch_size']}, using default: {self._batch_size}")
+            except (ValidationError, ValueError, TypeError):
+                self.logger.warning(
+                    f"Invalid batch size: {args['batch_size']}, using default: {self._batch_size}"
+                )
 
         # Apply any checkpoint frequency override from arguments
         if args and "checkpoint_frequency" in args:
             try:
                 self._checkpoint_frequency = int(args["checkpoint_frequency"])
-                self.logger.info(f"Creating checkpoints every {self._checkpoint_frequency} batches")
-            except (ValueError, TypeError):
+                self.logger.info(
+                    f"Creating checkpoints every {self._checkpoint_frequency} batches"
+                )
+            except (ValidationError, ValueError, TypeError):
                 self.logger.warning(
                     f"Invalid checkpoint frequency: {args['checkpoint_frequency']}, "
                     f"using default: {self._checkpoint_frequency}"
@@ -147,7 +155,7 @@ class CheckpointTask(BaseTask):
             dataset_name="large_dataset",
             validate_schema=True,
             detect_encoding=True,
-            output_prefix="validated_data"
+            output_prefix="validated_data",
         )
 
         # Operation 2: Batch processing operation
@@ -160,10 +168,10 @@ class CheckpointTask(BaseTask):
             processing_steps=[
                 {"type": "clean", "params": {"remove_nulls": True}},
                 {"type": "transform", "params": {"fields": ["column1", "column2"]}},
-                {"type": "validate", "params": {"rules": ["rule1", "rule2"]}}
+                {"type": "validate", "params": {"rules": ["rule1", "rule2"]}},
             ],
             output_file="processed_data.csv",
-            create_summary=True
+            create_summary=True,
         )
 
         # Operation 3: Aggregation operation
@@ -172,10 +180,8 @@ class CheckpointTask(BaseTask):
             "AggregationOperation",
             input_file="processed_data.csv",  # Uses output from previous operation
             group_by_fields=["region", "category"],
-            aggregate_fields=[
-                {"field": "value", "functions": ["sum", "avg", "count"]}
-            ],
-            output_file="aggregated_data.csv"
+            aggregate_fields=[{"field": "value", "functions": ["sum", "avg", "count"]}],
+            output_file="aggregated_data.csv",
         )
 
         # Operation 4: Report generation
@@ -185,10 +191,12 @@ class CheckpointTask(BaseTask):
             input_files=["processed_data.csv", "aggregated_data.csv"],
             report_type="comprehensive",
             include_visualizations=True,
-            output_prefix="final_report"
+            output_prefix="final_report",
         )
 
-        self.logger.info(f"Configured {len(self.operations)} checkpoint-enabled operations")
+        self.logger.info(
+            f"Configured {len(self.operations)} checkpoint-enabled operations"
+        )
 
     def execute(self) -> bool:
         """
@@ -203,7 +211,9 @@ class CheckpointTask(BaseTask):
         # Start or resume execution based on checkpoint status
         checkpoint_status = self.get_checkpoint_status()
         if checkpoint_status["resuming_from_checkpoint"]:
-            self.logger.info(f"Resuming execution from operation {checkpoint_status['operation_index'] + 1}")
+            self.logger.info(
+                f"Resuming execution from operation {checkpoint_status['operation_index'] + 1}"
+            )
         else:
             self.logger.info("Starting execution from the beginning")
 
@@ -227,27 +237,41 @@ class CheckpointTask(BaseTask):
         """
         try:
             # Get current state from context manager
-            current_state = self.context_manager.get_current_state().copy() if self.context_manager else {}
+            current_state = (
+                self.context_manager.get_current_state().copy()
+                if self.context_manager
+                else {}
+            )
 
             # Add custom state information
-            if 'custom_state' not in current_state:
-                current_state['custom_state'] = {}
+            if "custom_state" not in current_state:
+                current_state["custom_state"] = {}
 
             # Update custom state with task-specific information
-            current_state['custom_state'].update({
-                'batches_processed': self._total_batches_processed,
-                'last_checkpoint_time': datetime.now().isoformat() if not self._last_checkpoint_time else self._last_checkpoint_time,
-                'checkpoint_name': name
-            })
+            current_state["custom_state"].update(
+                {
+                    "batches_processed": self._total_batches_processed,
+                    "last_checkpoint_time": (
+                        datetime.now().isoformat()
+                        if not self._last_checkpoint_time
+                        else self._last_checkpoint_time
+                    ),
+                    "checkpoint_name": name,
+                }
+            )
 
             # Save the checkpoint
             if self.context_manager:
                 checkpoint_name = f"custom_{name}_{self.task_id}"
-                self.context_manager.save_execution_state(current_state, checkpoint_name)
+                self.context_manager.save_execution_state(
+                    current_state, checkpoint_name
+                )
                 self._last_checkpoint_time = datetime.now().isoformat()
                 self.logger.info(f"Created custom checkpoint: {checkpoint_name}")
             else:
-                self.logger.warning("Context manager not available, skipping checkpoint creation")
+                self.logger.warning(
+                    "Context manager not available, skipping checkpoint creation"
+                )
 
         except Exception as e:
             self.logger.error(f"Error creating custom checkpoint: {str(e)}")
@@ -269,7 +293,9 @@ class CheckpointTask(BaseTask):
         if self._total_batches_processed % self._checkpoint_frequency == 0:
             checkpoint_name = f"batch_{self._total_batches_processed}"
             self._create_custom_checkpoint(checkpoint_name)
-            self.logger.info(f"Created checkpoint after processing {self._total_batches_processed} batches")
+            self.logger.info(
+                f"Created checkpoint after processing {self._total_batches_processed} batches"
+            )
 
     def process_batch(self, batch_data: Any, batch_index: int) -> Dict[str, Any]:
         """
@@ -294,8 +320,10 @@ class CheckpointTask(BaseTask):
         # This is just a placeholder for the actual processing logic
         batch_result = {
             "batch_index": batch_index,
-            "records_processed": len(batch_data) if hasattr(batch_data, "__len__") else 0,
-            "processing_time": 0.0
+            "records_processed": (
+                len(batch_data) if hasattr(batch_data, "__len__") else 0
+            ),
+            "processing_time": 0.0,
         }
 
         # Simulate some processing time
@@ -332,7 +360,7 @@ class CheckpointTask(BaseTask):
             checkpoint_metrics = {
                 "total_batches_processed": self._total_batches_processed,
                 "checkpoint_frequency": self._checkpoint_frequency,
-                "resumable": True
+                "resumable": True,
             }
             self.reporter.add_metric("checkpoint_info", checkpoint_metrics)
 
@@ -340,7 +368,9 @@ class CheckpointTask(BaseTask):
         if success and self.context_manager:
             try:
                 # Keep only the final checkpoint
-                removed_count = self.context_manager.cleanup_old_checkpoints(max_checkpoints=1)
+                removed_count = self.context_manager.cleanup_old_checkpoints(
+                    max_checkpoints=1
+                )
                 self.logger.info(f"Cleaned up {removed_count} intermediate checkpoints")
             except Exception as e:
                 self.logger.warning(f"Error cleaning up checkpoints: {str(e)}")
@@ -355,18 +385,37 @@ def parse_arguments():
 
     # Standard task arguments
     parser.add_argument("--data_repository", help="Path to data repository")
-    parser.add_argument("--log_level", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-                        default="INFO", help="Log level")
-    parser.add_argument("--continue_on_error", action="store_true",
-                        help="Continue execution if an operation fails")
+    parser.add_argument(
+        "--log_level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Log level",
+    )
+    parser.add_argument(
+        "--continue_on_error",
+        action="store_true",
+        help="Continue execution if an operation fails",
+    )
 
     # Checkpoint-specific arguments
-    parser.add_argument("--batch_size", type=int, default=10000,
-                        help="Number of records to process in each batch")
-    parser.add_argument("--checkpoint_frequency", type=int, default=5,
-                        help="Create checkpoint every N batches")
-    parser.add_argument("--resume_from_checkpoint", choices=["auto", "none", "latest"],
-                        default="auto", help="Checkpoint resumption mode")
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=10000,
+        help="Number of records to process in each batch",
+    )
+    parser.add_argument(
+        "--checkpoint_frequency",
+        type=int,
+        default=5,
+        help="Create checkpoint every N batches",
+    )
+    parser.add_argument(
+        "--resume_from_checkpoint",
+        choices=["auto", "none", "latest"],
+        default="auto",
+        help="Checkpoint resumption mode",
+    )
 
     return parser.parse_args()
 
@@ -387,7 +436,9 @@ def main():
 
     # Handle task completion
     if success:
-        print(f"Task completed successfully. Report saved to: {task.reporter.report_path}")
+        print(
+            f"Task completed successfully. Report saved to: {task.reporter.report_path}"
+        )
         sys.exit(0)
     else:
         print(f"Task failed: {task.error_info}")

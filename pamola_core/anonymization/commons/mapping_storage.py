@@ -48,16 +48,11 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
-
+from pamola_core.errors.exceptions import MappingStorageError, InvalidParameterError
 from pamola_core.utils.crypto_helpers.pseudonymization import MappingEncryption
 
 # Configure module logger
 logger = logging.getLogger(__name__)
-
-
-class MappingStorageError(Exception):
-    """Base exception for mapping storage errors."""
-    pass
 
 
 class MappingStorage:
@@ -77,12 +72,14 @@ class MappingStorage:
         All public methods are thread-safe and can be called concurrently.
     """
 
-    def __init__(self,
-                 mapping_file: Path,
-                 encryption_key: bytes,
-                 format: str = "csv",
-                 backup_on_update: bool = True,
-                 create_if_missing: bool = True):
+    def __init__(
+        self,
+        mapping_file: Path,
+        encryption_key: bytes,
+        format: str = "csv",
+        backup_on_update: bool = True,
+        create_if_missing: bool = True,
+    ):
         """
         Initialize mapping storage.
 
@@ -99,7 +96,11 @@ class MappingStorage:
         """
         # Validate format
         if format not in ["csv", "json"]:
-            raise ValueError(f"Invalid format: {format}. Must be 'csv' or 'json'")
+            raise InvalidParameterError(
+                param_name="format",
+                param_value=format,
+                reason="must be 'csv' or 'json'",
+            )
 
         # Initialize attributes
         self.mapping_file = Path(mapping_file)
@@ -146,7 +147,7 @@ class MappingStorage:
 
             try:
                 # Read encrypted file
-                with open(self.mapping_file, 'rb') as f:
+                with open(self.mapping_file, "rb") as f:
                     encrypted_data = f.read()
 
                 # Handle empty file
@@ -198,22 +199,24 @@ class MappingStorage:
                 encrypted_data = self._encryptor.encrypt(plaintext)
 
                 # Atomic write
-                temp_path = self.mapping_file.with_suffix('.tmp')
+                temp_path = self.mapping_file.with_suffix(".tmp")
                 try:
                     # Write to temporary file
-                    with open(temp_path, 'wb') as f:
+                    with open(temp_path, "wb") as f:
                         f.write(encrypted_data)
                         f.flush()
                         os.fsync(f.fileno())
 
                     # Set secure permissions (owner read/write only)
-                    if os.name != 'nt':  # Unix-like systems
+                    if os.name != "nt":  # Unix-like systems
                         os.chmod(temp_path, 0o600)
 
                     # Atomic rename
                     temp_path.replace(self.mapping_file)
 
-                    self.logger.debug(f"Saved {len(mapping)} mappings to {self.mapping_file}")
+                    self.logger.debug(
+                        f"Saved {len(mapping)} mappings to {self.mapping_file}"
+                    )
 
                 except Exception as e:
                     # Clean up temporary file on error
@@ -246,11 +249,9 @@ class MappingStorage:
                 conflicts = []
                 for key, value in new_mappings.items():
                     if key in existing and existing[key] != value:
-                        conflicts.append({
-                            "key": key,
-                            "existing": existing[key],
-                            "new": value
-                        })
+                        conflicts.append(
+                            {"key": key, "existing": existing[key], "new": value}
+                        )
 
                 if conflicts:
                     self.logger.warning(
@@ -274,13 +275,13 @@ class MappingStorage:
         try:
             # Generate backup filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = self.mapping_file.with_suffix(f'.bak.{timestamp}')
+            backup_path = self.mapping_file.with_suffix(f".bak.{timestamp}")
 
             # Copy file
             shutil.copy2(self.mapping_file, backup_path)
 
             # Set secure permissions on backup
-            if os.name != 'nt':  # Unix-like systems
+            if os.name != "nt":  # Unix-like systems
                 os.chmod(backup_path, 0o600)
 
             self.logger.info(f"Created backup: {backup_path}")
@@ -315,7 +316,7 @@ class MappingStorage:
         """Parse CSV format mapping data."""
         try:
             # Decode bytes to string
-            text = data.decode('utf-8')
+            text = data.decode("utf-8")
 
             # Parse CSV
             reader = csv.DictReader(io.StringIO(text))
@@ -323,8 +324,8 @@ class MappingStorage:
             # Build mapping dictionary
             mapping = {}
             for row in reader:
-                if 'original' in row and 'pseudonym' in row:
-                    mapping[row['original']] = row['pseudonym']
+                if "original" in row and "pseudonym" in row:
+                    mapping[row["original"]] = row["pseudonym"]
                 else:
                     self.logger.warning(f"Invalid CSV row: {row}")
 
@@ -337,14 +338,14 @@ class MappingStorage:
         """Parse JSON format mapping data."""
         try:
             # Decode and parse JSON
-            text = data.decode('utf-8')
+            text = data.decode("utf-8")
             parsed = json.loads(text)
 
             # Handle both direct mapping and metadata format
             if isinstance(parsed, dict):
-                if '_metadata' in parsed and 'mappings' in parsed:
+                if "_metadata" in parsed and "mappings" in parsed:
                     # Metadata format
-                    return parsed['mappings']
+                    return parsed["mappings"]
                 else:
                     # Direct mapping format
                     return parsed
@@ -360,16 +361,13 @@ class MappingStorage:
         """Serialize mapping to CSV format."""
         try:
             output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=['original', 'pseudonym'])
+            writer = csv.DictWriter(output, fieldnames=["original", "pseudonym"])
             writer.writeheader()
 
             for original, pseudonym in sorted(mapping.items()):
-                writer.writerow({
-                    'original': original,
-                    'pseudonym': pseudonym
-                })
+                writer.writerow({"original": original, "pseudonym": pseudonym})
 
-            return output.getvalue().encode('utf-8')
+            return output.getvalue().encode("utf-8")
 
         except Exception as e:
             raise MappingStorageError(f"Failed to serialize CSV: {e}")
@@ -379,17 +377,17 @@ class MappingStorage:
         try:
             # Include metadata for better tracking
             data = {
-                '_metadata': {
-                    'version': '1.0',
-                    'created': datetime.now().isoformat(),
-                    'count': len(mapping),
-                    'format': 'json'
+                "_metadata": {
+                    "version": "1.0",
+                    "created": datetime.now().isoformat(),
+                    "count": len(mapping),
+                    "format": "json",
                 },
-                'mappings': mapping
+                "mappings": mapping,
             }
 
             # Serialize with sorted keys for consistency
-            return json.dumps(data, indent=2, sort_keys=True).encode('utf-8')
+            return json.dumps(data, indent=2, sort_keys=True).encode("utf-8")
 
         except Exception as e:
             raise MappingStorageError(f"Failed to serialize JSON: {e}")
@@ -409,17 +407,19 @@ class MappingStorage:
         metadata = {
             "exists": self.mapping_file.exists(),
             "format": self.format,
-            "path": str(self.mapping_file)
+            "path": str(self.mapping_file),
         }
 
         if metadata["exists"]:
             try:
                 stat = self.mapping_file.stat()
-                metadata.update({
-                    "size_bytes": stat.st_size,
-                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "created": datetime.fromtimestamp(stat.st_ctime).isoformat()
-                })
+                metadata.update(
+                    {
+                        "size_bytes": stat.st_size,
+                        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "created": datetime.fromtimestamp(stat.st_ctime).isoformat(),
+                    }
+                )
 
                 # Optionally load to get count (expensive)
                 # Commented out to avoid unnecessary decryption
@@ -450,7 +450,7 @@ class MappingStorage:
             "duplicate_values": [],
             "empty_keys": 0,
             "empty_values": 0,
-            "total_mappings": len(mapping)
+            "total_mappings": len(mapping),
         }
 
         # Check for empty keys/values
@@ -473,15 +473,3 @@ class MappingStorage:
                 reverse_mapping[pseudonym] = original
 
         return validation
-
-
-# Module metadata
-__version__ = "1.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Define explicit exports
-__all__ = [
-    'MappingStorage',
-    'MappingStorageError'
-]

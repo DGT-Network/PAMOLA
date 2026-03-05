@@ -9,46 +9,70 @@ import glob
 import json
 import logging
 import os
+import threading
 from typing import List, Set, Optional, Union, Tuple, Dict
 import zipfile
 
 from pamola_core.utils.nlp.base import normalize_language_code
-from pamola_core.utils.nlp.cache import get_cache, cache_function
+from pamola_core.utils.nlp.cache import (
+    get_cache,
+    cache_function,
+)
 from pamola_core.utils.nlp.compatibility import check_dependency
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
-# Get file cache from the cache module
-file_cache = get_cache('file')
-memory_cache = get_cache('memory')
+def _get_file_cache():
+    return get_cache("file")
 
-# Optional NLTK integration
-_NLTK_AVAILABLE = check_dependency('nltk')
-if _NLTK_AVAILABLE:
+
+def _get_memory_cache():
+    return get_cache("memory")
+
+
+_NLTK_AVAILABLE: Optional[bool] = None
+_NLTK_STOPWORDS = None
+_NLTK_LOCK = threading.Lock()
+
+
+def _ensure_nltk() -> None:
+    global _NLTK_AVAILABLE, _NLTK_STOPWORDS
+    if _NLTK_AVAILABLE is not None:
+        return
+    with _NLTK_LOCK:
+        if _NLTK_AVAILABLE is not None:
+            return
+        if not check_dependency("nltk"):
+            _NLTK_AVAILABLE = False
+            return
+        try:
+            import nltk
+            from nltk.corpus import stopwords as nltk_stopwords
+
+            _NLTK_STOPWORDS = nltk_stopwords
+            _NLTK_AVAILABLE = True
+        except Exception as e:
+            logger.warning(f"Error initializing NLTK: {e}")
+            _NLTK_AVAILABLE = False
+
+
+def _ensure_nltk_resources() -> None:
+    """Ensure NLTK stopwords resource is available and not corrupted."""
+    if not _NLTK_AVAILABLE:
+        return
     try:
         import nltk
-        from nltk.corpus import stopwords as nltk_stopwords
 
-
-        def _ensure_nltk_resources():
-            """Ensure NLTK stopwords resource is available and not corrupted."""
-            try:
-                try:
-                    nltk.data.find('corpora/stopwords')
-                    logger.debug("NLTK stopwords corpus found and valid.")
-                except (LookupError, zipfile.BadZipFile):
-                    logger.info("Downloading or re-downloading NLTK 'stopwords'...")
-                    nltk.download('stopwords', quiet=True, force=True)
-                    logger.info("NLTK 'stopwords' downloaded successfully.")
-            except Exception as e:
-                logger.warning(f"Error ensuring NLTK stopwords: {e}")
-
-
-        _ensure_nltk_resources()
+        try:
+            nltk.data.find("corpora/stopwords")
+            logger.debug("NLTK stopwords corpus found and valid.")
+        except (LookupError, zipfile.BadZipFile):
+            logger.info("Downloading or re-downloading NLTK 'stopwords'...")
+            nltk.download("stopwords", quiet=True, force=True)
+            logger.info("NLTK 'stopwords' downloaded successfully.")
     except Exception as e:
-        logger.warning(f"Error initializing NLTK: {e}")
-        _NLTK_AVAILABLE = False
+        logger.warning(f"Error ensuring NLTK stopwords: {e}")
 
 
 def get_config_paths() -> Dict[str, str]:
@@ -62,7 +86,7 @@ def get_config_paths() -> Dict[str, str]:
     """
     # Cache the result to avoid repeated file operations
     cache_key = "pamola_config_paths"
-    cached_paths = memory_cache.get(cache_key)
+    cached_paths = _get_memory_cache().get(cache_key)
     if cached_paths:
         return cached_paths
 
@@ -92,7 +116,7 @@ def get_config_paths() -> Dict[str, str]:
             logger.warning(f"Error loading project config: {e}")
 
     # Cache the paths
-    memory_cache.set(cache_key, paths)
+    _get_memory_cache().set(cache_key, paths)
     return paths
 
 
@@ -157,7 +181,7 @@ def load_stopwords_from_file(file_path: str, encoding: str = 'utf-8') -> Set[str
     try:
         # Use file cache if available
         cache_key = f"stopwords_file:{file_path}:{encoding}"
-        cached_data = file_cache.get(cache_key)
+        cached_data = _get_file_cache().get(cache_key)
         if cached_data is not None:
             return cached_data
 
@@ -188,7 +212,7 @@ def load_stopwords_from_file(file_path: str, encoding: str = 'utf-8') -> Set[str
                 result = set(line.lower().strip() for line in f if line.strip())
 
         # Cache the result
-        file_cache.set(cache_key, result, file_path=file_path)
+        _get_file_cache().set(cache_key, result, file_path=file_path)
         return result
 
     except Exception as e:
@@ -284,8 +308,10 @@ def get_nltk_stopwords(languages: List[str]) -> Set[str]:
     Set[str]
         Set of stopwords
     """
-    if not _NLTK_AVAILABLE:
+    _ensure_nltk()
+    if not _NLTK_AVAILABLE or _NLTK_STOPWORDS is None:
         return set()
+    _ensure_nltk_resources()
 
     stop_words = set()
 
@@ -311,7 +337,7 @@ def get_nltk_stopwords(languages: List[str]) -> Set[str]:
         nltk_lang = lang_map.get(lang.lower(), lang.lower())
 
         try:
-            lang_stopwords = set(nltk_stopwords.words(nltk_lang))
+            lang_stopwords = set(_NLTK_STOPWORDS.words(nltk_lang))
             stop_words.update(lang_stopwords)
             logger.debug(f"Loaded {len(lang_stopwords)} NLTK stopwords for language '{lang}'")
         except Exception as e:
@@ -422,8 +448,10 @@ def get_stopwords(
                 combined_stopwords.update(load_stopwords_from_file(file_path))
 
     # 2. Include NLTK stopwords if requested and available
-    if use_nltk and _NLTK_AVAILABLE:
-        combined_stopwords.update(get_nltk_stopwords(languages))
+    if use_nltk:
+        _ensure_nltk()
+        if _NLTK_AVAILABLE:
+            combined_stopwords.update(get_nltk_stopwords(languages))
 
     # 3. Include custom sources if provided
     if custom_sources:
@@ -612,21 +640,13 @@ def setup_nltk():
     bool
         True if all resources are available, False otherwise
     """
+    _ensure_nltk()
     if not _NLTK_AVAILABLE:
         logger.warning("NLTK is not available. Install it using: pip install nltk")
         return False
 
     try:
-        import nltk
-        resources = ['stopwords']
-
-        for resource in resources:
-            try:
-                nltk.data.find(f'corpora/{resource}')
-            except LookupError:
-                logger.info(f"Downloading NLTK resource: {resource}")
-                nltk.download(resource, quiet=True)
-
+        _ensure_nltk_resources()
         return True
     except Exception as e:
         logger.error(f"Error setting up NLTK resources: {e}")
@@ -669,11 +689,10 @@ def list_available_stopwords() -> Dict[str, List[str]]:
                 result["external"].append(os.path.basename(file_path))
 
     # Check NLTK resources
-    if _NLTK_AVAILABLE:
+    _ensure_nltk()
+    if _NLTK_AVAILABLE and _NLTK_STOPWORDS is not None:
         try:
-            import nltk
-            from nltk.corpus import stopwords as nltk_stopwords
-            result["nltk"] = nltk_stopwords.fileids()
+            result["nltk"] = _NLTK_STOPWORDS.fileids()
         except Exception as e:
             logger.debug(f"Error getting NLTK stopwords: {e}")
 

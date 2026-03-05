@@ -22,13 +22,13 @@ For details, see the LICENSE file or visit:
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-
 from pathlib import Path
 from typing import Dict, List, Union, Optional
 
 import dask.dataframe as dd
 import pandas as pd
 import numpy as np
+from pamola_core.errors.exceptions import ValidationError
 
 # Define type variables for better type hints
 PathLike = Union[str, Path]
@@ -46,11 +46,11 @@ class CryptoConfig:
     key_path: Optional[PathLike] = None
 
     def __init__(
-            self,
-            mode: Optional[str] = None,
-            algorithm: Optional[str] = None,
-            key: Optional[str] = None,
-            key_path: Optional[PathLike] = None
+        self,
+        mode: Optional[str] = None,
+        algorithm: Optional[str] = None,
+        key: Optional[str] = None,
+        key_path: Optional[PathLike] = None,
     ):
         """Initialize the configuration."""
         self.mode = mode
@@ -61,27 +61,20 @@ class CryptoConfig:
         # Validate the configuration
         self._validate()
 
-    def __repr__(
-            self
-    ):
+    def __repr__(self):
         return f"CryptoConfig(mode={self.mode}, algorithm={self.algorithm}, key={self.key}, key_path={self.key_path})"
 
-    def to_dict(
-            self
-    ) -> Dict:
+    def to_dict(self) -> Dict:
         """Convert the instance to a dictionary."""
         return {
             "mode": self.mode,
             "algorithm": self.algorithm,
             "key": self.key,
-            "key_path": str(self.key_path) if self.key_path else None
+            "key_path": str(self.key_path) if self.key_path else None,
         }
 
     @classmethod
-    def from_dict(
-            cls,
-            data: Optional[dict] = None
-    ) -> 'CryptoConfig':
+    def from_dict(cls, data: Optional[dict] = None) -> "CryptoConfig":
         """Create an instance from a dictionary."""
         if data is None:
             data = {}
@@ -90,21 +83,27 @@ class CryptoConfig:
             mode=data.get("mode", cls.mode),
             algorithm=data.get("algorithm", cls.algorithm),
             key=data.get("key", cls.key),
-            key_path=data.get("key_path", cls.key_path)
+            key_path=data.get("key_path", cls.key_path),
         )
 
-    def _validate(
-            self
-    ):
+    def _validate(self):
         """Validate the configuration."""
         allowed_modes = []
         allowed_algorithms = []
 
         if allowed_modes and self.mode and self.mode not in allowed_modes:
-            raise ValueError(f"Invalid mode: {self.mode}. Allowed modes are {allowed_modes}")
+            raise ValidationError(
+                f"Invalid mode: {self.mode}. Allowed modes are {allowed_modes}"
+            )
 
-        if allowed_algorithms and self.algorithm and self.algorithm not in allowed_algorithms:
-            raise ValueError(f"Invalid algorithm: {self.algorithm}. Allowed algorithms are {allowed_algorithms}")
+        if (
+            allowed_algorithms
+            and self.algorithm
+            and self.algorithm not in allowed_algorithms
+        ):
+            raise ValidationError(
+                f"Invalid algorithm: {self.algorithm}. Allowed algorithms are {allowed_algorithms}"
+            )
 
 
 class FileCryptoConfig:
@@ -115,57 +114,51 @@ class FileCryptoConfig:
     crypto_config: Optional[CryptoConfig] = None
 
     def __init__(
-            self,
-            file_paths: Optional[PathLikeOrList] = None,
-            crypto_config: Optional[CryptoConfig] = None
+        self,
+        file_paths: Optional[PathLikeOrList] = None,
+        crypto_config: Optional[CryptoConfig] = None,
     ):
         """Initialize the configuration."""
         self.file_paths = file_paths
         self.crypto_config = crypto_config
 
-    def __repr__(
-            self
-    ):
+    def __repr__(self):
         return f"FileCryptoConfig(file_paths={self.file_paths}, crypto_config={self.crypto_config})"
 
-    def to_dict(
-            self
-    ) -> Dict:
+    def to_dict(self) -> Dict:
         """Convert the instance to a dictionary."""
         file_paths = None
         if self.file_paths and isinstance(self.file_paths, list):
-            file_paths = [str(file_path) if file_path else None for file_path in self.file_paths]
+            file_paths = [
+                str(file_path) if file_path else None for file_path in self.file_paths
+            ]
         else:
             file_paths = str(self.file_paths) if self.file_paths else None
 
         return {
             "file_paths": file_paths,
-            "crypto_config": self.crypto_config.to_dict()  # Convert the nested CryptoConfig to a dictionary
+            "crypto_config": self.crypto_config.to_dict(),  # Convert the nested CryptoConfig to a dictionary
         }
 
     @classmethod
-    def from_dict(
-            cls,
-            data: Optional[dict] = None
-    ) -> 'FileCryptoConfig':
+    def from_dict(cls, data: Optional[dict] = None) -> "FileCryptoConfig":
         """Create an instance from a dictionary."""
         if data is None:
             data = {}
 
         # Convert the nested dictionary back to CryptoConfig
-        crypto_config = CryptoConfig.from_dict(data=data.get("crypto_config", cls.crypto_config))
+        crypto_config = CryptoConfig.from_dict(
+            data=data.get("crypto_config", cls.crypto_config)
+        )
 
         return cls(
             file_paths=data.get("file_paths", cls.file_paths),
-            crypto_config=crypto_config
+            crypto_config=crypto_config,
         )
 
 
 def convert_to_flatten_dict(
-        data: dict,
-        prefix: str = "",
-        separator: str = "_",
-        append_key: bool = True
+    data: dict, prefix: str = "", separator: str = "_", append_key: bool = True
 ) -> dict:
     """Function to flatten a plain dictionary"""
     flat_dict = {}
@@ -181,7 +174,7 @@ def convert_to_flatten_dict(
                     data=value,
                     prefix=f"{new_key}{separator}" if append_key else "",
                     separator=separator,
-                    append_key=append_key
+                    append_key=append_key,
                 )
             )
         else:

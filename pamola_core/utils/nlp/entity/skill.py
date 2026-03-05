@@ -8,16 +8,16 @@ and competencies from text, with special focus on technical and professional ski
 import logging
 from typing import List, Optional, Tuple
 
-from pamola_core.utils.nlp.entity.base import BaseEntityExtractor, EntityMatchResult
-from pamola_core.utils.nlp.model_manager import NLPModelManager
+from pamola_core.utils.nlp.entity.base import (
+    BaseEntityExtractor,
+    EntityMatchResult,
+)
+from pamola_core.utils.nlp.model_manager import nlp_model_manager
 from pamola_core.utils.nlp.tokenization import tokenize
 from pamola_core.utils.nlp.stopwords import remove_stopwords
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-# NLP model manager instance
-nlp_model_manager = NLPModelManager()
 
 
 class SkillExtractor(BaseEntityExtractor):

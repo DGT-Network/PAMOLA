@@ -12,14 +12,14 @@ from typing import Dict, List, Any, Optional
 from pamola_core.utils.nlp.cache import cache_function
 from pamola_core.utils.nlp.entity import (
     create_entity_extractor,
-    extract_entities as entity_extract_entities
+    extract_entities as entity_extract_entities,
 )
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 
-@cache_function(ttl=3600, cache_type='memory')
+@cache_function(ttl=3600, cache_type="memory")
 def extract_entities(
     texts: List[str],
     entity_type: str = "generic",
@@ -29,7 +29,7 @@ def extract_entities(
     use_ner: bool = True,
     record_ids: Optional[List[str]] = None,
     show_progress: bool = False,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     High-level function to extract entities from texts.
@@ -72,7 +72,7 @@ def extract_entities(
         use_ner=use_ner,
         record_ids=record_ids,
         show_progress=show_progress,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -82,7 +82,7 @@ def extract_job_positions(
     dictionary_path: Optional[str] = None,
     use_ner: bool = True,
     seniority_detection: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract job positions from texts.
@@ -114,7 +114,7 @@ def extract_job_positions(
         dictionary_path=dictionary_path,
         use_ner=use_ner,
         seniority_detection=seniority_detection,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -124,7 +124,7 @@ def extract_organizations(
     dictionary_path: Optional[str] = None,
     organization_type: str = "any",
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract organization names from texts.
@@ -156,7 +156,7 @@ def extract_organizations(
         dictionary_path=dictionary_path,
         use_ner=use_ner,
         organization_type=organization_type,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -165,7 +165,7 @@ def extract_universities(
     language: str = "auto",
     dictionary_path: Optional[str] = None,
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract university and educational institution names from texts.
@@ -195,7 +195,7 @@ def extract_universities(
         dictionary_path=dictionary_path,
         use_ner=use_ner,
         organization_type="university",
-        **kwargs
+        **kwargs,
     )
 
 
@@ -205,7 +205,7 @@ def extract_skills(
     dictionary_path: Optional[str] = None,
     skill_type: str = "technical",
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract skills from texts.
@@ -237,7 +237,7 @@ def extract_skills(
         dictionary_path=dictionary_path,
         use_ner=use_ner,
         skill_type=skill_type,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -246,7 +246,7 @@ def extract_transaction_purposes(
     language: str = "auto",
     dictionary_path: Optional[str] = None,
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """
     Extract transaction purposes from texts.
@@ -275,7 +275,7 @@ def extract_transaction_purposes(
         language=language,
         dictionary_path=dictionary_path,
         use_ner=use_ner,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -285,7 +285,7 @@ def create_custom_entity_extractor(
     dictionary_path: Optional[str] = None,
     match_strategy: str = "specific_first",
     use_ner: bool = True,
-    **kwargs
+    **kwargs,
 ) -> Any:
     """
     Create a custom entity extractor for a specific use case.
@@ -316,5 +316,5 @@ def create_custom_entity_extractor(
         dictionary_path=dictionary_path,
         match_strategy=match_strategy,
         use_ner=use_ner,
-        **kwargs
+        **kwargs,
     )

@@ -1251,11 +1251,12 @@ class TextCache(MemoryCache[str]):
         super().clear()
 
 
-# Global cache instances
-_memory_cache = MemoryCache()  # Default memory cache
-_file_cache = FileCache()  # File-based cache for resources
-_model_cache = ModelCache()  # Specialized model cache
-_text_cache = TextCache()  # Specialized text cache with canonicalization
+# Global cache instances (lazy initialization to avoid import-time side effects)
+_memory_cache: Optional[MemoryCache] = None
+_file_cache: Optional[FileCache] = None
+_model_cache: Optional[ModelCache] = None
+_text_cache: Optional[TextCache] = None
+_cache_init_lock = threading.Lock()
 
 
 def get_cache(cache_type: str = "memory") -> CacheBase:
@@ -1272,14 +1273,24 @@ def get_cache(cache_type: str = "memory") -> CacheBase:
     CacheBase
         Cache instance
     """
-    if cache_type == "file":
-        return _file_cache
-    elif cache_type == "model":
-        return _model_cache
-    elif cache_type == "text":
-        return _text_cache
-    else:
-        return _memory_cache
+    global _memory_cache, _file_cache, _model_cache, _text_cache
+    with _cache_init_lock:
+        if cache_type == "file":
+            if _file_cache is None:
+                _file_cache = FileCache()
+            return _file_cache
+        elif cache_type == "model":
+            if _model_cache is None:
+                _model_cache = ModelCache()
+            return _model_cache
+        elif cache_type == "text":
+            if _text_cache is None:
+                _text_cache = TextCache()
+            return _text_cache
+        else:
+            if _memory_cache is None:
+                _memory_cache = MemoryCache()
+            return _memory_cache
 
 
 def cache_function(ttl: int = DEFAULT_CACHE_TTL, cache_type: str = "memory"):
@@ -1300,9 +1311,8 @@ def cache_function(ttl: int = DEFAULT_CACHE_TTL, cache_type: str = "memory"):
     """
 
     def decorator(func):
-        cache = get_cache(cache_type)
-
         def wrapper(*args, **kwargs):
+            cache = get_cache(cache_type)
             if not CACHE_ENABLED:
                 return func(*args, **kwargs)
 

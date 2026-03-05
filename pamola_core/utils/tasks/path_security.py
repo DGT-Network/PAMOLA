@@ -17,20 +17,17 @@ import platform
 from pathlib import Path
 from typing import Union, List, Optional, Tuple
 
+from pamola_core.errors.exceptions import PathSecurityError
+
 # Set up logger
 logger = logging.getLogger(__name__)
 
 
-class PathSecurityError(Exception):
-    """Exception raised for path security violations."""
-    pass
-
-
 def validate_path_security(
-        path: Union[str, Path],
-        allowed_paths: Optional[List[Union[str, Path]]] = None,
-        allow_external: bool = False,
-        strict_mode: bool = True
+    path: Union[str, Path],
+    allowed_paths: Optional[List[Union[str, Path]]] = None,
+    allow_external: bool = False,
+    strict_mode: bool = True,
 ) -> bool:
     """
     Validate that a path is safe to use.
@@ -63,13 +60,15 @@ def validate_path_security(
         "$",  # Variable substitution
         "`",  # Command substitution
         "\\x",  # Hex escape
-        "\\u"  # Unicode escape
+        "\\u",  # Unicode escape
     ]
 
     # Check for path traversal patterns
     for pattern in dangerous_patterns:
         if pattern in path_str:
-            error_msg = f"Potentially unsafe path detected: {path_str} (contains '{pattern}')"
+            error_msg = (
+                f"Potentially unsafe path detected: {path_str} (contains '{pattern}')"
+            )
             logger.warning(error_msg)
             if strict_mode:
                 raise PathSecurityError(error_msg)
@@ -83,7 +82,9 @@ def validate_path_security(
         # Check against system paths
         for sys_path in system_paths:
             if path_str.startswith(sys_path):
-                error_msg = f"Potentially unsafe path detected: {path_str} (system directory)"
+                error_msg = (
+                    f"Potentially unsafe path detected: {path_str} (system directory)"
+                )
                 logger.warning(error_msg)
                 if strict_mode:
                     raise PathSecurityError(error_msg)
@@ -107,7 +108,9 @@ def validate_path_security(
             # If the real path is different and not permitted, raise an error
             if real_path != path_obj and not allow_external and allowed_paths:
                 if not is_within_allowed_paths(real_path, allowed_paths):
-                    error_msg = f"Path contains symbolic link to external location: {real_path}"
+                    error_msg = (
+                        f"Path contains symbolic link to external location: {real_path}"
+                    )
                     logger.warning(error_msg)
                     if strict_mode:
                         raise PathSecurityError(error_msg)
@@ -123,10 +126,7 @@ def validate_path_security(
     return True
 
 
-def is_within_allowed_paths(
-        path: Path,
-        allowed_paths: List[Union[str, Path]]
-) -> bool:
+def is_within_allowed_paths(path: Path, allowed_paths: List[Union[str, Path]]) -> bool:
     """
     Check if a path is within any of the allowed paths.
 
@@ -148,7 +148,9 @@ def is_within_allowed_paths(
     for allowed_path in allowed_paths:
         try:
             # Convert to Path if string
-            allowed_path_obj = Path(allowed_path) if isinstance(allowed_path, str) else allowed_path
+            allowed_path_obj = (
+                Path(allowed_path) if isinstance(allowed_path, str) else allowed_path
+            )
 
             # Normalize the allowed path
             normalized_allowed = str(allowed_path_obj.resolve())
@@ -207,15 +209,21 @@ def get_system_specific_dangerous_paths() -> List[str]:
         # For other systems, provide a basic set
         logger.warning(f"Unknown system: {system}, using default protected paths")
         return [
-            "/bin", "/sbin", "/etc", "/dev", "/sys", "/proc",  # Unix-like
-            "C:\\Windows", "C:\\Program Files"  # Windows
+            "/bin",
+            "/sbin",
+            "/etc",
+            "/dev",
+            "/sys",
+            "/proc",  # Unix-like
+            "C:\\Windows",
+            "C:\\Program Files",  # Windows
         ]
 
 
 def validate_paths(
-        paths: List[Union[str, Path]],
-        allowed_paths: Optional[List[Union[str, Path]]] = None,
-        allow_external: bool = False
+    paths: List[Union[str, Path]],
+    allowed_paths: Optional[List[Union[str, Path]]] = None,
+    allow_external: bool = False,
 ) -> Tuple[bool, List[str]]:
     """
     Validate multiple paths at once.
@@ -235,10 +243,10 @@ def validate_paths(
     for path in paths:
         try:
             if not validate_path_security(
-                    path,
-                    allowed_paths=allowed_paths,
-                    allow_external=allow_external,
-                    strict_mode=False
+                path,
+                allowed_paths=allowed_paths,
+                allow_external=allow_external,
+                strict_mode=False,
             ):
                 errors.append(f"Invalid path: {path}")
         except Exception as e:
@@ -267,10 +275,10 @@ def is_potentially_dangerous_path(path: Union[str, Path]) -> bool:
 
 
 def normalize_and_validate_path(
-        path: Union[str, Path],
-        base_dir: Optional[Path] = None,
-        allowed_paths: Optional[List[Union[str, Path]]] = None,
-        allow_external: bool = False
+    path: Union[str, Path],
+    base_dir: Optional[Path] = None,
+    allowed_paths: Optional[List[Union[str, Path]]] = None,
+    allow_external: bool = False,
 ) -> Path:
     """
     Normalize a path and validate its security.
@@ -297,9 +305,7 @@ def normalize_and_validate_path(
 
     # Validate the path
     if not validate_path_security(
-            path_obj,
-            allowed_paths=allowed_paths,
-            allow_external=allow_external
+        path_obj, allowed_paths=allowed_paths, allow_external=allow_external
     ):
         raise PathSecurityError(f"Path failed security validation: {path_obj}")
 

@@ -32,6 +32,7 @@ from sklearn.metrics import (
     f1_score,
     roc_auc_score,
 )
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.attacks.preprocess_data import PreprocessData
 
 
@@ -82,7 +83,7 @@ class AttackMetrics(PreprocessData):
         # AUC requires both positive and negative classes to exist
         try:
             auc = roc_auc_score(y_true, y_pred)
-        except ValueError:
+        except (ValidationError, ValueError):
             auc = 0.5  # fallback: if only one class is present, attack ≈ random
 
         # Advantage = how much better the attack is than random guessing

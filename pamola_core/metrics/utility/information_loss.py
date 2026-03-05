@@ -30,6 +30,7 @@ import numpy as np
 import logging
 from typing import Dict, List, Optional, Any
 from pamola_core.metrics.commons.normalize import round_metric_values
+from pamola_core.errors.exceptions import ValidationError
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ class InformationLossMetric:
         logger.info("Calculating information loss metrics")
 
         if original_data is None or anonymized_data is None:
-            raise ValueError("Both original and anonymized datasets are required")
+            raise ValidationError("Both original and anonymized datasets are required")
 
         try:
             # Calculate record loss
@@ -341,7 +342,9 @@ class GeneralizationLossMetric:
                 ]
 
             if not columns:
-                raise ValueError("No valid columns for generalization loss calculation")
+                raise ValidationError(
+                    "No valid columns for generalization loss calculation"
+                )
 
             # Calculate column-level generalization loss
             column_loss = {}

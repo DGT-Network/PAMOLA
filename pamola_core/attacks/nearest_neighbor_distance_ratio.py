@@ -29,6 +29,7 @@ import pandas as pd
 from scipy.spatial import KDTree
 from sklearn.neighbors import NearestNeighbors
 from pamola_core.attacks.preprocess_data import PreprocessData
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 
 
 class NearestNeighborDistanceRatio(PreprocessData):
@@ -67,7 +68,7 @@ class NearestNeighborDistanceRatio(PreprocessData):
         """
         # --- 1. Validate input ---
         if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
         if data1.empty or data2.empty:
             return np.array([])
 
@@ -83,8 +84,10 @@ class NearestNeighborDistanceRatio(PreprocessData):
             nbrs.fit(data1_vec)
             distances, _ = nbrs.kneighbors(data2_vec)
         else:
-            raise ValueError(
-                f"Unknown NNDR method: {method}. Must be 'kdtree' or 'neighbors'."
+            raise InvalidParameterError(
+                param_name="method",
+                param_value=method,
+                reason=f"Unknown NNDR method: {method}. Must be 'kdtree' or 'neighbors'.",
             )
 
         # --- 4. Compute NNDR ---

@@ -35,18 +35,28 @@ from pamola_core.utils.io_helpers.crypto_router import (
     decrypt_data_router,
     detect_encryption_mode,
 )
-from dotenv import load_dotenv
-
-# Register all providers on module import
-register_all_providers()
-load_dotenv()
+from pamola_core.utils.env import load_dotenv_once
 
 # Configure logger
-logger = logging.getLogger("pamola_core.utils.io_helpers.crypto_utils")
-default_data_size: int = config("DATA_SIZE", default=1000000, cast=int)
-auto_choose_provider_encryption: bool = config(
-    "AUTO_CHOOSE_PROVIDER_ENCRYPTION", default=True, cast=bool
-)
+logger = logging.getLogger(__name__)
+default_data_size: int = 1000000
+auto_choose_provider_encryption: bool = True
+_CRYPTO_SETUP_DONE = False
+
+
+def _ensure_crypto_setup() -> None:
+    global _CRYPTO_SETUP_DONE, default_data_size, auto_choose_provider_encryption
+    if _CRYPTO_SETUP_DONE:
+        return
+    load_dotenv_once()
+    register_all_providers()
+    default_data_size = config("DATA_SIZE", default=default_data_size, cast=int)
+    auto_choose_provider_encryption = config(
+        "AUTO_CHOOSE_PROVIDER_ENCRYPTION",
+        default=auto_choose_provider_encryption,
+        cast=bool,
+    )
+    _CRYPTO_SETUP_DONE = True
 
 
 def encrypt_file(
@@ -91,6 +101,7 @@ def encrypt_file(
         If encryption fails
     """
     try:
+        _ensure_crypto_setup()
         source_path = Path(source_path)
         destination_path = Path(destination_path)
 
@@ -174,6 +185,7 @@ def decrypt_file(
         If decryption fails
     """
     try:
+        _ensure_crypto_setup()
         source_path = Path(source_path)
         destination_path = Path(destination_path)
 
@@ -261,6 +273,7 @@ def encrypt_data(
         If encryption fails
     """
     try:
+        _ensure_crypto_setup()
         # Add description to metadata if provided
         if description:
             kwargs["data_info"] = {"description": description}
@@ -339,6 +352,7 @@ def decrypt_data(
         If decryption fails
     """
     try:
+        _ensure_crypto_setup()
         # Call the router to perform the decryption
         result = decrypt_data_router(data=data, key=key, mode=mode, **kwargs)
 
@@ -398,6 +412,7 @@ def is_encrypted(data_or_path: Union[str, bytes, Dict[str, Any], Path]) -> bool:
     bool
         True if the data or file appears to be encrypted, False otherwise
     """
+    _ensure_crypto_setup()
     # Check if it's a Path or string path
     if isinstance(data_or_path, (str, Path)) and Path(data_or_path).exists():
         try:
@@ -432,6 +447,7 @@ def get_encryption_info(
     Dict[str, Any]
         Information about the encryption, empty if not encrypted
     """
+    _ensure_crypto_setup()
     info = {}
 
     # Check if it's a Path or string path
@@ -496,6 +512,7 @@ def get_encryption_mode(data: Any, use_encryption: bool) -> str:
       compared against `default_data_size`.
     - If `data` has no length (`__len__`), defaults to `EncryptionMode.SIMPLE`.
     """
+    _ensure_crypto_setup()
 
     # Case 1: Encryption disabled
     if not use_encryption:

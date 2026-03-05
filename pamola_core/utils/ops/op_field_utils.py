@@ -44,6 +44,14 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 from pamola_core.common.helpers.data_helper import DataHelper
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    FieldNotFoundError,
+    InvalidParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -104,7 +112,7 @@ def generate_output_field_name(
     'salary_hidden'
     """
     if mode not in ["REPLACE", "ENRICH"]:
-        raise ValueError(f"Mode must be 'REPLACE' or 'ENRICH', got '{mode}'")
+        raise ValidationError(f"Mode must be 'REPLACE' or 'ENRICH', got '{mode}'")
 
     if mode == "REPLACE":
         return field_name
@@ -152,7 +160,7 @@ def generate_ka_field_name(
     'KA_ed_sa'
     """
     if not quasi_identifiers:
-        raise ValueError("At least one quasi-identifier is required")
+        raise ValidationError("At least one quasi-identifier is required")
 
     # Create abbreviations
     abbreviations = []
@@ -261,12 +269,12 @@ def apply_condition_operator(
     """
     # Validate input
     if not isinstance(series, pd.Series):
-        raise TypeError("series must be a pandas Series")
+        raise TypeValidationError("series must be a pandas Series")
 
     # Special case: all
     if operator == "all":
         if condition_values is not None and len(condition_values) > 0:
-            raise ValueError("Operator 'all' does not accept condition_values")
+            raise ValidationError("Operator 'all' does not accept condition_values")
         return pd.Series(True, index=series.index)
 
     # Handle empty series
@@ -275,11 +283,14 @@ def apply_condition_operator(
 
     # Validate condition_values
     if condition_values is None:
-        raise ValueError(f"Operator '{operator}' requires condition_values")
+        raise ValidationError(f"Operator '{operator}' requires condition_values")
     if not isinstance(condition_values, list):
-        raise TypeError("condition_values must be a list")
+        raise TypeValidationError("condition_values must be a list")
     if len(condition_values) == 0:
-        raise ValueError(f"Operator '{operator}' requires non-empty condition_values")
+        raise DataError(
+            message=f"Operator '{operator}' requires non-empty condition_values",
+            error_code=ErrorCode.DATA_EMPTY,
+        )
 
     try:
         # Convert condition values if needed for datetime comparisons
@@ -310,7 +321,7 @@ def apply_condition_operator(
 
         elif operator == "range":
             if len(condition_values) < 2:
-                raise ValueError(
+                raise ValidationError(
                     "Operator 'range' requires at least 2 values [min, max]"
                 )
             DataHelper.ensure_comparable(series, condition_values[0], operator)
@@ -318,10 +329,14 @@ def apply_condition_operator(
             return (series >= condition_values[0]) & (series <= condition_values[1])
 
         else:
-            raise ValueError(f"Unknown operator: '{operator}'")
+            raise InvalidParameterError(
+                param_name="operator",
+                param_value=operator,
+                reason=f"Unknown operator: '{operator}'",
+            )
 
     except Exception as e:
-        raise ValueError(f"Error applying operator '{operator}': {str(e)}") from e
+        raise ValidationError(f"Error applying operator '{operator}': {str(e)}") from e
 
 
 def validate_field_compatibility(
@@ -516,13 +531,19 @@ def create_field_mask(
     dtype: bool
     """
     if field_name not in df.columns:
-        raise ValueError(f"Field '{field_name}' not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=field_name,
+            available_fields=list(df.columns),
+        )
 
     # Determine which field to apply condition to
     target_field = condition_field if condition_field else field_name
 
     if target_field not in df.columns:
-        raise ValueError(f"Condition field '{target_field}' not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=target_field,
+            available_fields=list(df.columns),
+        )
 
     # If no condition specified, return all True
     if condition_values is None and condition_operator != "all":
@@ -661,12 +682,15 @@ def create_composite_key(
     dtype: object
     """
     if not fields:
-        raise ValueError("At least one field is required")
+        raise ValidationError("At least one field is required")
 
     # Validate all fields exist
     missing = [f for f in fields if f not in df.columns]
     if missing:
-        raise ValueError(f"Fields not found: {missing}")
+        raise FieldNotFoundError(
+            field_name=missing,
+            available_fields=list(df.columns),
+        )
 
     # First create plain composite keys
     if null_handling == "skip":
@@ -689,7 +713,11 @@ def create_composite_key(
         filled_df = df[fields].fillna("NULL")
         result = filled_df.astype(str).apply(lambda row: separator.join(row), axis=1)
     else:
-        raise ValueError(f"Unknown null_handling: {null_handling}")
+        raise InvalidParameterError(
+            param_name="null_handling",
+            param_value=null_handling,
+            reason=f"Unknown null_handling: {null_handling}",
+        )
 
     # Apply hashing if requested
     if hash_key:
@@ -700,7 +728,11 @@ def create_composite_key(
         }
 
         if hash_algorithm not in hash_funcs:
-            raise ValueError(f"Unknown hash algorithm: {hash_algorithm}")
+            raise InvalidParameterError(
+                param_name="hash",
+                param_value=hash_algorithm,
+                reason=f"Unknown hash algorithm: {hash_algorithm}",
+            )
 
         hash_func = hash_funcs[hash_algorithm]
 
@@ -760,7 +792,11 @@ def create_reversible_composite_key(
     elif encoding == "hex":
         encoded = composite.apply(lambda x: x.encode("utf-8").hex())
     else:
-        raise ValueError(f"Unknown encoding: {encoding}")
+        raise InvalidParameterError(
+            param_name="encoding",
+            param_value=encoding,
+            reason=f"Unknown encoding: {encoding}",
+        )
 
     # Store decoding information
     decoding_info = {
@@ -816,7 +852,10 @@ def create_multi_field_mask(
         values = condition.get("values", [])
 
         if field not in df.columns:
-            raise ValueError(f"Field '{field}' not found in DataFrame columns")
+            raise FieldNotFoundError(
+                field_name=field,
+                available_fields=list(df.columns),
+            )
 
         mask = apply_condition_operator(df[field], values, operator)
         masks.append(mask)
@@ -833,7 +872,11 @@ def create_multi_field_mask(
             result = result | mask
         return result
     else:
-        raise ValueError(f"Unknown logic: {logic}. Use 'AND' or 'OR'")
+        raise InvalidParameterError(
+            param_name="logic",
+            param_value=logic,
+            reason=f"Unknown logic: {logic}. Use 'AND' or 'OR'",
+        )
 
 
 def validate_fields_for_operation(
@@ -901,27 +944,3 @@ def validate_fields_for_operation(
         "recommendations": recommendations,
         "field_types": field_types,
     }
-
-
-# Module metadata
-__version__ = "1.2.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    "generate_output_field_name",
-    "generate_ka_field_name",
-    "generate_privacy_metric_field_name",
-    "infer_field_type",
-    "apply_condition_operator",
-    "validate_field_compatibility",
-    "get_field_statistics",
-    "create_field_mask",
-    "get_field_name_variants",
-    "create_composite_key",
-    "create_reversible_composite_key",
-    "create_multi_field_mask",
-    "validate_fields_for_operation",
-    "FIELD_PATTERNS",
-]

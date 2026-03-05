@@ -58,6 +58,7 @@ import unicodedata
 
 # Import stopwords functionality
 from pamola_core.utils.nlp.stopwords import get_stopwords
+from pamola_core.errors.exceptions import InvalidParameterError
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -358,7 +359,11 @@ def calculate_string_similarity(
         return 1.0 - (distance / max_len) if max_len > 0 else 1.0
 
     else:
-        raise ValueError(f"Unknown similarity method: {method}")
+        raise InvalidParameterError(
+            param_name="method",
+            param_value=method,
+            reason=f"Unknown similarity method: {method}",
+        )
 
 
 def _levenshtein_distance(s1: str, s2: str) -> int:
@@ -716,30 +721,3 @@ def truncate_text(
         truncated = truncated[:last_space]
 
     return truncated + suffix
-
-
-# Module metadata
-__version__ = "1.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    # Text normalization
-    "normalize_text",
-    "clean_category_name",
-    # String similarity
-    "calculate_string_similarity",
-    "find_closest_match",
-    "find_closest_category",
-    # Text manipulation
-    "split_composite_value",
-    "extract_tokens",
-    "truncate_text",
-    # Validation
-    "is_valid_category_name",
-    # Constants
-    "NORMALIZATION_LEVELS",
-    "DEFAULT_INVALID_CHARS",
-    "MAX_STRING_LENGTH",
-]

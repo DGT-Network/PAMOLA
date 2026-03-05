@@ -9,10 +9,10 @@ import re
 import unicodedata
 from typing import Dict, List, Optional, Tuple, Any, Union
 import pandas as pd
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure logger
-logger = logging.get_logger("pamola_core.fake_data.commons.name_utils")
+logger = pamola_logging.getLogger(__name__)
 
 
 def parse_full_name(full_name: str, language: str = "ru") -> Dict[str, str]:

@@ -36,6 +36,14 @@ from pamola_core.common.enum.relationship_type import RelationshipType
 from pamola_core.transformations.commons.processing_utils import (
     merge_dataframes,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    InvalidParameterError,
+    MissingParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 from pamola_core.transformations.commons.visualization_utils import (
     sample_large_dataset,
 )
@@ -179,15 +187,18 @@ class MergeDatasetsOperation(TransformationOperation):
         try:
             # Initialize timing and result
             self.start_time = time.time()
-
-            # Config logger task for operation
             self.logger = kwargs.get("logger", self.logger)
             self.logger.info(
-                f"Starting {self.operation_name} operation at {self.start_time}"
+                f"Starting: {self.operation_name} operation at {self.start_time}"
             )
 
-            left_df = None
             result = OperationResult(status=OperationStatus.PENDING)
+
+            # Initialize left_df
+            left_df = None
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -197,11 +208,15 @@ class MergeDatasetsOperation(TransformationOperation):
                 cache_dir=dirs["cache"],
             )
 
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
             # Create DataWriter for consistent file operations
             writer = DataWriter(
-                task_dir=task_dir,
-                logger=self.logger,
-                progress_tracker=progress_tracker,
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
             # Save configuration to task directory
@@ -292,31 +307,58 @@ class MergeDatasetsOperation(TransformationOperation):
                 self._update_progress_tracker(
                     TOTAL_MAIN_STEPS, current_steps, "Data Loading", main_progress
                 )
+            try:
+                # Loading left dataset
+                if left_df is None:
+                    left_df = self._get_dataset(
+                        data_source, self.left_dataset_name, **kwargs
+                    )
 
-            # Loading left dataset
-            if left_df is None:
-                left_df = self._get_dataset(
-                    data_source, self.left_dataset_name, **kwargs
+                # Loading right dataset
+                self.right_df = (
+                    self._get_dataset(data_source, self.right_dataset_name, **kwargs)
+                    if self.right_dataset_name is not None
+                    else self._get_dataset(
+                        data_source, self.right_dataset_path, **kwargs
+                    )
+                )
+            except Exception as e:
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={
+                        "left_dataset": self.left_dataset_name,
+                        "right_dataset": self.right_dataset_name,
+                        "operation": self.operation_name,
+                    },
+                    message_kwargs={
+                        "source": f"{self.left_dataset_name},{self.right_dataset_name}",
+                        "reason": str(e),
+                    },
                 )
 
-            # Loading right dataset
-            self.right_df = (
-                self._get_dataset(data_source, self.right_dataset_name, **kwargs)
-                if self.right_dataset_name is not None
-                else self._get_dataset(data_source, self.right_dataset_path, **kwargs)
-            )
+            try:
+                # Detect relationship type if set to 'auto'
+                if self.relationship_type == RelationshipType.AUTO.value:
+                    self.relationship_type = self._detect_relationship_type_auto(
+                        left_df=left_df,
+                        right_df=self.right_df,
+                        left_key=self.left_key,
+                        right_key=self.right_key,
+                    )
 
-            # Detect relationship type if set to 'auto'
-            if self.relationship_type == RelationshipType.AUTO.value:
-                self.relationship_type = self._detect_relationship_type_auto(
-                    left_df=left_df,
-                    right_df=self.right_df,
-                    left_key=self.left_key,
-                    right_key=self.right_key,
+                # Validate relationship on all left_df and right_df
+                self._validate_relationship(left_df, self.right_df)
+            except Exception as e:
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_VALIDATION_ERROR,
+                    context={"operation": self.operation_name},
+                    message_kwargs={
+                        "context": "relationship validation",
+                        "reason": str(e),
+                    },
                 )
-
-            # Validate relationship on all left_df and right_df
-            self._validate_relationship(left_df, self.right_df)
 
             # Step 4: Processing progress tracker
             if main_progress:
@@ -374,12 +416,15 @@ class MergeDatasetsOperation(TransformationOperation):
                         f"Sample of processed data (first 5 rows): {processed_df.head(5).to_dict(orient='records')}"
                     )
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_label,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 5: Metrics Calculation
@@ -394,9 +439,8 @@ class MergeDatasetsOperation(TransformationOperation):
 
             # Record end time after processing
             self.end_time = time.time()
-
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            if self.end_time and self.start_time:
+                self.execution_time = self.end_time - self.start_time
 
             # Initialize metrics in scope
             metrics = {}
@@ -486,12 +530,14 @@ class MergeDatasetsOperation(TransformationOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_label},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -520,11 +566,7 @@ class MergeDatasetsOperation(TransformationOperation):
                 # Create the details dictionary with checks for all values
                 details = {
                     "records_processed": self.process_count,
-                    "execution_time": (
-                        self.end_time - self.start_time
-                        if self.end_time and self.start_time
-                        else None
-                    ),
+                    "execution_time": self.execution_time,
                 }
 
                 # Add the operation to the reporter
@@ -533,20 +575,25 @@ class MergeDatasetsOperation(TransformationOperation):
                     details=details,
                 )
 
-            self.logger.info(
-                f"Processing completed {self.operation_name} operation in {self.end_time - self.start_time:.2f} seconds"
-            )
-
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            # Handle any unexpected errors
-            error_message = f"Error in transformation operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_label},
+                message_kwargs={
+                    "field_name": self.field_label,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def process_batch(self, batch_df: pd.DataFrame, **kwargs) -> pd.DataFrame:
@@ -567,7 +614,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
         if self.relationship_type == RelationshipType.ONE_TO_ONE.value:
             if not left_unique or not right_unique:
-                raise ValueError(
+                raise ValidationError(
                     f"Expected one-to-one relationship, but got "
                     f"left_unique={left_unique}, right_unique={right_unique}."
                 )
@@ -575,7 +622,7 @@ class MergeDatasetsOperation(TransformationOperation):
 
         elif self.relationship_type == RelationshipType.ONE_TO_MANY.value:
             if not left_unique:
-                raise ValueError(
+                raise ValidationError(
                     f"Expected one-to-many relationship (left key must be unique), "
                     f"but left key '{self.left_key}' has duplicates."
                 )
@@ -595,9 +642,11 @@ class MergeDatasetsOperation(TransformationOperation):
                     "may expand in future)"
                 )
         else:
-            raise ValueError(
-                f"Unsupported relationship_type: '{self.relationship_type}'. "
-                f"Expected 'one-to-one' or 'one-to-many'."
+            raise InvalidParameterError(
+                param_name="relationship_type",
+                param_value=self.relationship_type,
+                reason=f"Unsupported relationship_type: '{self.relationship_type}'. "
+                f"Expected 'one-to-one' or 'one-to-many'.",
             )
 
     def _process_value(self, value: Any, **params) -> Any:
@@ -1210,18 +1259,24 @@ class MergeDatasetsOperation(TransformationOperation):
             RelationshipType.ONE_TO_MANY.value,
         ]
         if relationship_type not in valid_relationship_types:
-            raise ValueError(
-                f"Invalid relationship_type. Must be one of {valid_relationship_types}"
+            raise TypeValidationError(
+                message=f"Invalid relationship_type. Must be one of {valid_relationship_types}",
             )
 
         if left_key is None:
-            raise ValueError("left_key parameter is required")
+            raise MissingParameterError(
+                param_name="left_key",
+                operation=self.operation_name,
+            )
 
         if left_dataset_name is None:
-            raise ValueError("left_dataset_name parameter is required")
+            raise MissingParameterError(
+                param_name="left_dataset_name",
+                operation=self.operation_name,
+            )
 
         if right_dataset_name is None and right_dataset_path is None:
-            raise ValueError(
+            raise ValidationError(
                 "Either right_dataset_name or right_dataset_path must be provided"
             )
 
@@ -1268,9 +1323,12 @@ class MergeDatasetsOperation(TransformationOperation):
         elif left_key_is_unique:
             detected_relationship = RelationshipType.ONE_TO_MANY.value
         else:
-            raise ValueError(
-                "Only 'one-to-one' and 'one-to-many' relationships are supported. "
-                "Detected unsupported relationship (many-to-one or many-to-many)."
+            raise InvalidParameterError(
+                param_name="relationship",
+                param_value="auto-detected",
+                reason="Only 'one-to-one' and 'one-to-many' relationships are supported. "
+                "Detected unsupported relationship (many-to-one or many-to-many).",
+                valid_range="one-to-one | one-to-many",
             )
 
         self.logger.info(f"Auto-detected relationship type: {detected_relationship}")

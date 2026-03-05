@@ -61,23 +61,20 @@ from pamola_core.utils.nlp.text_utils import (
     extract_tokens as nlp_extract_tokens,
     truncate_text,
     is_valid_category_name,
-
 )
 
 # Configure module logger
 logger = logging.getLogger(__name__)
 
 # Anonymization-specific constants
-ANONYMIZATION_SAFE_CHARS = r'[^a-zA-Z0-9\s\-_]'  # More restrictive for anonymization
+ANONYMIZATION_SAFE_CHARS = r"[^a-zA-Z0-9\s\-_]"  # More restrictive for anonymization
 DEFAULT_UNKNOWN_VALUE = "OTHER"
 DEFAULT_SUPPRESSED_VALUE = "SUPPRESSED"
 CATEGORY_SEPARATOR = "_"
 MAX_CATEGORY_LENGTH = 40  # Shorter for anonymization fields
 
 
-def normalize_text(text: str,
-                   level: str = "basic",
-                   preserve_case: bool = False) -> str:
+def normalize_text(text: str, level: str = "basic", preserve_case: bool = False) -> str:
     """
     Normalize text for anonymization purposes.
 
@@ -115,10 +112,12 @@ def normalize_text(text: str,
     return nlp_normalize_text(text, level, preserve_case, languages=None)
 
 
-def clean_category_name(name: str,
-                        max_length: int = MAX_CATEGORY_LENGTH,
-                        invalid_chars: str = ANONYMIZATION_SAFE_CHARS,
-                        separator: str = CATEGORY_SEPARATOR) -> str:
+def clean_category_name(
+    name: str,
+    max_length: int = MAX_CATEGORY_LENGTH,
+    invalid_chars: str = ANONYMIZATION_SAFE_CHARS,
+    separator: str = CATEGORY_SEPARATOR,
+) -> str:
     """
     Clean category names for safe anonymization field naming.
 
@@ -157,11 +156,11 @@ def clean_category_name(name: str,
 
     # Additional anonymization-specific cleaning
     # Replace common separators with our standard separator
-    for sep in ['/', '\\', '|', '&', '+', '-', '.', ',']:
+    for sep in ["/", "\\", "|", "&", "+", "-", ".", ","]:
         clean = clean.replace(sep, separator)
 
     # Remove multiple separators
-    clean = re.sub(f'{re.escape(separator)}+', separator, clean)
+    clean = re.sub(f"{re.escape(separator)}+", separator, clean)
 
     # Remove leading/trailing separators
     clean = clean.strip(separator)
@@ -173,12 +172,14 @@ def clean_category_name(name: str,
     return clean
 
 
-def find_closest_category(value: str,
-                          categories: List[str],
-                          threshold: float = 0.8,
-                          method: str = "ratio",
-                          normalize_value: bool = True,
-                          fallback: str = DEFAULT_UNKNOWN_VALUE) -> str:
+def find_closest_category(
+    value: str,
+    categories: List[str],
+    threshold: float = 0.8,
+    method: str = "ratio",
+    normalize_value: bool = True,
+    fallback: str = DEFAULT_UNKNOWN_VALUE,
+) -> str:
     """
     Find the best matching category with anonymization-specific handling.
 
@@ -227,10 +228,12 @@ def find_closest_category(value: str,
     return result if result is not None else fallback
 
 
-def split_composite_value(value: str,
-                          separators: Optional[List[str]] = None,
-                          normalize: bool = True,
-                          max_components: int = 10) -> List[str]:
+def split_composite_value(
+    value: str,
+    separators: Optional[List[str]] = None,
+    normalize: bool = True,
+    max_components: int = 10,
+) -> List[str]:
     """
     Split composite values with anonymization constraints.
 
@@ -269,18 +272,22 @@ def split_composite_value(value: str,
 
     # Limit components for anonymization safety
     if len(components) > max_components:
-        logger.warning(f"Composite value has {len(components)} components, "
-                       f"limiting to {max_components}")
+        logger.warning(
+            f"Composite value has {len(components)} components, "
+            f"limiting to {max_components}"
+        )
         components = components[:max_components]
 
     return components
 
 
-def extract_tokens(text: str,
-                   min_length: int = 3,  # Longer minimum for anonymization
-                   pattern: Optional[str] = None,
-                   lowercase: bool = True,
-                   max_tokens: int = 50) -> List[str]:
+def extract_tokens(
+    text: str,
+    min_length: int = 3,  # Longer minimum for anonymization
+    pattern: Optional[str] = None,
+    lowercase: bool = True,
+    max_tokens: int = 50,
+) -> List[str]:
     """
     Extract tokens with anonymization-specific constraints.
 
@@ -321,10 +328,12 @@ def extract_tokens(text: str,
     return tokens
 
 
-def merge_composite_categories(categories: List[str],
-                               strategy: str = "first",
-                               separator: str = CATEGORY_SEPARATOR,
-                               max_length: int = MAX_CATEGORY_LENGTH) -> str:
+def merge_composite_categories(
+    categories: List[str],
+    strategy: str = "first",
+    separator: str = CATEGORY_SEPARATOR,
+    max_length: int = MAX_CATEGORY_LENGTH,
+) -> str:
     """
     Merge multiple category assignments into a single category.
 
@@ -393,9 +402,9 @@ def merge_composite_categories(categories: List[str],
     return clean_category_name(result)
 
 
-def prepare_value_for_matching(value: str,
-                               remove_common_prefixes: bool = True,
-                               remove_common_suffixes: bool = True) -> str:
+def prepare_value_for_matching(
+    value: str, remove_common_prefixes: bool = True, remove_common_suffixes: bool = True
+) -> str:
     """
     Prepare a value for category matching by removing common prefixes/suffixes.
 
@@ -432,29 +441,57 @@ def prepare_value_for_matching(value: str,
     if remove_common_prefixes:
         # Common job prefixes
         prefixes = [
-            "senior", "junior", "lead", "principal", "chief", "head",
-            "associate", "assistant", "deputy", "vice", "executive",
-            "managing", "sr", "jr", "i", "ii", "iii", "iv", "v"
+            "senior",
+            "junior",
+            "lead",
+            "principal",
+            "chief",
+            "head",
+            "associate",
+            "assistant",
+            "deputy",
+            "vice",
+            "executive",
+            "managing",
+            "sr",
+            "jr",
+            "i",
+            "ii",
+            "iii",
+            "iv",
+            "v",
         ]
 
         for prefix in prefixes:
-            pattern = r'^\s*' + re.escape(prefix) + r'\s+'
-            prepared = re.sub(pattern, '', prepared, flags=re.IGNORECASE)
+            pattern = r"^\s*" + re.escape(prefix) + r"\s+"
+            prepared = re.sub(pattern, "", prepared, flags=re.IGNORECASE)
 
     if remove_common_suffixes:
         # Common job suffixes
         suffixes = [
-            "manager", "specialist", "analyst", "coordinator",
-            "administrator", "officer", "consultant", "advisor",
-            "i", "ii", "iii", "iv", "v", "level", "grade"
+            "manager",
+            "specialist",
+            "analyst",
+            "coordinator",
+            "administrator",
+            "officer",
+            "consultant",
+            "advisor",
+            "i",
+            "ii",
+            "iii",
+            "iv",
+            "v",
+            "level",
+            "grade",
         ]
 
         for suffix in suffixes:
-            pattern = r'\s+' + re.escape(suffix) + r'\s*$'
-            prepared = re.sub(pattern, '', prepared, flags=re.IGNORECASE)
+            pattern = r"\s+" + re.escape(suffix) + r"\s*$"
+            prepared = re.sub(pattern, "", prepared, flags=re.IGNORECASE)
 
     # Remove extra whitespace
-    prepared = re.sub(r'\s+', ' ', prepared).strip()
+    prepared = re.sub(r"\s+", " ", prepared).strip()
 
     # If empty after cleaning, return original normalized value
     if not prepared:
@@ -463,9 +500,9 @@ def prepare_value_for_matching(value: str,
     return prepared
 
 
-def validate_hierarchy_value(value: str,
-                             level: int,
-                             max_length_by_level: Optional[Dict[int, int]] = None) -> Tuple[bool, Optional[str]]:
+def validate_hierarchy_value(
+    value: str, level: int, max_length_by_level: Optional[Dict[int, int]] = None
+) -> Tuple[bool, Optional[str]]:
     """
     Validate a value for use in a hierarchy at a specific level.
 
@@ -524,9 +561,9 @@ def validate_hierarchy_value(value: str,
     return is_valid, error
 
 
-def create_safe_hierarchy_path(components: List[str],
-                               separator: str = " > ",
-                               max_length: int = 100) -> str:
+def create_safe_hierarchy_path(
+    components: List[str], separator: str = " > ", max_length: int = 100
+) -> str:
     """
     Create a safe string representation of a hierarchy path.
 
@@ -583,42 +620,3 @@ def create_safe_hierarchy_path(components: List[str],
                 path = separator.join(clean_components) + "..."
 
     return path
-
-
-# Module metadata
-__version__ = "1.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main functions
-__all__ = [
-    # Text normalization (adapted)
-    'normalize_text',
-    'clean_category_name',
-
-    # String similarity (re-exported)
-    'calculate_string_similarity',
-    'find_closest_match',
-    'find_closest_category',
-
-    # Text manipulation (adapted)
-    'split_composite_value',
-    'extract_tokens',
-    'truncate_text',
-
-    # Validation (re-exported)
-    'is_valid_category_name',
-
-    # Anonymization-specific functions
-    'merge_composite_categories',
-    'prepare_value_for_matching',
-    'validate_hierarchy_value',
-    'create_safe_hierarchy_path',
-
-    # Constants
-    'ANONYMIZATION_SAFE_CHARS',
-    'DEFAULT_UNKNOWN_VALUE',
-    'DEFAULT_SUPPRESSED_VALUE',
-    'CATEGORY_SEPARATOR',
-    'MAX_CATEGORY_LENGTH',
-]

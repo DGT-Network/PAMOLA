@@ -22,6 +22,12 @@ from pamola_core.profiling.commons.data_types import (
     DataTypeDetection,
     ProfilerConfig,
 )
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    InvalidParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Import our custom dtype helpers instead of using pd.api.types directly
 from pamola_core.profiling.commons.dtype_helpers import (
@@ -32,7 +38,7 @@ from pamola_core.profiling.commons.dtype_helpers import (
     is_datetime64_dtype,
     is_categorical_dtype,
 )
-from pamola_core.utils import helpers
+import pamola_core.utils.helpers as helpers
 from pamola_core.utils.io import load_data_operation, write_json
 from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.ops.op_data_source import DataSource
@@ -98,7 +104,11 @@ def save_profiling_result(
         # Convert result to DataFrame and save as CSV
         pd.DataFrame(result).to_csv(file_path, index=False)
     else:
-        raise ValueError(f"Unsupported format: {format}")
+        raise InvalidParameterError(
+            param_name="format",
+            param_value=format,
+            reason=f"Unsupported format: {format}",
+        )
 
     return file_path
 
@@ -193,7 +203,7 @@ def infer_data_type(series: pd.Series) -> DataType:
                 pd.to_datetime(sample, format=pattern, errors="raise")
                 date_matches = len(sample)
                 break
-            except (ValueError, TypeError):
+            except (ValidationError, ValueError, TypeError):
                 continue
 
         if date_matches / len(sample) >= 0.8:  # 80% match threshold
@@ -283,7 +293,10 @@ def prepare_field_for_analysis(
         The prepared series and its inferred data type
     """
     if field_name not in df.columns:
-        raise ValueError(f"Field {field_name} not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=field_name,
+            available_fields=list(df.columns),
+        )
 
     series = df[field_name].copy()
     data_type = infer_data_type(series)
@@ -730,18 +743,18 @@ def validate_and_get_dataframe(
     df = load_data_operation(data_source, dataset_name, **kwargs)
     if df is None:
         error_message = f"Failed to load input data!"
-        raise ValueError(error_message)
+        raise ValidationError(error_message)
 
     # Apply data types from data source
     try:
         df = data_source.apply_data_types(df, dataset_name)
-    except ValueError as e:
+    except (ValidationError, ValueError) as e:
         error_msg = f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
-        raise ValueError(error_msg) from e
+        raise ValidationError(error_msg) from e
 
     except TypeError as e:
         error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
-        raise TypeError(error_msg) from e
+        raise TypeValidationError(error_msg) from e
 
     return df
 

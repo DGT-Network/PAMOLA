@@ -31,6 +31,7 @@ from pamola_core.attacks.attack_metrics import AttackMetrics
 from pamola_core.attacks.attribute_inference import AttributeInference
 from pamola_core.attacks.membership_inference import MembershipInference
 from pamola_core.attacks.linkage_attack import LinkageAttack
+from pamola_core.errors.exceptions import InvalidParameterError, TypeValidationError
 
 
 class AttacksTest:
@@ -295,8 +296,8 @@ class AttacksTest:
 
         # Check and adjust invalid values
         for col in data.columns:
-            if (
-                pd.api.types.is_string_dtype(data[col])
+            if pd.api.types.is_string_dtype(
+                data[col]
             ):  # If the column is string replace None values with empty
                 data[col] = data[col].replace({None: ""})
             elif np.issubdtype(
@@ -314,8 +315,8 @@ class AttacksTest:
         data_test = data.copy()
         # Check and adjust invalid values
         for col in data_test.columns:
-            if (
-                pd.api.types.is_string_dtype(data_test[col])
+            if pd.api.types.is_string_dtype(
+                data_test[col]
             ):  # If the column is string replace None values with empty
                 data_test[col] = data_test[col].replace({None: ""})
             elif np.issubdtype(
@@ -541,7 +542,7 @@ class AttacksTest:
 
         # --- Validate the input type ---
         if not isinstance(results, pd.DataFrame):
-            raise TypeError(
+            raise TypeValidationError(
                 f"Expected 'results' to be a pandas DataFrame, got {type(results)}"
             )
 
@@ -569,7 +570,11 @@ class AttacksTest:
 
         # Case C: cluster_vector_linkage_attack -> already formatted correctly
         elif not {"ID_DF1", "ID_DF2"}.issubset(results.columns):
-            raise ValueError(f"Unsupported result format. Columns found: {cols}")
+            raise InvalidParameterError(
+                param_name="result",
+                param_value=cols,
+                reason=f"Unsupported result format. Columns found: {cols}",
+            )
 
         # --- Ensure directory exists ---
         dir_name = os.path.dirname(file_path)
@@ -702,17 +707,37 @@ class AttacksTest:
         self.run_test_cluster_vector_linkage_attack(data_train, data_test)
 
 
-### Initialize objects
-attribute_inference = AttributeInference()
-membership_inference = MembershipInference(
-    dcr_threshold=None, nndr_threshold=None, m_threshold=None
-)
-linkage_attack = LinkageAttack(fs_threshold=None, n_components=4)
-attack_metrics = AttackMetrics()
+def create_attacks_test() -> AttacksTest:
+    """Create a default AttacksTest instance."""
+    attribute_inference = AttributeInference()
+    membership_inference = MembershipInference(
+        dcr_threshold=None, nndr_threshold=None, m_threshold=None
+    )
+    linkage_attack = LinkageAttack(fs_threshold=None, n_components=4)
+    attack_metrics = AttackMetrics()
+    return AttacksTest(
+        attribute_inference, membership_inference, linkage_attack, attack_metrics
+    )
 
-### Initialize AttacksTest object
-attacks_test = AttacksTest(
-    attribute_inference, membership_inference, linkage_attack, attack_metrics
-)
 
-attacks_test.run_test()
+class _LazyAttacksTest:
+    """Lazy proxy to avoid running tests at import time."""
+
+    def __getattr__(self, name: str):
+        return getattr(create_attacks_test(), name)
+
+    def __repr__(self) -> str:
+        return repr(create_attacks_test())
+
+
+# Backwards-compatible module-level handle
+attacks_test = _LazyAttacksTest()
+
+
+def run_smoke_test() -> None:
+    """Run the attack test suite (manual invocation)."""
+    create_attacks_test().run_test()
+
+
+if __name__ == "__main__":
+    run_smoke_test()

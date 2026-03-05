@@ -20,15 +20,22 @@ from typing import Dict, List, Union, Optional, Any, Callable, Tuple
 
 import pandas as pd
 
-from pamola_core.utils import progress
-# Remove the direct import of functions from io.py to avoid circular imports
-# from pamola_core.utils.io import (read_full_csv, read_parquet, read_excel, read_json, read_text)
-from pamola_core.utils.io_helpers import error_utils
-from pamola_core.utils.io_helpers import format_utils
-from pamola_core.utils.io_helpers import memory_utils
+import pamola_core.utils.progress as progress
+
+import pamola_core.utils.io_helpers.error_utils as error_utils
+import pamola_core.utils.io_helpers.format_utils as format_utils
+import pamola_core.utils.io_helpers.memory_utils as memory_utils
+from pamola_core.utils.io_helpers.readers import (
+    read_full_csv,
+    read_parquet,
+    read_excel,
+    read_json,
+    read_text,
+)
+from pamola_core.errors.exceptions import InvalidParameterError
 
 # Configure module logger
-logger = logging.getLogger("pamola_core.utils.io_helpers.multi_file_utils")
+logger = logging.getLogger(__name__)
 
 
 def detect_file_format(file_path: Union[str, Path]) -> str:
@@ -62,11 +69,6 @@ def get_file_reader(file_format: str) -> Callable:
     Callable
         Reader function for the format
     """
-    # Import the io module functions at the function level to avoid circular imports
-    from pamola_core.utils.io import (
-        read_full_csv, read_parquet, read_excel, read_json, read_text
-    )
-
     format_readers = {
         "csv": read_full_csv,
         "parquet": read_parquet,
@@ -79,10 +81,16 @@ def get_file_reader(file_format: str) -> Callable:
     if file_format.lower() in format_readers:
         return format_readers[file_format.lower()]
     else:
-        raise ValueError(f"Unsupported file format: {file_format}")
+        raise InvalidParameterError(
+            param_name="file_format",
+            param_value=file_format,
+            reason=f"Unsupported file format: {file_format}",
+        )
 
 
-def validate_files_exist(file_paths: List[Union[str, Path]]) -> Tuple[List[Path], List[str]]:
+def validate_files_exist(
+    file_paths: List[Union[str, Path]],
+) -> Tuple[List[Path], List[str]]:
     """
     Validate that all specified files exist.
 
@@ -109,9 +117,11 @@ def validate_files_exist(file_paths: List[Union[str, Path]]) -> Tuple[List[Path]
     return valid_paths, missing_paths
 
 
-def get_common_columns(file_paths: List[Union[str, Path]],
-                       sample_rows: int = 5,
-                       require_all_files: bool = False) -> List[str]:
+def get_common_columns(
+    file_paths: List[Union[str, Path]],
+    sample_rows: int = 5,
+    require_all_files: bool = False,
+) -> List[str]:
     """
     Identify columns common to all files in the dataset.
 
@@ -196,11 +206,11 @@ def get_common_columns(file_paths: List[Union[str, Path]],
 
 
 def stack_files_vertically(
-        file_paths: List[Union[str, Path]],
-        columns: Optional[List[str]] = None,
-        ignore_errors: bool = False,
-        show_progress: bool = True,
-        **kwargs
+    file_paths: List[Union[str, Path]],
+    columns: Optional[List[str]] = None,
+    ignore_errors: bool = False,
+    show_progress: bool = True,
+    **kwargs,
 ) -> Union[pd.DataFrame, Dict[str, Any]]:
     """
     Stack multiple files vertically (row-wise) with error handling.
@@ -230,14 +240,14 @@ def stack_files_vertically(
         return error_utils.create_error_info(
             "NoValidFilesError",
             "No valid files found",
-            f"Check that files exist and are accessible: {missing_paths}"
+            f"Check that files exist and are accessible: {missing_paths}",
         )
 
     if missing_paths and not ignore_errors:
         return error_utils.create_error_info(
             "MissingFilesError",
             f"Missing files: {missing_paths}",
-            "Use ignore_errors=True to proceed with valid files only"
+            "Use ignore_errors=True to proceed with valid files only",
         )
 
     # Determine common columns if not specified
@@ -247,7 +257,7 @@ def stack_files_vertically(
             return error_utils.create_error_info(
                 "NoCommonColumnsError",
                 "No common columns found across files",
-                "Specify columns parameter with column names to use"
+                "Specify columns parameter with column names to use",
             )
         columns = common_cols
         logger.info(f"Using {len(columns)} common columns found across files")
@@ -262,9 +272,7 @@ def stack_files_vertically(
     progress_bar = None
     if show_progress:
         progress_bar = progress.ProgressBar(
-            total=len(valid_paths),
-            description="Reading files",
-            unit="files"
+            total=len(valid_paths), description="Reading files", unit="files"
         )
 
     # Process each file
@@ -311,17 +319,13 @@ def stack_files_vertically(
             total_rows += len(df)
 
             if show_progress:
-                progress_bar.update(1, postfix={
-                    "files": len(dataframes),
-                    "rows": total_rows
-                })
+                progress_bar.update(
+                    1, postfix={"files": len(dataframes), "rows": total_rows}
+                )
 
         except Exception as e:
             logger.warning(f"Error reading file {file_path}: {str(e)}")
-            error_files.append({
-                "file": str(file_path),
-                "error": str(e)
-            })
+            error_files.append({"file": str(file_path), "error": str(e)})
 
             if not ignore_errors and len(error_files) > 0:
                 if show_progress:
@@ -330,7 +334,7 @@ def stack_files_vertically(
                     "ReadError",
                     f"Error reading file: {str(e)}",
                     "Use ignore_errors=True to skip files with errors",
-                    details={"file_path": str(file_path), "errors": error_files}
+                    details={"file_path": str(file_path), "errors": error_files},
                 )
 
             if show_progress:
@@ -345,10 +349,7 @@ def stack_files_vertically(
             "NoValidDataError",
             "No valid data found in files",
             "Check file contents and format",
-            details={
-                "error_files": error_files,
-                "empty_files": empty_files
-            }
+            details={"error_files": error_files, "empty_files": empty_files},
         )
 
     # Combine dataframes
@@ -373,19 +374,19 @@ def stack_files_vertically(
             details={
                 "valid_files": len(dataframes),
                 "error_files": len(error_files),
-                "empty_files": len(empty_files)
-            }
+                "empty_files": len(empty_files),
+            },
         )
 
 
 def process_files_in_batches(
-        file_paths: List[Union[str, Path]],
-        batch_size: int = 5,
-        columns: Optional[List[str]] = None,
-        ignore_errors: bool = False,
-        show_progress: bool = True,
-        processor: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
-        **kwargs
+    file_paths: List[Union[str, Path]],
+    batch_size: int = 5,
+    columns: Optional[List[str]] = None,
+    ignore_errors: bool = False,
+    show_progress: bool = True,
+    processor: Optional[Callable[[pd.DataFrame], pd.DataFrame]] = None,
+    **kwargs,
 ) -> Union[pd.DataFrame, Dict[str, Any]]:
     """
     Process multiple files in memory-efficient batches.
@@ -419,14 +420,14 @@ def process_files_in_batches(
         return error_utils.create_error_info(
             "NoValidFilesError",
             "No valid files found",
-            f"Check that files exist and are accessible: {missing_paths}"
+            f"Check that files exist and are accessible: {missing_paths}",
         )
 
     if missing_paths and not ignore_errors:
         return error_utils.create_error_info(
             "MissingFilesError",
             f"Missing files: {missing_paths}",
-            "Use ignore_errors=True to proceed with valid files only"
+            "Use ignore_errors=True to proceed with valid files only",
         )
 
     # Calculate number of batches
@@ -442,9 +443,7 @@ def process_files_in_batches(
     progress_bar = None
     if show_progress:
         progress_bar = progress.ProgressBar(
-            total=num_batches,
-            description="Processing batches",
-            unit="batches"
+            total=num_batches, description="Processing batches", unit="batches"
         )
 
     # Process batches
@@ -454,7 +453,9 @@ def process_files_in_batches(
         batch_end = min((batch_idx + 1) * batch_size, len(valid_paths))
         batch_paths = valid_paths[batch_start:batch_end]
 
-        logger.info(f"Processing batch {batch_idx + 1}/{num_batches} with {len(batch_paths)} files")
+        logger.info(
+            f"Processing batch {batch_idx + 1}/{num_batches} with {len(batch_paths)} files"
+        )
 
         # Process this batch of files
         batch_result = stack_files_vertically(
@@ -462,7 +463,7 @@ def process_files_in_batches(
             columns=columns,
             ignore_errors=ignore_errors,
             show_progress=False,  # Don't show nested progress bars
-            **kwargs
+            **kwargs,
         )
 
         # Check if result is an error
@@ -473,11 +474,16 @@ def process_files_in_batches(
                 return batch_result
             else:
                 # Track errors but continue
-                logger.warning(f"Errors in batch {batch_idx + 1}: {batch_result['message']}")
-                if 'details' in batch_result and 'errors' in batch_result['details']:
-                    error_files.extend(batch_result['details']['errors'])
-                if 'details' in batch_result and 'empty_files' in batch_result['details']:
-                    empty_files.extend(batch_result['details']['empty_files'])
+                logger.warning(
+                    f"Errors in batch {batch_idx + 1}: {batch_result['message']}"
+                )
+                if "details" in batch_result and "errors" in batch_result["details"]:
+                    error_files.extend(batch_result["details"]["errors"])
+                if (
+                    "details" in batch_result
+                    and "empty_files" in batch_result["details"]
+                ):
+                    empty_files.extend(batch_result["details"]["empty_files"])
 
                 if show_progress:
                     progress_bar.update(1, postfix={"status": "error"})
@@ -495,10 +501,12 @@ def process_files_in_batches(
                     return error_utils.create_error_info(
                         "ProcessorError",
                         f"Error in batch processor: {str(e)}",
-                        "Check the processor function for errors"
+                        "Check the processor function for errors",
                     )
                 else:
-                    logger.warning(f"Processor error in batch {batch_idx + 1}: {str(e)}")
+                    logger.warning(
+                        f"Processor error in batch {batch_idx + 1}: {str(e)}"
+                    )
                     if show_progress:
                         progress_bar.update(1, postfix={"status": "processor error"})
                     continue
@@ -510,15 +518,15 @@ def process_files_in_batches(
 
         # Update progress
         if show_progress:
-            progress_bar.update(1, postfix={
-                "batches": len(batch_results),
-                "rows": total_rows
-            })
+            progress_bar.update(
+                1, postfix={"batches": len(batch_results), "rows": total_rows}
+            )
 
         # Optional garbage collection after each batch
         if batch_idx < num_batches - 1:  # Not the last batch
             try:
                 import gc
+
                 gc.collect()
             except:
                 pass
@@ -532,10 +540,7 @@ def process_files_in_batches(
             "NoValidDataError",
             "No valid data found in files",
             "Check file contents and format",
-            details={
-                "error_files": error_files,
-                "empty_files": empty_files
-            }
+            details={"error_files": error_files, "empty_files": empty_files},
         )
 
     # Combine all batch results
@@ -556,22 +561,22 @@ def process_files_in_batches(
         return error_utils.create_error_info(
             "CombineError",
             f"Error combining batch results: {str(e)}",
-            "Check that all batches have compatible structures"
+            "Check that all batches have compatible structures",
         )
 
 
 def read_multi_csv(
-        file_paths: List[Union[str, Path]],
-        encoding: str = "utf-8",
-        delimiter: str = ",",
-        quotechar: str = '"',
-        columns: Optional[List[str]] = None,
-        nrows: Optional[int] = None,
-        skiprows: Optional[Union[int, List[int]]] = None,
-        ignore_errors: bool = False,
-        show_progress: bool = True,
-        memory_efficient: bool = True,
-        encryption_key: Optional[str] = None
+    file_paths: List[Union[str, Path]],
+    encoding: str = "utf-8",
+    delimiter: str = ",",
+    quotechar: str = '"',
+    columns: Optional[List[str]] = None,
+    nrows: Optional[int] = None,
+    skiprows: Optional[Union[int, List[int]]] = None,
+    ignore_errors: bool = False,
+    show_progress: bool = True,
+    memory_efficient: bool = True,
+    encryption_key: Optional[str] = None,
 ) -> Union[pd.DataFrame, Dict[str, Any]]:
     """
     Read multiple CSV files and combine them vertically.
@@ -622,7 +627,7 @@ def read_multi_csv(
             quotechar=quotechar,
             nrows=nrows,
             skiprows=skiprows,
-            encryption_key=encryption_key
+            encryption_key=encryption_key,
         )
 
     # For larger datasets, use batch processing
@@ -632,7 +637,7 @@ def read_multi_csv(
     # Adjust based on file sizes if possible
     try:
         # Sample a few files to get better size estimate
-        sample_files = file_paths[:min(3, len(file_paths))]
+        sample_files = file_paths[: min(3, len(file_paths))]
 
         # Get average file size
         total_size_mb = 0
@@ -641,9 +646,7 @@ def read_multi_csv(
         for file_path in sample_files:
             try:
                 size_estimate = memory_utils.estimate_csv_size(
-                    file_path,
-                    encoding=encoding,
-                    delimiter=delimiter
+                    file_path, encoding=encoding, delimiter=delimiter
                 )
 
                 if "estimated_memory_mb" in size_estimate:
@@ -679,18 +682,18 @@ def read_multi_csv(
         quotechar=quotechar,
         nrows=nrows,
         skiprows=skiprows,
-        encryption_key=encryption_key
+        encryption_key=encryption_key,
     )
 
 
 def read_similar_files(
-        directory: Union[str, Path],
-        pattern: str = "*.csv",
-        recursive: bool = False,
-        columns: Optional[List[str]] = None,
-        ignore_errors: bool = False,
-        show_progress: bool = True,
-        **kwargs
+    directory: Union[str, Path],
+    pattern: str = "*.csv",
+    recursive: bool = False,
+    columns: Optional[List[str]] = None,
+    ignore_errors: bool = False,
+    show_progress: bool = True,
+    **kwargs,
 ) -> Union[pd.DataFrame, Dict[str, Any]]:
     """
     Read multiple similar files from a directory.
@@ -723,7 +726,7 @@ def read_similar_files(
         return error_utils.create_error_info(
             "DirectoryNotFoundError",
             f"Directory not found: {directory}",
-            "Check the directory path"
+            "Check the directory path",
         )
 
     # Find matching files
@@ -737,7 +740,7 @@ def read_similar_files(
         return error_utils.create_error_info(
             "NoFilesFoundError",
             f"No files matching pattern '{pattern}' found in {directory}",
-            "Check the pattern or directory"
+            "Check the pattern or directory",
         )
 
     logger.info(f"Found {len(file_paths)} files matching pattern '{pattern}'")
@@ -752,7 +755,7 @@ def read_similar_files(
             columns=columns,
             ignore_errors=ignore_errors,
             show_progress=show_progress,
-            **kwargs
+            **kwargs,
         )
     else:
         # For other formats, use generic vertical stacking
@@ -761,17 +764,17 @@ def read_similar_files(
             columns=columns,
             ignore_errors=ignore_errors,
             show_progress=show_progress,
-            **kwargs
+            **kwargs,
         )
 
 
 def memory_efficient_processor(
-        processor: Callable[[pd.DataFrame], pd.DataFrame],
-        file_paths: List[Union[str, Path]],
-        batch_size: int = 5,
-        columns: Optional[List[str]] = None,
-        show_progress: bool = True,
-        **kwargs
+    processor: Callable[[pd.DataFrame], pd.DataFrame],
+    file_paths: List[Union[str, Path]],
+    batch_size: int = 5,
+    columns: Optional[List[str]] = None,
+    show_progress: bool = True,
+    **kwargs,
 ) -> Union[pd.DataFrame, Dict[str, Any]]:
     """
     Apply a processor function to files in a memory-efficient way.
@@ -802,5 +805,5 @@ def memory_efficient_processor(
         columns=columns,
         show_progress=show_progress,
         processor=processor,
-        **kwargs
+        **kwargs,
     )

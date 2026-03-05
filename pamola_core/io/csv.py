@@ -23,7 +23,10 @@
 
 import pandas as pd
 from typing import Any
-from .base import data_read, data_write
+from pamola_core.io.base import (
+    data_read,
+    data_write,
+)
 
 class DataCSV:
     def __init__(self): ...
@@ -120,7 +123,7 @@ def read_csv(path: str, **kwargs) -> Any:
         automatically detect the separator, but the Python parsing engine can, meaning the latter
         will be used and automatically detect the separator from only the first valid row of the
         file by Python's builtin sniffer tool, ``csv.Sniffer``. In addition, separators longer
-        than 1 character and different from ``'\s+'`` will be interpreted as regular expressions
+        than 1 character and different from ``'\\s+'`` will be interpreted as regular expressions
         and will also force the use of the Python parsing engine. Note that regex delimiters are
         prone to ignoring quoted data. Regex example: ``'\r\t'``.
 

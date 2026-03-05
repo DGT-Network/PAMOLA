@@ -60,7 +60,6 @@ TODO:
 import csv
 import re
 import time
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Counter, Dict, List, Union, Optional, Iterator, Any, Tuple
 
@@ -70,20 +69,38 @@ import pandas as pd
 import plotly.graph_objects as go
 from PIL import Image
 
-from pamola_core.utils import logging
-from pamola_core.utils import progress
-from pamola_core.utils.io_helpers import crypto_utils
-from pamola_core.utils.io_helpers import csv_utils
-from pamola_core.utils.io_helpers import dask_utils
-from pamola_core.utils.io_helpers import directory_utils
-from pamola_core.utils.io_helpers import file_utils
-from pamola_core.utils.io_helpers import format_utils
-from pamola_core.utils.io_helpers import json_utils
-from pamola_core.utils.io_helpers import memory_utils
-from pamola_core.utils.io_helpers import multi_file_utils
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DependencyMissingError,
+    DataError,
+    DataWriteError,
+    FileValidationError,
+    InvalidParameterError,
+    PamolaFileNotFoundError,
+    TypeValidationError,
+    ValidationError,
+)
+import logging
+import pamola_core.utils.progress as progress
+import pamola_core.utils.io_helpers.crypto_utils as crypto_utils
+import pamola_core.utils.io_helpers.csv_utils as csv_utils
+import pamola_core.utils.io_helpers.dask_utils as dask_utils
+import pamola_core.utils.io_helpers.directory_utils as directory_utils
+import pamola_core.utils.io_helpers.file_utils as file_utils
+import pamola_core.utils.io_helpers.format_utils as format_utils
+import pamola_core.utils.io_helpers.json_utils as json_utils
+import pamola_core.utils.io_helpers.memory_utils as memory_utils
+import pamola_core.utils.io_helpers.multi_file_utils as multi_file_utils
+import pamola_core.utils.io_helpers.readers as io_readers
+from pamola_core.utils.io_helpers.temp_files import (
+    temporary_decrypted_file,
+    temporary_file_for_encryption,
+    temporary_decrypted_files,
+    temporary_files_for_encryption,
+)
 
 # Configure module logger
-logger = logging.get_logger("pamola_core.utils.io")
+logger = logging.getLogger(__name__)
 
 # Constants for thresholds and defaults
 DEFAULT_ENCODING = "utf-8"  # Unified default encoding
@@ -98,236 +115,6 @@ PROGRESS_CHUNK_SIZE = 10000  # Chunk size for progress updates
 
 # Supported compression formats
 COMPRESSION_FORMATS = [None, "infer", "gzip", "bz2", "zip", "xz", "zstd"]
-
-
-# ====================
-# Context Managers
-# ====================
-
-
-@contextmanager
-def temporary_decrypted_file(
-    file_path: Union[str, Path],
-    encryption_key: Optional[str],
-    suffix: str = "",
-    encryption_mode: str = "simple",
-):
-    """
-    Context manager for handling temporary decrypted files.
-
-    Parameters:
-    -----------
-    file_path : Union[str, Path]
-        Path to the encrypted file
-    encryption_key : Optional[str]
-        Decryption key (if None, yields original file)
-    suffix : str
-        File extension for temporary file
-
-    Yields:
-    -------
-    Path
-        Path to the file to read (original or decrypted temporary)
-    """
-    if encryption_mode == "age":
-        pass
-    else:
-        if not encryption_key:
-            yield Path(file_path)
-            return
-
-        # encryption_key is NOT None => encryption_mode = 'simple'
-        encryption_mode = "simple"
-
-    temp_file_path = None
-    try:
-        logger.info("Decryption requested for file reading")
-        temp_file_path = directory_utils.get_temp_file_for_decryption(
-            file_path, suffix=suffix
-        )
-
-        crypto_utils.decrypt_file(
-            source_path=file_path,
-            destination_path=temp_file_path,
-            key=encryption_key,
-            mode=encryption_mode,
-        )
-
-        logger.debug(f"File decrypted to temporary location: {temp_file_path}")
-        yield temp_file_path
-
-    except Exception as e:
-        logger.error(f"Decryption failed: {e}")
-        raise
-    finally:
-        if temp_file_path:
-            directory_utils.safe_remove_temp_file(temp_file_path)
-
-
-@contextmanager
-def temporary_file_for_encryption(
-    file_path: Union[str, Path],
-    encryption_key: Optional[str],
-    suffix: str = "",
-    encryption_mode: str = "simple",
-):
-    """
-    Context manager for handling temporary files before encryption.
-
-    Parameters:
-    -----------
-    file_path : Union[str, Path]
-        Target path for the encrypted file
-    encryption_key : Optional[str]
-        Encryption key (if None, yields target path directly)
-    suffix : str
-        File extension for temporary file
-
-    Yields:
-    -------
-    Path
-        Path to write to (temporary if encrypting, target if not)
-    """
-    if encryption_mode == "age":
-        pass
-    else:
-        if not encryption_key:
-            yield Path(file_path)
-            return
-
-        # encryption_key is NOT None => encryption_mode = 'simple'
-        encryption_mode = "simple"
-
-    temp_file_path = None
-    try:
-        logger.info("Encryption requested for file writing")
-        temp_file_path = directory_utils.get_temp_file_for_encryption(
-            file_path, suffix=suffix
-        )
-
-        yield temp_file_path
-
-        # After writing, encrypt to final destination
-        logger.info(f"Encrypting and saving to final destination: {file_path}")
-        crypto_utils.encrypt_file(
-            source_path=temp_file_path,
-            destination_path=file_path,
-            key=encryption_key,
-            mode=encryption_mode,
-        )
-
-    except Exception as e:
-        logger.error(f"Encryption failed: {e}")
-        raise
-    finally:
-        if temp_file_path:
-            directory_utils.safe_remove_temp_file(temp_file_path)
-
-
-@contextmanager
-def temporary_decrypted_files(
-        file_paths: List[Union[str, Path]],
-        encryption_key: Optional[str],
-        suffix: str = "dec",
-        encryption_mode: str = 'none'
-):
-    """
-    Context manager for handling temporary decrypted files.
-
-    Parameters:
-    -----------
-    file_paths : List[Union[str, Path]]
-        Path to the encrypted files
-    encryption_key : Optional[str]
-        Decryption key (if None, yields original file)
-    suffix : str
-        File extension for temporary files
-
-    Yields:
-    -------
-    List[Union[str, Path]]
-        Path to the files to read (original or decrypted temporary)
-    """
-    temp_file_path = None
-    temp_file_paths = []
-    try:
-        logger.info("Decryption requested for files reading")
-        for file_path in file_paths:
-            temp_file_path = directory_utils.get_temp_file_for_decryption(original_file=file_path, suffix=suffix)
-
-            crypto_utils.decrypt_file(
-                source_path=file_path,
-                destination_path=temp_file_path,
-                key=encryption_key,
-                mode=encryption_mode
-            )
-
-            temp_file_paths.append(temp_file_path)
-
-        logger.debug(f"Files decrypted to temporary location: {temp_file_paths}")
-        yield temp_file_paths
-
-    except Exception as e:
-        logger.error(f"Decryption failed: {e}")
-        raise
-    finally:
-        if temp_file_paths and False:
-            for temp_file_path in temp_file_paths:
-                directory_utils.safe_remove_temp_file(temp_file_path)
-
-
-@contextmanager
-def temporary_files_for_encryption(
-        file_paths: List[Union[str, Path]],
-        encryption_key: Optional[str],
-        suffix: str = "enc",
-        encryption_mode: str = 'none'
-):
-    """
-    Context manager for handling temporary files before encryption.
-
-    Parameters:
-    -----------
-    file_paths : List[Union[str, Path]]
-        Target path for the encrypted files
-    encryption_key : Optional[str]
-        Encryption key (if None, yields target path directly)
-    suffix : str
-        File extension for temporary files
-
-    Yields:
-    -------
-    List[Union[str, Path]]
-        Paths to write to (temporary if encrypting, target if not)
-    """
-    temp_file_path = None
-    temp_file_paths = []
-    try:
-        logger.info("Encryption requested for files writing")
-        for file_path in file_paths:
-            temp_file_path = directory_utils.get_temp_file_for_decryption(original_file=file_path, suffix=suffix)
-
-            temp_file_paths.append(temp_file_path)
-
-        yield temp_file_paths
-
-        # After writing, encrypt to final destination
-        logger.info(f"Encrypting and saving to final destination: {file_paths}")
-        for file_path, temp_file_path in list(zip(file_paths, temp_file_paths)):
-            crypto_utils.encrypt_file(
-                source_path=temp_file_path,
-                destination_path=file_path,
-                key=encryption_key,
-                mode=encryption_mode
-            )
-
-    except Exception as e:
-        logger.error(f"Encryption failed: {e}")
-        raise
-    finally:
-        if temp_file_path:
-            for temp_file_path in temp_file_paths:
-                directory_utils.safe_remove_temp_file(temp_file_path)
 
 
 # ====================
@@ -611,7 +398,7 @@ def read_csv_in_chunks(
     file_path = Path(file_path)
 
     if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        raise PamolaFileNotFoundError(str(file_path))
 
     logger.info(
         f"Starting to read file: {file_path} (chunk size: {chunk_size}, encoding: {encoding})"
@@ -785,158 +572,20 @@ def read_full_csv(
     pd.DataFrame
         DataFrame containing the entire file
     """
-    file_path = Path(file_path)
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    logger.info(f"Reading full file: {file_path} (encoding: {encoding})")
-
-    # Check file size to warn about large files
-    file_size_mb = file_path.stat().st_size / (1024 * 1024)
-    if file_size_mb > LARGE_FILE_THRESHOLD_MB:
-        logger.warning(
-            f"File {file_path} is large ({file_size_mb:.1f}MB). "
-            f"Consider using read_csv_in_chunks for better memory efficiency."
-        )
-
-    # If Dask is enabled and file is large, use it
-    if use_dask and file_size_mb > DASK_THRESHOLD_MB and dask_utils.is_dask_available():
-        if encryption_key:
-            logger.warning(
-                "Encryption with Dask is not supported. Falling back to pandas."
-            )
-        else:
-            try:
-                logger.info("Using Dask for reading large CSV file")
-
-                df = dask_utils.read_full_csv(
-                    file_path,
-                    encoding=encoding,
-                    delimiter=delimiter,
-                    quotechar=quotechar,
-                    show_progress=show_progress,
-                )
-
-                # Apply filtering after loading if needed
-                if columns is not None:
-                    df = df[columns]
-
-                if skiprows is not None:
-                    if isinstance(skiprows, int):
-                        df = df.iloc[skiprows:]
-                    else:
-                        # Create boolean mask for rows to keep
-                        keep_mask = ~pd.Series(range(len(df))).isin(skiprows)
-                        df = df.loc[keep_mask].reset_index(drop=True)
-
-                if nrows is not None:
-                    df = df.head(nrows)
-
-                logger.info(f"Completed reading {file_path} with Dask: {len(df)} rows")
-                return df
-            except Exception as e:
-                logger.warning(f"Error using Dask: {e}. Falling back to pandas.")
-
-    # Handle potential decryption
-    start_time = time.time()
-
-    with temporary_decrypted_file(
+    return io_readers.read_full_csv(
         file_path=file_path,
+        encoding=encoding,
+        delimiter=delimiter,
+        quotechar=quotechar,
+        show_progress=show_progress,
+        use_dask=use_dask,
         encryption_key=encryption_key,
+        columns=columns,
+        nrows=nrows,
+        skiprows=skiprows,
+        use_encryption=use_encryption,
         encryption_mode=encryption_mode,
-    ) as file_to_read:
-        try:
-            # Prepare CSV reader options
-            reader_options = csv_utils.prepare_csv_reader_options(
-                encoding=encoding,
-                delimiter=delimiter,
-                quotechar=quotechar,
-                columns=columns,
-                nrows=nrows,
-                skiprows=skiprows,
-                low_memory=False,
-            )
-
-            if (
-                show_progress and file_size_mb > 10
-            ):  # Only show progress for files > 10MB
-                # For large files, read without line counting to avoid double pass
-                logger.info("Reading file with progress tracking...")
-
-                # Use pandas with chunksize for progress updates
-                chunk_options = reader_options.copy()
-                chunk_options["chunksize"] = PROGRESS_CHUNK_SIZE
-
-                chunks = []
-                rows_read = 0
-
-                # Create progress bar based on file size
-                progress_bar = progress.ProgressBar(
-                    total=int(file_size_mb),
-                    description=f"Reading {file_path.name}",
-                    unit="MB (approx)",
-                )
-
-                try:
-                    for chunk in pd.read_csv(file_to_read, **chunk_options):
-                        chunks.append(chunk)
-                        rows_read += len(chunk)
-
-                        # More accurate progress calculation
-                        # Estimate total rows based on current reading rate
-                        if (
-                            rows_read > 1000
-                        ):  # Wait for some data to get better estimate
-                            bytes_per_row = file_path.stat().st_size / rows_read
-                            estimated_total_rows = (
-                                file_path.stat().st_size / bytes_per_row
-                            )
-                            mb_read = (rows_read / estimated_total_rows) * file_size_mb
-                        else:
-                            # Initial rough estimate
-                            mb_read = min(
-                                1.0, rows_read / 10000.0
-                            )  # Assume ~10k rows per MB initially
-
-                        # Safe update with delta calculation
-                        delta = max(0, int(mb_read - progress_bar.n))
-                        if delta > 0:
-                            progress_bar.update(delta)
-
-                    # Combine chunks
-                    df = pd.concat(chunks, ignore_index=True)
-                    progress_bar.close()
-
-                except Exception as e:
-                    if progress_bar:
-                        progress_bar.close()
-                    raise
-            else:
-                # Read normally without progress tracking
-                df = pd.read_csv(file_to_read, **reader_options)
-
-            duration = time.time() - start_time
-            logger.info(
-                f"Completed reading {file_path}: {len(df)} rows in {duration:.2f}s"
-            )
-
-            return df
-
-        except pd.errors.ParserError as e:
-            logger.error(f"CSV parsing error: {e}")
-            raise
-        except (IOError, OSError) as e:
-            logger.error(f"File I/O error: {e}")
-            raise
-        except Exception as e:
-            logger.exception(f"Unexpected error reading CSV: {e}")
-            raise
-
-
-# ====================
-# CSV Writing Functions
-# ====================
+    )
 
 
 def write_dataframe_to_csv(
@@ -1003,8 +652,10 @@ def write_dataframe_to_csv(
 
     # Validate compression parameter
     if compression not in COMPRESSION_FORMATS:
-        raise ValueError(
-            f"Unsupported compression: {compression}. Must be one of {COMPRESSION_FORMATS}"
+        raise InvalidParameterError(
+            param_name="compression",
+            param_value=compression,
+            reason=f"Unsupported compression: {compression}. Must be one of {COMPRESSION_FORMATS}",
         )
 
     # Ensure directory exists
@@ -1175,8 +826,10 @@ def write_chunks_to_csv(
 
     # Validate compression parameter
     if compression not in COMPRESSION_FORMATS:
-        raise ValueError(
-            f"Unsupported compression: {compression}. Must be one of {COMPRESSION_FORMATS}"
+        raise InvalidParameterError(
+            param_name="compression",
+            param_value=compression,
+            reason=f"Unsupported compression: {compression}. Must be one of {COMPRESSION_FORMATS}",
         )
 
     # Ensure directory exists
@@ -1237,7 +890,8 @@ def write_chunks_to_csv(
         except Exception as e:
             logger.exception(f"Unexpected error writing chunks to CSV: {e}")
             raise
-            
+
+
 def write_csv(data: dict, path: Union[str, Path]) -> str:
     """
     Writes dictionary data to a CSV file.
@@ -1264,6 +918,7 @@ def write_csv(data: dict, path: Union[str, Path]) -> str:
 
     return str(path)
 
+
 # ====================
 # Text File Reading Functions
 # ====================
@@ -1272,7 +927,7 @@ def write_csv(data: dict, path: Union[str, Path]) -> str:
 def read_text(
     file_path: Union[str, Path],
     encoding: str = DEFAULT_ENCODING,
-    sep: str = "\t",
+    sep: str = "	",
     show_progress: bool = True,
     encryption_key: Optional[str] = None,
     columns: Optional[List[str]] = None,
@@ -1290,7 +945,7 @@ def read_text(
     encoding : str
         File encoding (default: "utf-8")
     sep : str
-        Separator/delimiter character (default: '\t')
+        Separator/delimiter character (default: '	')
     show_progress : bool
         Whether to display a progress bar (default: True)
     encryption_key : str, optional
@@ -1309,110 +964,17 @@ def read_text(
     pd.DataFrame
         DataFrame containing the file data
     """
-    file_path = Path(file_path)
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    logger.info(f"Reading text file: {file_path} with separator '{sep}'")
-    start_time = time.time()
-
-    # Handle potential decryption
-    with temporary_decrypted_file(file_path, encryption_key) as file_to_read:
-        try:
-            # Prepare CSV reader options with tab as separator
-            reader_options = csv_utils.prepare_csv_reader_options(
-                encoding=encoding,
-                delimiter=sep,
-                columns=columns,
-                nrows=nrows,
-                skiprows=skiprows,
-                low_memory=False,
-            )
-
-            # Add any additional kwargs
-            reader_options.update(kwargs)
-
-            if show_progress:
-                # Get file size for progress estimation
-                file_size_mb = file_to_read.stat().st_size / (1024 * 1024)
-
-                if file_size_mb > 10:  # Only show progress for files > 10MB
-                    logger.info("Reading file with progress tracking...")
-
-                    # Read in chunks to update progress
-                    chunks = []
-                    chunk_options = reader_options.copy()
-                    chunk_options["chunksize"] = PROGRESS_CHUNK_SIZE
-
-                    # Create progress bar based on file size
-                    progress_bar = progress.ProgressBar(
-                        total=int(file_size_mb),
-                        description=f"Reading {file_path.name}",
-                        unit="MB (approx)",
-                    )
-
-                    try:
-                        rows_read = 0
-                        for chunk in pd.read_csv(file_to_read, **chunk_options):
-                            chunks.append(chunk)
-                            rows_read += len(chunk)
-
-                            # More accurate progress calculation
-                            if (
-                                rows_read > 1000
-                            ):  # Wait for some data to get better estimate
-                                bytes_per_row = file_path.stat().st_size / rows_read
-                                estimated_total_rows = (
-                                    file_path.stat().st_size / bytes_per_row
-                                )
-                                mb_read = (
-                                    rows_read / estimated_total_rows
-                                ) * file_size_mb
-                            else:
-                                # Initial rough estimate
-                                mb_read = min(1.0, rows_read / 10000.0)
-
-                            # Safe update with delta calculation
-                            delta = max(0, int(mb_read - progress_bar.n))
-                            if delta > 0:
-                                progress_bar.update(delta)
-
-                        # Combine chunks
-                        df = pd.concat(chunks, ignore_index=True)
-                        progress_bar.close()
-
-                    except Exception as e:
-                        if progress_bar:
-                            progress_bar.close()
-                        raise
-                else:
-                    # Small file, read without progress
-                    df = pd.read_csv(file_to_read, **reader_options)
-            else:
-                # Read normally without progress tracking
-                df = pd.read_csv(file_to_read, **reader_options)
-
-            duration = time.time() - start_time
-            logger.info(
-                f"Completed reading text file {file_path}: {len(df)} rows in {duration:.2f}s"
-            )
-            return df
-
-        except pd.errors.ParserError as e:
-            logger.error(f"Text file parsing error: {e}")
-            raise
-        except (IOError, OSError) as e:
-            logger.error(f"File I/O error: {e}")
-            raise
-        except Exception as e:
-            logger.exception(f"Unexpected error reading text file: {e}")
-            raise
-
-
-# ====================
-# Excel Reading Functions
-# ====================
+    return io_readers.read_text(
+        file_path=file_path,
+        encoding=encoding,
+        sep=sep,
+        show_progress=show_progress,
+        encryption_key=encryption_key,
+        columns=columns,
+        nrows=nrows,
+        skiprows=skiprows,
+        **kwargs,
+    )
 
 
 def read_excel(
@@ -1459,117 +1021,18 @@ def read_excel(
     Union[pd.DataFrame, Dict[str, pd.DataFrame]]
         DataFrame containing the file data, or dictionary of DataFrames if sheet_name=None
     """
-    file_path = Path(file_path)
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    # Check if openpyxl is available
-    format_utils.check_openpyxl_available()
-
-    logger.info(f"Reading Excel file: {file_path}")
-    start_time = time.time()
-
-    # Handle potential decryption
-    with temporary_decrypted_file(
-        file_path, encryption_key, suffix=".xlsx", encryption_mode=encryption_mode
-    ) as file_to_read:
-        try:
-            # Prepare Excel reader options
-            excel_options = {}
-
-            # Add nrows and skiprows if specified
-            if nrows is not None:
-                excel_options["nrows"] = nrows
-
-            if skiprows is not None:
-                excel_options["skiprows"] = skiprows
-
-            # Add any additional kwargs
-            excel_options.update(kwargs)
-
-            # If sheet_name is None, pandas returns a dict of all sheets
-            # We need to handle that case differently for progress display
-            if sheet_name is None:
-                if show_progress:
-                    # First, get the sheet names to know how many sheets to process
-                    sheet_names = pd.ExcelFile(file_to_read).sheet_names
-
-                    # Create progress bar for sheets
-                    progress_bar = progress.ProgressBar(
-                        total=len(sheet_names),
-                        description=f"Reading sheets from {file_path.name}",
-                        unit="sheets",
-                    )
-
-                    # Read each sheet individually with progress updates
-                    result = {}
-                    for sheet in sheet_names:
-                        df = pd.read_excel(
-                            file_to_read, sheet_name=sheet, **excel_options
-                        )
-
-                        # Filter columns if requested
-                        if columns is not None:
-                            valid_cols = [col for col in columns if col in df.columns]
-                            if valid_cols:
-                                df = df[valid_cols]
-
-                        result[sheet] = df
-                        progress_bar.update(1, postfix={"sheet": sheet})
-
-                    progress_bar.close()
-
-                    # Calculate total rows read
-                    total_rows = sum(len(df) for df in result.values())
-                    logger.info(
-                        f"Read {len(result)} sheets with {total_rows} total rows"
-                    )
-
-                else:
-                    # Without progress tracking, read all sheets at once
-                    result = pd.read_excel(
-                        file_to_read, sheet_name=None, **excel_options
-                    )
-
-                    # Filter columns if requested
-                    if columns is not None:
-                        for sheet_name, df in result.items():
-                            valid_cols = [col for col in columns if col in df.columns]
-                            if valid_cols:
-                                result[sheet_name] = df[valid_cols]
-            else:
-                # Reading a single sheet
-                result = pd.read_excel(
-                    file_to_read, sheet_name=sheet_name, **excel_options
-                )
-
-                # Filter columns if requested
-                if columns is not None and isinstance(result, pd.DataFrame):
-                    valid_cols = [col for col in columns if col in result.columns]
-                    if valid_cols:
-                        result = result[valid_cols]
-
-                if show_progress and isinstance(result, pd.DataFrame):
-                    logger.info(f"Read sheet with {len(result)} rows")
-
-            duration = time.time() - start_time
-            logger.info(f"Completed reading Excel file {file_path} in {duration:.2f}s")
-            return result
-
-        except ImportError as e:
-            logger.error(f"Missing Excel library dependency: {e}")
-            raise ImportError(
-                "openpyxl is required to read Excel files. Please install it with 'pip install openpyxl'."
-            )
-        except Exception as e:
-            logger.exception(f"Unexpected error reading Excel file {file_path}: {e}")
-            raise
-
-
-# ====================
-# JSON Reading and Writing Functions
-# ====================
+    return io_readers.read_excel(
+        file_path=file_path,
+        sheet_name=sheet_name,
+        show_progress=show_progress,
+        encryption_key=encryption_key,
+        columns=columns,
+        nrows=nrows,
+        skiprows=skiprows,
+        use_encryption=use_encryption,
+        encryption_mode=encryption_mode,
+        **kwargs,
+    )
 
 
 def read_json(
@@ -1603,41 +1066,14 @@ def read_json(
     Dict[str, Any]
         Dictionary containing the JSON data
     """
-    import json
-
-    file_path = Path(file_path)
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    logger.info(f"Reading JSON file: {file_path}")
-    start_time = time.time()
-
-    try:
-        # Handle decryption if needed
-        with temporary_decrypted_file(
-            file_path, encryption_key, suffix=".json", encryption_mode=encryption_mode
-        ) as file_to_read:
-            # Read the file
-            with open(file_to_read, "r", encoding=encoding) as f:
-                content = f.read()
-
-            # Parse JSON
-            data = json.loads(content, **kwargs)
-
-            duration = time.time() - start_time
-            logger.info(f"Read JSON file {file_path} in {duration:.2f}s")
-            return data
-
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON parsing error in {file_path}: {e}")
-        raise
-    except (IOError, OSError) as e:
-        logger.error(f"File I/O error: {e}")
-        raise
-    except Exception as e:
-        logger.exception(f"Unexpected error reading JSON file {file_path}: {e}")
-        raise
+    return io_readers.read_json(
+        file_path=file_path,
+        encoding=encoding,
+        encryption_key=encryption_key,
+        use_encryption=use_encryption,
+        encryption_mode=encryption_mode,
+        **kwargs,
+    )
 
 
 def write_json(
@@ -1785,14 +1221,16 @@ def append_to_json_array(
                     f"Existing file {file_path} does not contain a JSON array. Creating new array."
                 )
                 current_data = []
-        except (json.JSONDecodeError, FileNotFoundError) as e:
+        except (json.JSONDecodeError, PamolaFileNotFoundError) as e:
             logger.warning(
                 f"Error reading existing JSON from {file_path}: {e}. Creating new array."
             )
             current_data = []
     elif not create_if_missing:
-        raise FileNotFoundError(
-            f"File not found: {file_path} and create_if_missing is False"
+        raise FileValidationError(
+            file_path=str(file_path),
+            reason="File not found and create_if_missing is False",
+            error_type=ErrorCode.FILE_NOT_FOUND,
         )
 
     # Append the new item
@@ -1874,14 +1312,16 @@ def merge_json_objects(
                     f"Existing file {file_path} does not contain a JSON object. Creating new object."
                 )
                 current_data = {}
-        except (json.JSONDecodeError, FileNotFoundError) as e:
+        except (json.JSONDecodeError, PamolaFileNotFoundError) as e:
             logger.warning(
                 f"Error reading existing JSON from {file_path}: {e}. Creating new object."
             )
             current_data = {}
     elif not create_if_missing:
-        raise FileNotFoundError(
-            f"File not found: {file_path} and create_if_missing is False"
+        raise FileValidationError(
+            file_path=str(file_path),
+            reason="File not found and create_if_missing is False",
+            error_type=ErrorCode.FILE_NOT_FOUND,
         )
 
     # Merge the dictionaries
@@ -1936,38 +1376,14 @@ def read_parquet(
     pd.DataFrame
         DataFrame containing the file data
     """
-    file_path = Path(file_path)
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    logger.info(f"Reading Parquet file: {file_path}")
-    start_time = time.time()
-
-    try:
-        # Check if pyarrow is installed
-        format_utils.check_pyarrow_available()
-
-        # Handle decryption if needed
-        with temporary_decrypted_file(
-            file_path,
-            encryption_key,
-            suffix=".parquet",
-            encryption_mode=encryption_mode,
-        ) as file_to_read:
-            # Read the file
-            df = pd.read_parquet(file_to_read, columns=columns, **kwargs)
-
-            duration = time.time() - start_time
-            logger.info(f"Read Parquet file {file_path} in {duration:.2f}s")
-            return df
-
-    except ImportError as e:
-        logger.error(f"Missing Parquet library dependency: {e}")
-        raise
-    except Exception as e:
-        logger.exception(f"Unexpected error reading Parquet file {file_path}: {e}")
-        raise
+    return io_readers.read_parquet(
+        file_path=file_path,
+        columns=columns,
+        encryption_key=encryption_key,
+        use_encryption=use_encryption,
+        encryption_mode=encryption_mode,
+        **kwargs,
+    )
 
 
 def write_parquet(
@@ -2143,7 +1559,9 @@ def save_visualization(
                 )
 
             else:
-                raise TypeError(f"Unsupported visualization type: {type(figure)}")
+                raise TypeValidationError(
+                    f"Unsupported visualization type: {type(figure)}"
+                )
 
             logger.info(f"Visualization saved to {file_path}")
             return file_path
@@ -2291,11 +1709,12 @@ def save_dataframe(
 
             result = file_path
 
-        except ImportError:
+        except ImportError as e:
             logger.error("openpyxl is required to write Excel files")
-            raise ImportError(
-                "openpyxl is required to write Excel files. Please install it with 'pip install openpyxl'."
-            )
+            raise DependencyMissingError(
+                dependency_name="openpyxl",
+                reason=str(e),
+            ) from e
     elif format.lower() == "pickle":
         # Handle encryption if needed
         with temporary_file_for_encryption(
@@ -2305,12 +1724,17 @@ def save_dataframe(
 
         result = file_path
     else:
-        raise ValueError(f"Unsupported format: {format}")
+        raise InvalidParameterError(
+            param_name="format",
+            param_value=format,
+            reason=f"Unsupported format: {format}",
+        )
 
     # Verify result is initialized
     if result is None:
-        raise RuntimeError(
-            f"Failed to save DataFrame to {file_path}. No result was returned."
+        raise DataWriteError(
+            file_path=str(file_path),
+            reason="No result was returned",
         )
 
     duration = time.time() - start_time
@@ -2360,7 +1784,7 @@ def read_dataframe(
     file_path = Path(file_path)
 
     if not file_path.exists():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        raise PamolaFileNotFoundError(str(file_path))
 
     # Infer format from file extension if not specified
     if file_format is None:
@@ -2415,7 +1839,7 @@ def read_dataframe(
                 else:
                     df = pd.DataFrame.from_dict(json_data, orient="columns")
             else:
-                raise ValueError(
+                raise ValidationError(
                     f"Cannot convert JSON data of type {type(json_data)} to DataFrame"
                 )
 
@@ -2502,12 +1926,17 @@ def read_dataframe(
         if nrows is not None and df is not None:
             df = df.head(nrows)
     else:
-        raise ValueError(f"Unsupported format: {file_format}")
+        raise InvalidParameterError(
+            param_name="format",
+            param_value=file_format,
+            reason=f"Unsupported format: {file_format}",
+        )
 
     # Safety check to ensure df is initialized
     if df is None:
-        raise RuntimeError(
-            f"Failed to read DataFrame from {file_path}. No data was returned."
+        raise DataError(
+            source=str(file_path),
+            reason="No data was returned",
         )
 
     duration = time.time() - start_time
@@ -2531,7 +1960,7 @@ def read_multi_file_dask(
     skiprows: Optional[Union[int, List[int]]] = None,
     npartitions: Optional[int] = None,
     show_progress: bool = True,
-    encryption_key: Optional[str] = None
+    encryption_key: Optional[str] = None,
 ) -> Optional[dd.DataFrame]:
     """
     Read multiple files using dask.
@@ -2565,17 +1994,15 @@ def read_multi_file_dask(
         Dask DataFrame
     """
     # Get file format of the first file
-    file_format = file_paths[0].suffix.lower().lstrip('.')
+    file_format = file_paths[0].suffix.lower().lstrip(".")
 
     with temporary_decrypted_files(
-            file_paths=file_paths,
-            encryption_key=encryption_key,
-            suffix=f".{file_format}"
+        file_paths=file_paths, encryption_key=encryption_key, suffix=f".{file_format}"
     ) as files_to_read:
-        if file_format in ('csv', 'tsv', 'txt'):
+        if file_format in ("csv", "tsv", "txt"):
             # For TSV format, override delimiter
-            if file_format == 'tsv':
-                delimiter = '\t'
+            if file_format == "tsv":
+                delimiter = "\t"
 
             return dd.read_csv(
                 urlpath=files_to_read,
@@ -2583,20 +2010,14 @@ def read_multi_file_dask(
                 delimiter=delimiter,
                 quotechar=quotechar,
                 usecols=columns,
-                skiprows=skiprows
+                skiprows=skiprows,
             )
 
         elif file_format in ["json"]:
-            return dd.read_json(
-                url_path=files_to_read,
-                encoding=encoding
-            )
+            return dd.read_json(url_path=files_to_read, encoding=encoding)
 
         elif file_format in ["parquet", "pq"]:
-            return dd.read_parquet(
-                path=files_to_read,
-                columns=columns
-            )
+            return dd.read_parquet(path=files_to_read, columns=columns)
 
         elif file_format in ["xlsx", "xls"]:
             # Use dask.delayed to read each sheet as a separate delayed object
@@ -2609,7 +2030,7 @@ def read_multi_file_dask(
                     sheet_name=None,
                     usecols=columns,
                     nrows=nrows,
-                    skiprows=skiprows
+                    skiprows=skiprows,
                 )
 
                 # Split the sheets and create a delayed dataframe for each sheet
@@ -2622,15 +2043,15 @@ def read_multi_file_dask(
                 sheet_name=0,
                 usecols=columns,
                 nrows=nrows,
-                skiprows=skiprows
+                skiprows=skiprows,
             ).compute()
 
             # Convert delayed DataFrames into a Dask DataFrame
             dask_df = dd.from_delayed(delayed_dfs, meta=sample_df)
 
             # Repartition Dask DataFrame based on npartitions (this can be adjusted)
-            #npartitions = len(delayed_dfs)
-            #dask_df = dask_df.repartition(npartitions=npartitions)
+            # npartitions = len(delayed_dfs)
+            # dask_df = dask_df.repartition(npartitions=npartitions)
 
             return dask_df
 
@@ -2749,18 +2170,20 @@ def read_similar_files(
 
 
 def get_system_memory() -> Dict[str, float]:
-   """
-   Get information about system memory.
+    """
+    Get information about system memory.
 
-   Returns:
-   --------
-   Dict[str, float]
-       Dictionary with system memory information in GB
-   """
-   return memory_utils.get_system_memory()
+    Returns:
+    --------
+    Dict[str, float]
+        Dictionary with system memory information in GB
+    """
+    return memory_utils.get_system_memory()
 
 
-def estimate_file_memory_list(file_paths: List[Union[str, Path]]) -> List[Dict[str, Any]]:
+def estimate_file_memory_list(
+    file_paths: List[Union[str, Path]],
+) -> List[Dict[str, Any]]:
     """
     Estimate memory requirements for loading a file based on its format.
 
@@ -2907,7 +2330,7 @@ def load_settings_operation(data_source, data_source_name, **kwargs) -> Dict[str
         "encryption_key": encryption_key,
         "encryption_mode": encryption_mode,
         "detect_parameters": False,
-        "use_dask": False
+        "use_dask": False,
     }
 
 
@@ -2930,8 +2353,10 @@ def load_data_operation(
     if hasattr(data_source, "get_dataframe"):
         df, error_info = data_source.get_dataframe(dataset_name, **kwargs)
         if df is None:
-            raise ValueError(
-                f"Failed to load input data: {error_info.get('message', 'Unknown error')}"
+            raise InvalidParameterError(
+                param_name="error",
+                param_value=error_info.get("message", "Unknown error"),
+                reason=f"Failed to load input data: {error_info.get('message', 'Unknown error')}",
             )
         return df
     elif isinstance(data_source, pd.DataFrame):
@@ -2941,9 +2366,15 @@ def load_data_operation(
         try:
             return read_full_csv(data_source)
         except Exception as e:
-            raise ValueError(f"Unable to load data from path {data_source}: {str(e)}")
+            raise ValidationError(
+                f"Unable to load data from path {data_source}: {str(e)}"
+            )
     else:
-        raise ValueError(f"Unsupported data source type: {type(data_source)}")
+        raise InvalidParameterError(
+            param_name="data",
+            param_value=type(data_source),
+            reason=f"Unsupported data source type: {type(data_source)}",
+        )
 
 
 def generate_word_frequencies(

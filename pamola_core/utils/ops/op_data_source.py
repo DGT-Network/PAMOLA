@@ -30,9 +30,13 @@ import dask.dataframe as dd
 import pandas as pd
 
 from pamola_core.common.constants import Constants
-from pamola_core.utils import logging as custom_logging
-from pamola_core.utils.ops import op_data_source_helpers
-from pamola_core.utils.ops.op_data_reader import DataReader, ResultWithError
+import pamola_core.utils.logging as pamola_logging
+import pamola_core.utils.ops.op_data_source_helpers as op_data_source_helpers
+from pamola_core.utils.ops.op_data_reader import (
+    DataReader,
+    ResultWithError,
+)
+from pamola_core.errors.exceptions import ValidationError, TypeValidationError
 
 # Define type for file paths dictionary - allowing both Path and List[Path] as values
 PathType = TypeVar("PathType", Path, List[Path])
@@ -77,7 +81,7 @@ class DataSource:
         self.data_types = data_types or {}
 
         # Initialize logger using the custom logging module
-        self.logger = custom_logging.get_logger(f"{__name__}.{self.__class__.__name__}")
+        self.logger = pamola_logging.getLogger(f"{__name__}.{self.__class__.__name__}")
         self.logger.debug("Initializing DataSource")
 
         # Convert string paths to Path objects
@@ -862,7 +866,7 @@ class DataSource:
                     error_msg = error_info.get(
                         "message", "Unknown error loading dataset"
                     )
-                    raise ValueError(error_msg)
+                    raise ValidationError(error_msg)
             except Exception as e:
                 if error_on_empty:
                     raise
@@ -1158,7 +1162,7 @@ class DataSource:
             DataSource containing the file path (and DataFrame if load=True)
         """
         path_obj = Path(path) if isinstance(path, str) else path
-        logger = custom_logging.get_logger(f"{__name__}.DataSource")
+        logger = pamola_logging.getLogger(f"{__name__}.DataSource")
         logger.info(f"Creating DataSource from file path: {path_obj}")
 
         # Create a new DataSource
@@ -1210,7 +1214,7 @@ class DataSource:
         DataSource
             DataSource containing the file paths (and DataFrame if load=True)
         """
-        logger = custom_logging.get_logger(f"{__name__}.DataSource")
+        logger = pamola_logging.getLogger(f"{__name__}.DataSource")
         logger.info(f"Creating DataSource from {len(paths)} files for dataset '{name}'")
 
         # Create a new DataSource
@@ -1328,7 +1332,7 @@ class DataSource:
         """
 
         if not isinstance(df, (pd.DataFrame, dd.DataFrame)):
-            raise TypeError(f"Unsupported dataframe type: {type(df)}")
+            raise TypeValidationError(f"Unsupported dataframe type: {type(df)}")
 
         # Get full dtype config
         dtype_map = data_types or self.data_types.get(dataset_name, {})
@@ -1389,7 +1393,9 @@ class DataSource:
 
         if errors:
             details = "\n".join(f"  - {col}: {msg}" for col, msg in errors.items())
-            raise ValueError(f"Failed to convert {len(errors)} column(s):\n{details}")
+            raise ValidationError(
+                f"Failed to convert {len(errors)} column(s):\n{details}"
+            )
 
         # Safe final conversion
         return df.astype(cols_to_convert)

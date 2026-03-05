@@ -33,6 +33,12 @@ import numpy as np
 import pandas as pd
 from pamola_core.common.constants import Constants
 from pamola_core.common.regex.patterns import CommonPatterns
+from pamola_core.errors.exceptions import (
+    ColumnNotFoundError,
+    InvalidParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 
 class DataHelper:
@@ -161,7 +167,7 @@ class DataHelper:
             # Use regex to split the range string correctly
             match = re.match(r"^(-?\d+(\.\d+)?)-(-?\d+(\.\d+)?)$", range_str)
             if not match:
-                raise ValueError(f"Invalid range format: {range_str}")
+                raise ValidationError(f"Invalid range format: {range_str}")
 
             # Extract start and end values
             start, end = match.group(1), match.group(3)
@@ -179,7 +185,7 @@ class DataHelper:
             # Return as int if no decimal point, otherwise as float
             return int(midpoint) if not is_float else midpoint
 
-        except ValueError as e:
+        except (ValidationError, ValueError) as e:
             print(f"Error processing range: {e}")
             pass
             return None
@@ -362,7 +368,7 @@ class DataHelper:
         # Use regex to split the range string correctly
         match = re.match(r"^(-?\d+(\.\d+)?)-(-?\d+(\.\d+)?)$", value)
         if not match:
-            raise ValueError(f"Invalid range format: {value}")
+            raise ValidationError(f"Invalid range format: {value}")
 
         # Extract lower_bound and upper_bound values
         lower_bound, upper_bound = match.group(1), match.group(3)
@@ -385,7 +391,7 @@ class DataHelper:
         bins = np.unique(bins)  # Ensure unique bin edges
 
         if len(bins) < 2:
-            raise ValueError("Insufficient unique bin edges for numeric binning.")
+            raise ValidationError("Insufficient unique bin edges for numeric binning.")
 
         # If the series is of integer type, adjust bins
         if np.issubdtype(series.dtype, np.integer):
@@ -422,7 +428,7 @@ class DataHelper:
                 if low <= lower <= high and low <= upper <= high:
                     return label
             return f"{lower}-{upper}"  # Keep original if no match
-        except ValueError:
+        except (ValidationError, ValueError):
             return value  # Return as-is if not a valid range
 
     @staticmethod
@@ -446,7 +452,10 @@ class DataHelper:
         df_copy = df.copy()
 
         if column not in df_copy.columns:
-            raise ValueError(f"Column '{column}' not found in DataFrame.")
+            raise ColumnNotFoundError(
+                column_name=column,
+                available_columns=list(df_copy.columns),
+            )
 
         if pd.api.types.is_numeric_dtype(df_copy[column]):
             df_copy[column] = DataHelper.bin_numeric(df_copy[column], num_bins)
@@ -455,7 +464,11 @@ class DataHelper:
                 DataHelper.generalize_categorical_or_range
             )
         else:
-            raise ValueError(f"Unsupported data type for column '{column}'")
+            raise InvalidParameterError(
+                param_name="data",
+                param_value=column,
+                reason=f"Unsupported data type for column '{column}'",
+            )
 
         return df_copy
 
@@ -488,7 +501,10 @@ class DataHelper:
         df_copy = df.copy()
 
         if column not in df_copy.columns:
-            raise ValueError(f"Column '{column}' not found in DataFrame.")
+            raise ColumnNotFoundError(
+                column_name=column,
+                available_columns=list(df_copy.columns),
+            )
 
         # Compute global distribution
         global_distribution = df_copy[column].value_counts(normalize=True)
@@ -813,7 +829,7 @@ class DataHelper:
                     try:
                         converted.append(pd.to_datetime(val))
                     except Exception as e:
-                        raise ValueError(
+                        raise ValidationError(
                             f"Cannot convert '{val}' to datetime for comparison with datetime series: {str(e)}"
                         )
                 else:
@@ -868,7 +884,7 @@ class DataHelper:
         try:
             _ = sample > val  # test comparability
         except Exception:
-            raise TypeError(
+            raise TypeValidationError(
                 f"Operator '{operator}' not supported for type '{type(sample)}' "
                 f"with value type '{type(val)}'"
             )

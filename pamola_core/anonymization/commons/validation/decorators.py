@@ -50,13 +50,14 @@ from typing import Callable, List, Optional
 
 import pandas as pd
 
-from .base import ValidationResult
+from pamola_core.anonymization.commons.validation.base import ValidationResult
+
 # Import validation exceptions and base classes
-from .exceptions import (
+from pamola_core.errors.exceptions import (
     ValidationError,
     FieldNotFoundError,
     FieldTypeError,
-    MultipleValidationErrors
+    MultipleValidationErrors,
 )
 
 # Configure module logger
@@ -67,8 +68,10 @@ logger = logging.getLogger(__name__)
 # Core Validation Decorators
 # =============================================================================
 
-def validation_handler(default_field_name: Optional[str] = None,
-                       catch_all_exceptions: bool = True):
+
+def validation_handler(
+    default_field_name: Optional[str] = None, catch_all_exceptions: bool = True
+):
     """
     Handle validation exceptions and format results consistently.
 
@@ -102,15 +105,15 @@ def validation_handler(default_field_name: Optional[str] = None,
                     # Try to convert common return types
                     if isinstance(result, bool):
                         return ValidationResult(
-                            is_valid=result,
-                            field_name=default_field_name
+                            is_valid=result, field_name=default_field_name
                         )
                     else:
                         return ValidationResult(
                             is_valid=False,
                             field_name=default_field_name,
                             errors=[
-                                f"Validation function must return ValidationResult or bool, got {type(result).__name__}"]
+                                f"Validation function must return ValidationResult or bool, got {type(result).__name__}"
+                            ],
                         )
 
                 # Add default field name if not set
@@ -132,7 +135,7 @@ def validation_handler(default_field_name: Optional[str] = None,
                 return ValidationResult(
                     is_valid=False,
                     field_name=default_field_name,
-                    errors=[f"Validation error: {str(e)}"]
+                    errors=[f"Validation error: {str(e)}"],
                 )
 
         return wrapper
@@ -143,6 +146,7 @@ def validation_handler(default_field_name: Optional[str] = None,
 # =============================================================================
 # Type Validation Decorators
 # =============================================================================
+
 
 def validate_types(**type_hints):
     """
@@ -180,8 +184,11 @@ def validate_types(**type_hints):
 
                     # Skip None if allowed
                     if value is None and (
-                            expected_type is type(None) or
-                            (isinstance(expected_type, tuple) and type(None) in expected_type)
+                        expected_type is type(None)
+                        or (
+                            isinstance(expected_type, tuple)
+                            and type(None) in expected_type
+                        )
                     ):
                         continue
 
@@ -189,17 +196,19 @@ def validate_types(**type_hints):
                     if not isinstance(value, expected_type):
                         # Format type names for error message
                         if isinstance(expected_type, tuple):
-                            expected_str = " or ".join(t.__name__ for t in expected_type)
+                            expected_str = " or ".join(
+                                t.__name__ for t in expected_type
+                            )
                         else:
                             expected_str = expected_type.__name__
 
                         # Extract field_name if it's in the arguments
-                        field_name = bound_args.arguments.get('field_name', param_name)
+                        field_name = bound_args.arguments.get("field_name", param_name)
 
                         raise FieldTypeError(
                             field_name=str(field_name),
                             expected_type=expected_str,
-                            actual_type=type(value).__name__
+                            actual_type=type(value).__name__,
                         )
 
             return func(*args, **kwargs)
@@ -213,8 +222,8 @@ def validate_types(**type_hints):
 # Input Sanitization Decorators
 # =============================================================================
 
-def sanitize_inputs(strip_strings: bool = True,
-                    normalize_none: bool = True):
+
+def sanitize_inputs(strip_strings: bool = True, normalize_none: bool = True):
     """
     Sanitize and normalize input values.
 
@@ -269,8 +278,8 @@ def sanitize_inputs(strip_strings: bool = True,
 # Conditional Validation Decorators
 # =============================================================================
 
-def skip_if_empty(return_valid: bool = True,
-                  check_field: Optional[str] = None):
+
+def skip_if_empty(return_valid: bool = True, check_field: Optional[str] = None):
     """
     Skip validation for empty inputs.
 
@@ -302,7 +311,7 @@ def skip_if_empty(return_valid: bool = True,
                     return ValidationResult(
                         is_valid=False,
                         field_name=check_field,
-                        errors=[f"Field '{check_field}' not found"]
+                        errors=[f"Field '{check_field}' not found"],
                     )
                 value = df[check_field]
             elif args:
@@ -314,18 +323,21 @@ def skip_if_empty(return_valid: bool = True,
 
             # Check for various empty conditions
             is_empty = (
-                    value is None or
-                    (isinstance(value, str) and not value.strip()) or
-                    (isinstance(value, (list, dict, tuple)) and len(value) == 0) or
-                    (isinstance(value, pd.Series) and (len(value) == 0 or value.isna().all())) or
-                    (isinstance(value, pd.DataFrame) and value.empty)
+                value is None
+                or (isinstance(value, str) and not value.strip())
+                or (isinstance(value, (list, dict, tuple)) and len(value) == 0)
+                or (
+                    isinstance(value, pd.Series)
+                    and (len(value) == 0 or value.isna().all())
+                )
+                or (isinstance(value, pd.DataFrame) and value.empty)
             )
 
             if is_empty:
                 return ValidationResult(
                     is_valid=return_valid,
                     field_name=check_field,
-                    warnings=["Skipped validation for empty input"]
+                    warnings=["Skipped validation for empty input"],
                 )
 
             return func(*args, **kwargs)
@@ -335,8 +347,7 @@ def skip_if_empty(return_valid: bool = True,
     return decorator
 
 
-def requires_field(field_name: str,
-                   raise_error: bool = True):
+def requires_field(field_name: str, raise_error: bool = True):
     """
     Ensure DataFrame has required field before validation.
 
@@ -363,24 +374,23 @@ def requires_field(field_name: str,
                     raise FieldTypeError(
                         field_name="df",
                         expected_type="DataFrame",
-                        actual_type=type(df).__name__
+                        actual_type=type(df).__name__,
                     )
                 return ValidationResult(
                     is_valid=False,
-                    errors=[f"Expected DataFrame, got {type(df).__name__}"]
+                    errors=[f"Expected DataFrame, got {type(df).__name__}"],
                 )
 
             # Check field existence
             if field_name not in df.columns:
                 if raise_error:
                     raise FieldNotFoundError(
-                        field_name=field_name,
-                        available_fields=list(df.columns)
+                        field_name=field_name, available_fields=list(df.columns)
                     )
                 return ValidationResult(
                     is_valid=False,
                     field_name=field_name,
-                    errors=[f"Required field '{field_name}' not found"]
+                    errors=[f"Required field '{field_name}' not found"],
                 )
 
             return func(df, *args, **kwargs)
@@ -390,8 +400,7 @@ def requires_field(field_name: str,
     return decorator
 
 
-def requires_fields(field_names: List[str],
-                    all_required: bool = True):
+def requires_fields(field_names: List[str], all_required: bool = True):
     """
     Ensure DataFrame has required fields before validation.
 
@@ -416,20 +425,23 @@ def requires_fields(field_names: List[str],
                 raise FieldTypeError(
                     field_name="df",
                     expected_type="DataFrame",
-                    actual_type=type(df).__name__
+                    actual_type=type(df).__name__,
                 )
 
             missing_fields = [f for f in field_names if f not in df.columns]
 
             if all_required and missing_fields:
-                raise MultipleValidationErrors([
-                    FieldNotFoundError(field_name=f, available_fields=list(df.columns))
-                    for f in missing_fields
-                ])
+                raise MultipleValidationErrors(
+                    [
+                        FieldNotFoundError(
+                            field_name=f, available_fields=list(df.columns)
+                        )
+                        for f in missing_fields
+                    ]
+                )
             elif not all_required and len(missing_fields) == len(field_names):
                 raise FieldNotFoundError(
-                    field_name=field_names[0],
-                    available_fields=list(df.columns)
+                    field_name=field_names[0], available_fields=list(df.columns)
                 )
 
             return func(df, *args, **kwargs)
@@ -443,9 +455,10 @@ def requires_fields(field_names: List[str],
 # Composite Decorators
 # =============================================================================
 
-def standard_validator(field_name: Optional[str] = None,
-                       strip_inputs: bool = True,
-                       catch_all: bool = True):
+
+def standard_validator(
+    field_name: Optional[str] = None, strip_inputs: bool = True, catch_all: bool = True
+):
     """
     Apply standard validation decorators in correct order.
 
@@ -479,8 +492,7 @@ def standard_validator(field_name: Optional[str] = None,
 
         # Exception handling (outermost)
         wrapped = validation_handler(
-            default_field_name=field_name,
-            catch_all_exceptions=catch_all
+            default_field_name=field_name, catch_all_exceptions=catch_all
         )(wrapped)
 
         return wrapped
@@ -491,6 +503,7 @@ def standard_validator(field_name: Optional[str] = None,
 # =============================================================================
 # Result Aggregation Decorator
 # =============================================================================
+
 
 def aggregate_results(stop_on_first_error: bool = False):
     """
@@ -542,32 +555,9 @@ def aggregate_results(stop_on_first_error: bool = False):
                     details[f"validation_{i}"] = result.details
 
             return ValidationResult(
-                is_valid=all_valid,
-                errors=errors,
-                warnings=warnings,
-                details=details
+                is_valid=all_valid, errors=errors, warnings=warnings, details=details
             )
 
         return wrapper
 
     return decorator
-
-
-# Module exports
-__all__ = [
-    # Core decorators
-    'validation_handler',
-    'validate_types',
-
-    # Input handling
-    'sanitize_inputs',
-    'skip_if_empty',
-    'requires_field',
-    'requires_fields',
-
-    # Composite decorators
-    'standard_validator',
-
-    # Result handling
-    'aggregate_results'
-]

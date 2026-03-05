@@ -10,15 +10,17 @@ from typing import Dict, List, Any, Optional, Union, Set
 
 # Import from base module for pamola_core functionality
 from pamola_core.utils.nlp.base import batch_process
-from pamola_core.utils.nlp.cache import get_cache, cache_function
+from pamola_core.utils.nlp.cache import (
+    cache_function,
+)
 # Import necessary functions from tokenization
-from pamola_core.utils.nlp.tokenization import tokenize, _get_or_detect_language
+from pamola_core.utils.nlp.tokenization import (
+    tokenize,
+    _get_or_detect_language,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-# Use memory cache for efficient lookup
-memory_cache = get_cache('memory')
 
 
 @cache_function(ttl=3600, cache_type='memory')

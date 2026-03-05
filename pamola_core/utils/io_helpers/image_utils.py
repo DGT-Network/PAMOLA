@@ -19,10 +19,10 @@ Key features:
 from pathlib import Path
 from typing import Union, Optional, Dict, Any, Tuple
 
-from pamola_core.utils import logging
+import logging
 
 # Configure module logger
-logger = logging.get_logger("pamola_core.utils.io_helpers.image_utils")
+logger = logging.getLogger(__name__)
 
 
 def save_plot(plot_fig, file_path: Union[str, Path], dpi: int = 300, **kwargs) -> Path:

@@ -22,12 +22,16 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 
 from pamola_core.utils.io import ensure_directory, get_timestamped_filename
-from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.progress import SimpleProgressBar
 from pamola_core.utils.tasks.task_config import validate_path_security
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import PathSecurityError, InvalidParameterError
+
+if TYPE_CHECKING:
+    from pamola_core.utils.ops.op_data_source import DataSource
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -49,7 +53,10 @@ def create_task_directories(task_dir: Path) -> Dict[str, Path]:
     # Validate task_dir for security
     if not validate_path_security(task_dir):
         logger.error(f"Insecure task directory path: {task_dir}")
-        raise ValueError(f"Insecure task directory path: {task_dir}")
+        raise PathSecurityError(
+            message=f"Insecure task directory path: {task_dir}",
+            error_code=ErrorCode.PATH_SECURITY_VIOLATION,
+        )
 
     # Define standard directories
     directories = {
@@ -57,7 +64,7 @@ def create_task_directories(task_dir: Path) -> Dict[str, Path]:
         "dictionaries": task_dir / "dictionaries",
         "visualizations": task_dir / "visualizations",
         "metrics": task_dir / "metrics",
-        "logs": task_dir.parent.parent / "logs"
+        "logs": task_dir.parent.parent / "logs",
     }
 
     # Create directories
@@ -68,8 +75,9 @@ def create_task_directories(task_dir: Path) -> Dict[str, Path]:
     return directories
 
 
-def prepare_data_source_from_paths(file_paths: Dict[str, str],
-                                   show_progress: bool = True) -> DataSource:
+def prepare_data_source_from_paths(
+    file_paths: Dict[str, str], show_progress: bool = True
+) -> "DataSource":
     """
     Prepare a data source from file paths.
 
@@ -83,19 +91,26 @@ def prepare_data_source_from_paths(file_paths: Dict[str, str],
     Returns:
         DataSource with file paths added
     """
+    from pamola_core.utils.ops.op_data_source import DataSource
+
     data_source = DataSource()
 
     # Create progress tracker if requested
     progress = None
     if show_progress and len(file_paths) > 1:
-        progress = SimpleProgressBar(total=len(file_paths), description="Adding files to data source")
+        progress = SimpleProgressBar(
+            total=len(file_paths), description="Adding files to data source"
+        )
 
     try:
         for i, (name, path) in enumerate(file_paths.items()):
             # Validate path security
             if not validate_path_security(path):
                 logger.error(f"Insecure input path: {path}")
-                raise ValueError(f"Insecure input path: {path}")
+                raise PathSecurityError(
+                    message=f"Insecure input path: {path}",
+                    error_code=ErrorCode.PATH_SECURITY_VIOLATION,
+                )
 
             # Convert path to Path object if it's a string
             path_obj = Path(path) if isinstance(path, str) else path
@@ -141,11 +156,13 @@ def format_execution_time(seconds: float) -> str:
         return f"{int(hours)} hours, {int(minutes_remainder)} minutes"
 
 
-def get_artifact_path(task_dir: Path,
-                      artifact_name: str,
-                      artifact_type: str = "json",
-                      sub_dir: str = "output",
-                      include_timestamp: bool = True) -> Path:
+def get_artifact_path(
+    task_dir: Path,
+    artifact_name: str,
+    artifact_type: str = "json",
+    sub_dir: str = "output",
+    include_timestamp: bool = True,
+) -> Path:
     """
     Get a standardized path for a task artifact.
 
@@ -162,11 +179,18 @@ def get_artifact_path(task_dir: Path,
     # Validate task_dir and artifact_name for security
     if not validate_path_security(task_dir):
         logger.error(f"Insecure task directory path: {task_dir}")
-        raise ValueError(f"Insecure task directory path: {task_dir}")
+        raise PathSecurityError(
+            message=f"Insecure task directory path: {task_dir}",
+            error_code=ErrorCode.PATH_SECURITY_VIOLATION,
+        )
 
     if not validate_path_security(artifact_name):
         logger.error(f"Insecure artifact name: {artifact_name}")
-        raise ValueError(f"Insecure artifact name: {artifact_name}")
+        raise InvalidParameterError(
+            param_name="artifact_name",
+            param_value=artifact_name,
+            reason=f"Insecure artifact name: {artifact_name}",
+        )
 
     # Get the appropriate subdirectory
     artifact_dir = task_dir / sub_dir
@@ -177,16 +201,18 @@ def get_artifact_path(task_dir: Path,
         filename = get_timestamped_filename(artifact_name, artifact_type)
     else:
         # Ensure extension format
-        ext = artifact_type if artifact_type.startswith('.') else f'.{artifact_type}'
+        ext = artifact_type if artifact_type.startswith(".") else f".{artifact_type}"
         filename = f"{artifact_name}{ext}"
 
     return artifact_dir / filename
 
 
-def find_previous_output(task_id: str,
-                         data_repository: Optional[Path] = None,
-                         project_root: Optional[Path] = None,
-                         file_pattern: Optional[str] = None) -> List[Path]:
+def find_previous_output(
+    task_id: str,
+    data_repository: Optional[Path] = None,
+    project_root: Optional[Path] = None,
+    file_pattern: Optional[str] = None,
+) -> List[Path]:
     """
     Find output files from a previous task.
 
@@ -205,17 +231,26 @@ def find_previous_output(task_id: str,
     # Validate task_id and file_pattern for security
     if not validate_path_security(task_id):
         logger.error(f"Insecure task ID: {task_id}")
-        raise ValueError(f"Insecure task ID: {task_id}")
+        raise InvalidParameterError(
+            param_name="task_id",
+            param_value=task_id,
+            reason=f"Insecure task ID: {task_id}",
+        )
 
     if file_pattern and not validate_path_security(file_pattern):
         logger.error(f"Insecure file pattern: {file_pattern}")
-        raise ValueError(f"Insecure file pattern: {file_pattern}")
+        raise InvalidParameterError(
+            param_name="file_pattern",
+            param_value=file_pattern,
+            reason=f"Insecure file pattern: {file_pattern}",
+        )
 
     # Find data repository if not provided
     if data_repository is None:
         if project_root is None:
             # Try to find project root
             from pamola_core.utils.tasks.task_config import find_project_root
+
             project_root = find_project_root()
 
         # Use default data repository location
@@ -232,7 +267,9 @@ def find_previous_output(task_id: str,
 
     # Check if output directory exists
     if not previous_output_dir.exists():
-        logger.warning(f"Previous task output directory not found: {previous_output_dir}")
+        logger.warning(
+            f"Previous task output directory not found: {previous_output_dir}"
+        )
         return []
 
     # Find files matching pattern or all files in output directory
@@ -250,9 +287,11 @@ def find_previous_output(task_id: str,
     return output_files
 
 
-def find_task_report(task_id: str,
-                     data_repository: Optional[Path] = None,
-                     project_root: Optional[Path] = None) -> Optional[Path]:
+def find_task_report(
+    task_id: str,
+    data_repository: Optional[Path] = None,
+    project_root: Optional[Path] = None,
+) -> Optional[Path]:
     """
     Find the report file from a previous task.
 
@@ -267,13 +306,18 @@ def find_task_report(task_id: str,
     # Validate task_id for security
     if not validate_path_security(task_id):
         logger.error(f"Insecure task ID: {task_id}")
-        raise ValueError(f"Insecure task ID: {task_id}")
+        raise InvalidParameterError(
+            param_name="task_id",
+            param_value=task_id,
+            reason=f"Insecure task ID: {task_id}",
+        )
 
     # Find data repository if not provided
     if data_repository is None:
         if project_root is None:
             # Try to find project root
             from pamola_core.utils.tasks.task_config import find_project_root
+
             project_root = find_project_root()
 
         # Use default data repository location
@@ -300,7 +344,7 @@ def find_task_report(task_id: str,
     # Look for alternative formats
     alternative_paths = [
         reports_dir / f"{task_id}.json",
-        reports_dir / task_id / "report.json"
+        reports_dir / task_id / "report.json",
     ]
 
     for path in alternative_paths:
@@ -323,7 +367,10 @@ def get_temp_dir(task_dir: Path) -> Path:
     # Validate task_dir for security
     if not validate_path_security(task_dir):
         logger.error(f"Insecure task directory path: {task_dir}")
-        raise ValueError(f"Insecure task directory path: {task_dir}")
+        raise PathSecurityError(
+            message=f"Insecure task directory path: {task_dir}",
+            error_code=ErrorCode.PATH_SECURITY_VIOLATION,
+        )
 
     temp_dir = task_dir / "temp"
     ensure_directory(temp_dir)
@@ -345,7 +392,10 @@ def clean_temp_dir(task_dir: Path) -> bool:
     # Validate task_dir for security
     if not validate_path_security(task_dir):
         logger.error(f"Insecure task directory path: {task_dir}")
-        raise ValueError(f"Insecure task directory path: {task_dir}")
+        raise PathSecurityError(
+            message=f"Insecure task directory path: {task_dir}",
+            error_code=ErrorCode.PATH_SECURITY_VIOLATION,
+        )
 
     temp_dir = task_dir / "temp"
     if temp_dir.exists():
@@ -379,7 +429,7 @@ def format_error_for_report(error: Exception) -> Dict[str, Any]:
         "type": error.__class__.__name__,
         "message": str(error),
         "traceback": traceback.format_exc(),
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
 
 
@@ -399,19 +449,25 @@ def ensure_secure_directory(path: Union[str, Path]) -> Path:
     # Validate path for security
     if not validate_path_security(path):
         logger.error(f"Insecure directory path: {path}")
-        raise ValueError(f"Insecure directory path: {path}")
+        raise PathSecurityError(
+            message=f"Insecure directory path: {path}",
+            error_code=ErrorCode.PATH_SECURITY_VIOLATION,
+        )
 
     # Create the directory
     dir_path = ensure_directory(Path(path))
 
     try:
         # Set secure permissions
-        if os.name == 'posix':  # Unix-like systems
+        if os.name == "posix":  # Unix-like systems
             import stat
+
             os.chmod(dir_path, stat.S_IRWXU)  # 0o700 - User read/write/execute only
             logger.debug(f"Set secure permissions (0o700) for directory: {dir_path}")
     except Exception as e:
-        logger.warning(f"Could not set secure permissions for directory {dir_path}: {str(e)}")
+        logger.warning(
+            f"Could not set secure permissions for directory {dir_path}: {str(e)}"
+        )
 
     return dir_path
 
@@ -425,14 +481,18 @@ def is_master_key_exposed() -> bool:
     """
     try:
         from pamola_core.utils.crypto_helpers.key_store import is_master_key_exposed
+
         return is_master_key_exposed()
     except ImportError:
-        logger.debug("Crypto key store module not available, cannot check master key exposure")
+        logger.debug(
+            "Crypto key store module not available, cannot check master key exposure"
+        )
         return False
 
 
-def extract_previous_output_info(task_id: str,
-                                 data_repository: Optional[Path] = None) -> Dict[str, Any]:
+def extract_previous_output_info(
+    task_id: str, data_repository: Optional[Path] = None
+) -> Dict[str, Any]:
     """
     Extract information about outputs from a previous task.
 
@@ -449,7 +509,11 @@ def extract_previous_output_info(task_id: str,
     # Validate task_id for security
     if not validate_path_security(task_id):
         logger.error(f"Insecure task ID: {task_id}")
-        raise ValueError(f"Insecure task ID: {task_id}")
+        raise InvalidParameterError(
+            param_name="task_id",
+            param_value=task_id,
+            reason=f"Insecure task ID: {task_id}",
+        )
 
     # Find the report file
     report_path = find_task_report(task_id, data_repository)
@@ -460,7 +524,8 @@ def extract_previous_output_info(task_id: str,
     try:
         # Read the report file
         import json
-        with open(report_path, 'r', encoding='utf-8') as f:
+
+        with open(report_path, "r", encoding="utf-8") as f:
             report = json.load(f)
 
         # Extract artifacts information
@@ -470,7 +535,7 @@ def extract_previous_output_info(task_id: str,
             "report_path": str(report_path),
             "execution_time": report.get("execution_time_seconds"),
             "status": report.get("status"),
-            "artifacts": {}
+            "artifacts": {},
         }
 
         # Organize artifacts by type
@@ -485,13 +550,17 @@ def extract_previous_output_info(task_id: str,
                 logger.warning(f"Skipping insecure artifact path: {artifact_path}")
                 continue
 
-            result["artifacts"][artifact_type].append({
-                "path": artifact_path,
-                "description": artifact.get("description"),
-                "filename": artifact.get("filename", Path(artifact_path).name)
-            })
+            result["artifacts"][artifact_type].append(
+                {
+                    "path": artifact_path,
+                    "description": artifact.get("description"),
+                    "filename": artifact.get("filename", Path(artifact_path).name),
+                }
+            )
 
         return result
     except Exception as e:
-        logger.error(f"Error extracting information from previous task report: {str(e)}")
+        logger.error(
+            f"Error extracting information from previous task report: {str(e)}"
+        )
         return {}

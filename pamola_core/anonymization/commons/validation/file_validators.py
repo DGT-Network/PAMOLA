@@ -47,19 +47,26 @@ Changelog:
 
 import csv
 import json
+
 # Configure module logger
 import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from .base import BaseValidator, ValidationResult
-from .decorators import standard_validator, validation_handler
-from .exceptions import (
-    FileNotFoundError as FileNotFoundValidationError,
+from pamola_core.anonymization.commons.validation.base import (
+    BaseValidator,
+    ValidationResult,
+)
+from pamola_core.anonymization.commons.validation.decorators import (
+    standard_validator,
+    validation_handler,
+)
+from pamola_core.errors.exceptions import (
+    PamolaFileNotFoundError,
     FileValidationError,
     InvalidFileFormatError,
-    ValidationError
+    InvalidParameterError,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,6 +75,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # File Path Validators
 # =============================================================================
+
 
 class FilePathValidator(BaseValidator):
     """
@@ -80,11 +88,13 @@ class FilePathValidator(BaseValidator):
         check_permissions: Whether to check read permissions
     """
 
-    def __init__(self,
-                 must_exist: bool = True,
-                 valid_extensions: Optional[List[str]] = None,
-                 max_size_mb: Optional[float] = None,
-                 check_permissions: bool = True):
+    def __init__(
+        self,
+        must_exist: bool = True,
+        valid_extensions: Optional[List[str]] = None,
+        max_size_mb: Optional[float] = None,
+        check_permissions: bool = True,
+    ):
         """
         Initialize file path validator.
 
@@ -119,20 +129,18 @@ class FilePathValidator(BaseValidator):
             path = Path(file_path)
         except Exception as e:
             raise FileValidationError(
-                file_path=str(file_path),
-                reason=f"Invalid path format: {e}"
+                file_path=str(file_path), reason=f"Invalid path format: {e}"
             )
 
         # Check existence
         if self.must_exist and not path.exists():
-            raise FileNotFoundValidationError(str(path))
+            raise PamolaFileNotFoundError(str(path))
 
         if path.exists():
             # Check if it's actually a file
             if not path.is_file():
                 raise FileValidationError(
-                    file_path=str(path),
-                    reason="Path exists but is not a file"
+                    file_path=str(path), reason="Path exists but is not a file"
                 )
 
             # Check extension
@@ -143,7 +151,7 @@ class FilePathValidator(BaseValidator):
                     raise InvalidFileFormatError(
                         file_path=str(path),
                         expected_formats=self.valid_extensions,
-                        actual_format=ext
+                        actual_format=ext,
                     )
 
             # Check size
@@ -152,20 +160,19 @@ class FilePathValidator(BaseValidator):
                 if size_mb > self.max_size_mb:
                     raise FileValidationError(
                         file_path=str(path),
-                        reason=f"File size {size_mb:.2f}MB exceeds limit {self.max_size_mb}MB"
+                        reason=f"File size {size_mb:.2f}MB exceeds limit {self.max_size_mb}MB",
                     )
 
             # Check permissions
             if self.check_permissions and not os.access(path, os.R_OK):
                 raise FileValidationError(
-                    file_path=str(path),
-                    reason="File is not readable"
+                    file_path=str(path), reason="File is not readable"
                 )
 
             # Add file info to result
-            result.details['path'] = str(path)
-            result.details['size_mb'] = path.stat().st_size / (1024 * 1024)
-            result.details['extension'] = path.suffix
+            result.details["path"] = str(path)
+            result.details["size_mb"] = path.stat().st_size / (1024 * 1024)
+            result.details["extension"] = path.suffix
 
         return result
 
@@ -180,10 +187,12 @@ class DirectoryPathValidator(BaseValidator):
         check_permissions: Whether to check write permissions
     """
 
-    def __init__(self,
-                 must_exist: bool = True,
-                 create_if_missing: bool = False,
-                 check_permissions: bool = True):
+    def __init__(
+        self,
+        must_exist: bool = True,
+        create_if_missing: bool = False,
+        check_permissions: bool = True,
+    ):
         """
         Initialize directory path validator.
 
@@ -216,8 +225,7 @@ class DirectoryPathValidator(BaseValidator):
             path = Path(dir_path)
         except Exception as e:
             raise FileValidationError(
-                file_path=str(dir_path),
-                reason=f"Invalid path format: {e}"
+                file_path=str(dir_path), reason=f"Invalid path format: {e}"
             )
 
         # Handle non-existent directories
@@ -225,42 +233,38 @@ class DirectoryPathValidator(BaseValidator):
             if self.create_if_missing:
                 try:
                     path.mkdir(parents=True, exist_ok=True)
-                    result.details['created'] = True
+                    result.details["created"] = True
                     logger.info(f"Created directory: {path}")
                 except Exception as e:
                     raise FileValidationError(
-                        file_path=str(path),
-                        reason=f"Failed to create directory: {e}"
+                        file_path=str(path), reason=f"Failed to create directory: {e}"
                     )
             elif self.must_exist:
                 raise FileValidationError(
-                    file_path=str(path),
-                    reason="Directory does not exist",
-                    error_type="DIRECTORY_NOT_FOUND"
+                    file_path=str(path), reason="Directory does not exist"
                 )
 
         # Check if it's actually a directory
         if path.exists() and not path.is_dir():
             raise FileValidationError(
-                file_path=str(path),
-                reason="Path exists but is not a directory"
+                file_path=str(path), reason="Path exists but is not a directory"
             )
 
         # Check permissions
         if path.exists() and self.check_permissions:
             if not os.access(path, os.W_OK):
                 raise FileValidationError(
-                    file_path=str(path),
-                    reason="Directory is not writable"
+                    file_path=str(path), reason="Directory is not writable"
                 )
 
-        result.details['path'] = str(path)
+        result.details["path"] = str(path)
         return result
 
 
 # =============================================================================
 # Configuration File Validators
 # =============================================================================
+
 
 class JSONFileValidator(BaseValidator):
     """
@@ -271,9 +275,11 @@ class JSONFileValidator(BaseValidator):
         required_keys: Required top-level keys
     """
 
-    def __init__(self,
-                 schema: Optional[Dict[str, Any]] = None,
-                 required_keys: Optional[List[str]] = None):
+    def __init__(
+        self,
+        schema: Optional[Dict[str, Any]] = None,
+        required_keys: Optional[List[str]] = None,
+    ):
         """
         Initialize JSON file validator.
 
@@ -301,43 +307,38 @@ class JSONFileValidator(BaseValidator):
         path = Path(file_path)
 
         # First validate file path
-        file_validator = FilePathValidator(
-            valid_extensions=['.json'],
-            must_exist=True
-        )
+        file_validator = FilePathValidator(valid_extensions=[".json"], must_exist=True)
         file_result = file_validator.validate(path)
         if not file_result.is_valid:
             return file_result
 
         # Load and validate JSON content
         try:
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except json.JSONDecodeError as e:
             raise FileValidationError(
-                file_path=str(path),
-                reason=f"Invalid JSON format: {e}"
+                file_path=str(path), reason=f"Invalid JSON format: {e}"
             )
         except Exception as e:
             raise FileValidationError(
-                file_path=str(path),
-                reason=f"Failed to read JSON file: {e}"
+                file_path=str(path), reason=f"Failed to read JSON file: {e}"
             )
 
         # Check required keys
         if self.required_keys:
             missing_keys = [k for k in self.required_keys if k not in data]
             if missing_keys:
-                raise ValidationError(
-                    f"Missing required keys in JSON: {missing_keys}",
-                    error_code="MISSING_JSON_KEYS"
+                raise FileValidationError(
+                    file_path=str(path),
+                    reason=f"Missing required keys in JSON: {missing_keys}",
                 )
 
         # Schema validation would go here if schema provided
         # For MVP, we keep it simple
 
-        result.details['num_keys'] = len(data)
-        result.details['keys'] = list(data.keys())[:10]  # First 10 keys
+        result.details["num_keys"] = len(data)
+        result.details["keys"] = list(data.keys())[:10]  # First 10 keys
 
         return result
 
@@ -353,11 +354,13 @@ class CSVFileValidator(BaseValidator):
         encoding: Expected encoding
     """
 
-    def __init__(self,
-                 required_columns: Optional[List[str]] = None,
-                 delimiter: str = ',',
-                 has_header: bool = True,
-                 encoding: str = 'utf-8'):
+    def __init__(
+        self,
+        required_columns: Optional[List[str]] = None,
+        delimiter: str = ",",
+        has_header: bool = True,
+        encoding: str = "utf-8",
+    ):
         """
         Initialize CSV file validator.
 
@@ -390,8 +393,7 @@ class CSVFileValidator(BaseValidator):
 
         # First validate file path
         file_validator = FilePathValidator(
-            valid_extensions=['.csv', '.tsv', '.txt'],
-            must_exist=True
+            valid_extensions=[".csv", ".tsv", ".txt"], must_exist=True
         )
         file_result = file_validator.validate(path)
         if not file_result.is_valid:
@@ -400,7 +402,7 @@ class CSVFileValidator(BaseValidator):
         # Check CSV structure
         try:
             # Read first few rows to validate structure
-            with open(path, 'r', encoding=self.encoding) as f:
+            with open(path, "r", encoding=self.encoding) as f:
                 reader = csv.reader(f, delimiter=self.delimiter)
                 rows = []
                 for i, row in enumerate(reader):
@@ -410,23 +412,22 @@ class CSVFileValidator(BaseValidator):
 
             if not rows:
                 raise FileValidationError(
-                    file_path=str(path),
-                    reason="CSV file is empty"
+                    file_path=str(path), reason="CSV file is empty"
                 )
 
             # Check header
             if self.has_header:
                 headers = rows[0]
-                result.details['columns'] = headers
-                result.details['num_columns'] = len(headers)
+                result.details["columns"] = headers
+                result.details["num_columns"] = len(headers)
 
                 # Check required columns
                 if self.required_columns:
                     missing_cols = set(self.required_columns) - set(headers)
                     if missing_cols:
-                        raise ValidationError(
-                            f"Missing required columns: {list(missing_cols)}",
-                            error_code="MISSING_CSV_COLUMNS"
+                        raise FileValidationError(
+                            file_path=str(path),
+                            reason=f"Missing required columns: {list(missing_cols)}",
                         )
 
             # Check consistency
@@ -441,12 +442,11 @@ class CSVFileValidator(BaseValidator):
         except UnicodeDecodeError:
             raise FileValidationError(
                 file_path=str(path),
-                reason=f"File encoding does not match expected '{self.encoding}'"
+                reason=f"File encoding does not match expected '{self.encoding}'",
             )
         except Exception as e:
             raise FileValidationError(
-                file_path=str(path),
-                reason=f"Failed to read CSV file: {e}"
+                file_path=str(path), reason=f"Failed to read CSV file: {e}"
             )
 
         return result
@@ -460,9 +460,7 @@ class HierarchyFileValidator(BaseValidator):
     categorical generalization operations.
     """
 
-    def __init__(self,
-                 file_format: str = 'auto',
-                 validate_structure: bool = True):
+    def __init__(self, file_format: str = "auto", validate_structure: bool = True):
         """
         Initialize hierarchy file validator.
 
@@ -490,44 +488,46 @@ class HierarchyFileValidator(BaseValidator):
         path = Path(file_path)
 
         # Determine format
-        if self.file_format == 'auto':
+        if self.file_format == "auto":
             ext = path.suffix.lower()
-            if ext == '.json':
-                format_type = 'json'
-            elif ext in ['.csv', '.tsv']:
-                format_type = 'csv'
+            if ext == ".json":
+                format_type = "json"
+            elif ext in [".csv", ".tsv"]:
+                format_type = "csv"
             else:
                 raise InvalidFileFormatError(
                     file_path=str(path),
-                    expected_formats=['.json', '.csv'],
-                    actual_format=ext
+                    expected_formats=[".json", ".csv"],
+                    actual_format=ext,
                 )
         else:
             format_type = self.file_format
 
         # Validate based on format
-        if format_type == 'json':
+        if format_type == "json":
             json_validator = JSONFileValidator()
             result = json_validator.validate(path)
 
             if result.is_valid and self.validate_structure:
                 # Load and check hierarchy structure
-                with open(path, 'r') as f:
+                with open(path, "r") as f:
                     data = json.load(f)
 
                 if not isinstance(data, dict):
-                    raise ValidationError(
-                        "Hierarchy JSON must be a dictionary",
-                        error_code="INVALID_HIERARCHY_FORMAT"
+                    raise FileValidationError(
+                        file_path=str(path),
+                        reason="Hierarchy JSON must be a dictionary",
                     )
 
                 # Basic structure validation
-                result.details['num_mappings'] = len(data)
-                result.details['sample_mappings'] = dict(list(data.items())[:5])
+                result.details["num_mappings"] = len(data)
+                result.details["sample_mappings"] = dict(list(data.items())[:5])
 
-        elif format_type == 'csv':
+        elif format_type == "csv":
             csv_validator = CSVFileValidator(
-                required_columns=['value', 'parent'] if self.validate_structure else None
+                required_columns=(
+                    ["value", "parent"] if self.validate_structure else None
+                )
             )
             result = csv_validator.validate(path)
 
@@ -538,6 +538,7 @@ class HierarchyFileValidator(BaseValidator):
 # Multi-File Validators
 # =============================================================================
 
+
 class MultiFileValidator(BaseValidator):
     """
     Validator for multiple related files.
@@ -546,11 +547,13 @@ class MultiFileValidator(BaseValidator):
     should be validated together.
     """
 
-    def __init__(self,
-                 file_validator: Optional[BaseValidator] = None,
-                 min_files: int = 1,
-                 max_files: Optional[int] = None,
-                 consistent_format: bool = True):
+    def __init__(
+        self,
+        file_validator: Optional[BaseValidator] = None,
+        min_files: int = 1,
+        max_files: Optional[int] = None,
+        consistent_format: bool = True,
+    ):
         """
         Initialize multi-file validator.
 
@@ -567,7 +570,9 @@ class MultiFileValidator(BaseValidator):
         self.consistent_format = consistent_format
 
     @validation_handler
-    def validate(self, file_paths: List[Union[str, Path]], **kwargs) -> ValidationResult:
+    def validate(
+        self, file_paths: List[Union[str, Path]], **kwargs
+    ) -> ValidationResult:
         """
         Validate multiple files.
 
@@ -581,23 +586,26 @@ class MultiFileValidator(BaseValidator):
         result = ValidationResult(is_valid=True)
 
         if not isinstance(file_paths, list):
-            raise ValidationError(
-                "file_paths must be a list",
-                error_code="INVALID_INPUT_TYPE"
+            raise InvalidParameterError(
+                param_name="file_paths",
+                param_value=type(file_paths).__name__,
+                reason="must be a list",
             )
 
         # Check count constraints
         num_files = len(file_paths)
         if num_files < self.min_files:
-            raise ValidationError(
-                f"Too few files: {num_files} < {self.min_files}",
-                error_code="INSUFFICIENT_FILES"
+            raise InvalidParameterError(
+                param_name="file_paths",
+                param_value=num_files,
+                reason=f"Too few files: {num_files} < {self.min_files}",
             )
 
         if self.max_files and num_files > self.max_files:
-            raise ValidationError(
-                f"Too many files: {num_files} > {self.max_files}",
-                error_code="EXCESS_FILES"
+            raise InvalidParameterError(
+                param_name="file_paths",
+                param_value=num_files,
+                reason=f"Too many files: {num_files} > {self.max_files}",
             )
 
         # Validate each file
@@ -619,13 +627,11 @@ class MultiFileValidator(BaseValidator):
 
         # Check format consistency
         if self.consistent_format and len(extensions) > 1:
-            result.warnings.append(
-                f"Inconsistent file formats: {list(extensions)}"
-            )
+            result.warnings.append(f"Inconsistent file formats: {list(extensions)}")
 
-        result.details['num_files'] = num_files
-        result.details['valid_files'] = len(valid_files)
-        result.details['formats'] = list(extensions)
+        result.details["num_files"] = num_files
+        result.details["valid_files"] = len(valid_files)
+        result.details["formats"] = list(extensions)
 
         return result
 
@@ -634,10 +640,13 @@ class MultiFileValidator(BaseValidator):
 # Convenience Functions (for backward compatibility)
 # =============================================================================
 
+
 @standard_validator()
-def validate_file_path(file_path: Union[str, Path],
-                       must_exist: bool = True,
-                       valid_extensions: Optional[List[str]] = None) -> ValidationResult:
+def validate_file_path(
+    file_path: Union[str, Path],
+    must_exist: bool = True,
+    valid_extensions: Optional[List[str]] = None,
+) -> ValidationResult:
     """
     Validate file path (convenience function).
 
@@ -650,16 +659,15 @@ def validate_file_path(file_path: Union[str, Path],
         ValidationResult
     """
     validator = FilePathValidator(
-        must_exist=must_exist,
-        valid_extensions=valid_extensions
+        must_exist=must_exist, valid_extensions=valid_extensions
     )
     return validator.validate(file_path)
 
 
 @standard_validator()
-def validate_directory_path(dir_path: Union[str, Path],
-                            must_exist: bool = True,
-                            create_if_missing: bool = False) -> ValidationResult:
+def validate_directory_path(
+    dir_path: Union[str, Path], must_exist: bool = True, create_if_missing: bool = False
+) -> ValidationResult:
     """
     Validate directory path (convenience function).
 
@@ -672,23 +680,6 @@ def validate_directory_path(dir_path: Union[str, Path],
         ValidationResult
     """
     validator = DirectoryPathValidator(
-        must_exist=must_exist,
-        create_if_missing=create_if_missing
+        must_exist=must_exist, create_if_missing=create_if_missing
     )
     return validator.validate(dir_path)
-
-
-# Module exports
-__all__ = [
-    # Validators
-    'FilePathValidator',
-    'DirectoryPathValidator',
-    'JSONFileValidator',
-    'CSVFileValidator',
-    'HierarchyFileValidator',
-    'MultiFileValidator',
-
-    # Convenience functions
-    'validate_file_path',
-    'validate_directory_path'
-]

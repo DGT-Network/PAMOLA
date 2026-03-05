@@ -15,7 +15,7 @@ import pandas as pd
 from pamola_core.fake_data.base_generator_op import GeneratorOperation
 from pamola_core.fake_data.generators.phone import PhoneGenerator
 from pamola_core.fake_data.schemas.phone_op_core_schema import FakePhoneOperationConfig
-from pamola_core.utils import io
+import pamola_core.utils.io as io
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
 from pamola_core.utils.ops.op_result import OperationResult
@@ -186,15 +186,6 @@ class FakePhoneOperation(GeneratorOperation):
         OperationResult
             Results of the operation
         """
-        # Config logger task for operation
-        self.logger = kwargs.get("logger", self.logger)
-
-        # Start timing for performance metrics
-        self.start_time = time.time()
-        self.logger.info(
-            f"Starting {self.operation_name} operation at {self.start_time}"
-        )
-
         # Call parent execute method
         result = super().execute(
             data_source, task_dir, reporter, progress_tracker, **kwargs

@@ -78,6 +78,7 @@ from typing import Any, Dict, List, Optional, cast, Callable
 
 import pandas as pd
 from cachetools import LRUCache, cachedmethod
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -109,10 +110,12 @@ class CategoryMappingEngine:
         _hierarchy_version: Version/hash of source hierarchy dictionary
     """
 
-    def __init__(self,
-                 unknown_value: str = DEFAULT_UNKNOWN_VALUE,
-                 unknown_template: Optional[str] = None,
-                 cache_size: int = DEFAULT_CACHE_SIZE):
+    def __init__(
+        self,
+        unknown_value: str = DEFAULT_UNKNOWN_VALUE,
+        unknown_template: Optional[str] = None,
+        cache_size: int = DEFAULT_CACHE_SIZE,
+    ):
         """
         Initialize the category mapping engine.
 
@@ -131,7 +134,11 @@ class CategoryMappingEngine:
 
         # Validate template
         if "{n}" not in self.unknown_template:
-            raise ValueError("unknown_template must contain {n} placeholder")
+            raise InvalidParameterError(
+                param_name="unknown_template",
+                param_value=None,
+                reason="unknown_template must contain {n} placeholder",
+            )
 
         # Storage
         self._mappings: Dict[str, str] = {}
@@ -143,12 +150,12 @@ class CategoryMappingEngine:
 
         # Statistics
         self._stats = {
-            'total_lookups': 0,
-            'cache_hits': 0,
-            'unknown_count': 0,
-            'conditional_matches': 0,
-            'vectorized_ops': 0,
-            'row_by_row_ops': 0
+            "total_lookups": 0,
+            "cache_hits": 0,
+            "unknown_count": 0,
+            "conditional_matches": 0,
+            "vectorized_ops": 0,
+            "row_by_row_ops": 0,
         }
 
         # Unknown value generation
@@ -175,7 +182,7 @@ class CategoryMappingEngine:
         """
         with self._lock:
             if len(self._mappings) >= MAX_MAPPING_SIZE:
-                raise ValueError(
+                raise ValidationError(
                     f"Maximum mapping size ({MAX_MAPPING_SIZE}) exceeded"
                 )
 
@@ -185,11 +192,13 @@ class CategoryMappingEngine:
 
             logger.debug(f"Added mapping: '{original}' -> '{replacement}'")
 
-    def add_conditional_mapping(self,
-                                original: str,
-                                replacement: str,
-                                condition: Dict[str, Any],
-                                priority: int = 0) -> None:
+    def add_conditional_mapping(
+        self,
+        original: str,
+        replacement: str,
+        condition: Dict[str, Any],
+        priority: int = 0,
+    ) -> None:
         """
         Add a conditional mapping rule.
 
@@ -212,7 +221,7 @@ class CategoryMappingEngine:
                 original=original,
                 replacement=replacement,
                 condition=condition,
-                priority=priority
+                priority=priority,
             )
 
             self._conditional_mappings.append(mapping)
@@ -227,9 +236,9 @@ class CategoryMappingEngine:
                 f"with conditions {condition}"
             )
 
-    def apply_to_series(self,
-                        series: pd.Series,
-                        context_df: Optional[pd.DataFrame] = None) -> pd.Series:
+    def apply_to_series(
+        self, series: pd.Series, context_df: Optional[pd.DataFrame] = None
+    ) -> pd.Series:
         """
         Apply mappings to a pandas Series.
 
@@ -250,7 +259,7 @@ class CategoryMappingEngine:
         """
         # Update total lookups
         with self._lock:
-            self._stats['total_lookups'] += len(series)
+            self._stats["total_lookups"] += len(series)
 
         if context_df is not None and len(self._conditional_mappings) > 0:
             # Apply with context
@@ -263,9 +272,9 @@ class CategoryMappingEngine:
             return self._apply_simple_vectorized(series)
 
     @cachedmethod(lambda self: self._cache, lock=lambda self: self._lock)
-    def apply_to_value(self,
-                       value: str,
-                       context: Optional[Dict[str, Any]] = None) -> str:
+    def apply_to_value(
+        self, value: str, context: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
         Apply mapping to a single value with caching.
 
@@ -285,7 +294,7 @@ class CategoryMappingEngine:
         """
         # Cache key is created by cachedmethod decorator
         with self._lock:
-            self._stats['cache_hits'] += 1  # Hit if we got here from cache
+            self._stats["cache_hits"] += 1  # Hit if we got here from cache
 
         return self._apply_mapping_logic(value, context)
 
@@ -316,22 +325,24 @@ class CategoryMappingEngine:
         """
         with self._lock:
             stats: Dict[str, Any] = self._stats.copy()
-            if stats['total_lookups'] > 0:
+            if stats["total_lookups"] > 0:
                 # Adjust cache hits for vectorized operations
                 # Ensure we're working with integers
-                cache_hits = int(stats.get('cache_hits', 0))
-                vectorized_ops = int(stats.get('vectorized_ops', 0))
-                total_lookups = int(stats['total_lookups'])
+                cache_hits = int(stats.get("cache_hits", 0))
+                vectorized_ops = int(stats.get("vectorized_ops", 0))
+                total_lookups = int(stats["total_lookups"])
 
                 effective_cache_hits = cache_hits + vectorized_ops
-                stats['cache_hit_rate'] = float(effective_cache_hits) / float(total_lookups)
+                stats["cache_hit_rate"] = float(effective_cache_hits) / float(
+                    total_lookups
+                )
             else:
-                stats['cache_hit_rate'] = 0.0
+                stats["cache_hit_rate"] = 0.0
 
-            stats['mapping_count'] = len(self._mappings)
-            stats['conditional_mapping_count'] = len(self._conditional_mappings)
-            stats['cache_size'] = len(self._cache)
-            stats['unknown_generated'] = self._unknown_counter
+            stats["mapping_count"] = len(self._mappings)
+            stats["conditional_mapping_count"] = len(self._conditional_mappings)
+            stats["cache_size"] = len(self._cache)
+            stats["unknown_generated"] = self._unknown_counter
 
             return stats
 
@@ -357,11 +368,11 @@ class CategoryMappingEngine:
 
             if total == 0:
                 return {
-                    'total_unique': 0,
-                    'mapped': 0,
-                    'unmapped': 0,
-                    'coverage_percent': 0.0,
-                    'unmapped_values': []
+                    "total_unique": 0,
+                    "mapped": 0,
+                    "unmapped": 0,
+                    "coverage_percent": 0.0,
+                    "unmapped_values": [],
                 }
 
             mapped = 0
@@ -375,11 +386,11 @@ class CategoryMappingEngine:
                     unmapped_values.append(str_value)
 
             return {
-                'total_unique': total,
-                'mapped': mapped,
-                'unmapped': total - mapped,
-                'coverage_percent': (mapped / total) * 100,
-                'unmapped_values': unmapped_values[:100]  # Limit to first 100
+                "total_unique": total,
+                "mapped": mapped,
+                "unmapped": total - mapped,
+                "coverage_percent": (mapped / total) * 100,
+                "unmapped_values": unmapped_values[:100],  # Limit to first 100
             }
 
     def clear(self) -> None:
@@ -396,12 +407,12 @@ class CategoryMappingEngine:
             self._unknown_counter = 0
             self._hierarchy_version = None
             self._stats = {
-                'total_lookups': 0,
-                'cache_hits': 0,
-                'unknown_count': 0,
-                'conditional_matches': 0,
-                'vectorized_ops': 0,
-                'row_by_row_ops': 0
+                "total_lookups": 0,
+                "cache_hits": 0,
+                "unknown_count": 0,
+                "conditional_matches": 0,
+                "vectorized_ops": 0,
+                "row_by_row_ops": 0,
             }
             logger.info("Cleared all mappings and cache")
 
@@ -420,7 +431,9 @@ class CategoryMappingEngine:
                 self._stats[key] = 0
             logger.debug("Reset engine state")
 
-    def import_mappings(self, mappings: Dict[str, str], check_duplicates: bool = True) -> None:
+    def import_mappings(
+        self, mappings: Dict[str, str], check_duplicates: bool = True
+    ) -> None:
         """
         Import simple mappings from a dictionary.
 
@@ -435,7 +448,7 @@ class CategoryMappingEngine:
         """
         with self._lock:
             if len(mappings) > MAX_MAPPING_SIZE:
-                raise ValueError(
+                raise ValidationError(
                     f"Import size ({len(mappings)}) exceeds maximum ({MAX_MAPPING_SIZE})"
                 )
 
@@ -465,21 +478,21 @@ class CategoryMappingEngine:
         """
         with self._lock:
             return {
-                'version': '2.0.0',
-                'unknown_value': self.unknown_value,
-                'unknown_template': self.unknown_template,
-                'hierarchy_version': self._hierarchy_version,
-                'simple_mappings': self._mappings.copy(),
-                'conditional_mappings': [
+                "version": "2.0.0",
+                "unknown_value": self.unknown_value,
+                "unknown_template": self.unknown_template,
+                "hierarchy_version": self._hierarchy_version,
+                "simple_mappings": self._mappings.copy(),
+                "conditional_mappings": [
                     {
-                        'original': m.original,
-                        'replacement': m.replacement,
-                        'condition': m.condition,
-                        'priority': m.priority
+                        "original": m.original,
+                        "replacement": m.replacement,
+                        "condition": m.condition,
+                        "priority": m.priority,
                     }
                     for m in self._conditional_mappings
                 ],
-                'statistics': self.get_statistics()
+                "statistics": self.get_statistics(),
             }
 
     def import_from_dict(self, data: Dict[str, Any]) -> None:
@@ -498,22 +511,24 @@ class CategoryMappingEngine:
             self.clear()
 
             # Import settings
-            self.unknown_value = data.get('unknown_value', DEFAULT_UNKNOWN_VALUE)
-            self.unknown_template = data.get('unknown_template', DEFAULT_UNKNOWN_TEMPLATE)
-            self._hierarchy_version = data.get('hierarchy_version')
+            self.unknown_value = data.get("unknown_value", DEFAULT_UNKNOWN_VALUE)
+            self.unknown_template = data.get(
+                "unknown_template", DEFAULT_UNKNOWN_TEMPLATE
+            )
+            self._hierarchy_version = data.get("hierarchy_version")
 
             # Import simple mappings
-            if 'simple_mappings' in data:
-                self.import_mappings(data['simple_mappings'], check_duplicates=False)
+            if "simple_mappings" in data:
+                self.import_mappings(data["simple_mappings"], check_duplicates=False)
 
             # Import conditional mappings
-            if 'conditional_mappings' in data:
-                for cm in data['conditional_mappings']:
+            if "conditional_mappings" in data:
+                for cm in data["conditional_mappings"]:
                     self.add_conditional_mapping(
-                        original=cm['original'],
-                        replacement=cm['replacement'],
-                        condition=cm['condition'],
-                        priority=cm.get('priority', 0)
+                        original=cm["original"],
+                        replacement=cm["replacement"],
+                        condition=cm["condition"],
+                        priority=cm.get("priority", 0),
                     )
 
             logger.info(f"Imported complete mapping configuration")
@@ -540,7 +555,7 @@ class CategoryMappingEngine:
             # Create a copy of mappings for thread safety
             mapping_copy = self._mappings.copy()
             unknown_val = self.unknown_value
-            self._stats['vectorized_ops'] += len(series)
+            self._stats["vectorized_ops"] += len(series)
 
         # Vectorized mapping with unknown handling
         def safe_map(val):
@@ -556,16 +571,18 @@ class CategoryMappingEngine:
         # Count unknowns
         with self._lock:
             unknown_mask = result == unknown_val
-            self._stats['unknown_count'] += unknown_mask.sum()
+            self._stats["unknown_count"] += unknown_mask.sum()
 
         return result
 
-    def _apply_with_context(self, series: pd.Series, context_df: pd.DataFrame) -> pd.Series:
+    def _apply_with_context(
+        self, series: pd.Series, context_df: pd.DataFrame
+    ) -> pd.Series:
         """Apply mappings with context for conditional rules (row-by-row)."""
         result = series.copy()
 
         with self._lock:
-            self._stats['row_by_row_ops'] += len(series)
+            self._stats["row_by_row_ops"] += len(series)
 
         for idx in series.index:
             if idx not in context_df.index:
@@ -579,19 +596,25 @@ class CategoryMappingEngine:
             row_context = context_df.loc[idx].to_dict()
 
             # Apply mapping with context (uses cached method)
-            func = cast(Callable[[str, Optional[Dict[str, Any]]], str], self.apply_to_value)
+            func = cast(
+                Callable[[str, Optional[Dict[str, Any]]], str], self.apply_to_value
+            )
             result.loc[idx] = func(str(value), row_context)
 
         return result
 
-    def _apply_with_context_vectorized(self, series: pd.Series,
-                                       context_df: pd.DataFrame) -> pd.Series:
+    def _apply_with_context_vectorized(
+        self, series: pd.Series, context_df: pd.DataFrame
+    ) -> pd.Series:
         """Apply mappings with context using vectorized operations where possible."""
         # Group by unique context combinations
-        context_cols = list(set(
-            key for mapping in self._conditional_mappings
-            for key in mapping.condition.keys()
-        ))
+        context_cols = list(
+            set(
+                key
+                for mapping in self._conditional_mappings
+                for key in mapping.condition.keys()
+            )
+        )
 
         if not context_cols:
             # No actual context needed
@@ -608,12 +631,11 @@ class CategoryMappingEngine:
         # Group by context values
         grouped = context_df.groupby(context_cols, sort=False)
         apply_fn: Callable[[str, Optional[Dict[str, Any]]], str] = cast(
-            Callable[[str, Optional[Dict[str, Any]]], str],
-            self.apply_to_value
+            Callable[[str, Optional[Dict[str, Any]]], str], self.apply_to_value
         )
 
         with self._lock:
-            self._stats['vectorized_ops'] += len(series)
+            self._stats["vectorized_ops"] += len(series)
 
         for context_values, group_indices in grouped.groups.items():
             # Get subset of series for this context
@@ -636,15 +658,16 @@ class CategoryMappingEngine:
 
         return result
 
-    def _apply_mapping_logic(self, value: str,
-                             context: Optional[Dict[str, Any]]) -> str:
+    def _apply_mapping_logic(
+        self, value: str, context: Optional[Dict[str, Any]]
+    ) -> str:
         """Core mapping logic with conditional support."""
         # Check conditional mappings first (if context provided)
         if context and self._conditional_mappings:
             for mapping in self._conditional_mappings:
                 if mapping.matches(value, context):
                     with self._lock:
-                        self._stats['conditional_matches'] += 1
+                        self._stats["conditional_matches"] += 1
                     return mapping.replacement
 
         # Check simple mappings
@@ -653,7 +676,7 @@ class CategoryMappingEngine:
 
         # No mapping found - generate unknown value
         with self._lock:
-            self._stats['unknown_count'] += 1
+            self._stats["unknown_count"] += 1
 
             # Check if we've seen this unknown before
             if value in self._unknown_mapping_cache:
@@ -683,11 +706,13 @@ class ConditionalMapping:
     A mapping that applies only when specified conditions are met.
     """
 
-    def __init__(self,
-                 original: str,
-                 replacement: str,
-                 condition: Dict[str, Any],
-                 priority: int = 0):
+    def __init__(
+        self,
+        original: str,
+        replacement: str,
+        condition: Dict[str, Any],
+        priority: int = 0,
+    ):
         """
         Initialize conditional mapping.
 
@@ -737,8 +762,8 @@ class ConditionalMapping:
             # Handle different condition types
             if isinstance(expected, dict):
                 # Complex condition with operator
-                operator = expected.get('op', 'eq')
-                expected_value = expected.get('value')  # Fixed variable name
+                operator = expected.get("op", "eq")
+                expected_value = expected.get("value")  # Fixed variable name
 
                 if not self._evaluate_operator(actual, operator, expected_value):
                     return False
@@ -752,25 +777,25 @@ class ConditionalMapping:
     def _evaluate_operator(self, actual: Any, operator: str, expected: Any) -> bool:
         """Evaluate conditional operator."""
         try:
-            if operator == 'eq':
+            if operator == "eq":
                 return actual == expected
-            elif operator == 'ne':
+            elif operator == "ne":
                 return actual != expected
-            elif operator == 'gt':
+            elif operator == "gt":
                 return actual > expected
-            elif operator == 'gte':
+            elif operator == "gte":
                 return actual >= expected
-            elif operator == 'lt':
+            elif operator == "lt":
                 return actual < expected
-            elif operator == 'lte':
+            elif operator == "lte":
                 return actual <= expected
-            elif operator == 'in':
+            elif operator == "in":
                 return actual in expected
-            elif operator == 'not_in':
+            elif operator == "not_in":
                 return actual not in expected
-            elif operator == 'contains':
+            elif operator == "contains":
                 return expected in str(actual)
-            elif operator == 'not_contains':
+            elif operator == "not_contains":
                 return expected not in str(actual)
             else:
                 logger.warning(f"Unknown operator: {operator}")
@@ -782,10 +807,13 @@ class ConditionalMapping:
 
 # Utility functions
 
-def create_mapping_from_hierarchy(hierarchy_dict: Dict[str, str],
-                                  level: int = 1,
-                                  unknown_template: Optional[str] = None,
-                                  hierarchy_version: Optional[str] = None) -> CategoryMappingEngine:
+
+def create_mapping_from_hierarchy(
+    hierarchy_dict: Dict[str, str],
+    level: int = 1,
+    unknown_template: Optional[str] = None,
+    hierarchy_version: Optional[str] = None,
+) -> CategoryMappingEngine:
     """
     Create a mapping engine from a hierarchy dictionary.
 
@@ -823,9 +851,11 @@ def create_mapping_from_hierarchy(hierarchy_dict: Dict[str, str],
     return engine
 
 
-def merge_mapping_engines(engines: List[CategoryMappingEngine],
-                          unknown_value: str = DEFAULT_UNKNOWN_VALUE,
-                          unknown_template: Optional[str] = None) -> CategoryMappingEngine:
+def merge_mapping_engines(
+    engines: List[CategoryMappingEngine],
+    unknown_value: str = DEFAULT_UNKNOWN_VALUE,
+    unknown_template: Optional[str] = None,
+) -> CategoryMappingEngine:
     """
     Merge multiple mapping engines into one.
 
@@ -846,8 +876,7 @@ def merge_mapping_engines(engines: List[CategoryMappingEngine],
         Merged mapping engine
     """
     merged = CategoryMappingEngine(
-        unknown_value=unknown_value,
-        unknown_template=unknown_template
+        unknown_value=unknown_value, unknown_template=unknown_template
     )
 
     # Merge all data from engines
@@ -856,34 +885,20 @@ def merge_mapping_engines(engines: List[CategoryMappingEngine],
         config = engine.export_to_dict()
 
         # Import simple mappings
-        if 'simple_mappings' in config:
-            for original, replacement in config['simple_mappings'].items():
+        if "simple_mappings" in config:
+            for original, replacement in config["simple_mappings"].items():
                 merged.add_mapping(original, replacement)
 
         # Import conditional mappings
-        if 'conditional_mappings' in config:
-            for cm in config['conditional_mappings']:
+        if "conditional_mappings" in config:
+            for cm in config["conditional_mappings"]:
                 merged.add_conditional_mapping(
-                    original=cm['original'],
-                    replacement=cm['replacement'],
-                    condition=cm['condition'],
-                    priority=cm.get('priority', 0)
+                    original=cm["original"],
+                    replacement=cm["replacement"],
+                    condition=cm["condition"],
+                    priority=cm.get("priority", 0),
                 )
 
     logger.info(f"Merged {len(engines)} mapping engines")
 
     return merged
-
-
-# Module metadata
-__version__ = "2.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"
-
-# Export main classes and functions
-__all__ = [
-    'CategoryMappingEngine',
-    'ConditionalMapping',
-    'create_mapping_from_hierarchy',
-    'merge_mapping_engines'
-]

@@ -25,6 +25,7 @@ from pamola_core.utils.vis_helpers.base import (
     PlotlyFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import ValidationError, TypeValidationError
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
     apply_theme_to_plotly_figure,
@@ -132,7 +133,7 @@ class PlotlyPieChart(PlotlyFigure):
                         labels_list = labels[: len(data)]
                     values_list = data
                 else:
-                    raise TypeError(
+                    raise TypeValidationError(
                         f"Unsupported data type for pie chart: {type(data)}"
                     )
 
@@ -440,16 +441,14 @@ class PlotlySunburstChart(PlotlyFigure):
                 child_labels, child_parents, child_values = (
                     self._process_hierarchical_dict(value, key)
                 )
-                
+
                 # Calculate sum of IMMEDIATE children only
                 # immediate children are those whose parent equals current key
                 immediate_children_sum = sum(
-                    child_values[i] 
-                    for i, p in enumerate(child_parents) 
-                    if p == key
+                    child_values[i] for i, p in enumerate(child_parents) if p == key
                 )
                 values.append(immediate_children_sum)
-                
+
                 # Now extend with all descendant data
                 labels.extend(child_labels)
                 parents.extend(child_parents)
@@ -508,7 +507,9 @@ class PlotlySunburstChart(PlotlyFigure):
         if isinstance(data, pd.DataFrame):
             # For DataFrame input, we need columns for path, values, and optionally colors
             if path_column is None:
-                raise ValueError("path_column must be provided for DataFrame input")
+                raise ValidationError(
+                    "path_column must be provided for DataFrame input"
+                )
 
             # Prepare paths - can be a single column or list of columns
             if isinstance(path_column, (list, tuple)):
@@ -554,7 +555,9 @@ class PlotlySunburstChart(PlotlyFigure):
             sunburst_params["parents"] = parents
             sunburst_params["values"] = values
         else:
-            raise TypeError(f"Unsupported data type for sunburst chart: {type(data)}")
+            raise TypeValidationError(
+                f"Unsupported data type for sunburst chart: {type(data)}"
+            )
 
         # Add maxdepth if provided
         if maxdepth is not None:
@@ -643,7 +646,7 @@ class PlotlySunburstChart(PlotlyFigure):
                     # Add the trace
                     fig.add_trace(go.Sunburst(**sunburst_params))
 
-                except (ValueError, TypeError) as e:
+                except (ValidationError, ValueError, TypeError) as e:
                     return self.create_empty_figure(
                         title=title,
                         message=f"Error preparing sunburst chart data: {str(e)}",
@@ -884,7 +887,7 @@ class MatplotlibPieChart(MatplotlibFigure):
                         labels_list = labels[: len(data)]
                     values_list = data
                 else:
-                    raise TypeError(
+                    raise TypeValidationError(
                         f"Unsupported data type for pie chart: {type(data)}"
                     )
 

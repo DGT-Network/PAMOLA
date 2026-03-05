@@ -37,6 +37,7 @@ from pamola_core.utils.vis_helpers.base import (
     PlotlyFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import TypeValidationError
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_matplotlib_figure,
     apply_theme_to_plotly_figure,
@@ -82,7 +83,9 @@ def prepare_data_for_lineplot(
             df = data
             series_names = list(df.columns)
         else:
-            raise TypeError(f"Unsupported data type for line plot: {type(data)}")
+            raise TypeValidationError(
+                f"Unsupported data type for line plot: {type(data)}"
+            )
 
         # Determine x values
         if x_data is not None:
@@ -439,7 +442,12 @@ class PlotlyLinePlot(PlotlyFigure):
                     "y": processed_data[column],
                     "mode": mode,
                     "name": series_names[i],
-                    "line": {"width": line_width, "color": color, "shape": line_shape, "dash": line_dash},
+                    "line": {
+                        "width": line_width,
+                        "color": color,
+                        "shape": line_shape,
+                        "dash": line_dash,
+                    },
                     "connectgaps": kwargs.get(
                         "connectgaps", True
                     ),  # Connect gaps from missing values
@@ -684,7 +692,9 @@ class MatplotlibLinePlot(MatplotlibFigure):
                         if len(df.columns) == len(data_x):
                             x = data_x[i]
 
-                    linestyle = "--" if multi_x_data and line_average and i == 0 else None
+                    linestyle = (
+                        "--" if multi_x_data and line_average and i == 0 else None
+                    )
 
                     y = df[column]
                     color = kwargs.get(
@@ -694,7 +704,7 @@ class MatplotlibLinePlot(MatplotlibFigure):
                         "label": series_names[i],
                         "color": color,
                         "linewidth": line_width,
-                        "linestyle": linestyle
+                        "linestyle": linestyle,
                     }
                     if add_markers:
                         plot_args["marker"] = "o"

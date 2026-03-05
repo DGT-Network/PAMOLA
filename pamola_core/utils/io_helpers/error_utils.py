@@ -13,26 +13,29 @@ Key features:
 - Consistent logging of recoverable and fatal errors across subsystems
 """
 
-
 import functools
 import logging
 import traceback
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast
 
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors import BasePamolaError
+from pamola_core.errors.exceptions import ProcessingError, PamolaFileNotFoundError
+
 # Configure module logger
-logger = logging.getLogger("pamola_core.utils.io_helpers.error_utils")
+logger = logging.getLogger(__name__)
 
 # Type variable for decorated functions
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def create_error_info(
-        error_type: str,
-        message: str,
-        resolution: Optional[str] = None,
-        file_path: Optional[Union[str, Path]] = None,
-        details: Optional[Dict[str, Any]] = None
+    error_type: str,
+    message: str,
+    resolution: Optional[str] = None,
+    file_path: Optional[Union[str, Path]] = None,
+    details: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Create a standardized error information dictionary.
@@ -55,10 +58,7 @@ def create_error_info(
     Dict[str, Any]
         Standardized error information dictionary
     """
-    error_info = {
-        "error_type": error_type,
-        "message": message
-    }
+    error_info = {"error_type": error_type, "message": message}
 
     # Add optional fields if provided
     if resolution is not None:
@@ -76,9 +76,7 @@ def create_error_info(
     return error_info
 
 
-def handle_io_errors(
-        func: Callable[..., T]
-) -> Callable[..., Union[T, Dict[str, Any]]]:
+def handle_io_errors(func: Callable[..., T]) -> Callable[..., Union[T, Dict[str, Any]]]:
     """
     Decorator to standardize error handling for IO operations.
 
@@ -106,28 +104,25 @@ def handle_io_errors(
                 break
 
         if file_path is None:
-            for param in ['file_path', 'path', 'source_path', 'destination_path']:
+            for param in ["file_path", "path", "source_path", "destination_path"]:
                 if param in kwargs and isinstance(kwargs[param], (str, Path)):
                     file_path = kwargs[param]
                     break
 
         try:
             return func(*args, **kwargs)
-        except FileNotFoundError as e:
+        except (PamolaFileNotFoundError, FileNotFoundError) as e:
             error_info = create_error_info(
-                "FileNotFoundError",
-                str(e),
+                type(e).__name__,
+                getattr(e, "message", str(e)),
                 "Verify the file path and permissions",
-                file_path
+                file_path,
             )
             logger.error(f"File not found: {error_info['message']}")
             return error_info
         except PermissionError as e:
             error_info = create_error_info(
-                "PermissionError",
-                str(e),
-                "Check file access permissions",
-                file_path
+                "PermissionError", str(e), "Check file access permissions", file_path
             )
             logger.error(f"Permission error: {error_info['message']}")
             return error_info
@@ -136,7 +131,7 @@ def handle_io_errors(
                 "IsADirectoryError",
                 str(e),
                 "Specify a file path, not a directory",
-                file_path
+                file_path,
             )
             logger.error(f"Path is a directory: {error_info['message']}")
             return error_info
@@ -145,7 +140,7 @@ def handle_io_errors(
                 "MemoryError",
                 "Not enough memory to complete operation",
                 "Try processing in smaller chunks or increasing available memory",
-                file_path
+                file_path,
             )
             logger.error(f"Memory error: {str(e)}")
             return error_info
@@ -154,7 +149,7 @@ def handle_io_errors(
                 "UnicodeDecodeError",
                 f"Encoding error: {str(e)}",
                 "Try specifying a different encoding parameter",
-                file_path
+                file_path,
             )
             logger.error(f"Unicode decode error: {error_info['message']}")
             return error_info
@@ -168,7 +163,7 @@ def handle_io_errors(
                 str(e),
                 "See error details for more information",
                 file_path,
-                {"traceback": traceback.format_exc()}
+                {"traceback": traceback.format_exc()},
             )
 
             logger.error(f"Unexpected error ({error_type}): {str(e)}")
@@ -200,7 +195,7 @@ def extract_error_message(error_info: Dict[str, Any]) -> str:
     if "error_type" in error_info and "message" in error_info:
         message_parts.append(f"{error_info['error_type']}: {error_info['message']}")
     elif "message" in error_info:
-        message_parts.append(error_info['message'])
+        message_parts.append(error_info["message"])
 
     # Add file path if available
     if "file_path" in error_info:
@@ -227,11 +222,7 @@ def is_error_info(result: Any) -> bool:
     bool
         True if the result is an error information dictionary, False otherwise
     """
-    return (
-            isinstance(result, dict) and
-            "error_type" in result and
-            "message" in result
-    )
+    return isinstance(result, dict) and "error_type" in result and "message" in result
 
 
 def is_recoverable_error(error_info: Dict[str, Any]) -> bool:
@@ -253,7 +244,8 @@ def is_recoverable_error(error_info: Dict[str, Any]) -> bool:
 
     # Define recoverable error types
     recoverable_types = {
-        "FileNotFoundError",  # File might be created later
+        "PamolaFileNotFoundError",  # File might be created later
+        "FileNotFoundError",  # Backward compatibility
         "PermissionError",  # Permissions might be fixed
         "UnicodeDecodeError",  # Different encoding might work
         "EncodingError",  # Different encoding might work
@@ -267,8 +259,9 @@ def is_recoverable_error(error_info: Dict[str, Any]) -> bool:
     return error_info["error_type"] in recoverable_types
 
 
-def combine_error_infos(error_infos: List[Dict[str, Any]],
-                        operation_name: str) -> Dict[str, Any]:
+def combine_error_infos(
+    error_infos: List[Dict[str, Any]], operation_name: str
+) -> Dict[str, Any]:
     """
     Combine multiple error information dictionaries into a single summary.
 
@@ -289,9 +282,7 @@ def combine_error_infos(error_infos: List[Dict[str, Any]],
     """
     if not error_infos:
         return create_error_info(
-            "NoErrors",
-            "No errors to combine",
-            "This is likely a programming error"
+            "NoErrors", "No errors to combine", "This is likely a programming error"
         )
 
     # Count error types
@@ -313,10 +304,7 @@ def combine_error_infos(error_infos: List[Dict[str, Any]],
         "MultipleErrors",
         summary_message,
         "Check error_details for individual errors",
-        details={
-            "error_counts": error_counts,
-            "error_details": error_infos
-        }
+        details={"error_counts": error_counts, "error_details": error_infos},
     )
 
 
@@ -348,10 +336,21 @@ def raise_if_error(result: Any) -> Any:
     # Get the error type
     error_type = result.get("error_type", "UnknownError")
 
-    # Raise an exception with the appropriate type if possible
+    # Raise a PAMOLA exception with the appropriate type if possible
     exception_class = globals().get(error_type)
-    if exception_class and issubclass(exception_class, Exception):
-        raise exception_class(message)
-    else:
-        # Fallback to generic exception
-        raise Exception(f"{error_type}: {message}")
+    if not exception_class:
+        exception_class = getattr(error_exceptions, error_type, None)
+
+    if exception_class and issubclass(exception_class, BasePamolaError):
+        raise exception_class(
+            message=message,
+            error_code=result.get("error_code") or ErrorCode.PROCESSING_FAILED,
+            details=result.get("details", {}),
+        )
+
+    # Fallback to a standardized processing error
+    raise ProcessingError(
+        operation="raise_if_error",
+        reason=f"{error_type}: {message}",
+        details={"error_type": error_type, "message": message, "error_info": result},
+    )

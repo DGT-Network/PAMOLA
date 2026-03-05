@@ -26,10 +26,10 @@ from sklearn.metrics import (
 )
 from sklearn.preprocessing import label_binarize
 
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 class ClassificationUtility:

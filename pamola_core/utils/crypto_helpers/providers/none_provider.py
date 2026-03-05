@@ -12,7 +12,7 @@ from typing import Union, Dict, Any, Optional
 
 # Import from absolute path to avoid circular imports
 from pamola_core.utils.io_helpers.provider_interface import CryptoProvider
-from pamola_core.utils.crypto_helpers.errors import EncryptionError, DecryptionError
+from pamola_core.errors.exceptions import EncryptionError, DecryptionError
 
 
 class NoneProvider(CryptoProvider):
@@ -28,11 +28,13 @@ class NoneProvider(CryptoProvider):
         """Return the provider's encryption mode identifier."""
         return "none"
 
-    def encrypt_file(self,
-                     source_path: Union[str, Path],
-                     destination_path: Union[str, Path],
-                     key: Optional[str] = None,
-                     **kwargs) -> Path:
+    def encrypt_file(
+        self,
+        source_path: Union[str, Path],
+        destination_path: Union[str, Path],
+        key: Optional[str] = None,
+        **kwargs,
+    ) -> Path:
         """
         'Encrypt' a file by simply copying it to the destination.
 
@@ -71,11 +73,13 @@ class NoneProvider(CryptoProvider):
         except Exception as e:
             raise EncryptionError(f"Error copying file: {e}")
 
-    def decrypt_file(self,
-                     source_path: Union[str, Path],
-                     destination_path: Union[str, Path],
-                     key: Optional[str] = None,
-                     **kwargs) -> Path:
+    def decrypt_file(
+        self,
+        source_path: Union[str, Path],
+        destination_path: Union[str, Path],
+        key: Optional[str] = None,
+        **kwargs,
+    ) -> Path:
         """
         'Decrypt' a file by simply copying it to the destination.
 
@@ -114,10 +118,9 @@ class NoneProvider(CryptoProvider):
         except Exception as e:
             raise DecryptionError(f"Error copying file: {e}")
 
-    def encrypt_data(self,
-                     data: Union[str, bytes],
-                     key: Optional[str] = None,
-                     **kwargs) -> Union[str, bytes]:
+    def encrypt_data(
+        self, data: Union[str, bytes], key: Optional[str] = None, **kwargs
+    ) -> Union[str, bytes]:
         """
         'Encrypt' data by simply returning it unchanged.
 
@@ -138,10 +141,12 @@ class NoneProvider(CryptoProvider):
         # Return data unchanged
         return data
 
-    def decrypt_data(self,
-                     data: Union[str, bytes, Dict[str, Any]],
-                     key: Optional[str] = None,
-                     **kwargs) -> Union[str, bytes]:
+    def decrypt_data(
+        self,
+        data: Union[str, bytes, Dict[str, Any]],
+        key: Optional[str] = None,
+        **kwargs,
+    ) -> Union[str, bytes]:
         """
         'Decrypt' data by simply returning it unchanged.
 
@@ -167,8 +172,7 @@ class NoneProvider(CryptoProvider):
         # Otherwise return data unchanged
         return data
 
-    def can_decrypt(self,
-                    source_path: Union[str, Path]) -> bool:
+    def can_decrypt(self, source_path: Union[str, Path]) -> bool:
         """
         Check if this provider can decrypt the given file.
 

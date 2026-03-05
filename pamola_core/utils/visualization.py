@@ -115,7 +115,9 @@ def _save_figure(
         viz_format = kwargs.get("viz_format", "png")
         use_encryption = kwargs.get("use_encryption", False)
         encryption_key = kwargs.get("encryption_key", None) if use_encryption else None
-        saved_path = save_visualization(fig, output_path, format=viz_format, encryption_key=encryption_key)
+        saved_path = save_visualization(
+            fig, output_path, format=viz_format, encryption_key=encryption_key
+        )
 
         # Close matplotlib figure if it's a matplotlib figure
         # This helps prevent memory leaks
@@ -155,7 +157,7 @@ def _filter_kwargs(**kwargs):
         "encryption_key",
         "use_encryption",
         "timestamp",
-        "viz_format"
+        "viz_format",
     ]
 
     # Filter kwargs to exclude unsupported keys
@@ -243,7 +245,7 @@ def create_bar_plot(
 
         # Filter unsupported kwargs
         custom_viz_kwargs = _filter_kwargs(**kwargs)
-        
+
         try:
             # Convert pandas Series to dict to avoid ambiguous truth value errors
             plot_data = data.to_dict() if isinstance(data, pd.Series) else data
@@ -682,25 +684,25 @@ def create_heatmap(
 
 
 def create_line_plot(
-        data: Union[Dict[str, List[float]], pd.DataFrame, pd.Series],
-        output_path: Union[str, Path],
-        title: str,
-        x_data: Optional[Union[List, np.ndarray, pd.Series]] = None,
-        x_label: Optional[str] = None,
-        y_label: Optional[str] = None,
-        add_markers: bool = True,
-        add_area: bool = False,
-        smooth: bool = False,
-        highlight_regions: Optional[List[Dict[str, Any]]] = None,
-        line_width: float = 2.0,
-        color: Optional[Any] = None,
-        figsize: Optional[Any] = None,
-        theme: Optional[str] = None,
-        backend: Optional[str] = None,
-        strict: bool = False,
-        multi_x_data: bool = False,
-        line_average: bool = False,
-        **kwargs
+    data: Union[Dict[str, List[float]], pd.DataFrame, pd.Series],
+    output_path: Union[str, Path],
+    title: str,
+    x_data: Optional[Union[List, np.ndarray, pd.Series]] = None,
+    x_label: Optional[str] = None,
+    y_label: Optional[str] = None,
+    add_markers: bool = True,
+    add_area: bool = False,
+    smooth: bool = False,
+    highlight_regions: Optional[List[Dict[str, Any]]] = None,
+    line_width: float = 2.0,
+    color: Optional[Any] = None,
+    figsize: Optional[Any] = None,
+    theme: Optional[str] = None,
+    backend: Optional[str] = None,
+    strict: bool = False,
+    multi_x_data: bool = False,
+    line_average: bool = False,
+    **kwargs,
 ) -> str:
     """
     Create a line plot visualization and save it as PNG.
@@ -1539,6 +1541,7 @@ def create_combined_chart(
             logger.error(f"Error creating combined chart: {e}")
             return f"Error creating combined chart: {e}"
 
+
 def create_network_diagram(
     nodes: List[str],
     edges: List[Tuple[str, str]],
@@ -1609,7 +1612,8 @@ def create_network_diagram(
     except Exception as e:
         logger.error(f"Error creating network diagram: {e}")
         return f"Error creating network diagram: {e}"
-    
+
+
 # ============================================================================
 # Specialized visualization functions for profiling
 # ============================================================================
@@ -2261,7 +2265,7 @@ def plot_field_subset_network(
     and save it as a PNG file.
 
     Parameters:
-    ----------- 
+    -----------
     output_data : Dict[str, pd.DataFrame]
         Dictionary mapping subset names to their corresponding DataFrames.
     output_path : Path

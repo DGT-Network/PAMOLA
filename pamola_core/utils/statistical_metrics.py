@@ -51,6 +51,11 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from pamola_core.errors.exceptions import (
+    InvalidParameterError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -128,7 +133,7 @@ def calculate_gini_coefficient(
         return 0.0
 
     if np.any(values < 0):
-        raise ValueError("Gini coefficient requires non-negative values")
+        raise ValidationError("Gini coefficient requires non-negative values")
 
     # Handle all-zero case
     if np.all(values == 0):
@@ -142,8 +147,10 @@ def calculate_gini_coefficient(
     elif method == "sorted":
         return _gini_sorted(values, is_frequency)
     else:
-        raise ValueError(
-            f"Unknown method: {method}. Use 'accurate', 'fast', or 'sorted'"
+        raise InvalidParameterError(
+            param_name="method",
+            param_value=method,
+            reason=f"Unknown method: {method}. Use 'accurate', 'fast', or 'sorted'",
         )
 
 
@@ -325,7 +332,7 @@ def calculate_concentration_metrics(
         unique, counts_array = np.unique(data, return_counts=True)
         counts = pd.Series(counts_array, index=unique).sort_values(ascending=False)
     else:
-        raise TypeError(f"Unsupported data type: {type(data)}")
+        raise TypeValidationError(f"Unsupported data type: {type(data)}")
 
     # Calculate total
     total = counts.sum()
@@ -460,7 +467,7 @@ def calculate_herfindahl_index(
     elif isinstance(data, (list, np.ndarray)):
         values = np.asarray(data)
     else:
-        raise TypeError(f"Unsupported data type: {type(data)}")
+        raise TypeValidationError(f"Unsupported data type: {type(data)}")
 
     # Remove NaN values
     values = values[~np.isnan(values)]
@@ -536,7 +543,7 @@ def calculate_shannon_entropy(
         unique, counts_array = np.unique(data, return_counts=True)
         counts = pd.Series(counts_array, index=unique)
     else:
-        raise TypeError(f"Unsupported data type: {type(data)}")
+        raise TypeValidationError(f"Unsupported data type: {type(data)}")
 
     # Calculate probabilities
     total = counts.sum()
@@ -626,7 +633,7 @@ def get_distribution_summary(
     elif isinstance(data, (np.ndarray, list)):
         value_counts = pd.Series(data).value_counts(dropna=False)
     else:
-        raise TypeError("Unsupported data type for distribution summary.")
+        raise TypeValidationError("Unsupported data type for distribution summary.")
 
     summary: Dict[str, Any] = {
         "total_count": int(value_counts.sum()),

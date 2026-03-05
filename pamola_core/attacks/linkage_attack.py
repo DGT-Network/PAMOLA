@@ -31,10 +31,11 @@ import recordlinkage
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 from pamola_core.attacks.preprocess_data import PreprocessData
-from pamola_core.utils import logging
+import pamola_core.utils.logging as pamola_logging
+from pamola_core.errors.exceptions import ValidationError
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 
 class LinkageAttack(PreprocessData):
@@ -72,7 +73,7 @@ class LinkageAttack(PreprocessData):
         """
 
         if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
 
         # Reset index cleanly to avoid index column collision
         df1 = data1.reset_index(drop=True)
@@ -115,7 +116,7 @@ class LinkageAttack(PreprocessData):
         - DataFrame containing pairs of records matching the Fellegi-Sunter score between two datasets
         """
         if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
 
         # Determine keys if not provided
         if keys is None:
@@ -193,7 +194,7 @@ class LinkageAttack(PreprocessData):
         """
         # --- 1. Validate input ---
         if data1 is None or data2 is None:
-            raise ValueError("Input datasets cannot be None.")
+            raise ValidationError("Input datasets cannot be None.")
         if data1.empty or data2.empty:
             return pd.DataFrame(columns=["ID_DF1", "ID_DF2", "Score"])
 

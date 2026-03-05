@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-from pamola_core.utils.logging import get_logger
+import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.io import ensure_directory, write_json, read_json
 
 from pamola_core.utils.nlp.language import detect_languages
@@ -26,7 +26,7 @@ from pamola_core.utils.nlp.tokenization import (
 from pamola_core.utils.nlp.cache import get_cache, cache_function
 
 # Configure logger
-logger = get_logger(__name__)
+logger = pamola_logging.getLogger(__name__)
 
 # Get cache instances
 file_cache = get_cache("file")

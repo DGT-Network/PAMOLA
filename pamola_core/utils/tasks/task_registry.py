@@ -23,6 +23,7 @@ import logging
 import pkgutil
 from typing import Dict, Any, Optional, List, Type
 
+from pamola_core.errors.exceptions import TaskRegistryError, ValidationError
 from pamola_core.utils.tasks.execution_log import find_latest_execution
 
 # Import BaseTask indirectly to avoid circular imports
@@ -34,11 +35,6 @@ logger = logging.getLogger(__name__)
 
 # Global registry of task classes
 _task_classes: Dict[str, Type] = {}
-
-
-class TaskRegistryError(Exception):
-    """Exception raised for task registry errors."""
-    pass
 
 
 def register_task_class(task_id: str, task_class: Type) -> bool:
@@ -58,7 +54,9 @@ def register_task_class(task_id: str, task_class: Type) -> bool:
     try:
         # Check if class is a valid task class (has required attributes)
         if not _validate_task_class(task_class):
-            logger.warning(f"Invalid task class for {task_id}: missing required attributes")
+            logger.warning(
+                f"Invalid task class for {task_id}: missing required attributes"
+            )
             return False
 
         # Register task class
@@ -144,8 +142,9 @@ def create_task_instance(task_id: str, **kwargs) -> Optional[Any]:
         raise TaskRegistryError(f"Failed to create task instance: {str(e)}")
 
 
-def discover_task_classes(package_paths: Optional[List[str]] = None,
-                          recursive: bool = True) -> Dict[str, Type]:
+def discover_task_classes(
+    package_paths: Optional[List[str]] = None, recursive: bool = True
+) -> Dict[str, Type]:
     """
     Discover task classes in specified packages.
 
@@ -179,11 +178,15 @@ def discover_task_classes(package_paths: Optional[List[str]] = None,
                 if hasattr(package, "__path__"):
                     package_dir = package.__path__
                 else:
-                    logger.warning(f"Package {package_path} does not have a __path__ attribute")
+                    logger.warning(
+                        f"Package {package_path} does not have a __path__ attribute"
+                    )
                     continue
 
                 # Walk through package
-                for _, module_name, is_pkg in pkgutil.walk_packages(package_dir, package.__name__ + "."):
+                for _, module_name, is_pkg in pkgutil.walk_packages(
+                    package_dir, package.__name__ + "."
+                ):
                     # Skip packages if not recursive
                     if is_pkg and not recursive:
                         continue
@@ -194,18 +197,24 @@ def discover_task_classes(package_paths: Optional[List[str]] = None,
 
                         # Scan module for task classes
                         for name, obj in module.__dict__.items():
-                            if (inspect.isclass(obj) and
-                                    obj.__module__ == module.__name__ and
-                                    _is_task_class(obj)):
+                            if (
+                                inspect.isclass(obj)
+                                and obj.__module__ == module.__name__
+                                and _is_task_class(obj)
+                            ):
 
                                 # Get task ID
                                 task_id = _get_task_id(obj)
                                 if task_id:
                                     discovered_tasks[task_id] = obj
-                                    logger.debug(f"Discovered task class: {task_id} ({obj.__name__})")
+                                    logger.debug(
+                                        f"Discovered task class: {task_id} ({obj.__name__})"
+                                    )
 
                     except (ImportError, AttributeError) as e:
-                        logger.warning(f"Error importing module {module_name}: {str(e)}")
+                        logger.warning(
+                            f"Error importing module {module_name}: {str(e)}"
+                        )
 
             except ImportError as e:
                 logger.warning(f"Error importing package {package_path}: {str(e)}")
@@ -217,8 +226,9 @@ def discover_task_classes(package_paths: Optional[List[str]] = None,
         raise TaskRegistryError(f"Failed to discover task classes: {str(e)}")
 
 
-def register_discovered_tasks(package_paths: Optional[List[str]] = None,
-                              recursive: bool = True) -> int:
+def register_discovered_tasks(
+    package_paths: Optional[List[str]] = None, recursive: bool = True
+) -> int:
     """
     Discover and register task classes in specified packages.
 
@@ -279,21 +289,21 @@ def get_task_metadata(task_class: Type) -> Dict[str, Any]:
             "class_name": task_class.__name__,
             "module": task_class.__module__,
             "dependencies": getattr(task_class, "dependencies", []),
-            "author": getattr(task_class, "author", "unknown")
+            "author": getattr(task_class, "author", "unknown"),
         }
 
         # Extract additional metadata from docstring if available
         if task_class.__doc__:
-            doc_lines = task_class.__doc__.strip().split('\n')
+            doc_lines = task_class.__doc__.strip().split("\n")
 
             # Look for metadata in docstring (e.g., @author, @version, etc.)
             for line in doc_lines:
                 line = line.strip()
-                if line.startswith('@'):
+                if line.startswith("@"):
                     try:
-                        tag, value = line[1:].split(':', 1)
+                        tag, value = line[1:].split(":", 1)
                         metadata[tag.strip().lower()] = value.strip()
-                    except ValueError:
+                    except (ValidationError, ValueError):
                         # Skip malformatted tags
                         pass
 
@@ -304,7 +314,9 @@ def get_task_metadata(task_class: Type) -> Dict[str, Any]:
         raise TaskRegistryError(f"Failed to extract task metadata: {str(e)}")
 
 
-def check_task_dependencies(task_id: str, task_type: str, dependencies: List[str]) -> bool:
+def check_task_dependencies(
+    task_id: str, task_type: str, dependencies: List[str]
+) -> bool:
     """
     Check if dependencies for a task are satisfied.
 
@@ -334,7 +346,9 @@ def check_task_dependencies(task_id: str, task_type: str, dependencies: List[str
 
             # Check if dependency has been executed successfully
             if not latest_execution:
-                logger.warning(f"Dependency task {dep_task_id} has not been executed successfully")
+                logger.warning(
+                    f"Dependency task {dep_task_id} has not been executed successfully"
+                )
                 return False
 
         # All dependencies satisfied
@@ -371,11 +385,9 @@ def _is_task_class(cls: Type) -> bool:
         params = sig.parameters
 
         # Check for required parameters
-        if ("task_id" in params and
-                "task_type" in params and
-                "description" in params):
+        if "task_id" in params and "task_type" in params and "description" in params:
             return True
-    except (ValueError, TypeError):
+    except (ValidationError, ValueError, TypeError):
         pass
 
     return False
@@ -397,17 +409,18 @@ def _get_task_id(cls: Type) -> Optional[str]:
 
     # Try to extract from class name (e.g., MyTask -> my_task)
     import re
+
     if cls.__name__.endswith("Task"):
         # Extract task name and convert to snake_case
         task_name = cls.__name__[:-4]  # Remove "Task" suffix
 
         # Convert CamelCase to snake_case
-        snake_case = re.sub(r'(?<!^)(?=[A-Z])', '_', task_name).lower()
+        snake_case = re.sub(r"(?<!^)(?=[A-Z])", "_", task_name).lower()
 
         return snake_case
 
     # Check for Task_X pattern in class name
-    match = re.match(r't_\w+', cls.__name__.lower())
+    match = re.match(r"t_\w+", cls.__name__.lower())
     if match:
         return match.group(0)
 
@@ -438,7 +451,7 @@ def _validate_task_class(cls: Type) -> bool:
         for param in required_params:
             if param not in params:
                 return False
-    except (ValueError, TypeError):
+    except (ValidationError, ValueError, TypeError):
         return False
 
     # Check for required methods more efficiently

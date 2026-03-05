@@ -57,6 +57,7 @@ from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
+from pamola_core.errors.exceptions import InvalidParameterError
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -148,9 +149,11 @@ def calculate_semantic_diversity(
     elif method == "char_diversity":
         diversity = _calculate_character_diversity(unique_categories)
     else:
-        raise ValueError(
-            f"Unknown method: {method}. Choose from: "
-            "token_overlap, edit_distance, length_variance, char_diversity"
+        raise InvalidParameterError(
+            param_name="method",
+            param_value=method,
+            reason=f"Unknown method: {method}. Choose from: "
+            "token_overlap, edit_distance, length_variance, char_diversity",
         )
 
     # Normalize if requested
@@ -264,9 +267,11 @@ def calculate_lexical_diversity(
     elif method == "msttr":
         diversity = _calculate_msttr(all_tokens, window_size)
     else:
-        raise ValueError(
-            f"Unknown method: {method}. Choose from: "
-            "ttr, root_ttr, log_ttr, mtld, msttr"
+        raise InvalidParameterError(
+            param_name="method",
+            param_value=method,
+            reason=f"Unknown method: {method}. Choose from: "
+            "ttr, root_ttr, log_ttr, mtld, msttr",
         )
 
     return float(diversity)
@@ -689,19 +694,3 @@ def _calculate_brillouin_index(
             brillouin = brillouin / max_brillouin
 
     return float(brillouin)
-
-
-# ============================================================================
-# Module Exports
-# ============================================================================
-
-__all__ = [
-    "calculate_semantic_diversity",
-    "calculate_lexical_diversity",
-    "calculate_token_diversity",
-]
-
-# Module metadata
-__version__ = "1.0.0"
-__author__ = "PAMOLA Core Team"
-__license__ = "BSD 3-Clause"

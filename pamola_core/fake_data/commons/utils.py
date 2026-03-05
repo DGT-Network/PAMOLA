@@ -26,15 +26,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 # Import from pamola_core utils
-from pamola_core.utils import io
-from pamola_core.utils import progress
+import pamola_core.utils.io as io
+import pamola_core.utils.progress as progress
+from pamola_core.utils.paths import get_project_root
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 # Try to import language module with graceful degradation
 try:
-    from pamola_core.utils.nlp import language
+    import pamola_core.utils.nlp.language as language
 
     LANGUAGE_MODULE_AVAILABLE = True
 except ImportError:
@@ -140,8 +142,10 @@ def hash_value(value: Any, salt: str = "", algorithm: str = "sha256") -> str:
         elif algorithm == "sha512":
             hash_obj = hashlib.sha512(salted_value.encode())
         else:
-            raise ValueError(
-                f"Unsupported hash algorithm: {algorithm}. Supported: sha256, md5, sha1, sha512"
+            raise InvalidParameterError(
+                param_name="algorithm",
+                param_value=algorithm,
+                reason=f"Unsupported hash algorithm: {algorithm}. Supported: sha256, md5, sha1, sha512",
             )
 
         return hash_obj.hexdigest()
@@ -372,18 +376,28 @@ def load_dictionary(
                             elif isinstance(data, dict):
                                 result = list(data.values())
                             else:
-                                raise ValueError(
-                                    f"Unsupported JSON structure in {file_path}"
+                                raise InvalidParameterError(
+                                    param_name="json",
+                                    param_value=file_path,
+                                    reason=f"Unsupported JSON structure in {file_path}",
                                 )
                     except json.JSONDecodeError:
                         logger.error(f"Error parsing JSON from {file_path}")
                         raise
                 else:
-                    raise ValueError(f"Unsupported file extension: {extension}")
+                    raise InvalidParameterError(
+                        param_name="file",
+                        param_value=extension,
+                        reason=f"Unsupported file extension: {extension}",
+                    )
             else:
-                raise ValueError(f"Dictionary source not found: {source}")
+                raise ValidationError(f"Dictionary source not found: {source}")
         else:
-            raise ValueError(f"Unsupported dictionary source type: {type(source)}")
+            raise InvalidParameterError(
+                param_name="dictionary",
+                param_value=type(source),
+                reason=f"Unsupported dictionary source type: {type(source)}",
+            )
 
         # Cache the result if requested
         if cache and result:
@@ -419,13 +433,14 @@ def find_dictionary_file(
     """
     # Default base directories
     if base_dirs is None:
+        project_root = get_project_root()
         base_dirs = [
-            Path("DATA/external_dictionaries/fake"),  # Standard project location
+            project_root / "DATA" / "external_dictionaries" / "fake",
+            project_root / "data" / "external_dictionaries" / "fake",
             Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))).parent
             / "DATA"
             / "external_dictionaries"
             / "fake",
-            Path.cwd() / "DATA" / "external_dictionaries" / "fake",
             Path.home() / "DATA" / "external_dictionaries" / "fake",
         ]
 

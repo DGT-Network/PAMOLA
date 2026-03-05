@@ -1,37 +1,60 @@
 """
-Entity extraction package for the NLP module.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+This file is part of the PAMOLA ecosystem, a comprehensive suite for
+anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
+foundation for anonymization-preserving data processing.
 
-This package provides functionality for extracting various types of entities from text,
-including job positions, organizations, skills, and transaction purposes. It supports
-different extraction methods such as dictionary-based matching, NER models, and
-clustering for unresolved entities.
+(C) 2024 Realm Inveo Inc. and DGT Network Inc.
+
+This software is licensed under the BSD 3-Clause License.
+For details, see the LICENSE file or visit:
+
+    https://opensource.org/licenses/BSD-3-Clause
+    https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
+
+Package: pamola_core.utils.nlp.entity
+Type: Internal (Non-Public API)
+
+Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any, List, Optional, Union, Type
+from typing import Any, List, Optional, TYPE_CHECKING
 
-from pamola_core.utils.nlp.entity.base import BaseEntityExtractor
-from pamola_core.utils.nlp.entity.job import JobPositionExtractor
-from pamola_core.utils.nlp.entity.organization import OrganizationExtractor
-from pamola_core.utils.nlp.entity.skill import SkillExtractor
-from pamola_core.utils.nlp.entity.transaction import TransactionPurposeExtractor
-from pamola_core.utils.nlp.entity.dictionary import GenericDictionaryExtractor
-
-# Configure logger
 logger = logging.getLogger(__name__)
 
-# Registry of available entity extractors
-_EXTRACTOR_REGISTRY = {
-    "job": JobPositionExtractor,
-    "job_position": JobPositionExtractor,
-    "organization": OrganizationExtractor,
-    "university": OrganizationExtractor,  # Alias to organization with university filter
-    "skill": SkillExtractor,
-    "transaction": TransactionPurposeExtractor,
-    "generic": GenericDictionaryExtractor,
-    "dictionary": GenericDictionaryExtractor,  # Alias
+if TYPE_CHECKING:
+    from pamola_core.utils.nlp.entity.base import BaseEntityExtractor
+
+from pamola_core.utils.nlp.entity.base import BaseEntityExtractor
+
+from pamola_core.utils.nlp.entity.dictionary import GenericDictionaryExtractor
+
+from pamola_core.utils.nlp.entity.job import JobPositionExtractor
+
+from pamola_core.utils.nlp.entity.organization import OrganizationExtractor
+
+from pamola_core.utils.nlp.entity.skill import SkillExtractor
+
+from pamola_core.utils.nlp.entity.transaction import TransactionPurposeExtractor
+
+_EXTRACTOR_REGISTRY: dict[str, tuple[str, str]] = {
+    "job": ("pamola_core.utils.nlp.entity.job", "JobPositionExtractor"),
+    "job_position": ("pamola_core.utils.nlp.entity.job", "JobPositionExtractor"),
+    "organization": ("pamola_core.utils.nlp.entity.organization", "OrganizationExtractor"),
+    "university": ("pamola_core.utils.nlp.entity.organization", "OrganizationExtractor"),
+    "skill": ("pamola_core.utils.nlp.entity.skill", "SkillExtractor"),
+    "transaction": ("pamola_core.utils.nlp.entity.transaction", "TransactionPurposeExtractor"),
+    "generic": ("pamola_core.utils.nlp.entity.dictionary", "GenericDictionaryExtractor"),
+    "dictionary": ("pamola_core.utils.nlp.entity.dictionary", "GenericDictionaryExtractor"),
 }
 
+def _load_extractor_class(entity_type: str):
+    _, class_name = _EXTRACTOR_REGISTRY[entity_type]
+    return globals()[class_name]
 
 def create_entity_extractor(
     entity_type: str,
@@ -40,13 +63,13 @@ def create_entity_extractor(
     match_strategy: str = "specific_first",
     use_ner: bool = True,
     min_confidence: float = 0.5,
-    **kwargs
+    **kwargs,
 ) -> BaseEntityExtractor:
     """
     Create an entity extractor based on the specified type.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     entity_type : str
         Type of entity extractor to create ("job", "organization", "skill", "transaction", "generic")
     language : str
@@ -62,36 +85,32 @@ def create_entity_extractor(
     **kwargs
         Additional parameters for specific extractors
 
-    Returns:
-    --------
+    Returns
+    -------
     BaseEntityExtractor
         An instance of the appropriate entity extractor
     """
-    # Normalize entity type
     entity_type = entity_type.lower()
 
-    # Check if entity type is supported
     if entity_type not in _EXTRACTOR_REGISTRY:
-        logger.warning(f"Unknown entity type: '{entity_type}', using generic dictionary extractor")
+        logger.warning(
+            f"Unknown entity type: '{entity_type}', using generic dictionary extractor"
+        )
         entity_type = "generic"
 
-    # Get extractor class
-    extractor_class = _EXTRACTOR_REGISTRY[entity_type]
+    extractor_class = _load_extractor_class(entity_type)
 
-    # Special case for university
     if entity_type == "university":
         kwargs["organization_type"] = "university"
 
-    # Create and return the extractor
     return extractor_class(
         language=language,
         dictionary_path=dictionary_path,
         match_strategy=match_strategy,
         use_ner=use_ner,
         min_confidence=min_confidence,
-        **kwargs
+        **kwargs,
     )
-
 
 def extract_entities(
     texts: List[str],
@@ -100,16 +119,13 @@ def extract_entities(
     dictionary_path: Optional[str] = None,
     match_strategy: str = "specific_first",
     use_ner: bool = True,
-    **kwargs
-) -> Dict[str, Any]:
+    **kwargs,
+) -> dict[str, Any]:
     """
     Extract entities from a list of texts.
 
-    This is a convenience function that creates an appropriate extractor
-    and calls its extract_entities method.
-
-    Parameters:
-    -----------
+    Parameters
+    ----------
     texts : List[str]
         List of text strings to process
     entity_type : str
@@ -125,20 +141,30 @@ def extract_entities(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
-    --------
-    Dict[str, Any]
+    Returns
+    -------
+    dict[str, Any]
         Extraction results containing entities, categories, and statistics
     """
-    # Create an extractor
     extractor = create_entity_extractor(
         entity_type=entity_type,
         language=language,
         dictionary_path=dictionary_path,
         match_strategy=match_strategy,
         use_ner=use_ner,
-        **kwargs
+        **kwargs,
     )
-
-    # Extract entities
     return extractor.extract_entities(texts)
+
+__all__ = [
+    # base classes
+    "BaseEntityExtractor",
+    "JobPositionExtractor",
+    "OrganizationExtractor",
+    "SkillExtractor",
+    "TransactionPurposeExtractor",
+    "GenericDictionaryExtractor",
+    # convenience functions
+    "create_entity_extractor",
+    "extract_entities",
+]

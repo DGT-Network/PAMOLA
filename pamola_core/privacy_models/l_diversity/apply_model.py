@@ -25,8 +25,15 @@ from pamola_core.utils.group_processing import (
     validate_anonymity_inputs,
     optimize_memory_usage,
 )
-from pamola_core.configs.config_variables import L_DIVERSITY_DEFAULTS
-from pamola_core.privacy_models.l_diversity.calculation import LDiversityCalculator
+from pamola_core.errors.exceptions import (
+    FeatureNotImplementedError,
+    InvalidStrategyError,
+    ValidationError,
+)
+from pamola_core.privacy_models.l_diversity.calculation import (
+    LDiversityCalculator,
+    apply_model_impl as _apply_model_impl,
+)
 
 
 class AnonymizationStrategy:
@@ -74,7 +81,7 @@ class AnonymizationStrategy:
         pd.DataFrame
             Anonymized dataset
         """
-        raise NotImplementedError("Subclasses must implement apply method")
+        raise FeatureNotImplementedError("Subclasses must implement apply method")
 
 
 class SuppressionStrategy(AnonymizationStrategy):
@@ -228,6 +235,8 @@ class LDiversityModelApplicator:
         self.processor = processor or LDiversityCalculator()
 
         # Configuration setup
+        from pamola_core.configs.config_variables import L_DIVERSITY_DEFAULTS
+
         self.config = dict(L_DIVERSITY_DEFAULTS)
         if config:
             self.config.update(config)
@@ -294,7 +303,11 @@ class LDiversityModelApplicator:
         # Select and apply anonymization strategy
         strategy_name = strategy.lower()
         if strategy_name not in self.strategies:
-            raise ValueError(f"Unknown anonymization strategy: {strategy}")
+            raise InvalidStrategyError(
+                strategy=strategy,
+                valid_strategies=sorted(self.strategies),
+                operation_type="apply_model",
+            )
 
         # Apply selected strategy
         result = self.strategies[strategy_name].apply(
@@ -443,22 +456,10 @@ def apply_model_impl(
     Returns:
         Transformed DataFrame satisfying the privacy model.
     """
-    if not quasi_identifiers:
-        raise ValueError("At least one quasi-identifier must be provided.")
-
-    # Group by QI columns and count group sizes
-    group_sizes = data.groupby(quasi_identifiers).size().reset_index(name="group_size")
-
-    # Merge back group sizes into original data
-    merged_data = pd.merge(data, group_sizes, on=quasi_identifiers)
-
-    if suppression:
-        # Keep only rows in groups that meet the k threshold
-        anonymized_data = merged_data[merged_data["group_size"] >= k].drop(
-            columns="group_size"
-        )
-    else:
-        # Optionally you could generalize instead of suppressing
-        anonymized_data = merged_data.drop(columns="group_size")
-
-    return anonymized_data
+    return _apply_model_impl(
+        data=data,
+        quasi_identifiers=quasi_identifiers,
+        suppression=suppression,
+        k=k,
+        **kwargs,
+    )

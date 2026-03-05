@@ -19,10 +19,10 @@ from pathlib import Path
 from typing import Any, Dict, Tuple, Optional
 
 from pamola_core.common.type_aliases import DataFrameType, PathLike, pd, np
-from pamola_core.utils import logging
+import logging
 
 # Configure module logger
-logger = logging.get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Constants for memory size conversions
 BYTES_PER_KB = 1024
@@ -228,6 +228,33 @@ def estimate_dataframe_size(
             "bytes_per_row": columns * 8,
             "estimation_error": str(e)
         }
+
+
+def get_memory_usage(df: pd.DataFrame) -> Dict[str, float]:
+    """
+    Get memory usage statistics for a DataFrame.
+
+    Parameters:
+    -----------
+    df : pd.DataFrame
+        DataFrame to analyze
+
+    Returns:
+    --------
+    Dict[str, float]
+        Memory usage information in MB
+    """
+    total_memory = df.memory_usage(deep=True).sum()
+
+    return {
+        "total_mb": round(total_memory / BYTES_PER_MB, 2),
+        "per_row_bytes": round(total_memory / len(df), 2) if len(df) > 0 else 0,
+        "per_column_avg_mb": (
+            round(total_memory / len(df.columns) / BYTES_PER_MB, 2)
+            if len(df.columns) > 0
+            else 0
+        ),
+    }
 
 
 def estimate_csv_memory_size(

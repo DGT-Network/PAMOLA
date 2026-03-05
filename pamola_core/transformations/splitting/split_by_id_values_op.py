@@ -35,12 +35,16 @@ from pathlib import Path
 from typing import Optional, Dict, List, Any, Union
 import numpy as np
 import pandas as pd
-import matplotlib
 
 from pamola_core.utils.ops.op_data_writer import DataWriter
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    InvalidParameterError,
+    InvalidStrategyError,
+)
 
-# Set the backend to 'Agg' to avoid GUI issues
-matplotlib.use("Agg")
 from pamola_core.transformations.base_transformation_op import TransformationOperation
 from pamola_core.transformations.commons.enum import PartitionMethod
 from pamola_core.utils.io import (
@@ -161,12 +165,37 @@ class SplitByIDValuesOperation(TransformationOperation):
         try:
             # Initialize timing and result
             self.start_time = time.time()
-
-            # Config logger task for operation
             self.logger = kwargs.get("logger", self.logger)
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
+            )
+
+            result = OperationResult(status=OperationStatus.PENDING)
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
 
             # Generate single timestamp for all artifacts
             operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Prepare directories for artifacts
+            dirs = self._prepare_directories(task_dir)
+
+            # Initialize operation cache
+            self.operation_cache = OperationCache(
+                cache_dir=dirs["cache"],
+            )
+
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
+            # Create DataWriter for consistent file operations
+            writer = DataWriter(
+                task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
+            )
 
             # Save configuration
             self.save_config(task_dir)
@@ -182,20 +211,6 @@ class SplitByIDValuesOperation(TransformationOperation):
                         "operation": self.operation_name,
                     },
                 )
-
-            dirs = self._prepare_directories(task_dir)
-
-            # Create DataWriter for consistent file operations
-            writer = DataWriter(
-                task_dir=task_dir,
-                logger=self.logger,
-                progress_tracker=progress_tracker,
-            )
-
-            # Initialize operation cache
-            self.operation_cache = OperationCache(
-                cache_dir=dirs["cache"],
-            )
 
             if reporter:
                 reporter.add_operation(
@@ -218,8 +233,7 @@ class SplitByIDValuesOperation(TransformationOperation):
                     progress_tracker.update(
                         1, {"step": step, "operation": self.operation_name}
                     )
-                # Validate configuration early
-                dataset_name = kwargs.get("dataset_name", "main")
+
                 # Load settings operation
                 settings_operation = load_settings_operation(
                     data_source, dataset_name, **kwargs
@@ -230,70 +244,37 @@ class SplitByIDValuesOperation(TransformationOperation):
                 df = self._validate_and_get_dataframe(
                     data_source, dataset_name, **settings_operation
                 )
-                is_valid = self._validate_input_parameters(df)
-                if not is_valid:
-                    raise ValueError("Missing fields in DataFrame.")
+                self._validate_input_parameters(df)
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
 
             # Handle cache if required
             if self.use_cache and not self.force_recalculation:
-                self.logger.info(
-                    f"Operation: {self.operation_name}, Load result from cache"
-                )
                 if progress_tracker:
-                    progress_tracker.update(
-                        1,
-                        {
-                            "step": "Load result from cache",
-                            "operation": self.operation_name,
-                        },
-                    )
+                    progress_tracker.update(1, {"step": "Checking Cache"})
 
-                try:
-                    self.logger.info("Checking operation cache...")
-                    cached_result = self._check_cache(df, reporter)
-                except Exception as e:
-                    error_message = f"Check cache error: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
-                    )
+                self.logger.info("Checking operation cache...")
+                cache_result = self._check_cache(df, reporter)
 
-                if cached_result is not None and isinstance(
-                    cached_result, OperationResult
-                ):
+                if cache_result:
+                    self.logger.info("Cache hit! Using cached results.")
+
+                    # Update progress
+                    if progress_tracker:
+                        progress_tracker.update(1, {"step": "Complete (cached)"})
+
+                    # Report cache hit to reporter
                     if reporter:
                         reporter.add_operation(
-                            f"Operation {self.operation_name}",
-                            status="info",
-                            details={
-                                "step": "Load result from cache",
-                                "message": "Load result from cache successfully",
-                            },
+                            f"Split by values (from cache)",
+                            details={"cached": True},
                         )
-                    return cached_result
-                else:
-                    self.logger.info(
-                        f"Operation: {self.operation_name}, Load result from cache failed — proceeding with execution."
-                    )
-                    if reporter:
-                        reporter.add_operation(
-                            f"Operation {self.operation_name}",
-                            status="info",
-                            details={
-                                "step": "Load result from cache",
-                                "message": "Load result from cache failed - proceeding with execution",
-                            },
-                        )
+                    return cache_result
 
             # Process data
             self.logger.info(f"Operation: {self.operation_name}, Process data")
@@ -304,37 +285,31 @@ class SplitByIDValuesOperation(TransformationOperation):
 
             try:
                 processed_df = self._process_data(df, **kwargs)
+                if reporter:
+                    reporter.add_operation(
+                        f"Operation {self.operation_name}",
+                        status="info",
+                        details={
+                            "step": "Process data",
+                            "message": "Process data successfully",
+                            "num_subsets": len(processed_df),
+                        },
+                    )
             except Exception as e:
-                error_message = f"Processing error: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
-                )
-
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="info",
-                    details={
-                        "step": "Process data",
-                        "message": "Process data successfully",
-                        "num_subsets": len(processed_df),
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "operation": self.operation_name},
+                    message_kwargs={
+                        "field_name": self.field_label,
+                        "operation": self.operation_name,
+                        "reason": str(e),
                     },
                 )
 
-            result = OperationResult(
-                status=OperationStatus.SUCCESS,
-                artifacts=[],
-                metrics={},
-                error_message=None,
-                execution_time=0,
-                error_trace=None,
-            )
-
             self.end_time = time.time()
-            result.execution_time = self.end_time - self.start_time
+            if self.start_time and self.end_time:
+                self.execution_time = self.end_time - self.start_time
 
             # Collect metric
             self.logger.info(f"Operation: {self.operation_name}, Collect metric")
@@ -345,7 +320,7 @@ class SplitByIDValuesOperation(TransformationOperation):
 
             try:
                 metrics = self._collect_metrics(df, processed_df)
-                
+
                 self._save_metrics(
                     metrics=metrics,
                     writer=writer,
@@ -400,12 +375,14 @@ class SplitByIDValuesOperation(TransformationOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_label},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
                 if reporter:
@@ -484,10 +461,6 @@ class SplitByIDValuesOperation(TransformationOperation):
                 transformed_data=None,
             )
 
-            # Operation completed successfully
-            self.logger.info(
-                f"Operation: {self.operation_name}, Operation completed successfully."
-            )
             if reporter:
                 reporter.add_operation(
                     f"Operation {self.operation_name}",
@@ -498,23 +471,25 @@ class SplitByIDValuesOperation(TransformationOperation):
                     },
                 )
 
+            # Set success status
+            result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            self.logger.error(f"Operation: {self.operation_name}, error occurred: {e}")
-            if reporter:
-                reporter.add_operation(
-                    f"Operation {self.operation_name}",
-                    status="error",
-                    details={
-                        "step": "Exception",
-                        "message": "Operation failed due to an exception",
-                        "error": str(e),
-                    },
-                )
-
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=str(e), exception=e
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_label},
+                message_kwargs={
+                    "field_name": self.field_label,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _process_data(
@@ -752,7 +727,7 @@ class SplitByIDValuesOperation(TransformationOperation):
             "id_field": self.id_field,
             "number_of_splits": len(output_data),
             "split_info": split_info,
-            "execution_time_seconds": self.end_time - self.start_time,
+            "execution_time_seconds": round(self.execution_time, 2),
             "processing_date": datetime.now().isoformat(),
         }
 
@@ -998,12 +973,17 @@ class SplitByIDValuesOperation(TransformationOperation):
 
         # Check if the ID field exists
         if not self.id_field:
-            self.logger.error("No ID field specified.")
-            return False
+            raise InvalidParameterError(
+                param_name="id_field",
+                param_value=self.id_field,
+                reason="ID field must be specified",
+            )
 
         if self.id_field not in all_columns:
-            self.logger.error(f"ID field '{self.id_field}' not found in the DataFrame.")
-            return False
+            raise FieldNotFoundError(
+                field_name=self.id_field,
+                available_fields=list(all_columns),
+            )
 
         # Validate value_groups or number_of_partitions
         if self.value_groups:
@@ -1016,17 +996,21 @@ class SplitByIDValuesOperation(TransformationOperation):
                     )
         else:
             if self.number_of_partitions <= 0:
-                self.logger.error(
-                    "Either 'value_groups' must be specified or 'number_of_partitions' must be a positive integer."
+                raise InvalidParameterError(
+                    param_name="number_of_partitions",
+                    param_value=self.number_of_partitions,
+                    reason=(
+                        "Either 'value_groups' must be specified or "
+                        "'number_of_partitions' must be a positive integer."
+                    ),
                 )
-                return False
 
             if self.partition_method not in PartitionMethod._value2member_map_:
-                self.logger.error(
-                    f"Unsupported partition method: {self.partition_method}. "
-                    f"Choose from {[m.value for m in PartitionMethod]}."
+                raise InvalidStrategyError(
+                    strategy=self.partition_method,
+                    valid_strategies=[m.value for m in PartitionMethod],
+                    operation_type="partition_method",
                 )
-                return False
 
         return True
 

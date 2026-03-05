@@ -34,6 +34,13 @@ from pamola_core.utils.ops.op_data_writer import DataWriter
 from pamola_core.utils.ops.op_base import BaseOperation
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 from pamola_core.utils.progress import HierarchicalProgressTracker
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.error_handler import ErrorHandler
+from pamola_core.errors.exceptions import (
+    FeatureNotImplementedError,
+    TypeValidationError,
+    ValidationError,
+)
 from pamola_core.transformations.commons.processing_utils import (
     process_dataframe_with_config,
 )
@@ -45,7 +52,7 @@ from pamola_core.transformations.commons.visualization_utils import (
     sample_large_dataset,
 )
 from pamola_core.utils.io_helpers.crypto_utils import get_encryption_mode
-from pamola_core.utils import helpers
+import pamola_core.utils.helpers as helpers
 
 
 class TransformationOperation(BaseOperation):
@@ -126,11 +133,15 @@ class TransformationOperation(BaseOperation):
             # Start timing
             self.start_time = time.time()
             self.logger = kwargs.get("logger", self.logger)
-            self.logger.info(f"Starting {self.name} operation at {self.start_time}")
-            df = None
+            self.logger.info(
+                f"Starting: {self.operation_name} operation at {self.start_time}"
+            )
 
             # Initialize result object
             result = OperationResult(status=OperationStatus.PENDING)
+
+            # Initialize dataframe
+            df = None
 
             # Create a field List for display purposes
             field_info = (
@@ -138,6 +149,12 @@ class TransformationOperation(BaseOperation):
                 if self.field_name
                 else {"field_label": self.field_label}
             )
+
+            # Extract dataset name from kwargs (default to "main")
+            dataset_name = kwargs.get("dataset_name", "main")
+
+            # Generate single timestamp for all artifacts
+            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Prepare directories for artifacts
             dirs = self._prepare_directories(task_dir)
@@ -147,16 +164,19 @@ class TransformationOperation(BaseOperation):
                 cache_dir=dirs["cache"],
             )
 
-            # Create writer for consistent output handling
+            # Initialize error handler
+            self.error_handler = ErrorHandler(
+                logger=self.logger,
+                operation_name=self.operation_name,
+            )
+
+            # Create DataWriter for consistent file operations
             writer = DataWriter(
                 task_dir=task_dir, logger=self.logger, progress_tracker=progress_tracker
             )
 
             # Save operation configuration
             self.save_config(task_dir)
-
-            # Extract dataset name from kwargs (default to "main")
-            dataset_name = kwargs.get("dataset_name", "main")
 
             self.logger.info(
                 f"Visualization settings: theme={self.visualization_theme}, backend={self.visualization_backend}, strict={self.visualization_strict}, timeout={self.visualization_timeout}s"
@@ -183,7 +203,7 @@ class TransformationOperation(BaseOperation):
                     main_progress.update(
                         current_steps,
                         {
-                            "step": f"Starting {self.name}",
+                            "step": f"Starting {self.operation_name}",
                             **field_info,
                         },
                     )
@@ -203,14 +223,13 @@ class TransformationOperation(BaseOperation):
                     data_source, dataset_name, **settings_operation
                 )
             except Exception as e:
-                error_message = f"Error loading data: {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.DATA_LOAD_FAILED,
+                    context={"dataset": dataset_name, "operation": self.operation_name},
+                    message_kwargs={"source": dataset_name, "reason": str(e)},
                 )
-            
+
             # Step 2: Validation
             if main_progress:
                 current_steps += 1
@@ -229,14 +248,20 @@ class TransformationOperation(BaseOperation):
                 )
 
             except Exception as e:
-                error_message = f"Validation error in '{self.operation_name}': {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={
+                        "step": "_prepare_output_fields",
+                        "field": self.field_label,
+                    },
+                    message_kwargs={
+                        "field_name": self.field_label,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
-            
+
             # Step 3: Check Cache (if enabled and not forced to recalculate)
             if self.use_cache and not self.force_recalculation:
                 if main_progress:
@@ -296,12 +321,15 @@ class TransformationOperation(BaseOperation):
                 transformed_data = result_df[output_fields]
 
             except Exception as e:
-                error_message = f"Processing error in '{self.operation_name}': {str(e)}"
-                self.logger.error(error_message)
-                return OperationResult(
-                    status=OperationStatus.ERROR,
-                    error_message=error_message,
-                    exception=e,
+                return self.error_handler.handle_error(
+                    error=e,
+                    error_code=ErrorCode.PROCESSING_FAILED,
+                    context={"step": "processing", "field": self.field_label},
+                    message_kwargs={
+                        "field_name": self.field_label,
+                        "operation": self.operation_name,
+                        "reason": str(e),
+                    },
                 )
 
             # Step 5: Metrics Calculation
@@ -314,9 +342,6 @@ class TransformationOperation(BaseOperation):
             # Record end time after processing
             self.end_time = time.time()
 
-            # Generate single timestamp for all artifacts
-            operation_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
             # Initialize metrics dictionary
             metrics = {}
 
@@ -324,7 +349,7 @@ class TransformationOperation(BaseOperation):
                 # Calculate all relevant metrics based on original and transformed data
                 metrics = self._calculate_all_metrics(original_data, transformed_data)
 
-                # Generate metrics file name (in self.name existed field_name)
+                # Generate metrics file name
                 metrics_file_name = f"{self.field_label}_{self.operation_name}_metrics_{operation_timestamp}"
 
                 self._save_metrics(
@@ -400,12 +425,14 @@ class TransformationOperation(BaseOperation):
                         **kwargs,
                     )
                 except Exception as e:
-                    error_message = f"Error saving output data: {str(e)}"
-                    self.logger.error(error_message)
-                    return OperationResult(
-                        status=OperationStatus.ERROR,
-                        error_message=error_message,
-                        exception=e,
+                    return self.error_handler.handle_error(
+                        error=e,
+                        error_code=ErrorCode.ARTIFACT_WRITE_FAILED,
+                        context={"step": "save_output", "field": self.field_label},
+                        message_kwargs={
+                            "path": str(task_dir / "output"),
+                            "reason": str(e),
+                        },
                     )
 
             # Cache the result if caching is enabled
@@ -434,11 +461,7 @@ class TransformationOperation(BaseOperation):
                 # Create the details dictionary with checks for all values
                 details = {
                     "records_processed": self.process_count,
-                    "execution_time": (
-                        self.end_time - self.start_time
-                        if self.end_time and self.start_time
-                        else None
-                    ),
+                    "execution_time": self.execution_time,
                 }
 
                 # Only add generalization_ratio if metrics exists and has this key
@@ -453,21 +476,25 @@ class TransformationOperation(BaseOperation):
                     details=details,
                 )
 
-            # Compute elapsed time
-            self.logger.info(
-                f"Processing completed {self.name} operation in {self.end_time - self.start_time:.2f} seconds"
-            )
-
             # Set success status
             result.status = OperationStatus.SUCCESS
+            result.execution_time = self.execution_time
+            self.logger.info(
+                f"Processing completed {self.operation_name} operation in {self.execution_time:.2f} seconds"
+            )
             return result
 
         except Exception as e:
-            # Handle any unexpected errors
-            error_message = f"Error in transformation operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR, error_message=error_message, exception=e
+            self.logger.exception(f"Error in {self.operation_name}: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.operation_name, "field": self.field_label},
+                message_kwargs={
+                    "field_name": self.field_label,
+                    "operation": self.operation_name,
+                    "reason": str(e),
+                },
             )
 
     def _validate_and_get_dataframe(
@@ -500,28 +527,28 @@ class TransformationOperation(BaseOperation):
             error_msg = (
                 f"Data source '{data_source}' does not contain a valid DataFrame"
             )
-            raise ValueError(error_msg)
+            raise ValidationError(error_msg)
 
         if self.field_name:
             if self.field_name not in df.columns:
                 error_msg = f"Field '{self.field_name}' not found in DataFrame columns"
                 self.logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ValidationError(error_msg)
 
         # Apply data types from data source
         try:
             df = data_source.apply_data_types(df, dataset_name)
-        except ValueError as e:
+        except (ValidationError, ValueError) as e:
             error_msg = (
                 f"Failed to apply data types for dataset '{dataset_name}': {str(e)}"
             )
             self.logger.error(error_msg)
-            raise ValueError(error_msg) from e
+            raise ValidationError(error_msg) from e
 
         except TypeError as e:
             error_msg = f"Invalid dataframe type for dataset '{dataset_name}': {str(e)}"
             self.logger.error(error_msg)
-            raise TypeError(error_msg) from e
+            raise TypeValidationError(error_msg) from e
 
         return df
 
@@ -667,7 +694,7 @@ class TransformationOperation(BaseOperation):
         metrics = self._collect_metrics(original_data, transformed_data)
 
         # Calculate execution time in seconds, safely handling missing timestamps
-        execution_time = (
+        self.execution_time = (
             self.end_time - self.start_time
             if self.end_time is not None and self.start_time is not None
             else 0
@@ -675,13 +702,13 @@ class TransformationOperation(BaseOperation):
 
         # Calculate processing rate (records per second), avoid division by zero
         records_per_second = (
-            self.process_count / execution_time if execution_time > 0 else 0
+            self.process_count / self.execution_time if self.execution_time > 0 else 0
         )
 
         # Update metrics dictionary with performance metrics
         metrics.update(
             {
-                "execution_time_seconds": execution_time,
+                "execution_time_seconds": self.execution_time,
                 "records_processed": self.process_count,
                 "records_per_second": records_per_second,
                 "processing_date": datetime.now(),
@@ -1177,9 +1204,7 @@ class TransformationOperation(BaseOperation):
         custom_kwargs = self._get_custom_kwargs(result_df, **kwargs)
 
         # Generate standardized output filename with timestamp
-        file_name = file_name or (
-            f"{self.operation_name}_output_{timestamp}"
-        )
+        file_name = file_name or (f"{self.operation_name}_output_{timestamp}")
 
         output_result = writer.write_dataframe(
             df=result_df,
@@ -1419,7 +1444,9 @@ class TransformationOperation(BaseOperation):
             Processed DataFrame batch
         """
         # This method should be implemented by subclasses
-        raise NotImplementedError("Subclasses must implement process_batch method")
+        raise FeatureNotImplementedError(
+            "Subclasses must implement process_batch method"
+        )
 
     def _collect_metrics(
         self,

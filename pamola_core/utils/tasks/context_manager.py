@@ -37,9 +37,16 @@ import numpy as np
 
 import filelock
 
+from pamola_core.errors.exceptions import (
+    CheckpointError,
+    ContextManagerError,
+    StateRestorationError,
+    StateSerializationError,
+)
 from pamola_core.utils.io import ensure_directory, read_json
 from pamola_core.utils.tasks.execution_log import (
-    update_execution_record, find_latest_execution
+    update_execution_record,
+    find_latest_execution,
 )
 from pamola_core.utils.tasks.path_security import validate_path_security
 
@@ -49,26 +56,6 @@ DEFAULT_LOCK_TIMEOUT = 10
 DEFAULT_MAX_CHECKPOINTS = 10
 # Default maximum state size in bytes before pruning older checkpoints (10 MB)
 DEFAULT_MAX_STATE_SIZE = 10 * 1024 * 1024
-
-
-class ContextManagerError(Exception):
-    """Base exception for context manager errors."""
-    pass
-
-
-class CheckpointError(ContextManagerError):
-    """Exception raised for checkpoint-related errors."""
-    pass
-
-
-class StateSerializationError(ContextManagerError):
-    """Exception raised when state serialization fails."""
-    pass
-
-
-class StateRestorationError(ContextManagerError):
-    """Exception raised when state restoration fails."""
-    pass
 
 
 class NullProgressTracker:
@@ -104,12 +91,14 @@ class TaskContextManager:
     across task runs.
     """
 
-    def __init__(self,
-                 task_id: str,
-                 task_dir: Path,
-                 log_directory: Optional[Path] = None,
-                 max_state_size: int = DEFAULT_MAX_STATE_SIZE,
-                 progress_manager: Optional[Any] = None):
+    def __init__(
+        self,
+        task_id: str,
+        task_dir: Path,
+        log_directory: Optional[Path] = None,
+        max_state_size: int = DEFAULT_MAX_STATE_SIZE,
+        progress_manager: Optional[Any] = None,
+    ):
         """
         Initialize the context manager.
 
@@ -139,15 +128,21 @@ class TaskContextManager:
             # Create a task-specific checkpoint directory under the logs
             lock_file = log_directory
             self.checkpoint_dir = log_directory / "checkpoints" / task_id
-            self.logger.debug(f"Using centralized checkpoint location: {self.checkpoint_dir}")
+            self.logger.debug(
+                f"Using centralized checkpoint location: {self.checkpoint_dir}"
+            )
         else:
             lock_file = task_dir
             self.checkpoint_dir = task_dir / "checkpoints"
-            self.logger.debug(f"Using task-local checkpoint location: {self.checkpoint_dir}")
+            self.logger.debug(
+                f"Using task-local checkpoint location: {self.checkpoint_dir}"
+            )
 
         try:
             ensure_directory(self.checkpoint_dir)
-            self.logger.debug(f"Initialized checkpoint directory: {self.checkpoint_dir}")
+            self.logger.debug(
+                f"Initialized checkpoint directory: {self.checkpoint_dir}"
+            )
         except Exception as e:
             error_msg = f"Failed to initialize checkpoint directory: {str(e)}"
             self.logger.error(error_msg, exc_info=True)
@@ -165,14 +160,16 @@ class TaskContextManager:
             "operations_completed": [],
             "operations_failed": [],
             "metrics": {},
-            "artifacts": []
+            "artifacts": [],
         }
 
         # Track checkpoint history with timestamps
         self.checkpoints: List[Tuple[str, datetime]] = []
         self._load_checkpoint_history()
 
-    def _calculate_config_hash(self, config_dict: Optional[Dict[str, Any]] = None) -> str:
+    def _calculate_config_hash(
+        self, config_dict: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
         Calculate a hash of the configuration dictionary.
 
@@ -190,7 +187,7 @@ class TaskContextManager:
             # Sort keys for stable serialization
             config_str = json.dumps(config_dict, sort_keys=True)
             # Calculate hash
-            return hashlib.md5(config_str.encode('utf-8')).hexdigest()
+            return hashlib.md5(config_str.encode("utf-8")).hexdigest()
         except Exception as e:
             self.logger.warning(f"Error calculating config hash: {str(e)}")
             return "unknown"
@@ -231,7 +228,9 @@ class TaskContextManager:
                         existing_count = len(list(checkpoint_dir.glob("*.json")))
                     except Exception as e:
                         # Log if counting failed, but continue with deletion attempt
-                        self.logger.warning(f"Could not count existing checkpoints in {checkpoint_dir}: {e}")
+                        self.logger.warning(
+                            f"Could not count existing checkpoints in {checkpoint_dir}: {e}"
+                        )
 
                 # --- Deletion logic: Try to delete everything. If failed, return False. ---
                 try:
@@ -278,7 +277,8 @@ class TaskContextManager:
 
                 # Log successful completion
                 self.logger.info(
-                    f"Successfully cleared checkpoints. Initially found {existing_count}.")
+                    f"Successfully cleared checkpoints. Initially found {existing_count}."
+                )
 
                 # Log through progress manager if available
                 if self.progress_manager:
@@ -304,14 +304,20 @@ class TaskContextManager:
             # This block catches any other unexpected errors that might have occurred
             # outside the specific shutil.rmtree call (e.g., issues with get_checkpoint_dir,
             # filelock, or something completely unexpected).
-            error_msg = f"An unexpected error occurred during checkpoint clearing: {str(e)}"
+            error_msg = (
+                f"An unexpected error occurred during checkpoint clearing: {str(e)}"
+            )
             self.logger.error(error_msg, exc_info=True)
             if self.progress_manager:
                 self.progress_manager.log_error(error_msg)
             return False
 
-    def is_checkpoint_valid(self, checkpoint_name: str, config_hash: Optional[str] = None,
-                            task_version: Optional[str] = None) -> bool:
+    def is_checkpoint_valid(
+        self,
+        checkpoint_name: str,
+        config_hash: Optional[str] = None,
+        task_version: Optional[str] = None,
+    ) -> bool:
         """
         Check if a checkpoint is still valid based on configuration and task version.
 
@@ -328,29 +334,39 @@ class TaskContextManager:
             try:
                 state = self.restore_execution_state(checkpoint_name)
                 if not state:
-                    self.logger.warning(f"Checkpoint {checkpoint_name} not found or empty")
+                    self.logger.warning(
+                        f"Checkpoint {checkpoint_name} not found or empty"
+                    )
                     return False
             except Exception as e:
-                self.logger.warning(f"Could not restore checkpoint {checkpoint_name}: {str(e)}")
+                self.logger.warning(
+                    f"Could not restore checkpoint {checkpoint_name}: {str(e)}"
+                )
                 return False
 
             # Check config hash if provided
             if config_hash and state.get("config_hash"):
                 if state.get("config_hash") != config_hash:
-                    self.logger.info(f"Checkpoint config hash mismatch: {state.get('config_hash')} != {config_hash}")
+                    self.logger.info(
+                        f"Checkpoint config hash mismatch: {state.get('config_hash')} != {config_hash}"
+                    )
                     return False
 
             # Check task version if provided
             if task_version and state.get("task_version"):
                 if state.get("task_version") != task_version:
-                    self.logger.info(f"Checkpoint task version mismatch: {state.get('task_version')} != {task_version}")
+                    self.logger.info(
+                        f"Checkpoint task version mismatch: {state.get('task_version')} != {task_version}"
+                    )
                     return False
 
             # All checks passed
             return True
 
         except Exception as e:
-            self.logger.warning(f"Error validating checkpoint {checkpoint_name}: {str(e)}")
+            self.logger.warning(
+                f"Error validating checkpoint {checkpoint_name}: {str(e)}"
+            )
             return False
 
     def _load_checkpoint_history(self) -> None:
@@ -368,7 +384,7 @@ class TaskContextManager:
                     checkpoint_files = sorted(
                         [f for f in self.checkpoint_dir.glob("*.json") if f.is_file()],
                         key=lambda f: f.stat().st_mtime,
-                        reverse=True
+                        reverse=True,
                     )
 
                     # Extract checkpoint names and timestamps
@@ -378,7 +394,9 @@ class TaskContextManager:
                     ]
 
                     if self.checkpoints:
-                        self.logger.info(f"Found {len(self.checkpoints)} existing checkpoints")
+                        self.logger.info(
+                            f"Found {len(self.checkpoints)} existing checkpoints"
+                        )
 
                         # Log using progress_manager if available
                         if self.progress_manager:
@@ -386,10 +404,14 @@ class TaskContextManager:
                                 f"Found {len(self.checkpoints)} existing checkpoints for task {self.task_id}"
                             )
         except filelock.Timeout:
-            self.logger.warning(f"Timeout waiting for lock when loading checkpoint history")
+            self.logger.warning(
+                f"Timeout waiting for lock when loading checkpoint history"
+            )
             # Continue without history rather than failing
         except Exception as e:
-            self.logger.warning(f"Error loading checkpoint history: {str(e)}", exc_info=True)
+            self.logger.warning(
+                f"Error loading checkpoint history: {str(e)}", exc_info=True
+            )
             # Continue without history rather than failing
 
     def _atomic_write_json(self, data: Dict[str, Any], path: Path) -> None:
@@ -405,12 +427,12 @@ class TaskContextManager:
         """
         try:
             # Create a temporary file in the same directory
-            fd, temp_path = tempfile.mkstemp(dir=path.parent, suffix='.tmp.json')
+            fd, temp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp.json")
 
             try:
                 # Write data to temporary file
                 data_serialized = _serialize_data(data)
-                with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
                     json.dump(data_serialized, f, indent=2, ensure_ascii=False)
 
                 # Perform atomic replace
@@ -423,14 +445,20 @@ class TaskContextManager:
                 except (OSError, FileNotFoundError):
                     pass
 
-                raise StateSerializationError(f"Failed to write checkpoint file: {str(e)}") from e
+                raise StateSerializationError(
+                    f"Failed to write checkpoint file: {str(e)}"
+                ) from e
 
         except Exception as e:
             if not isinstance(e, StateSerializationError):
-                raise StateSerializationError(f"Failed to create temporary file: {str(e)}") from e
+                raise StateSerializationError(
+                    f"Failed to create temporary file: {str(e)}"
+                ) from e
             raise
 
-    def save_execution_state(self, state: Dict[str, Any], checkpoint_name: Optional[str] = None) -> Path:
+    def save_execution_state(
+        self, state: Dict[str, Any], checkpoint_name: Optional[str] = None
+    ) -> Path:
         """
         Save execution state to a checkpoint file.
 
@@ -450,7 +478,7 @@ class TaskContextManager:
                 progress_context = self.progress_manager.create_operation_context(
                     name="save_checkpoint",
                     total=4,  # Lock, prepare, write, update log
-                    description=f"Saving checkpoint {checkpoint_name or 'auto'}"
+                    description=f"Saving checkpoint {checkpoint_name or 'auto'}",
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to create progress context: {str(e)}")
@@ -472,7 +500,7 @@ class TaskContextManager:
                     state_copy["last_updated"] = datetime.now().isoformat()
 
                     # Check if state size exceeds maximum
-                    data_serialized = _serialize_data(state_copy)                        
+                    data_serialized = _serialize_data(state_copy)
                     state_size = len(json.dumps(data_serialized))
                     if state_size > self.max_state_size:
                         self.logger.warning(
@@ -485,14 +513,18 @@ class TaskContextManager:
                     if checkpoint_name is None:
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         operation_index = state_copy.get("operation_index", 0)
-                        checkpoint_name = f"checkpoint_{self.task_id}_{operation_index}_{timestamp}"
+                        checkpoint_name = (
+                            f"checkpoint_{self.task_id}_{operation_index}_{timestamp}"
+                        )
 
                     # Ensure checkpoint name is safe
                     checkpoint_name = self._sanitize_checkpoint_name(checkpoint_name)
 
                     # Update progress
                     if progress is not None:
-                        progress.update(1, {"status": "preparing", "checkpoint": checkpoint_name})
+                        progress.update(
+                            1, {"status": "preparing", "checkpoint": checkpoint_name}
+                        )
 
                     # Resolve checkpoint file path
                     checkpoint_path = self.checkpoint_dir / f"{checkpoint_name}.json"
@@ -508,10 +540,14 @@ class TaskContextManager:
 
                     # Update progress
                     if progress is not None:
-                        progress.update(1, {"status": "saved", "path": str(checkpoint_path)})
+                        progress.update(
+                            1, {"status": "saved", "path": str(checkpoint_path)}
+                        )
 
                     # Update checkpoint history - get timestamp from file
-                    checkpoint_time = datetime.fromtimestamp(checkpoint_path.stat().st_mtime)
+                    checkpoint_time = datetime.fromtimestamp(
+                        checkpoint_path.stat().st_mtime
+                    )
 
                     # Check if checkpoint exists and update timestamp if it does
                     for i, (name, _) in enumerate(self.checkpoints):
@@ -526,7 +562,9 @@ class TaskContextManager:
                 # (This is done outside the lock to avoid holding the lock during external API calls)
                 try:
                     # Get the latest task execution ID
-                    latest_execution = find_latest_execution(self.task_id, success_only=False)
+                    latest_execution = find_latest_execution(
+                        self.task_id, success_only=False
+                    )
                     if latest_execution and "task_run_id" in latest_execution:
                         task_run_id = latest_execution["task_run_id"]
                         # Update execution record with checkpoint info
@@ -534,25 +572,34 @@ class TaskContextManager:
                             "checkpoint": {
                                 "name": checkpoint_name,
                                 "timestamp": datetime.now().isoformat(),
-                                "path": str(checkpoint_path)
+                                "path": str(checkpoint_path),
                             }
                         }
                         update_execution_record(task_run_id, checkpoint_updates)
-                        self.logger.debug(f"Updated execution log with checkpoint: {checkpoint_name}")
+                        self.logger.debug(
+                            f"Updated execution log with checkpoint: {checkpoint_name}"
+                        )
 
                         # Update progress
                         if progress is not None:
                             progress.update(1, {"status": "updated_log"})
                 except Exception as e:
-                    self.logger.warning(f"Failed to update execution log with checkpoint: {str(e)}", exc_info=True)
+                    self.logger.warning(
+                        f"Failed to update execution log with checkpoint: {str(e)}",
+                        exc_info=True,
+                    )
                     # Continue even if execution log update fails
                     if progress is not None:
                         progress.update(1, {"status": "log_error", "error": str(e)})
 
                 if self.progress_manager:
-                    self.progress_manager.log_info(f"Saved checkpoint: {checkpoint_name}")
+                    self.progress_manager.log_info(
+                        f"Saved checkpoint: {checkpoint_name}"
+                    )
                 else:
-                    self.logger.info(f"Saved execution state to checkpoint: {Path(checkpoint_path).name}")
+                    self.logger.info(
+                        f"Saved execution state to checkpoint: {Path(checkpoint_path).name}"
+                    )
 
                 return checkpoint_path
 
@@ -578,7 +625,9 @@ class TaskContextManager:
 
                 raise StateSerializationError(error_msg) from e
 
-    def restore_execution_state(self, checkpoint_name: Optional[str] = None) -> Dict[str, Any]:
+    def restore_execution_state(
+        self, checkpoint_name: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Restore execution state from a checkpoint file.
 
@@ -597,7 +646,7 @@ class TaskContextManager:
                 progress_context = self.progress_manager.create_operation_context(
                     name="restore_checkpoint",
                     total=3,  # Find checkpoint, load state, validate
-                    description=f"Restoring from checkpoint {checkpoint_name or 'latest'}"
+                    description=f"Restoring from checkpoint {checkpoint_name or 'latest'}",
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to create progress context: {str(e)}")
@@ -632,13 +681,17 @@ class TaskContextManager:
 
                     # Update progress
                     if progress is not None:
-                        progress.update(1, {"status": "found", "checkpoint": checkpoint_name})
+                        progress.update(
+                            1, {"status": "found", "checkpoint": checkpoint_name}
+                        )
 
                     # Try to get checkpoint from execution log first (for cross-run persistence)
                     checkpoint_path = None
                     try:
                         # Find checkpoint path from execution log
-                        latest_execution = find_latest_execution(self.task_id, success_only=False)
+                        latest_execution = find_latest_execution(
+                            self.task_id, success_only=False
+                        )
                         if latest_execution and "checkpoint" in latest_execution:
                             checkpoint_info = latest_execution["checkpoint"]
                             if checkpoint_info.get("name") == checkpoint_name:
@@ -660,12 +713,18 @@ class TaskContextManager:
 
                                     # Ensure created_at is preserved but last_updated is refreshed
                                     if original_created_at:
-                                        self.current_state["created_at"] = original_created_at
-                                    self.current_state["last_updated"] = datetime.now().isoformat()
+                                        self.current_state["created_at"] = (
+                                            original_created_at
+                                        )
+                                    self.current_state["last_updated"] = (
+                                        datetime.now().isoformat()
+                                    )
 
                                     # Update progress
                                     if progress is not None:
-                                        progress.update(2, {"status": "restored_from_log"})
+                                        progress.update(
+                                            2, {"status": "restored_from_log"}
+                                        )
 
                                     if self.progress_manager:
                                         self.progress_manager.log_info(
@@ -673,11 +732,14 @@ class TaskContextManager:
                                         )
                                     else:
                                         self.logger.info(
-                                            f"Restored execution state from execution log checkpoint: {checkpoint_name}")
+                                            f"Restored execution state from execution log checkpoint: {checkpoint_name}"
+                                        )
 
                                     return self.current_state
                     except Exception as e:
-                        self.logger.debug(f"Couldn't load from execution log, trying local file: {str(e)}")
+                        self.logger.debug(
+                            f"Couldn't load from execution log, trying local file: {str(e)}"
+                        )
                         # Continue to local file fallback
 
                     # Ensure checkpoint name is safe
@@ -708,13 +770,23 @@ class TaskContextManager:
 
                     # Update progress
                     if progress is not None:
-                        progress.update(1, {"status": "loaded", "path": str(checkpoint_path)})
+                        progress.update(
+                            1, {"status": "loaded", "path": str(checkpoint_path)}
+                        )
 
                     # Verify essential keys
-                    required_keys = ["task_id", "operation_index", "operations_completed"]
-                    missing_keys = [key for key in required_keys if key not in stored_state]
+                    required_keys = [
+                        "task_id",
+                        "operation_index",
+                        "operations_completed",
+                    ]
+                    missing_keys = [
+                        key for key in required_keys if key not in stored_state
+                    ]
                     if missing_keys:
-                        error_msg = f"Invalid checkpoint state, missing keys: {missing_keys}"
+                        error_msg = (
+                            f"Invalid checkpoint state, missing keys: {missing_keys}"
+                        )
                         self.logger.error(error_msg)
 
                         # Log through progress manager if available
@@ -747,17 +819,24 @@ class TaskContextManager:
 
                     # Update progress
                     if progress is not None:
-                        progress.update(1, {
-                            "status": "validated",
-                            "operation_index": self.current_state.get("operation_index", -1)
-                        })
+                        progress.update(
+                            1,
+                            {
+                                "status": "validated",
+                                "operation_index": self.current_state.get(
+                                    "operation_index", -1
+                                ),
+                            },
+                        )
 
                     if self.progress_manager:
                         self.progress_manager.log_info(
                             f"Restored from checkpoint: {checkpoint_name} (Operation index: {self.current_state.get('operation_index', -1)})"
                         )
                     else:
-                        self.logger.info(f"Restored execution state from checkpoint: {checkpoint_path.name}")
+                        self.logger.info(
+                            f"Restored execution state from checkpoint: {checkpoint_path.name}"
+                        )
 
                     return self.current_state
 
@@ -783,7 +862,9 @@ class TaskContextManager:
 
                 raise StateRestorationError(error_msg) from e
 
-    def create_automatic_checkpoint(self, operation_index: int, metrics: Dict = None) -> Path:
+    def create_automatic_checkpoint(
+        self, operation_index: int, metrics: Dict = None
+    ) -> Path:
         """
         Create an automatic checkpoint at the current execution point.
 
@@ -821,7 +902,9 @@ class TaskContextManager:
             checkpoint_name = f"auto_{self.task_id}_{operation_index}_{timestamp}"
 
             # Save checkpoint - with progress integration from save_execution_state
-            checkpoint_path = self.save_execution_state(self.current_state, checkpoint_name)
+            checkpoint_path = self.save_execution_state(
+                self.current_state, checkpoint_name
+            )
 
             return checkpoint_path
 
@@ -843,9 +926,9 @@ class TaskContextManager:
             Dict containing configuration or empty dict if not available
         """
         # Try to get config from progress manager's task
-        if self.progress_manager and hasattr(self.progress_manager, 'task'):
+        if self.progress_manager and hasattr(self.progress_manager, "task"):
             task = self.progress_manager.task
-            if hasattr(task, 'config') and hasattr(task.config, 'to_dict'):
+            if hasattr(task, "config") and hasattr(task.config, "to_dict"):
                 return task.config.to_dict()
 
         return {}
@@ -858,9 +941,9 @@ class TaskContextManager:
             Task version string or "unknown" if not available
         """
         # Try to get version from progress manager's task
-        if self.progress_manager and hasattr(self.progress_manager, 'task'):
+        if self.progress_manager and hasattr(self.progress_manager, "task"):
             task = self.progress_manager.task
-            if hasattr(task, 'version'):
+            if hasattr(task, "version"):
                 return task.version
 
         return "unknown"
@@ -878,7 +961,11 @@ class TaskContextManager:
         try:
             # Update current state
             for key, value in updates.items():
-                if key in self.current_state and isinstance(self.current_state[key], dict) and isinstance(value, dict):
+                if (
+                    key in self.current_state
+                    and isinstance(self.current_state[key], dict)
+                    and isinstance(value, dict)
+                ):
                     # Merge nested dictionaries
                     self.current_state[key].update(value)
                 else:
@@ -898,8 +985,12 @@ class TaskContextManager:
 
             raise ContextManagerError(error_msg) from e
 
-    def record_operation_completion(self, operation_index: int, operation_name: str,
-                                    result_metrics: Optional[Dict[str, Any]] = None) -> None:
+    def record_operation_completion(
+        self,
+        operation_index: int,
+        operation_name: str,
+        result_metrics: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """
         Record the completion of an operation.
 
@@ -921,8 +1012,11 @@ class TaskContextManager:
                 self.current_state["operations_completed"] = []
 
             # Avoid duplicates
-            operation_entry = {"index": operation_index, "name": operation_name,
-                               "timestamp": datetime.now().isoformat()}
+            operation_entry = {
+                "index": operation_index,
+                "name": operation_name,
+                "timestamp": datetime.now().isoformat(),
+            }
             if operation_entry not in self.current_state["operations_completed"]:
                 self.current_state["operations_completed"].append(operation_entry)
 
@@ -953,8 +1047,9 @@ class TaskContextManager:
 
             raise ContextManagerError(error_msg) from e
 
-    def record_operation_failure(self, operation_index: int, operation_name: str,
-                                 error_info: Dict[str, Any]) -> None:
+    def record_operation_failure(
+        self, operation_index: int, operation_name: str, error_info: Dict[str, Any]
+    ) -> None:
         """
         Record the failure of an operation.
 
@@ -980,17 +1075,24 @@ class TaskContextManager:
                 "index": operation_index,
                 "name": operation_name,
                 "timestamp": datetime.now().isoformat(),
-                "error": error_info
+                "error": error_info,
             }
 
             # Avoid duplicates - check if operation with same index and name exists
-            existing = [op for op in self.current_state["operations_failed"]
-                        if op.get("index") == operation_index and op.get("name") == operation_name]
+            existing = [
+                op
+                for op in self.current_state["operations_failed"]
+                if op.get("index") == operation_index
+                and op.get("name") == operation_name
+            ]
 
             if existing:
                 # Replace existing entry
                 for i, entry in enumerate(self.current_state["operations_failed"]):
-                    if entry.get("index") == operation_index and entry.get("name") == operation_name:
+                    if (
+                        entry.get("index") == operation_index
+                        and entry.get("name") == operation_name
+                    ):
                         self.current_state["operations_failed"][i] = failure_entry
                         break
             else:
@@ -1016,8 +1118,12 @@ class TaskContextManager:
 
             raise ContextManagerError(error_msg) from e
 
-    def record_artifact(self, artifact_path: Union[str, Path], artifact_type: str,
-                        description: Optional[str] = None) -> None:
+    def record_artifact(
+        self,
+        artifact_path: Union[str, Path],
+        artifact_type: str,
+        description: Optional[str] = None,
+    ) -> None:
         """
         Record an artifact created during task execution.
 
@@ -1042,11 +1148,13 @@ class TaskContextManager:
                 "path": path_str,
                 "type": artifact_type,
                 "description": description or "",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             # Avoid duplicates - check if artifact with same path exists
-            existing = [a for a in self.current_state["artifacts"] if a.get("path") == path_str]
+            existing = [
+                a for a in self.current_state["artifacts"] if a.get("path") == path_str
+            ]
 
             if existing:
                 # Replace existing entry
@@ -1095,7 +1203,7 @@ class TaskContextManager:
                 progress_context = self.progress_manager.create_operation_context(
                     name="check_resumable",
                     total=2,  # Check local, check execution log
-                    description="Checking for resumable execution"
+                    description="Checking for resumable execution",
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to create progress context: {str(e)}")
@@ -1115,7 +1223,13 @@ class TaskContextManager:
 
                         # Update progress
                         if progress is not None:
-                            progress.update(2, {"status": "found_local", "checkpoint": latest_checkpoint})
+                            progress.update(
+                                2,
+                                {
+                                    "status": "found_local",
+                                    "checkpoint": latest_checkpoint,
+                                },
+                            )
 
                         if self.progress_manager:
                             self.progress_manager.log_info(
@@ -1133,7 +1247,9 @@ class TaskContextManager:
                 if latest_checkpoint:
                     # Update progress
                     if progress is not None:
-                        progress.update(1, {"status": "found_log", "checkpoint": latest_checkpoint})
+                        progress.update(
+                            1, {"status": "found_log", "checkpoint": latest_checkpoint}
+                        )
 
                     if self.progress_manager:
                         self.progress_manager.log_info(
@@ -1150,7 +1266,9 @@ class TaskContextManager:
                 return False, None
 
             except filelock.Timeout:
-                self.logger.warning(f"Timeout waiting for lock when checking resumable execution")
+                self.logger.warning(
+                    f"Timeout waiting for lock when checking resumable execution"
+                )
 
                 # Log through progress manager if available
                 if self.progress_manager:
@@ -1191,7 +1309,10 @@ class TaskContextManager:
 
             return None
         except Exception as e:
-            self.logger.warning(f"Error getting latest checkpoint from execution log: {str(e)}", exc_info=True)
+            self.logger.warning(
+                f"Error getting latest checkpoint from execution log: {str(e)}",
+                exc_info=True,
+            )
 
             # Log through progress manager if available
             if self.progress_manager:
@@ -1254,7 +1375,7 @@ class TaskContextManager:
         """
         # Replace unsafe characters
         sanitized = name.replace("/", "_").replace("\\", "_").replace(":", "_")
-        sanitized = sanitized.replace("*", "_").replace("?", "_").replace("\"", "_")
+        sanitized = sanitized.replace("*", "_").replace("?", "_").replace('"', "_")
         sanitized = sanitized.replace("<", "_").replace(">", "_").replace("|", "_")
         sanitized = sanitized.replace(" ", "_")
 
@@ -1264,7 +1385,9 @@ class TaskContextManager:
 
         return sanitized
 
-    def cleanup_old_checkpoints(self, max_checkpoints: int = DEFAULT_MAX_CHECKPOINTS) -> int:
+    def cleanup_old_checkpoints(
+        self, max_checkpoints: int = DEFAULT_MAX_CHECKPOINTS
+    ) -> int:
         """
         Remove old checkpoints to manage disk space.
 
@@ -1283,7 +1406,7 @@ class TaskContextManager:
                 progress_context = self.progress_manager.create_operation_context(
                     name="cleanup_checkpoints",
                     total=2,  # Identify, remove
-                    description=f"Cleaning up old checkpoints (keeping {max_checkpoints})"
+                    description=f"Cleaning up old checkpoints (keeping {max_checkpoints})",
                 )
             except Exception as e:
                 self.logger.warning(f"Failed to create progress context: {str(e)}")
@@ -1309,20 +1432,27 @@ class TaskContextManager:
 
                     # Update progress
                     if progress is not None:
-                        progress.update(1, {
-                            "status": "identified",
-                            "to_remove": len(checkpoints_to_remove)
-                        })
+                        progress.update(
+                            1,
+                            {
+                                "status": "identified",
+                                "to_remove": len(checkpoints_to_remove),
+                            },
+                        )
 
                     # Remove checkpoints
                     removed_count = 0
                     for checkpoint_name, _ in checkpoints_to_remove:
-                        checkpoint_path = self.checkpoint_dir / f"{checkpoint_name}.json"
+                        checkpoint_path = (
+                            self.checkpoint_dir / f"{checkpoint_name}.json"
+                        )
 
                         try:
                             # Validate path security
                             if not validate_path_security(checkpoint_path):
-                                self.logger.warning(f"Skipping removal of insecure checkpoint path: {checkpoint_path}")
+                                self.logger.warning(
+                                    f"Skipping removal of insecure checkpoint path: {checkpoint_path}"
+                                )
                                 continue
 
                             # Remove file
@@ -1330,17 +1460,19 @@ class TaskContextManager:
                                 checkpoint_path.unlink()
                                 removed_count += 1
                         except Exception as e:
-                            self.logger.warning(f"Error removing checkpoint {checkpoint_path}: {str(e)}", exc_info=True)
+                            self.logger.warning(
+                                f"Error removing checkpoint {checkpoint_path}: {str(e)}",
+                                exc_info=True,
+                            )
 
                     # Update checkpoint list
                     self.checkpoints = self.checkpoints[:max_checkpoints]
 
                     # Update progress
                     if progress is not None:
-                        progress.update(1, {
-                            "status": "removed",
-                            "removed_count": removed_count
-                        })
+                        progress.update(
+                            1, {"status": "removed", "removed_count": removed_count}
+                        )
 
                     # Log cleaning result
                     cleanup_msg = (
@@ -1412,30 +1544,46 @@ class TaskContextManager:
                     self.save_execution_state(self.current_state, checkpoint_name)
 
                     if self.progress_manager:
-                        self.progress_manager.log_info(f"Created error checkpoint: {checkpoint_name}")
+                        self.progress_manager.log_info(
+                            f"Created error checkpoint: {checkpoint_name}"
+                        )
                     else:
                         self.logger.info(f"Created error checkpoint: {checkpoint_name}")
 
                 except Exception as e:
                     if self.progress_manager:
-                        self.progress_manager.log_warning(f"Failed to create error checkpoint: {str(e)}")
+                        self.progress_manager.log_warning(
+                            f"Failed to create error checkpoint: {str(e)}"
+                        )
                     else:
-                        self.logger.warning(f"Failed to create error checkpoint: {str(e)}", exc_info=True)
+                        self.logger.warning(
+                            f"Failed to create error checkpoint: {str(e)}",
+                            exc_info=True,
+                        )
             else:
                 # Clean up old checkpoints if execution completed successfully
                 try:
                     self.cleanup_old_checkpoints()
                 except Exception as e:
                     if self.progress_manager:
-                        self.progress_manager.log_warning(f"Failed to clean up old checkpoints: {str(e)}")
+                        self.progress_manager.log_warning(
+                            f"Failed to clean up old checkpoints: {str(e)}"
+                        )
                     else:
-                        self.logger.warning(f"Failed to clean up old checkpoints: {str(e)}", exc_info=True)
+                        self.logger.warning(
+                            f"Failed to clean up old checkpoints: {str(e)}",
+                            exc_info=True,
+                        )
         except Exception as e:
             # Make sure exceptions in __exit__ don't prevent normal exception handling
             if self.progress_manager:
-                self.progress_manager.log_error(f"Error in context manager exit: {str(e)}")
+                self.progress_manager.log_error(
+                    f"Error in context manager exit: {str(e)}"
+                )
             else:
-                self.logger.error(f"Error in context manager exit: {str(e)}", exc_info=True)
+                self.logger.error(
+                    f"Error in context manager exit: {str(e)}", exc_info=True
+                )
 
         # Don't suppress the original exception
         return False
@@ -1463,7 +1611,7 @@ def create_task_context_manager(
     task_dir: Path,
     log_directory: Optional[Path] = None,
     max_state_size: int = DEFAULT_MAX_STATE_SIZE,
-    progress_manager: Optional[Any] = None
+    progress_manager: Optional[Any] = None,
 ) -> TaskContextManager:
     """
     Create a context manager for a task.
@@ -1488,7 +1636,7 @@ def create_task_context_manager(
             task_dir=task_dir,
             log_directory=log_directory,
             max_state_size=max_state_size,
-            progress_manager=progress_manager
+            progress_manager=progress_manager,
         )
 
         return context_manager
@@ -1503,7 +1651,7 @@ def create_task_context_manager(
             progress_manager.log_error(f"Failed to create context manager: {str(e)}")
 
         raise ContextManagerError(f"Failed to create context manager: {str(e)}") from e
-    
+
 
 def _serialize_data(data):
     """Recursively convert NumPy types to native Python types for JSON serialization."""
@@ -1511,13 +1659,13 @@ def _serialize_data(data):
         return None
 
     data_type = type(data)
-    
+
     # Ultra-fast path for Python built-ins (using 'is' instead of isinstance)
     if data_type is dict:
         return {k: _serialize_data(v) for k, v in data.items()}
     if data_type is list:
         return [_serialize_data(item) for item in data]
-    
+
     # Fast lookup for common NumPy types
     _NP_HANDLERS = {
         np.ndarray: lambda x: x.tolist(),
@@ -1525,16 +1673,20 @@ def _serialize_data(data):
     handler = _NP_HANDLERS.get(data_type)
     if handler is not None:
         return handler(data)
-    
+
     # Safe NumPy scalar handling with minimal checks
     try:
-        if issubclass(data_type, np.integer):  # Covers all integer types (int32, int64, etc.)
+        if issubclass(
+            data_type, np.integer
+        ):  # Covers all integer types (int32, int64, etc.)
             return int(data)
-        if issubclass(data_type, np.floating):  # Covers all float types (float32, float64, etc.)
+        if issubclass(
+            data_type, np.floating
+        ):  # Covers all float types (float32, float64, etc.)
             return float(data)
         if issubclass(data_type, np.bool_):
             return bool(data)
     except TypeError:  # Not a NumPy type
         pass
-    
+
     return data  # Return unchanged for other types

@@ -28,6 +28,8 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Dict, Any, Union, Tuple, Set, Iterator
 
 import inspect
+from pamola_core.errors.exceptions import ValidationError
+
 if not hasattr(inspect, "getargspec"):
     inspect.getargspec = inspect.getfullargspec
 
@@ -35,22 +37,26 @@ if not hasattr(inspect, "getargspec"):
 from pamola_core.utils.nlp.base import (
     DependencyManager,
     normalize_language_code,
-    batch_process
+    batch_process,
 )
+
 # Import from cache module for caching functionality
-from pamola_core.utils.nlp.cache import get_cache, cache_function
+from pamola_core.utils.nlp.cache import (
+    get_cache,
+    cache_function,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
 # Use memory cache for efficient lookup
-memory_cache = get_cache('memory')
+memory_cache = get_cache("memory")
 
 # Check for external libraries using DependencyManager
-_NLTK_AVAILABLE = DependencyManager.check_dependency('nltk')
-_PYMORPHY_AVAILABLE = DependencyManager.check_dependency('pymorphy2')
-_SPACY_AVAILABLE = DependencyManager.check_dependency('spacy')
-_TRANSFORMERS_AVAILABLE = DependencyManager.check_dependency('transformers')
+_NLTK_AVAILABLE = DependencyManager.check_dependency("nltk")
+_PYMORPHY_AVAILABLE = DependencyManager.check_dependency("pymorphy2")
+_SPACY_AVAILABLE = DependencyManager.check_dependency("spacy")
+_TRANSFORMERS_AVAILABLE = DependencyManager.check_dependency("transformers")
 
 # Global dictionary of lemmatizers or stemmers
 _LEMMATIZERS = {}
@@ -58,10 +64,10 @@ _LEMMATIZERS = {}
 # If pymorphy2 is available, set up Russian lemmatizer
 if _PYMORPHY_AVAILABLE:
     try:
-        pymorphy2 = DependencyManager.get_module('pymorphy2')
+        pymorphy2 = DependencyManager.get_module("pymorphy2")
         if pymorphy2:
             try:
-                _LEMMATIZERS['ru'] = pymorphy2.MorphAnalyzer()
+                _LEMMATIZERS["ru"] = pymorphy2.MorphAnalyzer()
                 logger.debug("Initialized pymorphy2 MorphAnalyzer for Russian")
             except Exception as e:
                 # Catch ANY exception during MorphAnalyzer initialization
@@ -75,43 +81,54 @@ if _PYMORPHY_AVAILABLE:
 # If NLTK is available, set up WordNetLemmatizer for English and optional SnowballStemmer
 if _NLTK_AVAILABLE:
     try:
-        nltk = DependencyManager.get_module('nltk')
+        nltk = DependencyManager.get_module("nltk")
         if nltk:
             # Import required NLTK components
             from nltk.stem import WordNetLemmatizer, SnowballStemmer
 
             # Ensure NLTK resources (punkt, wordnet) are available
             try:
-                nltk.data.find('tokenizers/punkt')
+                nltk.data.find("tokenizers/punkt")
             except (LookupError, zipfile.BadZipFile):
                 logger.info("Re-downloading corrupted NLTK 'punkt' resource.")
-                nltk.download('punkt', quiet=True, force=True)
+                nltk.download("punkt", quiet=True, force=True)
 
             try:
-                nltk.data.find('corpora/wordnet')
+                nltk.data.find("corpora/wordnet")
             except (LookupError, zipfile.BadZipFile):
                 logger.info("Re-downloading corrupted NLTK 'wordnet' resource.")
-                nltk.download('wordnet', quiet=True, force=True)
+                nltk.download("wordnet", quiet=True, force=True)
 
-            _LEMMATIZERS['en'] = WordNetLemmatizer()
+            _LEMMATIZERS["en"] = WordNetLemmatizer()
             logger.debug("Initialized NLTK WordNetLemmatizer for English")
 
             # Initialize Snowball stemmers for various languages
             for lang in [
-                'danish', 'dutch', 'english', 'finnish', 'french', 'german',
-                'hungarian', 'italian', 'norwegian', 'portuguese', 'romanian',
-                'russian', 'spanish', 'swedish'
+                "danish",
+                "dutch",
+                "english",
+                "finnish",
+                "french",
+                "german",
+                "hungarian",
+                "italian",
+                "norwegian",
+                "portuguese",
+                "romanian",
+                "russian",
+                "spanish",
+                "swedish",
             ]:
                 try:
                     stemmer = SnowballStemmer(lang)
                     lang_code = {
-                        'english': 'en',
-                        'russian': 'ru',
-                        'german': 'de',
-                        'french': 'fr',
-                        'spanish': 'es',
-                        'italian': 'it',
-                        'portuguese': 'pt'
+                        "english": "en",
+                        "russian": "ru",
+                        "german": "de",
+                        "french": "fr",
+                        "spanish": "es",
+                        "italian": "it",
+                        "portuguese": "pt",
                     }.get(lang, lang[:2])
                     if lang_code not in _LEMMATIZERS:
                         _LEMMATIZERS[lang_code] = stemmer
@@ -134,16 +151,16 @@ class NGramExtractor:
     """
 
     def __init__(
-            self,
-            n: int = 3,
-            lowercase: bool = True,
-            min_length: int = 1,
-            pad_text: bool = True,
-            pad_char: str = "_",
-            skip_punctuation: bool = True,
-            skip_stopwords: bool = False,
-            language: Optional[str] = None,
-            stopwords: Optional[Set[str]] = None
+        self,
+        n: int = 3,
+        lowercase: bool = True,
+        min_length: int = 1,
+        pad_text: bool = True,
+        pad_char: str = "_",
+        skip_punctuation: bool = True,
+        skip_stopwords: bool = False,
+        language: Optional[str] = None,
+        stopwords: Optional[Set[str]] = None,
     ):
         """
         Initialize the n-gram extractor.
@@ -193,33 +210,38 @@ class NGramExtractor:
         # Try to load stopwords for the language
         try:
             if _NLTK_AVAILABLE:
-                nltk = DependencyManager.get_module('nltk')
+                nltk = DependencyManager.get_module("nltk")
                 if nltk:
                     try:
                         from nltk.corpus import stopwords
+
                         try:
-                            nltk.data.find('corpora/stopwords')
+                            nltk.data.find("corpora/stopwords")
                             logger.debug("NLTK stopwords corpus found and valid.")
                         except (LookupError, zipfile.BadZipFile):
-                            logger.info("Downloading or re-downloading NLTK 'stopwords'...")
-                            nltk.download('stopwords', quiet=True, force=True)
+                            logger.info(
+                                "Downloading or re-downloading NLTK 'stopwords'..."
+                            )
+                            nltk.download("stopwords", quiet=True, force=True)
                             logger.info("NLTK 'stopwords' downloaded successfully.")
 
                         normalized_lang = normalize_language_code(self.language)
                         lang_map = {
-                            'en': 'english',
-                            'ru': 'russian',
-                            'de': 'german',
-                            'fr': 'french',
-                            'es': 'spanish',
-                            'it': 'italian',
-                            'pt': 'portuguese'
+                            "en": "english",
+                            "ru": "russian",
+                            "de": "german",
+                            "fr": "french",
+                            "es": "spanish",
+                            "it": "italian",
+                            "pt": "portuguese",
                         }
                         nltk_lang = lang_map.get(normalized_lang, normalized_lang)
 
                         if nltk_lang in stopwords.fileids():
                             self._stopwords = set(stopwords.words(nltk_lang))
-                            logger.debug(f"Loaded {len(self._stopwords)} stopwords for {nltk_lang}")
+                            logger.debug(
+                                f"Loaded {len(self._stopwords)} stopwords for {nltk_lang}"
+                            )
                     except Exception as e:
                         logger.debug(f"Error loading NLTK stopwords: {e}")
 
@@ -229,20 +251,31 @@ class NGramExtractor:
                 normalized_lang = normalize_language_code(self.language)
                 from pamola_core.utils.nlp.language import get_language_resources_path
 
-                resources_path = get_language_resources_path(normalized_lang, 'stopwords')
+                resources_path = get_language_resources_path(
+                    normalized_lang, "stopwords"
+                )
                 if resources_path:
                     try:
                         stopwords_file = f"{resources_path}/stopwords.txt"
                         import os
+
                         if os.path.exists(stopwords_file):
-                            with open(stopwords_file, 'r', encoding='utf-8') as f:
-                                self._stopwords = set(line.strip() for line in f if line.strip())
-                            logger.debug(f"Loaded {len(self._stopwords)} stopwords from {stopwords_file}")
+                            with open(stopwords_file, "r", encoding="utf-8") as f:
+                                self._stopwords = set(
+                                    line.strip() for line in f if line.strip()
+                                )
+                            logger.debug(
+                                f"Loaded {len(self._stopwords)} stopwords from {stopwords_file}"
+                            )
                     except Exception as e:
-                        logger.debug(f"Error loading stopwords from language resources: {e}")
+                        logger.debug(
+                            f"Error loading stopwords from language resources: {e}"
+                        )
 
         except Exception as e:
-            logger.warning(f"Could not load stopwords for language '{self.language}': {e}")
+            logger.warning(
+                f"Could not load stopwords for language '{self.language}': {e}"
+            )
 
     def extract_character_ngrams(self, text: str) -> List[str]:
         """
@@ -271,7 +304,7 @@ class NGramExtractor:
         # Extract n-grams
         ngrams = []
         for i in range(len(text) - self.n + 1):
-            ngram = text[i:i + self.n]
+            ngram = text[i : i + self.n]
             ngrams.append(ngram)
 
         return ngrams
@@ -305,7 +338,11 @@ class NGramExtractor:
             if self.skip_punctuation and all(c in string.punctuation for c in token):
                 continue
 
-            if self.skip_stopwords and self._stopwords and token.lower() in self._stopwords:
+            if (
+                self.skip_stopwords
+                and self._stopwords
+                and token.lower() in self._stopwords
+            ):
                 continue
 
             filtered_tokens.append(token)
@@ -313,12 +350,14 @@ class NGramExtractor:
         # Extract n-grams
         ngrams = []
         for i in range(len(filtered_tokens) - self.n + 1):
-            ngram = filtered_tokens[i:i + self.n]
+            ngram = filtered_tokens[i : i + self.n]
             ngrams.append(ngram)
 
         return ngrams
 
-    def extract_token_ngrams_as_strings(self, tokens: List[str], separator: str = ' ') -> List[str]:
+    def extract_token_ngrams_as_strings(
+        self, tokens: List[str], separator: str = " "
+    ) -> List[str]:
         """
         Extract token n-grams and join them with a separator.
 
@@ -390,10 +429,11 @@ class NGramExtractor:
             text = self.pad_char * (self.n - 1) + text + self.pad_char * (self.n - 1)
 
         for i in range(len(text) - self.n + 1):
-            yield text[i:i + self.n]
+            yield text[i : i + self.n]
 
-    def get_unique_ngrams(self, text_or_tokens: Union[str, List[str]],
-                          is_tokens: bool = False) -> Set[str]:
+    def get_unique_ngrams(
+        self, text_or_tokens: Union[str, List[str]], is_tokens: bool = False
+    ) -> Set[str]:
         """
         Get a set of unique n-grams from text or tokens.
 
@@ -413,17 +453,18 @@ class NGramExtractor:
             if isinstance(text_or_tokens, list):
                 ngrams = self.extract_token_ngrams_as_strings(text_or_tokens)
             else:
-                raise ValueError("is_tokens=True but input is not a list")
+                raise ValidationError("is_tokens=True but input is not a list")
         else:
             if isinstance(text_or_tokens, str):
                 ngrams = self.extract_character_ngrams(text_or_tokens)
             else:
-                raise ValueError("is_tokens=False but input is not a string")
+                raise ValidationError("is_tokens=False but input is not a string")
 
         return set(ngrams)
 
-    def count_ngrams(self, text_or_tokens: Union[str, List[str]],
-                     is_tokens: bool = False) -> Dict[str, int]:
+    def count_ngrams(
+        self, text_or_tokens: Union[str, List[str]], is_tokens: bool = False
+    ) -> Dict[str, int]:
         """
         Count occurrences of n-grams in text or tokens.
 
@@ -443,12 +484,12 @@ class NGramExtractor:
             if isinstance(text_or_tokens, list):
                 ngrams = self.extract_token_ngrams_as_strings(text_or_tokens)
             else:
-                raise ValueError("is_tokens=True but input is not a list")
+                raise ValidationError("is_tokens=True but input is not a list")
         else:
             if isinstance(text_or_tokens, str):
                 ngrams = self.extract_character_ngrams(text_or_tokens)
             else:
-                raise ValueError("is_tokens=False but input is not a string")
+                raise ValidationError("is_tokens=False but input is not a string")
 
         # Count occurrences
         counts = {}
@@ -458,9 +499,12 @@ class NGramExtractor:
         return counts
 
     @staticmethod
-    def create_ngram_vocabulary(texts: List[str], n: int,
-                                min_count: int = 2,
-                                max_vocab_size: Optional[int] = None) -> Dict[str, int]:
+    def create_ngram_vocabulary(
+        texts: List[str],
+        n: int,
+        min_count: int = 2,
+        max_vocab_size: Optional[int] = None,
+    ) -> Dict[str, int]:
         """
         Create a vocabulary of n-grams from multiple texts.
 
@@ -493,7 +537,9 @@ class NGramExtractor:
                 ngram_counts[ngram] = ngram_counts.get(ngram, 0) + 1
 
         # Filter by minimum count
-        ngram_counts = {ng: count for ng, count in ngram_counts.items() if count >= min_count}
+        ngram_counts = {
+            ng: count for ng, count in ngram_counts.items() if count >= min_count
+        }
 
         # Sort by frequency (descending)
         sorted_counts = sorted(ngram_counts.items(), key=lambda x: x[1], reverse=True)
@@ -509,6 +555,7 @@ class LemmatizerRegistry:
     """
     Registry that allows adding or removing custom lemmatizers for specific languages.
     """
+
     _lemmatizers: Dict[str, Any] = {}
 
     @classmethod
@@ -526,7 +573,9 @@ class LemmatizerRegistry:
             Whether to overwrite an existing lemmatizer
         """
         if language in cls._lemmatizers and not overwrite:
-            logger.warning(f"Lemmatizer for '{language}' already exists. Use overwrite=True to replace.")
+            logger.warning(
+                f"Lemmatizer for '{language}' already exists. Use overwrite=True to replace."
+            )
             return
         cls._lemmatizers[language] = lemmatizer
         logger.debug(f"Registered custom lemmatizer for '{language}'")
@@ -612,12 +661,11 @@ class BaseTokenizer(ABC):
         """
         self.language = language
         self._config: Optional[Dict[str, Any]] = None
-        self._stats: Dict[str, int] = {
-            "tokenized_texts": 0,
-            "total_tokens": 0
-        }
+        self._stats: Dict[str, int] = {"tokenized_texts": 0, "total_tokens": 0}
 
-    def load_config(self, config_sources: Optional[Union[str, List[str]]] = None) -> Dict[str, Any]:
+    def load_config(
+        self, config_sources: Optional[Union[str, List[str]]] = None
+    ) -> Dict[str, Any]:
         """
         Load tokenization config as a dictionary from the given file(s).
 
@@ -656,6 +704,7 @@ class BaseTokenizer(ABC):
 
         # Import language detection lazily to avoid circular imports
         from pamola_core.utils.nlp.language import detect_language as detect_lang
+
         return detect_lang(text)
 
     def get_stats(self) -> Dict[str, Any]:
@@ -673,10 +722,7 @@ class BaseTokenizer(ABC):
         """
         Reset tokenization statistics.
         """
-        self._stats = {
-            "tokenized_texts": 0,
-            "total_tokens": 0
-        }
+        self._stats = {"tokenized_texts": 0, "total_tokens": 0}
 
     @abstractmethod
     def _core_tokenize(self, text: str, **kwargs) -> List[str]:
@@ -716,14 +762,18 @@ class BaseTokenizer(ABC):
         if not text:
             return []
 
-        config_sources = kwargs.get('config_sources')
+        config_sources = kwargs.get("config_sources")
         config = self.load_config(config_sources)
 
-        preserve_case = kwargs.get('preserve_case', config.get('preserve_case', False))
-        preserve_patterns = kwargs.get('preserve_patterns', config.get('preserve_patterns'))
+        preserve_case = kwargs.get("preserve_case", config.get("preserve_case", False))
+        preserve_patterns = kwargs.get(
+            "preserve_patterns", config.get("preserve_patterns")
+        )
 
         # Preprocess text
-        processed_text, protected_map = self.preprocess_text(text, preserve_case, preserve_patterns)
+        processed_text, protected_map = self.preprocess_text(
+            text, preserve_case, preserve_patterns
+        )
 
         # Pamola Core tokenize
         tokens = self._core_tokenize(processed_text, **kwargs)
@@ -732,11 +782,11 @@ class BaseTokenizer(ABC):
         tokens = self.restore_protected_patterns(tokens, protected_map)
 
         # Optional post-processing from config
-        if 'token_processing' in config:
-            tokens = self._apply_token_processing(tokens, config['token_processing'])
+        if "token_processing" in config:
+            tokens = self._apply_token_processing(tokens, config["token_processing"])
 
         # min_length filter
-        min_length = kwargs.get('min_length', 2)
+        min_length = kwargs.get("min_length", 2)
         tokens = [t for t in tokens if len(t) >= min_length]
 
         self._stats["tokenized_texts"] += 1
@@ -745,10 +795,10 @@ class BaseTokenizer(ABC):
         return tokens
 
     def preprocess_text(
-            self,
-            text: str,
-            preserve_case: bool = False,
-            preserve_patterns: Optional[List[Dict[str, str]]] = None
+        self,
+        text: str,
+        preserve_case: bool = False,
+        preserve_patterns: Optional[List[Dict[str, str]]] = None,
     ) -> Tuple[str, Dict[str, str]]:
         """
         Preprocess text by replacing patterns with placeholders and adjusting case.
@@ -774,7 +824,7 @@ class BaseTokenizer(ABC):
 
         if preserve_patterns:
             for i, pattern_def in enumerate(preserve_patterns):
-                patt = pattern_def.get('pattern', '')
+                patt = pattern_def.get("pattern", "")
                 if not patt:
                     continue
                 found = re.findall(patt, text)
@@ -789,9 +839,7 @@ class BaseTokenizer(ABC):
         return text, protected_map
 
     def restore_protected_patterns(
-            self,
-            tokens: List[str],
-            protected_map: Dict[str, str]
+        self, tokens: List[str], protected_map: Dict[str, str]
     ) -> List[str]:
         """
         Restore placeholders with original fragments.
@@ -817,9 +865,7 @@ class BaseTokenizer(ABC):
         return restored
 
     def _apply_token_processing(
-            self,
-            tokens: List[str],
-            processing_config: Dict[str, Any]
+        self, tokens: List[str], processing_config: Dict[str, Any]
     ) -> List[str]:
         """
         Apply post-processing to tokens according to the configuration.
@@ -837,8 +883,10 @@ class BaseTokenizer(ABC):
             Processed tokens
         """
         # 1) Split compound words
-        if processing_config.get('split_compound_words'):
-            separators = processing_config.get('compound_word_separators', ['-', '/', '_'])
+        if processing_config.get("split_compound_words"):
+            separators = processing_config.get(
+                "compound_word_separators", ["-", "/", "_"]
+            )
             new_tokens = []
             for t in tokens:
                 parts = [t]
@@ -851,8 +899,8 @@ class BaseTokenizer(ABC):
             tokens = new_tokens
 
         # 2) preserve_tokens
-        if 'preserve_tokens' in processing_config:
-            preserve_list = processing_config['preserve_tokens']
+        if "preserve_tokens" in processing_config:
+            preserve_list = processing_config["preserve_tokens"]
             preserve_map = {p.lower(): p for p in preserve_list}
             for i, t in enumerate(tokens):
                 low = t.lower()
@@ -885,7 +933,7 @@ class SimpleTokenizer(BaseTokenizer):
         """
         # Replace punctuation with spaces and split by whitespace
         for punct in string.punctuation:
-            text = text.replace(punct, ' ')
+            text = text.replace(punct, " ")
         return text.split()
 
 
@@ -929,7 +977,7 @@ class NLTKTokenizer(BaseTokenizer):
         if self._fallback:
             return self._fallback._core_tokenize(text, **kwargs)
 
-        nltk = DependencyManager.get_module('nltk')
+        nltk = DependencyManager.get_module("nltk")
         if not nltk:
             logger.warning("NLTK unavailable; falling back to SimpleTokenizer.")
             if self._fallback is None:
@@ -937,15 +985,20 @@ class NLTKTokenizer(BaseTokenizer):
             return self._fallback._core_tokenize(text, **kwargs)
 
         from nltk.tokenize import word_tokenize as nltk_word_tokenize
-        detected_lang = self.detect_language(text) if self.language is None else self.language
-        nltk_lang_map = {'en': 'english', 'ru': 'russian'}
+
+        detected_lang = (
+            self.detect_language(text) if self.language is None else self.language
+        )
+        nltk_lang_map = {"en": "english", "ru": "russian"}
         nltk_lang = nltk_lang_map.get(detected_lang, detected_lang)
 
         try:
             tokens = nltk_word_tokenize(text, language=nltk_lang)
             return tokens
         except Exception as e:
-            logger.debug(f"NLTK tokenization error: {e}, falling back to SimpleTokenizer.")
+            logger.debug(
+                f"NLTK tokenization error: {e}, falling back to SimpleTokenizer."
+            )
             if self._fallback is None:
                 self._fallback = SimpleTokenizer(self.language)
             return self._fallback._core_tokenize(text, **kwargs)
@@ -995,21 +1048,23 @@ class SpacyTokenizer(BaseTokenizer):
             return self._nlp_models[lang]
 
         # Get spaCy module
-        spacy = DependencyManager.get_module('spacy')
+        spacy = DependencyManager.get_module("spacy")
         if not spacy:
             logger.warning("spaCy unavailable; falling back to SimpleTokenizer.")
             return None
 
         model_map = {
-            'en': 'en_core_web_sm',
-            'ru': 'ru_core_news_sm',
-            'de': 'de_core_news_sm',
-            'fr': 'fr_core_news_sm',
-            'es': 'es_core_news_sm'
+            "en": "en_core_web_sm",
+            "ru": "ru_core_news_sm",
+            "de": "de_core_news_sm",
+            "fr": "fr_core_news_sm",
+            "es": "es_core_news_sm",
         }
         model_name = model_map.get(lang)
         if not model_name:
-            logger.warning(f"No spaCy model known for language '{lang}', fallback to SimpleTokenizer.")
+            logger.warning(
+                f"No spaCy model known for language '{lang}', fallback to SimpleTokenizer."
+            )
             return None
 
         try:
@@ -1046,11 +1101,11 @@ class SpacyTokenizer(BaseTokenizer):
         if self._fallback:
             return self._fallback._core_tokenize(text, **kwargs)
 
-        spacy_model = kwargs.get('spacy_model')
-        disable_comps = kwargs.get('disable_spacy_components', ['ner', 'parser'])
+        spacy_model = kwargs.get("spacy_model")
+        disable_comps = kwargs.get("disable_spacy_components", ["ner", "parser"])
         lang = self.language or self.detect_language(text)
 
-        spacy = DependencyManager.get_module('spacy')
+        spacy = DependencyManager.get_module("spacy")
         if not spacy:
             if self._fallback is None:
                 self._fallback = SimpleTokenizer(self.language)
@@ -1086,7 +1141,11 @@ class TransformersTokenizer(BaseTokenizer):
     Uses a Hugging Face transformers tokenizer if available, or falls back to SimpleTokenizer.
     """
 
-    def __init__(self, language: Optional[str] = None, model_name: str = "bert-base-multilingual-cased"):
+    def __init__(
+        self,
+        language: Optional[str] = None,
+        model_name: str = "bert-base-multilingual-cased",
+    ):
         """
         Initialize the transformers tokenizer.
 
@@ -1127,13 +1186,14 @@ class TransformersTokenizer(BaseTokenizer):
         model_name = model_name or self._model_name
 
         # Get transformers module
-        transformers = DependencyManager.get_module('transformers')
+        transformers = DependencyManager.get_module("transformers")
         if not transformers:
             logger.warning("transformers unavailable; falling back to SimpleTokenizer.")
             return None
 
         try:
             from transformers import AutoTokenizer
+
             self._tokenizer = AutoTokenizer.from_pretrained(model_name)
             return self._tokenizer
         except Exception as e:
@@ -1159,11 +1219,11 @@ class TransformersTokenizer(BaseTokenizer):
         if self._fallback:
             return self._fallback._core_tokenize(text, **kwargs)
 
-        model_name = kwargs.get('model_name', self._model_name)
-        add_special_tokens = kwargs.get('add_special_tokens', False)
-        subword_prefix = kwargs.get('subword_prefix', "##")
-        keep_subwords = kwargs.get('keep_subwords', False)
-        preserve_case = kwargs.get('preserve_case', False)
+        model_name = kwargs.get("model_name", self._model_name)
+        add_special_tokens = kwargs.get("add_special_tokens", False)
+        subword_prefix = kwargs.get("subword_prefix", "##")
+        keep_subwords = kwargs.get("keep_subwords", False)
+        preserve_case = kwargs.get("preserve_case", False)
 
         # Convert to lowercase if not preserving case
         if not preserve_case:
@@ -1171,7 +1231,9 @@ class TransformersTokenizer(BaseTokenizer):
 
         tokenizer = self._init_tokenizer(model_name)
         if not tokenizer:
-            logger.debug("No valid Transformers tokenizer found; fallback to SimpleTokenizer.")
+            logger.debug(
+                "No valid Transformers tokenizer found; fallback to SimpleTokenizer."
+            )
             if self._fallback is None:
                 self._fallback = SimpleTokenizer(self.language)
             return self._fallback._core_tokenize(text, **kwargs)
@@ -1182,7 +1244,9 @@ class TransformersTokenizer(BaseTokenizer):
                 tokens = [t for t in tokens if not t.startswith(subword_prefix)]
             return tokens
         except Exception as e:
-            logger.debug(f"Transformers tokenization error: {e}, fallback to SimpleTokenizer.")
+            logger.debug(
+                f"Transformers tokenization error: {e}, fallback to SimpleTokenizer."
+            )
             if self._fallback is None:
                 self._fallback = SimpleTokenizer(self.language)
             return self._fallback._core_tokenize(text, **kwargs)
@@ -1197,10 +1261,7 @@ class TokenizerFactory:
 
     @classmethod
     def create_tokenizer(
-            cls,
-            tokenizer_type: str = 'auto',
-            language: Optional[str] = None,
-            **kwargs
+        cls, tokenizer_type: str = "auto", language: Optional[str] = None, **kwargs
     ) -> BaseTokenizer:
         """
         Create a tokenizer instance with the desired type.
@@ -1221,10 +1282,10 @@ class TokenizerFactory:
             Tokenizer instance
         """
         cache_key = f"{tokenizer_type}_{language or 'auto'}"
-        if 'model_name' in kwargs:
+        if "model_name" in kwargs:
             cache_key += f"_{kwargs['model_name']}"
 
-        if kwargs.get('no_cache', False):
+        if kwargs.get("no_cache", False):
             return cls._create_new_tokenizer(tokenizer_type, language, **kwargs)
 
         if cache_key in cls._tokenizer_cache:
@@ -1236,10 +1297,7 @@ class TokenizerFactory:
 
     @classmethod
     def _create_new_tokenizer(
-            cls,
-            tokenizer_type: str,
-            language: Optional[str],
-            **kwargs
+        cls, tokenizer_type: str, language: Optional[str], **kwargs
     ) -> BaseTokenizer:
         """
         Create a new tokenizer instance.
@@ -1258,28 +1316,30 @@ class TokenizerFactory:
         BaseTokenizer
             Tokenizer instance
         """
-        if tokenizer_type == 'auto':
+        if tokenizer_type == "auto":
             if _SPACY_AVAILABLE:
                 return SpacyTokenizer(language)
             elif _NLTK_AVAILABLE:
                 return NLTKTokenizer(language)
             elif _TRANSFORMERS_AVAILABLE:
-                model_name = kwargs.get('model_name', 'bert-base-multilingual-cased')
+                model_name = kwargs.get("model_name", "bert-base-multilingual-cased")
                 return TransformersTokenizer(language, model_name)
             else:
                 return SimpleTokenizer(language)
 
-        if tokenizer_type == 'simple':
+        if tokenizer_type == "simple":
             return SimpleTokenizer(language)
-        if tokenizer_type == 'nltk':
+        if tokenizer_type == "nltk":
             return NLTKTokenizer(language)
-        if tokenizer_type == 'spacy':
+        if tokenizer_type == "spacy":
             return SpacyTokenizer(language)
-        if tokenizer_type == 'transformers':
-            model_name = kwargs.get('model_name', 'bert-base-multilingual-cased')
+        if tokenizer_type == "transformers":
+            model_name = kwargs.get("model_name", "bert-base-multilingual-cased")
             return TransformersTokenizer(language, model_name)
 
-        logger.warning(f"Unknown tokenizer_type='{tokenizer_type}', fallback to SimpleTokenizer.")
+        logger.warning(
+            f"Unknown tokenizer_type='{tokenizer_type}', fallback to SimpleTokenizer."
+        )
         return SimpleTokenizer(language)
 
     @classmethod
@@ -1291,11 +1351,11 @@ class TokenizerFactory:
         logger.debug("TokenizerFactory cache cleared.")
 
 
-@cache_function(ttl=3600, cache_type='memory')
+@cache_function(ttl=3600, cache_type="memory")
 def lemmatize(
-        tokens: List[str],
-        language: Optional[str] = None,
-        dict_sources: Optional[Union[str, List[str]]] = None
+    tokens: List[str],
+    language: Optional[str] = None,
+    dict_sources: Optional[Union[str, List[str]]] = None,
 ) -> List[str]:
     """
     Lemmatize tokens using custom dictionaries or built-in lemmatizers.
@@ -1318,13 +1378,14 @@ def lemmatize(
         return []
 
     if language is None:
-        language = 'en'
+        language = "en"
     language = normalize_language_code(language)
 
     # 1) Load custom synonyms (like override or expansions)
     custom_lemmas: Dict[str, List[str]] = {}
     if dict_sources:
         from pamola_core.utils.nlp.tokenization_helpers import load_synonym_dictionary
+
         custom_lemmas = load_synonym_dictionary(dict_sources, language)
 
     # 2) Apply custom lemma dictionary
@@ -1345,14 +1406,14 @@ def lemmatize(
     # 3) Use known lemmatizer or stemmer from _LEMMATIZERS
     if language in _LEMMATIZERS:
         lemma_obj = _LEMMATIZERS[language]
-        if language == 'ru' and _PYMORPHY_AVAILABLE:
+        if language == "ru" and _PYMORPHY_AVAILABLE:
             return [lemma_obj.parse(t)[0].normal_form for t in tokens]
-        elif language == 'en' and _NLTK_AVAILABLE:
+        elif language == "en" and _NLTK_AVAILABLE:
             # WordNetLemmatizer
             return [lemma_obj.lemmatize(t) for t in tokens]
         else:
             # Possibly a SnowballStemmer or custom callable
-            if hasattr(lemma_obj, 'stem'):
+            if hasattr(lemma_obj, "stem"):
                 return [lemma_obj.stem(t) for t in tokens]
             if callable(lemma_obj):
                 return [lemma_obj(t) for t in tokens]
@@ -1360,21 +1421,23 @@ def lemmatize(
     # 4) Check custom lemmatizers in registry
     custom_lemmatizer = LemmatizerRegistry.get(language)
     if custom_lemmatizer:
-        if hasattr(custom_lemmatizer, 'lemmatize'):
+        if hasattr(custom_lemmatizer, "lemmatize"):
             return [custom_lemmatizer.lemmatize(t) for t in tokens]
         elif callable(custom_lemmatizer):
             return [custom_lemmatizer(t) for t in tokens]
 
-    logger.debug(f"No lemmatizer available for language '{language}', returning tokens as-is.")
+    logger.debug(
+        f"No lemmatizer available for language '{language}', returning tokens as-is."
+    )
     return tokens
 
 
 def normalize_text(
-        text: str,
-        remove_punctuation: bool = True,
-        lowercase: bool = True,
-        remove_digits: bool = False,
-        replacement_rules: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None
+    text: str,
+    remove_punctuation: bool = True,
+    lowercase: bool = True,
+    remove_digits: bool = False,
+    replacement_rules: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None,
 ) -> str:
     """
     Normalize raw text by applying optional regex replacements, case folding,
@@ -1408,8 +1471,8 @@ def normalize_text(
                 text = re.sub(patt, repl, text)
         elif isinstance(replacement_rules, list):
             for rule in replacement_rules:
-                pat = rule.get('pattern')
-                rep = rule.get('replacement', '')
+                pat = rule.get("pattern")
+                rep = rule.get("replacement", "")
                 if pat:
                     text = re.sub(pat, rep, text)
 
@@ -1419,24 +1482,24 @@ def normalize_text(
 
     # 3) Remove punctuation
     if remove_punctuation:
-        translator = str.maketrans('', '', string.punctuation)
+        translator = str.maketrans("", "", string.punctuation)
         text = text.translate(translator)
 
     # 4) Remove digits
     if remove_digits:
-        text = re.sub(r'\d+', '', text)
+        text = re.sub(r"\d+", "", text)
 
     # 5) Remove extra whitespace
-    text = ' '.join(text.split())
+    text = " ".join(text.split())
 
     return text
 
 
-@cache_function(ttl=3600, cache_type='memory')
+@cache_function(ttl=3600, cache_type="memory")
 def normalize_tokens(
-        tokens: List[str],
-        synonym_sources: Optional[Union[str, List[str]]] = None,
-        language: Optional[str] = None
+    tokens: List[str],
+    synonym_sources: Optional[Union[str, List[str]]] = None,
+    language: Optional[str] = None,
 ) -> List[str]:
     """
     Normalize tokens to a canonical form using synonyms.
@@ -1461,6 +1524,7 @@ def normalize_tokens(
     synonyms: Dict[str, List[str]] = {}
     if synonym_sources or language:
         from pamola_core.utils.nlp.tokenization_helpers import load_synonym_dictionary
+
         synonyms = load_synonym_dictionary(synonym_sources, language)
 
     if not synonyms:
@@ -1502,17 +1566,18 @@ def _get_or_detect_language(text: str, language: Optional[str] = None) -> str:
 
     # Import language detection lazily to avoid circular imports
     from pamola_core.utils.nlp.language import detect_language as detect_lang
+
     return detect_lang(text)
 
 
 def tokenize(
-        text: str,
-        language: Optional[str] = None,
-        min_length: int = 2,
-        config_sources: Optional[Union[str, List[str]]] = None,
-        preserve_case: bool = False,
-        preserve_patterns: Optional[List[Dict[str, str]]] = None,
-        tokenizer_type: str = 'auto'
+    text: str,
+    language: Optional[str] = None,
+    min_length: int = 2,
+    config_sources: Optional[Union[str, List[str]]] = None,
+    preserve_case: bool = False,
+    preserve_patterns: Optional[List[Dict[str, str]]] = None,
+    tokenizer_type: str = "auto",
 ) -> List[str]:
     """
     A simple top-level function for tokenizing text.
@@ -1548,13 +1613,17 @@ def tokenize(
         min_length=min_length,
         config_sources=config_sources,
         preserve_case=preserve_case,
-        preserve_patterns=preserve_patterns
+        preserve_patterns=preserve_patterns,
     )
     return tokens
 
 
-def calculate_word_frequencies(texts: List[str], stop_words: Optional[Set[str]] = None,
-                               min_word_length: int = 3, max_words: Optional[int] = None) -> Dict[str, int]:
+def calculate_word_frequencies(
+    texts: List[str],
+    stop_words: Optional[Set[str]] = None,
+    min_word_length: int = 3,
+    max_words: Optional[int] = None,
+) -> Dict[str, int]:
     """
     Calculate word frequencies across multiple texts.
 
@@ -1602,9 +1671,13 @@ def calculate_word_frequencies(texts: List[str], stop_words: Optional[Set[str]] 
     return dict(sorted_counts)
 
 
-def calculate_term_frequencies(texts: List[str], language: str = "auto",
-                               stop_words: Optional[Set[str]] = None,
-                               min_word_length: int = 3, max_terms: Optional[int] = None) -> Dict[str, int]:
+def calculate_term_frequencies(
+    texts: List[str],
+    language: str = "auto",
+    stop_words: Optional[Set[str]] = None,
+    min_word_length: int = 3,
+    max_terms: Optional[int] = None,
+) -> Dict[str, int]:
     """
     Calculate term frequencies with optional lemmatization.
 
@@ -1635,9 +1708,7 @@ def calculate_term_frequencies(texts: List[str], language: str = "auto",
 
         # Tokenize and lemmatize the text
         tokens = tokenize_and_lemmatize(
-            text,
-            language=language,
-            min_length=min_word_length
+            text, language=language, min_length=min_word_length
         )
 
         # Remove stop words if provided
@@ -1658,14 +1729,14 @@ def calculate_term_frequencies(texts: List[str], language: str = "auto",
     return dict(sorted_counts)
 
 
-@cache_function(ttl=3600, cache_type='memory')
+@cache_function(ttl=3600, cache_type="memory")
 def tokenize_and_lemmatize(
-        text: str,
-        language: Optional[str] = None,
-        min_length: int = 2,
-        config_sources: Optional[Union[str, List[str]]] = None,
-        lemma_dict_sources: Optional[Union[str, List[str]]] = None,
-        tokenizer_type: str = 'auto'
+    text: str,
+    language: Optional[str] = None,
+    min_length: int = 2,
+    config_sources: Optional[Union[str, List[str]]] = None,
+    lemma_dict_sources: Optional[Union[str, List[str]]] = None,
+    tokenizer_type: str = "auto",
 ) -> List[str]:
     """
     Tokenize and then lemmatize text in one step (no separate TokenizerFactory required).
@@ -1703,24 +1774,20 @@ def tokenize_and_lemmatize(
         language=language,
         min_length=min_length,
         config_sources=config_sources,
-        tokenizer_type=tokenizer_type
+        tokenizer_type=tokenizer_type,
     )
 
     # Lemmatize tokens
-    return lemmatize(
-        tokens=tokens,
-        language=language,
-        dict_sources=lemma_dict_sources
-    )
+    return lemmatize(tokens=tokens, language=language, dict_sources=lemma_dict_sources)
 
 
 def batch_tokenize(
-        texts: List[str],
-        language: Optional[str] = None,
-        min_length: int = 2,
-        config_sources: Optional[Union[str, List[str]]] = None,
-        processes: Optional[int] = None,
-        tokenizer_type: str = 'auto'
+    texts: List[str],
+    language: Optional[str] = None,
+    min_length: int = 2,
+    config_sources: Optional[Union[str, List[str]]] = None,
+    processes: Optional[int] = None,
+    tokenizer_type: str = "auto",
 ) -> List[List[str]]:
     """
     Tokenize multiple texts in parallel.
@@ -1752,18 +1819,18 @@ def batch_tokenize(
         language=language,
         min_length=min_length,
         config_sources=config_sources,
-        tokenizer_type=tokenizer_type
+        tokenizer_type=tokenizer_type,
     )
 
 
 def batch_tokenize_and_lemmatize(
-        texts: List[str],
-        language: Optional[str] = None,
-        min_length: int = 2,
-        config_sources: Optional[Union[str, List[str]]] = None,
-        lemma_dict_sources: Optional[Union[str, List[str]]] = None,
-        processes: Optional[int] = None,
-        tokenizer_type: str = 'auto'
+    texts: List[str],
+    language: Optional[str] = None,
+    min_length: int = 2,
+    config_sources: Optional[Union[str, List[str]]] = None,
+    lemma_dict_sources: Optional[Union[str, List[str]]] = None,
+    processes: Optional[int] = None,
+    tokenizer_type: str = "auto",
 ) -> List[List[str]]:
     """
     Tokenize and lemmatize multiple texts in parallel.
@@ -1798,7 +1865,7 @@ def batch_tokenize_and_lemmatize(
         min_length=min_length,
         config_sources=config_sources,
         lemma_dict_sources=lemma_dict_sources,
-        tokenizer_type=tokenizer_type
+        tokenizer_type=tokenizer_type,
     )
 
 
@@ -1808,13 +1875,13 @@ class TextProcessor:
     """
 
     def __init__(
-            self,
-            language: Optional[str] = None,
-            tokenizer_type: str = 'auto',
-            config_sources: Optional[Union[str, List[str]]] = None,
-            lemma_dict_sources: Optional[Union[str, List[str]]] = None,
-            min_token_length: int = 2,
-            preserve_case: bool = False
+        self,
+        language: Optional[str] = None,
+        tokenizer_type: str = "auto",
+        config_sources: Optional[Union[str, List[str]]] = None,
+        lemma_dict_sources: Optional[Union[str, List[str]]] = None,
+        min_token_length: int = 2,
+        preserve_case: bool = False,
     ):
         """
         Initialize the text processor.
@@ -1861,9 +1928,9 @@ class TextProcessor:
         """
         # Merge default arguments with user-provided ones
         actual_kwargs = {
-            'min_length': self.min_token_length,
-            'preserve_case': self.preserve_case,
-            'config_sources': self.config_sources
+            "min_length": self.min_token_length,
+            "preserve_case": self.preserve_case,
+            "config_sources": self.config_sources,
         }
         actual_kwargs.update(kwargs)
         return self.tokenizer.tokenize(text, **actual_kwargs)
@@ -1884,8 +1951,8 @@ class TextProcessor:
         List[str]
             Lemmatized tokens
         """
-        lang = kwargs.get('language', self.language)
-        lemma_srcs = kwargs.get('lemma_dict_sources', self.lemma_dict_sources)
+        lang = kwargs.get("language", self.language)
+        lemma_srcs = kwargs.get("lemma_dict_sources", self.lemma_dict_sources)
         return lemmatize(tokens, lang, dict_sources=lemma_srcs)
 
     def tokenize_and_lemmatize(self, text: str, **kwargs) -> List[str]:
@@ -1908,11 +1975,11 @@ class TextProcessor:
         return self.lemmatize(tokens, **kwargs)
 
     def process_text(
-            self,
-            text: str,
-            lemmatize_tokens: bool = True,
-            extract_ngrams_flag: bool = False,
-            **kwargs
+        self,
+        text: str,
+        lemmatize_tokens: bool = True,
+        extract_ngrams_flag: bool = False,
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Full pipeline: tokenize -> (optional) lemmatize
@@ -1941,130 +2008,129 @@ class TextProcessor:
             return result
 
         # Determine language
-        lang = kwargs.get('language', self.language)
+        lang = kwargs.get("language", self.language)
         if lang is None:
             # Import language detection lazily to avoid circular imports
             from pamola_core.utils.nlp.language import detect_language as detect_lang
+
             lang = detect_lang(text)
-            result['detected_language'] = lang
+            result["detected_language"] = lang
         else:
-            result['language'] = lang
+            result["language"] = lang
 
         # 1) Tokenize
         tokens = self.tokenize(text, language=lang, **kwargs)
-        result['tokens'] = tokens
-        result['token_count'] = len(tokens)
+        result["tokens"] = tokens
+        result["token_count"] = len(tokens)
 
         # 2) Lemmatize if requested
         if lemmatize_tokens and tokens:
             lemmas = self.lemmatize(tokens, language=lang, **kwargs)
-            result['lemmas'] = lemmas
-            result['lemma_count'] = len(lemmas)
+            result["lemmas"] = lemmas
+            result["lemma_count"] = len(lemmas)
 
         # 3) Extract n-grams if requested
         if extract_ngrams_flag and tokens:
             # Extract n-grams using our internal NGramExtractor
-            ngram_sizes = kwargs.get('ngram_sizes', [2, 3])
-            result['ngrams'] = {}
+            ngram_sizes = kwargs.get("ngram_sizes", [2, 3])
+            result["ngrams"] = {}
 
             for n in ngram_sizes:
                 # Create extractor with the right size
                 extractor = NGramExtractor(
                     n=n,
                     language=lang,
-                    lowercase=not kwargs.get('preserve_case', False),
-                    skip_stopwords=kwargs.get('skip_stopwords', False)
+                    lowercase=not kwargs.get("preserve_case", False),
+                    skip_stopwords=kwargs.get("skip_stopwords", False),
                 )
 
                 # Get n-grams as strings
                 ngrams = extractor.extract_token_ngrams_as_strings(tokens)
-                result['ngrams'][n] = ngrams
+                result["ngrams"][n] = ngrams
 
         return result
 
 
 # Helper functions for NGram extraction that can be used directly without creating an extractor
 
+
 def extract_ngrams(
-       tokens: List[str],
-       n: int = 3,
-       language: Optional[str] = None,
-       lowercase: bool = True,
-       min_length: int = 1,
-       as_strings: bool = True,
-       separator: str = ' ',
-       skip_stopwords: bool = False
+    tokens: List[str],
+    n: int = 3,
+    language: Optional[str] = None,
+    lowercase: bool = True,
+    min_length: int = 1,
+    as_strings: bool = True,
+    separator: str = " ",
+    skip_stopwords: bool = False,
 ) -> Union[List[str], List[List[str]]]:
-   """
-   Extract n-grams from a list of tokens.
+    """
+    Extract n-grams from a list of tokens.
 
-   This is a convenience function that uses NGramExtractor internally.
+    This is a convenience function that uses NGramExtractor internally.
 
-   Parameters:
-   -----------
-   tokens : List[str]
-       List of tokens to extract n-grams from
-   n : int
-       Size of n-grams to extract (default: 3)
-   language : str, optional
-       Language code for stopwords (default: None)
-   lowercase : bool
-       Whether to convert tokens to lowercase (default: True)
-   min_length : int
-       Minimum length of tokens to consider (default: 1)
-   as_strings : bool
-       Whether to return n-grams as strings or token lists (default: True)
-   separator : str
-       Separator to join tokens in each n-gram if as_strings=True (default: ' ')
-   skip_stopwords : bool
-       Whether to skip stopwords when extracting n-grams (default: False)
+    Parameters:
+    -----------
+    tokens : List[str]
+        List of tokens to extract n-grams from
+    n : int
+        Size of n-grams to extract (default: 3)
+    language : str, optional
+        Language code for stopwords (default: None)
+    lowercase : bool
+        Whether to convert tokens to lowercase (default: True)
+    min_length : int
+        Minimum length of tokens to consider (default: 1)
+    as_strings : bool
+        Whether to return n-grams as strings or token lists (default: True)
+    separator : str
+        Separator to join tokens in each n-gram if as_strings=True (default: ' ')
+    skip_stopwords : bool
+        Whether to skip stopwords when extracting n-grams (default: False)
 
-   Returns:
-   --------
-   Union[List[str], List[List[str]]]
-       List of n-grams (as strings or token lists)
-   """
-   extractor = NGramExtractor(
-       n=n,
-       lowercase=lowercase,
-       min_length=min_length,
-       skip_stopwords=skip_stopwords,
-       language=language
-   )
+    Returns:
+    --------
+    Union[List[str], List[List[str]]]
+        List of n-grams (as strings or token lists)
+    """
+    extractor = NGramExtractor(
+        n=n,
+        lowercase=lowercase,
+        min_length=min_length,
+        skip_stopwords=skip_stopwords,
+        language=language,
+    )
 
-   if as_strings:
-       return extractor.extract_token_ngrams_as_strings(tokens, separator)
-   else:
-       return extractor.extract_token_ngrams(tokens)
+    if as_strings:
+        return extractor.extract_token_ngrams_as_strings(tokens, separator)
+    else:
+        return extractor.extract_token_ngrams(tokens)
 
 
-def extract_character_ngrams(text: str, n: int = 3, lowercase: bool = True,
-                            pad_text: bool = True) -> List[str]:
-   """
-   Extract character n-grams from text.
+def extract_character_ngrams(
+    text: str, n: int = 3, lowercase: bool = True, pad_text: bool = True
+) -> List[str]:
+    """
+    Extract character n-grams from text.
 
-   This is a convenience function that uses NGramExtractor internally.
+    This is a convenience function that uses NGramExtractor internally.
 
-   Parameters:
-   -----------
-   text : str
-       Text to extract n-grams from
-   n : int
-       Size of n-grams to extract (default: 3)
-   lowercase : bool
-       Whether to convert text to lowercase (default: True)
-   pad_text : bool
-       Whether to pad text with underscore characters (default: True)
+    Parameters:
+    -----------
+    text : str
+        Text to extract n-grams from
+    n : int
+        Size of n-grams to extract (default: 3)
+    lowercase : bool
+        Whether to convert text to lowercase (default: True)
+    pad_text : bool
+        Whether to pad text with underscore characters (default: True)
 
-   Returns:
-   --------
-   List[str]
-       List of character n-grams
-   """
-   extractor = NGramExtractor(
-       n=n,
-       lowercase=lowercase,
-       pad_text=pad_text
-   )
+    Returns:
+    --------
+    List[str]
+        List of character n-grams
+    """
+    extractor = NGramExtractor(n=n, lowercase=lowercase, pad_text=pad_text)
 
-   return extractor.extract_character_ngrams(text)
+    return extractor.extract_character_ngrams(text)

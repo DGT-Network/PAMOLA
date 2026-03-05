@@ -32,10 +32,18 @@ from typing import Dict, Any, Optional, Union, List, Tuple
 import yaml
 
 from pamola_core.common.enum.encryption_mode import EncryptionMode
+from pamola_core.errors.exceptions import (
+    PamolaFileNotFoundError,
+    ValidationError,
+    DependencyMissingError,
+    ConfigurationError,
+    PathSecurityError,
+)
 from pamola_core.utils.io import read_json, ensure_directory, write_json
-from pamola_core.utils.tasks.path_security import validate_path_security, PathSecurityError
+from pamola_core.utils.tasks.path_security import validate_path_security
 from pamola_core.utils.tasks.project_config_loader import (
-    find_project_root, load_project_config
+    find_project_root,
+    load_project_config,
 )
 from pamola_core.utils.tasks.progress_manager import TaskProgressManager
 
@@ -56,15 +64,6 @@ DEFAULT_DATA_REPOSITORY = "DATA"
 DEFAULT_LOG_LEVEL = "INFO"
 ENV_PREFIX = "PAMOLA_"
 
-class ConfigurationError(Exception):
-    """Exception raised for configuration-related errors."""
-    pass
-
-
-class DependencyMissingError(Exception):
-    """Exception raised when required dependency is missing."""
-    pass
-
 
 class TaskConfig:
     """
@@ -79,12 +78,14 @@ class TaskConfig:
     5. Environment variables
     """
 
-    def __init__(self,
-                 config_dict: Dict[str, Any],
-                 task_id: str,
-                 task_type: str,
-                 env_override: bool = True,
-                 progress_manager: Optional[TaskProgressManager] = None):
+    def __init__(
+        self,
+        config_dict: Dict[str, Any],
+        task_id: str,
+        task_type: str,
+        env_override: bool = True,
+        progress_manager: Optional[TaskProgressManager] = None,
+    ):
         """
         Initialize configuration with values from dictionary.
 
@@ -108,9 +109,9 @@ class TaskConfig:
         # Load project configuration
         if self.progress_manager:
             with self.progress_manager.create_operation_context(
-                    name="load_config",
-                    total=5,  # 5 steps in configuration loading
-                    description="Loading task configuration"
+                name="load_config",
+                total=5,  # 5 steps in configuration loading
+                description="Loading task configuration",
             ) as progress:
                 try:
                     # Step 1: Load project config
@@ -153,7 +154,7 @@ class TaskConfig:
 
                 # Set up additional properties and caches
                 self._setup_additional_properties()
-            except FileNotFoundError:
+            except (PamolaFileNotFoundError, FileNotFoundError):
                 logger.warning(f"Project configuration file not found, using defaults")
                 self.project_config = {}
 
@@ -166,14 +167,20 @@ class TaskConfig:
         self._path_cache: Dict[str, Path] = {}
 
         # Settings for external path access
-        self.allow_external = self._original_config.get('allow_external', False)
-        self.allowed_external_paths = self._original_config.get('allowed_external_paths', [])
+        self.allow_external = self._original_config.get("allow_external", False)
+        self.allowed_external_paths = self._original_config.get(
+            "allowed_external_paths", []
+        )
 
         # Transition settings for backwards compatibility
-        self.legacy_path_support = self._original_config.get('legacy_path_support', True)
+        self.legacy_path_support = self._original_config.get(
+            "legacy_path_support", True
+        )
 
         # Log configuration initialization
-        logger.debug(f"Initialized TaskConfig for task {self.task_id} ({self.task_type})")
+        logger.debug(
+            f"Initialized TaskConfig for task {self.task_id} ({self.task_type})"
+        )
 
     def _load_base_config(self, config_dict: Dict[str, Any]) -> None:
         """
@@ -190,94 +197,95 @@ class TaskConfig:
         data_repo = self.project_config.get("data_repository", DEFAULT_DATA_REPOSITORY)
 
         # Get task directory suffixes
-        self.task_dir_suffixes = self.project_config.get("task_dir_suffixes", [
-            "input", "output", "temp", "logs", "dictionaries"
-        ])
+        self.task_dir_suffixes = self.project_config.get(
+            "task_dir_suffixes", ["input", "output", "temp", "logs", "dictionaries"]
+        )
 
         # Set data repository from cascade: config_dict -> project_config -> default
-        self.data_repository = config_dict.get('data_repository', data_repo)
+        self.data_repository = config_dict.get("data_repository", data_repo)
 
         # Set log level from cascade: config_dict -> project_config -> default
         self.log_level = config_dict.get(
-            'log_level',
-            self.project_config.get("logging", {}).get("level", DEFAULT_LOG_LEVEL)
+            "log_level",
+            self.project_config.get("logging", {}).get("level", DEFAULT_LOG_LEVEL),
         )
 
         # Extract directory structure with defaults from project config
-        self.raw_dir = dir_structure.get('raw', 'raw')
-        self.processed_dir = dir_structure.get('processed', 'processed')
-        self.logs_dir = dir_structure.get('logs', 'logs')
-        self.reports_dir = dir_structure.get('reports', 'reports')
+        self.raw_dir = dir_structure.get("raw", "raw")
+        self.processed_dir = dir_structure.get("processed", "processed")
+        self.logs_dir = dir_structure.get("logs", "logs")
+        self.reports_dir = dir_structure.get("reports", "reports")
 
         # Extract task-specific configuration from task section in project config
-        project_task_config = self.project_config.get('tasks', {}).get(self.task_id, {})
+        project_task_config = self.project_config.get("tasks", {}).get(self.task_id, {})
 
         # Merge with task-specific configuration from config_dict
-        task_config = {**project_task_config, **config_dict.get('tasks', {}).get(self.task_id, {})}
+        task_config = {
+            **project_task_config,
+            **config_dict.get("tasks", {}).get(self.task_id, {}),
+        }
 
         # Apply cascade: task_config -> project_defaults
-        self.dependencies = task_config.get('dependencies', project_defaults.get('dependencies', []))
-        self.continue_on_error = task_config.get('continue_on_error', project_defaults.get('continue_on_error', False))
+        self.dependencies = task_config.get(
+            "dependencies", project_defaults.get("dependencies", [])
+        )
+        self.continue_on_error = task_config.get(
+            "continue_on_error", project_defaults.get("continue_on_error", False)
+        )
 
         # Extract encryption configuration from cascade
-        project_encryption = self.project_config.get('encryption', {})
-        self.use_encryption = task_config.get('use_encryption', project_encryption.get('use_encryption', False))
-        self.encryption_key_path = task_config.get('encryption_key_path') or project_encryption.get('key_path')
+        project_encryption = self.project_config.get("encryption", {})
+        self.use_encryption = task_config.get(
+            "use_encryption", project_encryption.get("use_encryption", False)
+        )
+        self.encryption_key_path = task_config.get(
+            "encryption_key_path"
+        ) or project_encryption.get("key_path")
 
         # Set encryption mode using the enum
-        encryption_mode_str = (
-                task_config.get('encryption_mode') or
-                project_encryption.get('mode', 'simple' if self.use_encryption else 'none')
-        )
+        encryption_mode_str = task_config.get(
+            "encryption_mode"
+        ) or project_encryption.get("mode", "simple" if self.use_encryption else "none")
         self.encryption_mode = EncryptionMode.from_string(encryption_mode_str)
 
         # Extract performance configuration with cascade
-        project_performance = self.project_config.get('performance', {})
+        project_performance = self.project_config.get("performance", {})
         self.use_vectorization = task_config.get(
-            'use_vectorization',
-            project_defaults.get('use_vectorization', False)
+            "use_vectorization", project_defaults.get("use_vectorization", False)
         )
         self.parallel_processes = task_config.get(
-            'parallel_processes',
-            project_defaults.get('parallel_processes', 1)
+            "parallel_processes", project_defaults.get("parallel_processes", 1)
         )
         self.chunk_size = task_config.get(
-            'chunk_size',
-            project_performance.get('chunk_size', 100000)
+            "chunk_size", project_performance.get("chunk_size", 100000)
         )
         self.default_encoding = task_config.get(
-            'default_encoding',
-            project_performance.get('default_encoding', 'utf-8')
+            "default_encoding", project_performance.get("default_encoding", "utf-8")
         )
         self.default_delimiter = task_config.get(
-            'default_delimiter',
-            project_performance.get('default_delimiter', ',')
+            "default_delimiter", project_performance.get("default_delimiter", ",")
         )
         self.default_quotechar = task_config.get(
-            'default_quotechar',
-            project_performance.get('default_quotechar', '"')
+            "default_quotechar", project_performance.get("default_quotechar", '"')
         )
         self.memory_limit_mb = task_config.get(
-            'memory_limit_mb',
-            project_performance.get('memory_limit_mb', 1000)
+            "memory_limit_mb", project_performance.get("memory_limit_mb", 1000)
         )
         self.use_dask = task_config.get(
-            'use_dask',
-            project_performance.get('use_dask', False)
+            "use_dask", project_performance.get("use_dask", False)
         )
         self.npartitions = task_config.get(
-            'npartitions',
-            project_performance.get('npartitions', 4)
+            "npartitions", project_performance.get("npartitions", 4)
         )
 
         # Extract scope configuration
-        self.scope = task_config.get('scope', {})
-        if 'fields' in task_config:
-            self.scope['fields'] = task_config['fields']
-        if 'datasets' in task_config:
-            self.scope['datasets'] = task_config['datasets']
-        if 'field_groups' in task_config:
-            self.scope['field_groups'] = task_config['field_groups']
+        self.scope = task_config.get("scope", {})
+        if "fields" in task_config:
+            self.scope["fields"] = task_config["fields"]
+        if "datasets" in task_config:
+            self.scope["datasets"] = task_config["datasets"]
+        if "field_groups" in task_config:
+            self.scope["field_groups"] = task_config["field_groups"]
 
         # Add all additional task-specific configuration as attributes
         for key, value in task_config.items():
@@ -296,8 +304,12 @@ class TaskConfig:
 
         # Set up pamola core directories
         self.raw_data_path = self._resolve_path(self.data_repository_path, self.raw_dir)
-        self.processed_data_path = self._resolve_path(self.data_repository_path, self.processed_dir)
-        self.reports_path = self._resolve_path(self.data_repository_path, self.reports_dir)
+        self.processed_data_path = self._resolve_path(
+            self.data_repository_path, self.processed_dir
+        )
+        self.reports_path = self._resolve_path(
+            self.data_repository_path, self.reports_dir
+        )
 
         # Set up task directory
         self.task_dir = self._resolve_path(self.processed_data_path, self.task_id)
@@ -314,15 +326,11 @@ class TaskConfig:
 
         # Set up report path
         self.report_path = self._resolve_path(
-            self.reports_path,
-            f"{self.task_id}_report.json"
+            self.reports_path, f"{self.task_id}_report.json"
         )
 
         # Set up log directory according to spec: always in project_root/logs
-        self.log_directory = self._resolve_path(
-            self.project_root,
-            self.logs_dir
-        )
+        self.log_directory = self._resolve_path(self.project_root, self.logs_dir)
 
         # Set up log file path
         self.log_file = self.log_directory / f"{self.task_id}.log"
@@ -371,9 +379,9 @@ class TaskConfig:
         # Don't apply special handling to absolute paths
         if path_obj.is_absolute():
             if not validate_path_security(
-                    path_obj,
-                    allowed_paths=self.allowed_external_paths,
-                    allow_external=self.allow_external
+                path_obj,
+                allowed_paths=self.allowed_external_paths,
+                allow_external=self.allow_external,
             ):
                 raise PathSecurityError(f"Insecure absolute path: {path_obj}")
             return path_obj
@@ -382,7 +390,8 @@ class TaskConfig:
         warnings.warn(
             f"Using legacy relative path '{path}'. "
             f"Please use the path API methods instead (get_task_dir(), etc.).",
-            DeprecationWarning, stacklevel=2
+            DeprecationWarning,
+            stacklevel=2,
         )
 
         # Resolve relative to project root
@@ -396,17 +405,22 @@ class TaskConfig:
         or PAMOLA_{KEY} for global settings.
         """
         # Get all environment variables with the PAMOLA prefix
-        env_vars = {k: v for k, v in os.environ.items()
-                    if k.startswith(ENV_PREFIX)}
+        env_vars = {k: v for k, v in os.environ.items() if k.startswith(ENV_PREFIX)}
 
         # Process task-specific variables first (higher priority)
         task_prefix = f"{ENV_PREFIX}TASK_{self.task_id.upper()}_"
-        task_vars = {k[len(task_prefix):].lower(): v for k, v in env_vars.items()
-                     if k.startswith(task_prefix)}
+        task_vars = {
+            k[len(task_prefix) :].lower(): v
+            for k, v in env_vars.items()
+            if k.startswith(task_prefix)
+        }
 
         # Process global variables (lower priority)
-        global_vars = {k[len(ENV_PREFIX):].lower(): v for k, v in env_vars.items()
-                       if k.startswith(ENV_PREFIX) and not k.startswith(task_prefix)}
+        global_vars = {
+            k[len(ENV_PREFIX) :].lower(): v
+            for k, v in env_vars.items()
+            if k.startswith(ENV_PREFIX) and not k.startswith(task_prefix)
+        }
 
         # Apply global variables first, then task-specific ones (for override priority)
         self._apply_env_dict(global_vars)
@@ -442,31 +456,31 @@ class TaskConfig:
             Converted value with appropriate type
         """
         # Handle boolean values
-        if value.lower() in ('true', 'yes', '1', 'on'):
+        if value.lower() in ("true", "yes", "1", "on"):
             return True
-        if value.lower() in ('false', 'no', '0', 'off'):
+        if value.lower() in ("false", "no", "0", "off"):
             return False
 
         # Handle None values
-        if value.lower() in ('none', 'null'):
+        if value.lower() in ("none", "null"):
             return None
 
         # Handle integer values
         try:
-            if value.isdigit() or (value.startswith('-') and value[1:].isdigit()):
+            if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
                 return int(value)
-        except ValueError:
+        except (ValidationError, ValueError):
             pass
 
         # Handle float values
         try:
             return float(value)
-        except ValueError:
+        except (ValidationError, ValueError):
             pass
 
         # Handle list values (comma-separated)
-        if ',' in value:
-            return [self._convert_env_value(v.strip()) for v in value.split(',')]
+        if "," in value:
+            return [self._convert_env_value(v.strip()) for v in value.split(",")]
 
         # Default to string
         return value
@@ -484,77 +498,91 @@ class TaskConfig:
         needs_cache_clear = False
 
         # Override data repository if specified
-        if 'data_repository' in args and args['data_repository']:
-            self.data_repository = args['data_repository']
+        if "data_repository" in args and args["data_repository"]:
+            self.data_repository = args["data_repository"]
             needs_cache_clear = True
 
             # Update paths that depend on data repository
             self._setup_directories()
 
         # Override log level if specified
-        if 'log_level' in args and args['log_level']:
-            self.log_level = args['log_level']
+        if "log_level" in args and args["log_level"]:
+            self.log_level = args["log_level"]
 
         # Override encryption settings if specified
-        if 'use_encryption' in args:
-            self.use_encryption = args['use_encryption']
+        if "use_encryption" in args:
+            self.use_encryption = args["use_encryption"]
 
-        if 'encryption_key_path' in args:
-            self.encryption_key_path = args['encryption_key_path']
+        if "encryption_key_path" in args:
+            self.encryption_key_path = args["encryption_key_path"]
 
-        if 'encryption_mode' in args:
-            self.encryption_mode = EncryptionMode.from_string(args['encryption_mode'])
+        if "encryption_mode" in args:
+            self.encryption_mode = EncryptionMode.from_string(args["encryption_mode"])
 
         # Override performance settings if specified
-        if 'use_vectorization' in args:
-            self.use_vectorization = args['use_vectorization']
+        if "use_vectorization" in args:
+            self.use_vectorization = args["use_vectorization"]
 
-        if 'parallel_processes' in args:
-            self.parallel_processes = args['parallel_processes']
+        if "parallel_processes" in args:
+            self.parallel_processes = args["parallel_processes"]
 
-        if 'use_dask' in args:
-            self.use_dask = args['use_dask']
+        if "use_dask" in args:
+            self.use_dask = args["use_dask"]
 
-        if 'npartitions' in args:
-            self.npartitions = args['npartitions']
+        if "npartitions" in args:
+            self.npartitions = args["npartitions"]
 
-        if 'chunk_size' in args:
-            self.chunk_size = args['chunk_size']
+        if "chunk_size" in args:
+            self.chunk_size = args["chunk_size"]
 
         # Override scope fields if specified
-        if 'fields' in args:
-            if not hasattr(self, 'scope'):
+        if "fields" in args:
+            if not hasattr(self, "scope"):
                 self.scope = {}
-            self.scope['fields'] = args['fields']
+            self.scope["fields"] = args["fields"]
 
         # Override scope datasets if specified
-        if 'datasets' in args:
-            if not hasattr(self, 'scope'):
+        if "datasets" in args:
+            if not hasattr(self, "scope"):
                 self.scope = {}
-            self.scope['datasets'] = args['datasets']
+            self.scope["datasets"] = args["datasets"]
 
         # Override continue_on_error if specified
-        if 'continue_on_error' in args:
-            self.continue_on_error = args['continue_on_error']
+        if "continue_on_error" in args:
+            self.continue_on_error = args["continue_on_error"]
 
         # Override security settings if specified
-        if 'allow_external' in args:
-            self.allow_external = args['allow_external']
+        if "allow_external" in args:
+            self.allow_external = args["allow_external"]
             needs_cache_clear = True
 
-        if 'allowed_external_paths' in args:
-            self.allowed_external_paths = args['allowed_external_paths']
+        if "allowed_external_paths" in args:
+            self.allowed_external_paths = args["allowed_external_paths"]
             needs_cache_clear = True
 
         # Process any additional arguments that match attributes
         for key, value in args.items():
-            if key not in [
-                'data_repository', 'log_level', 'use_encryption',
-                'encryption_key_path', 'encryption_mode', 'use_vectorization',
-                'parallel_processes', 'fields', 'datasets',
-                'continue_on_error', 'use_dask', 'chunk_size',
-                'npartitions', 'allow_external', 'allowed_external_paths'
-            ] and value is not None:
+            if (
+                key
+                not in [
+                    "data_repository",
+                    "log_level",
+                    "use_encryption",
+                    "encryption_key_path",
+                    "encryption_mode",
+                    "use_vectorization",
+                    "parallel_processes",
+                    "fields",
+                    "datasets",
+                    "continue_on_error",
+                    "use_dask",
+                    "chunk_size",
+                    "npartitions",
+                    "allow_external",
+                    "allowed_external_paths",
+                ]
+                and value is not None
+            ):
                 setattr(self, key, value)
 
         # Clear path cache after overrides if needed
@@ -580,26 +608,38 @@ class TaskConfig:
                 errors.append(f"Missing required field: {field}")
 
         # Validate directories
-        if hasattr(self, 'data_repository_path'):
+        if hasattr(self, "data_repository_path"):
             if not self.data_repository_path.exists():
                 try:
                     # Try to create the data repository if it doesn't exist
                     ensure_directory(self.data_repository_path)
-                    logger.info(f"Created data repository directory: {self.data_repository_path}")
+                    logger.info(
+                        f"Created data repository directory: {self.data_repository_path}"
+                    )
                 except Exception as e:
                     errors.append(
-                        f"Could not create data repository path: {self.data_repository_path}, error: {str(e)}")
+                        f"Could not create data repository path: {self.data_repository_path}, error: {str(e)}"
+                    )
 
         # Validate encryption settings consistency
-        if hasattr(self, 'use_encryption') and self.use_encryption:
-            if not hasattr(self, 'encryption_key_path') or not self.encryption_key_path:
-                errors.append("Encryption is enabled (use_encryption=True) but no encryption_key_path is provided")
+        if hasattr(self, "use_encryption") and self.use_encryption:
+            if not hasattr(self, "encryption_key_path") or not self.encryption_key_path:
+                errors.append(
+                    "Encryption is enabled (use_encryption=True) but no encryption_key_path is provided"
+                )
 
-            if hasattr(self, 'encryption_mode') and self.encryption_mode == EncryptionMode.NONE:
-                errors.append("Encryption is enabled (use_encryption=True) but encryption_mode is set to 'none'")
+            if (
+                hasattr(self, "encryption_mode")
+                and self.encryption_mode == EncryptionMode.NONE
+            ):
+                errors.append(
+                    "Encryption is enabled (use_encryption=True) but encryption_mode is set to 'none'"
+                )
 
         # Validate task directory suffixes
-        if not isinstance(self.task_dir_suffixes, list) or not all(isinstance(s, str) for s in self.task_dir_suffixes):
+        if not isinstance(self.task_dir_suffixes, list) or not all(
+            isinstance(s, str) for s in self.task_dir_suffixes
+        ):
             errors.append("task_dir_suffixes must be a list of strings")
 
         # Return validation result
@@ -616,7 +656,7 @@ class TaskConfig:
 
         # Get all attributes that don't start with underscore
         for key in dir(self):
-            if not key.startswith('_') and not callable(getattr(self, key)):
+            if not key.startswith("_") and not callable(getattr(self, key)):
                 value = getattr(self, key)
 
                 # Convert Path objects to strings
@@ -645,9 +685,7 @@ class TaskConfig:
             # Use default path in configs directory
             suffix = ".json" if format.lower() == "json" else ".yaml"
             path = self._resolve_path(
-                self.project_root,
-                DEFAULT_CONFIG_DIR,
-                f"{self.task_id}{suffix}"
+                self.project_root, DEFAULT_CONFIG_DIR, f"{self.task_id}{suffix}"
             )
 
         # Ensure directory exists
@@ -657,10 +695,21 @@ class TaskConfig:
         config_dict = self.to_dict()
 
         # Remove paths and runtime-specific settings
-        keys_to_remove = ['project_root', 'data_repository_path', 'output_directory',
-                          'report_path', 'log_directory', 'log_file', 'project_config',
-                          'raw_data_path', 'processed_data_path', 'reports_path',
-                          'task_log_directory', 'task_log_file', 'progress_manager']
+        keys_to_remove = [
+            "project_root",
+            "data_repository_path",
+            "output_directory",
+            "report_path",
+            "log_directory",
+            "log_file",
+            "project_config",
+            "raw_data_path",
+            "processed_data_path",
+            "reports_path",
+            "task_log_directory",
+            "task_log_file",
+            "progress_manager",
+        ]
         for key in keys_to_remove:
             if key in config_dict:
                 del config_dict[key]
@@ -676,9 +725,13 @@ class TaskConfig:
                 # PyYAML is already imported at the top of the module; check availability
                 if yaml is not None:
                     with open(path, "w", encoding="utf-8") as f:
-                        yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
+                        yaml.dump(
+                            config_dict, f, default_flow_style=False, sort_keys=False
+                        )
                 else:
-                    logger.warning("PyYAML not available - falling back to JSON format.")
+                    logger.warning(
+                        "PyYAML not available - falling back to JSON format."
+                    )
                     write_json(config_dict, path)
             else:
                 write_json(config_dict, path)
@@ -870,7 +923,9 @@ class TaskConfig:
         task_dir = self.get_task_dir(task_id)
         return task_dir.joinpath(*parts)
 
-    def get_dependency_output(self, dependency_id: str, file_pattern: Optional[str] = None) -> Union[Path, List[Path]]:
+    def get_dependency_output(
+        self, dependency_id: str, file_pattern: Optional[str] = None
+    ) -> Union[Path, List[Path]]:
         """
         Get the output directory or files from a dependency.
 
@@ -886,21 +941,25 @@ class TaskConfig:
             DependencyMissingError: If the dependency output directory doesn't exist
         """
         # Check if dependency_id contains a path separator, treat as absolute path
-        if os.path.sep in dependency_id or ':' in dependency_id:
+        if os.path.sep in dependency_id or ":" in dependency_id:
             path = Path(dependency_id)
 
             # Validate path security with allowed paths
             if not validate_path_security(
-                    path,
-                    allowed_paths=self.allowed_external_paths,
-                    allow_external=self.allow_external
+                path,
+                allowed_paths=self.allowed_external_paths,
+                allow_external=self.allow_external,
             ):
-                raise PathSecurityError(f"Absolute dependency path failed security validation: {path}")
+                raise PathSecurityError(
+                    f"Absolute dependency path failed security validation: {path}"
+                )
 
             if not path.exists():
                 error_message = f"Dependency path doesn't exist: {path}"
                 if self.continue_on_error:
-                    logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                    logger.warning(
+                        f"{error_message} (continuing due to continue_on_error=True)"
+                    )
                     if file_pattern:
                         return []  # Return empty list for files
                     return path  # Return path even if it doesn't exist
@@ -915,7 +974,9 @@ class TaskConfig:
         if not output_dir.exists():
             error_message = f"Dependency output directory doesn't exist: {output_dir}"
             if self.continue_on_error:
-                logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                logger.warning(
+                    f"{error_message} (continuing due to continue_on_error=True)"
+                )
                 if file_pattern:
                     return []  # Return empty list for files
                 return output_dir  # Return directory even if it doesn't exist
@@ -926,7 +987,9 @@ class TaskConfig:
         if file_pattern:
             matching_files = list(output_dir.glob(file_pattern))
             if not matching_files:
-                logger.warning(f"No files matching pattern '{file_pattern}' in {output_dir}")
+                logger.warning(
+                    f"No files matching pattern '{file_pattern}' in {output_dir}"
+                )
             return matching_files
 
         return output_dir
@@ -944,12 +1007,16 @@ class TaskConfig:
         Raises:
             DependencyMissingError: If the dependency report doesn't exist
         """
-        report_path = self._resolve_path(self.reports_path, f"{dependency_id}_report.json")
+        report_path = self._resolve_path(
+            self.reports_path, f"{dependency_id}_report.json"
+        )
 
         if not report_path.exists():
             error_message = f"Dependency report doesn't exist: {report_path}"
             if self.continue_on_error:
-                logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                logger.warning(
+                    f"{error_message} (continuing due to continue_on_error=True)"
+                )
                 return report_path  # Return path even if it doesn't exist
             else:
                 raise DependencyMissingError(error_message)
@@ -976,20 +1043,28 @@ class TaskConfig:
                     if not report_data.get("success", False):
                         error_message = f"Dependency {dependency_id} failed: {report_data.get('error_info', {}).get('message', 'Unknown error')}"
                         if self.continue_on_error:
-                            logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                            logger.warning(
+                                f"{error_message} (continuing due to continue_on_error=True)"
+                            )
                         else:
                             raise DependencyMissingError(error_message)
                 except json.JSONDecodeError:
-                    error_message = f"Invalid report format for dependency {dependency_id}"
+                    error_message = (
+                        f"Invalid report format for dependency {dependency_id}"
+                    )
                     if self.continue_on_error:
-                        logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                        logger.warning(
+                            f"{error_message} (continuing due to continue_on_error=True)"
+                        )
                     else:
                         raise DependencyMissingError(error_message)
 
-            except FileNotFoundError:
+            except (PamolaFileNotFoundError, FileNotFoundError):
                 error_message = f"Missing report for dependency {dependency_id}"
                 if self.continue_on_error:
-                    logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                    logger.warning(
+                        f"{error_message} (continuing due to continue_on_error=True)"
+                    )
                 else:
                     raise DependencyMissingError(error_message)
 
@@ -1004,8 +1079,8 @@ class TaskConfig:
         Returns:
             List of field names in the scope
         """
-        if hasattr(self, 'scope') and isinstance(self.scope, dict):
-            return self.scope.get('fields', [])
+        if hasattr(self, "scope") and isinstance(self.scope, dict):
+            return self.scope.get("fields", [])
         return []
 
     def get_scope_datasets(self) -> List[str]:
@@ -1015,8 +1090,8 @@ class TaskConfig:
         Returns:
             List of dataset names in the scope
         """
-        if hasattr(self, 'scope') and isinstance(self.scope, dict):
-            return self.scope.get('datasets', [])
+        if hasattr(self, "scope") and isinstance(self.scope, dict):
+            return self.scope.get("datasets", [])
         return []
 
     def get_scope_field_groups(self) -> Dict[str, List[str]]:
@@ -1026,16 +1101,24 @@ class TaskConfig:
         Returns:
             Dictionary mapping group names to lists of field names
         """
-        if hasattr(self, 'scope') and isinstance(self.scope, dict):
-            return self.scope.get('field_groups', {})
+        if hasattr(self, "scope") and isinstance(self.scope, dict):
+            return self.scope.get("field_groups", {})
         return {}
 
     def __str__(self) -> str:
         """String representation of the configuration."""
         # Format key attributes but omit paths and sensitive information
-        keys_to_show = ['task_id', 'task_type', 'data_repository', 'log_level',
-                        'continue_on_error', 'use_encryption', 'encryption_mode',
-                        'use_vectorization', 'parallel_processes']
+        keys_to_show = [
+            "task_id",
+            "task_type",
+            "data_repository",
+            "log_level",
+            "continue_on_error",
+            "use_encryption",
+            "encryption_mode",
+            "use_vectorization",
+            "parallel_processes",
+        ]
 
         attributes = []
         for key in keys_to_show:
@@ -1049,13 +1132,13 @@ class TaskConfig:
 
 
 def load_task_config(
-        task_id: str,
-        task_type: str,
-        args: Optional[Dict[str, Any]] = None,
-        default_config: Optional[Dict[str, Any]] = None,
-        progress_manager: Optional[Any] = None,
-        force_recreate_config_file: Optional[bool] = False
-) -> 'TaskConfig':
+    task_id: str,
+    task_type: str,
+    args: Optional[Dict[str, Any]] = None,
+    default_config: Optional[Dict[str, Any]] = None,
+    progress_manager: Optional[Any] = None,
+    force_recreate_config_file: Optional[bool] = False,
+) -> "TaskConfig":
     """
     Load task configuration from project configuration file and override
     with command line arguments.
@@ -1083,10 +1166,10 @@ def load_task_config(
     """
     if progress_manager:
         with progress_manager.create_operation_context(
-                name="load_task_config",
-                total=TOTAL_CONFIG_STEPS,
-                description="Loading task configuration",
-                unit="steps"
+            name="load_task_config",
+            total=TOTAL_CONFIG_STEPS,
+            description="Loading task configuration",
+            unit="steps",
         ) as progress:
             try:
                 # Step 1: Find project root
@@ -1111,7 +1194,7 @@ def load_task_config(
                     progress.update(1, {"status": "project_config_failed"})
 
                 # Extract task-specific overrides from project config
-                project_task_config = project_config.get('tasks', {}).get(task_id, {})
+                project_task_config = project_config.get("tasks", {}).get(task_id, {})
 
                 # Step 3: Try to load task-specific config JSON
                 task_config_path = project_root / DEFAULT_CONFIG_DIR / f"{task_id}.json"
@@ -1125,14 +1208,20 @@ def load_task_config(
                         # Ensure enable_checkpoints has a default value if not specified in JSON config
                         task_specific_config.setdefault(
                             "enable_checkpoints",
-                            project_config.get("task_defaults", {}).get("enable_checkpoints", False)
+                            project_config.get("task_defaults", {}).get(
+                                "enable_checkpoints", False
+                            ),
                         )
 
-                        logger.debug(f"Loaded task configuration from {task_config_path}")
+                        logger.debug(
+                            f"Loaded task configuration from {task_config_path}"
+                        )
                         should_bootstrap = False
                         progress.update(1, {"status": "task_config_loaded"})
                     except Exception as e:
-                        logger.warning(f"Failed to load task configuration from {task_config_path}: {e}")
+                        logger.warning(
+                            f"Failed to load task configuration from {task_config_path}: {e}"
+                        )
                         should_bootstrap = True
                         progress.update(1, {"status": "task_config_failed"})
 
@@ -1156,16 +1245,22 @@ def load_task_config(
                     # Ensure enable_checkpoints has a default value if not specified in task config
                     task_specific_config.setdefault(
                         "enable_checkpoints",
-                        project_config.get("task_defaults", {}).get("enable_checkpoints", False)
+                        project_config.get("task_defaults", {}).get(
+                            "enable_checkpoints", False
+                        ),
                     )
 
                     # Save the bootstrapped config to JSON for future runs
                     try:
                         ensure_directory(task_config_path.parent)
                         write_json(task_specific_config, task_config_path)
-                        logger.info(f"Created new task configuration file at {task_config_path}")
+                        logger.info(
+                            f"Created new task configuration file at {task_config_path}"
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to create task configuration file at {task_config_path}: {e}")
+                        logger.warning(
+                            f"Failed to create task configuration file at {task_config_path}: {e}"
+                        )
 
                     # Ensure we properly update progress
                     if not task_config_path.exists():
@@ -1191,7 +1286,9 @@ def load_task_config(
                     config_dict[key] = value
 
                 # Step 4: Create task configuration
-                task_config = TaskConfig(config_dict, task_id, task_type, progress_manager=progress_manager)
+                task_config = TaskConfig(
+                    config_dict, task_id, task_type, progress_manager=progress_manager
+                )
                 progress.update(1, {"status": "task_config_created"})
 
                 # Override with command line arguments
@@ -1202,8 +1299,12 @@ def load_task_config(
                 # Step 5: Validate configuration
                 is_valid, errors = task_config.validate()
                 if not is_valid:
-                    logger.warning(f"Configuration validation failed: {'; '.join(errors)}")
-                    progress.update(1, {"status": "validation_warning", "errors": errors})
+                    logger.warning(
+                        f"Configuration validation failed: {'; '.join(errors)}"
+                    )
+                    progress.update(
+                        1, {"status": "validation_warning", "errors": errors}
+                    )
                 else:
                     progress.update(1, {"status": "validation_success"})
 
@@ -1240,7 +1341,7 @@ def load_task_config(
                 project_config = {"task_defaults": {"enable_checkpoints": False}}
 
             # Extract task-specific overrides from project config
-            project_task_config = project_config.get('tasks', {}).get(task_id, {})
+            project_task_config = project_config.get("tasks", {}).get(task_id, {})
             should_bootstrap = True
 
             # Try to load task-specific config JSON
@@ -1252,13 +1353,17 @@ def load_task_config(
                     # Ensure enable_checkpoints has a default value if not specified in JSON config
                     task_specific_config.setdefault(
                         "enable_checkpoints",
-                        project_config.get("task_defaults", {}).get("enable_checkpoints", False)
+                        project_config.get("task_defaults", {}).get(
+                            "enable_checkpoints", False
+                        ),
                     )
 
                     logger.debug(f"Loaded task configuration from {task_config_path}")
                     should_bootstrap = False
                 except Exception as e:
-                    logger.warning(f"Failed to load task configuration from {task_config_path}: {e}")
+                    logger.warning(
+                        f"Failed to load task configuration from {task_config_path}: {e}"
+                    )
                     should_bootstrap = True
 
             # If JSON loading failed or file doesn't exist, bootstrap configuration
@@ -1281,16 +1386,22 @@ def load_task_config(
                 # Ensure enable_checkpoints has a default value if not specified in task config
                 task_specific_config.setdefault(
                     "enable_checkpoints",
-                    project_config.get("task_defaults", {}).get("enable_checkpoints", False)
+                    project_config.get("task_defaults", {}).get(
+                        "enable_checkpoints", False
+                    ),
                 )
 
                 # Save the bootstrapped config to JSON for future runs
                 try:
                     ensure_directory(task_config_path.parent)
                     write_json(task_specific_config, task_config_path)
-                    logger.info(f"Created new task configuration file at {task_config_path}")
+                    logger.info(
+                        f"Created new task configuration file at {task_config_path}"
+                    )
                 except Exception as e:
-                    logger.warning(f"Failed to create task configuration file at {task_config_path}: {e}")
+                    logger.warning(
+                        f"Failed to create task configuration file at {task_config_path}: {e}"
+                    )
 
             # Build the final configuration dictionary
             config_dict = {}

@@ -35,7 +35,7 @@ Framework:
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 import pandas as pd
 from pamola_core.common.enum.privacy_metrics_type import PrivacyMetricsType
 from pamola_core.metrics.base_metrics_op import MetricsOperation
@@ -46,9 +46,15 @@ from pamola_core.metrics.privacy.neighbor import NearestNeighborDistanceRatio
 from pamola_core.metrics.schemas.privacy_ops_config import PrivacyMetricConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_registry import register
-from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
+from pamola_core.utils.ops.op_result import OperationResult
 from pamola_core.utils.progress import HierarchicalProgressTracker
 from pamola_core.utils.visualization import create_bar_plot, create_histogram
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    InvalidParameterError,
+    ValidationError,
+)
 
 PRIVACY_METRIC_FACTORY = {
     PrivacyMetricsType.DCR.value: DistanceToClosestRecord,
@@ -151,12 +157,16 @@ class PrivacyMetricOperation(MetricsOperation):
             return result
 
         except Exception as e:
-            error_message = f"Error in transformation operation: {str(e)}"
-            self.logger.exception(error_message)
-            return OperationResult(
-                status=OperationStatus.ERROR,
-                error_message=error_message,
-                exception=e,
+            self.logger.exception(f"Error in {self.operation_name} metrics: {str(e)}")
+            return self.error_handler.handle_error(
+                error=e,
+                error_code=ErrorCode.PROCESSING_FAILED,
+                context={"operation": self.name},
+                message_kwargs={
+                    "field_name": "<metrics>",
+                    "operation": self.name,
+                    "reason": str(e),
+                },
             )
 
     def calculate_metrics(
@@ -195,8 +205,9 @@ class PrivacyMetricOperation(MetricsOperation):
         metric_params: Dict[str, Dict] = kwargs.get("metric_params", {})
 
         if not privacy_metrics:
-            raise ValueError(
-                "No privacy metrics specified. 'privacy_metrics' list is empty."
+            raise DataError(
+                message="No privacy metrics specified. 'privacy_metrics' list is empty.",
+                error_code=ErrorCode.DATA_EMPTY,
             )
 
         results: Dict[str, Any] = {}
@@ -234,7 +245,11 @@ class PrivacyMetricOperation(MetricsOperation):
 
                 metric_class = PRIVACY_METRIC_FACTORY.get(metric_type)
                 if not metric_class:
-                    raise ValueError(f"Unsupported privacy metric: {metric_type}")
+                    raise InvalidParameterError(
+                        param_name="privacy",
+                        param_value=metric_type,
+                        reason=f"Unsupported privacy metric: {metric_type}",
+                    )
 
                 # Instantiate the metric class with provided parameters
                 metric = safe_instantiate(metric_class, params)
@@ -260,7 +275,7 @@ class PrivacyMetricOperation(MetricsOperation):
 
             except Exception as e:
                 self.logger.error(f"[{metric_type.upper()}] Metric failed: {e}")
-                raise ValueError(
+                raise ValidationError(
                     f"Failed to calculate {metric_type} metric: {str(e)}"
                 ) from e
 

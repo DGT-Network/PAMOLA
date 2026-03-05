@@ -60,6 +60,12 @@ import pandas as pd
 
 # Import framework utilities
 from pamola_core.utils.ops.op_field_utils import apply_condition_operator
+from pamola_core.errors.exceptions import (
+    FieldNotFoundError,
+    InvalidStrategyError,
+    TypeValidationError,
+    ValidationError,
+)
 
 # Configure module logger
 logger = logging.getLogger(__name__)
@@ -178,13 +184,15 @@ def process_nulls(
     """
     # Type validation
     if not isinstance(series, pd.Series):
-        raise TypeError(
+        raise TypeValidationError(
             f"Argument 'series' must be a pandas.Series, got {type(series).__name__}"
         )
 
     if strategy not in NULL_STRATEGIES:
-        raise ValueError(
-            f"Invalid null strategy: {strategy}. Must be one of {NULL_STRATEGIES}"
+        raise InvalidStrategyError(
+            strategy=strategy,
+            valid_strategies=NULL_STRATEGIES,
+            operation_type="process_nulls",
         )
 
     if strategy == "PRESERVE":
@@ -220,7 +228,7 @@ def process_nulls(
     elif strategy == "ERROR":
         # Raise an error if any nulls are present
         if series.isna().any():
-            raise ValueError(
+            raise ValidationError(
                 f"Null values found in field {series.name}, which is not permitted when null_strategy is {strategy}."
             )
         return series.copy()
@@ -228,7 +236,11 @@ def process_nulls(
     else:
         # This should never be reached due to earlier validation
         # but included for static analysis and defensive programming
-        raise RuntimeError(f"Unexpected strategy branch: {strategy}")
+        raise InvalidStrategyError(
+            strategy=strategy,
+            valid_strategies=NULL_STRATEGIES,
+            operation_type="process_nulls",
+        )
 
 
 # =============================================================================
@@ -309,7 +321,7 @@ def filter_records_conditionally(
         elif operator == "le":
             risk_mask = df[risk_field] <= risk_threshold
         else:
-            raise ValueError(
+            raise ValidationError(
                 f"Invalid operator: {operator}. Must be one of ['ge', 'lt', 'gt', 'le']"
             )
 
@@ -407,12 +419,17 @@ def handle_vulnerable_records(
     3    60000.0  # Replaced with mean
     """
     if strategy not in VULNERABLE_STRATEGIES:
-        raise ValueError(
-            f"Invalid strategy: {strategy}. Must be one of {VULNERABLE_STRATEGIES}"
+        raise InvalidStrategyError(
+            strategy=strategy,
+            valid_strategies=list(VULNERABLE_STRATEGIES),
+            operation_type="handle_vulnerable_records",
         )
 
     if field_name not in df.columns:
-        raise ValueError(f"Field '{field_name}' not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=field_name,
+            available_fields=list(df.columns),
+        )
 
     # Count vulnerable records
     vulnerable_count = vulnerability_mask.sum()
@@ -446,7 +463,7 @@ def handle_vulnerable_records(
     elif strategy == "mean":
         # Replace with mean (numeric fields only)
         if not pd.api.types.is_numeric_dtype(df[field_name]):
-            raise ValueError(
+            raise ValidationError(
                 f"Strategy 'mean' requires numeric field, but '{field_name}' is not numeric"
             )
 
@@ -482,7 +499,7 @@ def handle_vulnerable_records(
 
     elif strategy in {"mask", "full_mask"}:
         if not pd.api.types.is_string_dtype(df[field_name]):
-            raise ValueError(
+            raise ValidationError(
                 f"'mask' strategies require string dtype, but '{field_name}' is not string"
             )
 
@@ -503,7 +520,7 @@ def handle_vulnerable_records(
     elif strategy == "custom":
         # Replace with custom value
         if replacement_value is None:
-            raise ValueError(
+            raise ValidationError(
                 "replacement_value must be provided when using 'custom' strategy"
             )
 
@@ -649,7 +666,7 @@ def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, A
     >>> # processed_df = processor(my_df, "salary", my_mask)
     """
     if privacy_level not in PRIVACY_LEVELS:
-        raise ValueError(
+        raise ValidationError(
             f"Invalid privacy level: {privacy_level}. "
             f"Must be one of {list(PRIVACY_LEVELS.keys())}"
         )
@@ -813,7 +830,10 @@ def get_risk_statistics(
 
     # Validate input
     if risk_field not in df.columns:
-        raise ValueError(f"Risk field '{risk_field}' not found in DataFrame")
+        raise FieldNotFoundError(
+            field_name=risk_field,
+            available_fields=list(df.columns),
+        )
 
     if len(df) == 0:
         logger.warning("Empty DataFrame provided")

@@ -10,14 +10,17 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple, Union
 
-from pamola_core.utils.nlp.base import ConfigurationError
-from pamola_core.utils.nlp.cache import get_cache, cache_function
+from pamola_core.errors.exceptions import ConfigurationError
+from pamola_core.utils.nlp.cache import (
+    get_cache,
+    cache_function,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
 
-# Get file cache for efficient dictionary loading
-file_cache = get_cache('file')
+def _get_file_cache():
+    return get_cache("file")
 
 
 class CategoryDictionary:
@@ -63,13 +66,13 @@ class CategoryDictionary:
 
             # Use the file cache to efficiently load and monitor the file
             cache_key = f"category_dict:{path}"
-            data = file_cache.get(cache_key)
+            data = _get_file_cache().get(cache_key)
 
             if data is None:
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 # Store in cache (file_path enables mtime checking)
-                file_cache.set(cache_key, data, file_path=str(path))
+                _get_file_cache().set(cache_key, data, file_path=str(path))
 
             # Handle different dictionary formats
             if "categories_hierarchy" in data:

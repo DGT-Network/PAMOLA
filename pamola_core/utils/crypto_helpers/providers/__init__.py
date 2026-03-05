@@ -1,21 +1,22 @@
 """
-Cryptographic providers package for PAMOLA CORE.
+PAMOLA.CORE - Privacy-Preserving AI Data Processors
+----------------------------------------------------
+This file is part of the PAMOLA ecosystem, a comprehensive suite for
+anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
+foundation for anonymization-preserving data processing.
 
-This package contains all the encryption providers that implement
-different encryption modes for the PAMOLA CORE cryptographic subsystem.
+(C) 2024 Realm Inveo Inc. and DGT Network Inc.
+
+This software is licensed under the BSD 3-Clause License.
+For details, see the LICENSE file or visit:
+
+    https://opensource.org/licenses/BSD-3-Clause
+    https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
+
+Package: pamola_core.utils.crypto_helpers.providers
+Type: Internal (Non-Public API)
+
+Author: Realm Inveo Inc. & DGT Network Inc.
 """
+__all__ = []
 
-# We'll remove the direct import of register_provider to avoid circular imports
-# Instead, registration will be done externally after imports are complete
-
-# DO NOT import router functions here to avoid circular imports
-from pamola_core.utils.crypto_helpers.providers.none_provider import NoneProvider
-from pamola_core.utils.crypto_helpers.providers.simple_provider import SimpleProvider
-from pamola_core.utils.crypto_helpers.providers.age_provider import AgeProvider
-
-# List all available providers for external registration
-AVAILABLE_PROVIDERS = [
-    NoneProvider,
-    SimpleProvider,
-    AgeProvider
-]

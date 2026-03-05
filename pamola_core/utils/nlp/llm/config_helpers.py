@@ -77,9 +77,16 @@ from typing import Any, Dict, Optional
 
 from pamola_core.utils.nlp.cache import get_cache
 from pamola_core.utils.nlp.llm.config import (
-    LLMConfig, ProcessingConfig, GenerationConfig, CacheConfig, MonitoringConfig,
-    resolve_model_name, get_model_info
+    LLMConfig,
+    ProcessingConfig,
+    GenerationConfig,
+    CacheConfig,
+    MonitoringConfig,
+    resolve_model_name,
+    get_model_info,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import ConfigurationError, ValidationError
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -88,6 +95,7 @@ logger = logging.getLogger(__name__)
 # ------------------------------------------------------------------------------
 # Task Configuration Components
 # ------------------------------------------------------------------------------
+
 
 @dataclass
 class TaskPaths:
@@ -109,6 +117,7 @@ class TaskPaths:
     reports_dir : Path
         Reports directory
     """
+
     data_repository: Path
     dataset_path: Path
     task_dir: Path
@@ -118,15 +127,21 @@ class TaskPaths:
 
     def __post_init__(self):
         """Convert strings to Path objects."""
-        for field_name in ['data_repository', 'dataset_path', 'task_dir',
-                           'output_dir', 'checkpoint_dir', 'reports_dir']:
+        for field_name in [
+            "data_repository",
+            "dataset_path",
+            "task_dir",
+            "output_dir",
+            "checkpoint_dir",
+            "reports_dir",
+        ]:
             value = getattr(self, field_name)
             if isinstance(value, str):
                 setattr(self, field_name, Path(value))
 
     def ensure_directories(self):
         """Create all necessary directories."""
-        for path_name in ['task_dir', 'output_dir', 'checkpoint_dir', 'reports_dir']:
+        for path_name in ["task_dir", "output_dir", "checkpoint_dir", "reports_dir"]:
             path = getattr(self, path_name)
             path.mkdir(parents=True, exist_ok=True)
 
@@ -149,6 +164,7 @@ class ColumnConfig:
     backup_suffix : str
         Suffix for backup columns
     """
+
     source: str
     target: str
     id_column: Optional[str] = None
@@ -187,6 +203,7 @@ class DataConfig:
     require_existing_dataset : bool
         Whether dataset must exist at validation
     """
+
     encoding: str = "UTF-16"
     separator: str = ","
     text_qualifier: str = '"'
@@ -220,6 +237,7 @@ class RuntimeConfig:
     clear_target : bool
         Clear target column before processing
     """
+
     dry_run: bool = False
     test_connection_critical: bool = False
     clear_cache_on_model_change: bool = True
@@ -265,6 +283,7 @@ class TaskConfig:
     metadata : dict
         Task metadata
     """
+
     task_id: str
     project_root: Path
     llm: LLMConfig
@@ -289,13 +308,13 @@ class TaskConfig:
         self.paths.ensure_directories()
 
         # Add task metadata
-        if 'created_at' not in self.metadata:
-            self.metadata['created_at'] = datetime.now().isoformat()
-        if 'version' not in self.metadata:
-            self.metadata['version'] = '1.0.0'
+        if "created_at" not in self.metadata:
+            self.metadata["created_at"] = datetime.now().isoformat()
+        if "version" not in self.metadata:
+            self.metadata["version"] = "1.0.0"
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> 'TaskConfig':
+    def from_dict(cls, config_dict: Dict[str, Any]) -> "TaskConfig":
         """
         Create TaskConfig from dictionary with validation.
 
@@ -315,36 +334,57 @@ class TaskConfig:
             If required fields are missing
         """
         # Extract required fields
-        task_id = config_dict.get('task_id')
+        task_id = config_dict.get("task_id")
         if not task_id:
-            raise ValueError("task_id is required in configuration")
+            raise ConfigurationError(
+                message="task_id is required in configuration",
+                error_code=ErrorCode.CONFIG_MISSING,
+            )
 
-        project_root = config_dict.get('project_root')
+        project_root = config_dict.get("project_root")
         if not project_root:
-            raise ValueError("project_root is required in configuration")
+            raise ConfigurationError(
+                message="project_root is required in configuration",
+                error_code=ErrorCode.CONFIG_MISSING,
+            )
 
         # Create base configs from dictionaries
-        llm_dict = config_dict.get('llm', {})
+        llm_dict = config_dict.get("llm", {})
         llm_config = LLMConfig(**llm_dict) if isinstance(llm_dict, dict) else llm_dict
 
-        processing_dict = config_dict.get('processing', {})
-        processing_config = ProcessingConfig(**processing_dict) if isinstance(processing_dict,
-                                                                              dict) else processing_dict
+        processing_dict = config_dict.get("processing", {})
+        processing_config = (
+            ProcessingConfig(**processing_dict)
+            if isinstance(processing_dict, dict)
+            else processing_dict
+        )
 
-        generation_dict = config_dict.get('generation', {})
-        generation_config = GenerationConfig(**generation_dict) if isinstance(generation_dict,
-                                                                              dict) else generation_dict
+        generation_dict = config_dict.get("generation", {})
+        generation_config = (
+            GenerationConfig(**generation_dict)
+            if isinstance(generation_dict, dict)
+            else generation_dict
+        )
 
-        cache_dict = config_dict.get('cache', {})
-        cache_config = CacheConfig(**cache_dict) if isinstance(cache_dict, dict) else cache_dict
+        cache_dict = config_dict.get("cache", {})
+        cache_config = (
+            CacheConfig(**cache_dict) if isinstance(cache_dict, dict) else cache_dict
+        )
 
-        monitoring_dict = config_dict.get('monitoring', {})
-        monitoring_config = MonitoringConfig(**monitoring_dict) if isinstance(monitoring_dict,
-                                                                              dict) else monitoring_dict
+        monitoring_dict = config_dict.get("monitoring", {})
+        monitoring_config = (
+            MonitoringConfig(**monitoring_dict)
+            if isinstance(monitoring_dict, dict)
+            else monitoring_dict
+        )
 
         # Create column config
-        columns_dict = config_dict.get('columns', {})
-        column_config = ColumnConfig(**columns_dict) if isinstance(columns_dict, dict) else columns_dict
+        columns_dict = config_dict.get("columns", {})
+        column_config = (
+            ColumnConfig(**columns_dict)
+            if isinstance(columns_dict, dict)
+            else columns_dict
+        )
 
         # Helper function to resolve paths
         def resolve_path(path_str: str, base: Path) -> Path:
@@ -359,60 +399,89 @@ class TaskConfig:
             return base / path
 
         # Create paths - handle both new and legacy format
-        data_repo = Path(config_dict.get('data_repository', '.'))
-        paths_dict = config_dict.get('paths', {})
+        data_repo = Path(config_dict.get("data_repository", "."))
+        paths_dict = config_dict.get("paths", {})
 
         if paths_dict:
             # New format with explicit paths
-            base_repo = Path(paths_dict.get('data_repository', data_repo))
+            base_repo = Path(paths_dict.get("data_repository", data_repo))
 
             paths = TaskPaths(
                 data_repository=base_repo,
-                dataset_path=resolve_path(paths_dict.get('dataset_path', config_dict.get('dataset_path', '')),
-                                          base_repo),
-                task_dir=resolve_path(paths_dict.get('task_dir', f'processed/{task_id}'), base_repo),
-                output_dir=resolve_path(paths_dict.get('output_dir', f'processed/{task_id}/output'), base_repo),
-                checkpoint_dir=resolve_path(paths_dict.get('checkpoint_dir', f'processed/{task_id}/checkpoints'),
-                                            base_repo),
-                reports_dir=resolve_path(paths_dict.get('reports_dir', 'reports'), base_repo)
+                dataset_path=resolve_path(
+                    paths_dict.get("dataset_path", config_dict.get("dataset_path", "")),
+                    base_repo,
+                ),
+                task_dir=resolve_path(
+                    paths_dict.get("task_dir", f"processed/{task_id}"), base_repo
+                ),
+                output_dir=resolve_path(
+                    paths_dict.get("output_dir", f"processed/{task_id}/output"),
+                    base_repo,
+                ),
+                checkpoint_dir=resolve_path(
+                    paths_dict.get(
+                        "checkpoint_dir", f"processed/{task_id}/checkpoints"
+                    ),
+                    base_repo,
+                ),
+                reports_dir=resolve_path(
+                    paths_dict.get("reports_dir", "reports"), base_repo
+                ),
             )
         else:
             # Legacy format - construct paths
             paths = TaskPaths(
                 data_repository=data_repo,
-                dataset_path=data_repo / config_dict.get('dataset_path', ''),
-                task_dir=data_repo / config_dict.get('task_dir', f'processed/{task_id}'),
-                output_dir=data_repo / config_dict.get('task_dir', f'processed/{task_id}') / 'output',
-                checkpoint_dir=data_repo / config_dict.get('task_dir', f'processed/{task_id}') / 'checkpoints',
-                reports_dir=data_repo / 'reports'
+                dataset_path=data_repo / config_dict.get("dataset_path", ""),
+                task_dir=data_repo
+                / config_dict.get("task_dir", f"processed/{task_id}"),
+                output_dir=data_repo
+                / config_dict.get("task_dir", f"processed/{task_id}")
+                / "output",
+                checkpoint_dir=data_repo
+                / config_dict.get("task_dir", f"processed/{task_id}")
+                / "checkpoints",
+                reports_dir=data_repo / "reports",
             )
 
         # Create data config with legacy field mapping
-        data_dict = config_dict.get('data', {})
+        data_dict = config_dict.get("data", {})
         # Map legacy fields including new require_existing_dataset
-        for old_key, new_key in [('encoding', 'encoding'), ('separator', 'separator'),
-                                 ('text_qualifier', 'text_qualifier'), ('start_id', 'start_id'),
-                                 ('end_id', 'end_id'), ('max_records', 'max_records'),
-                                 ('create_backup', 'create_backup'), ('warn_on_in_place', 'warn_on_in_place'),
-                                 ('require_existing_dataset', 'require_existing_dataset')]:
+        for old_key, new_key in [
+            ("encoding", "encoding"),
+            ("separator", "separator"),
+            ("text_qualifier", "text_qualifier"),
+            ("start_id", "start_id"),
+            ("end_id", "end_id"),
+            ("max_records", "max_records"),
+            ("create_backup", "create_backup"),
+            ("warn_on_in_place", "warn_on_in_place"),
+            ("require_existing_dataset", "require_existing_dataset"),
+        ]:
             if old_key in config_dict and old_key not in data_dict:
                 data_dict[old_key] = config_dict[old_key]
         data_config = DataConfig(**data_dict)
 
         # Create runtime config with legacy field mapping
-        runtime_dict = config_dict.get('runtime', {})
+        runtime_dict = config_dict.get("runtime", {})
         # Map legacy fields
-        for old_key in ['dry_run', 'test_connection_critical', 'clear_cache_on_model_change',
-                        'max_errors', 'error_threshold']:
+        for old_key in [
+            "dry_run",
+            "test_connection_critical",
+            "clear_cache_on_model_change",
+            "max_errors",
+            "error_threshold",
+        ]:
             if old_key in config_dict and old_key not in runtime_dict:
                 runtime_dict[old_key] = config_dict[old_key]
         runtime_config = RuntimeConfig(**runtime_dict)
 
         # Get prompt config
-        prompt = config_dict.get('prompt', {})
+        prompt = config_dict.get("prompt", {})
 
         # Get metadata
-        metadata = config_dict.get('metadata', {})
+        metadata = config_dict.get("metadata", {})
 
         return cls(
             task_id=task_id,
@@ -427,10 +496,10 @@ class TaskConfig:
             data=data_config,
             runtime=runtime_config,
             prompt=prompt,
-            metadata=metadata
+            metadata=metadata,
         )
 
-    def merge_cli_args(self, args: argparse.Namespace) -> 'TaskConfig':
+    def merge_cli_args(self, args: argparse.Namespace) -> "TaskConfig":
         """
         Merge command line arguments into configuration.
 
@@ -448,67 +517,81 @@ class TaskConfig:
         new_config = replace(self)
 
         # Model configuration
-        if hasattr(args, 'model') and args.model:
+        if hasattr(args, "model") and args.model:
             resolved_model = resolve_model_name(args.model)
             new_config.llm = replace(new_config.llm, model_name=resolved_model)
             # Update generation config with model defaults
-            new_config.generation = new_config.generation.merge_with_model_defaults(resolved_model)
+            new_config.generation = new_config.generation.merge_with_model_defaults(
+                resolved_model
+            )
 
         # Data selection
-        if hasattr(args, 'start_id') and args.start_id is not None:
+        if hasattr(args, "start_id") and args.start_id is not None:
             new_config.data = replace(new_config.data, start_id=args.start_id)
-        if hasattr(args, 'end_id') and args.end_id is not None:
+        if hasattr(args, "end_id") and args.end_id is not None:
             new_config.data = replace(new_config.data, end_id=args.end_id)
-        if hasattr(args, 'max_records') and args.max_records is not None:
+        if hasattr(args, "max_records") and args.max_records is not None:
             new_config.data = replace(new_config.data, max_records=args.max_records)
 
         # Processing options - skip_processed correctly goes to processing config
-        if hasattr(args, 'skip_processed'):
+        if hasattr(args, "skip_processed"):
             if args.skip_processed:
-                new_config.processing = replace(new_config.processing, skip_processed=True)
-        if hasattr(args, 'no_skip_processed') and args.no_skip_processed:
+                new_config.processing = replace(
+                    new_config.processing, skip_processed=True
+                )
+        if hasattr(args, "no_skip_processed") and args.no_skip_processed:
             new_config.processing = replace(new_config.processing, skip_processed=False)
 
         # Runtime options
-        if hasattr(args, 'dry_run') and args.dry_run:
+        if hasattr(args, "dry_run") and args.dry_run:
             new_config.runtime = replace(new_config.runtime, dry_run=True)
-        if hasattr(args, 'force_reprocess') and args.force_reprocess:
+        if hasattr(args, "force_reprocess") and args.force_reprocess:
             new_config.runtime = replace(new_config.runtime, force_reprocess=True)
-        if hasattr(args, 'clear_target') and args.clear_target:
+        if hasattr(args, "clear_target") and args.clear_target:
             new_config.runtime = replace(new_config.runtime, clear_target=True)
-        if hasattr(args, 'test_critical') and args.test_critical:
-            new_config.runtime = replace(new_config.runtime, test_connection_critical=True)
+        if hasattr(args, "test_critical") and args.test_critical:
+            new_config.runtime = replace(
+                new_config.runtime, test_connection_critical=True
+            )
 
         # Cache options
-        if hasattr(args, 'no_cache') and args.no_cache:
+        if hasattr(args, "no_cache") and args.no_cache:
             new_config.cache = replace(new_config.cache, enabled=False)
-        if hasattr(args, 'no_clear_cache_on_model_change') and args.no_clear_cache_on_model_change:
-            new_config.runtime = replace(new_config.runtime, clear_cache_on_model_change=False)
+        if (
+            hasattr(args, "no_clear_cache_on_model_change")
+            and args.no_clear_cache_on_model_change
+        ):
+            new_config.runtime = replace(
+                new_config.runtime, clear_cache_on_model_change=False
+            )
 
         # Column configuration
-        if hasattr(args, 'in_place') and args.in_place:
-            new_config.columns = replace(new_config.columns, target=new_config.columns.source)
+        if hasattr(args, "in_place") and args.in_place:
+            new_config.columns = replace(
+                new_config.columns, target=new_config.columns.source
+            )
 
         # Backup options
-        if hasattr(args, 'no_backup') and args.no_backup:
+        if hasattr(args, "no_backup") and args.no_backup:
             new_config.data = replace(new_config.data, create_backup=False)
-        elif hasattr(args, 'create_backup') and args.create_backup:
+        elif hasattr(args, "create_backup") and args.create_backup:
             new_config.data = replace(new_config.data, create_backup=True)
 
         # Debug options
-        if hasattr(args, 'debug_llm') and args.debug_llm:
+        if hasattr(args, "debug_llm") and args.debug_llm:
             new_config.monitoring = replace(new_config.monitoring, debug_mode=True)
-        if hasattr(args, 'debug_log_file') and args.debug_log_file:
-            new_config.monitoring = replace(new_config.monitoring,
-                                            debug_log_file=Path(args.debug_log_file))
+        if hasattr(args, "debug_log_file") and args.debug_log_file:
+            new_config.monitoring = replace(
+                new_config.monitoring, debug_log_file=Path(args.debug_log_file)
+            )
 
         # Prompt template
-        if hasattr(args, 'prompt_template') and args.prompt_template:
-            new_config.prompt['template'] = args.prompt_template
+        if hasattr(args, "prompt_template") and args.prompt_template:
+            new_config.prompt["template"] = args.prompt_template
 
         # Update metadata
-        new_config.metadata['cli_args'] = vars(args)
-        new_config.metadata['updated_at'] = datetime.now().isoformat()
+        new_config.metadata["cli_args"] = vars(args)
+        new_config.metadata["updated_at"] = datetime.now().isoformat()
 
         return new_config
 
@@ -526,32 +609,42 @@ class TaskConfig:
             """Get relative path or absolute if outside base."""
             try:
                 return str(path.relative_to(base))
-            except ValueError:
+            except (ValidationError, ValueError):
                 # Path is outside base directory, return absolute
                 return str(path)
 
         return {
-            'task_id': self.task_id,
-            'project_root': str(self.project_root),
-            'llm': asdict(self.llm),
-            'processing': asdict(self.processing),
-            'generation': asdict(self.generation),
-            'cache': asdict(self.cache),
-            'monitoring': asdict(self.monitoring),
-            'columns': asdict(self.columns),
-            'paths': {
-                'data_repository': str(self.paths.data_repository),
-                'dataset_path': safe_relative_path(self.paths.dataset_path, self.paths.data_repository),
-                'task_dir': safe_relative_path(self.paths.task_dir, self.paths.data_repository),
+            "task_id": self.task_id,
+            "project_root": str(self.project_root),
+            "llm": asdict(self.llm),
+            "processing": asdict(self.processing),
+            "generation": asdict(self.generation),
+            "cache": asdict(self.cache),
+            "monitoring": asdict(self.monitoring),
+            "columns": asdict(self.columns),
+            "paths": {
+                "data_repository": str(self.paths.data_repository),
+                "dataset_path": safe_relative_path(
+                    self.paths.dataset_path, self.paths.data_repository
+                ),
+                "task_dir": safe_relative_path(
+                    self.paths.task_dir, self.paths.data_repository
+                ),
                 # Include all paths to avoid configuration drift
-                'output_dir': safe_relative_path(self.paths.output_dir, self.paths.data_repository),
-                'checkpoint_dir': safe_relative_path(self.paths.checkpoint_dir, self.paths.data_repository),
-                'reports_dir': safe_relative_path(self.paths.reports_dir, self.paths.data_repository),
+                "output_dir": safe_relative_path(
+                    self.paths.output_dir, self.paths.data_repository
+                ),
+                "checkpoint_dir": safe_relative_path(
+                    self.paths.checkpoint_dir, self.paths.data_repository
+                ),
+                "reports_dir": safe_relative_path(
+                    self.paths.reports_dir, self.paths.data_repository
+                ),
             },
-            'data': asdict(self.data),
-            'runtime': asdict(self.runtime),
-            'prompt': self.prompt,
-            'metadata': self.metadata
+            "data": asdict(self.data),
+            "runtime": asdict(self.runtime),
+            "prompt": self.prompt,
+            "metadata": self.metadata,
         }
 
     def to_resolved_dict(self) -> Dict[str, Any]:
@@ -566,15 +659,21 @@ class TaskConfig:
         config_dict = self.to_dict()
 
         # Resolve relative paths to absolute
-        if 'paths' in config_dict:
-            for key in ['dataset_path', 'task_dir', 'output_dir', 'checkpoint_dir', 'reports_dir']:
-                if key in config_dict['paths']:
-                    rel_path = config_dict['paths'][key]
+        if "paths" in config_dict:
+            for key in [
+                "dataset_path",
+                "task_dir",
+                "output_dir",
+                "checkpoint_dir",
+                "reports_dir",
+            ]:
+                if key in config_dict["paths"]:
+                    rel_path = config_dict["paths"][key]
                     # Check if already absolute
                     path = Path(rel_path)
                     if not path.is_absolute():
                         abs_path = self.paths.data_repository / rel_path
-                        config_dict['paths'][key] = str(abs_path)
+                        config_dict["paths"][key] = str(abs_path)
 
         return config_dict
 
@@ -589,31 +688,40 @@ class TaskConfig:
         """
         # Check required paths exist
         if not self.paths.data_repository.exists():
-            raise ValueError(f"Data repository not found: {self.paths.data_repository}")
+            raise ConfigurationError(
+                message=f"Data repository not found: {self.paths.data_repository}",
+                error_code=ErrorCode.CONFIG_INVALID,
+            )
 
         # Check dataset only if required
         if self.data.require_existing_dataset and not self.paths.dataset_path.exists():
-            raise ValueError(f"Dataset not found: {self.paths.dataset_path}")
+            raise ConfigurationError(
+                message=f"Dataset not found: {self.paths.dataset_path}",
+                error_code=ErrorCode.CONFIG_INVALID,
+            )
 
         # Validate column configuration
         if not self.columns.source:
-            raise ValueError("Source column must be specified")
+            raise ValidationError("Source column must be specified")
 
         if not self.columns.target:
-            raise ValueError("Target column must be specified")
+            raise ValidationError("Target column must be specified")
 
         # Validate prompt
-        if 'template' not in self.prompt:
-            raise ValueError("Prompt template must be specified")
+        if "template" not in self.prompt:
+            raise ValidationError("Prompt template must be specified")
 
         # Warn about in-place mode
         if self.columns.is_in_place and self.data.warn_on_in_place:
-            logger.warning(f"In-place mode enabled: column '{self.columns.source}' will be overwritten")
+            logger.warning(
+                f"In-place mode enabled: column '{self.columns.source}' will be overwritten"
+            )
 
 
 # ------------------------------------------------------------------------------
 # Configuration Manager
 # ------------------------------------------------------------------------------
+
 
 class ConfigManager:
     """
@@ -678,44 +786,36 @@ class ConfigManager:
             "llm": {
                 "provider": "lmstudio",
                 "model_name": "LLM1",
-                "api_url": "http://localhost:1234/v1"
+                "api_url": "http://localhost:1234/v1",
             },
             "processing": {
                 "batch_size": 1,
                 "use_processing_marker": True,
                 "processing_marker": "~",
-                "skip_processed": True  # Consistent with ProcessingConfig default
+                "skip_processed": True,  # Consistent with ProcessingConfig default
             },
-            "generation": {
-                "temperature": 0.3,
-                "max_tokens": 512
-            },
-            "cache": {
-                "enabled": True,
-                "type": "memory"
-            },
-            "monitoring": {
-                "monitor_performance": True
-            },
+            "generation": {"temperature": 0.3, "max_tokens": 512},
+            "cache": {"enabled": True, "type": "memory"},
+            "monitoring": {"monitor_performance": True},
             "columns": {
                 "source": "text",
                 "target": "text_processed",
-                "id_column": "id"
+                "id_column": "id",
             },
             "data": {
                 "encoding": "UTF-8",
                 "max_records": 10,
-                "require_existing_dataset": True
+                "require_existing_dataset": True,
             },
-            "prompt": {
-                "template": "Process: {text}"
-            }
+            "prompt": {"template": "Process: {text}"},
         }
 
-    def load_config(self,
-                    reset: bool = False,
-                    ignore: bool = False,
-                    default_config: Optional[Dict[str, Any]] = None) -> TaskConfig:
+    def load_config(
+        self,
+        reset: bool = False,
+        ignore: bool = False,
+        default_config: Optional[Dict[str, Any]] = None,
+    ) -> TaskConfig:
         """
         Load configuration with fallback to defaults.
 
@@ -747,24 +847,25 @@ class ConfigManager:
             # If reset and file exists - backup first
             if reset and self.config_path.exists():
                 logger.info(f"Resetting configuration to default at {self.config_path}")
-                backup_path = self.config_path.with_suffix('.json.bak')
+                backup_path = self.config_path.with_suffix(".json.bak")
                 shutil.copy2(self.config_path, backup_path)
                 logger.info(f"Previous config backed up to {backup_path}")
 
                 # Record reset in history
-                self.save_config_change('reset', {
-                    'reason': 'manual_reset',
-                    'backup_path': str(backup_path)
-                })
+                self.save_config_change(
+                    "reset", {"reason": "manual_reset", "backup_path": str(backup_path)}
+                )
 
             # Save new config
-            logger.info(f"Creating {'reset' if reset else 'new'} config at {self.config_path}")
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            logger.info(
+                f"Creating {'reset' if reset else 'new'} config at {self.config_path}"
+            )
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(config_dict, f, indent=2, ensure_ascii=False)
         else:
             # Load existing config
             logger.info(f"Loading config from {self.config_path}")
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(self.config_path, "r", encoding="utf-8") as f:
                 config_dict = json.load(f)
 
         # Create and validate TaskConfig
@@ -772,7 +873,7 @@ class ConfigManager:
 
         try:
             config.validate()
-        except ValueError as e:
+        except (ValidationError, ValueError) as e:
             logger.warning(f"Configuration validation warning: {e}")
 
         return config
@@ -792,21 +893,23 @@ class ConfigManager:
         old_config = None
         if self.config_path.exists() and not suffix:
             try:
-                with open(self.config_path, 'r') as f:
+                with open(self.config_path, "r") as f:
                     old_config = json.load(f)
             except:
                 pass
 
         # Determine save path
         if suffix:
-            save_path = self.config_path.with_name(f"{self.config_path.stem}{suffix}.json")
+            save_path = self.config_path.with_name(
+                f"{self.config_path.stem}{suffix}.json"
+            )
         else:
             save_path = self.config_path
 
         config_dict = config.to_dict()
 
         # Save config
-        with open(save_path, 'w', encoding='utf-8') as f:
+        with open(save_path, "w", encoding="utf-8") as f:
             json.dump(config_dict, f, indent=2, ensure_ascii=False)
 
         logger.info(f"Configuration saved to {save_path}")
@@ -816,14 +919,11 @@ class ConfigManager:
             changes = self._diff_configs(old_config, config_dict)
             # Only record if there are actual changes
             if changes:
-                self.save_config_change('config_update', {
-                    'changes': changes
-                })
+                self.save_config_change("config_update", {"changes": changes})
 
-    def check_model_change(self,
-                           current_model: str,
-                           task_dir: Path,
-                           clear_on_change: bool = True) -> bool:
+    def check_model_change(
+        self, current_model: str, task_dir: Path, clear_on_change: bool = True
+    ) -> bool:
         """
         Check if model changed and optionally clear cache.
 
@@ -851,8 +951,8 @@ class ConfigManager:
             try:
                 # Read last model
                 last_model_data = json.loads(model_file.read_text())
-                last_model = last_model_data.get('model', '')
-                last_resolved = last_model_data.get('resolved', '')
+                last_model = last_model_data.get("model", "")
+                last_resolved = last_model_data.get("resolved", "")
 
                 # Check if resolved model changed
                 if last_resolved != current_resolved:
@@ -866,11 +966,17 @@ class ConfigManager:
                         self._clear_cache()
 
                     # Record change in history
-                    self.save_config_change('model_change', {
-                        'from': {'model': last_model, 'resolved': last_resolved},
-                        'to': {'model': current_model, 'resolved': current_resolved},
-                        'cache_cleared': clear_on_change
-                    })
+                    self.save_config_change(
+                        "model_change",
+                        {
+                            "from": {"model": last_model, "resolved": last_resolved},
+                            "to": {
+                                "model": current_model,
+                                "resolved": current_resolved,
+                            },
+                            "cache_cleared": clear_on_change,
+                        },
+                    )
 
             except Exception as e:
                 logger.warning(f"Could not read last model file: {e}")
@@ -878,10 +984,10 @@ class ConfigManager:
         # Save current model info
         try:
             model_data = {
-                'model': current_model,
-                'resolved': current_resolved,
-                'timestamp': datetime.now().isoformat(),
-                'info': get_model_info(current_model)
+                "model": current_model,
+                "resolved": current_resolved,
+                "timestamp": datetime.now().isoformat(),
+                "info": get_model_info(current_model),
             }
             model_file.write_text(json.dumps(model_data, indent=2))
         except Exception as e:
@@ -895,15 +1001,15 @@ class ConfigManager:
             logger.warning("Clearing cache due to model change...")
             try:
                 # Try text cache first
-                cache = get_cache('text')
-                if hasattr(cache, 'clear'):
+                cache = get_cache("text")
+                if hasattr(cache, "clear"):
                     cache.clear()
                     logger.info("Text cache cleared successfully")
             except Exception:
                 # Fall back to memory cache
                 try:
-                    cache = get_cache('memory')
-                    if hasattr(cache, 'clear'):
+                    cache = get_cache("memory")
+                    if hasattr(cache, "clear"):
                         cache.clear()
                         logger.info("Memory cache cleared successfully")
                 except Exception as e:
@@ -922,7 +1028,7 @@ class ConfigManager:
             history_file = self.config_dir / f"{self.task_id}_history.json"
 
             if history_file.exists():
-                with open(history_file, 'r', encoding='utf-8') as f:
+                with open(history_file, "r", encoding="utf-8") as f:
                     return json.load(f)
 
             return []
@@ -942,9 +1048,9 @@ class ConfigManager:
             history = self.get_config_history()
 
             change_record = {
-                'timestamp': datetime.now().isoformat(),
-                'type': change_type,
-                'details': details
+                "timestamp": datetime.now().isoformat(),
+                "type": change_type,
+                "details": details,
             }
 
             history.append(change_record)
@@ -954,7 +1060,7 @@ class ConfigManager:
                 history = history[-100:]
 
             history_file = self.config_dir / f"{self.task_id}_history.json"
-            with open(history_file, 'w', encoding='utf-8') as f:
+            with open(history_file, "w", encoding="utf-8") as f:
                 json.dump(history, f, indent=2)
 
     def _diff_configs(self, old: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
@@ -975,7 +1081,9 @@ class ConfigManager:
         """
         diff = {}
 
-        def _recursive_diff(old_val: Any, new_val: Any, path: str = "") -> Dict[str, Any]:
+        def _recursive_diff(
+            old_val: Any, new_val: Any, path: str = ""
+        ) -> Dict[str, Any]:
             """Recursively find differences."""
             local_diff = {}
 
@@ -985,14 +1093,16 @@ class ConfigManager:
                 for key in all_keys:
                     key_path = f"{path}.{key}" if path else key
                     if key not in old_val:
-                        local_diff[key_path] = {'added': new_val[key]}
+                        local_diff[key_path] = {"added": new_val[key]}
                     elif key not in new_val:
-                        local_diff[key_path] = {'removed': old_val[key]}
+                        local_diff[key_path] = {"removed": old_val[key]}
                     else:
-                        nested_diff = _recursive_diff(old_val[key], new_val[key], key_path)
+                        nested_diff = _recursive_diff(
+                            old_val[key], new_val[key], key_path
+                        )
                         local_diff.update(nested_diff)
             elif old_val != new_val:
-                local_diff[path] = {'from': old_val, 'to': new_val}
+                local_diff[path] = {"from": old_val, "to": new_val}
 
             return local_diff
 
@@ -1002,6 +1112,7 @@ class ConfigManager:
 # ------------------------------------------------------------------------------
 # Utility Functions
 # ------------------------------------------------------------------------------
+
 
 def merge_nested_dicts(base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -1049,7 +1160,7 @@ def validate_task_config(config: Dict[str, Any], required_fields: list) -> None:
     missing = []
 
     for field_path in required_fields:
-        parts = field_path.split('.')
+        parts = field_path.split(".")
         current = config
 
         for part in parts:
@@ -1060,10 +1171,15 @@ def validate_task_config(config: Dict[str, Any], required_fields: list) -> None:
                 break
 
     if missing:
-        raise ValueError(f"Missing required configuration fields: {missing}")
+        raise ConfigurationError(
+            message=f"Missing required configuration fields: {missing}",
+            error_code=ErrorCode.CONFIG_MISSING,
+        )
 
 
-def get_field_from_path(config: Dict[str, Any], field_path: str, default: Any = None) -> Any:
+def get_field_from_path(
+    config: Dict[str, Any], field_path: str, default: Any = None
+) -> Any:
     """
     Get field value from nested configuration using dot notation.
 
@@ -1081,7 +1197,7 @@ def get_field_from_path(config: Dict[str, Any], field_path: str, default: Any = 
     Any
         Field value or default
     """
-    parts = field_path.split('.')
+    parts = field_path.split(".")
     current = config
 
     for part in parts:
@@ -1093,7 +1209,9 @@ def get_field_from_path(config: Dict[str, Any], field_path: str, default: Any = 
     return current
 
 
-def set_field_from_path(config: Dict[str, Any], field_path: str, value: Any) -> Dict[str, Any]:
+def set_field_from_path(
+    config: Dict[str, Any], field_path: str, value: Any
+) -> Dict[str, Any]:
     """
     Set field value in nested configuration using dot notation.
 
@@ -1112,7 +1230,7 @@ def set_field_from_path(config: Dict[str, Any], field_path: str, value: Any) -> 
         Updated configuration
     """
     result = config.copy()
-    parts = field_path.split('.')
+    parts = field_path.split(".")
     current = result
 
     # Navigate to parent

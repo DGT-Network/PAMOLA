@@ -14,24 +14,17 @@ from typing import Optional, List, Set, Callable
 
 # Import from base to avoid circular dependencies
 # Make sure these imports match your actual package structure
+from pamola_core.errors.exceptions import ModelLoadError, ModelNotAvailableError
 from pamola_core.utils.nlp.base import (
     DependencyManager,
     normalize_language_code,
-    ModelNotAvailableError
 )
 from pamola_core.utils.nlp.cache import (
     get_cache,
-    cache_function
+    cache_function,
 )
 
 logger = logging.getLogger(__name__)
-
-
-class ModelLoadError(ModelNotAvailableError):
-    """
-    Exception raised when a model fails to load.
-    """
-    pass
 
 
 class NLPModelManager:
@@ -617,4 +610,26 @@ class NLPModelManager:
 
 
 # Create a singleton instance for convenience
-nlp_model_manager = NLPModelManager()
+class _LazyNLPModelManager:
+    """Lazy proxy for the NLP model manager singleton."""
+
+    def __getattr__(self, name: str):
+        return getattr(get_nlp_model_manager(), name)
+
+    def __repr__(self) -> str:
+        return repr(get_nlp_model_manager())
+
+
+_nlp_model_manager: Optional[NLPModelManager] = None
+
+
+def get_nlp_model_manager() -> NLPModelManager:
+    """Return the shared NLPModelManager instance (initialized on first use)."""
+    global _nlp_model_manager
+    if _nlp_model_manager is None:
+        _nlp_model_manager = NLPModelManager()
+    return _nlp_model_manager
+
+
+# Backwards-compatible module-level handle
+nlp_model_manager = _LazyNLPModelManager()

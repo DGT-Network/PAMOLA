@@ -26,6 +26,12 @@ from pamola_core.utils.vis_helpers.base import (
     MatplotlibFigure,
     FigureRegistry,
 )
+from pamola_core.errors.codes import ErrorCode
+from pamola_core.errors.exceptions import (
+    DataError,
+    TypeValidationError,
+    ValidationError,
+)
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_plotly_figure,
     apply_theme_to_matplotlib_figure,
@@ -66,11 +72,16 @@ class PlotlyBoxPlot(PlotlyFigure):
             elif isinstance(data, pd.DataFrame):
                 df = data
             else:
-                raise TypeError(f"Unsupported data type for boxplot: {type(data)}")
+                raise TypeValidationError(
+                    f"Unsupported data type for boxplot: {type(data)}"
+                )
 
             # Check for empty data
             if df.empty:
-                raise ValueError("Empty dataset provided")
+                raise DataError(
+                    message="Empty dataset provided",
+                    error_code=ErrorCode.DATA_EMPTY,
+                )
 
             return df
         except Exception as e:
@@ -110,12 +121,12 @@ class PlotlyBoxPlot(PlotlyFigure):
             # Convert values to numpy array, handling different input types
             if isinstance(values, pd.Series):
                 # Convert to numeric first, coerce errors to NaN
-                numeric_values = pd.to_numeric(values, errors='coerce')
+                numeric_values = pd.to_numeric(values, errors="coerce")
                 values_array = numeric_values.dropna().values
             elif isinstance(values, list):
                 # Convert list to pandas Series for safer numeric conversion
                 series_values = pd.Series(values)
-                numeric_values = pd.to_numeric(series_values, errors='coerce')
+                numeric_values = pd.to_numeric(series_values, errors="coerce")
                 values_array = numeric_values.dropna().values
             elif isinstance(values, np.ndarray):
                 # Try to convert to float, handle non-numeric data
@@ -123,22 +134,26 @@ class PlotlyBoxPlot(PlotlyFigure):
                     # First try direct float conversion
                     float_array = values.astype(float)
                     values_array = float_array[~np.isnan(float_array)]
-                except (ValueError, TypeError):
+                except (ValidationError, ValueError, TypeError):
                     # If direct conversion fails, use pandas
                     series_values = pd.Series(values)
-                    numeric_values = pd.to_numeric(series_values, errors='coerce')
+                    numeric_values = pd.to_numeric(series_values, errors="coerce")
                     values_array = numeric_values.dropna().values
             else:
-                raise TypeError(f"Unsupported type for values: {type(values)}")
+                raise TypeValidationError(
+                    f"Unsupported type for values: {type(values)}"
+                )
 
             # Validate we have numeric data
             if not np.issubdtype(values_array.dtype, np.number):
-                raise ValueError(f"Column '{column}' could not be converted to numeric type")
+                raise ValidationError(
+                    f"Column '{column}' could not be converted to numeric type"
+                )
 
             # Handle empty data
             if len(values_array) == 0:
                 logger.warning(f"Column '{column}' has no valid numeric data points.")
-                raise ValueError(f"No valid data for column '{column}'")
+                raise ValidationError(f"No valid data for column '{column}'")
 
             # Handle single data point
             if len(values_array) == 1:
@@ -159,12 +174,12 @@ class PlotlyBoxPlot(PlotlyFigure):
 
             # Set data and orientation
             if orientation == "v":
-                box_args['y'] = values_array
-                box_args['x'] = [column] * len(values_array)
+                box_args["y"] = values_array
+                box_args["x"] = [column] * len(values_array)
             else:
-                box_args['x'] = values_array
-                box_args['y'] = [column] * len(values_array)
-                box_args['orientation'] = 'h'
+                box_args["x"] = values_array
+                box_args["y"] = [column] * len(values_array)
+                box_args["orientation"] = "h"
 
             # Handle optional parameters
             box_args["boxpoints"] = (
@@ -176,7 +191,7 @@ class PlotlyBoxPlot(PlotlyFigure):
             box_args["width"] = kwargs.get("box_width", 0.5)
 
             return box_args
-            
+
         except Exception as e:
             logger.error(
                 f"[_prepare_box_trace_args] column={column!r}, "
@@ -564,7 +579,7 @@ class MatplotlibBoxPlot(MatplotlibFigure):
                     elif isinstance(data, pd.DataFrame):
                         df = data
                     else:
-                        raise TypeError(
+                        raise TypeValidationError(
                             f"Unsupported data type for boxplot: {type(data)}"
                         )
 
@@ -737,7 +752,9 @@ class MatplotlibBoxPlot(MatplotlibFigure):
                         elif isinstance(data, pd.DataFrame):
                             df = data
                         else:
-                            raise TypeError(f"Unsupported data type: {type(data)}")
+                            raise TypeValidationError(
+                                f"Unsupported data type: {type(data)}"
+                            )
 
                         # Get orientation
                         orientation = kwargs.get("orientation", "v")

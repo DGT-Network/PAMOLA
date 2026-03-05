@@ -31,23 +31,12 @@ import enum
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, TypedDict
-
-from pamola_core.utils.io import get_file_metadata, calculate_checksum
-
-
-# Base error class for all operation-related errors
-class OpsError(Exception):
-    """Base class for all operation-related errors."""
-    pass
-
-
-class ValidationError(OpsError):
-    """Error raised when artifact validation fails."""
-    pass
+from pamola_core.errors.exceptions import InvalidParameterError, ValidationError
 
 
 class ValidationResult(TypedDict, total=False):
     """Typed dictionary for artifact validation results."""
+
     exists: bool
     size_valid: bool
     type_valid: bool
@@ -57,6 +46,7 @@ class ValidationResult(TypedDict, total=False):
 
 class OperationStatus(enum.Enum):
     """Status codes for operation results."""
+
     SUCCESS = "success"
     WARNING = "warning"  # Completed with some issues
     ERROR = "error"
@@ -68,12 +58,14 @@ class OperationStatus(enum.Enum):
 class OperationArtifact:
     """Represents a single artifact produced by an operation."""
 
-    def __init__(self,
-                 artifact_type: str,
-                 path: Union[str, Path],
-                 description: str = "",
-                 category: str = "output",
-                 tags: Optional[List[str]] = None):
+    def __init__(
+        self,
+        artifact_type: str,
+        path: Union[str, Path],
+        description: str = "",
+        category: str = "output",
+        tags: Optional[List[str]] = None,
+    ):
         """
         Initialize an artifact.
 
@@ -108,12 +100,13 @@ class OperationArtifact:
         # TODO: delegate metadata extraction to pamola_core.utils.io.get_file_metadata()
         """
         try:
+            from pamola_core.utils.io import get_file_metadata
             metadata = get_file_metadata(self.path)
             return metadata.get("size_bytes")
         except Exception:
             return None
 
-    def calculate_checksum(self, algorithm: str = 'sha256') -> Optional[str]:
+    def calculate_checksum(self, algorithm: str = "sha256") -> Optional[str]:
         """
         Calculate a checksum for the artifact.
 
@@ -133,6 +126,7 @@ class OperationArtifact:
             return None
 
         try:
+            from pamola_core.utils.io import calculate_checksum
             self.checksum = calculate_checksum(self.path, algorithm)
             return self.checksum
         except Exception:
@@ -152,13 +146,14 @@ class OperationArtifact:
             Validation results with detailed information about the artifact's validity
         """
         # Get full metadata
+        from pamola_core.utils.io import get_file_metadata
         metadata = get_file_metadata(self.path)
 
         # Create results dict with explicit typing
         results: Dict[str, Any] = {
             "exists": metadata.get("exists", False),
             "size_valid": False,
-            "type_valid": False
+            "type_valid": False,
         }
 
         if results["exists"]:
@@ -170,7 +165,7 @@ class OperationArtifact:
             expected_extension = f".{self.artifact_type}"
             actual_extension = metadata.get("extension", "")
             results["type_valid"] = actual_extension == expected_extension or (
-                    self.artifact_type == 'json' and actual_extension == '.jsonl'
+                self.artifact_type == "json" and actual_extension == ".jsonl"
             )
 
             # Add additional metadata
@@ -182,11 +177,9 @@ class OperationArtifact:
                 self.calculate_checksum()
             results["checksum"] = self.checksum
 
-        results["is_valid"] = all([
-            results["exists"],
-            results["size_valid"],
-            results["type_valid"]
-        ])
+        results["is_valid"] = all(
+            [results["exists"], results["size_valid"], results["type_valid"]]
+        )
 
         return results
 
@@ -208,7 +201,7 @@ class OperationArtifact:
             "tags": self.tags,
             "creation_time": self.creation_time,
             "size": self.size,
-            "checksum": self.checksum
+            "checksum": self.checksum,
         }
 
 
@@ -243,7 +236,7 @@ class ArtifactGroup:
         return {
             "name": self.name,
             "description": self.description,
-            "artifacts": [a.to_dict() for a in self.artifacts]
+            "artifacts": [a.to_dict() for a in self.artifacts],
         }
 
 
@@ -258,14 +251,14 @@ class OperationResult:
     """
 
     def __init__(
-            self,
-            status: OperationStatus = OperationStatus.SUCCESS,
-            artifacts: Optional[List[OperationArtifact]] = None,
-            metrics: Optional[Dict[str, Any]] = None,
-            error_message: Optional[str] = None,
-            execution_time: Optional[float] = None,
-            error_trace: Optional[str] = None,
-            exception: Optional[Exception] = None
+        self,
+        status: OperationStatus = OperationStatus.SUCCESS,
+        artifacts: Optional[List[OperationArtifact]] = None,
+        metrics: Optional[Dict[str, Any]] = None,
+        error_message: Optional[str] = None,
+        execution_time: Optional[float] = None,
+        error_trace: Optional[str] = None,
+        exception: Optional[Exception] = None,
     ):
         """
         Initialize an operation result.
@@ -296,13 +289,15 @@ class OperationResult:
         # Artifact groups
         self.artifact_groups = {}
 
-    def add_artifact(self,
-                     artifact_type: str,
-                     path: Union[str, Path],
-                     description: str = "",
-                     category: str = "output",
-                     tags: Optional[List[str]] = None,
-                     group: Optional[str] = None) -> OperationArtifact:
+    def add_artifact(
+        self,
+        artifact_type: str,
+        path: Union[str, Path],
+        description: str = "",
+        category: str = "output",
+        tags: Optional[List[str]] = None,
+        group: Optional[str] = None,
+    ) -> OperationArtifact:
         """
         Add an artifact to the result.
 
@@ -354,16 +349,18 @@ class OperationResult:
 
         return artifact
 
-    def register_artifact_via_writer(self,
-                                     writer,  # DataWriter
-                                     obj,  # DataFrame, dict, etc.
-                                     subdir: str,
-                                     name: str,
-                                     artifact_type: str = None,
-                                     description: str = "",
-                                     category: str = "output",
-                                     tags: Optional[List[str]] = None,
-                                     group: Optional[str] = None) -> OperationArtifact:
+    def register_artifact_via_writer(
+        self,
+        writer,  # DataWriter
+        obj,  # DataFrame, dict, etc.
+        subdir: str,
+        name: str,
+        artifact_type: str = None,
+        description: str = "",
+        category: str = "output",
+        tags: Optional[List[str]] = None,
+        group: Optional[str] = None,
+    ) -> OperationArtifact:
         """
         Register an artifact using the DataWriter to write the file.
 
@@ -410,7 +407,7 @@ class OperationResult:
                 artifact_type = "csv"  # Default for DataFrames
             elif isinstance(obj, dict):
                 artifact_type = "json"  # Default for dictionaries
-            elif str(type(obj).__module__).startswith(('matplotlib', 'plotly')):
+            elif str(type(obj).__module__).startswith(("matplotlib", "plotly")):
                 artifact_type = "png"  # Default for visualization
             else:
                 artifact_type = "json"  # Default fallback
@@ -421,14 +418,21 @@ class OperationResult:
             import dask.dataframe as dd
 
             if isinstance(obj, (pd.DataFrame, dd.DataFrame)):
-                write_result = writer.write_dataframe(obj, name, format=artifact_type, subdir=subdir)
+                write_result = writer.write_dataframe(
+                    obj, name, format=artifact_type, subdir=subdir
+                )
             elif isinstance(obj, dict) and artifact_type.lower() in ("json", "jsonl"):
                 write_result = writer.write_json(obj, name, subdir=subdir)
-            elif str(type(obj).__module__).startswith(('matplotlib', 'plotly')):
-                write_result = writer.write_visualization(obj, name, subdir=subdir, format=artifact_type)
+            elif str(type(obj).__module__).startswith(("matplotlib", "plotly")):
+                write_result = writer.write_visualization(
+                    obj, name, subdir=subdir, format=artifact_type
+                )
             else:
-                raise ValidationError(
-                    f"Unsupported combination of object type {type(obj)} and artifact_type {artifact_type}")
+                raise InvalidParameterError(
+                    param_name="combination",
+                    param_value=type(obj),
+                    reason=f"Unsupported combination of object type {type(obj)} and artifact_type {artifact_type}",
+                )
 
             # Create and register the artifact
             artifact = self.add_artifact(
@@ -437,16 +441,15 @@ class OperationResult:
                 description=description,
                 category=category,
                 tags=tags,
-                group=group
+                group=group,
             )
 
             return artifact
 
         except Exception as e:
-            # Wrap exceptions in ValidationError to maintain error hierarchy
-            if not isinstance(e, OpsError):
-                raise ValidationError(f"Failed to write artifact via DataWriter: {str(e)}") from e
-            raise e
+            raise ValidationError(
+                f"Failed to write artifact via DataWriter: {str(e)}"
+            ) from e
 
     def add_artifact_group(self, name: str, description: str = "") -> ArtifactGroup:
         """
@@ -606,8 +609,9 @@ class OperationResult:
         """
         details: Dict[str, Any] = {
             "status": self.status.value,
-            "execution_time": f"{self.execution_time:.2f} seconds"
-            if self.execution_time else None,
+            "execution_time": (
+                f"{self.execution_time:.2f} seconds" if self.execution_time else None
+            ),
         }
 
         if self.error_message:
@@ -645,4 +649,5 @@ class OperationResult:
 def get_file_size(path: Union[str, Path]) -> Optional[int]:
     """Get the size of a file in bytes."""
     from pamola_core.utils.io import get_file_size
+
     return get_file_size(path)

@@ -36,12 +36,12 @@ from typing import Iterator, Union, Dict, Any, Optional
 import pandas as pd
 import dask.dataframe as dd
 
-from pamola_core.utils import logging
-from pamola_core.utils import progress
-from pamola_core.utils.ops.op_data_processing import get_memory_usage
+import logging
+import pamola_core.utils.progress as progress
+from pamola_core.utils.io_helpers.memory_utils import get_memory_usage
 
 # Configure module logger
-logger = logging.get_logger("pamola_core.utils.io_helpers.dask_utils")
+logger = logging.getLogger(__name__)
 
 
 def is_dask_available() -> bool:

@@ -36,23 +36,12 @@ import threading
 import time
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
-
 from pamola_core.utils.io import read_json
 from pamola_core.utils.ops.op_data_reader import DataReader
 from pamola_core.utils.ops.op_data_writer import DataWriter
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-
-class OpsError(Exception):
-    """Base class for all operation-related errors."""
-    pass
-
-
-class CacheError(OpsError):
-    """Error raised when cache operations fail."""
-    pass
 
 
 class OperationCache:
@@ -629,7 +618,30 @@ class OperationCache:
 
 # Create a global cache manager
 # This maintains backward compatibility while allowing custom instances if needed
-operation_cache = OperationCache()
+
+class _LazyOperationCache:
+    """Lazy proxy for the global operation cache to avoid import-time side effects."""
+
+    def __getattr__(self, name: str):
+        return getattr(get_operation_cache(), name)
+
+    def __repr__(self) -> str:
+        return repr(get_operation_cache())
+
+
+_operation_cache: Optional[OperationCache] = None
+
+
+def get_operation_cache() -> OperationCache:
+    """Return the shared OperationCache instance (initialized on first use)."""
+    global _operation_cache
+    if _operation_cache is None:
+        _operation_cache = OperationCache()
+    return _operation_cache
+
+
+# Backwards-compatible module-level cache handle
+operation_cache = _LazyOperationCache()
 
 # For Python < 3.9, use the following implementation of async methods:
 '''

@@ -25,23 +25,16 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List
 
+from pamola_core.errors.exceptions import (
+    PathSecurityError,
+    DependencyFailedError,
+    DependencyMissingError,
+    InvalidParameterError,
+    PamolaFileNotFoundError,
+    ValidationError,
+)
 from pamola_core.utils.io import read_json
-from pamola_core.utils.tasks.path_security import validate_path_security, PathSecurityError
-
-
-class DependencyError(Exception):
-    """Base exception for dependency-related errors."""
-    pass
-
-
-class DependencyMissingError(DependencyError):
-    """Exception raised when a required dependency is missing."""
-    pass
-
-
-class DependencyFailedError(DependencyError):
-    """Exception raised when a dependency task has failed."""
-    pass
+from pamola_core.utils.tasks.path_security import validate_path_security
 
 
 class TaskDependencyManager:
@@ -68,7 +61,9 @@ class TaskDependencyManager:
         self.config = task_config
         self.logger = logger
 
-    def get_dependency_output(self, dependency_id: str, file_pattern: Optional[str] = None) -> Union[Path, List[Path]]:
+    def get_dependency_output(
+        self, dependency_id: str, file_pattern: Optional[str] = None
+    ) -> Union[Path, List[Path]]:
         """
         Get the output directory or files from a dependency.
 
@@ -89,17 +84,23 @@ class TaskDependencyManager:
 
             # Validate path security with allowed paths
             if not validate_path_security(
-                    path,
-                    allowed_paths=self.config.allowed_external_paths,
-                    allow_external=self.config.allow_external
+                path,
+                allowed_paths=self.config.allowed_external_paths,
+                allow_external=self.config.allow_external,
             ):
-                self.logger.error(f"Absolute dependency path failed security validation: {path}")
-                raise PathSecurityError(f"Absolute dependency path failed security validation: {path}")
+                self.logger.error(
+                    f"Absolute dependency path failed security validation: {path}"
+                )
+                raise PathSecurityError(
+                    f"Absolute dependency path failed security validation: {path}"
+                )
 
             if not path.exists():
                 error_message = f"Dependency path doesn't exist: {path}"
                 if self.config.continue_on_error:
-                    self.logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                    self.logger.warning(
+                        f"{error_message} (continuing due to continue_on_error=True)"
+                    )
                     if file_pattern:
                         return []  # Return empty list for files
                     return path  # Return path even if it doesn't exist
@@ -110,7 +111,9 @@ class TaskDependencyManager:
             if file_pattern:
                 matching_files = list(path.glob(file_pattern))
                 if not matching_files:
-                    self.logger.warning(f"No files matching pattern '{file_pattern}' in {path}")
+                    self.logger.warning(
+                        f"No files matching pattern '{file_pattern}' in {path}"
+                    )
                 return matching_files
 
             return path
@@ -121,9 +124,13 @@ class TaskDependencyManager:
             output_dir = self.config.get_task_output_dir(dependency_id)
 
             if not output_dir.exists():
-                error_message = f"Dependency output directory doesn't exist: {output_dir}"
+                error_message = (
+                    f"Dependency output directory doesn't exist: {output_dir}"
+                )
                 if self.config.continue_on_error:
-                    self.logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                    self.logger.warning(
+                        f"{error_message} (continuing due to continue_on_error=True)"
+                    )
                     if file_pattern:
                         return []  # Return empty list for files
                     return output_dir  # Return directory even if it doesn't exist
@@ -134,14 +141,18 @@ class TaskDependencyManager:
             if file_pattern:
                 matching_files = list(output_dir.glob(file_pattern))
                 if not matching_files:
-                    self.logger.warning(f"No files matching pattern '{file_pattern}' in {output_dir}")
+                    self.logger.warning(
+                        f"No files matching pattern '{file_pattern}' in {output_dir}"
+                    )
                 return matching_files
 
             return output_dir
         except Exception as e:
             # Handle any errors during path resolution
             if not isinstance(e, DependencyMissingError):
-                self.logger.error(f"Error resolving dependency output for {dependency_id}: {str(e)}")
+                self.logger.error(
+                    f"Error resolving dependency output for {dependency_id}: {str(e)}"
+                )
             raise
 
     def get_dependency_report(self, dependency_id: str) -> Path:
@@ -159,8 +170,12 @@ class TaskDependencyManager:
         """
         # Validate dependency_id for security
         if self.is_absolute_dependency(dependency_id):
-            self.logger.error(f"Cannot get report for absolute dependency path: {dependency_id}")
-            raise ValueError(f"Cannot get report for absolute dependency path: {dependency_id}")
+            self.logger.error(
+                f"Cannot get report for absolute dependency path: {dependency_id}"
+            )
+            raise ValidationError(
+                f"Cannot get report for absolute dependency path: {dependency_id}"
+            )
 
         try:
             # Resolve report path using standard directory structure
@@ -170,7 +185,7 @@ class TaskDependencyManager:
                 # Try alternate report formats
                 alternate_paths = [
                     self.config.get_reports_dir() / f"{dependency_id}.json",
-                    self.config.get_reports_dir() / dependency_id / "report.json"
+                    self.config.get_reports_dir() / dependency_id / "report.json",
                 ]
 
                 for alt_path in alternate_paths:
@@ -180,7 +195,9 @@ class TaskDependencyManager:
                 # No report found
                 error_message = f"Dependency report doesn't exist: {report_path}"
                 if self.config.continue_on_error:
-                    self.logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                    self.logger.warning(
+                        f"{error_message} (continuing due to continue_on_error=True)"
+                    )
                     # IMPORTANT: Return an existing directory to avoid triggering FileNotFoundError
                     # when the caller tries to read this file
                     return self.config.get_reports_dir() / "dummy_report.json"
@@ -191,7 +208,9 @@ class TaskDependencyManager:
         except Exception as e:
             # Handle any errors during path resolution
             if not isinstance(e, DependencyMissingError):
-                self.logger.error(f"Error resolving dependency report for {dependency_id}: {str(e)}")
+                self.logger.error(
+                    f"Error resolving dependency report for {dependency_id}: {str(e)}"
+                )
             raise
 
     def assert_dependencies_completed(self) -> bool:
@@ -211,13 +230,17 @@ class TaskDependencyManager:
             self.logger.info("No dependencies specified")
             return True
 
-        self.logger.info(f"Checking {len(dependencies)} dependencies: {', '.join(dependencies)}")
+        self.logger.info(
+            f"Checking {len(dependencies)} dependencies: {', '.join(dependencies)}"
+        )
 
         for dependency_id in dependencies:
             try:
                 # Skip absolute paths in dependency checking
                 if self.is_absolute_dependency(dependency_id):
-                    self.logger.warning(f"Skipping completion check for absolute path dependency: {dependency_id}")
+                    self.logger.warning(
+                        f"Skipping completion check for absolute path dependency: {dependency_id}"
+                    )
                     continue
 
                 try:
@@ -230,33 +253,44 @@ class TaskDependencyManager:
                         if not report_path.exists():
                             if self.config.continue_on_error:
                                 self.logger.warning(
-                                    f"Report file {report_path} does not exist (continuing due to continue_on_error=True)")
+                                    f"Report file {report_path} does not exist (continuing due to continue_on_error=True)"
+                                )
                                 continue
                             else:
-                                raise FileNotFoundError(f"Dependency report not found: {report_path}")
+                                raise DependencyMissingError(
+                                    f"Dependency report not found: {report_path}"
+                                )
 
                         # Now we can safely try to read the file
                         report_data = read_json(report_path)
 
                         if not report_data.get("success", False):
-                            error_info = report_data.get('error_info', {})
+                            error_info = report_data.get("error_info", {})
                             error_message = f"Dependency {dependency_id} failed: "
 
-                            if isinstance(error_info, dict) and 'message' in error_info:
-                                error_message += error_info['message']
+                            if isinstance(error_info, dict) and "message" in error_info:
+                                error_message += error_info["message"]
                             else:
-                                error_message += 'Unknown error'
+                                error_message += "Unknown error"
 
                             if self.config.continue_on_error:
-                                self.logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                                self.logger.warning(
+                                    f"{error_message} (continuing due to continue_on_error=True)"
+                                )
                             else:
                                 raise DependencyFailedError(error_message)
 
-                        self.logger.info(f"Dependency {dependency_id} completed successfully")
+                        self.logger.info(
+                            f"Dependency {dependency_id} completed successfully"
+                        )
                     except json.JSONDecodeError:
-                        error_message = f"Invalid report format for dependency {dependency_id}"
+                        error_message = (
+                            f"Invalid report format for dependency {dependency_id}"
+                        )
                         if self.config.continue_on_error:
-                            self.logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                            self.logger.warning(
+                                f"{error_message} (continuing due to continue_on_error=True)"
+                            )
                         else:
                             raise DependencyMissingError(error_message)
 
@@ -265,10 +299,12 @@ class TaskDependencyManager:
                     if not self.config.continue_on_error:
                         raise
 
-            except FileNotFoundError:
+            except PamolaFileNotFoundError:
                 error_message = f"Missing report for dependency {dependency_id}"
                 if self.config.continue_on_error:
-                    self.logger.warning(f"{error_message} (continuing due to continue_on_error=True)")
+                    self.logger.warning(
+                        f"{error_message} (continuing due to continue_on_error=True)"
+                    )
                 else:
                     raise DependencyMissingError(error_message)
 
@@ -286,12 +322,14 @@ class TaskDependencyManager:
         """
         # Check if dependency_id contains a path separator or drive separator
         return (
-                os.path.sep in dependency_id or  # Unix or Windows path separator
-                ':' in dependency_id or  # Windows drive separator
-                dependency_id.startswith('/')  # Absolute Unix path
+            os.path.sep in dependency_id  # Unix or Windows path separator
+            or ":" in dependency_id  # Windows drive separator
+            or dependency_id.startswith("/")  # Absolute Unix path
         )
 
-    def get_dependency_metrics(self, dependency_id: str, metric_path: Optional[str] = None) -> Dict[str, Any]:
+    def get_dependency_metrics(
+        self, dependency_id: str, metric_path: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Get metrics from a dependency report.
 
@@ -318,23 +356,33 @@ class TaskDependencyManager:
 
             # If a specific metric path is requested, extract it
             if metric_path:
-                keys = metric_path.split('.')
+                keys = metric_path.split(".")
                 current = metrics
                 for key in keys:
                     if isinstance(current, dict) and key in current:
                         current = current[key]
                     else:
-                        raise KeyError(f"Metric path '{metric_path}' not found in dependency {dependency_id}")
+                        raise InvalidParameterError(
+                            param_name="metric_path",
+                            param_value=metric_path,
+                            reason=(
+                                f"not found in dependency '{dependency_id}' metrics"
+                            ),
+                        )
 
                 # Return as a single-item dictionary with the leaf key
                 leaf_key = keys[-1]
                 return {leaf_key: current}
 
             return metrics
-        except FileNotFoundError:
-            raise DependencyMissingError(f"Dependency report not found for {dependency_id}")
+        except PamolaFileNotFoundError:
+            raise DependencyMissingError(
+                f"Dependency report not found for {dependency_id}"
+            )
         except json.JSONDecodeError:
-            raise DependencyMissingError(f"Invalid report format for dependency {dependency_id}")
+            raise DependencyMissingError(
+                f"Invalid report format for dependency {dependency_id}"
+            )
 
     def get_dependency_status(self, dependency_id: str) -> Dict[str, Any]:
         """
@@ -363,12 +411,16 @@ class TaskDependencyManager:
                 "execution_time": report_data.get("execution_time_seconds"),
                 "completion_time": report_data.get("completion_time"),
                 "error_info": report_data.get("error_info"),
-                "report_path": str(report_path)
+                "report_path": str(report_path),
             }
-        except FileNotFoundError:
-            raise DependencyMissingError(f"Dependency report not found for {dependency_id}")
+        except PamolaFileNotFoundError:
+            raise DependencyMissingError(
+                f"Dependency report not found for {dependency_id}"
+            )
         except json.JSONDecodeError:
-            raise DependencyMissingError(f"Invalid report format for dependency {dependency_id}")
+            raise DependencyMissingError(
+                f"Invalid report format for dependency {dependency_id}"
+            )
 
 
 class OptionalT1IDependencyManager(TaskDependencyManager):

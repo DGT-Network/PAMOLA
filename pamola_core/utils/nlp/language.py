@@ -27,7 +27,10 @@ from typing import Dict, List, Optional, Tuple, Any
 
 # Import from base to avoid circular dependencies
 from pamola_core.utils.nlp.base import DependencyManager
-from pamola_core.utils.nlp.cache import get_cache, cache_function
+from pamola_core.utils.nlp.cache import (
+    get_cache,
+    cache_function,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)

@@ -35,12 +35,13 @@ import numpy as np
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 import logging
-from .validation_rules import (
+from pamola_core.metrics.commons.validation_rules import (
     ValidationResult,
     rule_registry,
     create_rule_from_code,
 )
-from .schema_manager import SchemaManager, FieldDefinition
+from pamola_core.errors.exceptions import ValidationError
+from pamola_core.metrics.commons.schema_manager import SchemaManager, FieldDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class QualityWeights:
         """Validate weights sum to 1.0."""
         total = self.completeness + self.validity + self.diversity
         if not np.isclose(total, 1.0, rtol=1e-9):
-            raise ValueError(f"Quality weights must sum to 1.0, got {total:.4f}")
+            raise ValidationError(f"Quality weights must sum to 1.0, got {total:.4f}")
 
 
 @dataclass
@@ -397,7 +398,7 @@ class DataQualityCalculator:
         # --- 3. Alias-based fallbacks ---
         try:
             if alias in ("minmax", "min/max range"):
-                from .validation_rules import MinMaxRule
+                from pamola_core.metrics.commons.validation_rules import MinMaxRule
 
                 return MinMaxRule(
                     min_value=metadata.get("min"),
@@ -406,20 +407,20 @@ class DataQualityCalculator:
                 )
 
             if alias in ("validvalues", "valid values"):
-                from .validation_rules import ValidValuesRule
+                from pamola_core.metrics.commons.validation_rules import ValidValuesRule
 
                 values = metadata.get("values") or metadata.get("valid_values") or []
                 return ValidValuesRule(valid_values=list(values), enabled=True)
 
             if alias in ("regex", "regex pattern"):
-                from .validation_rules import RegexRule
+                from pamola_core.metrics.commons.validation_rules import RegexRule
 
                 pattern = metadata.get("pattern")
                 if pattern:
                     return RegexRule(pattern=pattern, enabled=True)
 
             if alias in ("format (email)", "format (phone)"):
-                from .validation_rules import FormatRule
+                from pamola_core.metrics.commons.validation_rules import FormatRule
 
                 fmt = "email" if "email" in alias else "phone"
                 return FormatRule(format_type=fmt, enabled=True)
@@ -463,7 +464,9 @@ class DataQualityCalculator:
         if pd.api.types.is_string_dtype(series) or pd.api.types.is_object_dtype(series):
             try:
                 non_empty_mask = pd.Series(True, index=series.index)
-                non_empty_mask.loc[series[non_missing_mask].index] = series[non_missing_mask].ne("")
+                non_empty_mask.loc[series[non_missing_mask].index] = series[
+                    non_missing_mask
+                ].ne("")
                 complete_mask = non_missing_mask & non_empty_mask
             except Exception as e:
                 logger.debug(f"String completeness handling failed: {e}")
@@ -690,12 +693,18 @@ class DataQualityCalculator:
             weighted_sum += quality_col * weight_col
             total_weight += weight_col
             # Accumulate for dataset-level metrics
-            effective_dataset_completenesses.append(column_metrics[field_name].completeness)
+            effective_dataset_completenesses.append(
+                column_metrics[field_name].completeness
+            )
             effective_dataset_diversities.append(column_metrics[field_name].diversity)
-            factual_dataset_completenesses.append(column_metrics[field_name].factual_completeness)
+            factual_dataset_completenesses.append(
+                column_metrics[field_name].factual_completeness
+            )
             factual_dataset_consistencies.append(column_metrics[field_name].consistency)
             factual_dataset_validities.append(column_metrics[field_name].validity)
-            factual_dataset_diversities.append(column_metrics[field_name].factual_diversity)
+            factual_dataset_diversities.append(
+                column_metrics[field_name].factual_diversity
+            )
             factual_dataset_non_missing_count += int(
                 column_metrics[field_name].non_missing_count
             )
@@ -709,24 +718,36 @@ class DataQualityCalculator:
         overall_quality = weighted_sum / total_weight if total_weight > 0 else 0.0
 
         effective_dataset_completeness = (
-            float(np.mean(effective_dataset_completenesses)) if effective_dataset_completenesses else 0.0
+            float(np.mean(effective_dataset_completenesses))
+            if effective_dataset_completenesses
+            else 0.0
         )
 
         effective_dataset_diversity = (
-            float(np.mean(effective_dataset_diversities)) if effective_dataset_diversities else 0.0
+            float(np.mean(effective_dataset_diversities))
+            if effective_dataset_diversities
+            else 0.0
         )
 
         factual_dataset_completeness = (
-            float(np.mean(factual_dataset_completenesses)) if factual_dataset_completenesses else 0.0
+            float(np.mean(factual_dataset_completenesses))
+            if factual_dataset_completenesses
+            else 0.0
         )
         factual_dataset_consistency = (
-            float(np.mean(factual_dataset_consistencies)) if factual_dataset_consistencies else 0.0
+            float(np.mean(factual_dataset_consistencies))
+            if factual_dataset_consistencies
+            else 0.0
         )
         factual_dataset_validity = (
-            float(np.mean(factual_dataset_validities)) if factual_dataset_validities else 0.0
+            float(np.mean(factual_dataset_validities))
+            if factual_dataset_validities
+            else 0.0
         )
         factual_dataset_diversity = (
-            float(np.mean(factual_dataset_diversities)) if factual_dataset_diversities else 0.0
+            float(np.mean(factual_dataset_diversities))
+            if factual_dataset_diversities
+            else 0.0
         )
 
         # Create range factual dataset diversity string with safe min/max calculation

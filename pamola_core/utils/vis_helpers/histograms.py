@@ -39,6 +39,7 @@ from pamola_core.utils.vis_helpers.base import (
     MatplotlibFigure,
     FigureRegistry,
 )
+from pamola_core.errors.exceptions import ValidationError
 from pamola_core.utils.vis_helpers.theme import (
     apply_theme_to_plotly_figure,
     apply_theme_to_matplotlib_figure,
@@ -72,7 +73,7 @@ class PlotlyHistogram(PlotlyFigure):
             float_values = values.astype(float)
             # Check if conversion was successful (no NaN from string conversion)
             return not np.all(np.isnan(float_values))
-        except (ValueError, TypeError):
+        except (ValidationError, ValueError, TypeError):
             return False
 
     def _prepare_data(
@@ -648,7 +649,7 @@ class MatplotlibHistogram(MatplotlibFigure):
             float_values = values.astype(float)
             # Check if conversion was successful
             return not np.all(np.isnan(float_values))
-        except (ValueError, TypeError):
+        except (ValidationError, ValueError, TypeError):
             return False
 
     def create(
