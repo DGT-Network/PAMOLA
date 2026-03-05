@@ -1,7 +1,7 @@
 [project]
 name = "pamola-core"
-version = "0.1.0"
-requires-python = ">=3.11,<3.13"
+version = "0.0.1"
+requires-python = ">=3.10,<3.13"
 
 authors = [
   { name = "Author", email = "author@example.com" },
@@ -16,6 +16,10 @@ license = { text = "BSD-3-Clause" }
 
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: BSD Software License",
     "Operating System :: OS Independent",
 ]
 
@@ -31,7 +35,7 @@ dependencies = [
     "diff-match-patch==20241021",
     "sdv==1.18.0",
     "faker==33.3.1",
-    "scipy==1.16.3",
+    "scipy==1.15.3",
     "uvicorn[standard]==0.38.0",
     "openpyxl==3.1.5",
     "xlrd==2.0.1",
@@ -62,11 +66,11 @@ dependencies = [
     "phonenumbers==9.0.10",
     "base58==2.1.1",
     "cryptography==46.0.3",
-    "PyYAML==6.0.2"
+    "PyYAML==6.0.2",
 ]
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "build"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
