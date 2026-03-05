@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
-  <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue.svg"></a>
+  <a href="https://www.python.org/downloads/"><img alt="Python" src="https://img.shields.io/badge/python-3.10--3.12-blue.svg"></a>
   <img alt="Status" src="https://img.shields.io/badge/status-active%20development-orange.svg">
 </p>
 
@@ -239,6 +239,32 @@ pip install -e ".[dev]"        # + pytest, coverage, black, ruff
 pip install pamola-core
 pip install pamola-core[fast,ner]
 ```
+
+---
+
+## Supported Python Versions
+
+PAMOLA.CORE supports Python **3.10, 3.11, and 3.12** (`requires-python = ">=3.10,<3.13"`).
+
+| Python Version | Supported |
+|---|---|
+| 3.10 | ✅ |
+| 3.11 | ✅ |
+| 3.12 | ✅ |
+| 3.9 and below | ❌ |
+| 3.13 and above | ❌ (blocked by third-party dependencies) |
+
+---
+
+## Core Dependencies
+
+These packages are declared in `pyproject.toml` under `[project.dependencies]` and are automatically installed with `pip install pamola-core`.
+
+| Package | Version Range | Purpose |
+|---|---|---|
+| **numpy** | `==1.26.4` | Numerical computation and array operations used throughout privacy metrics, attack simulations, and statistical analysis |
+| **pandas** | `==2.2.2` | Tabular data structures and DataFrame processing; the primary data container for all PAMOLA operations |
+| **scikit-learn** | `==1.7.2` | Machine learning utilities used by core operations including nearest-neighbor attacks, classification metrics, and model-based privacy risk assessment |
 
 ---
 
