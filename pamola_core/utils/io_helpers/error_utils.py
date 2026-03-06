@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast
 
 from pamola_core.errors.codes import ErrorCode
-from pamola_core.errors import BasePamolaError
+from pamola_core.errors.base import BasePamolaError
 from pamola_core.errors.exceptions import ProcessingError, PamolaFileNotFoundError
 
 # Configure module logger

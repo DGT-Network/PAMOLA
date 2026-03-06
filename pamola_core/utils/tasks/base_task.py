@@ -57,7 +57,7 @@ if TYPE_CHECKING:
     from pamola_core.utils.ops.op_base import BaseOperation
     from pamola_core.utils.ops.op_data_source import DataSource
     from pamola_core.utils.ops.op_data_writer import DataWriter
-    from pamola_core.utils.ops.op_result import OperationResult
+    from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 
 # Import component managers
 from pamola_core.utils.tasks.directory_manager import create_directory_manager
@@ -75,6 +75,7 @@ DEFAULT_KEYS_DB_PATH = "pamola_datasets/configs/keys.db"
 def _get_default_keys_db_path() -> str:
     load_dotenv_once()
     return os.environ.get("KEY_STORE_PATH", DEFAULT_KEYS_DB_PATH)
+
 
 # Reserved parameter names that are handled directly by the framework
 # These should not be included in operation configuration
@@ -726,25 +727,24 @@ class BaseTask:
         operations that the task will execute. It should populate the
         self.operations list with operation instances.
 
-        Example implementation:
-        ```python
-        def configure_operations(self) -> None:
-            # Add profiling operation
-            self.add_operation(
-                "ProfileOperation",
-                dataset_name="customers",
-                output_prefix="profile_results"
-            )
+        Example implementation::
 
-            # Add anonymization operation
-            self.add_operation(
-                "AnonymizeOperation",
-                input_dataset="customers",
-                method="k-anonymity",
-                k=5,
-                quasi_identifiers=["age", "zipcode", "gender"]
-            )
-        ```
+            def configure_operations(self) -> None:
+                # Add profiling operation
+                self.add_operation(
+                    "ProfileOperation",
+                    dataset_name="customers",
+                    output_prefix="profile_results"
+                )
+
+                # Add anonymization operation
+                self.add_operation(
+                    "AnonymizeOperation",
+                    input_dataset="customers",
+                    method="k-anonymity",
+                    k=5,
+                    quasi_identifiers=["age", "zipcode", "gender"]
+                )
 
         Raises:
             NotImplementedError: If not overridden in a subclass.
@@ -875,7 +875,6 @@ class BaseTask:
         Returns:
             True if execution is successful, False otherwise.
         """
-        from pamola_core.utils.ops.op_result import OperationStatus
 
         try:
             self.logger.info(f"Executing task: {self.task_id}")

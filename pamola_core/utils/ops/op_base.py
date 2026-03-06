@@ -41,7 +41,7 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.io import ensure_directory
 from pamola_core.errors.codes import ErrorCode
-from pamola_core.errors import BasePamolaError
+from pamola_core.errors.base import BasePamolaError
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.exceptions import ConfigSaveError
 

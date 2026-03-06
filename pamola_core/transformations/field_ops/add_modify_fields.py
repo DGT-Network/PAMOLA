@@ -77,7 +77,8 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         field_operations : dict, optional
             Fields operations
         lookup_tables : dict, optional
-        **kwargs: dict
+            Lookup tables keyed by name.
+        **kwargs : dict
             Additional keyword arguments passed to TransformationOperation.
         """
         # Ensure default metadata

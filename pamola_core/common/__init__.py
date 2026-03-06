@@ -14,15 +14,11 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Package: pamola_core.common
-Type: Public API Package
+Type: Internal (Non-Public API)
 
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-__all__ = [
-    # enum/
-    "EncryptionMode",
-]
+__all__ = []
 
-from pamola_core.common.enum import EncryptionMode
 

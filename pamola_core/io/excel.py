@@ -29,6 +29,20 @@ from pamola_core.io.base import (
 )
 
 class DataExcel:
+    """Low-level Excel I/O handler.
+
+    Wraps :func:`pandas.read_excel` and :meth:`pandas.DataFrame.to_excel`
+    with a uniform ``read`` / ``write`` interface shared by all PAMOLA IO
+    adapters.  All keyword arguments accepted by the underlying pandas
+    functions are forwarded transparently via ``**kwargs``.
+
+    Requires ``openpyxl`` (for ``.xlsx``) or ``xlrd`` (for legacy ``.xls``).
+
+    Use the module-level :func:`read_excel` convenience function for everyday
+    reading tasks.  Instantiate ``DataExcel`` directly only when you need to
+    share a single handler instance across multiple calls.
+    """
+
     def __init__(self): ...
 
     def read(self, path: str, **kwargs) -> Any:
@@ -125,6 +139,7 @@ def read_excel(path: str, **kwargs) -> Any:
         * If list of string, then indicates list of column names to be parsed.
         * If callable, then evaluate each column name against it and parse the column if the callable
           returns ``True``.
+
         Returns a subset of the columns according to behavior above.
 
     dtype : Type name or dict of column -> type, default None
@@ -174,6 +189,7 @@ def read_excel(path: str, **kwargs) -> Any:
     keep_default_na : bool, default True
         Whether or not to include the default NaN values when parsing the data. Depending on whether
         ``na_values`` is passed in, the behavior is as follows:
+
         * If ``keep_default_na`` is True, and ``na_values`` are specified, ``na_values`` is appended to
           the default NaN values used for parsing.
         * If ``keep_default_na`` is True, and ``na_values`` are not specified, only the default NaN values
@@ -182,6 +198,7 @@ def read_excel(path: str, **kwargs) -> Any:
           ``na_values`` are used for parsing.
         * If ``keep_default_na`` is False, and ``na_values`` are not specified, no strings will be parsed
           as NaN.
+
         Note that if `na_filter` is passed in as False, the ``keep_default_na`` and ``na_values`` parameters
         will be ignored.
 
@@ -194,12 +211,14 @@ def read_excel(path: str, **kwargs) -> Any:
 
     parse_dates : bool, list-like, or dict, default False
         The behavior is as follows:
+
         * ``bool``. If True -> try parsing the index.
         * ``list`` of int or names. e.g. If [1, 2, 3] -> try parsing columns 1, 2, 3 each as a separate
           date column.
         * ``list`` of lists. e.g.  If [[1, 3]] -> combine columns 1 and 3 and parse as a single date
           column.
         * ``dict``, e.g. {{'foo' : [1, 3]}} -> parse columns 1, 3 as date and call result 'foo'
+
         If a column or index contains an unparsable date, the entire column or index will be returned
         unaltered as an object data type. If you don`t want to parse some cells as date just change their
         type in Excel to "Text". For non-standard datetime parsing, use ``pd.to_datetime`` after
@@ -236,6 +255,7 @@ def read_excel(path: str, **kwargs) -> Any:
     dtype_backend : {{'numpy_nullable', 'pyarrow'}}, default ‘numpy_nullable’
         Back-end data type applied to the resultant :class:`DataFrame`. If not specified, the default
         behavior is to not use nullable data types. If specified, the behavior is as follows:
+
         * ``"numpy_nullable"``: returns nullable-dtype-backed :class:`DataFrame`
         * ``"pyarrow"``: returns pyarrow-backed nullable :class:`ArrowDtype` :class:`DataFrame`
 

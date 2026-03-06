@@ -29,6 +29,21 @@ from pamola_core.io.base import (
 )
 
 class DataParquet:
+    """Low-level Parquet I/O handler.
+
+    Wraps :func:`pandas.read_parquet` and :meth:`pandas.DataFrame.to_parquet`
+    with a uniform ``read`` / ``write`` interface shared by all PAMOLA IO
+    adapters.  All keyword arguments accepted by the underlying pandas
+    functions are forwarded transparently via ``**kwargs``.
+
+    Requires either ``pyarrow`` (recommended) or ``fastparquet`` as the
+    Parquet engine.  Default compression is ``'snappy'``.
+
+    Use the module-level :func:`read_parquet` convenience function for everyday
+    reading tasks.  Instantiate ``DataParquet`` directly only when you need to
+    share a single handler instance across multiple calls.
+    """
+
     def __init__(self): ...
 
     def read(self, path: str, **kwargs) -> Any:

@@ -121,15 +121,19 @@ def calculate_provisional_risk(
         Path to a metadata dictionary for field detection (currently unused).
     weights : Dict[str, float], optional
         Custom weights for each risk component. Default:
+
             - direct_identifier : 0.50
             - quasi_identifier  : 0.30
             - uniqueness_estimate : 0.20
+
     sigmoid_midpoints : Dict[str, float], optional
         Custom sigmoid midpoints controlling the curve for each component.
         Default:
+
             - direct_identifier : 0.2
             - quasi_identifier  : 0.4
             - uniqueness_estimate : 0.1
+
     penalty_sensitive : float, optional
         Penalty added to risk score if sensitive attributes are detected. Default 0.1.
 

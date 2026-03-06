@@ -28,7 +28,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import TYPE_CHECKING, Dict, Any, List, Optional, Type, Set, Callable
 
 from pamola_core.errors.codes import ErrorCode
-from pamola_core.errors import BasePamolaError
+from pamola_core.errors.base import BasePamolaError
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.exceptions import (
     ExecutionError,

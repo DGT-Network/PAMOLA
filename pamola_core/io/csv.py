@@ -29,6 +29,18 @@ from pamola_core.io.base import (
 )
 
 class DataCSV:
+    """Low-level CSV I/O handler.
+
+    Wraps :func:`pandas.read_csv` and :meth:`pandas.DataFrame.to_csv` with a
+    uniform ``read`` / ``write`` interface shared by all PAMOLA IO adapters.
+    All keyword arguments accepted by the underlying pandas functions are
+    forwarded transparently via ``**kwargs``.
+
+    Use the module-level :func:`read_csv` convenience function for everyday
+    reading tasks.  Instantiate ``DataCSV`` directly only when you need to
+    share a single handler instance across multiple calls.
+    """
+
     def __init__(self): ...
 
     def read(self, path: str, **kwargs) -> Any:
@@ -216,6 +228,7 @@ def read_csv(path: str, **kwargs) -> Any:
     keep_default_na : bool, default True
         Whether or not to include the default ``NaN`` values when parsing the data. Depending on
         whether ``na_values`` is passed in, the behavior is as follows:
+
         * If ``keep_default_na`` is ``True``, and ``na_values`` are specified, ``na_values`` is
           appended to the default ``NaN`` values used for parsing.
         * If ``keep_default_na`` is ``True``, and ``na_values`` are not specified, only the default
@@ -224,6 +237,7 @@ def read_csv(path: str, **kwargs) -> Any:
           values specified ``na_values`` are used for parsing.
         * If ``keep_default_na`` is ``False``, and ``na_values`` are not specified, no strings
           will be parsed as ``NaN``.
+
         Note that if ``na_filter`` is passed in as ``False``, the ``keep_default_na`` and
         ``na_values`` parameters will be ignored.
 
@@ -237,6 +251,7 @@ def read_csv(path: str, **kwargs) -> Any:
 
     parse_dates : bool, list of Hashable, list of lists or dict of {{Hashable : list}}, default False
         The behavior is as follows:
+
         * ``bool``. If ``True`` -> try parsing the index. Note: Automatically set to ``True`` if
           ``date_format`` or ``date_parser`` arguments have been passed.
         * ``list`` of ``int`` or names. e.g. If ``[1, 2, 3]`` -> try parsing columns 1, 2, 3 each as
@@ -245,6 +260,7 @@ def read_csv(path: str, **kwargs) -> Any:
           date column. Values are joined with a space before parsing.
         * ``dict``, e.g. ``{{'foo' : [1, 3]}}`` -> parse columns 1, 3 as date and call result 'foo'.
           Values are joined with a space before parsing.
+
         If a column or index cannot be represented as an array of ``datetime``, say because of an
         unparsable value or a mixture of timezones, the column or index will be returned unaltered as
         an ``object`` data type. For non-standard ``datetime`` parsing, use :func:`~pandas.to_datetime`
@@ -296,8 +312,9 @@ def read_csv(path: str, **kwargs) -> Any:
         Character used to denote the start and end of a quoted item. Quoted items can include the
         ``delimiter`` and it will be ignored.
 
-    quoting : {{0 or csv.QUOTE_MINIMAL, 1 or csv.QUOTE_ALL, 2 or csv.QUOTE_NONNUMERIC,
-    3 or csv.QUOTE_NONE}}, default csv.QUOTE_MINIMAL
+    quoting : int, default csv.QUOTE_MINIMAL
+        One of ``0`` (``csv.QUOTE_MINIMAL``), ``1`` (``csv.QUOTE_ALL``),
+        ``2`` (``csv.QUOTE_NONNUMERIC``), or ``3`` (``csv.QUOTE_NONE``).
         Control field quoting behavior per ``csv.QUOTE_*`` constants. Default is ``csv.QUOTE_MINIMAL``
         (i.e., 0) which implies that only fields containing special characters are quoted (e.g.,
         characters defined in ``quotechar``, ``delimiter``, or ``lineterminator``.
@@ -359,6 +376,7 @@ def read_csv(path: str, **kwargs) -> Any:
 
     dtype_backend : {{'numpy_nullable', 'pyarrow'}}, default 'numpy_nullable'
         Back-end data type applied to the resultant :class:`DataFrame`. Behaviour is as follows:
+
         * ``"numpy_nullable"``: returns nullable-dtype-backed :class:`DataFrame` (default).
         * ``"pyarrow"``: returns pyarrow-backed nullable :class:`ArrowDtype` DataFrame.
 
