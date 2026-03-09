@@ -1,0 +1,73 @@
+{
+  "task_id": "demo_anonymization",
+  "task_type": "anonymization",
+  "description": "Demo anonymization pipeline — suppresses and masks PII fields",
+
+  "input_datasets": {
+    "main": "data/sample.csv"
+  },
+  "auxiliary_datasets": {},
+
+  "data_types": {},
+
+  "additional_options": {
+    "encoding": "utf-8",
+    "sep": ",",
+    "delimiter": ",",
+    "quotechar": "\"",
+    "orient": "columns"
+  },
+
+  "operations": [
+    {
+      "task_operation_id": "op_001",
+      "task_operation_order_index": 1,
+      "operation": "profiling",
+      "class_name": "DataAttributeProfilerOperation",
+      "dataset_name": "main",
+      "parameters": {},
+      "scope": {}
+    },
+    {
+      "task_operation_id": "op_002",
+      "task_operation_order_index": 2,
+      "operation": "anonymization",
+      "class_name": "AttributeSuppressionOperation",
+      "dataset_name": "main",
+      "parameters": {
+        "suppression_mode": "REMOVE",
+        "save_suppressed_schema": true
+      },
+      "scope": {
+        "target": ["email", "phone"]
+      }
+    },
+    {
+      "task_operation_id": "op_003",
+      "task_operation_order_index": 3,
+      "operation": "anonymization",
+      "class_name": "FullMaskingOperation",
+      "dataset_name": "main",
+      "parameters": {
+        "mode": "REPLACE"
+      },
+      "scope": {
+        "target": ["name"]
+      }
+    },
+    {
+      "task_operation_id": "op_004",
+      "task_operation_order_index": 4,
+      "operation": "anonymization",
+      "class_name": "NumericGeneralizationOperation",
+      "dataset_name": "main",
+      "parameters": {
+        "interval": 10,
+        "mode": "REPLACE"
+      },
+      "scope": {
+        "target": ["age", "salary"]
+      }
+    }
+  ]
+}

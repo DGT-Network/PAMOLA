@@ -50,6 +50,7 @@ from pamola_core.errors.exceptions import (
     FeatureNotImplementedError,
 )
 from pamola_core.common.enum.encryption_mode import EncryptionMode
+from pamola_core.profiling.commons.data_types import OperationStatus
 from pamola_core.utils.tasks.context_manager import create_task_context_manager
 from pamola_core.utils.tasks.dependency_manager import TaskDependencyManager
 
@@ -75,6 +76,7 @@ DEFAULT_KEYS_DB_PATH = "pamola_datasets/configs/keys.db"
 def _get_default_keys_db_path() -> str:
     load_dotenv_once()
     return os.environ.get("KEY_STORE_PATH", DEFAULT_KEYS_DB_PATH)
+
 
 # Reserved parameter names that are handled directly by the framework
 # These should not be included in operation configuration
@@ -137,6 +139,7 @@ class BaseTask:
         version: str = "1.0.0",
         use_encryption: Optional[bool] = False,
         encryption_keys: Optional[Dict[str, str]] = None,
+        task_dir: Optional[str] = None,
     ):
         """
         Initialize the task with basic information and defaults.
@@ -193,6 +196,7 @@ class BaseTask:
         # Task directory reference (for backward compatibility)
         self.task_dir = None
         self.directories = None
+        self._override_task_dir = Path(task_dir) if task_dir else None
 
         # Encryption settings (for backward compatibility)
         self.encryption_mode = EncryptionMode.NONE
@@ -245,6 +249,9 @@ class BaseTask:
             "report_path": "",
             # Default for checkpointing
             "enable_checkpoints": False,
+            "data_repository": (
+                str(self._override_task_dir) if self._override_task_dir else None
+            ),
         }
 
     def initialize(
@@ -305,7 +312,11 @@ class BaseTask:
 
             # 3. Initialize directory manager and create directories
             self.directory_manager = create_directory_manager(
-                task_config=self.config, logger=self.logger
+                task_config=self.config,
+                logger=self.logger,
+                task_dir=(
+                    str(self._override_task_dir) if self._override_task_dir else None
+                ),
             )
 
             # Ensure directories are created
