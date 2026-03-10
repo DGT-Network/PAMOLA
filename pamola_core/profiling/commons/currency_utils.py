@@ -86,12 +86,12 @@ def is_currency_field(field_name: str) -> bool:
     """
     Check if a field name matches common currency field patterns.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Name of the field to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the field name matches currency patterns, False otherwise
@@ -103,12 +103,12 @@ def extract_currency_symbol(value: str) -> Tuple[str, Optional[str]]:
     """
     Extract currency symbol from a string value.
 
-    Parameters:
+    Parameters
     -----------
     value : str
         String value to extract currency symbol from
 
-    Returns:
+    Returns
     --------
     Tuple[str, Optional[str]]
         Tuple of (cleaned value, currency symbol or None)
@@ -157,14 +157,14 @@ def normalize_currency_value(
     """
     Normalize a currency value to a float and extract its currency code.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         Value to normalize
     locale : str
         Locale to use for parsing (default: 'en_US')
 
-    Returns:
+    Returns
     --------
     Tuple[Optional[float], Optional[str], bool]
         Tuple of (normalized value as float, currency code, is_valid flag)
@@ -222,7 +222,7 @@ def parse_currency_field(
     """
     Parse a currency field and extract normalized values and currency codes.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the currency field
@@ -231,7 +231,7 @@ def parse_currency_field(
     locale : str
         Locale to use for parsing (default: 'en_US')
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, Dict[str, int]]
         Tuple of (normalized values as Series, currency_counts dict)
@@ -276,14 +276,14 @@ def analyze_currency_stats(
     """
     Analyze currency values and compute statistics.
 
-    Parameters:
+    Parameters
     -----------
     values : Union[pd.Series, np.ndarray]
         Normalized currency values
     currency_counts : Dict[str, int], optional
         Counts of detected currencies
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary of currency statistics
@@ -364,7 +364,7 @@ def detect_currency_from_sample(
     """
     Detect the most likely currency from a sample of data.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the currency field
@@ -373,7 +373,7 @@ def detect_currency_from_sample(
     sample_size : int
         Number of samples to check (default: 100)
 
-    Returns:
+    Returns
     --------
     str
         Detected currency code, or 'UNKNOWN' if none detected
@@ -407,14 +407,14 @@ def generate_currency_samples(
     """
     Generate sample currency values based on statistics for dictionary output.
 
-    Parameters:
+    Parameters
     -----------
     stats : Dict[str, Any]
         Dictionary of currency statistics
     count : int
         Number of samples to generate (default: 10)
 
-    Returns:
+    Returns
     --------
     Dict[str, List[float]]
         Dictionary of currency samples
@@ -463,7 +463,7 @@ def create_empty_currency_stats() -> Dict[str, Any]:
     """
     Create an empty dictionary of currency statistics.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Empty dictionary of currency statistics

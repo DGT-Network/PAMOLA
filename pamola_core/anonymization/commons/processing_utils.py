@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: processing_utils.py
 Description: Utility functions for efficient and scalable DataFrame processing.
 

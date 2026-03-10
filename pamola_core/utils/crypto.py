@@ -1,6 +1,5 @@
 """
 Data Encryption and Decryption Utilities
-----------------------------------------------
 This module provides functionality for encrypting and decrypting data
 using strong cryptographic algorithms.
 
@@ -56,7 +55,7 @@ def derive_key(
     """
     Derive a cryptographic key from a password.
 
-    Parameters:
+    Parameters
     -----------
     password : str
         Password to derive key from
@@ -67,12 +66,12 @@ def derive_key(
     key_length : int
         Length of the key in bytes (default: 32, which is 256 bits)
 
-    Returns:
+    Returns
     --------
     Tuple[bytes, bytes]
         (key, salt) tuple
 
-    Raises:
+    Raises
     -------
     CryptoKeyError
         If there's an error deriving the key
@@ -108,7 +107,7 @@ def encrypt_data(
     """
     Encrypt data using the specified algorithm.
 
-    Parameters:
+    Parameters
     -----------
     data : str or bytes
         Data to encrypt
@@ -117,12 +116,12 @@ def encrypt_data(
     algorithm : str
         Encryption algorithm (default: "AES-GCM")
 
-    Returns:
+    Returns
     --------
     Dict[str, str]
         Dictionary with encrypted data and metadata
 
-    Raises:
+    Raises
     -------
     EncryptionError
         If there's an error during encryption
@@ -182,19 +181,19 @@ def decrypt_data(encrypted_data: Dict[str, str], key: Union[str, bytes]) -> byte
     """
     Decrypt data using the metadata in the encrypted data dictionary.
 
-    Parameters:
+    Parameters
     -----------
     encrypted_data : Dict[str, str]
         Dictionary with encrypted data and metadata
     key : str or bytes
         Decryption key or password
 
-    Returns:
+    Returns
     --------
     bytes
         Decrypted data
 
-    Raises:
+    Raises
     -------
     DecryptionError
         If there's an error during decryption
@@ -252,7 +251,7 @@ def encrypt_file(
     """
     Encrypt a file using the specified algorithm.
 
-    Parameters:
+    Parameters
     -----------
     input_path : str or Path
         Path to the file to encrypt
@@ -265,12 +264,12 @@ def encrypt_file(
     chunk_size : int
         Size of chunks for large files (default: 1MB)
 
-    Returns:
+    Returns
     --------
     Path
         Path to the encrypted file
 
-    Raises:
+    Raises
     -------
     EncryptionError
         If there's an error during encryption
@@ -321,7 +320,7 @@ def decrypt_file(
     """
     Decrypt a file.
 
-    Parameters:
+    Parameters
     -----------
     input_path : str or Path
         Path to the encrypted file
@@ -330,7 +329,7 @@ def decrypt_file(
     key : str or bytes
         Decryption key or password
 
-    Raises:
+    Raises
     -------
     DecryptionError
         If there's an error during decryption
@@ -367,12 +366,12 @@ def generate_key() -> bytes:
     """
     Generate a random encryption key.
 
-    Returns:
+    Returns
     --------
     bytes
         Random key
 
-    Raises:
+    Raises
     -------
     CryptoKeyError
         If there's an error generating the key
@@ -390,7 +389,7 @@ def save_key(
     """
     Save an encryption key to a file, optionally encrypted with a password.
 
-    Parameters:
+    Parameters
     -----------
     key : bytes
         Encryption key to save
@@ -399,7 +398,7 @@ def save_key(
     password : str, optional
         Password to encrypt the key
 
-    Raises:
+    Raises
     -------
     CryptoKeyError
         If there's an error saving the key
@@ -428,19 +427,19 @@ def load_key(file_path: Union[str, Path], password: Optional[str] = None) -> byt
     """
     Load an encryption key from a file, optionally decrypting with a password.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the key file
     password : str, optional
         Password to decrypt the key
 
-    Returns:
+    Returns
     --------
     bytes
         Encryption key
 
-    Raises:
+    Raises
     -------
     CryptoKeyError
         If there's an error loading the key

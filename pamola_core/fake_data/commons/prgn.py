@@ -26,26 +26,27 @@ class PRNGenerator:
     input seeds, ensuring that the same input always produces the same output
     while maintaining random-like properties.
 
-    Examples:
+    Examples
     ---------
-    ```
-    # Create a generator with a global seed
-    generator = PRNGenerator(global_seed="project-seed-2023")
 
-    # Generate a deterministic selection from a list
-    selected_name = generator.select_from_list(
-        names_list,
-        base_value="John",
-        salt="names-v1"
-    )
-    ```
+    .. code-block:: python
+
+        # Create a generator with a global seed
+        generator = PRNGenerator(global_seed="project-seed-2023")
+
+        # Generate a deterministic selection from a list
+        selected_name = generator.select_from_list(
+            names_list,
+            base_value="John",
+            salt="names-v1"
+        )
     """
 
     def __init__(self, global_seed: Optional[Union[str, bytes, int]] = None):
         """
         Initialize the PRN Generator.
 
-        Parameters:
+        Parameters
         -----------
         global_seed : Optional[Union[str, bytes, int]]
             Global seed to use for deterministic generation
@@ -57,12 +58,12 @@ class PRNGenerator:
         """
         Normalizes various seed types to an integer value.
 
-        Parameters:
+        Parameters
         -----------
         seed : Optional[Union[str, bytes, int]]
             Seed in various formats
 
-        Returns:
+        Returns
         --------
         int
             Normalized seed as integer
@@ -94,7 +95,7 @@ class PRNGenerator:
         """
         Generates a deterministic integer value based on input value and salt.
 
-        Parameters:
+        Parameters
         -----------
         base_value : Any
             Base value to generate from
@@ -103,17 +104,18 @@ class PRNGenerator:
         algorithm : str
             Algorithm to use ('hmac', 'simple', or 'fast')
 
-        Returns:
+        Returns
         --------
         int
             Deterministic integer value
 
-        Example:
+        Example
         --------
-        ```python
-        # Generate a deterministic hash for "John"
-        seed_value = generator.generate_with_seed("John", salt="names")
-        ```
+
+        .. code-block:: python
+
+            # Generate a deterministic hash for "John"
+            seed_value = generator.generate_with_seed("John", salt="names")
         """
         # Convert base_value to string if needed
         if not isinstance(base_value, (str, bytes)):
@@ -168,25 +170,26 @@ class PRNGenerator:
         """
         Gets a random number generator seeded by a deterministic value.
 
-        Parameters:
+        Parameters
         -----------
         base_value : Any
             Base value to derive seed from
         salt : Optional[Union[str, bytes]]
             Optional salt for additional entropy
 
-        Returns:
+        Returns
         --------
         random.Random
             Deterministic random generator
 
-        Example:
+        Example
         --------
-        ```python
-        # Get a random number generator seeded by a name
-        rng = generator.get_random_by_value("John", salt="names")
-        random_number = rng.randint(1, 100)
-        ```
+
+        .. code-block:: python
+
+            # Get a random number generator seeded by a name
+            rng = generator.get_random_by_value("John", salt="names")
+            random_number = rng.randint(1, 100)
         """
         seed = self.generate_with_seed(base_value, salt)
         return random.Random(seed)
@@ -198,7 +201,7 @@ class PRNGenerator:
         """
         Selects an item from a list deterministically based on input value.
 
-        Parameters:
+        Parameters
         -----------
         items : List[Any]
             List of items to select from
@@ -207,21 +210,22 @@ class PRNGenerator:
         salt : Optional[Union[str, bytes]]
             Optional salt for additional entropy
 
-        Returns:
+        Returns
         --------
         Any
             Selected item
 
-        Example:
+        Example
         --------
-        ```python
-        # Select a replacement name deterministically
-        new_name = generator.select_from_list(
-            ["Alice", "Bob", "Charlie"],
-            "John",
-            salt="first-names"
-        )
-        ```
+
+        .. code-block:: python
+
+            # Select a replacement name deterministically
+            new_name = generator.select_from_list(
+                ["Alice", "Bob", "Charlie"],
+                "John",
+                salt="first-names"
+            )
         """
         if not items:
             logger.warning("Cannot select from empty list")
@@ -242,7 +246,7 @@ class PRNGenerator:
         """
         Selects from a mapping if available, or generates a new value.
 
-        Parameters:
+        Parameters
         -----------
         mapping : Dict[Any, Any]
             Existing mappings
@@ -253,21 +257,22 @@ class PRNGenerator:
         salt : Optional[Union[str, bytes]]
             Optional salt for additional entropy
 
-        Returns:
+        Returns
         --------
         Any
             Selected or generated value
 
-        Example:
+        Example
         --------
-        ```python
-        # Use existing mapping or generate new value
-        replacement = generator.select_with_mapping(
-            known_mappings,
-            original_name,
-            lambda x: generator.select_from_list(names_list, x)
-        )
-        ```
+
+        .. code-block:: python
+
+            # Use existing mapping or generate new value
+            replacement = generator.select_with_mapping(
+                known_mappings,
+                original_name,
+                lambda x: generator.select_from_list(names_list, x)
+            )
         """
         # Check if value already exists in mapping
         if base_value in mapping:
@@ -287,7 +292,7 @@ class PRNGenerator:
         """
         Shuffles a list deterministically based on input value.
 
-        Parameters:
+        Parameters
         -----------
         items : List[Any]
             List to shuffle
@@ -296,21 +301,22 @@ class PRNGenerator:
         salt : Optional[Union[str, bytes]]
             Optional salt for additional entropy
 
-        Returns:
+        Returns
         --------
         List[Any]
             Shuffled list
 
-        Example:
+        Example
         --------
-        ```python
-        # Shuffle a list of names deterministically
-        shuffled_names = generator.shuffle_list(
-            ["Alice", "Bob", "Charlie"],
-            "seed_value",
-            salt="shuffle-v1"
-        )
-        ```
+
+        .. code-block:: python
+
+            # Shuffle a list of names deterministically
+            shuffled_names = generator.shuffle_list(
+                ["Alice", "Bob", "Charlie"],
+                "seed_value",
+                salt="shuffle-v1"
+            )
         """
         if not items:
             return []
@@ -335,7 +341,7 @@ class PRNGenerator:
         """
         Deterministically selects a name based on gender and region.
 
-        Parameters:
+        Parameters
         -----------
         names_dict : Dict[str, Dict[str, List[str]]]
             Dictionary of name lists organized by region and gender
@@ -348,23 +354,24 @@ class PRNGenerator:
         salt : Optional[str]
             Optional salt for additional entropy
 
-        Returns:
+        Returns
         --------
         str
             Selected replacement name
 
-        Example:
+        Example
         --------
-        ```python
-        # Select a name based on gender and region
-        new_name = generator.select_name_by_gender_region(
-            names_dictionary,
-            "Ivan",
-            gender="M",
-            region="ru",
-            salt="names-v2"
-        )
-        ```
+
+        .. code-block:: python
+
+            # Select a name based on gender and region
+            new_name = generator.select_name_by_gender_region(
+                names_dictionary,
+                "Ivan",
+                gender="M",
+                region="ru",
+                salt="names-v2"
+            )
         """
         # Get the appropriate list of names for the region and gender
         candidates = names_dict.get(region, {}).get(gender, [])
@@ -386,7 +393,7 @@ def generate_deterministic_replacement(
     """
     Generates a deterministic replacement from a list based on original value.
 
-    Parameters:
+    Parameters
     -----------
     original_value : Any
         Original value to replace
@@ -397,22 +404,23 @@ def generate_deterministic_replacement(
     salt : Optional[Union[str, bytes]]
         Optional salt for additional entropy
 
-    Returns:
+    Returns
     --------
     Any
         Deterministic replacement value
 
-    Example:
+    Example
     --------
-    ```python
-    # Replace a name deterministically
-    new_name = generate_deterministic_replacement(
-        "John",
-        ["Alice", "Bob", "Charlie"],
-        global_seed="global-project-seed",
-        salt="names-salt"
-    )
-    ```
+
+    .. code-block:: python
+
+        # Replace a name deterministically
+        new_name = generate_deterministic_replacement(
+            "John",
+            ["Alice", "Bob", "Charlie"],
+            global_seed="global-project-seed",
+            salt="names-salt"
+        )
     """
     if not replacement_list:
         return None
@@ -424,27 +432,28 @@ def generate_seed_from_key(key: Union[str, bytes], context: str = "") -> int:
     """
     Generates a seed value from a key and context.
 
-    Parameters:
+    Parameters
     -----------
     key : Union[str, bytes]
         Key for seed generation
     context : str
         Optional context for different seeds from same key
 
-    Returns:
+    Returns
     --------
     int
         Seed value
 
-    Example:
+    Example
     --------
-    ```python
-    # Generate a seed from a project key and context
-    seed = PRNGenerator.generate_seed_from_key(
-        "project-api-key",
-        context="names-generation"
-    )
-    ```
+
+    .. code-block:: python
+
+        # Generate a seed from a project key and context
+        seed = PRNGenerator.generate_seed_from_key(
+            "project-api-key",
+            context="names-generation"
+        )
     """
     if isinstance(key, str):
         key = key.encode('utf-8')

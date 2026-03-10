@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Correlation & Relationships Module
-------------------------------------------------
 Module:        Correlation Analyzer
 Package:       pamola_core.analysis
 Version:       1.0.0
@@ -193,7 +192,8 @@ class CorrelationAnalyzer:
         """
         Calculate correlation and return normalized DataFrame result with result type.
 
-        Returns:
+        Returns
+        -------
             Tuple of (DataFrame result, result_type)
             result_type can be: "all_variables", "single_variable", "pairwise", "selected_variables"
         """
@@ -271,7 +271,8 @@ class CorrelationAnalyzer:
         """
         Generate charts based on DataFrame results - now with automatic skip logic for insufficient columns.
 
-        Args:
+        Parameters
+        ----------
             result_df: Always a pandas DataFrame
             result_type: Type of result for title customization
             method: Correlation method used
@@ -279,7 +280,8 @@ class CorrelationAnalyzer:
             analysis_dir: Directory to save analysis outputs
             viz_format: Output format for charts (png, jpg, svg, html), default is "html"
 
-        Returns:
+        Returns
+        -------
             Single file path, list of file paths, or None if charts were skipped
         """
         file_paths = []
@@ -401,7 +403,8 @@ class CorrelationAnalyzer:
 
         All results are returned as DataFrames for consistency.
 
-        Args:
+        Parameters
+        ----------
             df: Input pandas DataFrame
             columns: Optional list of column names to analyze
             method: Correlation method ("pearson", "spearman", "kendall")
@@ -409,7 +412,8 @@ class CorrelationAnalyzer:
             output_chart: Chart type(s) to generate - "matrix", "heatmap", or list of both
             analysis_dir: Directory to save analysis outputs
             viz_format: Output format for charts (png, jpg, svg, html), default is "html"
-        Returns:
+        Returns
+        -------
             Dictionary with keys:
             - "result": Always a pandas DataFrame (normalized from all result types)
             - "result_type": String indicating the type of analysis performed

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Base Metrics Operation
 Package:       pamola_core.metrics
 Version:       4.0.0
@@ -94,7 +93,7 @@ class MetricsOperation(BaseOperation):
         """
         Initialize a metrics operation.
 
-        Parameters:
+        Parameters
         -----------
         name : str, optional
             Name of the operation (default: "base_metrics").
@@ -139,7 +138,7 @@ class MetricsOperation(BaseOperation):
         """
         Execute the metrics operation with enhanced features including Dask support.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -152,7 +151,7 @@ class MetricsOperation(BaseOperation):
         **kwargs : dict
             Additional parameters including profiling_results
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -542,7 +541,7 @@ class MetricsOperation(BaseOperation):
         """
         Validate the inputs and raise error if not compatible.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original DataFrame to validate.
@@ -578,7 +577,7 @@ class MetricsOperation(BaseOperation):
         """
         Retrieves a DataFrame from a given data source using a dataset name or path.
 
-        Parameters:
+        Parameters
         -----------
         source : Any
             The data source. Can be:
@@ -587,7 +586,7 @@ class MetricsOperation(BaseOperation):
             - A file path (string or Path)
         dataset_name_or_path : str or None
             The name or path of the dataset to retrieve.
-        Returns:
+        Returns
         --------
         pd.DataFrame or None
             The loaded DataFrame, or None if the dataset_name_or_path is None.
@@ -616,12 +615,12 @@ class MetricsOperation(BaseOperation):
         """
         Load data and optimize memory usage.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame to optimize
 
-        Returns:
+        Returns
         --------
         Optional[pd.DataFrame]
             Loaded and optimized DataFrame or None if error
@@ -789,7 +788,7 @@ class MetricsOperation(BaseOperation):
         """
         Calculate the metric values - core evaluation logic.. Must be implemented by subclasses.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             DataFrame original to process
@@ -800,7 +799,7 @@ class MetricsOperation(BaseOperation):
         **kwargs : Any
             Additional parameters for processing
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing the calculated metrics
@@ -875,7 +874,7 @@ class MetricsOperation(BaseOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             The collected metrics
@@ -1080,7 +1079,7 @@ class MetricsOperation(BaseOperation):
         This is a base implementation that provides a basic distribution comparison.
         Subclasses should override to provide operation-specific visualizations.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Collected metrics for visualization
@@ -1099,7 +1098,7 @@ class MetricsOperation(BaseOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1121,7 +1120,7 @@ class MetricsOperation(BaseOperation):
         For large datasets, explicitly free memory by deleting
         references and optionally calling garbage collection.
 
-        Parameters:
+        Parameters
         -----------
         sampled_orig : pd.DataFrame, optional
             Sampled original data to clear from memory
@@ -1206,7 +1205,7 @@ class MetricsOperation(BaseOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -1217,7 +1216,7 @@ class MetricsOperation(BaseOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1298,7 +1297,7 @@ class MetricsOperation(BaseOperation):
         """
         Normalize metric value to [0,1] range if required.
 
-        Parameters:
+        Parameters
         -----------
         value : float
             The metric value to normalize.
@@ -1307,7 +1306,7 @@ class MetricsOperation(BaseOperation):
         max_value : float, optional
             Maximum possible value (default: 1.0).
 
-        Returns:
+        Returns
         --------
         float
             Normalized metric value.
@@ -1322,7 +1321,7 @@ class MetricsOperation(BaseOperation):
         """
         Return metric metadata (range, interpretation, etc.).
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Metadata for each metric key.

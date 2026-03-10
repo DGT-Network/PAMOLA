@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: File Reader Implementations
 Description: Format-specific readers shared by io.py and helper utilities
 Author: PAMOLA Core Team
@@ -55,7 +54,7 @@ def read_full_csv(
     Reads an entire CSV file into a DataFrame.
     For large files, consider using read_csv_in_chunks instead.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -82,7 +81,7 @@ def read_full_csv(
     encryption_mode : str, optional
         Encryption mode to use (default: "simple")
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame containing the entire file
@@ -239,7 +238,7 @@ def read_text(
     """
     Reads a text file (like TSV) into a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the text file
@@ -260,7 +259,7 @@ def read_text(
     **kwargs
         Additional arguments passed to pandas.read_csv
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame containing the file data
@@ -375,7 +374,7 @@ def read_excel(
     """
     Reads an Excel file into a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the Excel file
@@ -399,7 +398,7 @@ def read_excel(
     **kwargs
         Additional arguments passed to pandas.read_excel
 
-    Returns:
+    Returns
     --------
     Union[pd.DataFrame, Dict[str, pd.DataFrame]]
         DataFrame containing the file data, or dictionary of DataFrames if sheet_name=None
@@ -524,7 +523,7 @@ def read_json(
     """
     Reads a JSON file into a dictionary.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the JSON file
@@ -539,7 +538,7 @@ def read_json(
     **kwargs
         Additional arguments passed to json.loads
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing the JSON data
@@ -590,7 +589,7 @@ def read_parquet(
     """
     Reads a Parquet file into a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the Parquet file
@@ -605,7 +604,7 @@ def read_parquet(
     **kwargs
         Additional arguments to pass to pandas.read_parquet
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame containing the file data

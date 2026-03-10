@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Date Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -96,7 +95,7 @@ class DateAnalyzer:
         """
         Analyze a date field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             The DataFrame to process.
@@ -111,7 +110,7 @@ class DateAnalyzer:
             - id_column: column to use for group analysis
             - uid_column: column to use for UID analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -140,14 +139,14 @@ class DateAnalyzer:
         """
         Estimate resources needed for analyzing the date field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -178,7 +177,7 @@ class DateOperation(FieldOperation):
         """
         Initialize a DateOperation instance.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             The name of the field to analyze
@@ -253,7 +252,7 @@ class DateOperation(FieldOperation):
         """
         Execute the date analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -266,7 +265,7 @@ class DateOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -623,7 +622,7 @@ class DateOperation(FieldOperation):
         """
         Generate visualizations for the date field analysis.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -646,7 +645,7 @@ class DateOperation(FieldOperation):
         **kwargs : Any
             Additional keyword arguments for visualization functions.
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -801,7 +800,7 @@ class DateOperation(FieldOperation):
         """
         Save anomalies to CSV file.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -884,12 +883,12 @@ class DateOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -927,7 +926,7 @@ class DateOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -936,7 +935,7 @@ class DateOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -976,7 +975,7 @@ class DateOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -1011,7 +1010,7 @@ class DateOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -1034,7 +1033,7 @@ class DateOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1218,7 +1217,7 @@ def analyze_date_fields(
     """
     Analyze multiple date fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1235,7 +1234,7 @@ def analyze_date_fields(
     **kwargs : dict
         Additional parameters for the operations
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results

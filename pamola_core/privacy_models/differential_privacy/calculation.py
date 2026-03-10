@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Differential Privacy Processor
---------------------------------------------
 This module provides a class for implementing differential privacy using
 Laplace and Gaussian mechanisms. Differential privacy ensures that the
 output of a dataset query is statistically indistinguishable, providing
@@ -43,7 +42,7 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
 
     def __init__(self, epsilon: float, sensitivity: float, mechanism: str = "laplace"):
         """
-        Parameters:
+        Parameters
         -----------
         epsilon : float
             Privacy level (smaller -> more private but less accurate).
@@ -77,7 +76,7 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         Evaluate anonymization risks and compliance of the dataset based on
         differential privacy principles and calculate means.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to be evaluated.
@@ -86,7 +85,7 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         kwargs : dict
             Additional parameters for model evaluation.
 
-        Returns:
+        Returns
         --------
         dict
             A dictionary containing anonymization metrics, evaluation results,
@@ -139,7 +138,7 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         """
         Apply the differential privacy model to transform the dataset.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The input dataset to be transformed.
@@ -150,7 +149,7 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         kwargs : dict
             Additional parameters for model application.
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The transformed dataset with differential privacy guarantees applied.

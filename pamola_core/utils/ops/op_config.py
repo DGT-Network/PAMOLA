@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Configuration
 Description: Configuration management for operations
 Author: PAMOLA Core Team
@@ -56,7 +55,7 @@ class OperationConfig(Generic[T]):
         """
         Initialize configuration with parameters.
 
-        Parameters:
+        Parameters
         -----------
         **kwargs : dict
             Configuration parameters
@@ -68,17 +67,17 @@ class OperationConfig(Generic[T]):
         """
         Validate parameters against the schema.
 
-        Parameters:
+        Parameters
         -----------
         params : Dict[str, Any]
             Parameters to validate
 
-        Raises:
+        Raises
         -------
         ConfigurationError
             If parameters don't conform to schema.
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-002: Provides schema validation for operation parameters.
         """
@@ -91,12 +90,12 @@ class OperationConfig(Generic[T]):
         """
         Save configuration to a JSON file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to save the configuration file
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-004: Supports saving configuration to JSON.
         """
@@ -109,22 +108,22 @@ class OperationConfig(Generic[T]):
         """
         Load configuration from a JSON file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to the configuration file
 
-        Returns:
+        Returns
         --------
         OperationConfig
             Loaded configuration
 
-        Raises:
+        Raises
         -------
         ConfigurationError
             If the loaded data doesn't conform to schema.
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-004: Supports loading configuration from JSON.
         """
@@ -137,14 +136,14 @@ class OperationConfig(Generic[T]):
         """
         Get a configuration parameter.
 
-        Parameters:
+        Parameters
         -----------
         key : str
             Parameter name
         default : Any, optional
             Default value if parameter is not found
 
-        Returns:
+        Returns
         --------
         Any
             Parameter value or default
@@ -163,7 +162,7 @@ class OperationConfig(Generic[T]):
         """
         Convert configuration to dictionary.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary representation of the configuration
@@ -174,12 +173,12 @@ class OperationConfig(Generic[T]):
         """
         Update configuration parameters.
 
-        Parameters:
+        Parameters
         -----------
         **kwargs : dict
             Parameters to update
 
-        Raises:
+        Raises
         -------
         ConfigurationError
             If the updated parameters don't conform to schema.
@@ -228,7 +227,7 @@ class OperationConfigRegistry:
         """
         Register a configuration class for an operation type.
 
-        Parameters:
+        Parameters
         -----------
         operation_type : str
             Operation type identifier
@@ -245,12 +244,12 @@ class OperationConfigRegistry:
         """
         Get the configuration class for an operation type.
 
-        Parameters:
+        Parameters
         -----------
         operation_type : str
             Operation type identifier
 
-        Returns:
+        Returns
         --------
         Type[OperationConfig] or None
             Configuration class, or None if not found
@@ -262,14 +261,14 @@ class OperationConfigRegistry:
         """
         Create a configuration instance for an operation type.
 
-        Parameters:
+        Parameters
         -----------
         operation_type : str
             Operation type identifier
         **kwargs : dict
             Configuration parameters
 
-        Returns:
+        Returns
         --------
         OperationConfig or None
             Configuration instance, or None if operation type not found

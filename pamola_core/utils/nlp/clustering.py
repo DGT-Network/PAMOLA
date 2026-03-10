@@ -26,7 +26,7 @@ class TextClusterer:
         """
         Initialize the text clusterer.
 
-        Parameters:
+        Parameters
         -----------
         threshold : float
             Similarity threshold for clustering (0-1)
@@ -43,12 +43,12 @@ class TextClusterer:
         """
         Cluster texts by similarity.
 
-        Parameters:
+        Parameters
         -----------
         texts : List[str]
             List of text strings to cluster
 
-        Returns:
+        Returns
         --------
         Dict[str, List[int]]
             Dictionary mapping cluster labels to lists of text indices
@@ -105,7 +105,7 @@ class TextClusterer:
         """
         Calculate similarity between two token sets.
 
-        Parameters:
+        Parameters
         -----------
         tokens1 : Set[str]
             First set of tokens
@@ -114,7 +114,7 @@ class TextClusterer:
         method : str
             Similarity method: "jaccard", "overlap", "cosine"
 
-        Returns:
+        Returns
         --------
         float
             Similarity score (0-1)
@@ -153,7 +153,7 @@ def cluster_by_similarity(texts: List[str], threshold: float = 0.7, language: st
     """
     Cluster texts by token overlap similarity.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings
@@ -162,7 +162,7 @@ def cluster_by_similarity(texts: List[str], threshold: float = 0.7, language: st
     language : str
         Language code or "auto" to detect
 
-    Returns:
+    Returns
     --------
     Dict[str, List[int]]
         Dictionary mapping cluster labels to lists of text indices
@@ -176,7 +176,7 @@ def batch_cluster_texts(texts_list: List[List[str]], threshold: float = 0.7,
     """
     Perform clustering on multiple batches of texts in parallel.
 
-    Parameters:
+    Parameters
     -----------
     texts_list : List[List[str]]
         List of text batches to cluster
@@ -187,7 +187,7 @@ def batch_cluster_texts(texts_list: List[List[str]], threshold: float = 0.7,
     processes : int, optional
         Number of processes for parallel execution
 
-    Returns:
+    Returns
     --------
     List[Dict[str, List[int]]]
         List of clustering results, one per batch

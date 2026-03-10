@@ -43,7 +43,7 @@ class WordCloudGenerator(BaseFigure):
         """
         Create a word cloud visualization using wordcloud and PIL.Image.
 
-        Parameters:
+        Parameters
         -----------
         text_data : str, List[str], or Dict[str, float]
             Text data to visualize. If string, the raw text. If list, each item is a document.
@@ -71,7 +71,7 @@ class WordCloudGenerator(BaseFigure):
         **kwargs:
             Additional arguments to pass to WordCloud
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing:
@@ -162,7 +162,7 @@ class WordCloudGenerator(BaseFigure):
         """
         Create an empty result when word cloud generation fails.
 
-        Parameters:
+        Parameters
         -----------
         title : str
             The title for the visualization
@@ -173,7 +173,7 @@ class WordCloudGenerator(BaseFigure):
         height : int
             Height of the image
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Result dictionary with a placeholder image
@@ -191,7 +191,7 @@ class WordCloudGenerator(BaseFigure):
         """
         Saves a word cloud as a PNG file through the IO system.
 
-        Parameters:
+        Parameters
         -----------
         result : Dict[str, Any]
             Result dictionary from create()
@@ -200,7 +200,7 @@ class WordCloudGenerator(BaseFigure):
         dpi : int
             Resolution for the saved image
 
-        Returns:
+        Returns
         --------
         Optional[str]
             Path to the saved file or None if an error occurred

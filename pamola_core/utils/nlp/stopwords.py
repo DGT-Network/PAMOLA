@@ -79,7 +79,7 @@ def get_config_paths() -> Dict[str, str]:
     """
     Get configuration paths from the project root config.
 
-    Returns:
+    Returns
     --------
     Dict[str, str]
         Dictionary with configuration paths
@@ -124,7 +124,7 @@ def get_stopwords_dirs() -> List[str]:
     """
     Get all directories to search for stopwords.
 
-    Returns:
+    Returns
     --------
     List[str]
         List of directories to search for stopwords
@@ -162,14 +162,14 @@ def load_stopwords_from_file(file_path: str, encoding: str = 'utf-8') -> Set[str
     - A JSON file with a list of words or dictionary with 'stopwords' key
     - A CSV file with a header row and one word per line in the first column
 
-    Parameters:
+    Parameters
     -----------
     file_path : str
         Path to the stop words file
     encoding : str
         File encoding to use
 
-    Returns:
+    Returns
     --------
     Set[str]
         Set of stop words
@@ -224,12 +224,12 @@ def find_stopwords_files(language: Optional[str] = None) -> List[Tuple[str, str]
     """
     Find available stopwords files in all resource directories.
 
-    Parameters:
+    Parameters
     -----------
     language : str, optional
         Language code to filter files. If None, returns all files.
 
-    Returns:
+    Returns
     --------
     List[Tuple[str, str]]
         List of tuples with (file_path, detected_language)
@@ -298,12 +298,12 @@ def get_nltk_stopwords(languages: List[str]) -> Set[str]:
     """
     Get stopwords from NLTK for the specified languages.
 
-    Parameters:
+    Parameters
     -----------
     languages : List[str]
         List of language codes
 
-    Returns:
+    Returns
     --------
     Set[str]
         Set of stopwords
@@ -352,7 +352,7 @@ def load_stopwords_from_sources(sources: List[Union[str, Set[str]]], encodings: 
     """
     Load stopwords from multiple sources.
 
-    Parameters:
+    Parameters
     -----------
     sources : List[Union[str, Set[str]]]
         List of sources. Each source can be:
@@ -362,7 +362,7 @@ def load_stopwords_from_sources(sources: List[Union[str, Set[str]]], encodings: 
     encodings : Union[str, List[str]]
         File encoding(s) to use. Can be a single encoding for all files or a list of encodings.
 
-    Returns:
+    Returns
     --------
     Set[str]
         Combined set of stopwords from all sources
@@ -410,7 +410,7 @@ def get_stopwords(
     """
     Get a comprehensive set of stopwords from multiple sources.
 
-    Parameters:
+    Parameters
     -----------
     languages : List[str], optional
         List of language codes. If None, defaults to ['en']
@@ -426,7 +426,7 @@ def get_stopwords(
     encodings : Union[str, List[str]]
         File encoding(s) to use for custom sources
 
-    Returns:
+    Returns
     --------
     Set[str]
         Combined set of stopwords
@@ -466,7 +466,7 @@ def remove_stopwords(tokens: List[str], stop_words: Optional[Set[str]] = None,
     """
     Remove stopwords from a list of tokens.
 
-    Parameters:
+    Parameters
     -----------
     tokens : List[str]
         List of tokens to filter
@@ -477,7 +477,7 @@ def remove_stopwords(tokens: List[str], stop_words: Optional[Set[str]] = None,
     custom_sources : List[Union[str, Set[str]]], optional
         Additional sources of stopwords. Used only if stop_words is None.
 
-    Returns:
+    Returns
     --------
     List[str]
         List of tokens with stopwords removed
@@ -497,7 +497,7 @@ def save_stopwords_to_file(stop_words: Set[str], file_path: str, format: str = '
     """
     Save a set of stopwords to a file.
 
-    Parameters:
+    Parameters
     -----------
     stop_words : Set[str]
         Set of stopwords to save
@@ -506,7 +506,7 @@ def save_stopwords_to_file(stop_words: Set[str], file_path: str, format: str = '
     format : str
         File format: 'txt', 'json', or 'csv'
 
-    Returns:
+    Returns
     --------
     bool
         True if the file was saved successfully, False otherwise
@@ -557,7 +557,7 @@ def combine_stopwords_files(
     """
     Combine multiple stopwords files into a single file.
 
-    Parameters:
+    Parameters
     -----------
     input_files : List[str]
         List of input file paths
@@ -568,7 +568,7 @@ def combine_stopwords_files(
     format : str
         Output file format: 'txt', 'json', or 'csv'
 
-    Returns:
+    Returns
     --------
     bool
         True if the combined file was saved successfully, False otherwise
@@ -581,7 +581,7 @@ def create_external_stopwords_list(language: str, words: List[str], overwrite: b
     """
     Create a new stopwords list in the external dictionaries directory.
 
-    Parameters:
+    Parameters
     -----------
     language : str
         Language code or name for the stopwords
@@ -590,7 +590,7 @@ def create_external_stopwords_list(language: str, words: List[str], overwrite: b
     overwrite : bool
         Whether to overwrite an existing file
 
-    Returns:
+    Returns
     --------
     bool
         True if the file was created successfully, False otherwise
@@ -635,7 +635,7 @@ def setup_nltk():
     """
     Ensure NLTK resources required for stopwords are available.
 
-    Returns:
+    Returns
     --------
     bool
         True if all resources are available, False otherwise
@@ -657,7 +657,7 @@ def list_available_stopwords() -> Dict[str, List[str]]:
     """
     List all available stopwords resources.
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Dictionary of available stopwords resources by source

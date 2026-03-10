@@ -47,7 +47,7 @@ class OneToOneMapper(BaseMapper):
         """
         Initialize the one-to-one mapper with enhanced options.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field this mapper is for
@@ -103,7 +103,7 @@ class OneToOneMapper(BaseMapper):
         """
         Sets up the transitivity handler.
 
-        Parameters:
+        Parameters
         -----------
         transitivity_handler : Optional[TransitivityHandler]
             Externally provided handler or None to create a new one if needed
@@ -119,7 +119,7 @@ class OneToOneMapper(BaseMapper):
         """
         Gets the default conflict resolution strategies.
 
-        Returns:
+        Returns
         --------
         Dict[str, Callable]
             Dictionary of strategy name to strategy function
@@ -151,14 +151,14 @@ class OneToOneMapper(BaseMapper):
         """
         Generates a value with a random suffix.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Original value
         **kwargs : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Any
             Value with random suffix
@@ -173,14 +173,14 @@ class OneToOneMapper(BaseMapper):
         """
         Generates a completely new value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Original value
         **kwargs : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Any
             New generated value
@@ -197,14 +197,14 @@ class OneToOneMapper(BaseMapper):
         """
         Re-picks a name considering gender and region constraints.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Original name
         **kwargs : dict
             Additional parameters including gender and region
 
-        Returns:
+        Returns
         --------
         Any
             New name from the same gender/region pool
@@ -229,14 +229,14 @@ class OneToOneMapper(BaseMapper):
         """
         Appends an initial to a name, typically from another name component.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Original name
         **kwargs : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Any
             Name with appended initial
@@ -261,11 +261,13 @@ class OneToOneMapper(BaseMapper):
         This method ensures that only valid parameters are passed to the generator,
         preventing unexpected argument errors by introspecting the generator's signature.
 
-        Args:
+        Parameters
+        ----------
             original_value (Any): The original value to be transformed
             **params: Arbitrary keyword arguments to be passed to the generator
 
-        Returns:
+        Returns
+        -------
             Any: The generated synthetic value
         """
 
@@ -273,12 +275,14 @@ class OneToOneMapper(BaseMapper):
             """
             Safely execute a generator by filtering its parameters.
 
-            Args:
+            Parameters
+            ----------
                 generator (Callable): The generator function to call
                 value (Any): The original value to transform
                 **kwargs: Arbitrary keyword arguments
 
-            Returns:
+            Returns
+            -------
                 Any: The generated value
             """
             import inspect
@@ -304,7 +308,7 @@ class OneToOneMapper(BaseMapper):
         """
         Maps an original value to a synthetic one with enhanced conflict handling.
 
-        Parameters:
+        Parameters
         -----------
         original_value : Any
             Original value to map
@@ -317,12 +321,12 @@ class OneToOneMapper(BaseMapper):
             - batch_operation: flag indicating this is part of a batch operation
             - gender, region, language: type-specific parameters
 
-        Returns:
+        Returns
         --------
         Any
             Synthetic value
 
-        Raises:
+        Raises
         -------
         MappingError
             If mapping cannot be performed or conflict cannot be resolved
@@ -383,7 +387,7 @@ class OneToOneMapper(BaseMapper):
         """
         Handles the case where synthetic value is identical to original value.
 
-        Parameters:
+        Parameters
         -----------
         original_value : Any
             Original value
@@ -392,7 +396,7 @@ class OneToOneMapper(BaseMapper):
         **params : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Any
             Modified synthetic value
@@ -421,7 +425,7 @@ class OneToOneMapper(BaseMapper):
         """
         Resolves conflicts using appropriate strategies.
 
-        Parameters:
+        Parameters
         -----------
         conflict_info : Dict[str, Any]
             Information about the conflict
@@ -432,7 +436,7 @@ class OneToOneMapper(BaseMapper):
         **params : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Any
             Resolved synthetic value
@@ -488,7 +492,7 @@ class OneToOneMapper(BaseMapper):
         """
         Handles transitive mapping case.
 
-        Parameters:
+        Parameters
         -----------
         original_value : Any
             Original value
@@ -499,7 +503,7 @@ class OneToOneMapper(BaseMapper):
         **params : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Optional[Any]
             Resolved synthetic value or None if not handled
@@ -546,14 +550,14 @@ class OneToOneMapper(BaseMapper):
         """
         Maps a batch of values efficiently.
 
-        Parameters:
+        Parameters
         -----------
         values : List[Any]
             List of original values to map
         **params : dict
             Additional mapping parameters
 
-        Returns:
+        Returns
         --------
         List[Any]
             List of synthetic values
@@ -577,12 +581,12 @@ class OneToOneMapper(BaseMapper):
         """
         Attempts to restore the original value from a synthetic one.
 
-        Parameters:
+        Parameters
         -----------
         synthetic_value : Any
             Synthetic value to restore from
 
-        Returns:
+        Returns
         --------
         Optional[Any]
             Original value if available, None otherwise
@@ -598,7 +602,7 @@ class OneToOneMapper(BaseMapper):
         """
         Adds a new mapping to the mapper.
 
-        Parameters:
+        Parameters
         -----------
         original : Any
             Original value
@@ -607,7 +611,7 @@ class OneToOneMapper(BaseMapper):
         is_transitive : bool
             Flag indicating whether the mapping is transitive
 
-        Raises:
+        Raises
         -------
         MappingError
             If mapping addition creates conflicts
@@ -631,14 +635,14 @@ class OneToOneMapper(BaseMapper):
         """
         Checks for possible conflicts when adding a new mapping, with enhanced detection.
 
-        Parameters:
+        Parameters
         -----------
         original : Any
             Original value
         synthetic : Any
             Synthetic value
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Information about conflicts:
@@ -686,7 +690,7 @@ class OneToOneMapper(BaseMapper):
         """
         Gets all mappings for this field.
 
-        Returns:
+        Returns
         --------
         Dict[Any, Any]
             Dictionary mapping original values to synthetic ones
@@ -697,7 +701,7 @@ class OneToOneMapper(BaseMapper):
         """
         Gets detailed statistics about the mappings.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Statistics about the mappings

@@ -1,6 +1,5 @@
 """
 AMOLA.CORE - Privacy-Preserving AI Data Processors
-------------------------------------------------------------
 Module:        Category Mapping Engine for Categorical Operations
 Package:       pamola_core.anonymization.commons
 Version:       2.0.0
@@ -45,8 +44,8 @@ Dependencies:
    - logging: For operation tracking
    - json: For serialization
 
-Usage Example:
-   ```python
+Usage Example::
+
    engine = CategoryMappingEngine(
        unknown_value="OTHER",
        unknown_template="OTHER_{n}",
@@ -65,7 +64,6 @@ Usage Example:
 
    # Apply to series
    result = engine.apply_to_series(data_series, context_df)
-   ```
 
 Changelog:
    2.0.0 - Fixed thread-safety issues, added template support, improved vectorization
@@ -97,7 +95,8 @@ class CategoryMappingEngine:
     Manages both simple value-to-category mappings and conditional mappings
     with efficient caching and batch processing support.
 
-    Attributes:
+    Attributes
+    ----------
         unknown_value: Default value for unmapped entries
         unknown_template: Template for numbered unknown values (e.g., "OTHER_{n}")
         cache_size: Size of the LRU cache
@@ -119,7 +118,7 @@ class CategoryMappingEngine:
         """
         Initialize the category mapping engine.
 
-        Parameters:
+        Parameters
         -----------
         unknown_value : str
             Value to use for unmapped entries
@@ -173,7 +172,7 @@ class CategoryMappingEngine:
 
         Thread-safe method to add a direct mapping rule.
 
-        Parameters:
+        Parameters
         -----------
         original : str
             Original value to map
@@ -205,7 +204,7 @@ class CategoryMappingEngine:
         Thread-safe method to add a mapping that applies only when
         certain conditions are met.
 
-        Parameters:
+        Parameters
         -----------
         original : str
             Original value to map
@@ -245,14 +244,14 @@ class CategoryMappingEngine:
         Efficiently applies all mapping rules to a Series, considering
         conditional rules if context is provided.
 
-        Parameters:
+        Parameters
         -----------
         series : pd.Series
             Series to transform
         context_df : Optional[pd.DataFrame]
             DataFrame with context for conditional rules
 
-        Returns:
+        Returns
         --------
         pd.Series
             Transformed series with mappings applied
@@ -280,14 +279,14 @@ class CategoryMappingEngine:
 
         Thread-safe method with caching for single value transformation.
 
-        Parameters:
+        Parameters
         -----------
         value : str
             Value to transform
         context : Optional[Dict[str, Any]]
             Context for conditional rules
 
-        Returns:
+        Returns
         --------
         str
             Mapped value or unknown_value if no mapping found
@@ -304,7 +303,7 @@ class CategoryMappingEngine:
 
         Thread-safe method to export simple mappings.
 
-        Returns:
+        Returns
         --------
         Dict[str, str]
             Dictionary of original -> replacement mappings
@@ -318,7 +317,7 @@ class CategoryMappingEngine:
 
         Thread-safe method to retrieve performance statistics.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Statistics including cache hit rate and unknown count
@@ -352,12 +351,12 @@ class CategoryMappingEngine:
 
         Thread-safe method to analyze how well mappings cover the data.
 
-        Parameters:
+        Parameters
         -----------
         values : pd.Series
             Values to check coverage for
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Coverage statistics
@@ -439,7 +438,7 @@ class CategoryMappingEngine:
 
         Thread-safe bulk import of mappings.
 
-        Parameters:
+        Parameters
         -----------
         mappings : Dict[str, str]
             Dictionary of mappings to import
@@ -471,7 +470,7 @@ class CategoryMappingEngine:
 
         Thread-safe export of all mapping data.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Complete mapping configuration
@@ -501,7 +500,7 @@ class CategoryMappingEngine:
 
         Thread-safe import of complete mapping configuration.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Mapping configuration to import
@@ -539,7 +538,7 @@ class CategoryMappingEngine:
 
         Used for cache invalidation and tracking.
 
-        Parameters:
+        Parameters
         -----------
         version : Optional[str]
             Version or hash of source hierarchy
@@ -716,7 +715,7 @@ class ConditionalMapping:
         """
         Initialize conditional mapping.
 
-        Parameters:
+        Parameters
         -----------
         original : str
             Original value to match
@@ -736,14 +735,14 @@ class ConditionalMapping:
         """
         Check if this mapping matches the value and context.
 
-        Parameters:
+        Parameters
         -----------
         value : str
             Value to check
         context : Dict[str, Any]
             Context to evaluate conditions against
 
-        Returns:
+        Returns
         --------
         bool
             True if mapping applies
@@ -819,7 +818,7 @@ def create_mapping_from_hierarchy(
 
     Utility function to quickly create an engine from hierarchy data.
 
-    Parameters:
+    Parameters
     -----------
     hierarchy_dict : Dict[str, str]
         Dictionary of value -> category mappings
@@ -830,7 +829,7 @@ def create_mapping_from_hierarchy(
     hierarchy_version : Optional[str]
         Version/hash of hierarchy dictionary
 
-    Returns:
+    Returns
     --------
     CategoryMappingEngine
         Configured mapping engine
@@ -861,7 +860,7 @@ def merge_mapping_engines(
 
     Utility function to combine mappings from multiple sources.
 
-    Parameters:
+    Parameters
     -----------
     engines : List[CategoryMappingEngine]
         List of engines to merge
@@ -870,7 +869,7 @@ def merge_mapping_engines(
     unknown_template : Optional[str]
         Template for unknown values
 
-    Returns:
+    Returns
     --------
     CategoryMappingEngine
         Merged mapping engine

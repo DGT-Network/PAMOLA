@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Regression Utility Metric
 Description: Implements the regressors metric
 Author: PAMOLA Core Team
@@ -37,7 +36,7 @@ class RegressionUtility:
         """
         Initialize.
 
-        Parameters:
+        Parameters
         -----------
         models: list.
             List of models (default: ["linear", "rf", "svr"])
@@ -82,7 +81,7 @@ class RegressionUtility:
         """
         Calculate metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_df: pd.DataFrame
             Original DataFrame.
@@ -95,7 +94,7 @@ class RegressionUtility:
         aggregation: str
             Aggregation method for grouped R² calculation
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary of metric results.
@@ -130,7 +129,7 @@ class RegressionUtility:
         """
         Calculate model based metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_df: pd.DataFrame
             Original DataFrame.
@@ -139,7 +138,7 @@ class RegressionUtility:
         value_field: str
             Target field for analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary of metric results.
@@ -390,7 +389,7 @@ class RegressionUtility:
         """
         Calculate model.
 
-        Parameters:
+        Parameters
         -----------
         model: ClassifierMixin
             Classifier Mixin.
@@ -445,7 +444,7 @@ class RegressionUtility:
         """
         Calculate R² for grouped data.
 
-        Parameters:
+        Parameters
         -----------
         original_df: pd.DataFrame
             Original DataFrame.
@@ -458,7 +457,7 @@ class RegressionUtility:
         aggregation: str
             Aggregation method for grouped R² calculation
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary of metric results.
@@ -550,7 +549,7 @@ class RegressionUtility:
         """
         Create aggregated value dictionary.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input dataframe
@@ -561,7 +560,7 @@ class RegressionUtility:
         aggregation : str
             Aggregation function: "sum", "mean", "min", "max", "count", "first", "last"
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with composite keys and aggregated values

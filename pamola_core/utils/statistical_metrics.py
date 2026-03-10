@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Statistical Metrics Utilities
 Package:       pamola_core.utils
 Version:       1.0.0
@@ -76,7 +75,7 @@ def calculate_gini_coefficient(
     The Gini coefficient ranges from 0 (perfect equality) to 1 (perfect inequality).
     It is commonly used to measure income inequality but applicable to any distribution.
 
-    Parameters:
+    Parameters
     -----------
     data : Union[np.ndarray, pd.Series, List[float]]
         The data values or frequencies to analyze.
@@ -90,17 +89,17 @@ def calculate_gini_coefficient(
         - "fast": Faster approximation suitable for large datasets
         - "sorted": Assumes data is pre-sorted (fastest)
 
-    Returns:
+    Returns
     --------
     float
         Gini coefficient between 0 and 1
 
-    Raises:
+    Raises
     -------
     ValueError
         If data is empty or contains negative values
 
-    Examples:
+    Examples
     ---------
     >>> # Perfect equality
     >>> data = [100, 100, 100, 100]
@@ -289,7 +288,7 @@ def calculate_concentration_metrics(
     Concentration ratios measure what percentage of the total is held by
     the top k entities. Commonly used in market analysis and distribution studies.
 
-    Parameters:
+    Parameters
     -----------
     data : Union[pd.Series, np.ndarray, Dict[str, int]]
         The data to analyze. Can be:
@@ -301,12 +300,12 @@ def calculate_concentration_metrics(
     as_percentage : bool, optional
         Whether to return as percentage (0-100) or ratio (0-1) (default: True)
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with keys like "cr_1", "cr_5", "cr_10" and concentration values
 
-    Examples:
+    Examples
     ---------
     >>> # Market share data
     >>> market_share = {"Company A": 3500, "Company B": 2500, "Company C": 2000,
@@ -368,21 +367,21 @@ def calculate_lorenz_curve(
     The Lorenz curve plots the cumulative percentage of the total value
     against the cumulative percentage of the population.
 
-    Parameters:
+    Parameters
     -----------
     data : Union[np.ndarray, pd.Series, List[float]]
         The data values to analyze
     n_points : int, optional
         Number of points to return for the curve (default: 100)
 
-    Returns:
+    Returns
     --------
     Tuple[np.ndarray, np.ndarray]
         (x_values, y_values) where:
         - x_values: Cumulative population percentage (0 to 1)
         - y_values: Cumulative value percentage (0 to 1)
 
-    Examples:
+    Examples
     ---------
     >>> # Calculate Lorenz curve
     >>> incomes = [20000, 30000, 40000, 50000, 100000]
@@ -435,19 +434,19 @@ def calculate_herfindahl_index(
     near 0 (perfect competition) to 10,000 (monopoly) in standard form,
     or 0 to 1 in normalized form.
 
-    Parameters:
+    Parameters
     -----------
     data : Union[pd.Series, np.ndarray, Dict[str, float]]
         Market share data. Can be counts or percentages.
     normalized : bool, optional
         Whether to return normalized HHI (0-1) or standard (0-10000) (default: False)
 
-    Returns:
+    Returns
     --------
     float
         HHI value
 
-    Examples:
+    Examples
     ---------
     >>> # Market with 4 equal competitors (25% each)
     >>> shares = [25, 25, 25, 25]
@@ -508,7 +507,7 @@ def calculate_shannon_entropy(
     Shannon entropy measures the randomness or uncertainty in a distribution.
     Higher values indicate more uniform distributions.
 
-    Parameters:
+    Parameters
     -----------
     data : Union[pd.Series, np.ndarray, Dict[str, int]]
         Categorical data or frequency counts
@@ -517,12 +516,12 @@ def calculate_shannon_entropy(
     normalize : bool, optional
         Whether to normalize by maximum entropy (default: True)
 
-    Returns:
+    Returns
     --------
     float
         Shannon entropy value
 
-    Examples:
+    Examples
     ---------
     >>> # Uniform distribution (maximum entropy)
     >>> data = ['A', 'B', 'C', 'D'] * 25  # 25 of each

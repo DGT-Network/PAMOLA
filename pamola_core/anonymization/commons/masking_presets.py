@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Masking Presets Library
 Package:       pamola_core.anonymization.commons.masking_presets
 Version:       1.0.0
@@ -65,7 +64,8 @@ class MaskingConfig:
     """
     Configuration for data masking operations.
 
-    Attributes:
+    Attributes
+    ----------
         pattern_type (str): Type/name of the pattern (e.g., 'email').
         mask_char (str): Character used for masking (default '*').
         preserve_format (bool): Whether to retain special characters/separators.
@@ -109,7 +109,8 @@ class BaseMaskingPresets(ABC):
         """
         Get all masking presets defined in the implementation.
 
-        Returns:
+        Returns
+        -------
             Dict[str, MaskingConfig]: Mapping of preset names to config objects.
         """
         pass
@@ -119,11 +120,13 @@ class BaseMaskingPresets(ABC):
         """
         Apply masking using a given preset.
 
-        Args:
+        Parameters
+        ----------
             data (str): The input string to mask.
             preset_name (str): The name of the preset to apply.
 
-        Returns:
+        Returns
+        -------
             str: Masked string.
         """
         pass
@@ -132,7 +135,8 @@ class BaseMaskingPresets(ABC):
         """
         List all available preset names.
 
-        Returns:
+        Returns
+        -------
             List[str]: List of preset names.
         """
         return list(self.get_presets().keys())
@@ -141,10 +145,12 @@ class BaseMaskingPresets(ABC):
         """
         Get a summary of the preset configuration for documentation or inspection.
 
-        Args:
+        Parameters
+        ----------
             preset_name (str): Name of the preset to describe.
 
-        Returns:
+        Returns
+        -------
             Dict[str, Any]: Metadata about the preset.
         """
         presets = self.get_presets()
@@ -172,7 +178,8 @@ class EmailMaskingPresets(BaseMaskingPresets):
         """
         Define and return email-specific masking presets.
 
-        Returns:
+        Returns
+        -------
             Dict[str, MaskingConfig]: Preset name mapped to its masking configuration.
         """
         return {
@@ -245,12 +252,14 @@ class EmailMaskingPresets(BaseMaskingPresets):
         """
         Apply masking to a given email using the specified preset.
 
-        Args:
+        Parameters
+        ----------
             email (str): Input email address to be masked.
             preset_name (str): Preset name from the configuration.
             random_mask (bool): Whether to use random characters from the pool for masking.
 
-        Returns:
+        Returns
+        -------
             str: Masked email string.
         """
         presets = self.get_presets()
@@ -376,12 +385,14 @@ class PhoneMaskingPresets(BaseMaskingPresets):
         """
         Apply phone masking using specified preset.
 
-        Args:
+        Parameters
+        ----------
             phone (str): Input phone number (may include separators).
             preset_name (str): Which preset to use.
             random_mask (bool): If True, replace masked characters with random digits.
 
-        Returns:
+        Returns
+        -------
             str: Masked phone. If invalid input, returns original.
         """
         presets = self.get_presets()
@@ -509,7 +520,8 @@ class CreditCardMaskingPresets(BaseMaskingPresets):
         """
         Define masking presets for credit card numbers.
 
-        Returns:
+        Returns
+        -------
             Dict[str, MaskingConfig]: Mapping of preset names to configurations.
         """
         return {
@@ -568,12 +580,14 @@ class CreditCardMaskingPresets(BaseMaskingPresets):
         """
         Apply masking to a credit card number using the specified preset.
 
-        Args:
+        Parameters
+        ----------
             card_number (str): Input credit card number (may contain separators).
             preset_name (str): Preset name as defined in get_presets().
             random_mask (bool): If True, use random digits/characters instead of fixed mask_char.
 
-        Returns:
+        Returns
+        -------
             str: Masked credit card number, preserving formatting if configured.
         """
         presets = self.get_presets()
@@ -641,7 +655,8 @@ class SSNMaskingPresets(BaseMaskingPresets):
         """
         Return available SSN masking presets.
 
-        Returns:
+        Returns
+        -------
             Dict[str, MaskingConfig]: Dictionary of masking presets.
         """
         return {
@@ -700,12 +715,14 @@ class SSNMaskingPresets(BaseMaskingPresets):
         """
         Apply SSN masking using specified preset.
 
-        Args:
+        Parameters
+        ----------
             ssn (str): SSN string (with or without separators).
             preset_name (str): Which preset to use.
             random_mask (bool): Whether to use random digits/characters instead of fixed mask_char.
 
-        Returns:
+        Returns
+        -------
             str: Masked SSN. If invalid input or preset, returns original string.
         """
         presets = self.get_presets()
@@ -1170,7 +1187,8 @@ class DateMaskingPresets(BaseMaskingPresets):
         """
         Define and return date-specific masking presets.
 
-        Returns:
+        Returns
+        -------
             Dict[str, MaskingConfig]: Preset name mapped to its masking configuration.
         """
         return {
@@ -1227,12 +1245,14 @@ class DateMaskingPresets(BaseMaskingPresets):
         """
         Apply masking to a given date string using the specified preset.
 
-        Args:
+        Parameters
+        ----------
             date_str (str): Input date string (e.g., "2024-07-23").
             preset_name (str): Preset name from the configuration.
             random_mask (bool): Whether to use random characters for masking.
 
-        Returns:
+        Returns
+        -------
             str: Masked date string.
         """
         presets = self.get_presets()
@@ -1274,10 +1294,12 @@ class MaskingPresetManager:
         """
         Get preset manager for a specific masking type.
 
-        Parameters:
+        Parameters
+        ----------
         - masking_type (MaskingType): The type of data to be masked.
 
-        Returns:
+        Returns
+        -------
         - BaseMaskingPresets: Corresponding preset manager instance.
         """
         if masking_type not in self.presets:
@@ -1288,7 +1310,8 @@ class MaskingPresetManager:
         """
         List all available presets for each masking type.
 
-        Returns:
+        Returns
+        -------
         - Dict[str, List[str]]: Dictionary of preset names grouped by type.
         """
         return {
@@ -1306,13 +1329,15 @@ class MaskingPresetManager:
         """
         Apply a masking preset to the input data.
 
-        Parameters:
+        Parameters
+        ----------
         - data (str): Input string to mask.
         - masking_type (MaskingType): Type of data (e.g., PHONE, EMAIL).
         - preset_name (str): Preset name to use.
         - random_mask (bool): Whether to randomize mask characters (default False).
 
-        Returns:
+        Returns
+        -------
         - str: Masked data.
         """
         if masking_type not in self.presets:
@@ -1329,11 +1354,13 @@ class MaskingPresetManager:
         """
         Retrieve metadata or description of a preset.
 
-        Parameters:
+        Parameters
+        ----------
         - masking_type (MaskingType): Data type category.
         - preset_name (str): Preset identifier.
 
-        Returns:
+        Returns
+        -------
         - Dict[str, Any]: Details of the masking preset.
         """
         manager = self.get_preset_manager(masking_type)
@@ -1343,11 +1370,13 @@ class MaskingPresetManager:
         """
         Validate input data format based on type.
 
-        Parameters:
+        Parameters
+        ----------
         - data (str): Input string to validate.
         - masking_type (MaskingType): Expected data type.
 
-        Returns:
+        Returns
+        -------
         - bool: True if valid, else False.
         """
         patterns = {
@@ -1373,10 +1402,12 @@ class MaskingUtils:
         """
         Attempt to detect the data type from the input string.
 
-        Parameters:
+        Parameters
+        ----------
         - data (str): The input string to analyze.
 
-        Returns:
+        Returns
+        -------
         - Optional[MaskingType]: Detected type or None if not matched.
         """
         patterns = {
@@ -1406,13 +1437,15 @@ class MaskingUtils:
         """
         Apply masking to a list of data items using a specified type and preset.
 
-        Parameters:
+        Parameters
+        ----------
         - data_list (List[str]): List of data strings.
         - masking_type (MaskingType): Type of data (e.g. PHONE, EMAIL).
         - preset_name (str): The preset name to apply.
         - random_mask (bool): Whether to use randomized masking characters.
 
-        Returns:
+        Returns
+        -------
         - List[str]: Masked data list.
         """
         manager = MaskingPresetManager()
@@ -1440,14 +1473,16 @@ class MaskingUtils:
         """
         Create a custom masking configuration.
 
-        Parameters:
+        Parameters
+        ----------
         - mask_char (str): Character to use for masking.
         - unmasked_prefix (int): Characters to keep at the start.
         - unmasked_suffix (int): Characters to keep at the end.
         - preserve_format (bool): Whether to retain original format.
         - description (str): Optional description.
 
-        Returns:
+        Returns
+        -------
         - MaskingConfig: Config object for masking.
         """
         return MaskingConfig(

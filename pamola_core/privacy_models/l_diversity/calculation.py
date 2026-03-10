@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - L-Diversity Processor
-----------------------------------------------------
 Advanced processor for l-diversity anonymization, ensuring compliance with privacy-preserving techniques.
 Designed for scalable, efficient anonymization with modular architecture.
 
@@ -98,7 +97,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         Configure logging with flexible verbosity
 
-        Parameters:
+        Parameters
         -----------
         log_level : str
             Logging level (e.g., 'INFO', 'DEBUG', 'WARNING')
@@ -113,7 +112,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         Validate configuration parameters
 
-        Raises:
+        Raises
         -------
         ValueError
             If configuration parameters are invalid
@@ -131,12 +130,12 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         Retrieve adaptive l-level for specific group
 
-        Parameters:
+        Parameters
         -----------
         group_key : Tuple
             Quasi-identifier group key
 
-        Returns:
+        Returns
         --------
         int
             Adaptive l-level (falls back to default if not specified)
@@ -153,7 +152,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         Calculate diversity metrics with centralized caching
 
-        Parameters:
+        Parameters
         -----------
         data : Union[pd.DataFrame, dd.DataFrame]
             Input dataset
@@ -164,7 +163,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         force_recalculate : bool, optional
             Force recalculation even if results exist in cache
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Group diversity metrics
@@ -248,7 +247,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         This method redirects to the privacy module while providing cached
         diversity calculations for efficiency.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -259,7 +258,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         **kwargs : dict
             Additional risk assessment parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Comprehensive privacy risk metrics
@@ -311,7 +310,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         Vectorized group diversity processing with NumPy
 
-        Parameters:
+        Parameters
         -----------
         adaptive_l : int
             Adaptive l-level for this specific group
@@ -367,7 +366,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         NumPy-optimized recursive diversity check
 
-        Parameters:
+        Parameters
         -----------
         value_counts : np.ndarray
             Counts of top values
@@ -376,7 +375,7 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         l_threshold : int
             Minimum threshold for diversity
 
-        Returns:
+        Returns
         --------
         bool
             Whether the group satisfies recursive diversity
@@ -400,14 +399,16 @@ def apply_model_impl(
     """
     Apply a simple k-anonymity-like model to the dataset.
 
-    Parameters:
+    Parameters
+    ----------
         data: The input DataFrame.
         quasi_identifiers: List of QI columns.
         suppression: If True, suppress rows that don't satisfy k-anonymity.
         k: The minimum group size required for anonymity.
         kwargs: Additional parameters (e.g., generalization maps, config).
 
-    Returns:
+    Returns
+    -------
         Transformed DataFrame satisfying the privacy model.
     """
     if not quasi_identifiers:

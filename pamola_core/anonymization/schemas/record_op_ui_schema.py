@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Record Suppression UI Schema
 Package:       pamola_core.anonymization.schemas
 Version:       1.1.0

@@ -59,7 +59,7 @@ def normalize_string(
     """
     Normalizes a string by removing extra spaces, punctuation, etc.
 
-    Parameters:
+    Parameters
     -----------
     value : Optional[str]
         String to normalize (can be None)
@@ -70,7 +70,7 @@ def normalize_string(
     remove_spaces : bool
         Whether to remove all spaces (default: False)
 
-    Returns:
+    Returns
     --------
     str
         Normalized string
@@ -103,7 +103,7 @@ def hash_value(value: Any, salt: str = "", algorithm: str = "sha256") -> str:
     """
     Creates a hash of a value using specified algorithm.
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         Value to hash
@@ -112,12 +112,12 @@ def hash_value(value: Any, salt: str = "", algorithm: str = "sha256") -> str:
     algorithm : str
         Hashing algorithm to use ('sha256', 'md5', 'sha1', 'sha512')
 
-    Returns:
+    Returns
     --------
     str
         Hexadecimal hash string
 
-    Raises:
+    Raises
     -------
     ValueError
         If algorithm is not supported
@@ -163,7 +163,7 @@ def generate_deterministic_value(
     """
     Generates a deterministic value based on a seed.
 
-    Parameters:
+    Parameters
     -----------
     seed_value : Any
         Seed for the random generator
@@ -174,7 +174,7 @@ def generate_deterministic_value(
     seed_algorithm : str
         Algorithm to use for hashing the seed value
 
-    Returns:
+    Returns
     --------
     str
         Generated deterministic value
@@ -208,14 +208,14 @@ def detect_language(text: Optional[str], default_language: str = "en") -> str:
     in pamola_core.utils.nlp.language. If that module is not available, it falls
     back to a basic implementation.
 
-    Parameters:
+    Parameters
     -----------
     text : Optional[str]
         Text to analyze (can be None)
     default_language : str
         Default language to return if detection fails
 
-    Returns:
+    Returns
     --------
     str
         Detected language code ('en', 'ru', etc.) or default language if detection fails
@@ -252,7 +252,7 @@ def detect_gender_by_dictionary(
     """
     Determines gender from a name using a dictionary lookup.
 
-    Parameters:
+    Parameters
     -----------
     name : Optional[str]
         Name to analyze (can be None)
@@ -261,7 +261,7 @@ def detect_gender_by_dictionary(
     default_gender : Optional[str]
         Default gender to return if detection fails
 
-    Returns:
+    Returns
     --------
     Optional[str]
         Detected gender ('M', 'F') or default_gender if detection fails
@@ -288,7 +288,7 @@ def load_dictionary(
     """
     Loads a dictionary of values from various sources.
 
-    Parameters:
+    Parameters
     -----------
     source : Union[str, Path, Dict]
         Source for dictionary data. Can be:
@@ -304,12 +304,12 @@ def load_dictionary(
     cache : bool
         Whether to cache the dictionary
 
-    Returns:
+    Returns
     --------
     List[str]
         List of values in the dictionary
 
-    Raises:
+    Raises
     -------
     ValueError
         If dictionary format is not supported or dictionary can't be found
@@ -417,7 +417,7 @@ def find_dictionary_file(
     """
     Finds a dictionary file in standard locations.
 
-    Parameters:
+    Parameters
     -----------
     dictionary_name : str
         Name of the dictionary to find
@@ -426,7 +426,7 @@ def find_dictionary_file(
     suffixes : List[str]
         List of file suffixes to try (if None, uses standard suffixes)
 
-    Returns:
+    Returns
     --------
     Optional[Path]
         Path to the dictionary file if found, None otherwise
@@ -473,12 +473,12 @@ def validate_email(email: str) -> bool:
     """
     Validates an email address format.
 
-    Parameters:
+    Parameters
     -----------
     email : str
         Email address to validate
 
-    Returns:
+    Returns
     --------
     bool
         True if the email address is valid, False otherwise
@@ -495,14 +495,14 @@ def validate_phone(phone: str, region: str = "INTL") -> bool:
     """
     Validates a phone number format.
 
-    Parameters:
+    Parameters
     -----------
     phone : str
         Phone number to validate
     region : str
         Region code for validation rules
 
-    Returns:
+    Returns
     --------
     bool
         True if the phone number is valid, False otherwise
@@ -535,7 +535,7 @@ def format_phone_number(
     """
     Formats a phone number according to regional standards.
 
-    Parameters:
+    Parameters
     -----------
     digits : str
         Phone number digits (can include non-digit characters)
@@ -544,7 +544,7 @@ def format_phone_number(
     formatting : bool
         Whether to apply formatting (if False, just returns digits)
 
-    Returns:
+    Returns
     --------
     str
         Formatted phone number
@@ -582,7 +582,7 @@ def create_progress_bar(
     """
     Creates a standardized progress bar for fake data operations.
 
-    Parameters:
+    Parameters
     -----------
     total : int
         Total number of items to process
@@ -591,7 +591,7 @@ def create_progress_bar(
     unit : str
         Unit of items being processed
 
-    Returns:
+    Returns
     --------
     progress.ProgressBar
         Progress bar instance
@@ -603,14 +603,14 @@ def save_metrics(metrics: Dict[str, Any], path: Union[str, Path]) -> Path:
     """
     Saves operation metrics to a JSON file.
 
-    Parameters:
+    Parameters
     -----------
     metrics : Dict[str, Any]
         Metrics data to save
     path : Union[str, Path]
         Path to save the metrics
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved metrics file

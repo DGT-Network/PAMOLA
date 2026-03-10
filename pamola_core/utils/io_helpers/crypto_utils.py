@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Crypto Utilities
 Description: Pamola Core cryptographic operations supporting file and in-memory data encryption/decryption
 Author: PAMOLA Core Team
@@ -71,7 +70,7 @@ def encrypt_file(
     """
     Encrypt a file and save it to a new location.
 
-    Parameters:
+    Parameters
     -----------
     source_path : str or Path
         Path to the file to encrypt
@@ -90,12 +89,12 @@ def encrypt_file(
     **kwargs : dict
         Additional mode-specific parameters
 
-    Returns:
+    Returns
     --------
     Path
         Path to the encrypted file
 
-    Raises:
+    Raises
     -------
     EncryptionError
         If encryption fails
@@ -158,7 +157,7 @@ def decrypt_file(
     """
     Decrypt a file and save it to a new location.
 
-    Parameters:
+    Parameters
     -----------
     source_path : str or Path
         Path to the encrypted file
@@ -174,12 +173,12 @@ def decrypt_file(
     **kwargs : dict
         Additional mode-specific parameters
 
-    Returns:
+    Returns
     --------
     Path
         Path to the decrypted file
 
-    Raises:
+    Raises
     -------
     DecryptionError
         If decryption fails
@@ -246,7 +245,7 @@ def encrypt_data(
     """
     Encrypt data in memory.
 
-    Parameters:
+    Parameters
     -----------
     data : str or bytes
         Data to encrypt
@@ -262,12 +261,12 @@ def encrypt_data(
     **kwargs : dict
         Additional mode-specific parameters
 
-    Returns:
+    Returns
     --------
     Union[str, bytes, Dict[str, Any]]
         Encrypted data
 
-    Raises:
+    Raises
     -------
     EncryptionError
         If encryption fails
@@ -327,7 +326,7 @@ def decrypt_data(
     """
     Decrypt data in memory.
 
-    Parameters:
+    Parameters
     -----------
     data : str, bytes, or Dict[str, Any]
         Data to decrypt
@@ -341,12 +340,12 @@ def decrypt_data(
     **kwargs : dict
         Additional mode-specific parameters
 
-    Returns:
+    Returns
     --------
     Union[str, bytes]
         Decrypted data
 
-    Raises:
+    Raises
     -------
     DecryptionError
         If decryption fails
@@ -402,12 +401,12 @@ def is_encrypted(data_or_path: Union[str, bytes, Dict[str, Any], Path]) -> bool:
     """
     Check if data or a file appears to be encrypted.
 
-    Parameters:
+    Parameters
     -----------
     data_or_path : str, bytes, Dict[str, Any], or Path
         Data or file path to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the data or file appears to be encrypted, False otherwise
@@ -437,12 +436,12 @@ def get_encryption_info(
     """
     Get information about encrypted data or file.
 
-    Parameters:
+    Parameters
     -----------
     data_or_path : str, bytes, Dict[str, Any], or Path
         Data or file path to check
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Information about the encryption, empty if not encrypted

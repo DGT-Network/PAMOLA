@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: Attack Simulation
------------------------
 This module provides an abstract base class for attack simulation feature
 in PAMOLA.CORE. It defines the general structure and required methods for
 implementing specific attack simulation
@@ -48,7 +46,7 @@ class LinkageAttack(PreprocessData):
         """
         The constructor of the LinkageAttack class
 
-        Parameters:
+        Parameters
         -----------
         fs_threshold: Threshold used for Fellegi-Sunter model (probabilistic_linkage_attack)
         n_components: Dimensionality reduction using PCA (cluster_vector_linkage_attack)
@@ -61,13 +59,13 @@ class LinkageAttack(PreprocessData):
         """
         The record linkage attack function uses directly compare common columns of 2 datasets to find pairs of match records
 
-        Parameters:
+        Parameters
         -----------
         data1: First dataset
         data2: Second dataset
         linkage_keys: List of properties to compare
 
-        Returns:
+        Returns
         -----------
         DataFrame contains pairs of records that matching between two datasets
         """
@@ -105,13 +103,13 @@ class LinkageAttack(PreprocessData):
         """
         The probabilistic linkage attack function uses the Fellegi-Sunter model to compare and link records from two datasets
 
-        Parameters:
+        Parameters
         -----------
         data1: First dataset
         data2: Second dataset
         keys: List of properties use to compare
 
-        Returns:
+        Returns
         -----------
         - DataFrame containing pairs of records matching the Fellegi-Sunter score between two datasets
         """

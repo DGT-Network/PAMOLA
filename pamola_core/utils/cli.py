@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Command Line Interface Utilities
 Description: Standard CLI argument handling for PAMOLA/PAMOLA.CORE tasks
 Author: PAMOLA Core Team
@@ -27,7 +26,8 @@ def add_common_task_arguments(parser: argparse.ArgumentParser) -> None:
     """
     Add standard arguments for PAMOLA tasks.
 
-    Args:
+    Parameters
+    ----------
         parser: ArgumentParser to add arguments to
     """
     # Project structure arguments
@@ -133,7 +133,8 @@ def add_profiling_task_arguments(parser: argparse.ArgumentParser) -> None:
     """
     Add arguments specific to profiling tasks.
 
-    Args:
+    Parameters
+    ----------
         parser: ArgumentParser to add arguments to
     """
     # Add common arguments first
@@ -166,7 +167,8 @@ def add_group_profiler_arguments(parser: argparse.ArgumentParser) -> None:
     """
     Add arguments specific to the Group Profiler task (t_1P1).
 
-    Args:
+    Parameters
+    ----------
         parser: ArgumentParser to add arguments to
     """
     # Add profiling arguments first
@@ -204,10 +206,12 @@ def parse_args_to_dict(args: argparse.Namespace) -> Dict[str, Any]:
     Filters out None values and transforms arguments to the format
     expected by the PAMOLA task configuration system.
 
-    Args:
+    Parameters
+    ----------
         args: Parsed command line arguments
 
-    Returns:
+    Returns
+    -------
         Dictionary of arguments for task configuration
     """
     # Convert Namespace to dictionary
@@ -228,7 +232,8 @@ def create_group_profiler_parser() -> argparse.ArgumentParser:
     """
     Create an argument parser for the Group Profiler task (t_1P1).
 
-    Returns:
+    Returns
+    -------
         ArgumentParser configured for the Group Profiler task
     """
     parser = argparse.ArgumentParser(
@@ -245,7 +250,8 @@ def parse_group_profiler_args() -> Dict[str, Any]:
     """
     Parse command line arguments for the Group Profiler task.
 
-    Returns:
+    Returns
+    -------
         Dictionary of arguments for task configuration
     """
     parser = create_group_profiler_parser()
@@ -260,13 +266,16 @@ def get_task_args_dict(task_id: str) -> Dict[str, Any]:
     This function automatically selects the appropriate parser based on task_id
     and returns a dictionary of parsed arguments.
 
-    Args:
+    Parameters
+    ----------
         task_id: Task identifier (e.g., "t_1P1")
 
-    Returns:
+    Returns
+    -------
         Dictionary of arguments for task configuration
 
-    Raises:
+    Raises
+    ------
         ValueError: If the task_id is not supported
     """
     if task_id == "t_1P1":

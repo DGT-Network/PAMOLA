@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Kolmogorov-Smirnov Test
--------------------------------------
 This module provides the Kolmogorov-Smirnov Test for evaluating the similarity
 between the distributions of real and synthetic datasets.
 

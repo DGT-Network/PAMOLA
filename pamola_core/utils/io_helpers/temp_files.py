@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Temporary File Context Managers
 Description: Shared helpers for encryption/decryption temp file handling
 Author: PAMOLA Core Team
@@ -29,7 +28,7 @@ def temporary_decrypted_file(
     """
     Context manager for handling temporary decrypted files.
 
-    Parameters:
+    Parameters
     -----------
     file_path : Union[str, Path]
         Path to the encrypted file
@@ -38,7 +37,7 @@ def temporary_decrypted_file(
     suffix : str
         File extension for temporary file
 
-    Yields:
+    Yields
     -------
     Path
         Path to the file to read (original or decrypted temporary)
@@ -88,7 +87,7 @@ def temporary_file_for_encryption(
     """
     Context manager for handling temporary files before encryption.
 
-    Parameters:
+    Parameters
     -----------
     file_path : Union[str, Path]
         Target path for the encrypted file
@@ -97,7 +96,7 @@ def temporary_file_for_encryption(
     suffix : str
         File extension for temporary file
 
-    Yields:
+    Yields
     -------
     Path
         Path to write to (temporary if encrypting, target if not)
@@ -148,7 +147,7 @@ def temporary_decrypted_files(
     """
     Context manager for handling temporary decrypted files.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : List[Union[str, Path]]
         Path to the encrypted files
@@ -157,7 +156,7 @@ def temporary_decrypted_files(
     suffix : str
         File extension for temporary files
 
-    Yields:
+    Yields
     -------
     List[Union[str, Path]]
         Path to the files to read (original or decrypted temporary)
@@ -202,7 +201,7 @@ def temporary_files_for_encryption(
     """
     Context manager for handling temporary files before encryption.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : List[Union[str, Path]]
         Target path for the encrypted files
@@ -211,7 +210,7 @@ def temporary_files_for_encryption(
     suffix : str
         File extension for temporary files
 
-    Yields:
+    Yields
     -------
     List[Union[str, Path]]
         Paths to write to (temporary if encrypting, target if not)

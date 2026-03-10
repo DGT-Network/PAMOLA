@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        LLM Enumerations
 Package:       pamola_core.utils.nlp.llm.enums
 Version:       1.0.0
@@ -30,11 +29,10 @@ Framework:
 Part of PAMOLA.CORE LLM utilities, providing foundational enumerations
 for type-safe operations across the LLM processing pipeline.
 
-Usage:
-```python
-from pamola_core.utils.nlp.llm.enums import ResponseType, ProcessingStage
-from pamola_core.utils.nlp.llm.enums import QualityLevel, TokenEstimationMethod
-```
+Usage::
+
+    from pamola_core.utils.nlp.llm.enums import ResponseType, ProcessingStage
+    from pamola_core.utils.nlp.llm.enums import QualityLevel, TokenEstimationMethod
 
 Changelog:
 1.0.0 - Initial implementation

@@ -31,7 +31,7 @@ def save_profiling_results(
     """
     Save profiling results to a file.
 
-    Parameters:
+    Parameters
     -----------
     result : Dict[str, Any]
         Result dictionary to save
@@ -46,7 +46,7 @@ def save_profiling_results(
     include_timestamp : bool
         Whether to include a timestamp in the filename
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved file
@@ -113,7 +113,7 @@ def save_value_dictionary(
     """
     Save a dictionary of field values with counts and percentages.
 
-    Parameters:
+    Parameters
     -----------
     value_counts : pd.Series
         Series of value counts (from value_counts())
@@ -130,7 +130,7 @@ def save_value_dictionary(
     include_timestamp : bool
         Whether to include a timestamp in the filename
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved dictionary file
@@ -193,7 +193,7 @@ def format_operation_metadata(
     """
     Format metadata for an operation to include in reports.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Name of the field being analyzed
@@ -202,7 +202,7 @@ def format_operation_metadata(
     parameters : Dict[str, Any]
         Parameters used for the operation
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Formatted metadata dictionary

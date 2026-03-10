@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Currency Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -108,7 +107,7 @@ class CurrencyAnalyzer:
         """
         Analyze a currency field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -131,7 +130,7 @@ class CurrencyAnalyzer:
         task_logger : Optional[logging.Logger]
             Logger for tracking task progress and debugging.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -452,7 +451,7 @@ class CurrencyAnalyzer:
         """
         Analyze a currency field using Dask for large datasets.
 
-        Parameters:
+        Parameters
         -----------
         df : dd.DataFrame
             The DataFrame containing the data to analyze
@@ -471,7 +470,7 @@ class CurrencyAnalyzer:
         task_logger : Optional[logging.Logger]
             Logger for tracking task progress and debugging.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -594,7 +593,7 @@ class CurrencyAnalyzer:
         """
         Analyze a currency field in chunks for large datasets.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -615,7 +614,7 @@ class CurrencyAnalyzer:
         task_logger : Optional[logging.Logger]
             Logger for tracking task progress and debugging.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -810,7 +809,7 @@ class CurrencyAnalyzer:
         """
         Analyze a currency field using parallel processing for large datasets.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -833,7 +832,7 @@ class CurrencyAnalyzer:
         progress_tracker : HierarchicalProgressTracker, optional
             Progress tracker for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -1315,7 +1314,7 @@ class CurrencyOperation(FieldOperation):
         """
         Initialize a currency field operation.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field to analyze
@@ -1373,7 +1372,7 @@ class CurrencyOperation(FieldOperation):
         """
         Execute the currency field analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -1386,7 +1385,7 @@ class CurrencyOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -1686,7 +1685,7 @@ class CurrencyOperation(FieldOperation):
         """
         Generate visualizations for the currency field analysis.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -1892,7 +1891,7 @@ class CurrencyOperation(FieldOperation):
         """
         Save sample records with original currency values.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -2033,7 +2032,7 @@ class CurrencyOperation(FieldOperation):
         """
         Add metrics from the analysis results to the operation result.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -2135,12 +2134,12 @@ class CurrencyOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -2179,7 +2178,7 @@ class CurrencyOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -2188,7 +2187,7 @@ class CurrencyOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -2228,7 +2227,7 @@ class CurrencyOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -2263,7 +2262,7 @@ class CurrencyOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -2288,7 +2287,7 @@ class CurrencyOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Strategy Parameter Validators
 Package:       pamola_core.anonymization.commons.validation
 Version:       1.0.0
@@ -94,15 +93,18 @@ def validate_strategy(
     """
     Validate that a strategy is in the list of valid strategies.
 
-    Args:
+    Parameters
+    ----------
         strategy: Strategy name to validate
         valid_strategies: List of allowed strategy names
         operation_type: Optional operation type for context
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
 
-    Raises:
+    Raises
+    ------
         InvalidStrategyError: If strategy is not valid
     """
     if strategy not in valid_strategies:
@@ -124,11 +126,13 @@ def validate_generalization_strategy(strategy: str, data_type: str) -> Validatio
     """
     Validate generalization strategy for specific data type.
 
-    Args:
+    Parameters
+    ----------
         strategy: Generalization strategy name
         data_type: Data type (numeric, categorical, datetime)
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     if data_type not in GENERALIZATION_STRATEGIES:
@@ -151,10 +155,12 @@ def validate_noise_strategy(strategy: str) -> ValidationResult:
     """
     Validate noise addition strategy.
 
-    Args:
+    Parameters
+    ----------
         strategy: Noise strategy name
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     return validate_strategy(strategy, NOISE_STRATEGIES, "noise")
@@ -165,10 +171,12 @@ def validate_suppression_strategy(strategy: str) -> ValidationResult:
     """
     Validate suppression strategy.
 
-    Args:
+    Parameters
+    ----------
         strategy: Suppression strategy name
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     return validate_strategy(strategy, SUPPRESSION_STRATEGIES, "suppression")
@@ -179,10 +187,12 @@ def validate_masking_strategy(strategy: str) -> ValidationResult:
     """
     Validate masking strategy.
 
-    Args:
+    Parameters
+    ----------
         strategy: Masking strategy name
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     return validate_strategy(strategy, MASKING_STRATEGIES, "masking")
@@ -193,10 +203,12 @@ def validate_pseudonymization_strategy(strategy: str) -> ValidationResult:
     """
     Validate pseudonymization strategy.
 
-    Args:
+    Parameters
+    ----------
         strategy: Pseudonymization strategy name
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     return validate_strategy(strategy, PSEUDONYMIZATION_STRATEGIES, "pseudonymization")
@@ -215,11 +227,13 @@ def validate_operation_mode(
     """
     Validate operation mode (REPLACE/ENRICH).
 
-    Args:
+    Parameters
+    ----------
         mode: Operation mode to validate
         valid_modes: Optional list of valid modes (defaults to OPERATION_MODES)
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     if valid_modes is None:
@@ -244,11 +258,13 @@ def validate_null_strategy(
     """
     Validate null handling strategy.
 
-    Args:
+    Parameters
+    ----------
         strategy: Null handling strategy
         valid_strategies: Optional list of valid strategies
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     if valid_strategies is None:
@@ -279,12 +295,14 @@ def validate_bin_count(
     """
     Validate bin count for binning strategies.
 
-    Args:
+    Parameters
+    ----------
         bin_count: Number of bins
         min_bins: Minimum allowed bins
         max_bins: Maximum allowed bins
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     if bin_count < min_bins or bin_count > max_bins:
@@ -310,12 +328,14 @@ def validate_precision(
     """
     Validate precision for rounding strategies.
 
-    Args:
+    Parameters
+    ----------
         precision: Decimal precision
         min_precision: Minimum precision
         max_precision: Maximum precision
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     if precision < min_precision or precision > max_precision:
@@ -342,10 +362,12 @@ def validate_range_limits(range_limits: Tuple[float, float]) -> ValidationResult
     """
     Validate range limits for range-based strategies.
 
-    Args:
+    Parameters
+    ----------
         range_limits: Tuple of (min, max) values
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     if not isinstance(range_limits, (tuple, list)) or len(range_limits) != 2:
@@ -388,10 +410,12 @@ def validate_percentiles(percentiles: List[float]) -> ValidationResult:
     """
     Validate percentile values for quantile-based strategies.
 
-    Args:
+    Parameters
+    ----------
         percentiles: List of percentile values (0-100)
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     if not isinstance(percentiles, (list, tuple)) or len(percentiles) == 0:
@@ -446,12 +470,14 @@ def validate_noise_parameters(
     """
     Validate noise addition parameters.
 
-    Args:
+    Parameters
+    ----------
         noise_level: Noise level/scale parameter
         strategy: Noise strategy type
         bounds: Optional bounds for clipping
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     result = ValidationResult(is_valid=True)
@@ -495,12 +521,14 @@ def validate_masking_parameters(
     """
     Validate masking parameters.
 
-    Args:
+    Parameters
+    ----------
         mask_char: Character used for masking
         preserve_length: Whether to preserve original length
         pattern: Optional regex pattern for partial masking
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     result = ValidationResult(is_valid=True)
@@ -541,11 +569,13 @@ def validate_hierarchy_parameters(
     """
     Validate categorical hierarchy parameters.
 
-    Args:
+    Parameters
+    ----------
         hierarchy_depth: Depth of hierarchy to use
         merge_threshold: Optional threshold for merging categories
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     result = ValidationResult(is_valid=True)
@@ -586,12 +616,14 @@ def validate_strategy_compatibility(
     """
     Validate that strategy is compatible with field and operation type.
 
-    Args:
+    Parameters
+    ----------
         strategy: Strategy name
         field_type: Type of field (numeric, categorical, etc.)
         operation_type: Type of operation (generalization, noise, etc.)
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     result = ValidationResult(is_valid=True)
@@ -655,13 +687,15 @@ def validate_output_field_configuration(
     """
     Validate output field configuration based on mode.
 
-    Args:
+    Parameters
+    ----------
         df: DataFrame to check
         mode: Operation mode (REPLACE/ENRICH)
         output_field_name: Proposed output field name
         original_field_name: Original field name
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     result = ValidationResult(is_valid=True)

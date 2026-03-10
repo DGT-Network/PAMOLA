@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - R² Score Metric
------------------------------
 This module provides a class for calculating the R² Score between real and
 synthetic datasets. The R² Score, also known as the coefficient of determination,
 is a measure of how well the synthetic data replicates the variance of the real data.

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Base Operation Core Schema
 Package:       pamola_core.utils.ops.schemas
 Version:       1.0.0

@@ -25,14 +25,14 @@ def calculate_skewness(
     """
     Safely calculate skewness for a numeric dataset.
 
-    Parameters:
+    Parameters
     -----------
     data : array-like
         Numeric data to calculate skewness
     min_samples : int
         Minimum number of samples required for calculation
 
-    Returns:
+    Returns
     --------
     float
         Skewness value or 0.0 if calculation fails
@@ -73,14 +73,14 @@ def calculate_kurtosis(
     """
     Safely calculate kurtosis for a numeric dataset.
 
-    Parameters:
+    Parameters
     -----------
     data : array-like
         Numeric data to calculate kurtosis
     min_samples : int
         Minimum number of samples required for calculation
 
-    Returns:
+    Returns
     --------
     float
         Kurtosis value or 0.0 if calculation fails
@@ -105,7 +105,7 @@ def count_values_by_condition(
     """
     Safely count values in a dataset based on specified condition.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Numeric data to apply condition
@@ -114,7 +114,7 @@ def count_values_by_condition(
     near_zero_threshold : float, optional
         Threshold for near-zero detection
 
-    Returns:
+    Returns
     --------
     int
         Count of values meeting the condition
@@ -151,12 +151,12 @@ def calculate_basic_stats(data: pd.Series) -> Dict[str, Any]:
     """
     Calculate basic statistics for numeric data in a single pass.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary of basic statistics
@@ -197,14 +197,14 @@ def calculate_extended_stats(
     """
     Calculate extended statistics for numeric data including percentiles and value counts.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     near_zero_threshold : float
         Threshold for near-zero detection
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary of extended statistics
@@ -274,14 +274,14 @@ def calculate_percentiles(
     """
     Calculate percentiles for numeric data.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     percentiles : List[float], optional
         List of percentiles to calculate (0-100)
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary of percentiles
@@ -303,14 +303,14 @@ def calculate_histogram(data: pd.Series, bins: int = 10) -> Dict[str, Any]:
     """
     Calculate histogram data for numeric values.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     bins : int
         Number of bins for histogram
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with histogram data
@@ -336,14 +336,14 @@ def detect_outliers(data: pd.Series, iqr_factor: float = 1.5) -> Dict[str, Any]:
     """
     Detect outliers using the IQR method.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     iqr_factor : float
         Factor to multiply IQR by for determining outlier boundaries
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with outlier information
@@ -400,14 +400,14 @@ def test_normality(data: pd.Series, test_method: str = "all") -> Dict[str, Any]:
     """
     Test the normality of a numeric dataset.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     test_method : str
         Method to use for testing: 'shapiro', 'anderson', 'ks', or 'all'
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with normality test results
@@ -501,7 +501,7 @@ def analyze_numeric_chunk(
     """
     Analyze a chunk of numeric data.
 
-    Parameters:
+    Parameters
     -----------
     chunk_df : pd.DataFrame
         DataFrame chunk to analyze
@@ -510,7 +510,7 @@ def analyze_numeric_chunk(
     near_zero_threshold : float
         Threshold for near-zero detection
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with analysis results
@@ -557,12 +557,12 @@ def combine_chunk_results(chunk_results: List[Dict[str, Any]]) -> Dict[str, Any]
     """
     Combine results from multiple chunks.
 
-    Parameters:
+    Parameters
     -----------
     chunk_results : List[Dict[str, Any]]
         List of chunk analysis results
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined statistics
@@ -763,7 +763,7 @@ def create_empty_stats() -> Dict[str, Any]:
     """
     Create empty statistics dictionary for when there's no valid data.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Empty statistics dictionary
@@ -799,14 +799,14 @@ def prepare_numeric_data(
     """
     Prepare numeric data for analysis by handling nulls and converting types.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
     field_name : str
         The name of the field to prepare
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, int, int]
         A tuple containing:
@@ -833,7 +833,7 @@ def handle_large_dataframe(
     """
     Process a large DataFrame in chunks to analyze numeric data.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze
@@ -846,7 +846,7 @@ def handle_large_dataframe(
     **kwargs :
         Additional parameters to pass to the analyze function
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined results of the analysis
@@ -880,7 +880,7 @@ def process_with_dask(
     """
     Process a large DataFrame use dask to analyze numeric data.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze
@@ -893,7 +893,7 @@ def process_with_dask(
     **kwargs :
         Additional parameters to pass to the analyze function
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined results of the analysis
@@ -926,7 +926,7 @@ def process_with_joblib(
     """
     Process a large DataFrame use joblib to analyze numeric data.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze
@@ -939,7 +939,7 @@ def process_with_joblib(
     **kwargs :
         Additional parameters to pass to the analyze function
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined results of the analysis

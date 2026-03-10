@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Merge Datasets Operation
 Description: Operation for merging datasets with various strategies
 Author: PAMOLA Core Team
@@ -90,7 +89,7 @@ class MergeDatasetsOperation(TransformationOperation):
         """
         Initialize the merge datasets operation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation (default: "merge_datasets_operation")
@@ -166,7 +165,7 @@ class MergeDatasetsOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -179,7 +178,7 @@ class MergeDatasetsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -779,7 +778,7 @@ class MergeDatasetsOperation(TransformationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for cache key generation
@@ -816,7 +815,7 @@ class MergeDatasetsOperation(TransformationOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             The original data before transformation
@@ -1198,7 +1197,7 @@ class MergeDatasetsOperation(TransformationOperation):
         """
         Retrieves a DataFrame from a given data source using a dataset name or path.
 
-        Parameters:
+        Parameters
         -----------
         source : Any
             The data source. Can be:
@@ -1207,7 +1206,7 @@ class MergeDatasetsOperation(TransformationOperation):
             - A file path (string or Path)
         dataset_name_or_path : str or None
             The name or path of the dataset to retrieve.
-        Returns:
+        Returns
         --------
         pd.DataFrame or None
             The loaded DataFrame, or None if the dataset_name_or_path is None.
@@ -1236,7 +1235,7 @@ class MergeDatasetsOperation(TransformationOperation):
         """
         Validates inputs for a dataset relationship operation.
 
-        Parameters:
+        Parameters
         -----------
         relationship_type : str
             Type of relationship to validate. Must be one of: "auto", "one-to-one", "one-to-many".
@@ -1248,7 +1247,7 @@ class MergeDatasetsOperation(TransformationOperation):
             Optional name of the right dataset. Required if `right_dataset_path` is not provided.
         right_dataset_path : Optional[Path]
             Optional path to the right dataset. Required if `right_dataset_name` is not provided.
-        Raises:
+        Raises
         -------
         ValueError
             If any input is invalid.
@@ -1294,7 +1293,7 @@ class MergeDatasetsOperation(TransformationOperation):
             - one-to-one
             - one-to-many
 
-        Parameters:
+        Parameters
         -----------
         left_df : pd.DataFrame
             The left (main) dataset.
@@ -1305,12 +1304,12 @@ class MergeDatasetsOperation(TransformationOperation):
         right_key : str
             The join key in the right dataset.
 
-        Returns:
+        Returns
         --------
         str
             The detected relationship type.
 
-        Raises:
+        Raises
         -------
         ValueError
             If the relationship is not one-to-one or one-to-many.
@@ -1415,12 +1414,12 @@ def create_merge_datasets_operation(**kwargs) -> MergeDatasetsOperation:
     """
     Create a merge datasets operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     MergeDatasetsOperation
         Configured merge datasets operation

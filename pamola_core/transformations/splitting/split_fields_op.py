@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Split Fields Operation
 Description: Operation for splitting datasets into multiple groups of fields
 Author: PAMOLA Core Team
@@ -123,7 +122,7 @@ class SplitFieldsOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -136,7 +135,7 @@ class SplitFieldsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -483,14 +482,14 @@ class SplitFieldsOperation(TransformationOperation):
         which is a lightweight operation. Pandas handles column selection efficiently even with millions of rows,
         so adding parallelism would introduce unnecessary overhead without performance benefits.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input dataset to process.
         **kwargs : dict
             Additional parameters (not used here directly).
 
-        Returns:
+        Returns
         --------
         Dict[str, pd.DataFrame]
             A dictionary where keys are group names and values are corresponding dataframes.
@@ -792,12 +791,12 @@ class SplitFieldsOperation(TransformationOperation):
         Validate that all specified fields in field_groups exist in the DataFrame.
         Optionally check if the ID field exists.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input dataset to validate.
 
-        Returns:
+        Returns
         --------
         bool
             True if all fields are valid; False otherwise.

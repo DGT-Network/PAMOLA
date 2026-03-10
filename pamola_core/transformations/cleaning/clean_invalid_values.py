@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Clean Invalid Values Operation
 Description: Operation for nullify values that violate defined constraints.
 Author: PAMOLA Core Team
@@ -74,7 +73,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Initialize the CleanInvalidValuesOperation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation (default: "clean_invalid_values_operation")
@@ -131,7 +130,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -144,7 +143,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -455,12 +454,12 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Process a batch of data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             Batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed batch
@@ -754,14 +753,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Process a single value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Value to process
         **params : dict
             Additional parameters for processing
 
-        Returns:
+        Returns
         --------
         Any
             Processed value
@@ -772,7 +771,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -793,14 +792,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to process
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The processed dataframe
@@ -830,14 +829,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Calculate all metrics for operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -866,14 +865,14 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Collect metrics for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -967,7 +966,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
@@ -994,7 +993,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         operation_timestamp : str
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1183,7 +1182,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         """
         Generate visualizations for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data before processing
@@ -1204,7 +1203,7 @@ class CleanInvalidValuesOperation(TransformationOperation):
         operation_timestamp : str
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1458,12 +1457,12 @@ def create_clean_invalid_values_operation(**kwargs) -> CleanInvalidValuesOperati
     """
     Create clean invalid values operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     CleanInvalidValuesOperation
         Configured clean invalid values operation

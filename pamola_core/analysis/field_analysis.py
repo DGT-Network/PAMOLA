@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy Risk Assessment Module
-------------------------------------------------
 Module:        Privacy Risk Assessment
 Package:       pamola_core.analysis
 Version:       1.0.0
@@ -49,7 +48,7 @@ def analyze_field_level(
     """
     Analyze field level of data frame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Data frame for calculate.
@@ -58,7 +57,7 @@ def analyze_field_level(
     viz_dir : Path
         Directory for saving visualizations
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Field-Level analysis.

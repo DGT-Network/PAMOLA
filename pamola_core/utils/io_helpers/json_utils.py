@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: JSON Utilities
 Description: Tools for JSON validation, merging, transformation, and preparation for serialization
 Author: PAMOLA Core Team
@@ -31,12 +30,12 @@ def convert_numpy_types(obj: Any) -> Any:
     """
     Recursively converts NumPy data types to standard Python types for JSON serialization.
 
-    Parameters:
+    Parameters
     -----------
     obj : Any
         Object to convert
 
-    Returns:
+    Returns
     --------
     Any
         Converted object with standard Python types
@@ -67,7 +66,7 @@ def validate_json_structure(
     """
     Validates JSON structure.
 
-    Parameters:
+    Parameters
     -----------
     data : Any
         Data to validate
@@ -76,7 +75,7 @@ def validate_json_structure(
     schema : Dict[str, Any], optional
         Expected schema (for dict types)
 
-    Returns:
+    Returns
     --------
     Tuple[bool, List[str]]
         (is_valid, list_of_errors)
@@ -130,7 +129,7 @@ def validate_json_schema(
     """
     Validate data against a JSON schema with graceful fallback.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, Any]
         Data to validate
@@ -139,12 +138,12 @@ def validate_json_schema(
     error_class : Type[Exception], optional
         Exception class to raise on validation failure (defaults to ValueError)
 
-    Raises:
+    Raises
     -------
     error_class
         If validation fails
 
-    Notes:
+    Notes
     ------
     If jsonschema is not installed, logs a warning and skips validation.
     This function supports the operation configuration validation requirements.
@@ -174,7 +173,7 @@ def merge_json_objects_in_memory(
     """
     Merges two JSON objects in memory.
 
-    Parameters:
+    Parameters
     -----------
     base_obj : Dict[str, Any]
         Base object to merge into
@@ -185,7 +184,7 @@ def merge_json_objects_in_memory(
     recursive_merge : bool
         Whether to recursively merge nested dictionaries (default: False)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Merged object
@@ -217,14 +216,14 @@ def prettify_json(data: Dict[str, Any], indent: int = 2) -> str:
     """
     Converts a dictionary to a prettified JSON string.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, Any]
         Data to convert
     indent : int
         Number of spaces for indentation
 
-    Returns:
+    Returns
     --------
     str
         Prettified JSON string
@@ -241,12 +240,12 @@ def detect_array_or_object(json_str: str) -> str:
     """
     Detects if a JSON string represents an array or object.
 
-    Parameters:
+    Parameters
     -----------
     json_str : str
         JSON string to analyze
 
-    Returns:
+    Returns
     --------
     str
         'array', 'object', or 'invalid'
@@ -270,14 +269,14 @@ def extract_json_subset(data: Dict[str, Any], keys: List[str]) -> Dict[str, Any]
     """
     Extracts a subset of keys from a JSON object.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, Any]
         Original JSON object
     keys : List[str]
         List of keys to extract
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         JSON object with only the specified keys
@@ -297,7 +296,7 @@ def prepare_json_writer_options(
     """
     Prepares options for JSON writing.
 
-    Parameters:
+    Parameters
     -----------
     ensure_ascii : bool
         Whether to escape non-ASCII characters (default: False)
@@ -306,7 +305,7 @@ def prepare_json_writer_options(
     **kwargs
         Additional json.dump options
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with JSON writer options

@@ -95,10 +95,12 @@ def _has_list_or_tuple(series: pd.Series) -> bool:
     """
     Determine whether a pandas Series contains any list or tuple values.
 
-    Args:
+    Parameters
+    ----------
         series : pd.Series The pandas Series to examine.
 
-    Returns:
+    Returns
+    -------
         bool: True if the Series contains at least one list or tuple, otherwise False.
     """
     return series.astype(object).apply(lambda x: isinstance(x, (list, tuple))).any()
@@ -115,10 +117,12 @@ def load_attribute_dictionary(
     2. Standard project directories
     3. Fallback to default dictionary
 
-    Args:
+    Parameters
+    ----------
         file_path (str, Path, optional): Path to custom dictionary JSON file
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Dictionary with attribute roles, keywords, and thresholds
     """
     # First, check if user provided an explicit path
@@ -179,10 +183,12 @@ def _validate_dictionary(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Validate and complete the loaded dictionary.
 
-    Args:
+    Parameters
+    ----------
         data (Dict[str, Any]): Loaded dictionary data
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Validated and completed dictionary
     """
     # Ensure required keys are present
@@ -203,12 +209,12 @@ def infer_data_type(series: pd.Series) -> str:
     """
     Infer the logical data type of a series.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to analyze
 
-    Returns:
+    Returns
     --------
     str
         Inferred data type: 'numeric', 'categorical', 'datetime', 'text', 'boolean', 'long_text', 'mvf'
@@ -279,12 +285,12 @@ def calculate_entropy(series: pd.Series) -> float:
     """
     Calculate Shannon entropy of a series.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to calculate entropy for
 
-    Returns:
+    Returns
     --------
     float
         Entropy value (higher means more diverse/random distribution)
@@ -309,12 +315,12 @@ def calculate_normalized_entropy(series: pd.Series) -> float:
     """
     Calculate normalized entropy (0-1 scale).
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to calculate normalized entropy for
 
-    Returns:
+    Returns
     --------
     float
         Normalized entropy value between 0 and 1
@@ -346,12 +352,12 @@ def calculate_uniqueness_ratio(series: pd.Series) -> float:
     """
     Calculate uniqueness ratio (unique values / total values).
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to calculate uniqueness ratio for
 
-    Returns:
+    Returns
     --------
     float
         Uniqueness ratio between 0 and 1
@@ -373,12 +379,12 @@ def is_mvf_field(series: pd.Series) -> bool:
     """
     Check if a field contains multi-valued data (lists, delimited strings).
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the field appears to contain multi-valued data
@@ -426,12 +432,14 @@ def analyze_column_values(
     This function performs in-depth analysis of a column, extracting statistical metrics,
     identifying data types, handling multi-valued fields, and sampling values.
 
-    Args:
+    Parameters
+    ----------
         df (pd.DataFrame): Input DataFrame containing the column to analyze
         column (str): Name of the column to be analyzed
         sample_size (int, optional): Number of sample values to extract. Defaults to 10.
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Comprehensive dictionary of column statistics and metadata
     """
     try:
@@ -553,7 +561,7 @@ def categorize_column_by_name(
     """
     Categorize a column based on its name using the keyword dictionary.
 
-    Parameters:
+    Parameters
     -----------
     column_name : str
         The name of the column to categorize
@@ -562,7 +570,7 @@ def categorize_column_by_name(
     language : str
         Language code for keyword matching (default: "en")
 
-    Returns:
+    Returns
     --------
     Tuple[str, float]
         Tuple containing (role_category, confidence_score)
@@ -618,14 +626,14 @@ def categorize_column_by_statistics(
     """
     Categorize a column based on its statistical properties.
 
-    Parameters:
+    Parameters
     -----------
     stats : Dict[str, Any]
         Dictionary with column statistics
     dictionary : Dict[str, Any]
         Dictionary with attribute roles and thresholds
 
-    Returns:
+    Returns
     --------
     Tuple[str, float]
         Tuple containing (role_category, confidence_score)
@@ -672,14 +680,14 @@ def resolve_category_conflicts(
     """
     Resolve conflicts between semantic and statistical categorization.
 
-    Parameters:
+    Parameters
     -----------
     semantic_result : Tuple[str, float]
         Result from semantic analysis (role_category, confidence_score)
     statistical_result : Tuple[str, float]
         Result from statistical analysis (role_category, confidence_score)
 
-    Returns:
+    Returns
     --------
     Tuple[str, float, Dict[str, Any]]
         Tuple containing (final_role_category, confidence_score, conflict_details)
@@ -733,7 +741,7 @@ def categorize_column(
     """
     Analyze and categorize a column based on both name and statistics.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the column
@@ -746,7 +754,7 @@ def categorize_column(
     sample_size : int
         Number of sample values to return
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with categorization results and analysis
@@ -799,7 +807,8 @@ def analyze_dataset_attributes(
     """
     Analyze and categorize all columns in a dataset.
 
-    Args:
+    Parameters
+    ----------
         df (pd.DataFrame): The DataFrame to analyze
         dictionary (Dict[str, Any], optional): Dictionary with attribute roles and thresholds
         dictionary_path (str or Path, optional): Path to the dictionary file
@@ -807,7 +816,8 @@ def analyze_dataset_attributes(
         sample_size (int): Number of sample values to return per column
         max_columns (int, optional): Maximum number of columns to analyze
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Dictionary with dataset attribute analysis results
     """
     # Load dictionary if not provided

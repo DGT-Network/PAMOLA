@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Privacy Metric Operation - Uniqueness
 Package:       pamola_core.metrics.privacy
 Version:       4.0.0
@@ -39,7 +38,8 @@ class Uniqueness:
     - L-diversity: Diversity of sensitive attributes (if enabled)
     - T-closeness: Distribution similarity between groups and population (if enabled)
 
-    Parameters:
+    Parameters
+    ----------
     - quasi_identifiers: List[str] - Columns used for identification
     - sensitive_attributes: List[str] or str - Sensitive columns to protect
     - k_values: List[int] - K values for k-anonymity analysis
@@ -65,9 +65,11 @@ class Uniqueness:
         """
         Calculate privacy metrics (k-anonymity, l-diversity, t-closeness) for the given DataFrame.
 
-        Args:
+        Parameters
+        ----------
             df (pd.DataFrame): Input tabular data to assess privacy risks.
-        Returns:
+        Returns
+        -------
             Dict[str, Any]: Dictionary containing k-anonymity, l-diversity, and t-closeness statistics.
         """
         # Group by QID
@@ -121,9 +123,11 @@ class Uniqueness:
         """
         Calculate l-diversity statistics for each group defined by quasi-identifiers.
 
-        Args:
+        Parameters
+        ----------
             df (pd.DataFrame): Input tabular data.
-        Returns:
+        Returns
+        -------
             dict: l-diversity statistics including min, max, average, and distribution.
         """
         l_diversity_stats = {}
@@ -148,9 +152,11 @@ class Uniqueness:
         """
         Calculate t-closeness scores for each group using Wasserstein distance.
 
-        Args:
+        Parameters
+        ----------
             df (pd.DataFrame): Input tabular data.
-        Returns:
+        Returns
+        -------
             dict: t-closeness statistics including min, max, average, and all scores.
         """
         t_closeness_stats = {}

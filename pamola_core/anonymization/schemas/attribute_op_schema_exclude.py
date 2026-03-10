@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Attribute Exclude Fields
 Package:       pamola_core.anonymization.schemas
 Version:       1.0.0

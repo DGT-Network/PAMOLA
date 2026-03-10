@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Categorical Field Analyzer
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -80,7 +79,7 @@ class CategoricalAnalyzer:
         """
         Analyze a categorical field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -93,7 +92,7 @@ class CategoricalAnalyzer:
         **kwargs : dict
             Additional parameters for the analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -111,14 +110,14 @@ class CategoricalAnalyzer:
         """
         Estimate resources needed for analyzing the categorical field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -208,7 +207,7 @@ class CategoricalOperation(FieldOperation):
         """
         Execute the categorical analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -221,7 +220,7 @@ class CategoricalOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -822,7 +821,7 @@ class CategoricalOperation(FieldOperation):
         """
         Save anomalies to CSV file.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -931,7 +930,7 @@ class CategoricalOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -940,7 +939,7 @@ class CategoricalOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1030,12 +1029,12 @@ class CategoricalOperation(FieldOperation):
         Validate that all specified fields in field_groups exist in the DataFrame.
         Optionally check if the ID field exists.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input dataset to validate.
 
-        Returns:
+        Returns
         --------
         bool
             True if all fields are valid; False otherwise.
@@ -1081,7 +1080,7 @@ def analyze_categorical_fields(
     """
     Analyze multiple categorical fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1098,7 +1097,7 @@ def analyze_categorical_fields(
         - generate_visualization: bool, whether to generate visualization (default: True)
         - profile_type: str, type of profiling for organizing artifacts (default: 'categorical')
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results

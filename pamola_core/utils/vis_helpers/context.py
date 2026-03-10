@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Visualization Context Management
 Description: Thread-safe context management for visualization capabilities
 Author: PAMOLA Core Team
@@ -41,7 +40,7 @@ def visualization_context(
     and backend settings don't interfere between concurrent visualizations.
     Automatically applies headless mode for matplotlib if requested.
 
-    Parameters:
+    Parameters
     -----------
     backend : Optional[str]
         Backend to use for this context
@@ -54,7 +53,7 @@ def visualization_context(
     headless : bool
         Whether to use headless (Agg) backend for matplotlib operations
 
-    Yields:
+    Yields
     -------
     Dict[str, Any]
         Context information dictionary
@@ -139,7 +138,7 @@ def register_figure(fig: Any, context_info: Optional[Dict[str, Any]] = None) -> 
     """
     Register a figure with the current context for cleanup.
 
-    Parameters:
+    Parameters
     -----------
     fig : Any
         Figure object to register
@@ -155,7 +154,7 @@ def _cleanup_figures(figures: list) -> None:
     """
     Clean up matplotlib figures to prevent memory leaks.
 
-    Parameters:
+    Parameters
     -----------
     figures : list
         List of figure objects to clean up
@@ -218,7 +217,7 @@ def null_context() -> Generator[None, None, None]:
 
     Used as a placeholder when certain context managers are conditionally applied.
 
-    Yields:
+    Yields
     -------
     None
     """
@@ -231,13 +230,13 @@ def get_figure_size(
     """
     Get standardized figure size based on named presets or custom dimensions.
 
-    Parameters:
+    Parameters
     -----------
     size : Optional[Union[str, Tuple[int, int]]]
         Size specification. Can be a preset name ('small', 'medium', 'large',
         'wide', 'tall') or a tuple of (width, height) in inches.
 
-    Returns:
+    Returns
     --------
     Tuple[int, int]
         Figure size as (width, height) in inches
@@ -292,12 +291,12 @@ def auto_visualization_context(func: Callable) -> Callable:
     backends (e.g., matplotlib.pyplot) are properly wrapped with the necessary
     context management even if they bypass the standard visualization API.
 
-    Parameters:
+    Parameters
     -----------
     func : Callable
         Function to wrap
 
-    Returns:
+    Returns
     --------
     Callable
         Wrapped function

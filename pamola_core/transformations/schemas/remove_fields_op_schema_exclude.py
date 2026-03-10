@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Remove Fields Exclude Fields
 Package:       pamola_core.transformations.schemas
 Version:       1.0.0

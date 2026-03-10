@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Path Security
 Description: Security validation for file paths
 Author: PAMOLA Core Team
@@ -35,16 +34,19 @@ def validate_path_security(
     This function checks that a path doesn't contain potentially
     dangerous components like path traversal sequences.
 
-    Args:
+    Parameters
+    ----------
         path: Path to validate
         allowed_paths: List of allowed external paths (absolute)
         allow_external: Whether to allow external paths outside data repository
         strict_mode: If True, raises PathSecurityError for unsafe paths
 
-    Returns:
+    Returns
+    -------
         True if the path is safe, False otherwise
 
-    Raises:
+    Raises
+    ------
         PathSecurityError: If the path is unsafe and strict_mode is True
     """
     path_obj = Path(path) if isinstance(path, str) else path
@@ -130,11 +132,13 @@ def is_within_allowed_paths(path: Path, allowed_paths: List[Union[str, Path]]) -
     """
     Check if a path is within any of the allowed paths.
 
-    Args:
+    Parameters
+    ----------
         path: Path to check
         allowed_paths: List of allowed parent paths
 
-    Returns:
+    Returns
+    -------
         True if path is within any allowed path, False otherwise
     """
     # Normalize the path
@@ -171,7 +175,8 @@ def get_system_specific_dangerous_paths() -> List[str]:
     """
     Get a list of system-specific paths that should be protected.
 
-    Returns:
+    Returns
+    -------
         List of dangerous system paths
     """
     system = platform.system().lower()
@@ -228,12 +233,14 @@ def validate_paths(
     """
     Validate multiple paths at once.
 
-    Args:
+    Parameters
+    ----------
         paths: List of paths to validate
         allowed_paths: List of allowed external paths
         allow_external: Whether to allow external paths
 
-    Returns:
+    Returns
+    -------
         Tuple containing:
             - Boolean indicating if all paths are valid
             - List of error messages for invalid paths
@@ -261,10 +268,12 @@ def is_potentially_dangerous_path(path: Union[str, Path]) -> bool:
 
     This is a convenience method for quick checks without stopping execution.
 
-    Args:
+    Parameters
+    ----------
         path: Path to check
 
-    Returns:
+    Returns
+    -------
         True if path might be dangerous, False if likely safe
     """
     try:
@@ -285,16 +294,19 @@ def normalize_and_validate_path(
 
     If the path is relative, it will be resolved against the base_dir.
 
-    Args:
+    Parameters
+    ----------
         path: Path to normalize and validate
         base_dir: Base directory for resolving relative paths
         allowed_paths: List of allowed external paths
         allow_external: Whether to allow external paths
 
-    Returns:
+    Returns
+    -------
         Normalized path object
 
-    Raises:
+    Raises
+    ------
         PathSecurityError: If the path fails security validation
     """
     path_obj = Path(path) if isinstance(path, str) else path

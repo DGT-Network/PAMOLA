@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - k-Anonymity Reporting Utilities
----------------------------------------------
 This module provides specialized reporting functionality for k-anonymity
 anonymization models. It extends the base reporting infrastructure with
 k-anonymity-specific metrics, visualizations, and report sections.
@@ -50,7 +49,7 @@ class KAnonymityReport(PrivacyReport):
         """
         Initialize a k-anonymity report.
 
-        Parameters:
+        Parameters
         -----------
         report_data : dict
             Dictionary containing k-anonymity report data.
@@ -61,12 +60,12 @@ class KAnonymityReport(PrivacyReport):
         """
         Generate a comprehensive k-anonymity report.
 
-        Parameters:
+        Parameters
         -----------
         include_visualizations : bool, optional
             Whether to include visualization paths in the report.
 
-        Returns:
+        Returns
         --------
         dict
             The compiled k-anonymity report.
@@ -115,7 +114,7 @@ class KAnonymityReport(PrivacyReport):
         """
         Generate a concise summary of the k-anonymity report.
 
-        Returns:
+        Returns
         --------
         str
             A summary of key k-anonymity metrics and results.
@@ -176,7 +175,7 @@ def generate_anonymization_report(report_data: Dict[str, Any],
     This function provides backward compatibility with previous implementation.
     For new code, consider using the KAnonymityReport class directly.
 
-    Parameters:
+    Parameters
     -----------
     report_data : dict
         Dictionary containing k-anonymity report data.
@@ -187,7 +186,7 @@ def generate_anonymization_report(report_data: Dict[str, Any],
     format : str, optional
         Report format: 'json', 'html', or 'text' (default: 'json').
 
-    Returns:
+    Returns
     --------
     dict
         The complete k-anonymity report.
@@ -219,7 +218,7 @@ def generate_compliance_report(report_data: Dict[str, Any],
     This specialized report focuses on compliance aspects of
     k-anonymity transformations for specific regulations.
 
-    Parameters:
+    Parameters
     -----------
     report_data : dict
         Dictionary containing k-anonymity report data.
@@ -228,7 +227,7 @@ def generate_compliance_report(report_data: Dict[str, Any],
     regulation : str, optional
         Regulation to check compliance against ('GDPR', 'HIPAA', 'CCPA', etc.)
 
-    Returns:
+    Returns
     --------
     dict
         The compliance report.

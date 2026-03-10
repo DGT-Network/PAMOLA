@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Cryptographic Pseudonymization Utilities
 Package:       pamola_core.utils.crypto_helpers
 Version:       1.1.0
@@ -112,7 +111,8 @@ class SecureBytes:
         """
         Initialize secure bytes container.
 
-        Args:
+        Parameters
+        ----------
             data: Sensitive byte data to protect
         """
         self._data = bytearray(data)
@@ -122,7 +122,8 @@ class SecureBytes:
         """
         Get the byte data.
 
-        Returns:
+        Returns
+        -------
             The protected byte data
         """
         with self._lock:
@@ -170,7 +171,8 @@ class HashGenerator:
         """
         Initialize hash generator.
 
-        Args:
+        Parameters
+        ----------
             algorithm: Hash algorithm to use (default: "sha3_256" for Keccak-256)
         """
         self.algorithm = algorithm
@@ -186,11 +188,13 @@ class HashGenerator:
         """
         Generate hash with salt.
 
-        Args:
+        Parameters
+        ----------
             data: Data to hash (string or bytes)
             salt: Salt bytes
 
-        Returns:
+        Returns
+        -------
             Hash digest bytes
         """
         if isinstance(data, str):
@@ -212,12 +216,14 @@ class HashGenerator:
         """
         Generate two-stage hash with salt and pepper.
 
-        Args:
+        Parameters
+        ----------
             data: Data to hash
             salt: Salt bytes
             pepper: Pepper bytes (session-specific)
 
-        Returns:
+        Returns
+        -------
             Final hash digest bytes
         """
         # Stage 1: Hash with salt
@@ -236,13 +242,16 @@ class HashGenerator:
         """
         Encode data to base58 with availability check.
 
-        Args:
+        Parameters
+        ----------
             data: Data to encode
 
-        Returns:
+        Returns
+        -------
             Base58 encoded string
 
-        Raises:
+        Raises
+        ------
             ImportError: If base58 package not available
         """
         if not BASE58_AVAILABLE:
@@ -258,12 +267,14 @@ class HashGenerator:
         """
         Format hash output according to specification.
 
-        Args:
+        Parameters
+        ----------
             hash_bytes: Raw hash bytes
             output_format: Output format ("hex", "base64", "base58")
             output_length: Optional truncation length
 
-        Returns:
+        Returns
+        -------
             Formatted hash string
         """
         if output_format == "hex":
@@ -308,7 +319,8 @@ class SaltManager:
         """
         Initialize salt manager.
 
-        Args:
+        Parameters
+        ----------
             salts_file: Path to salts storage file (default: salts.json)
         """
         self.salts_file = salts_file or Path("salts.json")
@@ -319,10 +331,12 @@ class SaltManager:
         """
         Generate cryptographically secure salt.
 
-        Args:
+        Parameters
+        ----------
             length: Salt length in bytes (default: 32)
 
-        Returns:
+        Returns
+        -------
             Generated salt bytes
         """
         return secrets.token_bytes(length)
@@ -331,11 +345,13 @@ class SaltManager:
         """
         Get existing salt or create new one for identifier.
 
-        Args:
+        Parameters
+        ----------
             identifier: Salt identifier (e.g., field name)
             length: Salt length for new salts
 
-        Returns:
+        Returns
+        -------
             Salt bytes
         """
         with self._lock:
@@ -428,10 +444,12 @@ class PepperGenerator:
         """
         Generate new pepper for session.
 
-        Args:
+        Parameters
+        ----------
             length: Pepper length in bytes
 
-        Returns:
+        Returns
+        -------
             Generated pepper bytes
         """
         with self._lock:
@@ -474,10 +492,12 @@ class MappingEncryption:
         """
         Initialize mapping encryption.
 
-        Args:
+        Parameters
+        ----------
             key: 256-bit encryption key
 
-        Raises:
+        Raises
+        ------
             ImportError: If cryptography package not available
             ValueError: If key length is invalid
         """
@@ -498,11 +518,13 @@ class MappingEncryption:
         """
         Encrypt data with AES-256-GCM.
 
-        Args:
+        Parameters
+        ----------
             plaintext: Data to encrypt
             associated_data: Optional authenticated data
 
-        Returns:
+        Returns
+        -------
             Encrypted data with prepended nonce
         """
         # Generate random 96-bit nonce
@@ -520,14 +542,17 @@ class MappingEncryption:
         """
         Decrypt AES-256-GCM encrypted data.
 
-        Args:
+        Parameters
+        ----------
             encrypted: Encrypted data with prepended nonce
             associated_data: Optional authenticated data
 
-        Returns:
+        Returns
+        -------
             Decrypted plaintext
 
-        Raises:
+        Raises
+        ------
             ValueError: If data format is invalid
             CryptoError: If decryption fails
         """
@@ -561,7 +586,8 @@ class PseudonymGenerator:
         """
         Initialize pseudonym generator.
 
-        Args:
+        Parameters
+        ----------
             pseudonym_type: Type of pseudonym ("uuid", "sequential", "random_string")
         """
         self.pseudonym_type = pseudonym_type
@@ -579,11 +605,13 @@ class PseudonymGenerator:
         """
         Generate a new pseudonym.
 
-        Args:
+        Parameters
+        ----------
             prefix: Optional prefix for the pseudonym
             length: Length for random_string type
 
-        Returns:
+        Returns
+        -------
             Generated pseudonym string
         """
         if self.pseudonym_type == "uuid":
@@ -618,15 +646,18 @@ class PseudonymGenerator:
         """
         Generate a unique pseudonym not in existing set.
 
-        Args:
+        Parameters
+        ----------
             existing: Set of existing pseudonyms
             prefix: Optional prefix
             max_attempts: Maximum generation attempts
 
-        Returns:
+        Returns
+        -------
             Unique pseudonym
 
-        Raises:
+        Raises
+        ------
             ValueError: If unique pseudonym cannot be generated
         """
         for attempt in range(max_attempts):
@@ -646,11 +677,13 @@ def constant_time_compare(a: bytes, b: bytes) -> bool:
     This prevents timing attacks by ensuring comparison time
     doesn't depend on the position of the first difference.
 
-    Args:
+    Parameters
+    ----------
         a: First byte string
         b: Second byte string
 
-    Returns:
+    Returns
+    -------
         True if equal, False otherwise
     """
     if len(a) != len(b):
@@ -667,11 +700,13 @@ def validate_key_size(key: bytes, expected_bits: int = 256) -> None:
     """
     Validate encryption key size.
 
-    Args:
+    Parameters
+    ----------
         key: Key bytes to validate
         expected_bits: Expected key size in bits
 
-    Raises:
+    Raises
+    ------
         ValueError: If key size is invalid
     """
     expected_bytes = expected_bits // 8
@@ -688,16 +723,19 @@ def derive_key_from_password(
     """
     Derive encryption key from password using PBKDF2.
 
-    Args:
+    Parameters
+    ----------
         password: Password string
         salt: Salt bytes (should be at least 16 bytes)
         iterations: PBKDF2 iterations (min recommended: 100000)
         key_length: Desired key length in bytes (default: 32 for AES-256)
 
-    Returns:
+    Returns
+    -------
         Derived key bytes
 
-    Raises:
+    Raises
+    ------
         ValueError: If parameters are invalid
     """
     if len(salt) < 16:
@@ -727,12 +765,14 @@ def generate_deterministic_pseudonym(
     This creates the same pseudonym for the same identifier+domain
     combination, useful for cross-system consistency.
 
-    Args:
+    Parameters
+    ----------
         identifier: Original identifier
         domain: Domain/context for the pseudonym
         secret_key: Secret key for HMAC
 
-    Returns:
+    Returns
+    -------
         Deterministic pseudonym (hex string)
     """
     import hmac
@@ -759,7 +799,8 @@ class CollisionTracker:
         """
         Initialize collision tracker.
 
-        Args:
+        Parameters
+        ----------
             max_tracked: Maximum number of hashes to track
         """
         self.max_tracked = max_tracked
@@ -771,11 +812,13 @@ class CollisionTracker:
         """
         Check for collision and record mapping.
 
-        Args:
+        Parameters
+        ----------
             pseudonym: Generated pseudonym
             original: Original value
 
-        Returns:
+        Returns
+        -------
             Previous original value if collision detected, None otherwise
         """
         with self._lock:
@@ -814,7 +857,8 @@ class CollisionTracker:
         """
         Export collision information for analysis.
 
-        Args:
+        Parameters
+        ----------
             output_file: Path to save collision data
         """
         with self._lock:

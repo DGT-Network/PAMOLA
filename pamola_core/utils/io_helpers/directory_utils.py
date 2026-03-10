@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Directory and Path Utilities
 Description: Tools for secure directory, file, and temporary resource management
 Author: PAMOLA Core Team
@@ -74,12 +73,12 @@ def ensure_directory(directory: Union[str, Path]) -> Path:
     """
     Ensures the specified directory exists, creating it if necessary.
 
-    Parameters:
+    Parameters
     -----------
     directory : str or Path.
         Path to the directory to ensure exists
 
-    Returns:
+    Returns
     --------
     Path
         Pathlib object for the ensured directory
@@ -99,7 +98,7 @@ def list_directory_contents(
     """
     Lists the contents of a directory.
 
-    Parameters:
+    Parameters
     -----------
     directory : str or Path.
         Path to the directory
@@ -108,12 +107,12 @@ def list_directory_contents(
     recursive : bool
         Whether to search recursively (default: False)
 
-    Returns:
+    Returns
     --------
     List[Path]
         List of paths to the files matching the pattern
 
-    Raises:
+    Raises
     -------
     PathValidationError
         If directory doesn't exist
@@ -148,7 +147,7 @@ def clear_directory(
     """
     Clears all files and subdirectories in the specified directory.
 
-    Parameters:
+    Parameters
     -----------
     directory : str or Path.
         Path to the directory to clear
@@ -157,12 +156,12 @@ def clear_directory(
     confirm : bool
         Whether to ask for confirmation before clearing (default: True)
 
-    Returns:
+    Returns
     --------
     int
         Number of items removed
 
-    Raises:
+    Raises
     -------
     PathValidationError
         If directory doesn't exist
@@ -231,12 +230,12 @@ def ensure_parent_directory(file_path: Union[str, Path]) -> bool:
     """
     Ensures the parent directory of a file exists.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path.
         Path to the file
 
-    Returns:
+    Returns
     --------
     bool
         True if parent directory exists or was created, False otherwise
@@ -255,17 +254,17 @@ def get_file_stats(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Gets statistics about a file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path.
         Path to the file
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with file statistics (size, creation time, modification time, etc.)
 
-    Raises:
+    Raises
     -------
     PamolaFileNotFoundError
         If file doesn't exist
@@ -305,7 +304,7 @@ def get_timestamped_filename(
     """
     Creates a timestamped filename.
 
-    Parameters:
+    Parameters
     -----------
     base_name : str
         Base name for the file
@@ -314,7 +313,7 @@ def get_timestamped_filename(
     include_timestamp : bool
         Whether to include a timestamp in the filename (default: True)
 
-    Returns:
+    Returns
     --------
     str
         Timestamped filename
@@ -335,7 +334,7 @@ def get_unique_filename(
     """
     Generates a unique filename in a directory.
 
-    Parameters:
+    Parameters
     -----------
     directory : str or Path
         Directory for the file
@@ -346,7 +345,7 @@ def get_unique_filename(
     include_timestamp : bool
         Whether to include a timestamp
 
-    Returns:
+    Returns
     --------
     Path
         Unique file path
@@ -377,7 +376,7 @@ def get_temp_file(
     """
     Creates a temporary file path.
 
-    Parameters:
+    Parameters
     -----------
     original_file : str or Path.
         Path to the original file
@@ -386,7 +385,7 @@ def get_temp_file(
     create : bool
         Whether to create the file (empty)
 
-    Returns:
+    Returns
     --------
     Path.
         Path to the temporary file
@@ -428,7 +427,7 @@ def get_temp_file_for_encryption(
     """
     Creates a temporary file path for encryption operations.
 
-    Parameters:
+    Parameters
     -----------
     original_file : str or Path.
         Path to the original unencrypted file
@@ -437,7 +436,7 @@ def get_temp_file_for_encryption(
     create : bool
         Whether to create the file (empty)
 
-    Returns:
+    Returns
     --------
     Path.
         Path to the temporary file
@@ -452,7 +451,7 @@ def get_temp_file_for_decryption(
     """
     Creates a temporary file path for decryption operations.
 
-    Parameters:
+    Parameters
     -----------
     original_file : str or Path.
         Path to the original encrypted file
@@ -461,7 +460,7 @@ def get_temp_file_for_decryption(
     create : bool
         Whether to create the file (empty)
 
-    Returns:
+    Returns
     --------
     Path.
         Path to the temporary file
@@ -476,14 +475,14 @@ def safe_remove_temp_file(
     """
     Safely removes a temporary file with error handling.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path.
         Path to the file to remove
     logger_obj : Logger, optional
         Logger object to use (uses default if None)
 
-    Returns:
+    Returns
     --------
     bool
         True if removal was successful, False otherwise
@@ -517,14 +516,14 @@ def make_unique_path(
     """
     Creates a unique path by appending a counter if the path already exists.
 
-    Parameters:
+    Parameters
     -----------
     base_path : str or Path
         Base path to make unique
     create : bool
         Whether to create the directory if it doesn't exist (default: False)
 
-    Returns:
+    Returns
     --------
     Path
         Unique path
@@ -571,7 +570,7 @@ def normalize_path(
     """
     Normalizes a path for consistent handling.
 
-    Parameters:
+    Parameters
     -----------
     path : str or Path.
         Path to normalize
@@ -580,7 +579,7 @@ def normalize_path(
     resolve_symlinks : bool
         Whether to resolve symlinks
 
-    Returns:
+    Returns
     --------
     Path
         Normalized path
@@ -602,7 +601,7 @@ def is_path_in_directory(
     """
     Checks if a path is inside a directory.
 
-    Parameters:
+    Parameters
     -----------
     path : str or Path.
         Path to check
@@ -611,7 +610,7 @@ def is_path_in_directory(
     include_subdirs : bool
         Whether to include subdirectories in the check
 
-    Returns:
+    Returns
     --------
     bool
         True if the path is in the directory, False otherwise
@@ -641,12 +640,12 @@ def is_path_directory(path: Union[str, Path]) -> bool:
     """
     Checks if a path is directory.
 
-    Parameters:
+    Parameters
     -----------
     path : str or Path.
         Path to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the path is directory, False otherwise
@@ -669,12 +668,12 @@ def is_path_writable(path: Union[str, Path]) -> bool:
     """
     Checks if a path is writable.
 
-    Parameters:
+    Parameters
     -----------
     path : str or Path.
         Path to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the path is writable, False otherwise
@@ -693,7 +692,7 @@ def protect_path(path: Union[str, Path], readonly: bool = True) -> None:
     """
     Sets or removes write protection for a file.
 
-    Parameters:
+    Parameters
     -----------
     path : str or Path.
         Path to protect
@@ -731,7 +730,7 @@ def create_secure_directory_structure(
     """
     Creates a secure directory structure with controlled permissions.
 
-    Parameters:
+    Parameters
     -----------
     base_dir : str or Path
         Base directory
@@ -740,7 +739,7 @@ def create_secure_directory_structure(
     permissions : int
         Unix-style permissions (default: 0o700 = rwx for owner only)
 
-    Returns:
+    Returns
     --------
     Dict[str, Path]
         Dictionary mapping subdirectory names to paths
@@ -785,7 +784,7 @@ def create_secure_temp_directory(
     """
     Creates a secure temporary directory.
 
-    Parameters:
+    Parameters
     -----------
     prefix : str
         Prefix for the directory name
@@ -794,7 +793,7 @@ def create_secure_temp_directory(
     register_for_cleanup : bool
         Whether to register for automatic cleanup
 
-    Returns:
+    Returns
     --------
     Path.
         Path to the created temporary directory
@@ -831,7 +830,7 @@ def create_secure_temp_file(
     """
     Creates a secure temporary file.
 
-    Parameters:
+    Parameters
     -----------
     prefix : str
         Prefix for the file name
@@ -844,7 +843,7 @@ def create_secure_temp_file(
     text : bool
         Whether the file should be opened in text mode
 
-    Returns:
+    Returns
     --------
     Path.
         Path to the created temporary file
@@ -877,7 +876,7 @@ def create_secure_path(
     """
     Creates a secure path by ensuring it doesn't escape the base directory.
 
-    Parameters:
+    Parameters
     -----------
     base_dir : str or Path
         Base directory for the path
@@ -886,12 +885,12 @@ def create_secure_path(
     create : bool
         Whether to create directories if they don't exist
 
-    Returns:
+    Returns
     --------
     Path
         Secure path
 
-    Raises:
+    Raises
     -------
     ValueError
         If the subpath would escape the base directory
@@ -945,7 +944,7 @@ def secure_cleanup(
     """
     Securely cleans up files and directories.
 
-    Parameters:
+    Parameters
     -----------
     paths : List[Union[str, Path]]
         Paths to clean up
@@ -954,7 +953,7 @@ def secure_cleanup(
     ignore_errors : bool
         Whether to ignore errors during cleanup
 
-    Returns:
+    Returns
     --------
     List[str]
         List of paths that couldn't be cleaned up (empty if all successful)
@@ -1032,12 +1031,12 @@ def with_secure_temp_directory(func: Callable) -> Callable:
     """
     Decorator that provides a secure temporary directory to a function.
 
-    Parameters:
+    Parameters
     -----------
     func : Callable
         Function to decorate
 
-    Returns:
+    Returns
     --------
     Callable
         Decorated function

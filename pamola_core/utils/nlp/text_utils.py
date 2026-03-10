@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        General Text Processing Utilities
 Package:       pamola_core.utils.nlp
 Version:       1.0.0
@@ -96,7 +95,7 @@ def normalize_text(
     This function provides multi-level text normalization suitable for various
     text processing tasks including anonymization and category matching.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Input text to normalize
@@ -111,12 +110,12 @@ def normalize_text(
     languages : List[str], optional
         Language codes for stopword removal (only used in aggressive mode)
 
-    Returns:
+    Returns
     --------
     str
         Normalized text
 
-    Examples:
+    Examples
     ---------
     >>> normalize_text("  Hello   World!  ", "basic")
     'hello world!'
@@ -209,7 +208,7 @@ def clean_category_name(
     This function ensures category names are safe for use as file names
     or field names by removing invalid characters and enforcing length limits.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Category name to clean
@@ -218,12 +217,12 @@ def clean_category_name(
     invalid_chars : str, optional
         Regex pattern of invalid characters to remove
 
-    Returns:
+    Returns
     --------
     str
         Cleaned category name
 
-    Examples:
+    Examples
     ---------
     >>> clean_category_name("Sales/Marketing", max_length=20)
     'Sales_Marketing'
@@ -263,7 +262,7 @@ def calculate_string_similarity(
     """
     Calculate similarity between two strings using various methods.
 
-    Parameters:
+    Parameters
     -----------
     s1 : str
         First string
@@ -280,12 +279,12 @@ def calculate_string_similarity(
     case_sensitive : bool, optional
         Whether comparison is case-sensitive (default: False)
 
-    Returns:
+    Returns
     --------
     float
         Similarity score between 0 and 1
 
-    Examples:
+    Examples
     ---------
     >>> calculate_string_similarity("hello world", "Hello World")
     1.0
@@ -372,14 +371,14 @@ def _levenshtein_distance(s1: str, s2: str) -> int:
 
     This is an optimized implementation using only O(min(m,n)) space.
 
-    Parameters:
+    Parameters
     -----------
     s1 : str
         First string
     s2 : str
         Second string
 
-    Returns:
+    Returns
     --------
     int
         Minimum number of edits (insertions, deletions, substitutions)
@@ -426,7 +425,7 @@ def find_closest_match(
     """
     Find closest matching strings from a list of candidates.
 
-    Parameters:
+    Parameters
     -----------
     target : str
         Target string to match
@@ -441,12 +440,12 @@ def find_closest_match(
     normalize : bool, optional
         Whether to normalize strings (default: True)
 
-    Returns:
+    Returns
     --------
     List[Tuple[str, float]]
         List of (candidate, similarity_score) tuples, sorted by score descending
 
-    Examples:
+    Examples
     ---------
     >>> candidates = ["python", "jython", "cython", "java"]
     >>> find_closest_match("pyton", candidates, threshold=0.7)
@@ -486,7 +485,7 @@ def find_closest_category(
     This is a convenience function specifically for category matching,
     returning only the best match or None if no match meets the threshold.
 
-    Parameters:
+    Parameters
     -----------
     value : str
         Value to categorize
@@ -497,12 +496,12 @@ def find_closest_category(
     method : str, optional
         Similarity method (default: "ratio")
 
-    Returns:
+    Returns
     --------
     Optional[str]
         Best matching category or None if no match meets threshold
 
-    Examples:
+    Examples
     ---------
     >>> categories = ["Software Engineer", "Data Scientist", "Product Manager"]
     >>> find_closest_category("Software Dev", categories)
@@ -521,7 +520,7 @@ def split_composite_value(
     Handles values that contain multiple items separated by delimiters,
     such as "IT|Finance" or "Sales/Marketing".
 
-    Parameters:
+    Parameters
     -----------
     value : str
         Composite value to split
@@ -530,12 +529,12 @@ def split_composite_value(
     normalize : bool, optional
         Whether to normalize components (default: True)
 
-    Returns:
+    Returns
     --------
     List[str]
         List of components
 
-    Examples:
+    Examples
     ---------
     >>> split_composite_value("IT|Finance|HR")
     ['it', 'finance', 'hr']
@@ -577,7 +576,7 @@ def extract_tokens(
     """
     Extract tokens from text using configurable rules.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to tokenize
@@ -588,12 +587,12 @@ def extract_tokens(
     lowercase : bool, optional
         Whether to lowercase tokens (default: True)
 
-    Returns:
+    Returns
     --------
     List[str]
         List of extracted tokens
 
-    Examples:
+    Examples
     ---------
     >>> extract_tokens("Hello World! Test-123")
     ['hello', 'world', 'test', '123']
@@ -630,7 +629,7 @@ def is_valid_category_name(
     """
     Check if a category name is valid.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Category name to validate
@@ -641,12 +640,12 @@ def is_valid_category_name(
     invalid_chars : str, optional
         Regex pattern of invalid characters
 
-    Returns:
+    Returns
     --------
     Tuple[bool, Optional[str]]
         (is_valid, error_message)
 
-    Examples:
+    Examples
     ---------
     >>> is_valid_category_name("ValidCategory")
     (True, None)
@@ -677,7 +676,7 @@ def truncate_text(
     """
     Truncate text to maximum length with optional ellipsis.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to truncate
@@ -688,12 +687,12 @@ def truncate_text(
     whole_words : bool, optional
         Whether to truncate at word boundaries (default: True)
 
-    Returns:
+    Returns
     --------
     str
         Truncated text
 
-    Examples:
+    Examples
     ---------
     >>> truncate_text("This is a long text", 10)
     'This...'

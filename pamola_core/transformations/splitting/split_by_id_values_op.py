@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Split By ID Values Operation
 Description: Operation for splitting datasets by ID values or partitioning strategies
 Author: PAMOLA Core Team
@@ -144,7 +143,7 @@ class SplitByIDValuesOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -157,7 +156,7 @@ class SplitByIDValuesOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation

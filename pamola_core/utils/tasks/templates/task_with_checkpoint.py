@@ -1,6 +1,5 @@
 """
 PAMOLA Project - PAMOLA Core
-------------------------
 Checkpoint-Enabled Task Template
 Version: 1.0.0
 Created: 2025-05-10
@@ -80,10 +79,12 @@ class CheckpointTask(BaseTask):
         This method extends the base initialization to check for existing
         checkpoints and set up for resumable execution.
 
-        Args:
+        Parameters
+        ----------
             args: Command line arguments to override configuration
 
-        Returns:
+        Returns
+        -------
             True if initialization is successful, False otherwise
         """
         # Call the parent initialization first
@@ -205,7 +206,8 @@ class CheckpointTask(BaseTask):
         This method runs operations with support for interruption and resumption,
         creating checkpoints at strategic points in the execution.
 
-        Returns:
+        Returns
+        -------
             True if execution was successful, False otherwise
         """
         # Start or resume execution based on checkpoint status
@@ -232,7 +234,8 @@ class CheckpointTask(BaseTask):
         """
         Create a custom checkpoint with task-specific state information.
 
-        Args:
+        Parameters
+        ----------
             name: Name for the checkpoint
         """
         try:
@@ -283,7 +286,8 @@ class CheckpointTask(BaseTask):
         This method should be called from batch processing operations to update
         progress and create checkpoints at regular intervals.
 
-        Args:
+        Parameters
+        ----------
             batches_processed: Number of batches processed in this update
         """
         # Update total batches processed
@@ -304,11 +308,13 @@ class CheckpointTask(BaseTask):
         This is a utility method that can be used by operations to process
         batches of data with consistent checkpoint creation.
 
-        Args:
+        Parameters
+        ----------
             batch_data: Data for this batch to process
             batch_index: Index of this batch
 
-        Returns:
+        Returns
+        -------
             Dictionary with batch processing results
         """
         self.logger.info(f"Processing batch {batch_index}")
@@ -347,10 +353,12 @@ class CheckpointTask(BaseTask):
         This method extends the base finalization to handle checkpoint
         cleanup and final reporting.
 
-        Args:
+        Parameters
+        ----------
             success: Whether the task executed successfully
 
-        Returns:
+        Returns
+        -------
             True if finalization was successful, False otherwise
         """
         self.logger.info(f"Finalizing task (success: {success})")

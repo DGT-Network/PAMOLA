@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Aggregate Records Operation
 Description: Operation for grouping and aggregating records with flexible aggregation functions
 Author: PAMOLA Core Team
@@ -136,7 +135,7 @@ class AggregateRecordsOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -149,7 +148,7 @@ class AggregateRecordsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -684,7 +683,7 @@ class AggregateRecordsOperation(TransformationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for cache key generation
@@ -715,7 +714,7 @@ class AggregateRecordsOperation(TransformationOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original DataFrame before transformation
@@ -1130,12 +1129,12 @@ def create_aggregate_records_operation(**kwargs) -> AggregateRecordsOperation:
     """
     Create an aggregate records operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     AggregateRecordsOperation
         Configured aggregate records operation

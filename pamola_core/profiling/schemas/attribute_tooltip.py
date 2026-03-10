@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Data Attribute Profiler Operation Tooltips
 Package:       pamola_core.profiling.schemas
 Version:       1.0.0

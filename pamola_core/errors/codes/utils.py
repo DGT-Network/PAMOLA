@@ -14,14 +14,17 @@ def validate_error_code_usage(error_code: str, exception_type: type) -> None:
     """
     Validate that error code is used with appropriate exception type.
 
-    Args:
+    Parameters
+    ----------
         error_code: Error code to validate
         exception_type: Exception class being used
 
-    Raises:
+    Raises
+    ------
         ValueError: When code/exception mismatch detected
 
-    Example:
+    Examples
+    --------
         >>> validate_error_code_usage("DATA_LOAD_FAILED", DataError)  # OK
         >>> validate_error_code_usage("DATA_LOAD_FAILED", CacheError)  # Raises ValueError
     """
@@ -149,13 +152,16 @@ def get_error_info(error_code: str) -> Dict[str, Any]:
     """
     Get comprehensive error information including metadata and suggestions.
 
-    Args:
+    Parameters
+    ----------
         error_code: The error code to get information for
 
-    Returns:
+    Returns
+    -------
         Dictionary with error metadata and recovery suggestions
 
-    Example:
+    Examples
+    --------
         >>> info = get_error_info("DATA_LOAD_FAILED")
         >>> print(info["metadata"]["severity"])
         error
@@ -179,10 +185,12 @@ def format_error_help(error_code: str) -> str:
     """
     Format comprehensive help text for an error code.
 
-    Args:
+    Parameters
+    ----------
         error_code: The error code to format help for
 
-    Returns:
+    Returns
+    -------
         Formatted help text with metadata and suggestions
     """
     from pamola_core.errors.context.suggestions import ErrorContext

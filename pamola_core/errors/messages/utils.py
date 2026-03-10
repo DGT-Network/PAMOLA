@@ -21,15 +21,18 @@ def format_message(template_str: str, **kwargs) -> str:
     (ErrorMessages.format) is responsible for resolving the name → string
     lookup before calling this function.
 
-    Args:
+    Parameters
+    ----------
         template_str: Raw template string, e.g.
                       "Field '{field_name}' not found. Available: {available_fields}"
         **kwargs: Template parameters to substitute
 
-    Returns:
+    Returns
+    -------
         Formatted message string, or descriptive error if formatting fails
 
-    Examples:
+    Examples
+    --------
         >>> format_message("Field '{field_name}' not found.", field_name="age")
         "Field 'age' not found."
 
@@ -57,16 +60,19 @@ def validate_template_params_str(template_str: str, **kwargs) -> Tuple[bool, Lis
     (ErrorMessages.validate_template_params) is responsible for the
     name → string lookup before calling this function.
 
-    Args:
+    Parameters
+    ----------
         template_str: Raw template string to inspect for {placeholder} tokens
         **kwargs: Parameters to validate against the template
 
-    Returns:
+    Returns
+    -------
         Tuple of (is_valid, list_of_missing_param_names)
         - is_valid: True if all placeholders have corresponding kwargs
         - list_of_missing_param_names: Empty list if is_valid is True
 
-    Examples:
+    Examples
+    --------
         >>> validate_template_params_str(
         ...     "Field '{field_name}' not found. Available: {available_fields}",
         ...     field_name="age"
@@ -88,13 +94,16 @@ def extract_template_placeholders(template_str: str) -> List[str]:
     """
     Extract all placeholder names from a template string.
 
-    Args:
+    Parameters
+    ----------
         template_str: Raw template string to inspect
 
-    Returns:
+    Returns
+    -------
         Sorted list of unique placeholder names
 
-    Examples:
+    Examples
+    --------
         >>> extract_template_placeholders(
         ...     "Field '{field_name}' not found. Available: {available_fields}"
         ... )
@@ -110,13 +119,16 @@ def build_templates_index(cls_vars: Dict[str, object]) -> Dict[str, str]:
     Filters to only uppercase string attributes (i.e. template constants).
     Intended to be called with vars(ErrorMessages) by registry.get_all_templates().
 
-    Args:
+    Parameters
+    ----------
         cls_vars: Result of vars(SomeClass) — typically vars(ErrorMessages)
 
-    Returns:
+    Returns
+    -------
         Dictionary of {template_name: template_string}
 
-    Examples:
+    Examples
+    --------
         >>> build_templates_index(vars(ErrorMessages))
         {'DATA_LOAD_FAILED': "Failed to load data ...", ...}
     """

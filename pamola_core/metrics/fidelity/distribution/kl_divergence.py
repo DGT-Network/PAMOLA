@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Fidelity Metric Operation - KLDivergence
 Package:       pamola_core.metrics.fidelity
 Version:       4.0.0
@@ -41,7 +40,7 @@ class KLDivergence:
     """
     Enhanced KL Divergence with confidence level and normalization support.
 
-    Parameters:
+    Parameters
     ----------
     key_fields : Optional[List[str]]
         Fields to group the data before calculating distributions.
@@ -94,7 +93,7 @@ class KLDivergence:
         """
         Compute enhanced KL divergence between the original and transformed datasets.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Enhanced results dictionary with:
@@ -158,7 +157,7 @@ class KLDivergence:
         """
         Enhanced KL divergence calculation with normalization support.
 
-        Returns:
+        Returns
         --------
         Tuple[float, float]
             KL divergence and Jensen-Shannon distance

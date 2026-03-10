@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Prompt Management Utilities
 Package:       pamola_core.utils.nlp.llm.prompt
 Version:       1.1.0

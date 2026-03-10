@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Regex Patterns Utilities
----------------------------------------------------
 This module contains common regular expressions (regex) for general usage.
 
 Features:

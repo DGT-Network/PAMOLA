@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Privacy Metric Operation
 Package:       pamola_core.metrics
 Version:       4.0.0
@@ -131,7 +130,7 @@ class PrivacyMetricOperation(MetricsOperation):
         """
         Execute the metrics operation with enhanced features including Dask support.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -144,7 +143,7 @@ class PrivacyMetricOperation(MetricsOperation):
         **kwargs : dict
             Additional parameters including profiling_results
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -179,7 +178,7 @@ class PrivacyMetricOperation(MetricsOperation):
         """
         Calculate multiple privacy metrics between original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original dataset.
@@ -196,7 +195,7 @@ class PrivacyMetricOperation(MetricsOperation):
             - metric_params: Dict[str, Dict]
                 Mapping of metric type to its specific configuration params.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             - result: Dict of metric_name → metric_result
@@ -294,7 +293,7 @@ class PrivacyMetricOperation(MetricsOperation):
         """
         Generate DCR metric visualizations and return their paths.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Dictionary containing DCR metric results.
@@ -311,7 +310,7 @@ class PrivacyMetricOperation(MetricsOperation):
         **kwargs : Any
             Additional keyword arguments for visualization.
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and their file paths.
@@ -379,7 +378,7 @@ class PrivacyMetricOperation(MetricsOperation):
         """
         Generate visualizations for NNDR (Nearest Neighbor Distance Ratio) metrics.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Dictionary containing NNDR metric results.
@@ -396,7 +395,7 @@ class PrivacyMetricOperation(MetricsOperation):
         **kwargs : Any
             Additional keyword arguments for visualization.
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and their file paths.
@@ -463,7 +462,7 @@ class PrivacyMetricOperation(MetricsOperation):
         """
         Generate visualizations for Uniqueness metrics (k-anonymity, l-diversity, t-closeness).
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Dictionary containing uniqueness metric results.
@@ -480,7 +479,7 @@ class PrivacyMetricOperation(MetricsOperation):
         **kwargs : Any
             Additional keyword arguments for visualization.
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and their file paths.
@@ -591,7 +590,7 @@ class PrivacyMetricOperation(MetricsOperation):
 
         This implementation generates separate visualizations for each metric type if present.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Collected metrics for visualization (may include 'dcr', 'nndr', etc.)
@@ -606,7 +605,7 @@ class PrivacyMetricOperation(MetricsOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -686,7 +685,7 @@ class PrivacyMetricOperation(MetricsOperation):
         This method should be overridden by subclasses to provide
         operation-specific parameters for caching.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation

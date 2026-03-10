@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Information Loss Metrics
---------------------------------------
 This module provides metrics for quantifying information loss in anonymized
 or synthetic datasets. Information loss metrics measure how much utility
 has been sacrificed to achieve privacy protection.
@@ -58,7 +57,7 @@ class InformationLossMetric:
         """
         Initialize the information loss metric.
 
-        Parameters:
+        Parameters
         -----------
         record_weight : float, optional
             Weight for record loss in overall calculation (default: 0.4).
@@ -92,7 +91,7 @@ class InformationLossMetric:
         """
         Calculate information loss metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             The original dataset.
@@ -104,7 +103,7 @@ class InformationLossMetric:
         **kwargs : dict
             Additional parameters for calculation.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with information loss metrics:
@@ -253,12 +252,12 @@ class InformationLossMetric:
         For information loss, lower values indicate better utility
         (less information was lost).
 
-        Parameters:
+        Parameters
         -----------
         value : float
             The information loss value (percentage).
 
-        Returns:
+        Returns
         --------
         str
             Human-readable interpretation of the information loss.
@@ -304,7 +303,7 @@ class GeneralizationLossMetric:
         """
         Calculate generalization loss metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             The original dataset.
@@ -316,7 +315,7 @@ class GeneralizationLossMetric:
         **kwargs : dict
             Additional parameters for calculation.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with generalization loss metrics:
@@ -460,7 +459,7 @@ class SuppressionLossMetric:
         """
         Calculate suppression loss metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             The original dataset.
@@ -469,7 +468,7 @@ class SuppressionLossMetric:
         **kwargs : dict
             Additional parameters for calculation.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with suppression loss metrics:
@@ -543,12 +542,12 @@ def calculate_entropy(series: pd.Series) -> float:
     """
     Calculate the Shannon entropy of a series.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to calculate entropy for.
 
-    Returns:
+    Returns
     --------
     float
         The entropy value.
@@ -575,7 +574,7 @@ def calculate_information_loss_metrics(
     """
     Calculate multiple information loss metrics for anonymized data.
 
-    Parameters:
+    Parameters
     -----------
     original_data : pd.DataFrame
         The original dataset.
@@ -584,7 +583,7 @@ def calculate_information_loss_metrics(
     **kwargs : dict
         Additional parameters for calculation.
 
-    Returns:
+    Returns
     --------
     dict
         Dictionary with results from all information loss metrics.

@@ -191,7 +191,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -204,7 +204,7 @@ class RecordSuppressionOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -831,10 +831,12 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Build boolean mask for records to suppress.
 
-        Args:
+        Parameters
+        ----------
             batch: DataFrame batch
 
-        Returns:
+        Returns
+        -------
             Boolean Series where True indicates record should be suppressed
         """
         if self.suppression_condition == "null":
@@ -885,7 +887,8 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Save suppressed records to disk immediately to manage memory.
 
-        Args:
+        Parameters
+        ----------
             suppressed_df: DataFrame of suppressed records
             record_num: Record number for file naming (count of suppressed records or identifier)
         """
@@ -925,7 +928,8 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Get human-readable suppression reason.
 
-        Returns:
+        Returns
+        -------
             String describing the suppression reason
         """
         if self.suppression_condition == "null":
@@ -950,11 +954,13 @@ class RecordSuppressionOperation(AnonymizationOperation):
         Note: For record suppression, we work with accumulated counts,
         not series data.
 
-        Args:
+        Parameters
+        ----------
             original_data: Not used for record suppression
             anonymized_data: Not used for record suppression
 
-        Returns:
+        Returns
+        -------
             Dictionary of suppression metrics
         """
         suppression_rate = 0.0
@@ -1100,14 +1106,16 @@ class RecordSuppressionOperation(AnonymizationOperation):
         """
         Generate visualizations showing columns before/after suppression and data type distribution.
 
-        Args:
+        Parameters
+        ----------
             input_data: Original DataFrame
             output_data: Processed DataFrame
             task_dir: Directory to save visualization
             result: OperationResult to register visualization artifacts
             operation_timestamp: Timestamp string for filenames
 
-        Returns:
+        Returns
+        -------
             Path to saved visualization or None
         """
 

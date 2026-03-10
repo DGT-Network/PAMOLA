@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Text Transformer
 Package:       pamola_core.utils.nlp.text_transformer
 Version:       2.2.0

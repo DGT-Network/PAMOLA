@@ -88,7 +88,7 @@ class MappingStore:
         """
         Adds a mapping between original and synthetic values.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
@@ -132,7 +132,7 @@ class MappingStore:
         """
         Updates an existing mapping with a new synthetic value.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
@@ -143,7 +143,7 @@ class MappingStore:
         update_transitivity : bool
             Whether to update transitivity markers (default: True)
 
-        Returns:
+        Returns
         --------
         bool
             True if the mapping was updated, False if it didn't exist
@@ -189,14 +189,14 @@ class MappingStore:
         """
         Gets the synthetic value for an original value.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
         original : Any
             Original value
 
-        Returns:
+        Returns
         --------
         Any
             Synthetic value or None if not found
@@ -210,14 +210,14 @@ class MappingStore:
         """
         Restores the original value from a synthetic one.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
         synthetic : Any
             Synthetic value
 
-        Returns:
+        Returns
         --------
         Any
             Original value or None if not found
@@ -231,14 +231,14 @@ class MappingStore:
         """
         Checks if a mapping is transitive.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
         original : Any
             Original value
 
-        Returns:
+        Returns
         --------
         bool
             True if the mapping is transitive, False otherwise
@@ -252,14 +252,14 @@ class MappingStore:
         """
         Explicitly marks a mapping as transitive.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
         original : Any
             Original value
 
-        Returns:
+        Returns
         --------
         bool
             True if successful, False if mapping doesn't exist
@@ -281,14 +281,14 @@ class MappingStore:
         """
         Removes a mapping from the store.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
         original : Any
             Original value
 
-        Returns:
+        Returns
         --------
         bool
             True if mapping was removed, False if not found
@@ -326,12 +326,12 @@ class MappingStore:
         """
         Gets all mappings for a field.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
 
-        Returns:
+        Returns
         --------
         Dict[Any, Any]
             Dictionary of original to synthetic mappings
@@ -345,12 +345,12 @@ class MappingStore:
         """
         Gets statistics for a field.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary of field statistics
@@ -376,7 +376,7 @@ class MappingStore:
         """
         Gets statistics for all fields.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary of statistics for all fields
@@ -399,7 +399,7 @@ class MappingStore:
         """
         Clears all mappings for a field.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
@@ -435,7 +435,7 @@ class MappingStore:
         """
         Prepares the mapping store data in a serializable format.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Serializable representation of the mapping store
@@ -465,7 +465,7 @@ class MappingStore:
         """
         Processes loaded data and initializes the mapping store.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Data loaded from a file
@@ -517,7 +517,7 @@ class MappingStore:
         """
         Saves the mapping store to a JSON file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to save the JSON file
@@ -540,7 +540,7 @@ class MappingStore:
         """
         Loads the mapping store from a JSON file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to the JSON file
@@ -573,7 +573,7 @@ class MappingStore:
         """
         Incrementally updates mappings from a JSON file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to the JSON file
@@ -584,7 +584,7 @@ class MappingStore:
         io_module : module, optional
             Legacy parameter for backward compatibility (optional)
 
-        Returns:
+        Returns
         --------
         Dict[str, int]
             Statistics of the update: {field_name: count_added}
@@ -639,7 +639,7 @@ class MappingStore:
         """
         Saves the mapping store to a pickle file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to save the pickle file
@@ -668,7 +668,7 @@ class MappingStore:
         """
         Loads the mapping store from a pickle file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to the pickle file
@@ -691,12 +691,12 @@ class MappingStore:
         """
         Converts the mappings for a field to a DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             DataFrame with original and synthetic values
@@ -733,7 +733,7 @@ class MappingStore:
         """
         Loads mappings for a field from a DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame with mappings
@@ -748,7 +748,7 @@ class MappingStore:
         overwrite_existing : bool
             Whether to overwrite existing mappings (default: True)
 
-        Returns:
+        Returns
         --------
         int
             Number of mappings added
@@ -783,7 +783,7 @@ class MappingStore:
         """
         Saves all mappings to a CSV file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to save the CSV file
@@ -822,7 +822,7 @@ class MappingStore:
         """
         Loads mappings from a CSV file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to the CSV file
@@ -831,7 +831,7 @@ class MappingStore:
         fields_to_load : Optional[List[str]]
             List of fields to load (if None, all fields are loaded)
 
-        Returns:
+        Returns
         --------
         Dict[str, int]
             Statistics of the load: {field_name: count_added}
@@ -895,7 +895,7 @@ class MappingStore:
         """
         Saves the mapping store to a file in the specified format.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to save the file
@@ -930,7 +930,7 @@ class MappingStore:
         """
         Loads the mapping store from a file.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to the file
@@ -942,7 +942,7 @@ class MappingStore:
         fields_to_load : Optional[List[str]]
             List of fields to load (if None, all fields are loaded)
 
-        Returns:
+        Returns
         --------
         Dict[str, int]
             Statistics of the load for CSV format: {field_name: count_added}
@@ -994,7 +994,7 @@ class MappingStore:
         """
         Merges another MappingStore into this one.
 
-        Parameters:
+        Parameters
         -----------
         other_store : MappingStore
             Other mapping store to merge from
@@ -1003,7 +1003,7 @@ class MappingStore:
         fields_to_merge : Optional[List[str]]
             List of fields to merge (if None, all fields are merged)
 
-        Returns:
+        Returns
         --------
         Dict[str, int]
             Statistics of the merge: {field_name: count_added}

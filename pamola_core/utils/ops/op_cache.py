@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Caching
 Description: Caching system for operation results
 Author: PAMOLA Core Team
@@ -59,7 +58,7 @@ class OperationCache:
         """
         Initialize the operation cache manager.
 
-        Parameters:
+        Parameters
         -----------
         cache_dir : str or Path, optional
             Directory to store cache files. If None, uses {user_home}/.pamolacache
@@ -101,7 +100,7 @@ class OperationCache:
         with OperationCache() as cache:
             result = cache.get_cache(key)
 
-        Returns:
+        Returns
         --------
         OperationCache
             The cache instance
@@ -114,7 +113,7 @@ class OperationCache:
 
         This ensures cache health is checked when the context is exited.
 
-        Parameters:
+        Parameters
         -----------
         exc_type : Type[BaseException] or None
             Exception type if an exception was raised, None otherwise
@@ -123,7 +122,7 @@ class OperationCache:
         exc_tb : traceback or None
             Traceback if an exception was raised, None otherwise
 
-        Returns:
+        Returns
         --------
         bool
             False to propagate exceptions
@@ -137,14 +136,14 @@ class OperationCache:
 
         Satisfies REQ-OPS-005: Provides cached operation results retrieval.
 
-        Parameters:
+        Parameters
         -----------
         cache_key : str
             Unique identifier for the cache item
         operation_type : str, optional
             Type of operation, used to organize cache files
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Cached results or None if not found or stale
@@ -187,14 +186,14 @@ class OperationCache:
 
         Retrieve cached results for a given key without blocking the event loop.
 
-        Parameters:
+        Parameters
         -----------
         cache_key : str
             Unique identifier for the cache item
         operation_type : str, optional
             Type of operation, used to organize cache files
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Cached results or None if not found or stale
@@ -208,7 +207,7 @@ class OperationCache:
 
         Satisfies REQ-OPS-005: Provides operation result caching.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Data to cache
@@ -219,7 +218,7 @@ class OperationCache:
         metadata : Dict[str, Any], optional
             Additional metadata to store with the cache
 
-        Returns:
+        Returns
         --------
         bool
             True if cache was saved successfully, False otherwise
@@ -266,7 +265,7 @@ class OperationCache:
 
         Save data to cache without blocking the event loop.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Data to cache
@@ -277,7 +276,7 @@ class OperationCache:
         metadata : Dict[str, Any], optional
             Additional metadata to store with the cache
 
-        Returns:
+        Returns
         --------
         bool
             True if cache was saved successfully, False otherwise
@@ -289,14 +288,14 @@ class OperationCache:
         """
         Clear cache files.
 
-        Parameters:
+        Parameters
         -----------
         cache_key : str, optional
             Specific cache key to clear. If None, clears based on operation_type
         operation_type : str, optional
             Type of operation to clear. If None and cache_key is None, clears all cache
 
-        Returns:
+        Returns
         --------
         int
             Number of cache files cleared
@@ -343,14 +342,14 @@ class OperationCache:
 
         Clear cache files without blocking the event loop.
 
-        Parameters:
+        Parameters
         -----------
         cache_key : str, optional
             Specific cache key to clear. If None, clears based on operation_type
         operation_type : str, optional
             Type of operation to clear. If None and cache_key is None, clears all cache
 
-        Returns:
+        Returns
         --------
         int
             Number of cache files cleared
@@ -362,7 +361,7 @@ class OperationCache:
         """
         Generate a unique cache key for an operation.
 
-        Parameters:
+        Parameters
         -----------
         operation_name : str
             Name of the operation
@@ -371,7 +370,7 @@ class OperationCache:
         data_hash : str, optional
             Hash of input data if applicable
 
-        Returns:
+        Returns
         --------
         str
             Unique cache key
@@ -409,7 +408,7 @@ class OperationCache:
 
         Generate a unique cache key for an operation without blocking the event loop.
 
-        Parameters:
+        Parameters
         -----------
         operation_name : str
             Name of the operation
@@ -418,7 +417,7 @@ class OperationCache:
         data_hash : str, optional
             Hash of input data if applicable
 
-        Returns:
+        Returns
         --------
         str
             Unique cache key
@@ -429,7 +428,7 @@ class OperationCache:
         """
         Get cache performance statistics.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with cache statistics
@@ -456,14 +455,14 @@ class OperationCache:
         """
         Get the file path for a cache item.
 
-        Parameters:
+        Parameters
         -----------
         cache_key : str
             Unique identifier for the cache item
         operation_type : str, optional
             Type of operation, used to organize cache files
 
-        Returns:
+        Returns
         --------
         Path
             Path to the cache file
@@ -481,12 +480,12 @@ class OperationCache:
         """
         Check if a cache file is older than the maximum age.
 
-        Parameters:
+        Parameters
         -----------
         cache_file : Path
             Path to the cache file
 
-        Returns:
+        Returns
         --------
         bool
             True if cache is stale, False otherwise
@@ -518,7 +517,7 @@ class OperationCache:
         """
         Remove stale cache files.
 
-        Returns:
+        Returns
         --------
         int
             Number of files removed
@@ -558,7 +557,7 @@ class OperationCache:
         """
         Calculate total size of cache directory.
 
-        Returns:
+        Returns
         --------
         int
             Size in bytes
@@ -577,7 +576,7 @@ class OperationCache:
         """
         Reduce cache size by removing oldest files.
 
-        Parameters:
+        Parameters
         -----------
         current_size : int
             Current cache size in bytes

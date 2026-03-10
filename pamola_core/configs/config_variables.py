@@ -1,6 +1,5 @@
 """
 PAMOLA System Configuration - L-Diversity Module
------------------------------------------------
 This module centralizes configuration settings for L-Diversity
 anonymization model within the PAMOLA ecosystem.
 
@@ -50,12 +49,12 @@ def validate_l_diversity_config(config: Dict[str, Any]) -> bool:
     """
     Validate l-diversity configuration parameters
 
-    Parameters:
+    Parameters
     -----------
     config : Dict[str, Any]
         Configuration dictionary to validate
 
-    Returns:
+    Returns
     --------
     bool
         True if configuration is valid, False otherwise
@@ -110,12 +109,12 @@ def get_l_diversity_config(config_override: Dict[str, Any] = None) -> Dict[str, 
     """
     Retrieve l-diversity configuration with optional overrides
 
-    Parameters:
+    Parameters
     -----------
     config_override : Dict[str, Any], optional
         Configuration parameters to override defaults
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validated and merged configuration

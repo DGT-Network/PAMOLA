@@ -1,6 +1,5 @@
 """
 AMOLA.CORE - Privacy-Preserving AI Data Processors
-------------------------------------------------------------
 Module:        Privacy-Specific Data Processing Utilities
 Package:       pamola_core.anonymization.commons
 Version:       1.1.0
@@ -129,7 +128,7 @@ def process_nulls(
     strategies, particularly the ANONYMIZE option that replaces nulls with
     a privacy-preserving placeholder.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series containing null values to process
@@ -142,28 +141,28 @@ def process_nulls(
     anonymize_value : str, optional
         Value to use when strategy is "ANONYMIZE" (default: "SUPPRESSED")
 
-    Returns:
+    Returns
     --------
     pd.Series
         Series with processed null values. Note that when using "ANONYMIZE"
         with numeric series, the return type will be 'object' to accommodate
         the string replacement value.
 
-    Raises:
+    Raises
     -------
     TypeError
         If series is not a pandas Series
     ValueError
         If strategy is not recognized
 
-    Notes:
+    Notes
     ------
     - The "EXCLUDE" strategy returns a series with null values removed.
       For DataFrame-level filtering, handle this at the caller level.
     - When anonymizing numeric series with string values, the series
       dtype will change to 'object'.
 
-    Examples:
+    Examples
     ---------
     >>> s = pd.Series([1, 2, None, 4, None])
     >>> process_nulls(s, strategy="ANONYMIZE")
@@ -265,7 +264,7 @@ def filter_records_conditionally(
     It's designed to work with profiling results where a risk score field
     indicates the privacy risk level of each record.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to filter
@@ -286,13 +285,13 @@ def filter_records_conditionally(
     condition_operator : str, optional
         Operator for additional condition (default: "in")
 
-    Returns:
+    Returns
     --------
     Tuple[pd.DataFrame, pd.Series]
         (Filtered DataFrame containing only records to process,
          Boolean mask indicating which records were selected)
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({
     ...     'name': ['Alice', 'Bob', 'Charlie', 'David'],
@@ -372,7 +371,7 @@ def handle_vulnerable_records(
     applying various privacy-preserving strategies. It's typically used after
     filter_records_conditionally identifies which records need special handling.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -392,17 +391,17 @@ def handle_vulnerable_records(
     replacement_value : Optional[Any]
         Custom value to use when strategy is "custom"
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame with vulnerable records handled according to strategy
 
-    Raises:
+    Raises
     -------
     ValueError
         If strategy is not recognized or incompatible with field type
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({
     ...     'salary': [50000, 60000, 55000, 65000],
@@ -550,7 +549,7 @@ def create_risk_based_processor(
     the specified strategy. The returned function can be used in anonymization
     operations to consistently apply the same risk-based processing.
 
-    Parameters:
+    Parameters
     -----------
     strategy : str, optional
         Risk handling strategy (default: "adaptive")
@@ -561,13 +560,13 @@ def create_risk_based_processor(
     risk_threshold : float, optional
         K-anonymity threshold for identifying vulnerable records
 
-    Returns:
+    Returns
     --------
     Callable
         A function that takes (df, field_name, vulnerability_mask) and
         returns processed DataFrame
 
-    Examples:
+    Examples
     ---------
     #>>> vulnerability_mask = (df["salary"] < 100)
     #>>> processed_df = processor(df, "salary", vulnerability_mask)
@@ -638,7 +637,7 @@ def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, A
     different anonymization operations to ensure consistent privacy
     protection.
 
-    Parameters:
+    Parameters
     -----------
     privacy_level : str, optional
         Target privacy level (default: "MEDIUM")
@@ -647,7 +646,7 @@ def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, A
         - "HIGH": Strong privacy, reduced utility
         - "VERY_HIGH": Maximum privacy, minimal utility
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Configuration parameters including:
@@ -657,7 +656,7 @@ def create_privacy_level_processor(privacy_level: str = "MEDIUM") -> Dict[str, A
         - risk_processor: Callable for handling vulnerable records
         - null_strategy: Strategy for null handling
 
-    Examples:
+    Examples
     ---------
     >>> privacy_cfg = create_privacy_level_processor("HIGH")
     >>> k_threshold = privacy_cfg["k_threshold"]  # 10
@@ -815,13 +814,15 @@ def get_risk_statistics(
     """
     Calculate statistics for risk values in a DataFrame.
 
-    Args:
+    Parameters
+    ----------
         df: DataFrame containing risk values
         risk_field: Name of the field containing risk values
         thresholds: List of threshold values for distribution analysis
                    If None, uses standard risk level thresholds
 
-    Returns:
+    Returns
+    -------
         Dictionary containing statistics and distribution data
     """
     # Use standard thresholds if none provided
@@ -960,12 +961,12 @@ def get_privacy_recommendations(risk_stats: Dict[str, Any]) -> Dict[str, Any]:
     """
     Generate privacy recommendations based on risk statistics.
 
-    Parameters:
+    Parameters
     -----------
     risk_stats : Dict[str, Any]
         Risk statistics from get_risk_statistics()
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Recommendations including:

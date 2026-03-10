@@ -40,7 +40,7 @@ def analyze_null_and_empty(
     """
     Analyze null, empty, and whitespace-only values in a text field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the field
@@ -49,7 +49,7 @@ def analyze_null_and_empty(
     chunk_size : int, optional
         Size of chunks for processing large DataFrames
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results including:
@@ -98,7 +98,7 @@ def analyze_null_and_empty_in_chunks(
     """
     Analyze null, empty, and whitespace-only values in a text field by processing the dataframe in chunks.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the field
@@ -107,7 +107,7 @@ def analyze_null_and_empty_in_chunks(
     chunk_size : int
         Size of chunks to process
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Aggregated analysis results
@@ -157,14 +157,14 @@ def process_chunk(chunk_df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     """
     Analyze null and empty values in a text field by processing the dataframe in chunks.
 
-    Parameters:
+    Parameters
     -----------
     chunk_df : pd.DataFrame
         DataFrame containing the field
     field_name : str
         Name of the field to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Aggregated analysis results
@@ -198,7 +198,7 @@ def analyze_null_and_empty_in_chunks_joblib(
     """
     Analyze null and empty values in a text field by processing the dataframe in chunks using Joblib.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the field
@@ -209,7 +209,7 @@ def analyze_null_and_empty_in_chunks_joblib(
     chunk_size : int
         Size of chunks to process
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Aggregated analysis results
@@ -248,7 +248,7 @@ def analyze_null_and_empty_in_chunks_dask(
     """
     Analyze null and empty values in a text field by processing the dataframe in chunks using dask.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the field
@@ -259,7 +259,7 @@ def analyze_null_and_empty_in_chunks_dask(
     chunk_size : int
         Size of chunks to process
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Aggregated analysis results
@@ -312,7 +312,7 @@ def calculate_length_stats(
     """
     Calculate text length statistics with support for sampling and caching.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text values
@@ -325,7 +325,7 @@ def calculate_length_stats(
     cache_dir : str or Path, optional
         Directory for cache files
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Length statistics
@@ -406,14 +406,14 @@ def chunk_texts(texts: List[str], chunk_size: int) -> List[List[str]]:
     """
     Split a list of texts into chunks for efficient processing.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings
     chunk_size : int
         Size of each chunk
 
-    Returns:
+    Returns
     --------
     List[List[str]]
         List of text chunks
@@ -431,7 +431,7 @@ def process_texts_in_chunks(
     """
     Process a large list of texts in chunks.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of texts to process
@@ -442,7 +442,7 @@ def process_texts_in_chunks(
     **kwargs
         Additional parameters to pass to process_func
 
-    Returns:
+    Returns
     --------
     List[Any]
         Combined results from all chunks
@@ -457,12 +457,12 @@ def merge_analysis_results(results_list: List[Dict[str, Any]]) -> Dict[str, Any]
     """
     Merge analysis results from multiple chunks.
 
-    Parameters:
+    Parameters
     -----------
     results_list : List[Dict[str, Any]]
         List of chunk results to merge
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Merged analysis results
@@ -517,7 +517,7 @@ def calculate_word_frequencies(
     """
     Calculate word frequencies across multiple texts with support for large datasets.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings
@@ -530,7 +530,7 @@ def calculate_word_frequencies(
     chunk_size : int, optional
         Size of chunks for processing large text lists
 
-    Returns:
+    Returns
     --------
     Dict[str, int]
         Dictionary mapping words to their frequencies
@@ -575,7 +575,7 @@ def calculate_term_frequencies(
     """
     Calculate term frequencies with optional lemmatization and chunk processing.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings
@@ -590,7 +590,7 @@ def calculate_term_frequencies(
     chunk_size : int, optional
         Size of chunks for processing large text lists
 
-    Returns:
+    Returns
     --------
     Dict[str, int]
         Dictionary mapping terms to their frequencies
@@ -633,7 +633,7 @@ def get_cache_key_for_texts(
     """
     Generate a cache key for text operations.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of texts to process
@@ -642,7 +642,7 @@ def get_cache_key_for_texts(
     params : Dict[str, Any], optional
         Additional parameters that affect the result
 
-    Returns:
+    Returns
     --------
     str
         Cache key
@@ -683,7 +683,7 @@ def load_cached_result(
     """
     Load cached result if available.
 
-    Parameters:
+    Parameters
     -----------
     cache_key : str
         Cache key for the results
@@ -692,7 +692,7 @@ def load_cached_result(
     operation : str
         Name of the operation
 
-    Returns:
+    Returns
     --------
     Dict[str, Any] or None
         Cached results or None if not available
@@ -724,7 +724,7 @@ def save_cached_result(
     """
     Save results to cache.
 
-    Parameters:
+    Parameters
     -----------
     result : Dict[str, Any]
         Results to cache
@@ -735,7 +735,7 @@ def save_cached_result(
     operation : str
         Name of the operation
 
-    Returns:
+    Returns
     --------
     bool
         True if successfully saved to cache, False otherwise
@@ -767,12 +767,12 @@ def detect_text_type(text: str) -> str:
 
     This helps determine what kind of entity extractor is most appropriate.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to analyze
 
-    Returns:
+    Returns
     --------
     str
         Detected type ("job", "organization", "transaction", "skill", "generic")
@@ -864,14 +864,14 @@ def suggest_entity_type(texts: List[str], sample_size: int = 100) -> str:
     """
     Suggest the most appropriate entity type based on text content.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text values
     sample_size : int
         Number of texts to sample for analysis
 
-    Returns:
+    Returns
     --------
     str
         Suggested entity type
@@ -920,7 +920,7 @@ def extract_text_and_ids(
     """
     Extract text values and record IDs from DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -929,7 +929,7 @@ def extract_text_and_ids(
     id_field : str, optional
         Name of the field containing record IDs
 
-    Returns:
+    Returns
     --------
     Tuple[List[str], List[str]]
         Tuple of (text_values, record_ids)
@@ -950,12 +950,12 @@ def analyze_language(text_values: List[str]) -> Dict[str, Any]:
     """
     Analyze language distribution in text values.
 
-    Parameters:
+    Parameters
     -----------
     text_values : List[str]
         List of text values
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Language analysis results
@@ -990,7 +990,7 @@ def find_dictionary_file(
     2. Task dictionaries directory
     3. Global data repository from config
 
-    Parameters:
+    Parameters
     -----------
     dictionary_path : str or Path, optional
         User-provided dictionary path
@@ -999,7 +999,7 @@ def find_dictionary_file(
     dictionaries_dir : Path
         Directory containing dictionary files
 
-    Returns:
+    Returns
     --------
     Path or None
         Path to the dictionary file if found, None otherwise
@@ -1037,12 +1037,12 @@ def _find_repository_dictionary(entity_type: str, logger: logging.Logger) -> Opt
     """
     Search for a dictionary file in the global data repository.
     
-    Parameters:
+    Parameters
     -----------
     entity_type : str
         Type of entities to extract
         
-    Returns:
+    Returns
     --------
     Path or None
         Path to dictionary file if found, None otherwise

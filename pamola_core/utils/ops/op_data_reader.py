@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Data Reader
 Description: Unified data reading capabilities for operations
 Author: PAMOLA Core Team
@@ -73,7 +72,7 @@ class DataReader:
         """
         Initialize a DataReader instance.
 
-        Parameters:
+        Parameters
         -----------
         logger : logging.Logger, optional
             Logger instance for output messages
@@ -111,7 +110,7 @@ class DataReader:
         This method provides a unified interface for reading data from different
         sources with robust error handling, progress tracking, and memory management.
 
-        Parameters:
+        Parameters
         -----------
         source : str, Path, or Dict[str, Union[str, Path]]
             Source file path or dictionary of source paths
@@ -146,7 +145,7 @@ class DataReader:
         **kwargs
             Additional arguments passed to the underlying reader
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -693,7 +692,7 @@ class DataReader:
         """
         Read a file in chunks for memory-efficient processing of large datasets.
 
-        Parameters:
+        Parameters
         -----------
         source : PathType
             Source file path
@@ -716,7 +715,7 @@ class DataReader:
         **kwargs
             Additional arguments to pass to reader functions
 
-        Yields:
+        Yields
         -------
         pd.DataFrame
             DataFrame chunks
@@ -860,7 +859,7 @@ class DataReader:
 
         This method fully leverages io.py's multi-file reading capabilities.
 
-        Parameters:
+        Parameters
         -----------
         sources : Union[List[PathType], Dict[str, PathType]]
             List or dictionary of source paths
@@ -891,7 +890,7 @@ class DataReader:
         **kwargs
             Additional arguments to pass to reader functions
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -1071,12 +1070,12 @@ class DataReader:
         """
         Get encryption information for a file using io.py functions.
 
-        Parameters:
+        Parameters
         -----------
         source : str or Path
             Source file path
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Encryption information or None if file not encrypted
@@ -1103,12 +1102,12 @@ class DataReader:
         """
         Detect format information for a file using io.py functions.
 
-        Parameters:
+        Parameters
         -----------
         source : str or Path
             Source file path
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with format information or None if detection fails
@@ -1139,12 +1138,12 @@ class DataReader:
         """
         Estimate memory requirements for loading a file using io.py.
 
-        Parameters:
+        Parameters
         -----------
         source : str or Path
             Source file path
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with memory requirement estimates
@@ -1172,14 +1171,14 @@ class DataReader:
         """
         Suggest resolution for common errors.
 
-        Parameters:
+        Parameters
         -----------
         error : Exception
             The exception that occurred
         file_format : str
             The file format being read
 
-        Returns:
+        Returns
         --------
         str
             Suggested resolution

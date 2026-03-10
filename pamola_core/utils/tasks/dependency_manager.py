@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Task Dependency Manager
 Description: Dependency management for task execution
 Author: PAMOLA Core Team
@@ -45,7 +44,8 @@ class TaskDependencyManager:
     dependencies between tasks, including file paths, report status,
     and completion validation.
 
-    Attributes:
+    Attributes
+    ----------
         config: Task configuration containing dependency information
         logger: Logger for tracking dependency operations
     """
@@ -54,7 +54,8 @@ class TaskDependencyManager:
         """
         Initialize dependency manager.
 
-        Args:
+        Parameters
+        ----------
             task_config: Task configuration containing dependency information
             logger: Logger for tracking dependency operations
         """
@@ -67,14 +68,17 @@ class TaskDependencyManager:
         """
         Get the output directory or files from a dependency.
 
-        Args:
+        Parameters
+        ----------
             dependency_id: Dependency ID (task ID) or absolute path
             file_pattern: Optional file pattern to match within the dependency output dir
 
-        Returns:
+        Returns
+        -------
             Path to the dependency output directory or list of matching files
 
-        Raises:
+        Raises
+        ------
             PathSecurityError: If the path fails security validation
             DependencyMissingError: If the dependency output directory doesn't exist
         """
@@ -159,13 +163,16 @@ class TaskDependencyManager:
         """
         Get the report file from a dependency.
 
-        Args:
+        Parameters
+        ----------
             dependency_id: Dependency ID (task ID)
 
-        Returns:
+        Returns
+        -------
             Path to the dependency report file
 
-        Raises:
+        Raises
+        ------
             DependencyMissingError: If the dependency report doesn't exist and continue_on_error is False
         """
         # Validate dependency_id for security
@@ -217,10 +224,12 @@ class TaskDependencyManager:
         """
         Check if all dependencies have completed successfully.
 
-        Returns:
+        Returns
+        -------
             True if all dependencies are complete, False otherwise
 
-        Raises:
+        Raises
+        ------
             DependencyMissingError: If a dependency report is missing or indicates failure
         """
         # Get dependencies from task configuration
@@ -314,10 +323,12 @@ class TaskDependencyManager:
         """
         Check if a dependency ID represents an absolute path.
 
-        Args:
+        Parameters
+        ----------
             dependency_id: Dependency ID to check
 
-        Returns:
+        Returns
+        -------
             True if dependency_id represents an absolute path
         """
         # Check if dependency_id contains a path separator or drive separator
@@ -333,14 +344,17 @@ class TaskDependencyManager:
         """
         Get metrics from a dependency report.
 
-        Args:
+        Parameters
+        ----------
             dependency_id: Dependency ID (task ID)
             metric_path: Optional path within metrics to extract (dot notation)
 
-        Returns:
+        Returns
+        -------
             Dictionary of metrics from the dependency report
 
-        Raises:
+        Raises
+        ------
             DependencyMissingError: If the dependency report doesn't exist
             KeyError: If the specified metric path doesn't exist
         """
@@ -388,13 +402,16 @@ class TaskDependencyManager:
         """
         Get status information about a dependency.
 
-        Args:
+        Parameters
+        ----------
             dependency_id: Dependency ID (task ID)
 
-        Returns:
+        Returns
+        -------
             Dictionary with status information
 
-        Raises:
+        Raises
+        ------
             DependencyMissingError: If the dependency report doesn't exist
         """
         try:
@@ -439,10 +456,12 @@ class OptionalT1IDependencyManager(TaskDependencyManager):
         This method overrides the standard assert_dependencies_completed
         to provide special handling for t_1I dependency.
 
-        Returns:
+        Returns
+        -------
             bool: True if all dependencies are satisfied or t_1I is the only missing one
 
-        Raises:
+        Raises
+        ------
             DependencyMissingError: If non-t_1I dependencies are missing and continue_on_error is False
         """
         try:

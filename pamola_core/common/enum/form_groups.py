@@ -356,13 +356,16 @@ def get_groups_for_operation(operation_config_type: str) -> List[GroupName]:
     """
     Get ordered groups for a specific operation config type.
 
-    Args:
+    Parameters
+    ----------
         operation_config_type: The operation config type (e.g., 'NumericGeneralizationConfig')
 
-    Returns:
+    Returns
+    -------
         List of GroupName enums in display order
 
-    Raises:
+    Raises
+    ------
         ValueError: If operation_config_type is not configured
     """
     if operation_config_type not in OPERATION_CONFIG_GROUPS:
@@ -374,13 +377,16 @@ def get_groups_with_titles(operation_config_type: str) -> List[Dict[str, str]]:
     """
     Get group metadata for an operation config type.
 
-    Args:
+    Parameters
+    ----------
         operation_config_type: The operation config type
 
-    Returns:
+    Returns
+    -------
         List of dicts with 'name' and 'title' keys
 
-    Example:
+    Examples
+    --------
         >>> get_groups_with_titles("NumericGeneralizationConfig")
         [
             {"name": "core_generalization_strategy", "title": "Core Generalization Strategy"},

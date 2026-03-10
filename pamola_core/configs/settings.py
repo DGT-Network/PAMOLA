@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Configuration Module
-----------------------------------------------
 This module handles configuration loading and provides access to project settings.
 
 Features:
@@ -54,7 +53,7 @@ def get_config_file_paths() -> List[Path]:
     """
     Get list of potential config file paths in order of priority.
 
-    Returns:
+    Returns
     --------
     List[Path]
         List of potential config file paths
@@ -89,12 +88,12 @@ def load_config(config_path: Optional[Union[str, Path]] = None) -> Dict[str, Any
     """
     Load configuration from a file or use defaults.
 
-    Parameters:
+    Parameters
     -----------
     config_path : str or Path, optional
         Path to configuration file
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Configuration dictionary
@@ -179,14 +178,14 @@ def update_nested_dict(d1: Dict[str, Any], d2: Dict[str, Any]) -> Dict[str, Any]
     """
     Update a nested dictionary with values from another dictionary.
 
-    Parameters:
+    Parameters
     -----------
     d1 : Dict[str, Any]
         Base dictionary to update
     d2 : Dict[str, Any]
         Dictionary with update values
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Updated dictionary
@@ -204,7 +203,7 @@ def get_config() -> Dict[str, Any]:
     """
     Get the configuration.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Configuration dictionary
@@ -221,7 +220,7 @@ def get_data_repository() -> Path:
     """
     Get the path to the data repository.
 
-    Returns:
+    Returns
     --------
     Path
         Path to the data repository
@@ -234,7 +233,7 @@ def set_data_repository(path: Union[str, Path]) -> None:
     """
     Set the data repository path explicitly.
 
-    Parameters:
+    Parameters
     -----------
     path : str or Path
         Path to the data repository
@@ -250,7 +249,7 @@ def get_directory_structure() -> Dict[str, str]:
     """
     Get the directory structure configuration.
 
-    Returns:
+    Returns
     --------
     Dict[str, str]
         Directory structure configuration
@@ -263,7 +262,7 @@ def get_performance_settings() -> Dict[str, Any]:
     """
     Get performance-related settings.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Performance settings
@@ -276,7 +275,7 @@ def get_logging_settings() -> Dict[str, Any]:
     """
     Get logging-related settings.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Logging settings
@@ -289,12 +288,12 @@ def save_config(config_path: Optional[Union[str, Path]] = None) -> Path:
     """
     Save current configuration to a file.
 
-    Parameters:
+    Parameters
     -----------
     config_path : str or Path, optional
         Path to save configuration file to
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved configuration file

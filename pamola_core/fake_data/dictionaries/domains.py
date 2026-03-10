@@ -14,7 +14,8 @@ def get_common_email_domains() -> List[str]:
     """
     Returns list of common email domains.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of common email domains
     """
     if 'email_domains' not in _dictionary_cache:
@@ -30,7 +31,8 @@ def get_business_email_domains() -> List[str]:
     """
     Returns list of business email domains.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of business email domains
     """
     if 'business_domains' not in _dictionary_cache:
@@ -46,7 +48,8 @@ def get_educational_email_domains() -> List[str]:
     """
     Returns list of educational institution email domains.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of educational email domains
     """
     if 'educational_domains' not in _dictionary_cache:
@@ -62,7 +65,8 @@ def get_username_prefixes() -> List[str]:
     """
     Returns list of common username prefixes.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of common username prefixes
     """
     if 'username_prefixes' not in _dictionary_cache:
@@ -78,7 +82,8 @@ def get_tlds_by_country() -> Dict[str, str]:
     """
     Returns mapping of country codes to their top-level domains.
 
-    Returns:
+    Returns
+    -------
         Dict[str, str]: Dictionary mapping country codes to TLDs
     """
     if 'country_tlds' not in _dictionary_cache:
@@ -106,10 +111,12 @@ def get_domain_by_country(country_code: str) -> List[str]:
     """
     Returns domain extensions for a specific country.
 
-    Args:
+    Parameters
+    ----------
         country_code: ISO country code (e.g., "ru", "us")
 
-    Returns:
+    Returns
+    -------
         List[str]: List of domain extensions for the country
     """
     country_code = country_code.lower()

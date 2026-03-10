@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Multi-Valued Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -94,7 +93,7 @@ class MVFAnalyzer:
         """
         Analyze a multi-valued field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -119,7 +118,7 @@ class MVFAnalyzer:
         progress_tracker: Optional[HierarchicalProgressTracker] = None,
             Progress tracker for monitoring the analysis progress
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -259,7 +258,7 @@ class MVFAnalyzer:
         """
         Parse an MVF field and add a new column with parsed values.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -270,7 +269,7 @@ class MVFAnalyzer:
         **kwargs : dict
             Additional parameters to pass to parse_mvf
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             DataFrame with an additional column containing parsed values
@@ -308,7 +307,7 @@ class MVFAnalyzer:
         """
         Create a dictionary of values with frequencies for an MVF field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -319,7 +318,7 @@ class MVFAnalyzer:
         parse_args : Any
             Additional parameters for parsing
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             DataFrame with values and frequencies
@@ -341,7 +340,7 @@ class MVFAnalyzer:
         """
         Create a dictionary of value combinations with frequencies for an MVF field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -352,7 +351,7 @@ class MVFAnalyzer:
         parse_args : dict
             Additional parameters for parsing
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             DataFrame with combinations and frequencies
@@ -371,7 +370,7 @@ class MVFAnalyzer:
         """
         Analyze the distribution of value counts per record in an MVF field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -380,7 +379,7 @@ class MVFAnalyzer:
         **kwargs : dict
             Additional parameters for parsing
 
-        Returns:
+        Returns
         --------
         Dict[str, int]
             Distribution of value counts
@@ -394,14 +393,14 @@ class MVFAnalyzer:
         """
         Estimate resources needed for analyzing an MVF field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -488,7 +487,7 @@ class MVFOperation(FieldOperation):
         """
         Execute the mvf analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -501,7 +500,7 @@ class MVFOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -983,7 +982,7 @@ class MVFOperation(FieldOperation):
         This method should be overridden by subclasses to provide
         operation-specific parameters for caching.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -1008,7 +1007,7 @@ class MVFOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             Original input data
@@ -1017,7 +1016,7 @@ class MVFOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1130,7 +1129,7 @@ class MVFOperation(FieldOperation):
         """
         Save the processed output data.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to save
@@ -1211,7 +1210,7 @@ class MVFOperation(FieldOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             A dictionary containing various analysis results.
@@ -1532,7 +1531,7 @@ def analyze_mvf_fields(
     """
     Analyze multiple MVF fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1549,7 +1548,7 @@ def analyze_mvf_fields(
         - format_type: str, format type hint for parsing (default: None)
         - parse_kwargs: dict, additional parameters for MVF parsing
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results

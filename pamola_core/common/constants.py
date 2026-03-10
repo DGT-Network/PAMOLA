@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Constants Module
----------------------------------------------------------
 This module defines global constants used throughout the project to improve
 maintainability and reduce hardcoded values in the codebase.
 

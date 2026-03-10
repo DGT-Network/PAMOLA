@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Auto Schema Generator for Operation Configs
---------------------------------------------------------
 Module:        schema_generator_all.py
 Package:       pamola_core.utils
 Version:       1.0.0

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Task Configuration
 Description: Configuration loading and management for tasks
 Author: PAMOLA Core Team
@@ -89,7 +88,8 @@ class TaskConfig:
         """
         Initialize configuration with values from dictionary.
 
-        Args:
+        Parameters
+        ----------
             config_dict: Dictionary containing configuration values
             task_id: ID of the task this configuration is for
             task_type: Type of the task this configuration is for
@@ -186,7 +186,8 @@ class TaskConfig:
         """
         Load base configuration from the config dictionary.
 
-        Args:
+        Parameters
+        ----------
             config_dict: Dictionary containing configuration values
         """
         # Extract base configuration with defaults from project config
@@ -345,10 +346,12 @@ class TaskConfig:
         """
         Resolve a path from components.
 
-        Args:
+        Parameters
+        ----------
             *parts: Path components to join
 
-        Returns:
+        Returns
+        -------
             Path: Resolved path
         """
         # Convert all parts to strings first
@@ -368,10 +371,12 @@ class TaskConfig:
         Resolve a path using legacy format during transition period.
         Issues deprecation warning.
 
-        Args:
+        Parameters
+        ----------
             path: Path in legacy format
 
-        Returns:
+        Returns
+        -------
             Resolved absolute path
         """
         path_obj = Path(path)
@@ -430,7 +435,8 @@ class TaskConfig:
         """
         Apply environment variable dictionary to configuration.
 
-        Args:
+        Parameters
+        ----------
             env_dict: Dictionary of environment variables
         """
         for key, value in env_dict.items():
@@ -449,10 +455,12 @@ class TaskConfig:
         """
         Convert environment variable string to appropriate Python type.
 
-        Args:
+        Parameters
+        ----------
             value: String value from environment variable
 
-        Returns:
+        Returns
+        -------
             Converted value with appropriate type
         """
         # Handle boolean values
@@ -489,7 +497,8 @@ class TaskConfig:
         """
         Override configuration with command line arguments.
 
-        Args:
+        Parameters
+        ----------
             args: Command line arguments
         """
         if not args:
@@ -594,7 +603,8 @@ class TaskConfig:
         """
         Validate the configuration.
 
-        Returns:
+        Returns
+        -------
             Tuple containing:
                 - Boolean indicating whether configuration is valid
                 - List of validation error messages
@@ -649,7 +659,8 @@ class TaskConfig:
         """
         Convert configuration to dictionary.
 
-        Returns:
+        Returns
+        -------
             Dictionary representation of configuration
         """
         result = {}
@@ -674,11 +685,13 @@ class TaskConfig:
         """
         Save configuration to file.
 
-        Args:
+        Parameters
+        ----------
             path: Path to save configuration file, or None to use default
             format: Format to save in - "json" or "yaml"
 
-        Returns:
+        Returns
+        -------
             Path to saved configuration file
         """
         if path is None:
@@ -768,10 +781,12 @@ class TaskConfig:
         """
         Get the task directory.
 
-        Args:
+        Parameters
+        ----------
             task_id: Optional task ID. If None, uses this task's ID.
 
-        Returns:
+        Returns
+        -------
             Path to the task directory
         """
         if task_id is None:
@@ -793,10 +808,12 @@ class TaskConfig:
         """
         Get the task input directory.
 
-        Args:
+        Parameters
+        ----------
             task_id: Optional task ID. If None, uses this task's ID.
 
-        Returns:
+        Returns
+        -------
             Path to the task input directory
         """
         task_dir = self.get_task_dir(task_id)
@@ -817,10 +834,12 @@ class TaskConfig:
         """
         Get the task output directory.
 
-        Args:
+        Parameters
+        ----------
             task_id: Optional task ID. If None, uses this task's ID.
 
-        Returns:
+        Returns
+        -------
             Path to the task output directory
         """
         task_dir = self.get_task_dir(task_id)
@@ -841,10 +860,12 @@ class TaskConfig:
         """
         Get the task temporary directory.
 
-        Args:
+        Parameters
+        ----------
             task_id: Optional task ID. If None, uses this task's ID.
 
-        Returns:
+        Returns
+        -------
             Path to the task temporary directory
         """
         task_dir = self.get_task_dir(task_id)
@@ -865,10 +886,12 @@ class TaskConfig:
         """
         Get the task dictionaries directory.
 
-        Args:
+        Parameters
+        ----------
             task_id: Optional task ID. If None, uses this task's ID.
 
-        Returns:
+        Returns
+        -------
             Path to the task dictionaries directory
         """
         task_dir = self.get_task_dir(task_id)
@@ -889,10 +912,12 @@ class TaskConfig:
         """
         Get the task logs directory.
 
-        Args:
+        Parameters
+        ----------
             task_id: Optional task ID. If None, uses this task's ID.
 
-        Returns:
+        Returns
+        -------
             Path to the task logs directory
         """
         task_dir = self.get_task_dir(task_id)
@@ -913,11 +938,13 @@ class TaskConfig:
         """
         Get a subdirectory within the processed directory for a specific task.
 
-        Args:
+        Parameters
+        ----------
             task_id: Task identifier (uses current task if None)
             *parts: Additional path components
 
-        Returns:
+        Returns
+        -------
             Path to the specified subdirectory
         """
         task_dir = self.get_task_dir(task_id)
@@ -929,14 +956,17 @@ class TaskConfig:
         """
         Get the output directory or files from a dependency.
 
-        Args:
+        Parameters
+        ----------
             dependency_id: Dependency ID (task ID) or absolute path
             file_pattern: Optional file pattern to match within the dependency output dir
 
-        Returns:
+        Returns
+        -------
             Path to the dependency output directory or list of matching files
 
-        Raises:
+        Raises
+        ------
             PathSecurityError: If the path fails security validation
             DependencyMissingError: If the dependency output directory doesn't exist
         """
@@ -998,13 +1028,16 @@ class TaskConfig:
         """
         Get the report file for a dependency.
 
-        Args:
+        Parameters
+        ----------
             dependency_id: Dependency ID (task ID)
 
-        Returns:
+        Returns
+        -------
             Path to the dependency report file
 
-        Raises:
+        Raises
+        ------
             DependencyMissingError: If the dependency report doesn't exist
         """
         report_path = self._resolve_path(
@@ -1027,10 +1060,12 @@ class TaskConfig:
         """
         Check if all dependencies have completed successfully.
 
-        Returns:
+        Returns
+        -------
             True if all dependencies are complete, False otherwise
 
-        Raises:
+        Raises
+        ------
             DependencyMissingError: If a dependency report is missing or indicates failure
         """
         for dependency_id in self.dependencies:
@@ -1076,7 +1111,8 @@ class TaskConfig:
         """
         Get fields defined in the scope.
 
-        Returns:
+        Returns
+        -------
             List of field names in the scope
         """
         if hasattr(self, "scope") and isinstance(self.scope, dict):
@@ -1087,7 +1123,8 @@ class TaskConfig:
         """
         Get datasets defined in the scope.
 
-        Returns:
+        Returns
+        -------
             List of dataset names in the scope
         """
         if hasattr(self, "scope") and isinstance(self.scope, dict):
@@ -1098,7 +1135,8 @@ class TaskConfig:
         """
         Get field groups defined in the scope.
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping group names to lists of field names
         """
         if hasattr(self, "scope") and isinstance(self.scope, dict):
@@ -1151,17 +1189,20 @@ def load_task_config(
        b. Project-level configuration overrides in tasks.{task_id} section
        c. Save combined config to task-specific JSON for future runs
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         task_type: Type of the task
         args: Command line arguments to override configuration
         default_config: Default configuration values from task class
         progress_manager: Optional progress manager for tracking configuration loading
 
-    Returns:
+    Returns
+    -------
         TaskConfig instance with loaded configuration
 
-    Raises:
+    Raises
+    ------
         ConfigurationError: If configuration cannot be loaded or validated
     """
     if progress_manager:

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - L-Diversity Compliance Reporting
-----------------------------------------------
 This module provides specialized functions for generating
 regulatory compliance reports for l-diversity anonymization.
 
@@ -41,7 +40,7 @@ def generate_gdpr_compliance_report(
     """
     Generate GDPR compliance report for l-diversity anonymization
 
-    Parameters:
+    Parameters
     -----------
     processor : object
         L-Diversity processor instance
@@ -54,7 +53,7 @@ def generate_gdpr_compliance_report(
     output_path : str or Path, optional
         Path to save report (if None, report is only returned)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         GDPR compliance report
@@ -98,7 +97,7 @@ def generate_hipaa_compliance_report(
     """
     Generate HIPAA compliance report for l-diversity anonymization
 
-    Parameters:
+    Parameters
     -----------
     processor : object
         L-Diversity processor instance
@@ -111,7 +110,7 @@ def generate_hipaa_compliance_report(
     output_path : str or Path, optional
         Path to save report (if None, report is only returned)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         HIPAA compliance report
@@ -156,7 +155,7 @@ def generate_ccpa_compliance_report(
     """
     Generate CCPA compliance report for l-diversity anonymization
 
-    Parameters:
+    Parameters
     -----------
     processor : object
         L-Diversity processor instance
@@ -169,7 +168,7 @@ def generate_ccpa_compliance_report(
     output_path : str or Path, optional
         Path to save report (if None, report is only returned)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         CCPA compliance report
@@ -205,12 +204,12 @@ def assess_gdpr_article_5_compliance(report: Dict[str, Any]) -> Dict[str, Any]:
     """
     Assess compliance with GDPR Article 5 (data minimization)
 
-    Parameters:
+    Parameters
     -----------
     report : Dict[str, Any]
         Compliance report
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         GDPR Article 5 compliance assessment

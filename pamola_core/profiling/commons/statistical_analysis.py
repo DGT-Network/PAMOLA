@@ -21,12 +21,12 @@ def calculate_distribution_metrics(data: pd.Series) -> Dict[str, float]:
     """
     Calculate various distribution metrics for numeric data.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with distribution metrics
@@ -65,7 +65,7 @@ def test_normality(
     """
     Test the normality of a dataset using various methods.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
@@ -74,7 +74,7 @@ def test_normality(
     sample_limit : int
         Maximum sample size for tests (some tests don't work well with very large samples)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with normality test results
@@ -171,7 +171,7 @@ def detect_outliers(data: pd.Series, method: str = "iqr", **params) -> Dict[str,
     """
     Detect outliers in numeric data using specified method.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
@@ -183,7 +183,7 @@ def detect_outliers(data: pd.Series, method: str = "iqr", **params) -> Dict[str,
         - For 'zscore': threshold (default: 3.0)
         - For 'modified_zscore': threshold (default: 3.5)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with outlier information
@@ -203,14 +203,14 @@ def detect_outliers_iqr(data: pd.Series, iqr_factor: float = 1.5) -> Dict[str, A
     """
     Detect outliers using the IQR method.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     iqr_factor : float
         Factor to multiply IQR by for determining outlier boundaries
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with outlier information
@@ -269,14 +269,14 @@ def detect_outliers_zscore(data: pd.Series, threshold: float = 3.0) -> Dict[str,
     """
     Detect outliers using the Z-score method.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     threshold : float
         Z-score threshold for outlier detection
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with outlier information
@@ -357,14 +357,14 @@ def detect_outliers_modified_zscore(
     This method is more robust to outliers in the calculation of the score itself
     by using median and MAD instead of mean and standard deviation.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.Series
         Series of numeric data
     threshold : float
         Modified Z-score threshold for outlier detection
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with outlier information

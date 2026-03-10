@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Type aliases Module
----------------------------------------------------------
 This module defines global type aliases used throughout the project to improve
 maintainability and reduce hardcoded values in the codebase.
 

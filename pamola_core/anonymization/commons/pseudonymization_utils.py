@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Shared Pseudonymization Utilities
 Package:       pamola_core.anonymization.commons
 Version:       1.0.0
@@ -65,7 +64,8 @@ class PseudonymizationCache:
     recomputing expensive cryptographic operations. It uses an LRU eviction
     policy to maintain a bounded memory footprint.
 
-    Attributes:
+    Attributes
+    ----------
         max_size: Maximum number of entries to cache
 
     Thread Safety:
@@ -76,7 +76,8 @@ class PseudonymizationCache:
         """
         Initialize the pseudonymization cache.
 
-        Args:
+        Parameters
+        ----------
             max_size: Maximum number of entries to cache (default: 100000)
         """
         self.max_size = max_size
@@ -91,10 +92,12 @@ class PseudonymizationCache:
         """
         Get pseudonym from cache.
 
-        Args:
+        Parameters
+        ----------
             key: Original value to look up
 
-        Returns:
+        Returns
+        -------
             Cached pseudonym if found, None otherwise
         """
         with self._lock:
@@ -111,7 +114,8 @@ class PseudonymizationCache:
         """
         Add pseudonym to cache.
 
-        Args:
+        Parameters
+        ----------
             key: Original value
             value: Pseudonymized value
         """
@@ -139,7 +143,8 @@ class PseudonymizationCache:
         """
         Get cache statistics.
 
-        Returns:
+        Returns
+        -------
             Dictionary containing:
                 - size: Current number of cached entries
                 - max_size: Maximum cache size
@@ -177,17 +182,20 @@ def load_salt_configuration(
     1. Parameter: Salt provided directly as hex string or bytes
     2. File: Salt loaded from a JSON file with field-specific salts
 
-    Args:
+    Parameters
+    ----------
         config: Salt configuration dictionary with:
             - source: "parameter" or "file"
             - value: Salt value (for parameter source)
             - field_name: Field name (for file source)
         salt_file: Optional path to salts file (required for file source)
 
-    Returns:
+    Returns
+    -------
         Salt as bytes
 
-    Raises:
+    Raises
+    ------
         ValueError: If configuration is invalid or salt cannot be loaded
     """
     source = config.get("source", "parameter")
@@ -280,13 +288,16 @@ def generate_session_pepper(length: int = 32) -> SecureBytes:
     automatically cleared from memory when no longer needed. The pepper
     provides an additional layer of security beyond salting.
 
-    Args:
+    Parameters
+    ----------
         length: Pepper length in bytes (default: 32)
 
-    Returns:
+    Returns
+    -------
         SecureBytes containing pepper
 
-    Raises:
+    Raises
+    ------
         ValueError: If length is not positive
     """
     if length <= 0:
@@ -309,16 +320,19 @@ def format_pseudonym_output(
     This function adds optional prefix and/or suffix to a pseudonym,
     useful for creating domain-specific or type-indicated pseudonyms.
 
-    Args:
+    Parameters
+    ----------
         pseudonym: Base pseudonym value
         prefix: Optional prefix to prepend
         suffix: Optional suffix to append
         separator: Separator between prefix/suffix and pseudonym (default: "")
 
-    Returns:
+    Returns
+    -------
         Formatted pseudonym string
 
-    Examples:
+    Examples
+    --------
         >>> format_pseudonym_output("abc123", prefix="USER_")
         "USER_abc123"
 
@@ -341,12 +355,14 @@ def validate_pseudonym_format(
     """
     Validate that a pseudonym matches expected format.
 
-    Args:
+    Parameters
+    ----------
         pseudonym: Pseudonym to validate
         expected_format: Expected format ("hex", "base64", "base58", "uuid", "alphanumeric")
         expected_length: Expected length (optional)
 
-    Returns:
+    Returns
+    -------
         True if pseudonym matches expected format
     """
     if expected_length and len(pseudonym) != expected_length:
@@ -402,7 +418,8 @@ def create_compound_identifier(
     This is useful for pseudonymizing combinations of fields that together
     form a unique identifier (e.g., first_name + last_name + birthdate).
 
-    Args:
+    Parameters
+    ----------
         values: Dictionary of field names to values
         separator: Separator between values (default: "|")
         null_handling: How to handle null values:
@@ -410,10 +427,12 @@ def create_compound_identifier(
             - "empty": Use empty string for nulls
             - "null": Use string "NULL" for nulls
 
-    Returns:
+    Returns
+    -------
         Compound identifier string
 
-    Example:
+    Examples
+    --------
         >>> create_compound_identifier({"first": "John", "last": "Doe", "id": None})
         "John|Doe"
     """
@@ -443,11 +462,13 @@ def estimate_collision_probability(n_values: int, hash_bits: int = 256) -> float
     """
     Estimate hash collision probability using birthday paradox.
 
-    Args:
+    Parameters
+    ----------
         n_values: Number of unique values to be hashed
         hash_bits: Number of bits in hash output (default: 256 for SHA3-256)
 
-    Returns:
+    Returns
+    -------
         Estimated collision probability (0.0 to 1.0)
     """
     import math

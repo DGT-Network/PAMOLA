@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Classification Utility Metric
 Description: Implements the classifiers metric
 Author: PAMOLA Core Team
@@ -46,7 +45,7 @@ class ClassificationUtility:
         """
         Initialize.
 
-        Parameters:
+        Parameters
         -----------
         models: list.
             List of models (default: ["logistic", "rf", "svm"])
@@ -83,7 +82,7 @@ class ClassificationUtility:
         """
         Calculate metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_df: pd.DataFrame
             Original DataFrame.
@@ -92,7 +91,7 @@ class ClassificationUtility:
         value_field: str
             Target field for analysis.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary of metric results.
@@ -284,7 +283,7 @@ class ClassificationUtility:
         """
         Calculate model.
 
-        Parameters:
+        Parameters
         -----------
         model: ClassifierMixin
             Classifier Mixin.
@@ -380,12 +379,12 @@ class ClassificationUtility:
         """
         Calculate precision recall tradeoff.
 
-        Parameters:
+        Parameters
         -----------
         tradeoff_values: list
             Precision values / Recall values/ Thresholds values.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary of precision recall tradeoff.

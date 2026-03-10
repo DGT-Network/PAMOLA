@@ -26,14 +26,14 @@ def calculate_hash(values: List[Any], algorithm: str = "md5") -> str:
     """
     Calculate a hash from a list of values.
 
-    Parameters:
+    Parameters
     -----------
     values : List[Any]
         Values to hash
     algorithm : str
         Hash algorithm to use
 
-    Returns:
+    Returns
     --------
     str
         Calculated hash value
@@ -62,7 +62,7 @@ def compute_identifier_stats(
     """
     Compute basic statistics about an identifier field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -71,7 +71,7 @@ def compute_identifier_stats(
     entity_field : str, optional
         Entity identifier field for relation analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Basic statistics about the identifier
@@ -156,7 +156,7 @@ def analyze_identifier_distribution(
     """
     Analyze the distribution of entities per identifier.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -167,7 +167,7 @@ def analyze_identifier_distribution(
     top_n : int
         Number of top examples to include
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results including distribution statistics
@@ -262,7 +262,7 @@ def analyze_identifier_consistency(
     """
     Analyze consistency between an identifier and reference fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -271,7 +271,7 @@ def analyze_identifier_consistency(
     reference_fields : List[str]
         Fields that define an entity's identity
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results including consistency statistics
@@ -373,7 +373,7 @@ def find_cross_matches(
     If fuzzy_matching is True, use fuzzy matching based on min_similarity.
     Otherwise, use exact matching on reference fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Input data frame.
@@ -386,7 +386,7 @@ def find_cross_matches(
     fuzzy_matching : bool, optional
         Whether to use fuzzy matching (default False).
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Cross-matching analysis result.
@@ -464,7 +464,7 @@ def find_cross_matches_fuzzy(
     Find groups of records where reference fields are similar (using fuzzy matching)
     but identifiers differ.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Input data frame.
@@ -475,7 +475,7 @@ def find_cross_matches_fuzzy(
     min_similarity : float
         Minimum similarity threshold between 0 and 1.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Cross-matching analysis result.
