@@ -36,7 +36,7 @@ class TransitivityHandler:
         """
         Initialize the transitivity handler.
 
-        Parameters:
+        Parameters
         -----------
         mapping_store : MappingStore
             Store containing the mappings to analyze and manipulate
@@ -51,14 +51,14 @@ class TransitivityHandler:
         potentially creating complex relationships. For example, if A maps to B,
         B maps to C, and C maps to D, the chain is [A, B, C, D].
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field to analyze
         original_value : Any
             Starting original value
 
-        Returns:
+        Returns
         --------
         List[Any]
             Chain of values in the mapping sequence, starting with original_value
@@ -118,12 +118,12 @@ class TransitivityHandler:
         to the starting value. For example, A->B->C->A is a cycle. Cycles can
         cause problems in mapping systems and need to be resolved.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field to analyze
 
-        Returns:
+        Returns
         --------
         List[List[Any]]
             List of cycles found, each represented as a list of values
@@ -164,7 +164,7 @@ class TransitivityHandler:
         This recursive method explores the mapping graph depth-first, tracking
         the current path to detect cycles.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Field name being analyzed
@@ -232,7 +232,7 @@ class TransitivityHandler:
         Breaks a cycle using the specified strategy to ensure mapping consistency.
         Different strategies can be applied based on the specific requirements.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Field name
@@ -244,7 +244,7 @@ class TransitivityHandler:
             - "break_at_end": Break the cycle at the last element
             - "break_longest": Break the link that creates the longest chain
 
-        Raises:
+        Raises
         -------
         ValueError
             If the strategy is not recognized
@@ -326,14 +326,14 @@ class TransitivityHandler:
         Automatically detects and resolves all cycles using the specified strategy.
         This is a higher-level method that wraps find_cycles and resolve_cycle.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Field name
         strategy : str
             Resolution strategy
 
-        Returns:
+        Returns
         --------
         int
             Number of cycles resolved
@@ -360,12 +360,12 @@ class TransitivityHandler:
         Provides detailed information about the mapping structure, including
         chains, cycles, and transitivity statistics.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Field name to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Analysis results including:
@@ -450,12 +450,12 @@ class TransitivityHandler:
         Ensures that all mappings that should be marked as transitive are
         correctly marked, and resolves any inconsistencies.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Field name
 
-        Returns:
+        Returns
         --------
         int
             Number of issues fixed
@@ -499,12 +499,12 @@ class TransitivityHandler:
         Provides detailed metrics about the transitivity characteristics
         of the mappings for analysis and monitoring.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Field name to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Statistics including:

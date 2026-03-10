@@ -298,6 +298,25 @@ pamola-core schema MaskingOperation
 
 ---
 
+## API Documentation
+
+The project uses **Sphinx** to generate API reference documentation from Python docstrings.
+
+Build the documentation locally:
+
+```bash
+cd docs
+make html
+```
+
+The generated documentation will be available at:
+
+```
+docs/_build/html/index.html
+```
+
+---
+
 ## Documentation
 
 | Resource | Link |

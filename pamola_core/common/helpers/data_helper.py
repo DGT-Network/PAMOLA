@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - A utility class for data type detection and range processing.
----------------------------------------------------------
 This module provides various utility functions for data type detection, data validation,
 transformation, and generalization. It supports checking numeric types, detecting malformed
 values, converting range strings, binning numeric data, and applying privacy transformations.
@@ -52,10 +51,12 @@ class DataHelper:
         """
         Check if a column is non-numeric.
 
-        Parameters:
+        Parameters
+        ----------
             column (pd.Series): The column to check.
 
-        Returns:
+        Returns
+        -------
             bool: True if the column is non-numeric, False otherwise.
         """
         return pd.api.types.is_object_dtype(column.dtype) or not np.issubdtype(
@@ -67,10 +68,12 @@ class DataHelper:
         """
         Check if a column contains boolean data.
 
-        Parameters:
+        Parameters
+        ----------
             column (pd.Series): The column to check.
 
-        Returns:
+        Returns
+        -------
             bool: True if the column contains boolean data, False otherwise.
         """
         return column.dtype == "bool" or set(column.dropna().unique()).issubset(
@@ -82,10 +85,12 @@ class DataHelper:
         """
         Checks if a given value is an integer, allowing `.0` but rejecting `.00`, `.000`, etc.
 
-        Parameters:
+        Parameters
+        ----------
         - value (any): The value to check (can be int, float, or str).
 
-        Returns:
+        Returns
+        -------
         - bool: True if the value is an integer (including ".0" format), False otherwise.
         """
         if pd.isna(value):  # Handle NaN values
@@ -97,10 +102,12 @@ class DataHelper:
         """
         Checks if a given value is a float with a valid decimal part (rejects `.0` but allows `.01`, `.10`, etc.).
 
-        Parameters:
+        Parameters
+        ----------
         - value (any): The value to check (can be int, float, or str).
 
-        Returns:
+        Returns
+        -------
         - bool: True if the value is a float with a valid decimal part, False otherwise.
         """
         if pd.isna(value):  # Handle NaN values
@@ -114,12 +121,14 @@ class DataHelper:
         """
         Determines if a column contains mostly integer-like values.
 
-        Parameters:
+        Parameters
+        ----------
         - df (pd.DataFrame): The input DataFrame.
         - column (str): The target column to analyze.
         - sample_size (int, optional): The maximum number of samples to analyze (default: 1000).
 
-        Returns:
+        Returns
+        -------
         - bool: True if the majority of values are integers, False otherwise.
         """
         non_na_values = df[column].dropna()
@@ -142,10 +151,12 @@ class DataHelper:
         """
         Check if a value is a range string, like '18-35', '-0.38--0.13', or '0.38--0.13'.
 
-        Parameters:
+        Parameters
+        ----------
             value (str): The value to check.
 
-        Returns:
+        Returns
+        -------
             bool: True if the value is a range string, False otherwise.
         """
         return isinstance(value, str) and bool(
@@ -157,10 +168,12 @@ class DataHelper:
         """
         Convert a range string like '-0.38--0.13', '-0.38-0.13', or '0.38--0.13' into its numeric midpoint.
 
-        Parameters:
+        Parameters
+        ----------
             range_str (str): A string representing a range (e.g., '1-5' or '-0.38--0.13').
 
-        Returns:
+        Returns
+        -------
             float or int: The midpoint of the range.
         """
         try:
@@ -195,10 +208,12 @@ class DataHelper:
         """
         Identify misformatted numeric values in a column.
 
-        Parameters:
+        Parameters
+        ----------
             col (pd.Series): The column to check.
 
-        Returns:
+        Returns
+        -------
             int: The count of misformatted values.
         """
         misformatted_count = col.apply(lambda x: not pd.api.types.is_number(x)).sum()
@@ -209,10 +224,12 @@ class DataHelper:
         """
         Calculate the number of misformatted values in a boolean column.
 
-        Parameters:
+        Parameters
+        ----------
             col (pd.Series): The column to check.
 
-        Returns:
+        Returns
+        -------
             int: The count of misformatted boolean values.
         """
         valid_bool_values = {True, False}
@@ -228,10 +245,12 @@ class DataHelper:
         """
         Identify misformatted date values in a column.
 
-        Parameters:
+        Parameters
+        ----------
             col (pd.Series): The column to check.
 
-        Returns:
+        Returns
+        -------
             int: The count of misformatted date values.
         """
         misformatted_count = (
@@ -244,11 +263,13 @@ class DataHelper:
         """
         Identify misformatted category values in a column.
 
-        Parameters:
+        Parameters
+        ----------
             col (pd.Series): The column to check.
             allowed (list): The allowed category values.
 
-        Returns:
+        Returns
+        -------
             int: The count of misformatted category values.
         """
         misformatted_count = col.apply(lambda x: x not in allowed).sum()
@@ -259,11 +280,13 @@ class DataHelper:
         """
         Calculate the range of values as a 'min-max' string.
 
-        Parameters:
+        Parameters
+        ----------
         - col (pd.Series): The data column to calculate the range for.
         - date_format (str, optional): The date format when processing datetime data. Default is "%Y-%m-%d".
 
-        Returns:
+        Returns
+        -------
         - str: A string representing the value range as 'min-max'. Returns None if the data is invalid or unsupported.
         """
         if col.empty or col.isna().all():
@@ -297,10 +320,12 @@ class DataHelper:
         """
         Extract allowed categories from a column, filtering out non-string and numeric values.
 
-        Parameters:
+        Parameters
+        ----------
             col (pd.Series): The column to check.
 
-        Returns:
+        Returns
+        -------
             list: The list of allowed categories.
         """
         allowed_categories = (
@@ -316,12 +341,14 @@ class DataHelper:
         """
         Check if a value is malformed based on its column's data type.
 
-        Parameters:
+        Parameters
+        ----------
         value: The value to check.
         col_dtype: The data type of the column.
         date_range: A tuple specifying the valid year range for datetime values.
 
-        Returns:
+        Returns
+        -------
         bool: True if the value is malformed, False otherwise.
         """
         if pd.isna(value):  # Handle NaN or None
@@ -441,12 +468,14 @@ class DataHelper:
         - **Ranges**: Merges predefined ranges into broader categories.
         - **Categorical**: Applies prefix-based generalization.
 
-        Parameters:
+        Parameters
+        ----------
             df (pd.DataFrame): Input dataframe.
             column (str): Column to generalize.
             num_bins (int): Number of bins for numeric values.
 
-        Returns:
+        Returns
+        -------
             pd.DataFrame: Dataframe with generalized column.
         """
         df_copy = df.copy()
@@ -479,12 +508,14 @@ class DataHelper:
         """
         Suppresses (removes) rows that do not meet the k-anonymity requirement.
 
-        Parameters:
+        Parameters
+        ----------
             df (pd.DataFrame): Input DataFrame.
             quasi_identifiers (List[str]): List of quasi-identifiers.
             k (int): Required k-anonymity level.
 
-        Returns:
+        Returns
+        -------
             pd.DataFrame: DataFrame with suppressed rows.
         """
         equivalence_classes = df.groupby(quasi_identifiers).size()
@@ -805,19 +836,19 @@ class DataHelper:
         """
         Convert condition values to match series dtype if needed.
 
-        Parameters:
+        Parameters
         -----------
         series : pd.Series
             Series to compare against
         values : List[Any]
             Values to convert
 
-        Returns:
+        Returns
         --------
         List[Any]
             Converted values matching series dtype
 
-        Raises:
+        Raises
         -------
         ValueError
             If datetime conversion fails
@@ -842,12 +873,12 @@ class DataHelper:
         """
         Get first non-null value from series for type checking.
 
-        Parameters:
+        Parameters
         -----------
         series : pd.Series
             Series to sample from
 
-        Returns:
+        Returns
         --------
         Any or None
             First non-null value, or None if all values are null
@@ -862,7 +893,7 @@ class DataHelper:
         """
         Check if value can be compared with series values.
 
-        Parameters:
+        Parameters
         -----------
         series : pd.Series
             Series to compare against
@@ -871,7 +902,7 @@ class DataHelper:
         operator : str
             Operator name for error messages
 
-        Raises:
+        Raises
         -------
         TypeError
             If types are not comparable

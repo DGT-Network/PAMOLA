@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Results
 Description: Classes for representing operation results and artifacts
 Author: PAMOLA Core Team
@@ -69,7 +68,7 @@ class OperationArtifact:
         """
         Initialize an artifact.
 
-        Parameters:
+        Parameters
         -----------
         artifact_type : str
             Type of artifact (e.g., "json", "csv", "png")
@@ -112,12 +111,12 @@ class OperationArtifact:
 
         # TODO: delegate metadata extraction to pamola_core.utils.io.calculate_checksum()
 
-        Parameters:
+        Parameters
         -----------
         algorithm : str
             Hash algorithm to use ('sha256', 'md5', 'sha1')
 
-        Returns:
+        Returns
         --------
         str or None
             Checksum as a hexadecimal string, or None if file doesn't exist
@@ -140,7 +139,7 @@ class OperationArtifact:
         """
         Validate the artifact's existence and integrity.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Validation results with detailed information about the artifact's validity
@@ -212,7 +211,7 @@ class ArtifactGroup:
         """
         Initialize an artifact group.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the group
@@ -263,7 +262,7 @@ class OperationResult:
         """
         Initialize an operation result.
 
-        Parameters:
+        Parameters
         -----------
         status : OperationStatus
             Status of the operation
@@ -305,7 +304,7 @@ class OperationResult:
         Artifacts represent files produced by the operation, such as output data,
         metrics, or visualizations.
 
-        Parameters:
+        Parameters
         -----------
         artifact_type : str
             Type of artifact (e.g., "json", "csv", "png"). This should match the file extension.
@@ -322,16 +321,16 @@ class OperationResult:
             Name of the group to add this artifact to. If the group doesn't exist,
             it will be created. Default is None.
 
-        Returns:
+        Returns
         --------
         OperationArtifact
             The created artifact object.
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-005: Registers artifacts in consistent, structured manner with metadata.
 
-        Examples:
+        Examples
         ---------
         >>> result = OperationResult(status=OperationStatus.SUCCESS)
         >>> result.add_artifact("csv", "output/data.csv", "Anonymized data")
@@ -368,7 +367,7 @@ class OperationResult:
         registers the resulting file as an operation artifact, providing
         a consistent interface for artifact generation.
 
-        Parameters:
+        Parameters
         -----------
         writer : DataWriter
             DataWriter instance to use for writing
@@ -389,12 +388,12 @@ class OperationResult:
         group : str, optional
             Name of the group to add this artifact to
 
-        Returns:
+        Returns
         --------
         OperationArtifact
             The created artifact object
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-005: Uses DataWriter for consistent artifact generation.
         """
@@ -455,14 +454,14 @@ class OperationResult:
         """
         Add an artifact group.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the group
         description : str
             Description of the group
 
-        Returns:
+        Returns
         --------
         ArtifactGroup
             The created artifact group
@@ -475,7 +474,7 @@ class OperationResult:
         """
         Add a metric to the result.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the metric
@@ -488,7 +487,7 @@ class OperationResult:
         """
         Add a nested metric under a category.
 
-        Parameters:
+        Parameters
         -----------
         category : str
             Category for the metric
@@ -505,12 +504,12 @@ class OperationResult:
         """
         Get all artifacts of a specific type.
 
-        Parameters:
+        Parameters
         -----------
         artifact_type : str
             Type of artifacts to retrieve
 
-        Returns:
+        Returns
         --------
         List[OperationArtifact]
             Artifacts of the specified type
@@ -521,12 +520,12 @@ class OperationResult:
         """
         Get all artifacts with a specific tag.
 
-        Parameters:
+        Parameters
         -----------
         tag : str
             Tag to filter by
 
-        Returns:
+        Returns
         --------
         List[OperationArtifact]
             Artifacts with the specified tag
@@ -537,12 +536,12 @@ class OperationResult:
         """
         Get all artifacts in a specific category.
 
-        Parameters:
+        Parameters
         -----------
         category : str
             Category to filter by
 
-        Returns:
+        Returns
         --------
         List[OperationArtifact]
             Artifacts in the specified category
@@ -553,12 +552,12 @@ class OperationResult:
         """
         Get an artifact group by name.
 
-        Parameters:
+        Parameters
         -----------
         group_name : str
             Name of the group
 
-        Returns:
+        Returns
         --------
         ArtifactGroup or None
             The artifact group, or None if not found
@@ -569,12 +568,12 @@ class OperationResult:
         """
         Validate all artifacts in the result.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Validation results for all artifacts
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-006: Validates all artifacts exist and match expected formats.
         """
@@ -598,12 +597,12 @@ class OperationResult:
         """
         Create a dictionary of details for the reporter.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with operation details for reporting
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-005: Provides structured reporting of operation results and metrics.
         """

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Logging Configuration
 Description: Standardized logging configuration for PAMOLA projects
 Author: PAMOLA Core Team
@@ -89,17 +88,17 @@ def _validate_log_level(level: Union[int, str]) -> int:
     """
     Validate and convert log level to integer.
 
-    Parameters:
+    Parameters
     -----------
     level : int or str
         Logging level to validate
 
-    Returns:
+    Returns
     --------
     int
         Validated log level as integer
 
-    Raises:
+    Raises
     -------
     ValueError
         If level is invalid
@@ -133,17 +132,17 @@ def _validate_logger_name(name: Optional[str]) -> str:
     """
     Validate logger name.
 
-    Parameters:
+    Parameters
     -----------
     name : str or None
         Logger name to validate
 
-    Returns:
+    Returns
     --------
     str
         Validated logger name
 
-    Raises:
+    Raises
     -------
     ValueError
         If name is invalid (empty or None)
@@ -160,12 +159,12 @@ def _validate_log_directory(log_path: Path) -> None:
     """
     Validate that log directory is writable.
 
-    Parameters:
+    Parameters
     -----------
     log_path : Path
         Path to log file
 
-    Raises:
+    Raises
     -------
     LoggingConfigError
         If directory is not writable
@@ -198,7 +197,7 @@ def configure_logging(
     """
     Configure logging with thread-safe handler management.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name of the logger to configure (default "pamola_core")
@@ -217,19 +216,19 @@ def configure_logging(
     force_reconfigure : bool, optional
         Force reconfiguration even if logger already configured (default False)
 
-    Returns:
+    Returns
     --------
     logging.Logger
         Configured logger
 
-    Raises:
+    Raises
     -------
     ValueError
         If parameters are invalid
     LoggingConfigError
         If configuration fails
 
-    Examples:
+    Examples
     ---------
     >>> logger = configure_logging("my_app", level="DEBUG")
     >>> logger = configure_logging("my_app", log_file="app.log", log_dir="/var/log")
@@ -308,7 +307,7 @@ def configure_task_logging(
     """
     Configure logging for a specific task.
 
-    Parameters:
+    Parameters
     -----------
     task_id : str
         Unique identifier for the task (required, keyword-only)
@@ -329,19 +328,19 @@ def configure_task_logging(
     force_reconfigure : bool, optional
         Force reconfiguration even if logger already configured (default False)
 
-    Returns:
+    Returns
     --------
     logging.Logger
         Configured logger with task context
 
-    Raises:
+    Raises
     -------
     ValueError
         If task_id is invalid
     LoggingConfigError
         If configuration fails
 
-    Examples:
+    Examples
     ---------
     >>> logger = configure_task_logging(task_id="anonymize_123")
     >>> logger = configure_task_logging(task_id="task_1", log_dir="/var/log/tasks")
@@ -388,7 +387,7 @@ def task_logging_context(task_id: str, cleanup: bool = True, **kwargs):
     """
     Context manager for task-specific logging with automatic cleanup.
 
-    Parameters:
+    Parameters
     -----------
     task_id : str
         Unique identifier for the task
@@ -397,12 +396,12 @@ def task_logging_context(task_id: str, cleanup: bool = True, **kwargs):
     **kwargs
         Additional arguments passed to configure_task_logging
 
-    Yields:
+    Yields
     -------
     logging.Logger
         Configured task logger
 
-    Examples:
+    Examples
     ---------
     >>> with task_logging_context(task_id="process_123", log_dir="/tmp") as logger:
     ...     logger.info("Processing started")
@@ -434,17 +433,17 @@ def get_configured_logger(name: str) -> Optional[logging.Logger]:
     """
     Get a logger if it has been configured via this module.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name of the logger
 
-    Returns:
+    Returns
     --------
     logging.Logger or None
         Configured logger if it exists, None otherwise
 
-    Examples:
+    Examples
     ---------
     >>> configure_logging("my_app")
     >>> logger = get_configured_logger("my_app")
@@ -459,12 +458,12 @@ def is_configured(name: str) -> bool:
     """
     Check if a logger has been configured via this module.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name of the logger
 
-    Returns:
+    Returns
     --------
     bool
         True if logger is configured, False otherwise
@@ -503,17 +502,17 @@ def getLogger(name: str) -> logging.Logger:
     with PAMOLA's formatting. Use configure_logging() or get_configured_logger()
     to ensure proper configuration.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name of the logger
 
-    Returns:
+    Returns
     --------
     logging.Logger
         Logger instance (may be unconfigured)
 
-    Examples:
+    Examples
     ---------
     >>> # For configured logger, use:
     >>> logger = configure_logging("my_app")

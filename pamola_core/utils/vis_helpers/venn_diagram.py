@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Venn Diagram Visualization Implementation
 
 Description:
@@ -62,7 +61,8 @@ class PlotlyVennDiagram(PlotlyFigure):
         """
         Create a Venn diagram using Plotly.
 
-        Parameters:
+        Parameters
+        ----------
             set1 (Set | List | pd.Series): First set of elements.
             set2 (Set | List | pd.Series): Second set of elements.
             set1_label (str): Label for the first set.
@@ -74,7 +74,8 @@ class PlotlyVennDiagram(PlotlyFigure):
             strict (bool, optional): Strict mode for errors.
             **kwargs: Extra arguments passed to go shapes or traces.
 
-        Returns:
+        Returns
+        -------
             go.Figure: Plotly figure containing the Venn diagram.
         """
         with visualization_context(backend=backend, theme=theme, strict=strict):
@@ -202,14 +203,16 @@ class PlotlyVennDiagram(PlotlyFigure):
         """
         Update an existing Plotly Venn diagram.
 
-        Parameters:
+        Parameters
+        ----------
             fig (go.Figure): Existing Plotly figure to update.
             backend (str, optional): Visualization backend.
             theme (str, optional): Visualization theme.
             strict (bool, optional): Strict mode for errors.
             **kwargs: Parameters to update such as set1, set2, set1_label, set2_label, title.
 
-        Returns:
+        Returns
+        -------
             go.Figure: Updated Plotly figure.
         """
         with visualization_context(backend=backend, theme=theme, strict=strict):
@@ -291,7 +294,8 @@ class MatplotlibVennDiagram(MatplotlibFigure):
         """
         Create a Venn diagram using Matplotlib.
 
-        Parameters:
+        Parameters
+        ----------
             set1 (Set | List | pd.Series): First set of elements.
             set2 (Set | List | pd.Series): Second set of elements.
             set1_label (str): Label for the first set.
@@ -304,7 +308,8 @@ class MatplotlibVennDiagram(MatplotlibFigure):
             strict (bool, optional): Strict mode for errors.
             **kwargs: Extra arguments passed to venn2.
 
-        Returns:
+        Returns
+        -------
             plt.Figure: Matplotlib figure containing the Venn diagram.
         """
         if venn2 is None:
@@ -384,14 +389,16 @@ class MatplotlibVennDiagram(MatplotlibFigure):
         """
         Update an existing Matplotlib Venn diagram.
 
-        Parameters:
+        Parameters
+        ----------
             fig (plt.Figure): Existing figure to update.
             backend (str, optional): Visualization backend.
             theme (str, optional): Visualization theme.
             strict (bool, optional): Strict mode for errors.
             **kwargs: Parameters to update such as title, set1_label, set2_label.
 
-        Returns:
+        Returns
+        -------
             plt.Figure: Updated Matplotlib figure.
         """
         with visualization_context(backend=backend, theme=theme, strict=strict):

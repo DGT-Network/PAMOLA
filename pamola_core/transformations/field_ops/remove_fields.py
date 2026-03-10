@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Remove Fields Operation
 Description: Operation for remove one or more specified fields from a dataset.
 Author: PAMOLA Core Team
@@ -61,7 +60,7 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Initialize the RemoveFieldsOperation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation (default: "remove_fields_operation").
@@ -112,7 +111,7 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -125,7 +124,7 @@ class RemoveFieldsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -425,12 +424,12 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Process a batch of data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             Batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed batch
@@ -453,14 +452,14 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Process a single value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Value to process
         **params : dict
             Additional parameters for processing
 
-        Returns:
+        Returns
         --------
         Any
             Processed value
@@ -471,7 +470,7 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -490,14 +489,14 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to process
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The processed dataframe
@@ -527,14 +526,14 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Calculate all metrics for operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -563,14 +562,14 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Collect metrics for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -623,7 +622,7 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
@@ -652,7 +651,7 @@ class RemoveFieldsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for visualization
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -841,7 +840,7 @@ class RemoveFieldsOperation(TransformationOperation):
         """
         Generate visualizations for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data before processing
@@ -862,7 +861,7 @@ class RemoveFieldsOperation(TransformationOperation):
         operation_timestamp : str
             Timestamp string for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1103,12 +1102,12 @@ def create_remove_fields_operation(**kwargs) -> RemoveFieldsOperation:
     """
     Create remove fields operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     RemoveFieldsOperation
         Configured remove fields operation

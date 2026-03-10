@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Task Registry
 Description: In-memory task type registration and discovery
 Author: PAMOLA Core Team
@@ -41,14 +40,17 @@ def register_task_class(task_id: str, task_class: Type) -> bool:
     """
     Register a task class by ID.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         task_class: Task class to register
 
-    Returns:
+    Returns
+    -------
         True if registration was successful, False otherwise
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If registration fails
     """
     try:
@@ -73,13 +75,16 @@ def get_task_class(task_id: str) -> Optional[Type]:
     """
     Get a task class by ID.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
 
-    Returns:
+    Returns
+    -------
         Task class or None if not found
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If lookup fails
     """
     try:
@@ -94,10 +99,12 @@ def list_registered_tasks() -> Dict[str, Dict[str, Any]]:
     """
     List all registered task types with their metadata.
 
-    Returns:
+    Returns
+    -------
         Dictionary mapping task IDs to task metadata
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If listing fails
     """
     try:
@@ -115,14 +122,17 @@ def create_task_instance(task_id: str, **kwargs) -> Optional[Any]:
     """
     Create a task instance by ID.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         **kwargs: Arguments to pass to the task constructor
 
-    Returns:
+    Returns
+    -------
         Task instance or None if task class not found
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If instantiation fails
     """
     try:
@@ -151,14 +161,17 @@ def discover_task_classes(
     This function scans Python packages for classes that inherit from BaseTask
     and have a task_id attribute.
 
-    Args:
+    Parameters
+    ----------
         package_paths: List of package paths to scan (e.g., ["mypackage.tasks"])
         recursive: Whether to scan subpackages recursively
 
-    Returns:
+    Returns
+    -------
         Dictionary mapping task IDs to task classes
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If discovery fails
     """
     try:
@@ -232,14 +245,17 @@ def register_discovered_tasks(
     """
     Discover and register task classes in specified packages.
 
-    Args:
+    Parameters
+    ----------
         package_paths: List of package paths to scan
         recursive: Whether to scan subpackages recursively
 
-    Returns:
+    Returns
+    -------
         Number of tasks registered
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If registration fails
     """
     try:
@@ -267,13 +283,16 @@ def get_task_metadata(task_class: Type) -> Dict[str, Any]:
     Extracts metadata without creating an instance of the class to avoid
     expensive initialization.
 
-    Args:
+    Parameters
+    ----------
         task_class: Task class to extract metadata from
 
-    Returns:
+    Returns
+    -------
         Dictionary with task metadata
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If metadata extraction fails
     """
     try:
@@ -323,15 +342,18 @@ def check_task_dependencies(
     This function checks the execution log to see if all dependency tasks
     have been executed successfully.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         task_type: Type of the task
         dependencies: List of task IDs that this task depends on
 
-    Returns:
+    Returns
+    -------
         True if all dependencies are satisfied, False otherwise
 
-    Raises:
+    Raises
+    ------
         TaskRegistryError: If dependency check fails
     """
     # If no dependencies, return True
@@ -368,10 +390,12 @@ def _is_task_class(cls: Type) -> bool:
     1. Have a 'task_id' attribute or method to be instantiated with a task_id
     2. Inherit from a class named 'BaseTask'
 
-    Args:
+    Parameters
+    ----------
         cls: Class to check
 
-    Returns:
+    Returns
+    -------
         True if the class is a task class, False otherwise
     """
     # Check for BaseTask in class hierarchy
@@ -397,10 +421,12 @@ def _get_task_id(cls: Type) -> Optional[str]:
     """
     Get the task ID from a task class.
 
-    Args:
+    Parameters
+    ----------
         cls: Task class
 
-    Returns:
+    Returns
+    -------
         Task ID or None if not found
     """
     # Check for task_id class attribute
@@ -431,10 +457,12 @@ def _validate_task_class(cls: Type) -> bool:
     """
     Validate that a class meets the requirements for a task class.
 
-    Args:
+    Parameters
+    ----------
         cls: Class to validate
 
-    Returns:
+    Returns
+    -------
         True if the class is valid, False otherwise
     """
     # Check that it's a task class

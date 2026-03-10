@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Executor
 Description: Task operation execution with retry capabilities
 Author: PAMOLA Core Team
@@ -92,7 +91,8 @@ class TaskOperationExecutor:
         """
         Initialize the operation executor.
 
-        Args:
+        Parameters
+        ----------
             task_config: Task configuration object
             logger: Logger for operation execution
             reporter: Task reporter for tracking operation results
@@ -131,7 +131,8 @@ class TaskOperationExecutor:
         """
         Add an exception type to the set of retriable exceptions.
 
-        Args:
+        Parameters
+        ----------
             exception_type: The exception type to add
         """
         if exception_type in self.NEVER_RETRY_EXCEPTIONS:
@@ -148,7 +149,8 @@ class TaskOperationExecutor:
         """
         Remove an exception type from the set of retriable exceptions.
 
-        Args:
+        Parameters
+        ----------
             exception_type: The exception type to remove
         """
         if exception_type in self.retriable_exceptions:
@@ -161,10 +163,12 @@ class TaskOperationExecutor:
         """
         Determine if an exception should trigger a retry.
 
-        Args:
+        Parameters
+        ----------
             exception: The exception to check
 
-        Returns:
+        Returns
+        -------
             True if the exception is retriable, False otherwise
         """
         # Check if the exception is in the never-retry list
@@ -193,15 +197,18 @@ class TaskOperationExecutor:
         """
         Execute a single operation without retry logic.
 
-        Args:
+        Parameters
+        ----------
             operation: The operation to execute
             params: Parameters for the operation
             progress_tracker: Progress tracker for the operation
 
-        Returns:
+        Returns
+        -------
             OperationResult containing the execution result
 
-        Raises:
+        Raises
+        ------
             Exception: Any exception raised by the operation is propagated up
         """
         from pamola_core.utils.ops.op_result import OperationStatus
@@ -255,12 +262,14 @@ class TaskOperationExecutor:
         """
         Create an error OperationResult from an exception.
 
-        Args:
+        Parameters
+        ----------
             exception: The exception that caused the error
             execution_time: Execution time in seconds
             additional_message: Additional message to append to error_message
 
-        Returns:
+        Returns
+        -------
             OperationResult with ERROR status and appropriate error information
         """
         from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
@@ -317,7 +326,8 @@ class TaskOperationExecutor:
         """
         Execute an operation with retry logic.
 
-        Args:
+        Parameters
+        ----------
             operation: The operation to execute
             params: Parameters for the operation
             max_retries: Maximum number of retry attempts
@@ -328,15 +338,18 @@ class TaskOperationExecutor:
             progress_tracker: Progress tracker for the operation
             on_retry: Callback function called before each retry attempt
 
-        Returns:
+        Returns
+        -------
             OperationResult containing the execution result
 
-        Raises:
+        Raises
+        ------
             MaxRetriesExceededError: If maximum retry attempts are reached
             NonRetriableError: If an exception is raised that should not be retried
             KeyboardInterrupt: If the user interrupts execution with Ctrl+C
 
-        Note:
+        Notes
+        -----
             The execution_time in the returned OperationResult represents the total time
             across all retry attempts, not just the final successful attempt.
         """
@@ -467,13 +480,15 @@ class TaskOperationExecutor:
         """
         Execute a list of operations sequentially.
 
-        Args:
+        Parameters
+        ----------
             operations: List of operations to execute
             common_params: Common parameters for all operations
             progress_tracker: Progress tracker for all operations
             continue_on_error: Whether to continue executing operations after an error
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping operation names to their results
         """
         from pamola_core.utils.ops.op_result import OperationStatus
@@ -663,17 +678,20 @@ class TaskOperationExecutor:
         """
         Execute operations in parallel using multiple processes.
 
-        Args:
+        Parameters
+        ----------
             operations: List of operations to execute
             common_params: Common parameters for all operations
             max_workers: Maximum number of worker processes
             progress_tracker: Progress tracker for all operations
             continue_on_error: Whether to continue executing operations after an error
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping operation names to their results
 
-        Note:
+        Notes
+        -----
             For parallel execution, all BaseOperation instances must be pickleable.
             Progress tracking in parallel mode has limitations due to process separation.
         """
@@ -830,7 +848,8 @@ class TaskOperationExecutor:
         """
         Get execution statistics.
 
-        Returns:
+        Returns
+        -------
             Dictionary with execution statistics
         """
         return self.execution_stats.copy()
@@ -846,14 +865,16 @@ class TaskOperationExecutor:
         """
         Calculate wait time for the next retry attempt.
 
-        Args:
+        Parameters
+        ----------
             attempt: Current attempt number (1-based)
             backoff_factor: Factor for exponential backoff
             initial_wait: Initial wait time in seconds
             max_wait: Maximum wait time in seconds
             jitter: Whether to add jitter to wait times
 
-        Returns:
+        Returns
+        -------
             Wait time in seconds
         """
         # Calculate base wait time with exponential backoff
@@ -875,10 +896,12 @@ class TaskOperationExecutor:
 
         This method masks sensitive information in the traceback if configured.
 
-        Args:
+        Parameters
+        ----------
             exception: The exception to format
 
-        Returns:
+        Returns
+        -------
             Formatted exception string
         """
         import traceback
@@ -921,13 +944,15 @@ def create_operation_executor(
     """
     Create an operation executor for a task.
 
-    Args:
+    Parameters
+    ----------
         task_config: Task configuration object
         logger: Logger for operation execution
         reporter: Task reporter for tracking operation results
         **kwargs: Additional configuration parameters
 
-    Returns:
+    Returns
+    -------
         TaskOperationExecutor instance
     """
     return TaskOperationExecutor(

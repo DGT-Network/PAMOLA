@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Data Source Helper Functions
 Description: Helper functions for DataSource class
 Author: PAMOLA Core Team
@@ -34,7 +33,7 @@ def get_system_memory() -> Dict[str, float]:
     """
     Get system memory information.
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with memory information (total, available, used in GB)
@@ -62,7 +61,7 @@ def get_process_memory_usage() -> Dict[str, float]:
     """
     Get current process memory usage.
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with process memory usage (RSS, VMS in MB)
@@ -91,7 +90,7 @@ def validate_schema(
     """
     Validate a DataFrame schema against an expected schema.
 
-    Parameters:
+    Parameters
     -----------
     actual_schema : Dict[str, Any]
         Actual schema to validate
@@ -100,7 +99,7 @@ def validate_schema(
     logger : Logger, optional
         Logger instance
 
-    Returns:
+    Returns
     --------
     Tuple[bool, List[str]]
         (is_valid, error_messages)
@@ -162,14 +161,14 @@ def is_compatible_dtype(actual: str, expected: str) -> bool:
     """
     Check if two data types are compatible with enhanced type handling.
 
-    Parameters:
+    Parameters
     -----------
     actual : str
         Actual data type
     expected : str
         Expected data type
 
-    Returns:
+    Returns
     --------
     bool
         True if compatible, False otherwise
@@ -262,7 +261,7 @@ def generate_dataframe_chunks(
     """
     Generate chunks from a DataFrame for efficient processing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to chunk
@@ -275,7 +274,7 @@ def generate_dataframe_chunks(
     show_progress : bool
         Whether to show progress during chunking
 
-    Yields:
+    Yields
     -------
     pd.DataFrame
         Chunks of the DataFrame
@@ -345,7 +344,7 @@ def optimize_memory_usage(
     """
     Analyze and optimize memory usage for multiple DataFrames.
 
-    Parameters:
+    Parameters
     -----------
     dataframes : Dict[str, pd.DataFrame]
         Dictionary of named DataFrames to optimize
@@ -356,7 +355,7 @@ def optimize_memory_usage(
     logger : Logger, optional
         Logger instance
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Memory optimization results
@@ -487,14 +486,14 @@ def analyze_dataframe(
     """
     Analyze DataFrame structure and provide insights.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
     logger : Logger, optional
         Logger instance
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with DataFrame analysis results
@@ -619,7 +618,7 @@ def create_sample_dataframe(
     """
     Create a representative sample of a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Source DataFrame
@@ -632,7 +631,7 @@ def create_sample_dataframe(
     logger : Logger, optional
         Logger instance
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Sample DataFrame

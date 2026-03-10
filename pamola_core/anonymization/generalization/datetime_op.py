@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        DateTime Generalization Operation
 Package:       pamola_core.anonymization.generalization
 Version:       2.0.1
@@ -226,7 +225,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -239,7 +238,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -677,12 +676,12 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Process a batch of datetime data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame with generalized datetimes
@@ -732,12 +731,12 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
-        Parameters:
+        Parameters
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
 
-        Returns:
+        Returns
         --------
         dd.DataFrame
             Processed Dask DataFrame
@@ -753,12 +752,12 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Process a single datetime value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             DateTime value to process
 
-        Returns:
+        Returns
         --------
         Any
             Processed datetime value
@@ -1214,7 +1213,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Validate dates are within pandas datetime range.
 
-        Returns:
+        Returns
         --------
         Tuple[int, int]
             (out_of_range_count, total_count)
@@ -1239,14 +1238,14 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Validate that generalization provides sufficient privacy.
 
-        Parameters:
+        Parameters
         -----------
         original : pd.Series
             Original datetime series
         generalized : pd.Series
             Generalized datetime series
 
-        Returns:
+        Returns
         --------
         bool
             True if privacy level is sufficient, False otherwise
@@ -1340,7 +1339,7 @@ class DateTimeGeneralizationOperation(AnonymizationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for date time generalization
@@ -1369,14 +1368,14 @@ def create_datetime_generalization_operation(
     """
     Create a datetime generalization operation.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Field to generalize
     **kwargs : dict
         Additional parameters
 
-    Returns:
+    Returns
     --------
     DateTimeGeneralizationOperation
         Configured operation instance

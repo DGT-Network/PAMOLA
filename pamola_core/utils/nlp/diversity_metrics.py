@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Diversity Metrics for Text Analysis
 Package:       pamola_core.utils.nlp
 Version:       1.0.0
@@ -82,7 +81,7 @@ def calculate_semantic_diversity(
     Semantic diversity measures how different the categories are from each other
     based on their semantic content (tokens, characters, or structure).
 
-    Parameters:
+    Parameters
     -----------
     categories : Union[List[str], pd.Series]
         List or Series of category names to analyze
@@ -101,14 +100,14 @@ def calculate_semantic_diversity(
     case_sensitive : bool, optional
         Whether to preserve case in analysis (default: False)
 
-    Returns:
+    Returns
     --------
     float
         Diversity score. If normalized, returns value in [0, 1] where:
         - 0 = no diversity (all categories identical)
         - 1 = maximum diversity (no overlap between categories)
 
-    Examples:
+    Examples
     --------
     >>> categories = ["Software Engineer", "Software Developer", "Data Scientist"]
     >>> diversity = calculate_semantic_diversity(categories)
@@ -191,7 +190,7 @@ def calculate_lexical_diversity(
     Lexical diversity measures the variety of unique words/tokens used in text.
     Higher values indicate more diverse vocabulary usage.
 
-    Parameters:
+    Parameters
     -----------
     texts : Union[List[str], pd.Series]
         Text data to analyze (can be single text or list of texts)
@@ -213,7 +212,7 @@ def calculate_lexical_diversity(
     remove_punctuation : bool, optional
         Whether to remove punctuation tokens (default: True)
 
-    Returns:
+    Returns
     --------
     float
         Lexical diversity score. Range depends on method:
@@ -223,7 +222,7 @@ def calculate_lexical_diversity(
         - MTLD: [0, ∞] where higher = more diverse
         - MSTTR: [0, 1] average TTR across windows
 
-    Examples:
+    Examples
     --------
     >>> text = "The quick brown fox jumps over the lazy dog. The dog was lazy."
     >>> diversity = calculate_lexical_diversity([text], method="ttr")
@@ -291,7 +290,7 @@ def calculate_token_diversity(
     This function analyzes the distribution of tokens/categories to measure
     diversity from different perspectives.
 
-    Parameters:
+    Parameters
     -----------
     tokens : Union[List[str], pd.Series]
         List or Series of tokens/categories to analyze
@@ -310,7 +309,7 @@ def calculate_token_diversity(
     case_sensitive : bool, optional
         Whether to preserve case (default: False)
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary of diversity metrics:
@@ -320,7 +319,7 @@ def calculate_token_diversity(
         - "unique_ratio": Ratio of unique tokens
         - "coverage_top_10": Coverage of top 10 tokens
 
-    Examples:
+    Examples
     --------
     >>> tokens = ["cat", "dog", "cat", "bird", "dog", "cat", "fish"]
     >>> diversity = calculate_token_diversity(tokens, method="all")

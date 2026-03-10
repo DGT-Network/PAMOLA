@@ -58,7 +58,8 @@ class ErrorHandler:
     - Logs with full context
     - Supports both sync and async functions
 
-    Example:
+    Examples
+    --------
         >>> handler = ErrorHandler(logger, operation_name="data_loading")
         >>> try:
         ...     load_data()
@@ -81,7 +82,8 @@ class ErrorHandler:
         """
         Initialize error handler.
 
-        Args:
+        Parameters
+        ----------
             logger: Logger instance for error logging
             operation_name: Name of the operation being performed
             enable_verbose_logging: Enable detailed debug logging
@@ -206,13 +208,15 @@ class ErrorHandler:
         This is useful when a function already created an OperationResult but
         did not include standardized error codes/metadata.
 
-        Args:
+        Parameters
+        ----------
             result: Existing OperationResult to enhance
             error_code: Standard error code to attach
             message: Optional override message
             context: Additional context information
 
-        Returns:
+        Returns
+        -------
             Enhanced OperationResult with standardized metadata
         """
         context = context or {}
@@ -261,20 +265,24 @@ class ErrorHandler:
         """
         Create a properly formatted BasePamolaError with standardized message.
 
-        Args:
+        Parameters
+        ----------
             error_code: Error code from ErrorCode registry
             message_kwargs: Parameters for message formatting
             exception_class: Exception class to instantiate (must be BasePamolaError subclass)
             details: Additional details to attach to the exception
 
-        Returns:
+        Returns
+        -------
             Formatted BasePamolaError instance
 
-        Raises:
+        Raises
+        ------
             ValidationError: If exception_class is not BasePamolaError subclass
             InvalidParameterError: If error code is invalid, template not found, or missing parameters
 
-        Example:
+        Examples
+        --------
             >>> error = handler.create_error(
             ...     error_code=ErrorCode.FIELD_NOT_FOUND,
             ...     message_kwargs={"field_name": "age", "available_fields": "name, email"},
@@ -346,16 +354,19 @@ class ErrorHandler:
         """
         Context manager for automatic error handling.
 
-        Args:
+        Parameters
+        ----------
             error_code: Error code to use if exception occurs
             context: Additional context information
             message_kwargs: Message template parameters
             suppress: If True, suppress exceptions and return None
 
-        Yields:
+        Yields
+        ------
             None
 
-        Example:
+        Examples
+        --------
             >>> with handler.error_context(ErrorCode.DATA_LOAD_FAILED, {"file": "data.csv"}):
             ...     load_data()
         """
@@ -382,16 +393,19 @@ class ErrorHandler:
         """
         Decorator to wrap functions with standardized error handling.
 
-        Args:
+        Parameters
+        ----------
             error_code: Error code to use for caught exceptions
             rethrow: Whether to re-raise after handling
             context: Additional context for error handling
             message_kwargs: Message template parameters
 
-        Returns:
+        Returns
+        -------
             Decorated function
 
-        Example:
+        Examples
+        --------
             >>> @handler.capture_errors(error_code=ErrorCode.PROCESSING_FAILED)
             ... def process_data(data):
             ...     return data.transform()

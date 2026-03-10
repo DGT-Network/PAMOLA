@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Pearson Correlation
----------------------------------
 This module provides the Pearson correlation coefficient for assessing the linear
 relationship between real and synthetic datasets.
 

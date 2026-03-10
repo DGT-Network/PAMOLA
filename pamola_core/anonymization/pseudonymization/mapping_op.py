@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Consistent Mapping Pseudonymization Operation
 Package:       pamola_core.anonymization.pseudonymization
 Version:       1.0.2
@@ -253,7 +252,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Initialize consistent mapping pseudonymization operation.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Primary field to pseudonymize
@@ -847,12 +846,12 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Process a batch of data to pseudonymize values.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame with pseudonymized values
@@ -1036,7 +1035,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Generate a unique pseudonym that doesn't exist in current mappings.
 
-        Returns:
+        Returns
         --------
         str
             Unique pseudonym
@@ -1237,12 +1236,12 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Get original value for a pseudonym (for authorized reversal).
 
-        Parameters:
+        Parameters
         -----------
         pseudonym : str
             Pseudonym to reverse
 
-        Returns:
+        Returns
         --------
         Optional[str]
             Original value if found, None otherwise
@@ -1254,7 +1253,7 @@ class ConsistentMappingPseudonymizationOperation(AnonymizationOperation):
         """
         Export mappings in encrypted form (for backup/transfer).
 
-        Parameters:
+        Parameters
         -----------
         output_path : Path
             Path to export to
@@ -1297,7 +1296,7 @@ def create_mapping_pseudonymization_operation(
     """
     Create a consistent mapping pseudonymization operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Field to pseudonymize
@@ -1306,7 +1305,7 @@ def create_mapping_pseudonymization_operation(
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     ConsistentMappingPseudonymizationOperation
         Configured mapping pseudonymization operation

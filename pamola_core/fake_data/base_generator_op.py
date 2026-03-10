@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Fake Data Generators
--------------------------------------------------------
 Module:        Fake Data Generator Operation
 Package:       pamola_core.fake_data
 Version:       3.0.0
@@ -181,7 +180,7 @@ class GeneratorOperation(FieldOperation):
         """
         Execute the generator operation with enhanced features including Dask support.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -194,7 +193,7 @@ class GeneratorOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -589,7 +588,8 @@ class GeneratorOperation(FieldOperation):
         """
         Initialize the mapping store if needed.
 
-        Args:
+        Parameters
+        ----------
             path: Path to mapping store file
         """
         try:
@@ -612,7 +612,7 @@ class GeneratorOperation(FieldOperation):
         """
         Validate data source and retrieve the main dataframe.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             The data source to validate
@@ -621,12 +621,12 @@ class GeneratorOperation(FieldOperation):
         **kwargs : Any
             Additional keyword arguments to pass to the data loading function
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The validated dataframe
 
-        Raises:
+        Raises
         -------
         ValueError
             If no valid dataframe is found or the field is missing
@@ -664,12 +664,12 @@ class GeneratorOperation(FieldOperation):
         """
         Validate and generate the output field name.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to check field names against
 
-        Returns:
+        Returns
         --------
         str
             The validated output field name
@@ -694,7 +694,7 @@ class GeneratorOperation(FieldOperation):
         """
         Report details of the operation to the reporter.
 
-        Parameters:
+        Parameters
         -----------
         reporter : Any
             The reporter to log details to
@@ -722,14 +722,14 @@ class GeneratorOperation(FieldOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to process
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The processed dataframe
@@ -995,10 +995,12 @@ class GeneratorOperation(FieldOperation):
         """
         Collect operation-specific metrics. Should be overridden by subclasses.
 
-        Args:
+        Parameters
+        ----------
             df: Processed DataFrame
 
-        Returns:
+        Returns
+        -------
             Dictionary with metrics
         """
         return {}
@@ -1021,7 +1023,7 @@ class GeneratorOperation(FieldOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The processed dataframe
@@ -1230,7 +1232,7 @@ class GeneratorOperation(FieldOperation):
         This is a base implementation that provides a basic distribution comparison.
         Subclasses should override to provide operation-specific visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The processed dataframe
@@ -1251,7 +1253,7 @@ class GeneratorOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1334,7 +1336,7 @@ class GeneratorOperation(FieldOperation):
         """
         Save the processed output data.
 
-        Parameters:
+        Parameters
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
@@ -1417,7 +1419,7 @@ class GeneratorOperation(FieldOperation):
         For large datasets, explicitly free memory by deleting
         references and optionally calling garbage collection.
 
-        Parameters:
+        Parameters
         -----------
         processed_df : pd.DataFrame, optional
             Processed DataFrame to clear from memory
@@ -1441,14 +1443,14 @@ class GeneratorOperation(FieldOperation):
         """
         Process a batch of data. Must be implemented by subclasses.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
         kwargs : dict
             Additional keyword arguments for processing
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame batch
@@ -1523,7 +1525,7 @@ class GeneratorOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             Original input data
@@ -1534,7 +1536,7 @@ class GeneratorOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1673,7 +1675,7 @@ class GeneratorOperation(FieldOperation):
         """
         Save metrics.
 
-        Parameters:
+        Parameters
         -----------
         metrics : dict
             The metrics of operation

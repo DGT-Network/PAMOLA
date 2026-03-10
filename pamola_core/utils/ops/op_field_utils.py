@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Field Utilities
 Package:       pamola_core.utils.ops
 Version:       1.2.0
@@ -79,7 +78,7 @@ def generate_output_field_name(
     """
     Generate standardized output field name based on operation mode.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Original field name
@@ -92,17 +91,17 @@ def generate_output_field_name(
     column_prefix : str, optional
         Prefix for generated field names in ENRICH mode (default: "_")
 
-    Returns:
+    Returns
     --------
     str
         Output field name
 
-    Raises:
+    Raises
     -------
     ValueError
         If mode is not "REPLACE" or "ENRICH"
 
-    Examples:
+    Examples
     ---------
     >>> generate_output_field_name("salary", "REPLACE")
     'salary'
@@ -136,7 +135,7 @@ def generate_ka_field_name(
     """
     Generate a compact field name for k-anonymity metrics.
 
-    Parameters:
+    Parameters
     -----------
     quasi_identifiers : List[str]
         List of quasi-identifier field names
@@ -147,12 +146,12 @@ def generate_ka_field_name(
     separator : str, optional
         Separator between abbreviated names (default: "_")
 
-    Returns:
+    Returns
     --------
     str
         Generated KA field name, e.g., "KA_age_cit_pos" for ["age", "city", "postal_code"]
 
-    Examples:
+    Examples
     ---------
     >>> generate_ka_field_name(["age", "city", "postal_code"])
     'KA_age_cit_pos'
@@ -182,7 +181,7 @@ def infer_field_type(
     """
     Infer the semantic type of a field.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Field to analyze
@@ -191,13 +190,13 @@ def infer_field_type(
     sample_size : int, optional
         Number of non-null values to sample for pattern checking (default: 100)
 
-    Returns:
+    Returns
     --------
     str
         Field type: 'numeric', 'categorical', 'string', 'datetime', 'boolean',
         'email', 'phone', 'ipv4', 'url', 'postal_code', or 'unknown'
 
-    Examples:
+    Examples
     ---------
     >>> s = pd.Series(['user@example.com', 'test@domain.org'])
     >>> infer_field_type(s)
@@ -246,7 +245,7 @@ def apply_condition_operator(
     """
     Apply conditional operator to create a boolean mask.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Series to apply condition to
@@ -255,12 +254,12 @@ def apply_condition_operator(
     operator : str
         Operator type: "in", "not_in", "gt", "lt", "eq", "ne", "ge", "le", "range", "all"
 
-    Returns:
+    Returns
     --------
     pd.Series
         Boolean mask series
 
-    Raises:
+    Raises
     -------
     ValueError
         If operator is invalid or condition_values are missing when required
@@ -345,7 +344,7 @@ def validate_field_compatibility(
     """
     Validate compatibility between fields for operations.
 
-    Parameters:
+    Parameters
     -----------
     source_field : pd.Series
         Source field
@@ -354,12 +353,12 @@ def validate_field_compatibility(
     operation_type : str
         Type of operation: "merge", "join", "compare", "replace"
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation result with 'compatible' flag and 'issues' list
 
-    Examples:
+    Examples
     ---------
     >>> s1 = pd.Series([1, 2, 3])
     >>> s2 = pd.Series(['a', 'b', 'c'])
@@ -417,19 +416,19 @@ def get_field_statistics(
     """
     Get basic statistics for a field of any type.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Field to analyze
     include_percentiles : bool, optional
         Whether to include percentile information (default: False)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Field statistics including type-appropriate metrics
 
-    Examples:
+    Examples
     ---------
     >>> s = pd.Series([1, 2, 3, 4, 5, None])
     >>> stats = get_field_statistics(s)
@@ -502,7 +501,7 @@ def create_field_mask(
     """
     Create a boolean mask for field processing based on conditions.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -515,12 +514,12 @@ def create_field_mask(
     condition_operator : str, optional
         Operator for condition (default: "in")
 
-    Returns:
+    Returns
     --------
     pd.Series
         Boolean mask
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({'age': [20, 30, 40], 'city': ['NY', 'LA', 'NY']})
     >>> mask = create_field_mask(df, 'age', 'city', ['NY'], 'in')
@@ -563,7 +562,7 @@ def get_field_name_variants(
     """
     Generate common field name variants for matching.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Base field name
@@ -572,12 +571,12 @@ def get_field_name_variants(
     suffixes : Optional[List[str]], optional
         List of suffixes to try
 
-    Returns:
+    Returns
     --------
     List[str]
         List of field name variants
 
-    Examples:
+    Examples
     ---------
     >>> get_field_name_variants("age", suffixes=["_years", "_months"])
     ['age', 'age_years', 'age_months']
@@ -601,7 +600,7 @@ def generate_privacy_metric_field_name(
     """
     Generate standardized field names for privacy metrics.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Base field name
@@ -610,12 +609,12 @@ def generate_privacy_metric_field_name(
     quasi_identifiers : Optional[List[str]], optional
         List of quasi-identifiers (for k-anonymity metrics)
 
-    Returns:
+    Returns
     --------
     str
         Generated metric field name
 
-    Examples:
+    Examples
     ---------
     >>> generate_privacy_metric_field_name("age", "risk_score")
     'age_risk_score'
@@ -648,7 +647,7 @@ def create_composite_key(
     """
     Create a composite key from multiple fields with optional hashing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -663,12 +662,12 @@ def create_composite_key(
     hash_algorithm : str, optional
         Hash algorithm: "sha256", "sha1", "md5" (default: "sha256")
 
-    Returns:
+    Returns
     --------
     pd.Series
         Composite keys (plain or hashed)
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({'age': [25, 30], 'city': ['NY', 'LA']})
     >>> create_composite_key(df, ['age', 'city'])
@@ -753,7 +752,7 @@ def create_reversible_composite_key(
     """
     Create a reversible composite key with encoding.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -762,12 +761,12 @@ def create_reversible_composite_key(
     encoding : str, optional
         Encoding type: "base64", "hex" (default: "base64")
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, Dict[str, Any]]
         (encoded_keys, decoding_info)
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({'age': [25, 30], 'city': ['NY', 'LA']})
     >>> keys, info = create_reversible_composite_key(df, ['age', 'city'])
@@ -815,7 +814,7 @@ def create_multi_field_mask(
     """
     Create a mask based on conditions across multiple fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -824,12 +823,12 @@ def create_multi_field_mask(
     logic : str, optional
         How to combine conditions: "AND", "OR" (default: "AND")
 
-    Returns:
+    Returns
     --------
     pd.Series
         Boolean mask
 
-    Examples:
+    Examples
     ---------
     >>> df = pd.DataFrame({'age': [25, 35, 45], 'income': [30000, 50000, 70000]})
     >>> conditions = [
@@ -885,7 +884,7 @@ def validate_fields_for_operation(
     """
     Validate multiple fields for cross-field operations.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the fields
@@ -894,7 +893,7 @@ def validate_fields_for_operation(
     operation_type : str
         Type of operation: "microaggregation", "multivariate_generalization", "composite_key"
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with issues and recommendations

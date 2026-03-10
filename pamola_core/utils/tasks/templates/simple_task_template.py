@@ -1,6 +1,5 @@
 """
 PAMOLA Project - PAMOLA Core
-------------------------
 Simple Data Analysis Task Template
 Version: 1.0.0
 Created: 2025-05-10
@@ -127,7 +126,8 @@ class SimpleAnalysisTask(BaseTask):
         It's called automatically by the run() method but can be customized
         for specific execution requirements.
 
-        Returns:
+        Returns
+        -------
             bool: True if all operations completed successfully, False otherwise
         """
         self.logger.info(f"Executing {len(self.operations)} operations")
@@ -150,10 +150,12 @@ class SimpleAnalysisTask(BaseTask):
         This method is called after execution completes. It processes operation
         results, generates summary metrics, and prepares the final report.
 
-        Args:
+        Parameters
+        ----------
             success: Whether the task executed successfully
 
-        Returns:
+        Returns
+        -------
             bool: True if finalization was successful, False otherwise
         """
         self.logger.info("Finalizing task and processing results")

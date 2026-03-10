@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 
 Module:        categorical_generalization_config.py
 Package:       pamola_core.anonymization.generalization
@@ -12,7 +11,6 @@ Updated:       2025-10-14
 License:       BSD 3-Clause
 
 Description
------------
 Configuration management for categorical data generalization operations in PAMOLA.CORE.
 Provides JSON Schema-based validation, strategy-specific parameter handling, and
 comprehensive configuration management for categorical anonymization techniques.
@@ -22,7 +20,6 @@ ensuring type safety, parameter validation, and compatibility with PAMOLA's oper
 configuration framework.
 
 Features
---------
 - **Strategy Support**: Multiple generalization strategies (hierarchy, frequency-based, merge)
 - **NULL Handling**: Configurable strategies for NULL value processing
 - **Privacy Controls**: Built-in privacy threshold validation and k-anonymity checks
@@ -31,17 +28,16 @@ Features
 - **Extensibility**: Easy addition of new strategies and parameters
 
 Supported Strategies
---------------------
 1. **HIERARCHY**: Dictionary-based hierarchical generalization
 2. **MERGE_LOW_FREQ**: Merge low-frequency categories into groups
 3. **FREQUENCY_BASED**: Frequency-threshold based category preservation
 
-# Get strategy-specific parameters
-params = get_strategy_params(config.params)
-```
+Example::
+
+    # Get strategy-specific parameters
+    params = get_strategy_params(config.params)
 
 Configuration Schema
---------------------
 Required fields:
     - field_name: Target field name
     - strategy: Generalization strategy (hierarchy|merge_low_freq|frequency_based)
@@ -49,23 +45,19 @@ Required fields:
 Optional fields vary by strategy - see schema definition for details.
 
 Dependencies
-------------
 - enum: Strategy and option enumerations
 - typing: Type annotations and hints
 
 See Also
---------
 - Generalization operations documentation
 
 Notes
------
 - All numeric thresholds are validated at configuration time
 - Enum values are pre-computed for performance optimization
 - Schema validation occurs during initialization
 - Configuration is serializable for export/import
 
 Changelog
----------
 1.1.0 (2025-10-14):
     - Added privacy check parameters
     - Enhanced text normalization options

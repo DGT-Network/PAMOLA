@@ -2,7 +2,6 @@
 
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Project Configuration Loader
 Description: YAML project configuration loading and management
 Author: PAMOLA Core Team
@@ -152,11 +151,13 @@ def substitute_variables(
     """
     Perform variable substitution in configuration values using Jinja2.
 
-    Args:
+    Parameters
+    ----------
         config_data: Configuration dictionary to process
         context: Dictionary of variables for substitution
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Configuration with variables substituted
     """
     if not JINJA2_AVAILABLE:
@@ -196,11 +197,13 @@ def substitute_item(item: Any, context: Dict[str, Any]) -> Any:
     """
     Substitute variables in a single configuration item.
 
-    Args:
+    Parameters
+    ----------
         item: Item to process
         context: Dictionary of variables for substitution
 
-    Returns:
+    Returns
+    -------
         Processed item
     """
     if isinstance(item, dict):
@@ -230,15 +233,18 @@ def load_project_config(
     """
     Load the project configuration from a YAML file with JSON fallback.
 
-    Args:
+    Parameters
+    ----------
         project_root: Path to the project root directory. If None, it will be auto-detected.
         config_filename: Name of the configuration file. If None, uses default names.
         use_cache: Whether to use cached configuration if available.
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Parsed configuration dictionary with defaults applied.
 
-    Raises:
+    Raises
+    ------
         FileNotFoundError: If the configuration file doesn't exist.
         ValueError: If the configuration file is invalid.
     """
@@ -330,10 +336,12 @@ def apply_default_values(config_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Apply default values to the configuration where values are missing.
 
-    Args:
+    Parameters
+    ----------
         config_data: Original configuration dictionary
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Configuration with defaults applied
     """
     # Define default values for critical sections
@@ -409,11 +417,13 @@ def get_project_paths(
     """
     Get standard project paths from configuration.
 
-    Args:
+    Parameters
+    ----------
         config: Project configuration dictionary
         project_root: Project root path (auto-detected if None)
 
-    Returns:
+    Returns
+    -------
         Dict[str, Path]: Dictionary of standard project paths
     """
     if project_root is None:
@@ -452,12 +462,14 @@ def save_project_config(
     """
     Save the project configuration to a file.
 
-    Args:
+    Parameters
+    ----------
         config_data: Configuration dictionary to save
         project_root: Project root path (auto-detected if None)
         format: Format to save in - "yaml" or "json"
 
-    Returns:
+    Returns
+    -------
         Path to saved configuration file
     """
     if project_root is None:
@@ -508,10 +520,12 @@ def is_valid_project_root(path: Path) -> bool:
     """
     Check if a path is a valid project root.
 
-    Args:
+    Parameters
+    ----------
         path: Path to check
 
-    Returns:
+    Returns
+    -------
         True if the path is a valid project root, False otherwise
     """
     # Check if path exists and is a directory
@@ -537,11 +551,13 @@ def create_default_project_structure(
 
     This creates the standard directories and configuration files for a new project.
 
-    Args:
+    Parameters
+    ----------
         root_path: Root path for the new project
         data_path: Path for data repository (defaults to DATA under root_path)
 
-    Returns:
+    Returns
+    -------
         Dictionary of created paths
     """
     # Ensure root path exists
@@ -614,10 +630,12 @@ def get_recursive_variables(config_data: Dict[str, Any]) -> Dict[str, Any]:
     This extracts both top-level variables and those inside sections, flattening
     them for use in templates.
 
-    Args:
+    Parameters
+    ----------
         config_data: Configuration dictionary
 
-    Returns:
+    Returns
+    -------
         Dictionary of flattened variables for substitution
     """
     result = {}

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Secure Mapping Storage for Pseudonymization
 Package:       pamola_core.anonymization.commons
 Version:       1.0.0
@@ -63,7 +62,8 @@ class MappingStorage:
     values and their pseudonyms, supporting both CSV and JSON formats.
     All data is encrypted using AES-256-GCM before storage.
 
-    Attributes:
+    Attributes
+    ----------
         mapping_file: Path to the encrypted mapping file
         format: Storage format ("csv" or "json")
         backup_on_update: Whether to create backups before updates
@@ -83,14 +83,16 @@ class MappingStorage:
         """
         Initialize mapping storage.
 
-        Args:
+        Parameters
+        ----------
             mapping_file: Path to mapping file
             encryption_key: 256-bit encryption key
             format: Storage format ("csv" or "json")
             backup_on_update: Whether to backup before updates
             create_if_missing: Create empty mapping if file doesn't exist
 
-        Raises:
+        Raises
+        ------
             ValueError: If format is invalid or key size is wrong
             MappingStorageError: If initialization fails
         """
@@ -134,10 +136,12 @@ class MappingStorage:
         """
         Load and decrypt mapping from file.
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping original values to pseudonyms
 
-        Raises:
+        Raises
+        ------
             MappingStorageError: If loading or decryption fails
         """
         with self._lock:
@@ -177,10 +181,12 @@ class MappingStorage:
         """
         Encrypt and save mapping atomically.
 
-        Args:
+        Parameters
+        ----------
             mapping: Dictionary mapping original values to pseudonyms
 
-        Raises:
+        Raises
+        ------
             MappingStorageError: If saving fails
         """
         with self._lock:
@@ -231,13 +237,16 @@ class MappingStorage:
         """
         Update existing mappings with new entries.
 
-        Args:
+        Parameters
+        ----------
             new_mappings: New mappings to add/update
 
-        Returns:
+        Returns
+        -------
             Complete updated mapping dictionary
 
-        Raises:
+        Raises
+        ------
             MappingStorageError: If update fails
         """
         with self._lock:
@@ -396,7 +405,8 @@ class MappingStorage:
         """
         Get mapping file metadata.
 
-        Returns:
+        Returns
+        -------
             Dictionary containing:
                 - exists: Whether file exists
                 - size_bytes: File size in bytes
@@ -435,10 +445,12 @@ class MappingStorage:
         """
         Validate mapping consistency and detect issues.
 
-        Args:
+        Parameters
+        ----------
             mapping: Mapping dictionary to validate
 
-        Returns:
+        Returns
+        -------
             Dictionary with validation results:
                 - valid: Whether mapping is valid
                 - duplicate_values: List of pseudonyms mapped to multiple originals

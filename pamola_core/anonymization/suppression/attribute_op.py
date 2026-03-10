@@ -169,7 +169,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -182,7 +182,7 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -459,13 +459,16 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         Implements REQ-ANON-009 for Dask support. Attribute suppression is
         particularly simple for Dask as it's just column removal.
 
-        Args:
+        Parameters
+        ----------
             ddf: Dask DataFrame
 
-        Returns:
+        Returns
+        -------
             Dask DataFrame with columns removed
 
-        Raises:
+        Raises
+        ------
             FieldNotFoundError: If specified columns don't exist
         """
         # Store original column count for metrics (cheap operation)
@@ -650,7 +653,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         """
         Collect metadata about columns to be suppressed.
 
-        Args:
+        Parameters
+        ----------
             df: Source DataFrame
             columns: List of column names to collect metadata for
         """
@@ -698,11 +702,13 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         Note: For attribute suppression, we don't have series-level data since
         we're removing entire columns. This method provides operation-level metrics.
 
-        Args:
+        Parameters
+        ----------
             original_data: Not used for attribute suppression
             anonymized_data: Not used for attribute suppression
 
-        Returns:
+        Returns
+        -------
             Dictionary of suppression metrics
         """
         metrics: Dict[str, Any] = {
@@ -823,7 +829,8 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         """
         Save the collected metrics as a JSON file and register it as an artifact.
 
-        Raises:
+        Raises
+        ------
             Exception: If saving the metrics file fails.
         """
         try:
@@ -883,14 +890,16 @@ class AttributeSuppressionOperation(AnonymizationOperation):
         """
         Generate visualizations showing columns before/after suppression and data type distribution.
 
-        Args:
+        Parameters
+        ----------
             input_data: Original DataFrame
             output_data: Processed DataFrame
             task_dir: Directory to save visualization
             result: OperationResult to register visualization artifacts
             operation_timestamp: Timestamp string for naming files
 
-        Returns:
+        Returns
+        -------
             Path to saved visualization or None
         """
 

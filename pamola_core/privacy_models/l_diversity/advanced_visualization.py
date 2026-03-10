@@ -51,7 +51,7 @@ class LDiversityAdvancedVisualizer:
         """
         Initialize visualizer with processor for cache access
 
-        Parameters:
+        Parameters
         -----------
         processor : object, optional
             L-Diversity processor instance for cached calculations
@@ -81,7 +81,7 @@ class LDiversityAdvancedVisualizer:
         """
         Create a visualization comparing diversity across different equivalence classes
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -98,7 +98,7 @@ class LDiversityAdvancedVisualizer:
         **kwargs : dict
             Additional visualization parameters
 
-        Returns:
+        Returns
         --------
         Tuple[plt.Figure, Optional[str]]
             Figure and optional saved path
@@ -299,7 +299,7 @@ class LDiversityAdvancedVisualizer:
         """
         Create a correlation heatmap between quasi-identifiers and sensitive attributes
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -312,7 +312,7 @@ class LDiversityAdvancedVisualizer:
         **kwargs : dict
             Additional visualization parameters
 
-        Returns:
+        Returns
         --------
         Tuple[plt.Figure, Optional[str]]
             Figure and optional saved path
@@ -430,7 +430,7 @@ class LDiversityAdvancedVisualizer:
         """
         Visualize disclosure risk under different attack models
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -443,7 +443,7 @@ class LDiversityAdvancedVisualizer:
         **kwargs : dict
             Additional visualization parameters
 
-        Returns:
+        Returns
         --------
         Tuple[plt.Figure, Optional[str]]
             Figure and optional saved path
@@ -744,7 +744,7 @@ class LDiversityAdvancedVisualizer:
         """
         Visualize compliance with a specific privacy regulation
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -759,7 +759,7 @@ class LDiversityAdvancedVisualizer:
         **kwargs : dict
             Additional visualization parameters
 
-        Returns:
+        Returns
         --------
         Tuple[plt.Figure, Optional[str]]
             Figure and optional saved path
@@ -1176,7 +1176,7 @@ class LDiversityAdvancedVisualizer:
         """
         Calculate group diversity metrics directly when processor cache unavailable
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -1187,7 +1187,7 @@ class LDiversityAdvancedVisualizer:
         diversity_type : str, optional
             Type of diversity to calculate
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Group diversity metrics
@@ -1241,12 +1241,12 @@ class LDiversityAdvancedVisualizer:
         """
         Provide a human-readable interpretation of a risk value
 
-        Parameters:
+        Parameters
         -----------
         risk_value : float
             Risk percentage (0-100)
 
-        Returns:
+        Returns
         --------
         str
             Human-readable interpretation
@@ -1266,12 +1266,12 @@ class LDiversityAdvancedVisualizer:
         """
         Get a color corresponding to a risk level
 
-        Parameters:
+        Parameters
         -----------
         risk_value : float
             Risk percentage (0-100)
 
-        Returns:
+        Returns
         --------
         str
             Color code
@@ -1296,7 +1296,7 @@ class LDiversityAdvancedVisualizer:
         """
         Get recommendations based on risk assessment
 
-        Parameters:
+        Parameters
         -----------
         overall_risk : float
             Overall risk percentage
@@ -1305,7 +1305,7 @@ class LDiversityAdvancedVisualizer:
         risk_metrics : Dict[str, Any], optional
             Complete risk metrics if available
 
-        Returns:
+        Returns
         --------
         str
             Risk recommendations
@@ -1363,7 +1363,7 @@ def visualize_attribute_correlation(
     """
     Create a correlation heatmap between quasi-identifiers and sensitive attributes
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -1376,7 +1376,7 @@ def visualize_attribute_correlation(
     **kwargs : dict
         Additional visualization parameters
 
-    Returns:
+    Returns
     --------
     Tuple[plt.Figure, Optional[str]]
         Figure and optional saved path
@@ -1399,7 +1399,7 @@ def visualize_attack_models(
     """
     Visualize disclosure risk under different attack models
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -1414,7 +1414,7 @@ def visualize_attack_models(
     **kwargs : dict
         Additional visualization parameters
 
-    Returns:
+    Returns
     --------
     Tuple[plt.Figure, Optional[str]]
         Figure and optional saved path
@@ -1438,7 +1438,7 @@ def visualize_regulatory_compliance(
     """
     Visualize compliance with a specific privacy regulation
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -1455,7 +1455,7 @@ def visualize_regulatory_compliance(
     **kwargs : dict
         Additional visualization parameters
 
-    Returns:
+    Returns
     --------
     Tuple[plt.Figure, Optional[str]]
         Figure and optional saved path
@@ -1483,7 +1483,7 @@ def create_comprehensive_report(
     """
     Generate a comprehensive set of visualizations for l-diversity analysis
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -1498,7 +1498,7 @@ def create_comprehensive_report(
     **kwargs : dict
         Additional visualization parameters
 
-    Returns:
+    Returns
     --------
     Dict[str, Optional[str]]
         Dictionary mapping visualization names to their saved paths

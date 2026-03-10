@@ -48,7 +48,7 @@ def find_dictionary(
     """
     Finds an appropriate dictionary file based on parameters.
 
-    Parameters:
+    Parameters
     -----------
     dictionary_path : Optional[Union[str, Path]]
         Explicit path to dictionary file (takes precedence if provided)
@@ -61,7 +61,7 @@ def find_dictionary(
     dict_dir : Optional[Union[str, Path]]
         Base directory for dictionaries (defaults to DATA/external_dictionaries/fake)
 
-    Returns:
+    Returns
     --------
     Optional[Path]
         Path to the dictionary file or None if not found
@@ -139,7 +139,7 @@ def load_dictionary_from_text(
     """
     Loads a simple text dictionary with one item per line, with enhanced validation.
 
-    Parameters:
+    Parameters
     -----------
     path : Union[str, Path]
         Path to the dictionary file
@@ -154,7 +154,7 @@ def load_dictionary_from_text(
     max_length : int
         Maximum allowed length for entries
 
-    Returns:
+    Returns
     --------
     List[str]
         List of items from the dictionary
@@ -238,7 +238,7 @@ def load_dictionary_with_stats(
     """
     Loads a dictionary and returns it with statistics.
 
-    Parameters:
+    Parameters
     -----------
     path : Union[str, Path]
         Path to the dictionary file
@@ -253,7 +253,7 @@ def load_dictionary_with_stats(
     validate_pattern : Optional[str]
         Regex pattern for validating dictionary entries
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with items and statistics
@@ -315,7 +315,7 @@ def get_random_items(dictionary: List[str], count: int, seed: Optional[int] = No
     """
     Gets random items from a dictionary.
 
-    Parameters:
+    Parameters
     -----------
     dictionary : List[str]
         List of items to choose from
@@ -324,7 +324,7 @@ def get_random_items(dictionary: List[str], count: int, seed: Optional[int] = No
     seed : Optional[int]
         Random seed for reproducibility
 
-    Returns:
+    Returns
     --------
     List[str]
         List of randomly selected items
@@ -355,7 +355,7 @@ def validate_dictionary(
     """
     Validates and filters dictionary entries.
 
-    Parameters:
+    Parameters
     -----------
     dictionary : List[str]
         List of dictionary entries to validate
@@ -366,7 +366,7 @@ def validate_dictionary(
     max_length : int
         Maximum allowed length for entries
 
-    Returns:
+    Returns
     --------
     Tuple[List[str], Dict[str, Any]]
         Tuple containing (valid_entries, validation_stats)
@@ -416,7 +416,7 @@ def load_multi_dictionary(
     """
     Loads a dictionary based on parameters, with fallback to embedded dictionaries.
 
-    Parameters:
+    Parameters
     -----------
     dict_type : str
         Type of dictionary ("name", "email", "domain", "phone", "address", "organization")
@@ -425,7 +425,7 @@ def load_multi_dictionary(
     fallback_to_embedded : bool
         Whether to fall back to embedded dictionaries if external not found
 
-    Returns:
+    Returns
     --------
     List[str]
         List of dictionary entries
@@ -510,12 +510,12 @@ def is_multidictionary(path: Union[str, Path]) -> bool:
     """
     Checks if a dictionary file contains multiple columns.
 
-    Parameters:
+    Parameters
     -----------
     path : Union[str, Path]
         Path to the dictionary file
 
-    Returns:
+    Returns
     --------
     bool
         True if the dictionary has multiple columns, False otherwise
@@ -545,7 +545,7 @@ def parse_full_name(
     """
     Parses a full name into components based on language and format.
 
-    Parameters:
+    Parameters
     -----------
     full_name : str
         Full name to parse
@@ -554,7 +554,7 @@ def parse_full_name(
     name_format : Optional[str]
         Explicit name format (e.g., "first_last", "last_first", "first_middle_last")
 
-    Returns:
+    Returns
     --------
     Dict[str, str]
         Dictionary with name components
@@ -629,7 +629,7 @@ def get_embedded_dictionary(
 
     This is a wrapper around the new embedded dictionaries module.
 
-    Parameters:
+    Parameters
     -----------
     name_type : str
         Type of names ("first_name", "last_name", "middle_name", "full_name")
@@ -638,7 +638,7 @@ def get_embedded_dictionary(
     language : str
         Language code
 
-    Returns:
+    Returns
     --------
     List[str]
         List of names from the embedded dictionary
@@ -661,7 +661,7 @@ def load_csv_dictionary(
     """
     Loads a dictionary from a CSV file.
 
-    Parameters:
+    Parameters
     -----------
     path : Union[str, Path]
         Path to the CSV file
@@ -674,7 +674,7 @@ def load_csv_dictionary(
     cache : bool
         Whether to cache the dictionary
 
-    Returns:
+    Returns
     --------
     List[str]
         List of items from the specified column
@@ -727,7 +727,7 @@ def combine_dictionaries(
     """
     Combines multiple dictionaries into one.
 
-    Parameters:
+    Parameters
     -----------
     dictionaries : List[List[str]]
         List of dictionaries to combine
@@ -738,7 +738,7 @@ def combine_dictionaries(
     max_length : Optional[int]
         Maximum length for entries (if specified)
 
-    Returns:
+    Returns
     --------
     List[str]
         Combined dictionary
@@ -770,14 +770,14 @@ def detect_encoding(path: str, num_bytes: int = 2048) -> str:
     """
     Detect encoding of a file using chardet.
 
-    Parameters:
+    Parameters
     -----------
     path : str
         File path to detect encoding.
     num_bytes : int
         Number of bytes to read for detection (default: 2048).
 
-    Returns:
+    Returns
     --------
     str
         Detected encoding (default to 'utf-8' if uncertain).

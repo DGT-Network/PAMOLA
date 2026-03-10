@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: MyOperation
 Description: [REPLACE WITH YOUR OPERATION DESCRIPTION]
 Author: [YOUR NAME]
@@ -71,7 +70,7 @@ class MyOperation(BaseOperation):
         """
         Initialize the operation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation
@@ -117,7 +116,7 @@ class MyOperation(BaseOperation):
         """
         Execute the operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -130,7 +129,7 @@ class MyOperation(BaseOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Base Validation Utilities
 Package:       pamola_core.anonymization.commons.validation
 Version:       1.0.0
@@ -77,7 +76,8 @@ class ValidationResult:
     Provides consistent interface for validation results across all
     validator types, supporting errors, warnings, and detailed metadata.
 
-    Attributes:
+    Attributes
+    ----------
         is_valid: Whether validation passed
         field_name: Name of validated field (if applicable)
         errors: List of error messages
@@ -106,10 +106,12 @@ class ValidationResult:
         """
         Merge another validation result into this one.
 
-        Args:
+        Parameters
+        ----------
             other: Another ValidationResult to merge
 
-        Returns:
+        Returns
+        -------
             Self for chaining
         """
         self.is_valid = self.is_valid and other.is_valid
@@ -147,7 +149,8 @@ class BaseValidator(ABC):
         """
         Initialize base validator.
 
-        Args:
+        Parameters
+        ----------
             stop_on_error: Whether to stop validation chain on error
         """
         self.stop_on_error = stop_on_error
@@ -158,11 +161,13 @@ class BaseValidator(ABC):
         """
         Perform validation on data.
 
-        Args:
+        Parameters
+        ----------
             data: Data to validate
             **kwargs: Additional validation parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         pass
@@ -185,7 +190,8 @@ class CompositeValidator(BaseValidator):
         """
         Initialize composite validator.
 
-        Args:
+        Parameters
+        ----------
             validators: List of validators to execute
             stop_on_first_error: Stop chain on first error
         """
@@ -231,7 +237,8 @@ class ValidationContext:
         """
         Initialize validation context.
 
-        Args:
+        Parameters
+        ----------
             logger_instance: Logger to use (defaults to module logger)
             cache_enabled: Whether to enable validation caching
         """
@@ -270,7 +277,8 @@ class ValidationCache:
         """
         Initialize validation cache.
 
-        Args:
+        Parameters
+        ----------
             ttl: Time to live in seconds
             max_size: Maximum cache entries
         """
@@ -313,11 +321,13 @@ def check_field_exists(df: pd.DataFrame, field_name: str) -> bool:
     """
     Check if field exists in DataFrame.
 
-    Args:
+    Parameters
+    ----------
         df: DataFrame to check
         field_name: Field name to verify
 
-    Returns:
+    Returns
+    -------
         True if field exists
     """
     return field_name in df.columns
@@ -329,11 +339,13 @@ def check_multiple_fields_exist(
     """
     Check if multiple fields exist in DataFrame.
 
-    Args:
+    Parameters
+    ----------
         df: DataFrame to check
         field_names: List of field names to verify
 
-    Returns:
+    Returns
+    -------
         Tuple of (all exist, list of missing fields)
     """
     missing = [f for f in field_names if f not in df.columns]
@@ -363,11 +375,13 @@ def safe_sample(data: pd.Series, sample_size: int = 100) -> pd.Series:
     """
     Safely sample from series for validation.
 
-    Args:
+    Parameters
+    ----------
         data: Series to sample from
         sample_size: Maximum sample size
 
-    Returns:
+    Returns
+    -------
         Sampled series
     """
     non_null = data.dropna()
@@ -387,7 +401,8 @@ def cached_validation(cache_key_func: Optional[Callable] = None):
     """
     Decorator to cache validation results.
 
-    Args:
+    Parameters
+    ----------
         cache_key_func: Function to generate cache key from args
     """
 
@@ -472,12 +487,14 @@ def validate_type(
     """
     Validate parameter type.
 
-    Args:
+    Parameters
+    ----------
         value: Value to check
         expected_types: Expected type(s)
         param_name: Parameter name for error message
 
-    Raises:
+    Raises
+    ------
         TypeError: If type doesn't match
     """
     if not isinstance(value, expected_types):
@@ -500,13 +517,15 @@ def validate_range(
     """
     Validate numeric value is within range.
 
-    Args:
+    Parameters
+    ----------
         value: Value to check
         min_val: Minimum allowed value
         max_val: Maximum allowed value
         param_name: Parameter name for error message
 
-    Raises:
+    Raises
+    ------
         ValueError: If value out of range
     """
     if min_val is not None and value < min_val:

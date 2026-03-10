@@ -56,7 +56,7 @@ class SimpleProvider(CryptoProvider):
         """
         Derive a cryptographic key from a password.
 
-        Parameters:
+        Parameters
         -----------
         password : str
             Password to derive key from
@@ -67,12 +67,12 @@ class SimpleProvider(CryptoProvider):
         key_length : int
             Length of the key in bytes
 
-        Returns:
+        Returns
         --------
         Tuple[bytes, bytes]
             (key, salt) tuple
 
-        Raises:
+        Raises
         -------
         EncryptionError
             If key derivation fails
@@ -106,7 +106,7 @@ class SimpleProvider(CryptoProvider):
         """
         Encrypt data using AES-GCM.
 
-        Parameters:
+        Parameters
         -----------
         data : str or bytes
             Data to encrypt
@@ -116,12 +116,12 @@ class SimpleProvider(CryptoProvider):
             Additional parameters:
             - data_info: Dict with metadata about the data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with encrypted data and metadata
 
-        Raises:
+        Raises
         -------
         EncryptionError
             If encryption fails
@@ -187,7 +187,7 @@ class SimpleProvider(CryptoProvider):
         """
         Decrypt data encrypted with AES-GCM.
 
-        Parameters:
+        Parameters
         -----------
         data : str, bytes, or Dict[str, Any]
             Data to decrypt
@@ -196,12 +196,12 @@ class SimpleProvider(CryptoProvider):
         **kwargs : dict
             Additional parameters (unused)
 
-        Returns:
+        Returns
         --------
         bytes
             Decrypted data
 
-        Raises:
+        Raises
         -------
         DecryptionError
             If decryption fails
@@ -274,7 +274,7 @@ class SimpleProvider(CryptoProvider):
         """
         Encrypt a file using AES-GCM and save with JSON metadata.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the file to encrypt
@@ -286,12 +286,12 @@ class SimpleProvider(CryptoProvider):
             Additional parameters:
             - file_info: Dict with metadata about the file
 
-        Returns:
+        Returns
         --------
         Path
             Path to the encrypted file
 
-        Raises:
+        Raises
         -------
         EncryptionError
             If encryption fails
@@ -343,7 +343,7 @@ class SimpleProvider(CryptoProvider):
         """
         Decrypt a file encrypted with AES-GCM.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the encrypted file
@@ -354,12 +354,12 @@ class SimpleProvider(CryptoProvider):
         **kwargs : dict
             Additional parameters (unused)
 
-        Returns:
+        Returns
         --------
         Path
             Path to the decrypted file
 
-        Raises:
+        Raises
         -------
         DecryptionError
             If decryption fails
@@ -412,12 +412,12 @@ class SimpleProvider(CryptoProvider):
         """
         Check if this provider can decrypt the given file.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the file to check
 
-        Returns:
+        Returns
         --------
         bool
             True if this provider can decrypt the file, False otherwise

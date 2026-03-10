@@ -36,12 +36,12 @@ def detect_legacy_format(file_path: Union[str, Path]) -> Optional[str]:
     """
     Detect if a file uses a legacy encryption format.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file to check
 
-    Returns:
+    Returns
     --------
     Optional[str]
         The detected legacy format identifier, or None if not a legacy format
@@ -98,7 +98,7 @@ def migrate_legacy_file(
     """
     Migrate a file from a legacy encryption format to the current format.
 
-    Parameters:
+    Parameters
     -----------
     source_path : str or Path
         Path to the legacy encrypted file
@@ -109,12 +109,12 @@ def migrate_legacy_file(
     format_type : str, optional
         Legacy format type if known, otherwise will be auto-detected
 
-    Returns:
+    Returns
     --------
     Path
         Path to the migrated file
 
-    Raises:
+    Raises
     -------
     LegacyMigrationError
         If migration fails
@@ -195,7 +195,7 @@ def _decrypt_v1_base64(source_path: Path, destination_path: Path, key: str) -> N
     """
     Decrypt a file in v1 base64 format.
 
-    Parameters:
+    Parameters
     -----------
     source_path : Path
         Path to the encrypted file
@@ -204,7 +204,7 @@ def _decrypt_v1_base64(source_path: Path, destination_path: Path, key: str) -> N
     key : str
         Decryption key
 
-    Raises:
+    Raises
     -------
     LegacyMigrationError
         If decryption fails
@@ -263,7 +263,7 @@ def _decrypt_v1_json(source_path: Path, destination_path: Path, key: str) -> Non
     """
     Decrypt a file in v1 JSON format.
 
-    Parameters:
+    Parameters
     -----------
     source_path : Path
         Path to the encrypted file
@@ -272,7 +272,7 @@ def _decrypt_v1_json(source_path: Path, destination_path: Path, key: str) -> Non
     key : str
         Decryption key
 
-    Raises:
+    Raises
     -------
     LegacyMigrationError
         If decryption fails
@@ -331,7 +331,7 @@ def _decrypt_v0_simple(source_path: Path, destination_path: Path, key: str) -> N
     """
     Decrypt a file in v0 simple format.
 
-    Parameters:
+    Parameters
     -----------
     source_path : Path
         Path to the encrypted file
@@ -340,7 +340,7 @@ def _decrypt_v0_simple(source_path: Path, destination_path: Path, key: str) -> N
     key : str
         Decryption key
 
-    Raises:
+    Raises
     -------
     LegacyMigrationError
         If decryption fails
@@ -388,7 +388,7 @@ def auto_migrate_if_needed(
     """
     Automatically detect and migrate a legacy file if needed.
 
-    Parameters:
+    Parameters
     -----------
     source_path : str or Path
         Path to the possibly legacy encrypted file
@@ -397,12 +397,12 @@ def auto_migrate_if_needed(
     key : str
         Encryption key
 
-    Returns:
+    Returns
     --------
     Tuple[Path, bool]
         (Path to the output file, whether migration was performed)
 
-    Raises:
+    Raises
     -------
     LegacyMigrationError
         If migration fails

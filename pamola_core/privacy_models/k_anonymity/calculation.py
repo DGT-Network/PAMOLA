@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: k-Anonymity Processor
-------------------------------
 This module implements **k-Anonymity**, ensuring that each
 record in a dataset is **indistinguishable from at least `k-1` others**
 based on a set of quasi-identifiers.
@@ -76,7 +74,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
     by grouping records based on quasi-identifiers and ensuring each
     group meets the required `k` threshold.
 
-    Methods:
+    Methods
     --------
     - evaluate_privacy(): Assesses the dataset's k-anonymity level.
     - apply_model(): Applies k-Anonymity by suppressing or masking non-compliant records.
@@ -102,7 +100,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Initializes the k-Anonymity processor.
 
-        Parameters:
+        Parameters
         -----------
         k : int, optional
             The minimum group size required for k-anonymity (default: 3).
@@ -194,12 +192,12 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Process the input data.
 
-        Parameters:
+        Parameters
         -----------
         data : Any
             The input data to be processed.
 
-        Returns:
+        Returns
         --------
         Processed data, transformed according to the specific processor logic.
         """
@@ -211,7 +209,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Evaluate the dataset's k-Anonymity level.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to be evaluated.
@@ -224,7 +222,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - sensitive_attributes: list - Columns containing sensitive information
             - store_for_report: bool - Whether to store results for later reporting (default: True)
 
-        Returns:
+        Returns
         --------
         dict
             Privacy assessment results:
@@ -324,7 +322,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Apply k-Anonymity by suppressing or masking non-compliant records.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to be anonymized.
@@ -342,7 +340,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - store_for_report: bool - Whether to store results for later reporting (default: True)
             - original_data: pd.DataFrame - Original data for metrics calculation
 
-        Returns:
+        Returns
         --------
         pd.DataFrame or Tuple[pd.DataFrame, Dict]
             The anonymized dataset, optionally with info dictionary if return_info=True.
@@ -509,14 +507,14 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Adds a column with the k-anonymity value for each record.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to enrich.
         quasi_identifiers : list[str]
             List of column names used as quasi-identifiers.
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Dataset with added k-value column.
@@ -572,14 +570,14 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Calculates re-identification risk for each record based on k-anonymity.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to analyze.
         quasi_identifiers : list[str]
             List of column names used as quasi-identifiers.
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Dataset with added risk column.
@@ -606,7 +604,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         This method combines privacy, utility, and fidelity metrics
         to provide a complete assessment of the anonymization process.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             The original dataset.
@@ -620,7 +618,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             - numerical_columns: list - Columns to treat as numerical
             - distribution_tests: bool - Whether to include distribution tests (default: False)
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with all calculated metrics:
@@ -693,7 +691,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Generates a comprehensive report about the anonymization process.
 
-        Parameters:
+        Parameters
         -----------
         output_path : str, optional
             Path to save the report.
@@ -705,7 +703,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
             If provided, generates a compliance report for the specified regulation
             (e.g., 'GDPR', 'HIPAA').
 
-        Returns:
+        Returns
         --------
         dict
             The complete anonymization report.
@@ -759,7 +757,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
 
         This is a wrapper around the visualization utility function.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset with k-values.
@@ -770,7 +768,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         **kwargs : dict
             Additional parameters for visualization.
 
-        Returns:
+        Returns
         --------
         tuple
             Figure object and path to saved figure (if saved, otherwise None).
@@ -819,7 +817,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
 
         This is a wrapper around the visualization utility function.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Dataset with risk values.
@@ -832,7 +830,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         **kwargs : dict
             Additional parameters for visualization.
 
-        Returns:
+        Returns
         --------
         tuple
             Figure object and path to saved figure (if saved, otherwise None).
@@ -873,7 +871,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
 
         This method uses the validate_anonymity_inputs utility function.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to validate.
@@ -886,7 +884,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Returns a summary of execution times for different operations.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary of operation names and execution times.
@@ -897,7 +895,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Returns the current configuration of the k-anonymity processor.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary containing all configuration parameters.
@@ -908,14 +906,14 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Exports calculated metrics to a file.
 
-        Parameters:
+        Parameters
         -----------
         path : str
             Path where to save the metrics.
         format : str, optional
             Format to save metrics in: 'json', 'csv' (default: 'json').
 
-        Returns:
+        Returns
         --------
         str
             Path to the saved metrics file.
@@ -956,7 +954,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Compares two anonymized datasets to evaluate their relative privacy and utility.
 
-        Parameters:
+        Parameters
         -----------
         dataset1 : pd.DataFrame
             First anonymized dataset.
@@ -967,7 +965,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         **kwargs : dict
             Additional parameters for comparison.
 
-        Returns:
+        Returns
         --------
         dict
             Comparison results with privacy and utility metrics for both datasets.
@@ -1078,7 +1076,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         """
         Anonymizes a dataset using multiple k values for comparison.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to anonymize.
@@ -1089,7 +1087,7 @@ class KAnonymityProcessor(BasePrivacyModelProcessor, ABC):
         **kwargs : dict
             Additional parameters for anonymization.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary mapping k values to anonymized datasets.

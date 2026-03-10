@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Partial Masking Operation
 Package:       pamola_core.anonymization.masking
 Version:       4.0.0
@@ -141,7 +140,7 @@ class PartialMaskingOperation(AnonymizationOperation):
         """
         Initialize Partial Masking Operation.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the field to be masked.
@@ -249,7 +248,7 @@ class PartialMaskingOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -262,7 +261,7 @@ class PartialMaskingOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -778,12 +777,12 @@ class PartialMaskingOperation(AnonymizationOperation):
         """
         Process a batch of data to partial mask values.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame batch with partial masked values
@@ -838,12 +837,12 @@ class PartialMaskingOperation(AnonymizationOperation):
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
-        Parameters:
+        Parameters
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
 
-        Returns:
+        Returns
         --------
         dd.DataFrame
             Processed Dask DataFrame
@@ -1250,7 +1249,7 @@ class PartialMaskingOperation(AnonymizationOperation):
         This is a base implementation that provides a basic distribution comparison.
         Subclasses should override to provide operation-specific visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             Original data before anonymization
@@ -1271,7 +1270,7 @@ class PartialMaskingOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1381,7 +1380,8 @@ class PartialMaskingOperation(AnonymizationOperation):
         """
         Get summary of the masking operation.
 
-        Returns:
+        Returns
+        -------
             Dictionary with operation summary
         """
         masking_summary = {
@@ -1399,7 +1399,7 @@ class PartialMaskingOperation(AnonymizationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for partial masking operation
@@ -1435,12 +1435,14 @@ class PartialMaskingOperation(AnonymizationOperation):
         """
         Collect comprehensive metrics for the partial masking operation.
 
-        Args:
+        Parameters
+        ----------
             original_data: Original data series
             anonymized_data: Anonymized data series
             processed_df: The processed DataFrame
 
-        Returns:
+        Returns
+        -------
             Dictionary of metrics
         """
         field_series = processed_df.get(self.output_field_name)

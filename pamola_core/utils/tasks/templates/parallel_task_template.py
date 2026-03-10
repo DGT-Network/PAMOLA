@@ -1,6 +1,5 @@
 """
 PAMOLA Task Template - Parallel Processing
-------------------------------------------
 This template demonstrates how to create a PAMOLA task that processes data in parallel
 to improve performance for compute-intensive or large data operations.
 

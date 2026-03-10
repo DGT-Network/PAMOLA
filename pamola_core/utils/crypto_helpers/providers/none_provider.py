@@ -38,7 +38,7 @@ class NoneProvider(CryptoProvider):
         """
         'Encrypt' a file by simply copying it to the destination.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the file to 'encrypt'
@@ -49,12 +49,12 @@ class NoneProvider(CryptoProvider):
         **kwargs : dict
             Additional parameters (ignored)
 
-        Returns:
+        Returns
         --------
         Path
             Path to the 'encrypted' file
 
-        Raises:
+        Raises
         -------
         EncryptionError
             If the copy operation fails
@@ -83,7 +83,7 @@ class NoneProvider(CryptoProvider):
         """
         'Decrypt' a file by simply copying it to the destination.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the 'encrypted' file
@@ -94,12 +94,12 @@ class NoneProvider(CryptoProvider):
         **kwargs : dict
             Additional parameters (ignored)
 
-        Returns:
+        Returns
         --------
         Path
             Path to the 'decrypted' file
 
-        Raises:
+        Raises
         -------
         DecryptionError
             If the copy operation fails
@@ -124,7 +124,7 @@ class NoneProvider(CryptoProvider):
         """
         'Encrypt' data by simply returning it unchanged.
 
-        Parameters:
+        Parameters
         -----------
         data : str or bytes
             Data to 'encrypt'
@@ -133,7 +133,7 @@ class NoneProvider(CryptoProvider):
         **kwargs : dict
             Additional parameters (ignored)
 
-        Returns:
+        Returns
         --------
         Union[str, bytes]
             The original data
@@ -150,7 +150,7 @@ class NoneProvider(CryptoProvider):
         """
         'Decrypt' data by simply returning it unchanged.
 
-        Parameters:
+        Parameters
         -----------
         data : str, bytes, or Dict[str, Any]
             Data to 'decrypt'
@@ -159,7 +159,7 @@ class NoneProvider(CryptoProvider):
         **kwargs : dict
             Additional parameters (ignored)
 
-        Returns:
+        Returns
         --------
         Union[str, bytes]
             The original data
@@ -178,12 +178,12 @@ class NoneProvider(CryptoProvider):
 
         In 'none' mode, we assume we can handle any file that exists.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the file to check
 
-        Returns:
+        Returns
         --------
         bool
             True if the file exists, False otherwise

@@ -89,7 +89,7 @@ def calculate_signal_to_noise_ratio(
     SNR measures the level of desired signal relative to the level of noise.
     Higher values indicate better signal preservation.
 
-    Parameters:
+    Parameters
     -----------
     original : Union[pd.Series, np.ndarray]
         Original signal values
@@ -101,17 +101,17 @@ def calculate_signal_to_noise_ratio(
         - "power": 10 * log10(signal_power / noise_power) in dB
         - "ratio": Simple ratio signal_std / noise_std
 
-    Returns:
+    Returns
     --------
     float
         SNR value (in dB for standard/power methods)
 
-    Raises:
+    Raises
     -------
     InvalidParameterError
         If method is unknown
 
-    Examples:
+    Examples
     ---------
     >>> original = pd.Series([100, 102, 98, 101, 99])
     >>> noisy = pd.Series([101, 100, 97, 103, 98])
@@ -182,7 +182,7 @@ def analyze_noise_uniformity(
     """
     Analyze whether noise follows expected uniform distribution.
 
-    Parameters:
+    Parameters
     -----------
     noise_values : Union[pd.Series, np.ndarray]
         Actual noise values (difference between noisy and original)
@@ -193,7 +193,7 @@ def analyze_noise_uniformity(
     n_bins : int, optional
         Number of bins for chi-square test (default: 20)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing:
@@ -201,12 +201,12 @@ def analyze_noise_uniformity(
         - actual_range: Actual min/max values
         - distribution_metrics: Skewness, kurtosis, etc.
 
-    Raises:
+    Raises
     -------
     InvalidParameterError
         If expected_min >= expected_max or no valid noise values
 
-    Examples:
+    Examples
     ---------
     >>> noise = np.random.uniform(-5, 5, 1000)
     >>> analysis = analyze_noise_uniformity(noise, -5, 5)
@@ -304,7 +304,7 @@ def calculate_utility_preservation(
 
     Measures how well statistical properties are preserved after adding noise.
 
-    Parameters:
+    Parameters
     -----------
     original : pd.Series
         Original data
@@ -313,12 +313,12 @@ def calculate_utility_preservation(
     metrics : List[str], optional
         Specific metrics to calculate. Default: all available
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Preservation metrics (values closer to 1 indicate better preservation)
 
-    Examples:
+    Examples
     ---------
     >>> original = pd.Series([1, 2, 3, 4, 5])
     >>> noisy = pd.Series([1.1, 1.9, 3.2, 3.8, 5.1])
@@ -411,19 +411,19 @@ def analyze_temporal_noise_impact(
 
     Specific analysis for datetime fields after temporal noise addition.
 
-    Parameters:
+    Parameters
     -----------
     original_timestamps : pd.Series
         Original datetime values
     noisy_timestamps : pd.Series
         Datetime values after noise addition
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Temporal impact metrics
 
-    Examples:
+    Examples
     ---------
     >>> original = pd.to_datetime(['2025-01-01', '2025-01-02', '2025-01-03'])
     >>> noisy = pd.to_datetime(['2025-01-01 12:00', '2025-01-02 08:00', '2025-01-02 20:00'])
@@ -525,7 +525,7 @@ def calculate_noise_distribution_fit(
     """
     Test how well noise fits expected distribution.
 
-    Parameters:
+    Parameters
     -----------
     noise_values : Union[pd.Series, np.ndarray]
         Actual noise values
@@ -534,7 +534,7 @@ def calculate_noise_distribution_fit(
     params : Dict[str, float]
         Distribution parameters (e.g., {"loc": 0, "scale": 1})
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Goodness-of-fit test results
@@ -623,17 +623,17 @@ def calculate_multifield_noise_correlation(
 
     Important for ensuring independence of noise across fields.
 
-    Parameters:
+    Parameters
     -----------
     noise_dict : Dict[str, Union[pd.Series, np.ndarray]]
         Dictionary mapping field names to noise values
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Correlation matrix between noise fields
 
-    Examples:
+    Examples
     ---------
     >>> noise_dict = {
     ...     "age": np.random.uniform(-5, 5, 100),
@@ -665,7 +665,7 @@ def get_noise_quality_summary(
 
     Combines multiple noise quality metrics into a single report.
 
-    Parameters:
+    Parameters
     -----------
     original : pd.Series
         Original data
@@ -676,7 +676,7 @@ def get_noise_quality_summary(
     noise_type : str
         Type of noise: "uniform", "normal", "laplace"
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Comprehensive noise quality report
@@ -727,7 +727,7 @@ def calculate_utility_metrics(
     This function will provide comprehensive utility metrics as specified
     in the Noise Sub-SRS requirements.
 
-    Parameters:
+    Parameters
     -----------
     original_data : pd.Series
         Original data before transformation
@@ -736,7 +736,7 @@ def calculate_utility_metrics(
     metric_set : str
         Set of metrics to calculate: "minimal", "standard", "detailed"
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Utility metrics
@@ -756,7 +756,7 @@ def calculate_correlation_preservation(
     This function will analyze how well correlations between fields
     are preserved after noise addition.
 
-    Parameters:
+    Parameters
     -----------
     original_df : pd.DataFrame
         Original dataframe
@@ -765,7 +765,7 @@ def calculate_correlation_preservation(
     fields : List[str]
         Fields to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Correlation preservation metrics
@@ -785,7 +785,7 @@ def estimate_information_loss(
     This function will quantify the privacy-utility tradeoff
     by estimating information loss.
 
-    Parameters:
+    Parameters
     -----------
     original_data : pd.Series
         Original data
@@ -794,7 +794,7 @@ def estimate_information_loss(
     epsilon : float, optional
         Privacy parameter for differential privacy
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Information loss metrics

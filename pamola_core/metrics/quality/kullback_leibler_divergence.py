@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Kullback-Leibler Divergence
------------------------------------------
 This module provides the Kullback-Leibler Divergence for measuring information
 loss between real and synthetic datasets.
 

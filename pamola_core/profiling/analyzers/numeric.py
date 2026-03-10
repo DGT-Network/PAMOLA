@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Numeric Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -99,7 +98,7 @@ class NumericAnalyzer:
         """
         Analyze a numeric field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -130,7 +129,7 @@ class NumericAnalyzer:
             - chunk_size: size of chunks for processing (default: 10000)
             - normality_test_method: method for normality testing (default: 'all')
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -385,14 +384,14 @@ class NumericAnalyzer:
         """
         Estimate resources needed for analyzing the numeric field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -532,7 +531,7 @@ class NumericOperation(FieldOperation):
         """
         Execute the numeric analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -545,7 +544,7 @@ class NumericOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -874,7 +873,7 @@ class NumericOperation(FieldOperation):
         """
         Generate visualizations for the numeric field analysis.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -895,7 +894,7 @@ class NumericOperation(FieldOperation):
         operation_timestamp : str
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         List[Dict[str, str]]
             Information of visualizations
@@ -1039,12 +1038,12 @@ class NumericOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -1083,7 +1082,7 @@ class NumericOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
@@ -1094,7 +1093,7 @@ class NumericOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1140,7 +1139,7 @@ class NumericOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -1174,7 +1173,7 @@ class NumericOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -1199,7 +1198,7 @@ class NumericOperation(FieldOperation):
         operation_timestamp : str
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         List[Dict[str, str]]
             Dictionary with visualization types and paths
@@ -1381,7 +1380,7 @@ def analyze_numeric_fields(
     """
     Analyze multiple numeric fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1394,7 +1393,7 @@ def analyze_numeric_fields(
     **kwargs : dict
         Additional parameters for the operations
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results

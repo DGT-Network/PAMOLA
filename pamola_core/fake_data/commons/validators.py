@@ -14,14 +14,14 @@ def validate_name(name: str, language: str = "ru") -> Dict[str, Any]:
     """
     Validates a personal name.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name to validate
     language : str
         Language code (default: "ru")
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with keys:
@@ -69,12 +69,12 @@ def validate_email(email: str) -> Dict[str, Any]:
     """
     Validates an email address.
 
-    Parameters:
+    Parameters
     -----------
     email : str
         Email address to validate
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with keys:
@@ -125,14 +125,14 @@ def validate_phone(phone: str, region: str = "RU") -> Dict[str, Any]:
     """
     Validates a phone number.
 
-    Parameters:
+    Parameters
     -----------
     phone : str
         Phone number to validate
     region : str
         Region code (default: "RU")
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with keys:
@@ -204,14 +204,14 @@ def validate_format(value: str, format_pattern: str) -> Dict[str, Any]:
     """
     Validates a string against a specified format pattern.
 
-    Parameters:
+    Parameters
     -----------
     value : str
         String to validate
     format_pattern : str
         Regular expression pattern to match against
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results with keys:
@@ -243,7 +243,7 @@ def validate_id_number(
     """
     Validates an identification number.
 
-    Parameters:
+    Parameters
     -----------
     id_number : str
         ID number to validate
@@ -252,7 +252,7 @@ def validate_id_number(
     region : str
         Region code (default: "RU")
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results

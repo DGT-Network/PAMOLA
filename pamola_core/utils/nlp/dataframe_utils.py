@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        DataFrame Utilities for NLP
 Package:       pamola_core.utils.nlp.dataframe_utils
 Version:       1.1.1

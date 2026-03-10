@@ -50,7 +50,7 @@ class EncryptedKeyStore:
         """
         Initialize the key store.
 
-        Parameters:
+        Parameters
         -----------
         keys_db_path : str or Path, optional
             Path to the keys database file
@@ -101,12 +101,12 @@ class EncryptedKeyStore:
 
         Reads the master key from file or generates a new one if it doesn't exist.
 
-        Returns:
+        Returns
         --------
         str
             The master key as a base64-encoded string
 
-        Raises:
+        Raises
         -------
         MasterKeyError
             If there's an error accessing the master key
@@ -146,12 +146,12 @@ class EncryptedKeyStore:
 
         Creates a new random master key and saves it to the master key file.
 
-        Returns:
+        Returns
         --------
         str
             The generated master key as a base64-encoded string
 
-        Raises:
+        Raises
         -------
         MasterKeyError
             If there's an error generating or saving the master key
@@ -191,12 +191,12 @@ class EncryptedKeyStore:
         """
         Load and decrypt the keys database.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The decrypted keys database
 
-        Raises:
+        Raises
         -------
         KeyStoreError
             If there's an error loading or decrypting the database
@@ -230,12 +230,12 @@ class EncryptedKeyStore:
         """
         Encrypt and save the keys database.
 
-        Parameters:
+        Parameters
         -----------
         db : Dict[str, Any]
             The keys database to save
 
-        Raises:
+        Raises
         -------
         KeyStoreError
             If there's an error encrypting or saving the database
@@ -263,7 +263,7 @@ class EncryptedKeyStore:
         """
         Store an encryption key for a specific task.
 
-        Parameters:
+        Parameters
         -----------
         task_id : str
             Identifier for the task
@@ -272,7 +272,7 @@ class EncryptedKeyStore:
         metadata : Dict[str, Any], optional
             Additional metadata about the key
 
-        Raises:
+        Raises
         -------
         TaskKeyError
             If there's an error storing the key
@@ -305,17 +305,17 @@ class EncryptedKeyStore:
         """
         Load an encryption key for a specific task.
 
-        Parameters:
+        Parameters
         -----------
         task_id : str
             Identifier for the task
 
-        Returns:
+        Returns
         --------
         str
             The encryption key
 
-        Raises:
+        Raises
         -------
         TaskKeyError
             If the key doesn't exist or there's an error loading it
@@ -352,12 +352,12 @@ class EncryptedKeyStore:
         """
         Delete an encryption key for a specific task.
 
-        Parameters:
+        Parameters
         -----------
         task_id : str
             Identifier for the task
 
-        Raises:
+        Raises
         -------
         TaskKeyError
             If the key doesn't exist or there's an error deleting it
@@ -394,12 +394,12 @@ class EncryptedKeyStore:
         """
         List all stored task keys with metadata.
 
-        Returns:
+        Returns
         --------
         List[Dict[str, Any]]
             List of task keys with metadata (excluding the actual keys)
 
-        Raises:
+        Raises
         -------
         KeyStoreError
             If there's an error listing the keys
@@ -431,19 +431,19 @@ class EncryptedKeyStore:
         """
         Generate and store a new random encryption key for a task.
 
-        Parameters:
+        Parameters
         -----------
         task_id : str
             Identifier for the task
         metadata : Dict[str, Any], optional
             Additional metadata about the key
 
-        Returns:
+        Returns
         --------
         str
             The generated encryption key
 
-        Raises:
+        Raises
         -------
         TaskKeyError
             If there's an error generating or storing the key
@@ -467,7 +467,7 @@ class EncryptedKeyStore:
         """
         Check if the master key has insecure permissions.
 
-        Returns:
+        Returns
         --------
         bool
             True if the master key has insecure permissions, False otherwise
@@ -496,17 +496,17 @@ def get_key_for_task(task_id: str) -> str:
 
     Loads the task key from the key store, or generates a new one if it doesn't exist.
 
-    Parameters:
+    Parameters
     -----------
     task_id : str
         Identifier for the task
 
-    Returns:
+    Returns
     --------
     str
         The encryption key
 
-    Raises:
+    Raises
     -------
     KeyStoreError
         If there's an error accessing the key store

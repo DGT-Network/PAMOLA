@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Risk Scoring Utilities
 Package:       pamola_core.metrics.commons.risk_scoring
 Version:       1.0.0
@@ -337,7 +336,7 @@ def _calculate_confidence_level(
     - Sample size (number of rows)
     - Coverage consistency (percentage of non-null values)
 
-    Confidence rules:
+    Confidence rules
     -----------------
     Sample size:
         < 100     -> low

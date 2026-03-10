@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Column Validation Utilities
----------------------------------------------------------
 This module provides utility functions for validating the existence of columns
 in Pandas DataFrames. It ensures that specified columns are present before
 performing any operations, preventing runtime errors.
@@ -33,14 +32,14 @@ def check_columns_exist(data: pd.DataFrame, target_fields: List):
     """
     Check if all specified columns exist in the DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The DataFrame to check.
     target_fields : list
         List of column names to verify existence in the DataFrame.
 
-    Raises:
+    Raises
     -------
     ValueError
         If any of the target columns do not exist in the DataFrame.

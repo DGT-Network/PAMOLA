@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Spider Chart Visualization Implementation
 Description: Thread-safe spider/radar chart visualization capabilities
 Author: PAMOLA Core Team
@@ -73,7 +72,7 @@ class PlotlySpiderChart(PlotlyFigure):
         """
         Create a spider/radar chart using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict[str, Dict[str, float]], pd.DataFrame]
             Data to visualize.
@@ -107,7 +106,7 @@ class PlotlySpiderChart(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to the Plotly trace
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the spider chart
@@ -270,7 +269,7 @@ class PlotlySpiderChart(PlotlyFigure):
         """
         Update an existing Plotly spider chart.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Existing Plotly figure to update
@@ -283,7 +282,7 @@ class PlotlySpiderChart(PlotlyFigure):
         **kwargs:
             Parameters to update (same as create method)
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated Plotly figure

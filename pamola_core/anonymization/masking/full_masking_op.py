@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Full Masking Operation
 Package:       pamola_core.anonymization.masking
 Version:       4.0.0
@@ -196,7 +195,7 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -209,7 +208,7 @@ class FullMaskingOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -639,7 +638,8 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Validate masking operation configuration.
 
-        Raises:
+        Raises
+        ------
             ValueError: If any configuration parameter is invalid.
         """
 
@@ -691,10 +691,12 @@ class FullMaskingOperation(AnonymizationOperation):
 
         If no format pattern matches, fallback to basic masking.
 
-        Args:
+        Parameters
+        ----------
             value (str): The value to mask.
 
-        Returns:
+        Returns
+        -------
             str: Masked value with format preserved if possible.
         """
 
@@ -724,12 +726,14 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Reconstruct string from masked/unmasked groups, preserving original separators.
 
-        Args:
+        Parameters
+        ----------
             groups (List[str]): List of masked/unmasked group values.
             match (re.Match): Regex match object.
             value (str): Original value to reconstruct within.
 
-        Returns:
+        Returns
+        -------
             str: Fully reconstructed value with masked content.
         """
         start, end = match.span()
@@ -754,11 +758,13 @@ class FullMaskingOperation(AnonymizationOperation):
         Convert a masked string into a numeric representation, preserving
         the format (int, float, scientific notation) of the original value.
 
-        Args:
+        Parameters
+        ----------
             mask (str): The masked string (e.g. '******' or '@9#K$%').
             value (str): The original value as a string (e.g. '1234.56', '1.2e+04').
 
-        Returns:
+        Returns
+        -------
             int or float: Masked numeric representation.
         """
 
@@ -825,10 +831,12 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Process a batch of data with full masking.
 
-        Args:
+        Parameters
+        ----------
             batch (pd.DataFrame): Input DataFrame batch.
 
-        Returns:
+        Returns
+        -------
             pd.DataFrame: DataFrame with masked values.
         """
 
@@ -888,10 +896,12 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Check if a field contains string data.
 
-        Args:
+        Parameters
+        ----------
             series (pd.Series): Input data series to check.
 
-        Returns:
+        Returns
+        -------
             bool: True if the field contains string data.
         """
 
@@ -911,7 +921,8 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Check if masking can be vectorized for performance.
 
-        Returns:
+        Returns
+        -------
             bool: True if vectorization is possible.
         """
 
@@ -933,10 +944,12 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Apply masking using vectorized operations.
 
-        Args:
+        Parameters
+        ----------
             series (pd.Series): Series to mask.
 
-        Returns:
+        Returns
+        -------
             pd.Series: Masked series.
         """
 
@@ -961,10 +974,12 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Apply full masking to a single value.
 
-        Args:
+        Parameters
+        ----------
             value: Value to mask.
 
-        Returns:
+        Returns
+        -------
             Masked value as string, number, or None.
         """
 
@@ -1025,10 +1040,12 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Process Dask DataFrame with full masking.
 
-        Args:
+        Parameters
+        ----------
             ddf (dd.DataFrame): Input Dask DataFrame.
 
-        Returns:
+        Returns
+        -------
             dd.DataFrame: Processed Dask DataFrame.
         """
 
@@ -1045,7 +1062,8 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Get summary of the masking operation.
 
-        Returns:
+        Returns
+        -------
             dict: Dictionary with operation summary.
         """
 
@@ -1069,7 +1087,8 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
+        -------
             dict: Strategy-specific parameters for full masking operation.
         """
 
@@ -1096,12 +1115,14 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Collect comprehensive metrics for the full masking operation.
 
-        Args:
+        Parameters
+        ----------
             original_data (pd.Series): Original data series.
             anonymized_data (pd.Series): Anonymized data series.
             processed_df (pd.DataFrame): The processed DataFrame.
 
-        Returns:
+        Returns
+        -------
             dict: Dictionary of metrics.
         """
 
@@ -1150,11 +1171,13 @@ class FullMaskingOperation(AnonymizationOperation):
         """
         Collect full masking specific metrics.
 
-        Args:
+        Parameters
+        ----------
             original_data (pd.Series): Original data series.
             anonymized_data (pd.Series): Anonymized data series.
 
-        Returns:
+        Returns
+        -------
             dict: Dictionary of specific metrics.
         """
 
@@ -1242,7 +1265,8 @@ class FullMaskingOperation(AnonymizationOperation):
         This is a base implementation that provides a basic distribution comparison.
         Subclasses should override to provide operation-specific visualizations.
 
-        Args:
+        Parameters
+        ----------
             original_data (pd.Series): Original data before anonymization.
             anonymized_data (pd.Series): Anonymized data after processing.
             task_dir (Path): Task directory for saving visualizations.
@@ -1253,7 +1277,8 @@ class FullMaskingOperation(AnonymizationOperation):
             timestamp (str, optional): Timestamp for artifact naming.
             **kwargs: Additional parameters for the operation.
 
-        Returns:
+        Returns
+        -------
             dict: Dictionary with visualization types and paths.
         """
 

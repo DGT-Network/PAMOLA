@@ -32,7 +32,7 @@ class CategoryDictionary:
         """
         Initialize the category dictionary.
 
-        Parameters:
+        Parameters
         -----------
         dictionary_data : Dict[str, Any], optional
             Category dictionary data
@@ -48,12 +48,12 @@ class CategoryDictionary:
         """
         Load a category dictionary from a JSON file.
 
-        Parameters:
+        Parameters
         -----------
         file_path : str or Path
             Path to the dictionary JSON file
 
-        Returns:
+        Returns
         --------
         CategoryDictionary
             Loaded category dictionary
@@ -98,12 +98,12 @@ class CategoryDictionary:
         """
         Prepare dictionary and hierarchy data from a hierarchical dictionary.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Dictionary data with hierarchy information
 
-        Returns:
+        Returns
         --------
         Tuple[Dict[str, Any], Dict[str, Any]]
             Tuple of (flattened dictionary data, hierarchy data)
@@ -130,7 +130,7 @@ class CategoryDictionary:
         """
         Find the best matching category for a text.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Text to match against the dictionary
@@ -138,7 +138,7 @@ class CategoryDictionary:
             Strategy for resolving conflicts:
             "specific_first", "domain_prefer", "alias_only", "user_override"
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[str], float, List[str]]
             Matched category, confidence score, and conflict candidates
@@ -213,12 +213,12 @@ class CategoryDictionary:
         """
         Get information about a category.
 
-        Parameters:
+        Parameters
         -----------
         category : str
             Category name
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Category information or empty dict if not found
@@ -229,7 +229,7 @@ class CategoryDictionary:
         """
         Analyze the category hierarchy to extract useful information.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Analysis results including level counts, domain distribution, etc.
@@ -277,12 +277,12 @@ class CategoryDictionary:
         """
         Get a fallback category for when matches don't meet confidence threshold.
 
-        Parameters:
+        Parameters
         -----------
         confidence_threshold : float
             Minimum confidence score for reliable matches
 
-        Returns:
+        Returns
         --------
         Optional[str]
             Fallback category name or None if not defined
@@ -306,7 +306,7 @@ def get_best_match(text: str, dictionary: Dict[str, Dict[str, Any]],
     """
     Find the best matching category for a text based on the dictionary.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to categorize
@@ -316,7 +316,7 @@ def get_best_match(text: str, dictionary: Dict[str, Dict[str, Any]],
         Strategy for resolving conflicts:
         "specific_first", "domain_prefer", "alias_only", "user_override"
 
-    Returns:
+    Returns
     --------
     Tuple[Optional[str], float, List[str]]
         Tuple of (matched_category, confidence_score, conflict_candidates)
@@ -331,12 +331,12 @@ def analyze_hierarchy(hierarchy: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     """
     Analyze a category hierarchy to extract useful information.
 
-    Parameters:
+    Parameters
     -----------
     hierarchy : Dict[str, Dict[str, Any]]
         Dictionary containing category hierarchy information
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results including level counts, domain distribution, etc.
@@ -352,7 +352,7 @@ def batch_match_categories(texts: List[str], dictionary_path: Union[str, Path],
     """
     Match multiple texts to categories in parallel.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of texts to categorize
@@ -363,7 +363,7 @@ def batch_match_categories(texts: List[str], dictionary_path: Union[str, Path],
     processes : int, optional
         Number of processes for parallel execution
 
-    Returns:
+    Returns
     --------
     List[Tuple[Optional[str], float, List[str]]]
         List of (category, score, conflicts) tuples for each text

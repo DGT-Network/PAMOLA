@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        File Utilities
 Package:       pamola_core.utils.io_helpers.file_utils
 Version:       1.2.0

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Noise Operation Utilities
 Package:       pamola_core.anonymization.commons
 Version:       1.0.0
@@ -152,13 +151,15 @@ class SecureRandomGenerator:
     switch between cryptographically secure (using secrets module) and standard
     NumPy random generation based on security requirements.
 
-    Attributes:
+    Attributes
+    ----------
         use_secure (bool): Whether to use cryptographically secure generation
         seed (Optional[int]): Random seed for reproducibility (ignored if use_secure=True)
         _lock (threading.Lock): Thread safety lock
         _rng: Internal random generator (secrets.SystemRandom or np.random.Generator)
 
-    Example:
+    Examples
+    --------
         >>> # Secure generation for privacy
         >>> secure_rng = SecureRandomGenerator(use_secure=True)
         >>> secure_values = secure_rng.uniform(0, 1, size=100)
@@ -172,7 +173,8 @@ class SecureRandomGenerator:
         """
         Initialize random generator with specified security level.
 
-        Args:
+        Parameters
+        ----------
             use_secure: If True, use cryptographically secure random generation
             seed: Random seed for reproducibility (only used if use_secure=False)
         """
@@ -196,15 +198,18 @@ class SecureRandomGenerator:
         """
         Generate uniform random values in [low, high).
 
-        Args:
+        Parameters
+        ----------
             low: Lower boundary (inclusive)
             high: Upper boundary (exclusive)
             size: Output shape. If None, returns scalar
 
-        Returns:
+        Returns
+        -------
             Random value(s) from uniform distribution
 
-        Raises:
+        Raises
+        ------
             InvalidParameterError: If low >= high
         """
         if low >= high:
@@ -239,15 +244,18 @@ class SecureRandomGenerator:
         """
         Generate normal (Gaussian) random values.
 
-        Args:
+        Parameters
+        ----------
             loc: Mean of the distribution
             scale: Standard deviation (must be positive)
             size: Output shape. If None, returns scalar
 
-        Returns:
+        Returns
+        -------
             Random value(s) from normal distribution
 
-        Raises:
+        Raises
+        ------
             InvalidParameterError: If scale <= 0
         """
         if scale <= 0:
@@ -308,15 +316,18 @@ class SecureRandomGenerator:
         """
         Generate Laplace random values (for differential privacy).
 
-        Args:
+        Parameters
+        ----------
             loc: Location parameter (median)
             scale: Scale parameter (must be positive)
             size: Output shape. If None, returns scalar
 
-        Returns:
+        Returns
+        -------
             Random value(s) from Laplace distribution
 
-        Raises:
+        Raises
+        ------
             InvalidParameterError: If scale <= 0
         """
         if scale <= 0:
@@ -358,13 +369,15 @@ class SecureRandomGenerator:
         """
         Generate random sample from given array or range.
 
-        Args:
+        Parameters
+        ----------
             a: If int, sample from range(a). If array, sample from array
             size: Number of samples. If None, returns single value
             replace: Whether to sample with replacement
             p: Probabilities for each element (must sum to 1)
 
-        Returns:
+        Returns
+        -------
             Random sample(s) from the input
         """
         with self._lock:
@@ -413,12 +426,14 @@ def calculate_noise_impact(
     how much the noise has affected the original data. It's useful for
     evaluating the privacy-utility tradeoff.
 
-    Args:
+    Parameters
+    ----------
         original: Original data series
         noisy: Data series after noise addition
         sample_size: If provided, sample data for faster computation on large datasets
 
-    Returns:
+    Returns
+    -------
         Dictionary containing:
             - rmse: Root Mean Square Error
             - mae: Mean Absolute Error
@@ -429,7 +444,8 @@ def calculate_noise_impact(
             - max_absolute_error: Maximum absolute difference
             - snr: Signal-to-Noise Ratio (in dB)
 
-    Example:
+    Examples
+    --------
         >>> original = pd.Series([1, 2, 3, 4, 5])
         >>> noisy = pd.Series([1.1, 1.9, 3.2, 3.8, 5.1])
         >>> impact = calculate_noise_impact(original, noisy)
@@ -506,13 +522,15 @@ def calculate_distribution_preservation(
     to evaluate whether the noisy data maintains similar distributional
     properties to the original data.
 
-    Args:
+    Parameters
+    ----------
         original: Original data series
         noisy: Data series after noise addition
         n_bins: Number of bins for histogram comparison
         percentiles: List of percentiles to compare (default: [10, 25, 50, 75, 90])
 
-    Returns:
+    Returns
+    -------
         Dictionary containing:
             - ks_statistic: Kolmogorov-Smirnov test statistic
             - ks_pvalue: p-value for KS test
@@ -524,7 +542,8 @@ def calculate_distribution_preservation(
             - kurtosis_diff: Difference in kurtosis
             - percentile_shifts: Dict of percentile differences
 
-    Example:
+    Examples
+    --------
         >>> dist_metrics = calculate_distribution_preservation(original, noisy)
         >>> if dist_metrics['ks_pvalue'] > 0.05:
         ...     print("Distributions are statistically similar")
@@ -605,19 +624,23 @@ def suggest_noise_range(
     This function analyzes the data distribution and recommends a noise range
     that achieves the desired SNR while maintaining data utility.
 
-    Args:
+    Parameters
+    ----------
         series: Original data series
         target_snr: Desired signal-to-noise ratio (in linear scale, not dB)
         noise_type: Type of noise application ('additive' or 'multiplicative')
         distribution: Noise distribution ('uniform', 'normal', 'laplace')
 
-    Returns:
+    Returns
+    -------
         Suggested noise range/parameter value
 
-    Raises:
+    Raises
+    ------
         InvalidParameterError: If distribution is not recognized
 
-    Example:
+    Examples
+    --------
         >>> data = pd.Series(np.random.normal(100, 15, 1000))
         >>> # Get range for 20dB SNR (linear SNR = 10)
         >>> noise_range = suggest_noise_range(data, target_snr=10.0)
@@ -692,14 +715,16 @@ def validate_noise_bounds(
     are appropriate for the data distribution, helping prevent excessive noise
     or overly restrictive bounds.
 
-    Args:
+    Parameters
+    ----------
         series: Original data series
         noise_range: Noise range (symmetric float or (min, max) tuple)
         output_min: Minimum allowed output value
         output_max: Maximum allowed output value
         percentile_check: Percentile to check for bound violations (default: 99%)
 
-    Returns:
+    Returns
+    -------
         Dictionary containing:
             - valid: Whether bounds are reasonable
             - warnings: List of warning messages
@@ -707,7 +732,8 @@ def validate_noise_bounds(
             - expected_violations: Estimated percentage of values hitting bounds
             - recommendations: Suggested adjustments
 
-    Example:
+    Examples
+    --------
         >>> validation = validate_noise_bounds(
         ...     data, noise_range=50, output_min=0, output_max=200 #type: ignore
         ... )
@@ -842,20 +868,24 @@ def generate_numeric_noise(
     Convenience function for generating noise arrays with various distributions
     and parameters. Supports both secure and reproducible generation.
 
-    Args:
+    Parameters
+    ----------
         size: Number of noise values to generate
         distribution: Distribution type ('uniform', 'normal', 'laplace', 'exponential')
         params: Distribution parameters (see examples)
         secure: Whether to use cryptographically secure generation
         seed: Random seed (only used if secure=False)
 
-    Returns:
+    Returns
+    -------
         Array of noise values
 
-    Raises:
+    Raises
+    ------
         InvalidParameterError: If size <= 0 or distribution not recognized
 
-    Examples:
+    Examples
+    --------
         >>> # Uniform noise in [-10, 10]
         >>> noise = generate_numeric_noise(1000, 'uniform', {'low': -10, 'high': 10})
         >>>
@@ -933,7 +963,8 @@ def generate_temporal_noise(
     Creates time shift values for adding noise to datetime fields, with
     support for different time units and distributions.
 
-    Args:
+    Parameters
+    ----------
         size: Number of time deltas to generate
         range_value: Maximum shift in specified unit
         unit: Time unit ('seconds', 'minutes', 'hours', 'days', 'weeks')
@@ -941,13 +972,16 @@ def generate_temporal_noise(
         secure: Whether to use cryptographically secure generation
         seed: Random seed (only used if secure=False)
 
-    Returns:
+    Returns
+    -------
         TimedeltaIndex with random time shifts
 
-    Raises:
+    Raises
+    ------
         InvalidParameterError: If unit not recognized
 
-    Example:
+    Examples
+    --------
         >>> # Generate random shifts of ±7 days
         >>> shifts = generate_temporal_noise(100, range_value=7, unit='days')
         >>>
@@ -1008,13 +1042,15 @@ def analyze_noise_effectiveness(
     This function evaluates whether the noise addition achieves the desired
     privacy level while maintaining acceptable utility.
 
-    Args:
+    Parameters
+    ----------
         original: Original data series
         noisy: Data series after noise addition
         privacy_metric: Metric to use ('snr', 'rmse', 'correlation')
         target_value: Target value for the privacy metric
 
-    Returns:
+    Returns
+    -------
         Dictionary containing:
             - effective: Whether noise meets privacy requirements
             - actual_value: Actual metric value achieved
@@ -1022,7 +1058,8 @@ def analyze_noise_effectiveness(
             - utility_score: Overall utility preservation score (0-1)
             - recommendations: List of suggestions for improvement
 
-    Example:
+    Examples
+    --------
         >>> analysis = analyze_noise_effectiveness(
         ...     original, noisy, privacy_metric='snr', target_value=10.0
         ... )
@@ -1117,15 +1154,18 @@ def create_noise_report(
     including configuration, impact metrics, distribution analysis, and
     effectiveness evaluation.
 
-    Args:
+    Parameters
+    ----------
         original: Original data series
         noisy: Data series after noise addition
         noise_params: Dictionary of noise parameters used
 
-    Returns:
+    Returns
+    -------
         Comprehensive report dictionary
 
-    Example:
+    Examples
+    --------
         >>> report = create_noise_report(
         ...     original, noisy,
         ...     {'type': 'uniform', 'range': 10.0, 'distribution': 'uniform'}

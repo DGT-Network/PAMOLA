@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Schema Utilities
 Package:       pamola_core.utils
 Version:       1.0.0
@@ -47,14 +46,17 @@ def flatten_schema(schema: dict, unused_fields=None) -> dict:
     Each property will have type, title (auto-generated if missing), and default if present.
     Optionally filter out properties by unused_fields (exclude these fields from result).
 
-    Args:
+    Parameters
+    ----------
         schema (dict): The JSON schema to flatten.
         unused_fields (list or None): List of property names to exclude. If None, keep all fields.
 
-    Returns:
+    Returns
+    -------
         dict: Flattened schema with filtered properties (all except those in unused_fields).
 
-    Example:
+    Examples
+    --------
         flatten_schema(schema, unused_fields=["scope", "config"])  # will remove 'scope' and 'config' from result
     """
     result = {
@@ -111,10 +113,12 @@ def flatten_schema(schema: dict, unused_fields=None) -> dict:
 def get_filtered_schema(schema: dict, exclude_fields: Optional[list] = None) -> dict:
     """
     Return a deep-copied schema with all fields in exclude_fields removed recursively at any nesting level.
-    Args:
+    Parameters
+    ----------
         schema (dict): The original JSON schema to be filtered.
         exclude_fields (Optional[list]): List of field names to remove from the schema (recursively). If None, no fields are excluded.
-    Returns:
+    Returns
+    -------
         dict: New schema with excluded fields removed.
     """
     exclude_fields = exclude_fields or []
@@ -130,7 +134,8 @@ def remove_fields_recursive(block: dict, exclude_fields: list = []) -> None:
     Recursively remove all fields in exclude_fields from the given schema block (or any nested subschema).
     - Removes fields from 'properties' and 'required'.
     - Recurses into nested objects, arrays of objects, and schema composition keywords.
-    Args:
+    Parameters
+    ----------
         block (dict): The current schema or subschema.
         exclude_fields (list): List of field names to remove.
     """
@@ -165,7 +170,8 @@ def remove_fields_recursive(block: dict, exclude_fields: list = []) -> None:
 def remove_none_from_enum(schema):
     """
     Recursively remove None values from any 'enum' lists in the schema.
-    Args:
+    Parameters
+    ----------
         schema (dict or list): The schema or subschema to process.
     """
     if isinstance(schema, dict):
@@ -186,14 +192,17 @@ def get_schema_json(
 ) -> str:
     """
     Filter the schema by removing all fields listed in excluded_fields of the config class, and return a pretty JSON string for frontend use.
-    Args:
+    Parameters
+    ----------
         config_class (class): Config class with attributes:
             - schema: dict, the original JSON schema.
             - EXCLUDE_FIELDS: list, fields to exclude from the schema for the frontend.
         excluded_fields (list, optional): List of field names to exclude from the schema. Defaults to [].
-    Returns:
+    Returns
+    -------
         str: Filtered JSON schema as a pretty-formatted string (indent=2, ensure_ascii=False).
-    Example:
+    Examples
+    --------
         get_schema_json(NumericGeneralizationConfig)
     """
     # Get filtered schema with excluded fields removed
@@ -214,7 +223,8 @@ def generate_schema_json(
 ) -> Path:
     """
     Write the schema (after excluding specified fields) of the given config_class to a JSON file.
-    Args:
+    Parameters
+    ----------
         core_config_cls (class): Core Config class with attributes:
             - schema: dict, the original JSON schema.
         ui_config_class (class): UI Config class with attributes:
@@ -223,9 +233,11 @@ def generate_schema_json(
         excluded_fields (list, optional): List of field names to exclude from the schema. Defaults to [].
         generate_formily_schema (bool): Whether to convert the schema to Formily format. Defaults to False.
         tooltip (dict, optional): Tooltip information for Formily schema conversion. Defaults to None.
-    Returns:
+    Returns
+    -------
         Path: Path to the written JSON file.
-    Example:
+    Examples
+    --------
         generate_schema_json(NumericGeneralizationConfig, NumericGeneralizationUIConfig)
     """
     # Get core filtered schema with excluded fields removed
@@ -266,11 +278,13 @@ def merge_schemas(core_schema: dict, ui_schema: dict) -> dict:
     Deep merge two JSON schemas, combining properties from both.
     UI schema properties take precedence and are merged into core schema properties.
 
-    Args:
+    Parameters
+    ----------
         core_schema (dict): The core validation schema
         ui_schema (dict): The UI metadata schema
 
-    Returns:
+    Returns
+    -------
         dict: Merged schema with both core validation and UI metadata
     """
     merged = copy.deepcopy(core_schema)
@@ -326,7 +340,8 @@ def _merge_property_recursive(core_prop: dict, ui_prop: dict) -> None:
     - items.properties UI metadata should be extracted to x-items
     - Top-level UI metadata (x-component, x-group, etc.) should be added to core
 
-    Args:
+    Parameters
+    ----------
         core_prop (dict): Core property definition (modified in place)
         ui_prop (dict): UI property definition with metadata
     """

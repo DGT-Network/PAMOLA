@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Utility Metric Operation
 Package:       pamola_core.metrics
 Version:       4.0.0
@@ -134,7 +133,7 @@ class UtilityMetricOperation(MetricsOperation):
         """
         Execute the metrics operation with enhanced features including Dask support.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -147,7 +146,7 @@ class UtilityMetricOperation(MetricsOperation):
         **kwargs : dict
             Additional parameters including profiling_results
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -183,7 +182,7 @@ class UtilityMetricOperation(MetricsOperation):
         """
         Calculate multiple utility metrics between original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original dataset.
@@ -195,7 +194,7 @@ class UtilityMetricOperation(MetricsOperation):
             - utility_metrics: List[str]: List of metric types to compute (e.g., ["classification", "regression", etc.])
             - metric_params: Dict[str, Dict]: Mapping of metric type to its specific configuration params.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             - result: Dict of metric_name → metric_result
@@ -320,7 +319,7 @@ class UtilityMetricOperation(MetricsOperation):
 
         This implementation generates separate visualizations for each metric type if present.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Collected metrics for visualization (may include "classification", "regression", etc.)
@@ -335,7 +334,7 @@ class UtilityMetricOperation(MetricsOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -477,7 +476,7 @@ class UtilityMetricOperation(MetricsOperation):
         This method should be overridden by subclasses to provide
         operation-specific parameters for caching.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Impute Missing Values Core Schema
 Package:       pamola_core.transformation.schemas
 Version:       1.0.0

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Fake Name Exclude Fields
 Package:       pamola_core.fake_data.schemas
 Version:       1.0.0

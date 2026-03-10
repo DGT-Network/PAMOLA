@@ -10,12 +10,14 @@ class BasePamolaError(Exception):
     All PAMOLA exceptions should inherit from this class to ensure consistent
     error handling, logging, and telemetry across the framework.
 
-    Attributes:
+    Attributes
+    ----------
         message (str): Human-readable error message
         error_code (str): Standardized error code from ErrorCode registry
         details (Dict[str, Any]): Additional structured context for debugging
 
-    Example:
+    Examples
+    --------
         >>> raise BasePamolaError(
         ...     message="Operation failed",
         ...     error_code=ErrorCode.PROCESSING_FAILED,
@@ -38,7 +40,8 @@ class BasePamolaError(Exception):
         """
         Convert exception to structured dictionary for logging/telemetry.
 
-        Returns:
+        Returns
+        -------
             Dictionary with error details and metadata from ErrorCode registry
         """
         from pamola_core.errors.codes.metadata import get_error_metadata
@@ -74,14 +77,16 @@ def auto_exception(
     - Populating details dictionary with provided parameters
     - Handling None/default values gracefully
 
-    Args:
+    Parameters
+    ----------
         default_error_code: Default error code for this exception
         message_params: Parameters needed for ErrorMessages.format() template
         detail_params: Parameters to include in details dict (defaults to message_params)
         custom_message_builder: Custom function for complex message building
         parent_class: Parent exception class to call __init__ on (for subclasses)
 
-    Example:
+    Examples
+    --------
         @auto_exception(
             default_error_code=ErrorCode.DATA_LOAD_FAILED,
             message_params=["source", "reason"],

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Data Source Abstraction
 Description: Unified data source interface for operations
 Author: PAMOLA Core Team
@@ -61,7 +60,7 @@ class DataSource:
         """
         Initialize a data source.
 
-        Parameters:
+        Parameters
         -----------
         dataframes : Dict[str, Union[pd.DataFrame, dd.DataFrame]], optional
             Dictionary of named DataFrames
@@ -130,7 +129,7 @@ class DataSource:
         """
         Add a DataFrame to the data source.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
@@ -182,7 +181,7 @@ class DataSource:
         """
         Add a file path to the data source.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the file
@@ -202,12 +201,12 @@ class DataSource:
         """
         Suggest engine should to use.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
 
-        Returns:
+        Returns
         --------
         str
             Engine should use
@@ -239,7 +238,7 @@ class DataSource:
         """
         Get a DataFrame by name with enhanced error reporting and schema validation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
@@ -268,7 +267,7 @@ class DataSource:
         validate_schema : Dict[str, Any], optional
             Schema to validate against after loading
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -346,14 +345,14 @@ class DataSource:
         """
         Validate a DataFrame against an expected schema.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame to validate
         expected_schema : Dict[str, Any]
             Expected schema information
 
-        Returns:
+        Returns
         --------
         Tuple[bool, List[str]]
             (is_valid, error_messages)
@@ -374,12 +373,12 @@ class DataSource:
         """
         Build schema information from DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame to build schema from
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Schema information
@@ -437,14 +436,14 @@ class DataSource:
         """
         Get a DataFrame from memory.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
         columns : List[str], optional
             Specific columns to include
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -499,7 +498,7 @@ class DataSource:
         """
         Load a DataFrame from a file using DataReader.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame/file
@@ -526,7 +525,7 @@ class DataSource:
         auto_optimize : bool
             Whether to optimize memory usage after loading
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[Union[pd.DataFrame, dd.DataFrame]], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -615,12 +614,12 @@ class DataSource:
         """
         Get a file path by name.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the file
 
-        Returns:
+        Returns
         --------
         Path or None
             The requested file path, or None if not found
@@ -636,12 +635,12 @@ class DataSource:
         """
         Get schema information for a DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Schema information or None if DataFrame not found
@@ -685,14 +684,14 @@ class DataSource:
         """
         Validate a DataFrame against an expected schema.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
         expected_schema : Dict[str, Any]
             Expected schema information
 
-        Returns:
+        Returns
         --------
         Tuple[bool, List[str]]
             (is_valid, error_messages)
@@ -729,7 +728,7 @@ class DataSource:
         """
         Get chunks of a DataFrame for processing large datasets.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
@@ -748,7 +747,7 @@ class DataSource:
         show_progress : bool
             Whether to show progress during processing
 
-        Yields:
+        Yields
         -------
         pd.DataFrame
             Chunks of the DataFrame
@@ -808,7 +807,7 @@ class DataSource:
         """
         Add a dataset consisting of multiple files.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name for the dataset
@@ -881,12 +880,12 @@ class DataSource:
         This is useful when working with very large datasets where
         memory management is critical.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame to release
 
-        Returns:
+        Returns
         --------
         bool
             True if the DataFrame was released, False if not found
@@ -913,12 +912,12 @@ class DataSource:
 
         This is a helper function that centralizes access to task encryption keys.
 
-        Parameters:
+        Parameters
         -----------
         task_id : str, optional
             ID of the task
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with encryption key and metadata or None if not available
@@ -946,12 +945,12 @@ class DataSource:
         """
         Get comprehensive metadata about a file.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the file in the data source
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with file metadata or None if file not found
@@ -976,12 +975,12 @@ class DataSource:
         """
         Get encryption information for a file.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the file
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with encryption information or None if file not encrypted
@@ -1005,12 +1004,12 @@ class DataSource:
         """
         Estimate memory requirements for loading a dataset.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame or file in the data source
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with memory requirement estimates
@@ -1046,12 +1045,12 @@ class DataSource:
         """
         Optimize memory usage by releasing and optimizing DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         threshold_percent : float
             Memory usage threshold to trigger optimization (default: 80%)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Optimization results
@@ -1064,12 +1063,12 @@ class DataSource:
         """
         Perform comprehensive analysis of a DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Analysis results or None if DataFrame not found
@@ -1089,7 +1088,7 @@ class DataSource:
         """
         Create a representative sample of a DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
@@ -1098,7 +1097,7 @@ class DataSource:
         random_seed : int
             Random seed for reproducibility
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -1122,14 +1121,14 @@ class DataSource:
         """
         Create a DataSource from a single DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame to use
         name : str
             Name to use for the DataFrame
 
-        Returns:
+        Returns
         --------
         DataSource
             DataSource containing the DataFrame
@@ -1147,7 +1146,7 @@ class DataSource:
         """
         Create a DataSource from a file path.
 
-        Parameters:
+        Parameters
         -----------
         path : Union[str, Path]
             Path to the file
@@ -1156,7 +1155,7 @@ class DataSource:
         load : bool
             Whether to load the DataFrame immediately
 
-        Returns:
+        Returns
         --------
         DataSource
             DataSource containing the file path (and DataFrame if load=True)
@@ -1190,7 +1189,7 @@ class DataSource:
         """
         Create a DataSource from multiple files.
 
-        Parameters:
+        Parameters
         -----------
         paths : List[Union[str, Path]]
             List of file paths
@@ -1209,7 +1208,7 @@ class DataSource:
         show_progress : bool
             Whether to show progress during processing
 
-        Returns:
+        Returns
         --------
         DataSource
             DataSource containing the file paths (and DataFrame if load=True)

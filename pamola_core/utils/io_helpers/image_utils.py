@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Image and Plot Utilities
 Description: Helpers for managing, saving, and formatting visualizations and image outputs
 Author: PAMOLA Core Team
@@ -29,7 +28,7 @@ def save_plot(plot_fig, file_path: Union[str, Path], dpi: int = 300, **kwargs) -
     """
     Saves a matplotlib figure to a file.
 
-    Parameters:
+    Parameters
     -----------
     plot_fig : matplotlib.figure.Figure
         The figure to save
@@ -40,7 +39,7 @@ def save_plot(plot_fig, file_path: Union[str, Path], dpi: int = 300, **kwargs) -
     **kwargs
         Additional arguments to pass to fig.savefig
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -54,12 +53,12 @@ def get_figure_format(file_path: Union[str, Path]) -> str:
     """
     Determines figure format from file extension.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
 
-    Returns:
+    Returns
     --------
     str
         Figure format (e.g., 'png', 'pdf', 'svg')
@@ -93,7 +92,7 @@ def prepare_figure_options(width: Optional[float] = None,
     """
     Prepares options for figure creation.
 
-    Parameters:
+    Parameters
     -----------
     width : float, optional
         Figure width in inches
@@ -104,7 +103,7 @@ def prepare_figure_options(width: Optional[float] = None,
     **kwargs
         Additional figure options
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with figure options
@@ -131,7 +130,7 @@ def get_optimal_figure_size(num_rows: int,
     """
     Calculates optimal figure size based on grid dimensions.
 
-    Parameters:
+    Parameters
     -----------
     num_rows : int
         Number of rows in the plot grid
@@ -140,7 +139,7 @@ def get_optimal_figure_size(num_rows: int,
     base_size : Tuple[float, float]
         Base figure size (width, height) for a single plot
 
-    Returns:
+    Returns
     --------
     Tuple[float, float]
         Optimal figure size (width, height)

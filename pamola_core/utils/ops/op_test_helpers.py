@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Testing Helpers
 Description: Test utilities for operation unit testing
 Author: PAMOLA Core Team
@@ -49,7 +48,7 @@ class MockDataSource:
         """
         Initialize a MockDataSource with optional in-memory DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         dataframes : Dict[str, pd.DataFrame], optional
             Dictionary mapping dataset names to pandas DataFrames
@@ -63,14 +62,14 @@ class MockDataSource:
         """
         Create a MockDataSource from a single DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame to use
         name : str
             Name for the DataFrame (default: "main")
 
-        Returns:
+        Returns
         --------
         MockDataSource
             Initialized MockDataSource with the DataFrame
@@ -81,7 +80,7 @@ class MockDataSource:
         """
         Add a DataFrame to the MockDataSource.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name for the DataFrame
@@ -97,14 +96,14 @@ class MockDataSource:
         """
         Get a DataFrame by name.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame to retrieve
         **kwargs : dict
             Additional parameters (ignored in the mock)
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[pd.DataFrame], Optional[Dict[str, Any]]]
             Tuple containing (DataFrame or None, error_info or None)
@@ -124,12 +123,12 @@ class MockDataSource:
         """
         Get basic schema information for a DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the DataFrame
 
-        Returns:
+        Returns
         --------
         Dict[str, Any] or None
             Dictionary with schema information or None if not found
@@ -152,12 +151,12 @@ class MockDataSource:
         """
         Check if a DataFrame exists by name.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name to check
 
-        Returns:
+        Returns
         --------
         bool
             True if the DataFrame exists, False otherwise
@@ -195,7 +194,7 @@ class StubDataWriter:
         """
         Initialize a StubDataWriter.
 
-        Parameters:
+        Parameters
         -----------
         task_dir : Path, optional
             Base directory for task outputs and artifacts.
@@ -239,7 +238,7 @@ class StubDataWriter:
         """
         Record a method call for later inspection.
 
-        Parameters:
+        Parameters
         -----------
         method : str
             Name of the method called
@@ -263,7 +262,7 @@ class StubDataWriter:
         """
         Generate the complete output path for a file.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Base name for the output file (without extension)
@@ -274,7 +273,7 @@ class StubDataWriter:
         timestamp_in_name : bool
             Whether to include a timestamp in the filename
 
-        Returns:
+        Returns
         --------
         Path
             Complete path for the output file
@@ -314,7 +313,7 @@ class StubDataWriter:
         """
         Write a DataFrame to a file within the task directory structure.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame to be written
@@ -333,7 +332,7 @@ class StubDataWriter:
         **kwargs
             Additional arguments for the specific writer function
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
@@ -437,7 +436,7 @@ class StubDataWriter:
         """
         Write a JSON object to a file within the task directory structure.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             JSON-serializable data to write
@@ -456,7 +455,7 @@ class StubDataWriter:
         **kwargs
             Additional arguments for the json writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
@@ -546,7 +545,7 @@ class StubDataWriter:
         """
         Save metrics to the root task directory.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Metrics data to save
@@ -561,7 +560,7 @@ class StubDataWriter:
         **kwargs
             Additional arguments for the writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
@@ -601,7 +600,7 @@ class StubDataWriter:
         """
         Save a dictionary to the dictionaries subdirectory.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Dictionary to save
@@ -618,7 +617,7 @@ class StubDataWriter:
         **kwargs
             Additional arguments for the writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
@@ -670,7 +669,7 @@ class StubDataWriter:
         """
         Get the output directory path.
 
-        Returns:
+        Returns
         --------
         Path
             Path to the output directory
@@ -681,7 +680,7 @@ class StubDataWriter:
         """
         Get the dictionaries directory path.
 
-        Returns:
+        Returns
         --------
         Path
             Path to the dictionaries directory
@@ -692,7 +691,7 @@ class StubDataWriter:
         """
         Get the temporary directory (if created).
 
-        Returns:
+        Returns
         --------
         tempfile.TemporaryDirectory or None
             Temporary directory if one was created
@@ -703,12 +702,12 @@ class StubDataWriter:
         """
         Get recorded calls, optionally filtered by method name.
 
-        Parameters:
+        Parameters
         -----------
         method_name : str, optional
             Method name to filter by
 
-        Returns:
+        Returns
         --------
         List[CallRecord]
             List of matching call records
@@ -736,7 +735,7 @@ def assert_artifact_exists(task_dir: Path, subdir: str, filename_pattern: str) -
     """
     Assert that a file matching the given pattern exists in the specified directory.
 
-    Parameters:
+    Parameters
     -----------
     task_dir : Path
         Base task directory
@@ -745,12 +744,12 @@ def assert_artifact_exists(task_dir: Path, subdir: str, filename_pattern: str) -
     filename_pattern : str
         Regex pattern to match filenames
 
-    Returns:
+    Returns
     --------
     Path
         Path to the matched file
 
-    Raises:
+    Raises
     -------
     AssertionError
         If no matching file is found
@@ -801,19 +800,19 @@ def assert_metrics_content(
     This performs a partial match, ensuring all keys in expected_metrics
     exist and match, while allowing extra fields.
 
-    Parameters:
+    Parameters
     -----------
     task_dir : Path
         Base task directory
     expected_metrics : Dict[str, Any]
         Dictionary with expected metrics
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The full metrics content
 
-    Raises:
+    Raises
     -------
     AssertionError
         If metrics file is not found or content doesn't match expectations
@@ -899,14 +898,14 @@ def create_test_operation_env(
     Create a test environment for operations with a temporary task directory
     and a minimal OperationConfig.
 
-    Parameters:
+    Parameters
     -----------
     tmp_path : Path
         Base path for creating the test environment
     config_overrides : Dict[str, Any], optional
         Overrides for the default configuration
 
-    Returns:
+    Returns
     --------
     Tuple[Path, Any]
         Tuple containing (task_dir, operation_config)

@@ -30,7 +30,8 @@ class EmailGenerator(BaseGenerator):
         """
         Initialize email generator with configuration.
 
-        Args:
+        Parameters
+        ----------
             config: Configuration parameters including:
                 - domains: List of domains or path to domain dictionary
                 - format: Format for email generation (name_surname, surname_name, nickname, existing_domain)
@@ -147,7 +148,8 @@ class EmailGenerator(BaseGenerator):
         """
         Load domain list from configuration or default sources.
 
-        Returns:
+        Returns
+        -------
             List[str]: List of domain names
         """
         domains = []
@@ -190,7 +192,8 @@ class EmailGenerator(BaseGenerator):
         """
         Load nicknames from dictionary or generate default ones.
 
-        Returns:
+        Returns
+        -------
             List[str]: List of nicknames
         """
         nicknames = []
@@ -292,10 +295,12 @@ class EmailGenerator(BaseGenerator):
         """
         Select a random domain from the available list.
 
-        Args:
+        Parameters
+        ----------
             original_domain: Original domain to avoid (if any)
 
-        Returns:
+        Returns
+        -------
             str: Selected domain
         """
         if not self._domain_list:
@@ -360,7 +365,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a random nickname.
 
-        Returns:
+        Returns
+        -------
             str: Generated nickname
         """
         if not self._nicknames:
@@ -384,7 +390,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a random separator for email parts.
 
-        Returns:
+        Returns
+        -------
             str: Generated separator from configured options
         """
         separators = self.separator_options
@@ -404,7 +411,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a random number suffix for email.
 
-        Returns:
+        Returns
+        -------
             str: Generated number as string (or empty string)
         """
         # Check probability to have no number
@@ -433,10 +441,12 @@ class EmailGenerator(BaseGenerator):
         """
         Sanitize the local part of an email address to ensure it's valid.
 
-        Args:
+        Parameters
+        ----------
             text: Text to sanitize
 
-        Returns:
+        Returns
+        -------
             str: Sanitized text
         """
         # Replace non-ASCII characters
@@ -471,10 +481,12 @@ class EmailGenerator(BaseGenerator):
         """
         Validate an email address.
 
-        Args:
+        Parameters
+        ----------
             email: Email address to validate
 
-        Returns:
+        Returns
+        -------
             bool: True if valid, False otherwise
         """
         if not email or not isinstance(email, str):
@@ -518,10 +530,12 @@ class EmailGenerator(BaseGenerator):
         """
         Extract domain from an email address.
 
-        Args:
+        Parameters
+        ----------
             email: Email address
 
-        Returns:
+        Returns
+        -------
             Optional[str]: Domain or None if invalid
         """
         if not email or not isinstance(email, str):
@@ -539,10 +553,12 @@ class EmailGenerator(BaseGenerator):
 
         Attempts to identify which format was used to generate the email.
 
-        Args:
+        Parameters
+        ----------
             email: Email address to analyze
 
-        Returns:
+        Returns
+        -------
             str: Determined format (name_surname, surname_name, nickname, existing_domain or unknown)
         """
         if not email or not isinstance(email, str) or "@" not in email:
@@ -599,12 +615,14 @@ class EmailGenerator(BaseGenerator):
         """
         Generate email local part from name components.
 
-        Args:
+        Parameters
+        ----------
             first_name: First name
             last_name: Last name
             format_type: Format type (name_surname or surname_name)
 
-        Returns:
+        Returns
+        -------
             str: Generated local part
         """
         # Handle missing components
@@ -647,7 +665,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate local part using nickname format.
 
-        Returns:
+        Returns
+        -------
             str: Generated local part
         """
         nickname = self._generate_random_nickname()
@@ -673,7 +692,8 @@ class EmailGenerator(BaseGenerator):
         """
         Select a format based on configured ratios.
 
-        Returns:
+        Returns
+        -------
             str: Selected format
         """
         # If specific format is set, use it
@@ -727,7 +747,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate specified number of synthetic email addresses.
 
-        Args:
+        Parameters
+        ----------
             count: Number of values to generate
             **params: Additional parameters including:
                 - first_name: First name (for name_surname/surname_name formats)
@@ -736,7 +757,8 @@ class EmailGenerator(BaseGenerator):
                 - domain: Specific domain to use
                 - original_email: Original email to extract domain from
 
-        Returns:
+        Returns
+        -------
             List[str]: Generated email addresses
         """
         result = []
@@ -751,7 +773,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a single email address based on parameters.
 
-        Args:
+        Parameters
+        ----------
             **params: Parameters including:
                 - first_name: First name component
                 - last_name: Last name component
@@ -759,7 +782,8 @@ class EmailGenerator(BaseGenerator):
                 - domain: Specific domain to use
                 - original_email: Original email to extract domain from
 
-        Returns:
+        Returns
+        -------
             str: Generated email address
         """
         # Extract parameters
@@ -819,7 +843,8 @@ class EmailGenerator(BaseGenerator):
         """
         Generate a synthetic email address similar to the original one.
 
-        Args:
+        Parameters
+        ----------
             original_value: Original email address
             **params: Additional parameters including:
                 - first_name: First name for name-based formats
@@ -828,7 +853,8 @@ class EmailGenerator(BaseGenerator):
                 - full_name: Full name string to extract components from
                 - name_format: Format of the full_name (FL, FML, LF, etc.)
 
-        Returns:
+        Returns
+        -------
             str: Generated email address
         """
         # ---- 1. # Handle None / NA / NaN / empty ----
@@ -906,11 +932,13 @@ class EmailGenerator(BaseGenerator):
         """
         Parse a full name into components based on format.
 
-        Args:
+        Parameters
+        ----------
             full_name: Full name string
             name_format: Format code (FL, FML, LF, LFM, etc.)
 
-        Returns:
+        Returns
+        -------
             Dict[str, str]: Name components
         """
         if not full_name:
@@ -975,11 +1003,13 @@ class EmailGenerator(BaseGenerator):
 
         Default implementation calls generate_like for each value.
 
-        Args:
+        Parameters
+        ----------
             values: List of original values
             **params: Additional parameters for generation
 
-        Returns:
+        Returns
+        -------
             List of transformed values
         """
         return [self.generate_like(value, **params) for value in values]
@@ -988,10 +1018,12 @@ class EmailGenerator(BaseGenerator):
         """
         Check if a value is a valid email address.
 
-        Args:
+        Parameters
+        ----------
             value: Value to validate
 
-        Returns:
+        Returns
+        -------
             bool: True if value is a valid email, False otherwise
         """
         return self.validate_email(value)

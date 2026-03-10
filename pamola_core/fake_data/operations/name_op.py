@@ -144,7 +144,7 @@ class FakeNameOperation(GeneratorOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -157,7 +157,7 @@ class FakeNameOperation(GeneratorOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -181,11 +181,13 @@ class FakeNameOperation(GeneratorOperation):
         """
         Process a batch of data to generate synthetic names.
 
-        Args:
+        Parameters
+        ----------
             batch: DataFrame batch to process
             kwargs: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed DataFrame batch
         """
         # Get the field value series
@@ -250,11 +252,13 @@ class FakeNameOperation(GeneratorOperation):
         """
         Process a single value using the appropriate generation method.
 
-        Args:
+        Parameters
+        ----------
             value: Original value
             **params: Additional parameters
 
-        Returns:
+        Returns
+        -------
             Processed value
         """
         # If using mapping store, check for existing mapping
@@ -387,10 +391,12 @@ class FakeNameOperation(GeneratorOperation):
         """
         Calculate length statistics for a series of strings.
 
-        Args:
+        Parameters
+        ----------
             series: Series of strings
 
-        Returns:
+        Returns
+        -------
             Dictionary with length statistics
         """
         # Filter out null values
@@ -413,7 +419,7 @@ class FakeNameOperation(GeneratorOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for numeric generalization

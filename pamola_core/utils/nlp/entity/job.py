@@ -77,7 +77,7 @@ class JobPositionExtractor(BaseEntityExtractor):
         """
         Get the entity type for this extractor.
 
-        Returns:
+        Returns
         --------
         str
             Entity type string
@@ -88,7 +88,7 @@ class JobPositionExtractor(BaseEntityExtractor):
         """
         Extract job positions using NER models.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Original text
@@ -97,7 +97,7 @@ class JobPositionExtractor(BaseEntityExtractor):
         language : str
             Language of the text
 
-        Returns:
+        Returns
         --------
         EntityMatchResult or None
             Match result if found, None otherwise
@@ -158,12 +158,12 @@ class JobPositionExtractor(BaseEntityExtractor):
         """
         Determine the domain for a job position.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Job position text
 
-        Returns:
+        Returns
         --------
         str
             Domain name
@@ -181,12 +181,12 @@ class JobPositionExtractor(BaseEntityExtractor):
         """
         Determine the seniority level from a job position.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Job position text
 
-        Returns:
+        Returns
         --------
         str
             Seniority level

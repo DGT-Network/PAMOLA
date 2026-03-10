@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Format Utilities
 Description: Tools for detecting, validating, and handling different file formats and conversions
 Author: PAMOLA Core Team
@@ -64,12 +63,12 @@ def detect_format_from_extension(file_path: Union[str, Path]) -> str:
     """
     Detect file format from file extension.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
 
-    Returns:
+    Returns
     --------
     str
         Detected format: "csv", "json", "parquet", "excel", "pickle"
@@ -102,14 +101,14 @@ def detect_format_from_content(
     """
     Detect file format by examining file content.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
     sample_size : int
         Number of bytes to examine
 
-    Returns:
+    Returns
     --------
     str
         Detected format based on content
@@ -192,14 +191,14 @@ def is_format_supported(format: str, for_reading: bool = True) -> bool:
     """
     Check if a format is supported with the current dependencies.
 
-    Parameters:
+    Parameters
     -----------
     format : str
         Format to check: "csv", "json", "parquet", "excel", "pickle"
     for_reading : bool
         Whether to check for reading (True) or writing (False)
 
-    Returns:
+    Returns
     --------
     bool
         True if format is supported
@@ -251,12 +250,12 @@ def get_format_extension(format: str) -> str:
     """
     Get the standard file extension for a format.
 
-    Parameters:
+    Parameters
     -----------
     format : str
         Format name
 
-    Returns:
+    Returns
     --------
     str
         Standard file extension (without dot)
@@ -292,12 +291,12 @@ def check_dependencies(format: str) -> Tuple[bool, str]:
     """
     Check if all dependencies for a format are available.
 
-    Parameters:
+    Parameters
     -----------
     format : str
         Format to check dependencies for
 
-    Returns:
+    Returns
     --------
     Tuple[bool, str]
         (dependencies_available, error_message)
@@ -351,7 +350,7 @@ def check_pyarrow_available():
     """
     Check if pyarrow is available and raise an informative error if not.
 
-    Raises:
+    Raises
     -------
     ImportError
         If pyarrow is not available
@@ -370,7 +369,7 @@ def check_openpyxl_available():
     """
     Check if openpyxl is available and raise an informative error if not.
 
-    Raises:
+    Raises
     -------
     ImportError
         If openpyxl is not available
@@ -389,7 +388,7 @@ def check_matplotlib_available():
     """
     Check if matplotlib is available and raise an informative error if not.
 
-    Raises:
+    Raises
     -------
     ImportError
         If matplotlib is not available
@@ -410,7 +409,7 @@ def convert_dataframe_to_json(
     """
     Convert a DataFrame to a JSON-serializable object.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to convert
@@ -418,7 +417,7 @@ def convert_dataframe_to_json(
         Orientation for the conversion (default: "records")
         Allowed values: "split", "records", "index", "columns", "values", "table"
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         JSON-serializable object
@@ -440,12 +439,12 @@ def get_pandas_dtypes_info(df: pd.DataFrame) -> Dict[str, str]:
     """
     Get detailed information about column data types.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, str]
         Dictionary mapping column names to detailed data type information
@@ -473,12 +472,12 @@ def get_dataframe_stats(df: pd.DataFrame) -> Dict[str, Any]:
     """
     Get basic statistics about a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with statistics about the DataFrame
@@ -499,12 +498,12 @@ def is_encrypted_file(file_path: Union[str, Path]) -> bool:
     """
     Check if a file is encrypted.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
 
-    Returns:
+    Returns
     --------
     bool
         True if the file appears to be encrypted
@@ -552,7 +551,7 @@ def detect_encoding(
     """
     Detect the encoding of a text file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
@@ -562,7 +561,7 @@ def detect_encoding(
         List of encodings to try if default fails
         (default: ["utf-8", "latin-1", "cp1252"])
 
-    Returns:
+    Returns
     --------
     str
         Detected encoding
@@ -603,14 +602,14 @@ def validate_file_format(
     """
     Validate that a file has the expected format.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
     expected_format : str, optional
         Expected format (if None, inferred from extension)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results

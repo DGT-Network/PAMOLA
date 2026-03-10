@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        LLM Processing Data Contracts
 Package:       pamola_core.utils.nlp.llm.data_contracts
 Version:       1.2.0

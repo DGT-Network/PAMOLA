@@ -24,14 +24,14 @@ def prepare_numeric_data(
     """
     Prepare numeric data for analysis, handling conversions and missing values.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
     field_name : str
         Name of the field to prepare
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, int, int]
         Tuple containing:
@@ -66,14 +66,14 @@ def prepare_field_for_analysis(
     """
     Prepare a field for analysis and infer its data type.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
     field_name : str
         Name of the field to prepare
 
-    Returns:
+    Returns
     --------
     Tuple[pd.Series, str]
         Tuple containing:
@@ -114,7 +114,7 @@ def handle_large_dataframe(
     """
     Handle large dataframes by processing in chunks.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -127,7 +127,7 @@ def handle_large_dataframe(
     **kwargs : dict
         Additional parameters for the operation
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined results of the chunked processing

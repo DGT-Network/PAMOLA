@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Attribute Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -146,7 +145,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Execute the attribute analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -159,7 +158,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -635,7 +634,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Create visualizations for attribute profiling.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of attribute analysis
@@ -797,12 +796,12 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Data source for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -840,7 +839,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -849,7 +848,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -889,7 +888,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -920,7 +919,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of attribute analysis
@@ -943,7 +942,7 @@ class DataAttributeProfilerOperation(BaseOperation):
         operation_timestamp : Optional[str]
             Timestamp string for filenames
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths

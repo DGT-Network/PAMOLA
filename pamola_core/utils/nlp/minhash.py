@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: MinHash Signature Generator
 Description: Module for computing MinHash signatures for text fields to enable fast similarity comparison
 Author: PAMOLA Core Team
@@ -47,7 +46,7 @@ def compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2) -> Li
     """
     Compute a MinHash signature for the given text.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         The input string to compute a signature for
@@ -56,7 +55,7 @@ def compute_minhash(text: str, num_perm: int = 128, shingle_size: int = 2) -> Li
     shingle_size : int, optional
         Size of n-grams (shingles); typical values: 2 (bigrams), 3 (trigrams)
 
-    Returns:
+    Returns
     --------
     List[int]
         A list of integers representing the MinHash signature
@@ -94,7 +93,7 @@ def preprocess_text(
     """
     Preprocess text for MinHash computation.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Input text to preprocess
@@ -109,7 +108,7 @@ def preprocess_text(
     languages : List[str], optional
         Languages for stopword removal, defaults to ['en', 'ru'] if None
 
-    Returns:
+    Returns
     --------
     str
         Preprocessed text
@@ -156,7 +155,7 @@ def create_shingles(
     """
     Create shingles (n-grams) from the input text.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Input text to create shingles from
@@ -165,7 +164,7 @@ def create_shingles(
     method : str, optional
         Shingling method: 'character', 'word', or 'unicode'
 
-    Returns:
+    Returns
     --------
     Set[str]
         Set of shingles
@@ -207,14 +206,14 @@ def serialize_signature(signature: List[int], delimiter: str = ";") -> str:
     """
     Convert a signature vector into a string for storage.
 
-    Parameters:
+    Parameters
     -----------
     signature : List[int]
         MinHash signature as list of integers
     delimiter : str, optional
         Delimiter character for joining values
 
-    Returns:
+    Returns
     --------
     str
         Serialized signature string
@@ -226,14 +225,14 @@ def deserialize_signature(signature_str: str, delimiter: str = ";") -> List[int]
     """
     Convert a serialized signature string back into a list of integers.
 
-    Parameters:
+    Parameters
     -----------
     signature_str : str
         Serialized signature string
     delimiter : str, optional
         Delimiter character used in the serialized string
 
-    Returns:
+    Returns
     --------
     List[int]
         MinHash signature as list of integers
@@ -252,14 +251,14 @@ def calculate_jaccard_similarity(signature1: List[int], signature2: List[int]) -
     """
     Calculate Jaccard similarity between two MinHash signatures.
 
-    Parameters:
+    Parameters
     -----------
     signature1 : List[int]
         First MinHash signature
     signature2 : List[int]
         Second MinHash signature
 
-    Returns:
+    Returns
     --------
     float
         Estimated Jaccard similarity (0-1 range)
@@ -295,7 +294,7 @@ def process_csv_file(
     """
     Process a CSV file, computing MinHash signatures for a specified field.
 
-    Parameters:
+    Parameters
     -----------
     input_path : str
         Path to input CSV file
@@ -314,7 +313,7 @@ def process_csv_file(
     preprocessing_params : Dict, optional
         Parameters for text preprocessing
 
-    Returns:
+    Returns
     --------
     OperationResult
         Result of the operation
@@ -414,12 +413,12 @@ def estimate_optimal_num_perm(desired_error: float = 0.05) -> int:
     """
     Estimate the optimal number of permutations for a desired error level.
 
-    Parameters:
+    Parameters
     -----------
     desired_error : float, optional
         Desired error level (e.g., 0.05 for 5% error)
 
-    Returns:
+    Returns
     --------
     int
         Recommended number of permutations
@@ -441,7 +440,7 @@ def get_cache_key(text: str, num_perm: int, shingle_size: int) -> str:
     """
     Generate a cache key for a MinHash computation.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Input text
@@ -450,7 +449,7 @@ def get_cache_key(text: str, num_perm: int, shingle_size: int) -> str:
     shingle_size : int
         Shingle size
 
-    Returns:
+    Returns
     --------
     str
         Cache key string
@@ -467,7 +466,7 @@ def cached_compute_minhash(
     """
     Compute MinHash with caching support.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Input text
@@ -478,7 +477,7 @@ def cached_compute_minhash(
     use_cache : bool, optional
         Whether to use caching
 
-    Returns:
+    Returns
     --------
     List[int]
         MinHash signature
@@ -515,7 +514,7 @@ def batch_compute_minhash(
     """
     Compute MinHash signatures for a batch of texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of input strings
@@ -524,7 +523,7 @@ def batch_compute_minhash(
     shingle_size : int, optional
         Shingle size
 
-    Returns:
+    Returns
     --------
     List[List[int]]
         List of MinHash signatures
@@ -536,7 +535,7 @@ def create_minhash_generator():
     """
     Create and return a function to generate MinHash signatures with reasonable defaults.
 
-    Returns:
+    Returns
     --------
     Callable
         Function for generating MinHash signatures

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Anonymization Metric Utilities
 Package:       pamola_core.anonymization.commons
 Version:       2.1.0
@@ -76,14 +75,14 @@ def calculate_anonymization_effectiveness(
     Quick metrics to assess how well the anonymization process worked
     without heavy statistical analysis.
 
-    Parameters:
+    Parameters
     -----------
     original_series : pd.Series
         Original data before anonymization
     anonymized_series : pd.Series
         Data after anonymization
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Basic effectiveness metrics
@@ -141,7 +140,7 @@ def calculate_generalization_metrics(
 
     Lightweight metrics focused on the generalization process itself.
 
-    Parameters:
+    Parameters
     -----------
     original_series : pd.Series
         Original data
@@ -152,7 +151,7 @@ def calculate_generalization_metrics(
     strategy_params : Dict[str, Any]
         Parameters of the strategy
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Generalization process metrics
@@ -249,7 +248,7 @@ def calculate_categorical_information_loss(
     values are generalized, providing quick feedback on the trade-off
     between privacy and utility.
 
-    Parameters:
+    Parameters
     -----------
     original_series : pd.Series
         Original categorical data
@@ -260,7 +259,7 @@ def calculate_categorical_information_loss(
     hierarchy_info : Optional[Dict[str, Any]]
         Information about hierarchy (levels, structure) if available
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Information loss metrics:
@@ -387,7 +386,7 @@ def calculate_generalization_height(
     have been generalized. It's a quick metric for understanding the degree
     of generalization applied.
 
-    Parameters:
+    Parameters
     -----------
     original_values : Union[pd.Series, List[str]]
         Original values before generalization
@@ -403,7 +402,7 @@ def calculate_generalization_height(
             }
         }
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Generalization height metrics:
@@ -522,7 +521,7 @@ def calculate_masking_metrics(
 
     Simple metrics to track masking effectiveness.
 
-    Parameters:
+    Parameters
     -----------
     original_series : pd.Series
         Original data
@@ -531,7 +530,7 @@ def calculate_masking_metrics(
     mask_char : str
         Character used for masking
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Masking process metrics
@@ -569,14 +568,14 @@ def calculate_suppression_metrics(
 
     Track how many values were suppressed during anonymization.
 
-    Parameters:
+    Parameters
     -----------
     original_series : pd.Series
         Original data
     suppressed_series : pd.Series
         Data after suppression
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Suppression metrics
@@ -630,7 +629,7 @@ def calculate_process_performance(
 
     Simple timing and throughput metrics.
 
-    Parameters:
+    Parameters
     -----------
     start_time : float
         Process start time
@@ -641,7 +640,7 @@ def calculate_process_performance(
     batch_count : Optional[int]
         Number of batches processed
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Performance metrics
@@ -685,14 +684,14 @@ def get_value_distribution_summary(
 
     Lightweight distribution info for process monitoring.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Data to summarize
     max_categories : int
         Maximum categories to include
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Distribution summary
@@ -737,7 +736,7 @@ def collect_operation_metrics(
 
     Central function to gather process metrics based on operation type.
 
-    Parameters:
+    Parameters
     -----------
     operation_type : str
         Type of operation (generalization, masking, suppression, etc.)
@@ -750,7 +749,7 @@ def collect_operation_metrics(
     timing_info : Optional[Dict[str, float]]
         Timing information (start_time, end_time)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Collected metrics
@@ -843,7 +842,7 @@ def save_process_metrics(
 
     Lightweight metric persistence for process monitoring.
 
-    Parameters:
+    Parameters
     -----------
     metrics : Dict[str, Any]
         Metrics to save
@@ -856,7 +855,7 @@ def save_process_metrics(
     writer : Optional[DataWriter]
         DataWriter instance
 
-    Returns:
+    Returns
     --------
     Optional[Path]
         Path to saved metrics or None
@@ -906,12 +905,12 @@ def get_process_summary_message(metrics: Dict[str, Any]) -> str:
 
     Quick summary for logging and monitoring.
 
-    Parameters:
+    Parameters
     -----------
     metrics : Dict[str, Any]
         Process metrics
 
-    Returns:
+    Returns
     --------
     str
         Summary message

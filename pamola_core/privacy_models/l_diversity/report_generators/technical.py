@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - L-Diversity Technical Reporting
----------------------------------------------
 This module provides specialized functions for generating
 technical reports for l-diversity anonymization.
 
@@ -42,7 +41,7 @@ def generate_distinct_diversity_report(
     """
     Generate technical report for distinct l-diversity
 
-    Parameters:
+    Parameters
     -----------
     processor : object
         L-Diversity processor instance
@@ -55,7 +54,7 @@ def generate_distinct_diversity_report(
     output_path : str or Path, optional
         Path to save report (if None, report is only returned)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Distinct l-diversity technical report
@@ -100,7 +99,7 @@ def generate_entropy_diversity_report(
     """
     Generate technical report for entropy l-diversity
 
-    Parameters:
+    Parameters
     -----------
     processor : object
         L-Diversity processor instance
@@ -113,7 +112,7 @@ def generate_entropy_diversity_report(
     output_path : str or Path, optional
         Path to save report (if None, report is only returned)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Entropy l-diversity technical report
@@ -158,7 +157,7 @@ def generate_recursive_diversity_report(
     """
     Generate technical report for recursive l-diversity
 
-    Parameters:
+    Parameters
     -----------
     processor : object
         L-Diversity processor instance
@@ -171,7 +170,7 @@ def generate_recursive_diversity_report(
     output_path : str or Path, optional
         Path to save report (if None, report is only returned)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Recursive l-diversity technical report
@@ -219,7 +218,7 @@ def generate_attribute_diversity_report(
     """
     Generate technical report for a specific sensitive attribute
 
-    Parameters:
+    Parameters
     -----------
     processor : object
         L-Diversity processor instance
@@ -232,7 +231,7 @@ def generate_attribute_diversity_report(
     output_path : str or Path, optional
         Path to save report (if None, report is only returned)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Attribute-specific diversity report
@@ -294,7 +293,7 @@ def calculate_distinct_diversity_metrics(
     """
     Calculate detailed distinct l-diversity metrics
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -303,7 +302,7 @@ def calculate_distinct_diversity_metrics(
     sensitive_attributes : List[str]
         Sensitive attribute columns
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Detailed distinct l-diversity metrics
@@ -386,7 +385,7 @@ def calculate_entropy_diversity_metrics(
     """
     Calculate detailed entropy l-diversity metrics
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -395,7 +394,7 @@ def calculate_entropy_diversity_metrics(
     sensitive_attributes : List[str]
         Sensitive attribute columns
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Detailed entropy l-diversity metrics
@@ -507,7 +506,7 @@ def calculate_recursive_diversity_metrics(
     """
     Calculate detailed recursive l-diversity metrics
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -518,7 +517,7 @@ def calculate_recursive_diversity_metrics(
     c_value : float, optional
         C-value for recursive l-diversity
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Detailed recursive l-diversity metrics

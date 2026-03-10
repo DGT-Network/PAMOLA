@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        File and Path Validators
 Package:       pamola_core.anonymization.commons.validation
 Version:       1.0.0
@@ -81,7 +80,8 @@ class FilePathValidator(BaseValidator):
     """
     Validator for file paths with existence and format checks.
 
-    Attributes:
+    Attributes
+    ----------
         must_exist: Whether file must exist
         valid_extensions: List of allowed extensions
         max_size_mb: Maximum file size in MB
@@ -98,7 +98,8 @@ class FilePathValidator(BaseValidator):
         """
         Initialize file path validator.
 
-        Args:
+        Parameters
+        ----------
             must_exist: Whether file must exist
             valid_extensions: Allowed file extensions (e.g., ['.csv', '.json'])
             max_size_mb: Maximum allowed file size in MB
@@ -115,11 +116,13 @@ class FilePathValidator(BaseValidator):
         """
         Validate file path.
 
-        Args:
+        Parameters
+        ----------
             file_path: Path to validate
             **kwargs: Additional validation parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -181,7 +184,8 @@ class DirectoryPathValidator(BaseValidator):
     """
     Validator for directory paths with creation options.
 
-    Attributes:
+    Attributes
+    ----------
         must_exist: Whether directory must exist
         create_if_missing: Whether to create missing directories
         check_permissions: Whether to check write permissions
@@ -196,7 +200,8 @@ class DirectoryPathValidator(BaseValidator):
         """
         Initialize directory path validator.
 
-        Args:
+        Parameters
+        ----------
             must_exist: Whether directory must exist
             create_if_missing: Whether to create if missing
             check_permissions: Whether to check write permissions
@@ -211,11 +216,13 @@ class DirectoryPathValidator(BaseValidator):
         """
         Validate directory path.
 
-        Args:
+        Parameters
+        ----------
             dir_path: Directory path to validate
             **kwargs: Additional validation parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -270,7 +277,8 @@ class JSONFileValidator(BaseValidator):
     """
     Validator for JSON configuration files.
 
-    Attributes:
+    Attributes
+    ----------
         schema: Optional JSON schema for validation
         required_keys: Required top-level keys
     """
@@ -283,7 +291,8 @@ class JSONFileValidator(BaseValidator):
         """
         Initialize JSON file validator.
 
-        Args:
+        Parameters
+        ----------
             schema: JSON schema for validation
             required_keys: Required top-level keys
         """
@@ -296,11 +305,13 @@ class JSONFileValidator(BaseValidator):
         """
         Validate JSON file structure and content.
 
-        Args:
+        Parameters
+        ----------
             file_path: Path to JSON file
             **kwargs: Additional validation parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -347,7 +358,8 @@ class CSVFileValidator(BaseValidator):
     """
     Validator for CSV files.
 
-    Attributes:
+    Attributes
+    ----------
         required_columns: Required column names
         delimiter: Expected delimiter
         has_header: Whether file should have header
@@ -364,7 +376,8 @@ class CSVFileValidator(BaseValidator):
         """
         Initialize CSV file validator.
 
-        Args:
+        Parameters
+        ----------
             required_columns: Required column names
             delimiter: Expected delimiter
             has_header: Whether file should have header
@@ -381,11 +394,13 @@ class CSVFileValidator(BaseValidator):
         """
         Validate CSV file structure.
 
-        Args:
+        Parameters
+        ----------
             file_path: Path to CSV file
             **kwargs: Additional validation parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -464,7 +479,8 @@ class HierarchyFileValidator(BaseValidator):
         """
         Initialize hierarchy file validator.
 
-        Args:
+        Parameters
+        ----------
             file_format: Expected format ('json', 'csv', 'auto')
             validate_structure: Whether to validate hierarchy structure
         """
@@ -477,11 +493,13 @@ class HierarchyFileValidator(BaseValidator):
         """
         Validate hierarchy dictionary file.
 
-        Args:
+        Parameters
+        ----------
             file_path: Path to hierarchy file
             **kwargs: Additional validation parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -557,7 +575,8 @@ class MultiFileValidator(BaseValidator):
         """
         Initialize multi-file validator.
 
-        Args:
+        Parameters
+        ----------
             file_validator: Validator to use for each file
             min_files: Minimum number of files required
             max_files: Maximum number of files allowed
@@ -576,11 +595,13 @@ class MultiFileValidator(BaseValidator):
         """
         Validate multiple files.
 
-        Args:
+        Parameters
+        ----------
             file_paths: List of file paths to validate
             **kwargs: Additional validation parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -650,12 +671,14 @@ def validate_file_path(
     """
     Validate file path (convenience function).
 
-    Args:
+    Parameters
+    ----------
         file_path: Path to validate
         must_exist: Whether file must exist
         valid_extensions: Allowed extensions
 
-    Returns:
+    Returns
+    -------
         ValidationResult
     """
     validator = FilePathValidator(
@@ -671,12 +694,14 @@ def validate_directory_path(
     """
     Validate directory path (convenience function).
 
-    Args:
+    Parameters
+    ----------
         dir_path: Directory path to validate
         must_exist: Whether directory must exist
         create_if_missing: Whether to create if missing
 
-    Returns:
+    Returns
+    -------
         ValidationResult
     """
     validator = DirectoryPathValidator(

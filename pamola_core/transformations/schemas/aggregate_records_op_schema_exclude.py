@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Aggregate Records Exclude Fields
 Package:       pamola_core.transformations.schemas
 Version:       1.0.0

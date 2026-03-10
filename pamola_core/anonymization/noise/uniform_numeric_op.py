@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Uniform Numeric Noise Operation
 Package:       pamola_core.anonymization.noise
 Version:       1.0.0
@@ -205,13 +204,15 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         """
         Validate noise operation parameters.
 
-        Args:
+        Parameters
+        ----------
             noise_range: Noise range to validate
             noise_type: Noise type to validate
             output_min: Minimum bound to validate
             output_max: Maximum bound to validate
 
-        Raises:
+        Raises
+        ------
             InvalidParameterError: If parameters are invalid
         """
         # Validate noise type
@@ -256,10 +257,12 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         """
         Generate uniform noise values.
 
-        Args:
+        Parameters
+        ----------
             size: Number of noise values to generate
 
-        Returns:
+        Returns
+        -------
             Array of noise values
         """
         # Get parameters from self
@@ -300,10 +303,12 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         """
         Calculate noise scale factor based on data statistics.
 
-        Args:
+        Parameters
+        ----------
             series: Data series to analyze
 
-        Returns:
+        Returns
+        -------
             Calculated scale factor
         """
         # Get parameters from self
@@ -324,11 +329,13 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         """
         Apply noise to values with constraints.
 
-        Args:
+        Parameters
+        ----------
             values: Original values
             noise: Noise values to apply
 
-        Returns:
+        Returns
+        -------
             Series with noise applied
         """
         # Get parameters from self
@@ -376,12 +383,13 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         """
         Process a batch of data by adding uniform noise.
 
-        Parameters:
+        Parameters
         -----------
             batch : pd.DataFrame
                 DataFrame batch to process
 
-        Returns:
+        Returns
+        -------
             Processed DataFrame with noise added
         """
         # Extract parameters from self
@@ -441,11 +449,13 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         """
         Collect uniform noise specific metrics.
 
-        Args:
+        Parameters
+        ----------
             original_data: Original data series
             anonymized_data: Data series after noise addition
 
-        Returns:
+        Returns
+        -------
             Dictionary of noise-specific metrics
         """
         # Calculate actual noise added
@@ -530,7 +540,8 @@ class UniformNumericNoiseOperation(AnonymizationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
+        -------
             Dictionary of parameters affecting the operation output
         """
         # Add noise-specific parameters

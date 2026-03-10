@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
--------------------------------------------------------------
 Module:        Fidelity Operation Config
 Package:       pamola_core.metrics.schemas
 Version:       1.0.0

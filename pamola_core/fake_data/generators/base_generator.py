@@ -22,7 +22,8 @@ class BaseGenerator(ABC):
         """
         Initialize generator with optional configuration.
 
-        Args:
+        Parameters
+        ----------
             config: Dictionary with configuration parameters
         """
         self.config = config or {}
@@ -32,11 +33,13 @@ class BaseGenerator(ABC):
         """
         Generate specified number of synthetic values.
 
-        Args:
+        Parameters
+        ----------
             count: Number of values to generate
             **params: Additional parameters for generation
 
-        Returns:
+        Returns
+        -------
             List of generated values
         """
         pass
@@ -46,11 +49,13 @@ class BaseGenerator(ABC):
         """
         Generate a synthetic value similar to the original one.
 
-        Args:
+        Parameters
+        ----------
             original_value: Original value to base generation on
             **params: Additional parameters for generation
 
-        Returns:
+        Returns
+        -------
             Generated value
         """
         pass
@@ -61,11 +66,13 @@ class BaseGenerator(ABC):
 
         Default implementation calls generate_like for each value.
 
-        Args:
+        Parameters
+        ----------
             values: List of original values
             **params: Additional parameters for generation
 
-        Returns:
+        Returns
+        -------
             List of transformed values
         """
         return [self.generate_like(value, **params) for value in values]
@@ -74,10 +81,12 @@ class BaseGenerator(ABC):
         """
         Check if a value is valid according to this generator's rules.
 
-        Args:
+        Parameters
+        ----------
             value: Value to validate
 
-        Returns:
+        Returns
+        -------
             True if value is valid, False otherwise
         """
         # Default implementation accepts any non-empty string

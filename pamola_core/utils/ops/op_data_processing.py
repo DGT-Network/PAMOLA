@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Data Processing Utilities
 Package:       pamola_core.utils.ops
 Version:       2.0.0
@@ -53,7 +52,7 @@ def optimize_dataframe_dtypes(
     """
     Optimize DataFrame data types to reduce memory usage.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to optimize
@@ -66,7 +65,7 @@ def optimize_dataframe_dtypes(
     inplace : bool, optional
         Whether to modify the DataFrame in place (default: False)
 
-    Returns:
+    Returns
     --------
     Tuple[pd.DataFrame, Dict[str, Any]]
         (optimized_dataframe, optimization_info)
@@ -137,14 +136,14 @@ def get_dataframe_chunks(
     """
     Generate DataFrame chunks for memory-efficient processing.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to chunk
     chunk_size : int, optional
         Size of each chunk (default: 10000)
 
-    Yields:
+    Yields
     -------
     pd.DataFrame
         Chunks of the original DataFrame
@@ -162,7 +161,7 @@ def process_null_values(
     """
     Process null values in a Series according to strategy.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Series to process
@@ -171,7 +170,7 @@ def process_null_values(
     fill_value : Any, optional
         Value to use when strategy is "fill"
 
-    Returns:
+    Returns
     --------
     pd.Series
         Processed series
@@ -202,14 +201,14 @@ def safe_convert_to_numeric(
     """
     Safely convert series to numeric, handling errors gracefully.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Series to convert
     errors : Literal['coerce', 'ignore', 'raise'], optional
         How to handle parsing errors: 'coerce', 'ignore', 'raise' (default: 'coerce')
 
-    Returns:
+    Returns
     --------
     pd.Series
         Numeric series
@@ -221,12 +220,12 @@ def get_memory_usage(df: pd.DataFrame) -> Dict[str, float]:
     """
     Get memory usage statistics for a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Memory usage information in MB
@@ -254,7 +253,7 @@ def apply_to_column(
     """
     Apply a function to a DataFrame column with optional result column.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -267,7 +266,7 @@ def apply_to_column(
     **kwargs
         Additional arguments passed to func
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame with applied transformation
@@ -297,7 +296,7 @@ def create_sample(
     """
     Create a sample from DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to sample from
@@ -308,7 +307,7 @@ def create_sample(
     random_state : int, optional
         Random seed (default: 42)
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Sampled DataFrame

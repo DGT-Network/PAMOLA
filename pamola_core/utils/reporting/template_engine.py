@@ -27,12 +27,12 @@ def get_jinja_environment(template_name: Optional[str] = None) -> jinja2.Environ
     """
     Создает и настраивает окружение Jinja2.
 
-    Parameters:
+    Parameters
     -----------
     template_name : str, optional
         Имя шаблона (если не указано, используется шаблон по умолчанию)
 
-    Returns:
+    Returns
     --------
     jinja2.Environment
         Настроенное окружение Jinja2
@@ -68,7 +68,7 @@ def render_template(
     """
     Рендерит шаблон с заданным контекстом.
 
-    Parameters:
+    Parameters
     -----------
     template_name : str
         Имя файла шаблона (например, base.html)
@@ -77,7 +77,7 @@ def render_template(
     template_dir : str, optional
         Имя директории шаблона (если не указано, используется шаблон по умолчанию)
 
-    Returns:
+    Returns
     --------
     str
         Отрендеренный HTML-код
@@ -100,14 +100,14 @@ def copy_static_resources(
     """
     Копирует статические ресурсы шаблона (CSS, JS) в директорию отчета.
 
-    Parameters:
+    Parameters
     -----------
     target_dir : Path
         Целевая директория
     template_name : str, optional
         Имя шаблона (если не указано, используется шаблон по умолчанию)
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -160,12 +160,12 @@ def include_external_resources(target_dir: Path) -> bool:
     """
     Загружает и сохраняет внешние ресурсы (Bootstrap, Chart.js и т. д.).
 
-    Parameters:
+    Parameters
     -----------
     target_dir : Path
         Целевая директория
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -233,12 +233,12 @@ def check_template_exists(template_name: Optional[str] = None) -> bool:
     """
     Проверяет наличие шаблона.
 
-    Parameters:
+    Parameters
     -----------
     template_name : str, optional
         Имя шаблона (если не указано, используется шаблон по умолчанию)
 
-    Returns:
+    Returns
     --------
     bool
         True, если шаблон существует и содержит необходимые файлы
@@ -259,12 +259,12 @@ def initialize_template(template_name: str) -> bool:
     """
     Инициализирует шаблон - копирует стандартные файлы в директорию шаблона.
 
-    Parameters:
+    Parameters
     -----------
     template_name : str
         Имя нового шаблона
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -308,7 +308,7 @@ def list_available_templates() -> List[str]:
     """
     Получает список доступных шаблонов.
 
-    Returns:
+    Returns
     --------
     List[str]
         Список имен доступных шаблонов
@@ -328,7 +328,7 @@ def create_default_template() -> bool:
     """
     Создает шаблон по умолчанию с базовыми файлами.
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -362,12 +362,12 @@ def format_file_size(size_bytes: int) -> str:
     """
     Форматирует размер файла в читаемый вид.
 
-    Parameters:
+    Parameters
     -----------
     size_bytes : int
         Размер в байтах
 
-    Returns:
+    Returns
     --------
     str
         Отформатированная строка с размером
@@ -386,12 +386,12 @@ def to_json(data: Any) -> str:
     """
     Преобразует данные в JSON-строку.
 
-    Parameters:
+    Parameters
     -----------
     data : Any
         Данные для преобразования
 
-    Returns:
+    Returns
     --------
     str
         JSON-строка
@@ -403,14 +403,14 @@ def create_empty_report(output_path: Path, title: str = "Пустой отчет
     """
     Создает пустой отчет для случаев, когда нет данных.
 
-    Parameters:
+    Parameters
     -----------
     output_path : Path
         Путь для сохранения отчета
     title : str
         Заголовок отчета
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -442,14 +442,14 @@ def get_relative_artifact_path(
     """
     Вычисляет относительный путь к артефакту от директории отчета.
 
-    Parameters:
+    Parameters
     -----------
     artifact_path : str or Path
         Абсолютный путь к артефакту
     html_report_dir : Path
         Путь к директории отчета
 
-    Returns:
+    Returns
     --------
     str
         Относительный путь к артефакту

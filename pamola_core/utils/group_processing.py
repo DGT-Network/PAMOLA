@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Group Processing Utilities for Anonymization
----------------------------------------------------------
 This module provides utility functions for processing and analyzing groups
 in datasets for anonymization techniques such as k-anonymity, l-diversity,
 and t-closeness.
@@ -52,7 +51,7 @@ def compute_group_sizes(
     as it determines how many records share the same combination of
     quasi-identifier values.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset containing quasi-identifiers.
@@ -61,7 +60,7 @@ def compute_group_sizes(
     use_dask : bool, optional
         If True, enables parallel processing with Dask (default: False).
 
-    Returns:
+    Returns
     --------
     pd.Series
         A series mapping each group to its size.
@@ -87,7 +86,7 @@ def adaptive_k_lookup(
     This allows for varying levels of anonymity based on the sensitivity
     or characteristics of different groups in the dataset.
 
-    Parameters:
+    Parameters
     -----------
     group_sizes : pd.Series
         Series mapping each group to its count.
@@ -96,7 +95,7 @@ def adaptive_k_lookup(
     adaptive_k : dict, optional
         Dictionary defining custom k-values for specific groups.
 
-    Returns:
+    Returns
     --------
     pd.Series
         A series mapping each group to its adaptive k-value.
@@ -119,7 +118,7 @@ def validate_anonymity_inputs(
     to anonymization functions are valid, helping to prevent errors
     and provide clear error messages.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset to validate.
@@ -128,7 +127,7 @@ def validate_anonymity_inputs(
     k : int
         The k value to validate.
 
-    Raises:
+    Raises
     -------
     TypeError
         If data is not a pandas DataFrame or dask DataFrame.
@@ -178,14 +177,14 @@ def optimize_memory_usage(
     This is particularly useful for large datasets where memory optimization
     can significantly improve performance.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset to optimize.
     quasi_identifiers : list[str]
         List of quasi-identifiers to focus on for optimization.
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         The memory-optimized dataset.
@@ -222,7 +221,7 @@ def identify_unique_groups(
     This is useful for analyzing the distribution of quasi-identifier combinations
     and understanding potential privacy risks.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset to analyze.
@@ -231,7 +230,7 @@ def identify_unique_groups(
     max_groups : int, optional
         Maximum number of groups to return (default: 100).
 
-    Returns:
+    Returns
     --------
     dict
         Dictionary mapping group values to counts, sorted by count (descending).

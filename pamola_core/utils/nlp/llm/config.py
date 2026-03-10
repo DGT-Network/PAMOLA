@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        LLM Configuration
 Package:       pamola_core.utils.nlp.llm.config
 Version:       2.2.0

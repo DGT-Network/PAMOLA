@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Predicted Utility Scoring
 Package:       pamola_core.metrics.commons.predicted_utility_scoring
 Version:       1.0.0

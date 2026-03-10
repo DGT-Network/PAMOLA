@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: Attack Simulation
------------------------
 This module provides an abstract base class for attack simulation feature
 in PAMOLA.CORE. It defines the general structure and required methods for
 implementing specific attack simulation
@@ -38,12 +36,12 @@ class AttackInitialization(ABC):
         """
         Data preprocessing: Use TF-ID to convert all string elements of data1 and data2 to numbers
 
-        Parameters:
+        Parameters
         -----------
         data1: First dataset
         data_test: Second dataset
 
-        Returns:
+        Returns
         -----------
         data1_final: The dataset contains numeric values corresponding to data1
         data2_final: The dataset contains numeric values corresponding to data2
@@ -56,12 +54,12 @@ class AttackInitialization(ABC):
         """
         Process the input data.
 
-        Parameters:
+        Parameters
         -----------
         data : Any
             The input data to be processed.
 
-        Returns:
+        Returns
         --------
         Processed data, transformed according to the specific processor logic.
         """

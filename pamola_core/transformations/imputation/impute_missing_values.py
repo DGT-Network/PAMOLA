@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Impute Missing Values Operation
 Description: Operation for replace missing or invalid values using
 statistical functions.
@@ -67,7 +66,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Initialize the Impute Missing Values Operation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation (default: "impute_missing_values_operation")
@@ -118,7 +117,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -131,7 +130,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -437,12 +436,12 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Process a batch of data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             Batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed batch
@@ -692,14 +691,14 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Process a single value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Value to process
         **params : dict
             Additional parameters for processing
 
-        Returns:
+        Returns
         --------
         Any
             Processed value
@@ -710,7 +709,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -729,14 +728,14 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to process
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The processed dataframe
@@ -766,14 +765,14 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Calculate all metrics for operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -802,14 +801,14 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Collect metrics for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
         processed_df : pd.DataFrame
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -974,7 +973,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data
@@ -1001,7 +1000,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         operation_timestamp : str, optional
             Timestamp of the operation, if any (for filename purposes)
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1190,7 +1189,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         """
         Generate visualizations for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original data before processing
@@ -1211,7 +1210,7 @@ class ImputeMissingValuesOperation(TransformationOperation):
         operation_timestamp : str, optional
             Timestamp of the operation, if any (for filename purposes)
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1453,12 +1452,12 @@ def create_impute_missing_values_operation(**kwargs) -> ImputeMissingValuesOpera
     """
     Create impute missing values operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     ImputeMissingValuesOperation
         Configured impute missing values operation

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:      Pamola Core I/O Utilities
 Package:       pamola_core.utils
 Version:       2.0.1+refactor.2025.06.03
@@ -126,12 +125,12 @@ def get_file_metadata(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Get comprehensive metadata about a file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : Union[str, Path]
         Path to the file
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with file metadata
@@ -145,14 +144,14 @@ def calculate_checksum(
     """
     Calculate a checksum for a file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : Union[str, Path]
         Path to the file
     algorithm : str
         Hash algorithm to use ('sha256', 'md5', 'sha1')
 
-    Returns:
+    Returns
     --------
     Optional[str]
         Checksum as a hexadecimal string, or None if file doesn't exist
@@ -164,12 +163,12 @@ def get_file_size(file_path: Union[str, Path]) -> Optional[int]:
     """
     Get the size of a file in bytes.
 
-    Parameters:
+    Parameters
     -----------
     file_path : Union[str, Path]
         Path to the file
 
-    Returns:
+    Returns
     --------
     Optional[int]
         File size in bytes, or None if file doesn't exist
@@ -181,12 +180,12 @@ def file_exists(file_path: Union[str, Path]) -> bool:
     """
     Check if a file exists.
 
-    Parameters:
+    Parameters
     -----------
     file_path : Union[str, Path]
         Path to the file
 
-    Returns:
+    Returns
     --------
     bool
         True if the file exists, False otherwise
@@ -198,14 +197,14 @@ def safe_remove_file(file_path: Union[str, Path], secure: bool = False) -> bool:
     """
     Safely remove a file with optional secure deletion.
 
-    Parameters:
+    Parameters
     -----------
     file_path : Union[str, Path]
         Path to the file to remove
     secure : bool
         Whether to use secure deletion (overwrite with zeros before deletion)
 
-    Returns:
+    Returns
     --------
     bool
         True if the file was successfully removed, False otherwise
@@ -217,14 +216,14 @@ def validate_file_type(file_path: Union[str, Path], expected_extension: str) -> 
     """
     Validate that a file has the expected extension.
 
-    Parameters:
+    Parameters
     -----------
     file_path : Union[str, Path]
         Path to the file
     expected_extension : str
         Expected file extension (without dot)
 
-    Returns:
+    Returns
     --------
     bool
         True if the file has the expected extension, False otherwise
@@ -241,12 +240,12 @@ def ensure_directory(directory: Union[str, Path]) -> Path:
     """
     Ensures the specified directory exists, creating it if necessary.
 
-    Parameters:
+    Parameters
     -----------
     directory : str or Path
         Path to the directory to ensure exists
 
-    Returns:
+    Returns
     --------
     Path
         Pathlib object for the ensured directory
@@ -260,7 +259,7 @@ def get_timestamped_filename(
     """
     Creates a timestamped filename.
 
-    Parameters:
+    Parameters
     -----------
     base_name : str
         Base name for the file
@@ -269,7 +268,7 @@ def get_timestamped_filename(
     include_timestamp : bool
         Whether to include a timestamp in the filename (default: True)
 
-    Returns:
+    Returns
     --------
     str
         Timestamped filename
@@ -283,12 +282,12 @@ def get_file_stats(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Gets statistics about a file.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with file statistics (size, creation time, modification time, etc.)
@@ -302,7 +301,7 @@ def list_directory_contents(
     """
     Lists the contents of a directory.
 
-    Parameters:
+    Parameters
     -----------
     directory : str or Path
         Path to the directory
@@ -311,7 +310,7 @@ def list_directory_contents(
     recursive : bool
         Whether to search recursively (default: False)
 
-    Returns:
+    Returns
     --------
     List[Path]
         List of paths to the files matching the pattern
@@ -327,7 +326,7 @@ def clear_directory(
     """
     Clears all files and subdirectories in the specified directory.
 
-    Parameters:
+    Parameters
     -----------
     directory : str or Path
         Path to the directory to clear
@@ -336,7 +335,7 @@ def clear_directory(
     confirm : bool
         Whether to ask for confirmation before clearing (default: True)
 
-    Returns:
+    Returns
     --------
     int
         Number of items removed
@@ -365,7 +364,7 @@ def read_csv_in_chunks(
     """
     Reads a very large CSV file in chunks, yielding each chunk as a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -390,7 +389,7 @@ def read_csv_in_chunks(
     skiprows : Union[int, List[int]], optional
         Row indices to skip or number of rows to skip from the start
 
-    Yields:
+    Yields
     -------
     pd.DataFrame
         DataFrame containing each chunk of data
@@ -540,7 +539,7 @@ def read_full_csv(
     Reads an entire CSV file into a DataFrame.
     For large files, consider using read_csv_in_chunks instead.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -567,7 +566,7 @@ def read_full_csv(
     encryption_mode : str, optional
         Encryption mode to use (default: "simple")
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame containing the entire file
@@ -607,7 +606,7 @@ def write_dataframe_to_csv(
     """
     Writes a DataFrame to a CSV file.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to write
@@ -643,7 +642,7 @@ def write_dataframe_to_csv(
     **kwargs
         Additional keyword arguments for the CSV writer
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -798,7 +797,7 @@ def write_chunks_to_csv(
     """
     Writes an iterator of DataFrame chunks to a CSV file.
 
-    Parameters:
+    Parameters
     -----------
     chunks : Iterator[pd.DataFrame]
         Iterator of DataFrame chunks to write
@@ -817,7 +816,7 @@ def write_chunks_to_csv(
     compression : str, optional
         Compression algorithm: 'infer', 'gzip', 'bz2', 'zip', 'xz', 'zstd', or None
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -896,14 +895,14 @@ def write_csv(data: dict, path: Union[str, Path]) -> str:
     """
     Writes dictionary data to a CSV file.
 
-    Parameters:
+    Parameters
     -----------
     data : dict
         The dictionary to save in CSV format.
     path : str or Path
         The path to save the file.
 
-    Returns:
+    Returns
     --------
     str
         Path to the saved file.
@@ -938,7 +937,7 @@ def read_text(
     """
     Reads a text file (like TSV) into a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the text file
@@ -959,7 +958,7 @@ def read_text(
     **kwargs
         Additional arguments passed to pandas.read_csv
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame containing the file data
@@ -992,7 +991,7 @@ def read_excel(
     """
     Reads an Excel file into a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the Excel file
@@ -1016,7 +1015,7 @@ def read_excel(
     **kwargs
         Additional arguments passed to pandas.read_excel
 
-    Returns:
+    Returns
     --------
     Union[pd.DataFrame, Dict[str, pd.DataFrame]]
         DataFrame containing the file data, or dictionary of DataFrames if sheet_name=None
@@ -1046,7 +1045,7 @@ def read_json(
     """
     Reads a JSON file into a dictionary.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the JSON file
@@ -1061,7 +1060,7 @@ def read_json(
     **kwargs
         Additional arguments passed to json.loads
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing the JSON data
@@ -1091,7 +1090,7 @@ def write_json(
     """
     Writes a dictionary to a JSON file.
 
-    Parameters:
+    Parameters
     -----------
     data : Dict[str, Any] or List[Any]
         Dictionary or list to write
@@ -1114,7 +1113,7 @@ def write_json(
     **kwargs : dict
         Additional keyword arguments for the JSON writer
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -1175,7 +1174,7 @@ def append_to_json_array(
     Appends an item to a JSON array file. If the file doesn't exist or doesn't
     contain a valid JSON array, a new array is created.
 
-    Parameters:
+    Parameters
     -----------
     item : Dict[str, Any]
         Item to append to the array
@@ -1192,7 +1191,7 @@ def append_to_json_array(
     encryption_key : str, optional
         Key for encrypting/decrypting the file
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -1262,7 +1261,7 @@ def merge_json_objects(
     Merges a dictionary with an existing JSON object file. If the file doesn't exist,
     a new JSON object is created.
 
-    Parameters:
+    Parameters
     -----------
     item : Dict[str, Any]
         Dictionary to merge with existing JSON object
@@ -1283,7 +1282,7 @@ def merge_json_objects(
     encryption_key : str, optional
         Key for encrypting/decrypting the file
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -1356,7 +1355,7 @@ def read_parquet(
     """
     Reads a Parquet file into a DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the Parquet file
@@ -1371,7 +1370,7 @@ def read_parquet(
     **kwargs
         Additional arguments to pass to pandas.read_parquet
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame containing the file data
@@ -1399,7 +1398,7 @@ def write_parquet(
     """
     Writes a DataFrame to a Parquet file.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to write
@@ -1418,7 +1417,7 @@ def write_parquet(
     **kwargs
         Additional arguments to pass to pd.DataFrame.to_parquet
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -1472,7 +1471,7 @@ def save_visualization(
     """
     Universal function for saving visualizations of different types.
 
-    Parameters:
+    Parameters
     -----------
     figure : Any
         Visualization object (Plotly, Matplotlib, PIL Image, WordCloud)
@@ -1485,12 +1484,12 @@ def save_visualization(
     **kwargs :
         Additional parameters specific to the visualization type
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
 
-    Raises:
+    Raises
     -------
     TypeError
         If the visualization type is not supported
@@ -1581,7 +1580,7 @@ def save_plot(
     """
     Saves a matplotlib or plotly figure to a file.
 
-    Parameters:
+    Parameters
     -----------
     plot_fig : matplotlib.figure.Figure or plotly.graph_objects.Figure
         The figure to save
@@ -1594,7 +1593,7 @@ def save_plot(
     **kwargs
         Additional arguments to pass to the underlying save function
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -1629,7 +1628,7 @@ def save_dataframe(
     """
     Saves a DataFrame to a file in the specified format.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to save
@@ -1642,7 +1641,7 @@ def save_dataframe(
     **kwargs
         Additional arguments to pass to the underlying save function
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved file
@@ -1757,7 +1756,7 @@ def read_dataframe(
     """
     Reads a file into a DataFrame based on the file extension or specified format.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
@@ -1775,7 +1774,7 @@ def read_dataframe(
     **kwargs
         Additional arguments to pass to the underlying read function
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         DataFrame containing the file data
@@ -1965,7 +1964,7 @@ def read_multi_file_dask(
     """
     Read multiple files using dask.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : List[Union[str, Path]]
         List of CSV file paths to read
@@ -1988,7 +1987,7 @@ def read_multi_file_dask(
     encryption_key : str, optional
         Key for decrypting encrypted files
 
-    Returns:
+    Returns
     --------
     Optional[dd.DataFrame]
         Dask DataFrame
@@ -2074,7 +2073,7 @@ def read_multi_csv(
     """
     Read multiple CSV files and combine them vertically.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : List[Union[str, Path]]
         List of CSV file paths to read
@@ -2099,7 +2098,7 @@ def read_multi_csv(
     encryption_key : str, optional
         Key for decrypting encrypted files
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Combined DataFrame
@@ -2131,7 +2130,7 @@ def read_similar_files(
     """
     Read multiple similar files from a directory.
 
-    Parameters:
+    Parameters
     -----------
     directory : str or Path
         Directory to search for files
@@ -2148,7 +2147,7 @@ def read_similar_files(
     **kwargs
         Additional arguments to pass to reader functions
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Combined DataFrame
@@ -2173,7 +2172,7 @@ def get_system_memory() -> Dict[str, float]:
     """
     Get information about system memory.
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary with system memory information in GB
@@ -2187,12 +2186,12 @@ def estimate_file_memory_list(
     """
     Estimate memory requirements for loading a file based on its format.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : list
         Path to the files
 
-    Returns:
+    Returns
     --------
     List[Dict[str, Any]]
         List of dictionary with memory requirement estimates
@@ -2204,12 +2203,12 @@ def estimate_file_memory(file_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Estimate memory requirements for loading a file based on its format.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with memory requirement estimates
@@ -2223,7 +2222,7 @@ def optimize_dataframe_memory(
     """
     Optimize memory usage of a DataFrame by converting data types.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to optimize
@@ -2232,7 +2231,7 @@ def optimize_dataframe_memory(
     inplace : bool
         Whether to modify the DataFrame in place
 
-    Returns:
+    Returns
     --------
     Tuple[pd.DataFrame, Dict[str, Any]]
         Optimized DataFrame and dictionary with optimization information
@@ -2248,7 +2247,7 @@ def detect_csv_dialect(
     """
     Detects the dialect of a CSV file (delimiter, quotechar, etc.).
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the CSV file
@@ -2257,7 +2256,7 @@ def detect_csv_dialect(
     encoding : str
         File encoding to try first
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with detected dialect information
@@ -2273,14 +2272,14 @@ def validate_file_format(
     """
     Validate that a file has the expected format.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
     expected_format : str, optional
         Expected format (if None, inferred from extension)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation results
@@ -2294,12 +2293,12 @@ def is_encrypted_file(file_path: Union[str, Path]) -> bool:
     """
     Check if a file is encrypted.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
 
-    Returns:
+    Returns
     --------
     bool
         True if the file appears to be encrypted
@@ -2311,14 +2310,28 @@ def load_settings_operation(data_source, data_source_name, **kwargs) -> Dict[str
     """
     Generates a dictionary of settings for loading data, with optional overrides.
 
-    Keyword Args:
-        encoding (str, optional): Character encoding to use. Defaults to 'utf-8'.
-        delimiter (str, optional): Delimiter character for data parsing. Defaults to ','.
-        quotechar (str, optional): Character used to quote fields. Defaults to '"'.
-        encryption_key_for_dataset_name (str, optional): Encryption key for the dataset. Defaults to None.
+    Parameters
+    ----------
+    data_source : object
+        Data source object containing encryption keys and modes.
+    data_source_name : str
+        Name of the dataset within the data source.
+    **kwargs
+        encoding : str, optional
+            Character encoding to use. Defaults to ``'utf-8'``.
+        delimiter : str, optional
+            Delimiter character for data parsing. Defaults to ``','``.
+        quotechar : str, optional
+            Character used to quote fields. Defaults to ``'"'``.
+        use_encryption : bool, optional
+            Whether to apply encryption. Defaults to ``False``.
 
-    Returns:
-        Dict[str, Any]: Dictionary containing settings for data loading, including encoding, delimiter, quotechar, encryption key, and detect_parameters flag.
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing settings for data loading, including
+        ``encoding``, ``delimiter``, ``quotechar``, ``encryption_key``,
+        ``encryption_mode``, ``detect_parameters``, and ``use_dask``.
     """
     encryption_key = data_source.encryption_keys.get(data_source_name)
     encryption_mode = data_source.encryption_modes.get(data_source_name)
@@ -2340,12 +2353,12 @@ def load_data_operation(
     """
     Loads data from the data source.
 
-    Parameters:
+    Parameters
     -----------
     data_source : Any
     Source of data
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
     Loaded data
@@ -2383,14 +2396,14 @@ def generate_word_frequencies(
     """
     Generate word frequencies from a text string.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         The input text to process.
     exclude_words : List[str], optional
         Words to exclude from the frequency count.
 
-    Returns:
+    Returns
     --------
     Dict[str, int]
         Dictionary of word frequencies.

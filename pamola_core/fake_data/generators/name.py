@@ -40,7 +40,8 @@ class NameGenerator(BaseGenerator):
         """
         Initialize name generator with configuration.
 
-        Args:
+        Parameters
+        ----------
             config: Dictionary with configuration parameters
                 - language: Language code (e.g., "ru", "en", "vi")
                 - gender: Gender code ("M", "F", None for neutral)
@@ -92,10 +93,12 @@ class NameGenerator(BaseGenerator):
         """
         Normalize language code to standard format.
 
-        Args:
+        Parameters
+        ----------
             language: Language code to normalize
 
-        Returns:
+        Returns
+        -------
             Normalized language code
         """
         # Create mapping of common language codes to our internal format
@@ -119,10 +122,12 @@ class NameGenerator(BaseGenerator):
         """
         Convert internal language code to Faker locale.
 
-        Args:
+        Parameters
+        ----------
             language: Internal language code
 
-        Returns:
+        Returns
+        -------
             Faker locale string
         """
         faker_mapping = {
@@ -225,7 +230,8 @@ class NameGenerator(BaseGenerator):
         """
         Generate specified number of name values.
 
-        Args:
+        Parameters
+        ----------
             count: Number of names to generate
             **params: Additional parameters
                 - gender: Override default gender
@@ -233,7 +239,8 @@ class NameGenerator(BaseGenerator):
                 - format: Override default format
                 - seed: Random seed for reproducibility
 
-        Returns:
+        Returns
+        -------
             List of generated names
         """
         gender = params.get("gender", self.gender)
@@ -270,13 +277,15 @@ class NameGenerator(BaseGenerator):
         """
         Generate names using Faker library.
 
-        Args:
+        Parameters
+        ----------
             count: Number of names to generate
             gender: Gender for generation
             language: Language for generation
             format_str: Format string
 
-        Returns:
+        Returns
+        -------
             List of generated names
         """
         result = []
@@ -317,7 +326,8 @@ class NameGenerator(BaseGenerator):
         """
         Generate a name similar to the original one.
 
-        Args:
+        Parameters
+        ----------
             original_value: Original name
             **params: Additional parameters
                 - gender: Gender for generation
@@ -325,7 +335,8 @@ class NameGenerator(BaseGenerator):
                 - format: Format for generation
                 - context_salt: Salt for PRGN generation
 
-        Returns:
+        Returns
+        -------
             Generated name
         """
         # ---- 1. # Handle None / NA / NaN / empty ----
@@ -418,11 +429,13 @@ class NameGenerator(BaseGenerator):
         """
         Generate a first name.
 
-        Args:
+        Parameters
+        ----------
             gender: Gender for name generation (M/F)
             language: Language for name generation
 
-        Returns:
+        Returns
+        -------
             Generated first name
         """
         language = self._normalize_language(language or self.language)
@@ -472,11 +485,13 @@ class NameGenerator(BaseGenerator):
         """
         Generate a last name.
 
-        Args:
+        Parameters
+        ----------
             gender: Gender for name generation (might affect last name in some languages)
             language: Language for name generation
 
-        Returns:
+        Returns
+        -------
             Generated last name
         """
         language = self._normalize_language(language or self.language)
@@ -513,11 +528,13 @@ class NameGenerator(BaseGenerator):
         """
         Generate a middle name (or patronymic for languages that use them).
 
-        Args:
+        Parameters
+        ----------
             gender: Gender for name generation
             language: Language for name generation
 
-        Returns:
+        Returns
+        -------
             Generated middle name or empty string if not applicable
         """
         language = self._normalize_language(language or self.language)
@@ -560,7 +577,8 @@ class NameGenerator(BaseGenerator):
         """
         Generate a full name according to specified format.
 
-        Args:
+        Parameters
+        ----------
             gender: Gender for name generation
             language: Language for name generation
             format_str: Format of the name:
@@ -575,7 +593,8 @@ class NameGenerator(BaseGenerator):
                 - fml: lowercase
                 - FML_: UPPERCASE
 
-        Returns:
+        Returns
+        -------
             Generated full name
         """
         language = self._normalize_language(language or self.language)
@@ -630,14 +649,16 @@ class NameGenerator(BaseGenerator):
         """
         Format name components according to format string.
 
-        Args:
+        Parameters
+        ----------
             first_name: First name
             middle_name: Middle name
             last_name: Last name
             format_str: Format string
             case: Case format (upper, lower, title)
 
-        Returns:
+        Returns
+        -------
             Formatted full name
         """
         # Format name according to pattern
@@ -670,11 +691,13 @@ class NameGenerator(BaseGenerator):
         """
         Detect gender from a name.
 
-        Args:
+        Parameters
+        ----------
             name: Name to analyze
             language: Language of the name
 
-        Returns:
+        Returns
+        -------
             "M" for male, "F" for female, or None if undetermined
         """
         if not name:
@@ -717,11 +740,13 @@ class NameGenerator(BaseGenerator):
         """
         Parse a full name into components.
 
-        Args:
+        Parameters
+        ----------
             full_name: Full name to parse
             language: Language of the name
 
-        Returns:
+        Returns
+        -------
             Dictionary with components: first_name, middle_name, last_name
         """
         # Handle empty or None values
@@ -789,10 +814,12 @@ class NameGenerator(BaseGenerator):
         """
         Parse format string to extract case information.
 
-        Args:
+        Parameters
+        ----------
             format_str: Format string with case information
 
-        Returns:
+        Returns
+        -------
             Tuple of (format, case)
         """
         # Default
@@ -813,11 +840,13 @@ class NameGenerator(BaseGenerator):
         """
         Apply case formatting to text.
 
-        Args:
+        Parameters
+        ----------
             text: Text to format
             case: Case format (upper, lower, title)
 
-        Returns:
+        Returns
+        -------
             Formatted text
         """
         if not text:

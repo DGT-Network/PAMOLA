@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Formily Schema Builder
-------------------------------------
 Module:        formily_builder.py
 Package:       pamola_core.utils.schema_helpers
 Version:       1.0.0
@@ -30,10 +29,12 @@ def _merge_allOf(allOf_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Merge multiple allOf schemas into a single schema.
 
-    Args:
+    Parameters
+    ----------
         allOf_schemas: List of schemas to merge
 
-    Returns:
+    Returns
+    -------
         Merged schema with combined properties
     """
     merged = {}
@@ -63,15 +64,18 @@ def _normalize_field_type(type: Union[str, List[str]]) -> Union[str, List[str]]:
     Handles both single type and union types (list of types).
     Keeps null values and only converts integer to number.
 
-    Args:
+    Parameters
+    ----------
         type: Field type - can be string or list of strings (e.g., ["string", "null"])
 
-    Returns:
+    Returns
+    -------
         Normalized type - can be string or list of strings
         - Single type: "integer" -> "number", "string" -> "string"
         - List types: ["string", "integer", "null"] -> ["string", "number", "null"]
 
-    Examples:
+    Examples
+    --------
         "integer" -> "number"
         ["integer", "null"] -> ["number", "null"]
         ["string", "integer", "null"] -> ["string", "number", "null"]
@@ -103,11 +107,13 @@ def _handle_array_items_component(
     """
     Handle ArrayItems component configuration.
 
-    Args:
+    Parameters
+    ----------
         field: The field configuration
         t: The field type
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Updated field configuration for ArrayItems
     """
     if "items" in field:
@@ -476,12 +482,12 @@ def _handle_custom_component(field: dict) -> dict:
     """
     Transform custom component fields into standard Formily components.
 
-    Parameters:
+    Parameters
     -----------
     field : dict
         Field configuration dictionary
 
-    Returns:
+    Returns
     --------
     dict
         Transformed field configuration
@@ -1126,12 +1132,14 @@ def _add_x_reactions(
     """
     Add reactive behavior to form fields based on dependencies and requirements.
 
-    Args:
+    Parameters
+    ----------
         field: The field configuration to add reactions to
         formily_schema: The complete form schema for context
         is_nested: Whether this field is inside a nested object
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Updated field configuration with reactions
     """
     default_value_str = _get_default_value_str(field)
@@ -1270,16 +1278,19 @@ def convert_json_schema_to_formily(
     - Converts if/then required fields to x-reactions for required/visible.
     - Includes form groups configuration for UI rendering (if operation_config_type provided).
 
-    Args:
+    Parameters
+    ----------
         schema: JSON Schema (draft-07) object
         operation_config_type: Optional operation config type (e.g., 'NumericGeneralizationConfig').
                               If None, groups will not be included in output.
         tooltip: Optional tooltip text mapping for fields
 
-    Returns:
+    Returns
+    -------
         Formily-compatible schema with properties and optionally group configuration
 
-    Example:
+    Examples
+    --------
         >>> # With operation type (includes groups)
         >>> result = convert_json_schema_to_formily(schema, "NumericGeneralizationConfig")
         >>> result.keys()

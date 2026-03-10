@@ -34,7 +34,8 @@ class ValidationError(BasePamolaError):
     Used for data validation, parameter validation, and schema validation.
     Supports field-level context for better error messages.
 
-    Attributes:
+    Attributes
+    ----------
         field_name (Optional[str]): Name of the field that failed validation
     """
 
@@ -538,7 +539,8 @@ class MultipleValidationErrors(ValidationError):
 
     Groups errors by field for better readability and debugging.
 
-    Example:
+    Examples
+    --------
         >>> errors = [
         ...     FieldNotFoundError("user_id", ["name", "email"]),
         ...     FieldTypeError("age", "integer", "string"),
@@ -608,14 +610,17 @@ def raise_if_errors(errors: List[ValidationError]) -> None:
     If single error, raises that error directly.
     If multiple errors, raises MultipleValidationErrors.
 
-    Args:
+    Parameters
+    ----------
         errors: List of validation errors to check
 
-    Raises:
+    Raises
+    ------
         ValidationError: If single error in list
         MultipleValidationErrors: If multiple errors in list
 
-    Example:
+    Examples
+    --------
         >>> errors = []
         >>> if not field_valid:
         ...     errors.append(FieldNotFoundError("user_id"))

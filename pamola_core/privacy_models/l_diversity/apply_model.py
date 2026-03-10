@@ -47,7 +47,7 @@ class AnonymizationStrategy:
         """
         Initialize strategy with l-diversity processor
 
-        Parameters:
+        Parameters
         -----------
         processor : LDiversityCalculator
             L-Diversity calculation processor
@@ -65,7 +65,7 @@ class AnonymizationStrategy:
         """
         Abstract method for applying anonymization strategy
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -76,7 +76,7 @@ class AnonymizationStrategy:
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Anonymized dataset
@@ -224,7 +224,7 @@ class LDiversityModelApplicator:
         """
         Initialize L-Diversity Model Applicator
 
-        Parameters:
+        Parameters
         -----------
         processor : LDiversityCalculator, optional
             Pre-configured l-diversity processor
@@ -262,7 +262,7 @@ class LDiversityModelApplicator:
         """
         Apply l-diversity anonymization with flexible strategies
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset to anonymize
@@ -275,7 +275,7 @@ class LDiversityModelApplicator:
         **kwargs : dict
             Additional anonymization parameters
 
-        Returns:
+        Returns
         --------
         Anonymized dataset with optional metadata
         """
@@ -412,7 +412,7 @@ def apply_l_diversity(
     """
     Convenient utility function for applying l-diversity
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset to anonymize
@@ -425,7 +425,7 @@ def apply_l_diversity(
     **kwargs : dict
         Additional anonymization parameters
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Anonymized dataset
@@ -446,14 +446,16 @@ def apply_model_impl(
     """
     Apply a simple k-anonymity-like model to the dataset.
 
-    Parameters:
+    Parameters
+    ----------
         data: The input DataFrame.
         quasi_identifiers: List of QI columns.
         suppression: If True, suppress rows that don't satisfy k-anonymity.
         k: The minimum group size required for anonymity.
         kwargs: Additional parameters (e.g., generalization maps, config).
 
-    Returns:
+    Returns
+    -------
         Transformed DataFrame satisfying the privacy model.
     """
     return _apply_model_impl(

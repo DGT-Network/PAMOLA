@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - k-Anonymity Visualization Utilities
--------------------------------------------------
 This module provides specialized visualization functions for k-anonymity
 anonymization model. It includes histograms, heatmaps, and other visualizations
 specifically designed for understanding and assessing k-anonymity properties
@@ -56,7 +55,7 @@ def visualize_k_distribution(
     """
     Creates and optionally saves a visualization of k-anonymity distribution.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset with k-values.
@@ -74,7 +73,7 @@ def visualize_k_distribution(
     save_format : str, optional
         Format to save the figure (png, pdf, svg) (default: "png").
 
-    Returns:
+    Returns
     --------
     tuple
         Figure object and path to saved figure (if saved, otherwise None).
@@ -143,7 +142,7 @@ def visualize_risk_heatmap(
     Creates a heatmap visualizing re-identification risk across feature combinations
     based on k-anonymity values.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Dataset with risk values derived from k-anonymity analysis.
@@ -160,7 +159,7 @@ def visualize_risk_heatmap(
     save_format : str, optional
         Format to save the figure (png, pdf, svg) (default: "png").
 
-    Returns:
+    Returns
     --------
     tuple
         Figure object and path to saved figure (if saved, otherwise None).
@@ -236,7 +235,7 @@ def visualize_attribute_correlation(
     Creates a correlation heatmap between quasi-identifiers and sensitive attributes
     to assess potential information leaks in k-anonymized data.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         The dataset to analyze, typically after k-anonymization.
@@ -251,7 +250,7 @@ def visualize_attribute_correlation(
     save_format : str, optional
         Format to save the figure (png, pdf, svg) (default: "png").
 
-    Returns:
+    Returns
     --------
     tuple
         Figure object and path to saved figure (if saved, otherwise None).

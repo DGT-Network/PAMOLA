@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Multi-file Dataset Utilities
 Description: Helpers for processing, stacking, and merging multi-file datasets
 Author: PAMOLA Core Team
@@ -42,12 +41,12 @@ def detect_file_format(file_path: Union[str, Path]) -> str:
     """
     Detect file format from file extension.
 
-    Parameters:
+    Parameters
     -----------
     file_path : str or Path
         Path to the file
 
-    Returns:
+    Returns
     --------
     str
         Detected format name
@@ -59,12 +58,12 @@ def get_file_reader(file_format: str) -> Callable:
     """
     Get the appropriate file reader function for a format.
 
-    Parameters:
+    Parameters
     -----------
     file_format : str
         Format name (e.g., 'csv', 'parquet')
 
-    Returns:
+    Returns
     --------
     Callable
         Reader function for the format
@@ -94,12 +93,12 @@ def validate_files_exist(
     """
     Validate that all specified files exist.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : List[Union[str, Path]]
         List of file paths to validate
 
-    Returns:
+    Returns
     --------
     Tuple[List[Path], List[str]]
         (valid_paths, missing_paths)
@@ -125,7 +124,7 @@ def get_common_columns(
     """
     Identify columns common to all files in the dataset.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : List[Union[str, Path]]
         List of file paths to check
@@ -134,7 +133,7 @@ def get_common_columns(
     require_all_files : bool
         Whether to require all files to be valid
 
-    Returns:
+    Returns
     --------
     List[str]
         List of common column names
@@ -215,7 +214,7 @@ def stack_files_vertically(
     """
     Stack multiple files vertically (row-wise) with error handling.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : List[Union[str, Path]]
         List of file paths to stack
@@ -228,7 +227,7 @@ def stack_files_vertically(
     **kwargs
         Additional arguments to pass to reader functions
 
-    Returns:
+    Returns
     --------
     Union[pd.DataFrame, Dict[str, Any]]
         Combined DataFrame or error information
@@ -391,7 +390,7 @@ def process_files_in_batches(
     """
     Process multiple files in memory-efficient batches.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : List[Union[str, Path]]
         List of file paths to process
@@ -408,7 +407,7 @@ def process_files_in_batches(
     **kwargs
         Additional arguments to pass to reader functions
 
-    Returns:
+    Returns
     --------
     Union[pd.DataFrame, Dict[str, Any]]
         Combined DataFrame or error information
@@ -581,7 +580,7 @@ def read_multi_csv(
     """
     Read multiple CSV files and combine them vertically.
 
-    Parameters:
+    Parameters
     -----------
     file_paths : List[Union[str, Path]]
         List of CSV file paths to read
@@ -606,7 +605,7 @@ def read_multi_csv(
     encryption_key : str, optional
         Key for decrypting encrypted files
 
-    Returns:
+    Returns
     --------
     Union[pd.DataFrame, Dict[str, Any]]
         Combined DataFrame or error information
@@ -698,7 +697,7 @@ def read_similar_files(
     """
     Read multiple similar files from a directory.
 
-    Parameters:
+    Parameters
     -----------
     directory : str or Path
         Directory to search for files
@@ -715,7 +714,7 @@ def read_similar_files(
     **kwargs
         Additional arguments to pass to reader functions
 
-    Returns:
+    Returns
     --------
     Union[pd.DataFrame, Dict[str, Any]]
         Combined DataFrame or error information
@@ -779,7 +778,7 @@ def memory_efficient_processor(
     """
     Apply a processor function to files in a memory-efficient way.
 
-    Parameters:
+    Parameters
     -----------
     processor : Callable
         Function to apply to each batch of data
@@ -794,7 +793,7 @@ def memory_efficient_processor(
     **kwargs
         Additional arguments to pass to reader functions
 
-    Returns:
+    Returns
     --------
     Union[pd.DataFrame, Dict[str, Any]]
         Processed DataFrame or error information
