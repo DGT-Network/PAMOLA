@@ -189,56 +189,56 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph Anonymization_Operations[Anonymization Operations]
-        Masking[Masking Operations]
-        Suppression[Suppression Operations]
-        Generalization[Generalization Operations]
-        Noise[Noise Operations]
-        Pseudo[Pseudonymization Operations]
+        MaskingOp[Masking Operations]
+        SuppressionOp[Suppression Operations]
+        GeneralizationOp[Generalization Operations]
+        NoiseOp[Noise Operations]
+        PseudoOp[Pseudonymization Operations]
     end
 
-    subgraph Masking[Masking]
+    subgraph MaskingGroup[Masking]
         FullMask[Full Masking]
         PartialMask[Partial Masking]
         PatternMask[Pattern-Based Masking]
     end
 
-    subgraph Suppression[Suppression]
+    subgraph SuppressionGroup[Suppression]
         CellSuppress[Cell Suppression]
         AttrSuppress[Attribute Suppression]
         RecordSuppress[Record Suppression]
     end
 
-    subgraph Generalization[Generalization]
+    subgraph GeneralizationGroup[Generalization]
         CatGen[Categorical Generalization]
         NumGen[Numeric Generalization]
         DateTimeGen[DateTime Generalization]
     end
 
-    subgraph Noise[Noise]
+    subgraph NoiseGroup[Noise]
         UniformNum[Uniform Numeric Noise]
         UniformTemp[Uniform Temporal Noise]
         DistNoise[Distribution-Based Noise]
     end
 
-    subgraph Pseudonymization[Pseudonymization]
+    subgraph PseudonymizationGroup[Pseudonymization]
         HashBased[Hash-Based (Irreversible)]
         Mapping[Mapping-Based (Reversible)]
     end
 
-    Masking --> FullMask
-    Masking --> PartialMask
-    Masking --> PatternMask
-    Suppression --> CellSuppress
-    Suppression --> AttrSuppress
-    Suppression --> RecordSuppress
-    Generalization --> CatGen
-    Generalization --> NumGen
-    Generalization --> DateTimeGen
-    Noise --> UniformNum
-    Noise --> UniformTemp
-    Noise --> DistNoise
-    Pseudo --> HashBased
-    Pseudo --> Mapping
+    MaskingOp --> FullMask
+    MaskingOp --> PartialMask
+    MaskingOp --> PatternMask
+    SuppressionOp --> CellSuppress
+    SuppressionOp --> AttrSuppress
+    SuppressionOp --> RecordSuppress
+    GeneralizationOp --> CatGen
+    GeneralizationOp --> NumGen
+    GeneralizationOp --> DateTimeGen
+    NoiseOp --> UniformNum
+    NoiseOp --> UniformTemp
+    NoiseOp --> DistNoise
+    PseudoOp --> HashBased
+    PseudoOp --> Mapping
 ```
 
 ### Metrics Module

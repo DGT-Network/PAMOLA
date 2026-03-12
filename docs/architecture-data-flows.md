@@ -152,24 +152,24 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    subgraph Registration[Registration]
+    subgraph RegistrationStage[Registration]
         Op1[Operation Class 1]
         Op2[Operation Class 2]
         OpN[Operation Class N]
     end
 
-    subgraph Registry[Registry]
+    subgraph RegistryStage[Registry]
         Reg[OperationRegistry]
         Meta[Metadata Store]
         Dep[Dependency Graph]
     end
 
-    subgraph Discovery[Discovery]
+    subgraph DiscoveryStage[Discovery]
         API[API Request]
         DiscoverySvc[Discovery Service]
     end
 
-    subgraph Instantiation[Instantiation]
+    subgraph InstantiationStage[Instantiation]
         Factory[Operation Factory]
         Instance[Operation Instance]
     end
@@ -181,7 +181,7 @@ flowchart TB
     Reg --> Meta
     Reg --> Dep
 
-    API --> Discovery
+    API --> DiscoverySvc
     DiscoverySvc --> Reg
     Reg --> Factory
     Factory --> Instance
