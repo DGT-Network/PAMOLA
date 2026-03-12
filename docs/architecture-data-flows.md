@@ -91,36 +91,36 @@ sequenceDiagram
 ### Data Processing Pipeline
 
 ```mermaid
-graph LR
-    subgraph "Input"
+flowchart LR
+    subgraph InputStage[Input]
         CSV[CSV]
         JSON[JSON]
         Excel[Excel]
         Parquet[Parquet]
     end
 
-    subgraph "IO Adapters"
+    subgraph IOAdapters[IO Adapters]
         CSVAdapter[CSV Adapter]
         JSONAdapter[JSON Adapter]
         ExcelAdapter[Excel Adapter]
         ParquetAdapter[Parquet Adapter]
     end
 
-    subgraph "Processing"
+    subgraph ProcessingStage[Processing]
         DataFrame[pd.DataFrame / dd.DataFrame]
     end
 
-    subgraph "Operations"
+    subgraph OperationsStage[Operations]
         Op1[Operation 1]
         Op2[Operation 2]
         OpN[Operation N]
     end
 
-    subgraph "Output"
-        Output[Transformed Data]
-        Metrics[Metrics JSON]
-        Reports[Reports]
-        Plots[Plots]
+    subgraph OutputStage[Output]
+        TransformedData[Transformed Data]
+        MetricsData[Metrics JSON]
+        ReportsData[Reports]
+        PlotsData[Plots]
     end
 
     CSV --> CSVAdapter
@@ -136,14 +136,14 @@ graph LR
     DataFrame --> Op1
     Op1 --> Op2
     Op2 --> OpN
-    OpN --> Output
+    OpN --> TransformedData
 
-    Op1 --> Metrics
-    Op2 --> Metrics
-    OpN --> Metrics
+    Op1 --> MetricsData
+    Op2 --> MetricsData
+    OpN --> MetricsData
 
-    OpN --> Reports
-    OpN --> Plots
+    OpN --> ReportsData
+    OpN --> PlotsData
 ```
 
 ## Component Interactions
@@ -151,25 +151,25 @@ graph LR
 ### Operation Registry
 
 ```mermaid
-graph TB
-    subgraph "Registration"
+flowchart TB
+    subgraph Registration[Registration]
         Op1[Operation Class 1]
         Op2[Operation Class 2]
         OpN[Operation Class N]
     end
 
-    subgraph "Registry"
+    subgraph Registry[Registry]
         Reg[OperationRegistry]
         Meta[Metadata Store]
         Dep[Dependency Graph]
     end
 
-    subgraph "Discovery"
+    subgraph Discovery[Discovery]
         API[API Request]
-        Discovery[Discovery Service]
+        DiscoverySvc[Discovery Service]
     end
 
-    subgraph "Instantiation"
+    subgraph Instantiation[Instantiation]
         Factory[Operation Factory]
         Instance[Operation Instance]
     end
@@ -182,7 +182,7 @@ graph TB
     Reg --> Dep
 
     API --> Discovery
-    Discovery --> Reg
+    DiscoverySvc --> Reg
     Reg --> Factory
     Factory --> Instance
 ```
@@ -190,21 +190,21 @@ graph TB
 ### Progress Tracking
 
 ```mermaid
-graph TB
-    subgraph "Hierarchy"
+flowchart TB
+    subgraph Hierarchy[Hierarchy]
         Parent[Parent Progress]
         Child1[Child Progress 1]
         Child2[Child Progress 2]
         ChildN[Child Progress N]
     end
 
-    subgraph "Tracking"
+    subgraph Tracking[Tracking]
         Current[Current Progress]
         Total[Total Steps]
         Percent[Percentage]
     end
 
-    subgraph "Reporting"
+    subgraph Reporting[Reporting]
         Logger[Logger]
         Callback[Callback]
         UI[UI Update]
@@ -229,25 +229,25 @@ graph TB
 ### Caching Strategy
 
 ```mermaid
-graph TB
-    subgraph "Cache Key Generation"
+flowchart TB
+    subgraph Cache_Key_Generation[Cache Key Generation]
         Input[Input Data Hash]
         Config[Config Hash]
         Key[Cache Key]
     end
 
-    subgraph "Cache Storage"
+    subgraph Cache_Storage[Cache Storage]
         Memory[In-Memory Cache]
         Disk[Disk Cache]
     end
 
-    subgraph "Cache Operations"
+    subgraph Cache_Operations[Cache Operations]
         Get[Get]
         Set[Set]
         Invalidate[Invalidate]
     end
 
-    subgraph "Cache Policies"
+    subgraph Cache_Policies[Cache Policies]
         TTL[TTL Policy]
         LRU[LRU Policy]
         Size[Size Limit]
@@ -276,21 +276,21 @@ graph TB
 ### Dual Engine Support
 
 ```mermaid
-graph LR
-    subgraph "Data Input"
+flowchart LR
+    subgraph Data_Input[Data Input]
         Data[Input Data]
     end
 
-    subgraph "Size Detection"
+    subgraph Size_Detection[Size Detection]
         Size[Size Analyzer]
     end
 
-    subgraph "Engine Selection"
+    subgraph Engine_Selection[Engine Selection]
         Pandas[pandas Engine]
         Dask[Dask Engine]
     end
 
-    subgraph "Operation"
+    subgraph Operation[Operation]
         Op[Operation Execution]
     end
 
@@ -307,20 +307,20 @@ graph LR
 ### NLP Integration
 
 ```mermaid
-graph TB
-    subgraph "NLP Models"
+flowchart TB
+    subgraph NLP_Models[NLP Models]
         Spacy[spaCy Models]
         NLTK[NLTK Tokenizers]
         FastText[FastText Models]
     end
 
-    subgraph "NLP Operations"
+    subgraph NLP_Operations[NLP Operations]
         Entity[Entity Recognition]
         Category[Category Matching]
         Lang[Language Detection]
     end
 
-    subgraph "Caching"
+    subgraph Caching[Caching]
         ModelCache[Model Cache]
         ResultCache[Result Cache]
     end

@@ -12,14 +12,14 @@ PAMOLA.CORE is built on an **Operation-Based Framework** where all privacy-prese
 ### High-Level Architecture
 
 ```mermaid
-graph TB
-    subgraph "Application Layer"
+flowchart TB
+    subgraph Application_Layer[Application Layer]
         TaskRunner[Task Runner]
         CLI[CLI Interface]
         API[Python API]
     end
 
-    subgraph "Operation Framework"
+    subgraph Operation_Framework[Operation Framework]
         BaseOp[BaseOperation]
         AnonOp[AnonymizationOperation]
         MetricOp[MetricsOperation]
@@ -27,7 +27,7 @@ graph TB
         TransOp[TransformationOperation]
     end
 
-    subgraph "Core Services"
+    subgraph Core_Services[Core Services]
         Registry[Operation Registry]
         Config[Operation Config]
         Result[Operation Result]
@@ -35,13 +35,13 @@ graph TB
         Cache[Result Cache]
     end
 
-    subgraph "Data Layer"
+    subgraph Data_Layer[Data Layer]
         Pandas[pandas DataFrame]
         Dask[Dask DataFrame]
         IO[IO Adapters]
     end
 
-    subgraph "Utilities"
+    subgraph Utilities[Utilities]
         NLP[NLP Helpers]
         Crypto[Crypto Helpers]
         Schema[Schema Helpers]
@@ -165,8 +165,8 @@ stateDiagram-v2
 ### Configuration Management
 
 ```mermaid
-graph LR
-    subgraph "Configuration Flow"
+flowchart LR
+    subgraph Configuration_Flow[Configuration Flow]
         User[User Input] --> Schema[JSON Schema]
         Schema --> Validation[Pydantic Validation]
         Validation --> Config[OperationConfig]
@@ -174,7 +174,7 @@ graph LR
         Serialization --> Storage[manifest.json]
     end
 
-    subgraph "Config Components"
+    subgraph Config_Components[Config Components]
         Config --> Params[Parameters]
         Config --> Constraints[Constraints]
         Config --> Defaults[Defaults]
@@ -187,8 +187,8 @@ graph LR
 ### Anonymization Module
 
 ```mermaid
-graph TB
-    subgraph "Anonymization Operations"
+flowchart TB
+    subgraph Anonymization_Operations[Anonymization Operations]
         Masking[Masking Operations]
         Suppression[Suppression Operations]
         Generalization[Generalization Operations]
@@ -196,31 +196,31 @@ graph TB
         Pseudo[Pseudonymization Operations]
     end
 
-    subgraph "Masking"
+    subgraph Masking[Masking]
         FullMask[Full Masking]
         PartialMask[Partial Masking]
         PatternMask[Pattern-Based Masking]
     end
 
-    subgraph "Suppression"
+    subgraph Suppression[Suppression]
         CellSuppress[Cell Suppression]
         AttrSuppress[Attribute Suppression]
         RecordSuppress[Record Suppression]
     end
 
-    subgraph "Generalization"
+    subgraph Generalization[Generalization]
         CatGen[Categorical Generalization]
         NumGen[Numeric Generalization]
         DateTimeGen[DateTime Generalization]
     end
 
-    subgraph "Noise"
+    subgraph Noise[Noise]
         UniformNum[Uniform Numeric Noise]
         UniformTemp[Uniform Temporal Noise]
         DistNoise[Distribution-Based Noise]
     end
 
-    subgraph "Pseudonymization"
+    subgraph Pseudonymization[Pseudonymization]
         HashBased[Hash-Based (Irreversible)]
         Mapping[Mapping-Based (Reversible)]
     end
@@ -244,15 +244,15 @@ graph TB
 ### Metrics Module
 
 ```mermaid
-graph TB
-    subgraph "Metrics Categories"
+flowchart TB
+    subgraph Metrics_Categories[Metrics Categories]
         Privacy[Privacy Metrics]
         Utility[Utility Metrics]
         Fidelity[Fidelity Metrics]
         Quality[Quality Metrics]
     end
 
-    subgraph "Privacy Metrics"
+    subgraph Privacy_Metrics[Privacy Metrics]
         DCR[Distance to Closest Record]
         NNDR[Nearest Neighbor Distance Ratio]
         Uniqueness[Uniqueness Metrics]
@@ -261,7 +261,7 @@ graph TB
         Disclosure[Disclosure Risk]
     end
 
-    subgraph "Utility Metrics"
+    subgraph Utility_Metrics[Utility Metrics]
         ClassUtil[Classification Utility]
         RegrUtil[Regression Utility]
         InfoLoss[Information Loss]
@@ -269,14 +269,14 @@ graph TB
         R2[R² Score]
     end
 
-    subgraph "Fidelity Metrics"
+    subgraph Fidelity_Metrics[Fidelity Metrics]
         StatFid[Statistical Fidelity]
         KS[Kolmogorov-Smirnov]
         KL[Kullback-Leibler]
         Wasserstein[Wasserstein Distance]
     end
 
-    subgraph "Quality Metrics"
+    subgraph Quality_Metrics[Quality Metrics]
         QKS[KS Test]
         QKL[KL Divergence]
         Pearson[Pearson Correlation]
