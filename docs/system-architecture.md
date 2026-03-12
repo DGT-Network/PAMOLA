@@ -221,8 +221,8 @@ flowchart TB
     end
 
     subgraph PseudonymizationGroup[Pseudonymization]
-        HashBased[Hash-Based (Irreversible)]
-        Mapping[Mapping-Based (Reversible)]
+        HashBased[Hash-Based - Irreversible]
+        Mapping[Mapping-Based - Reversible]
     end
 
     MaskingOp --> FullMask
