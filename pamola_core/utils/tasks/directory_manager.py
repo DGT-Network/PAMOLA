@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Directory Manager
 Description: Task directory structure management and path resolution
 Author: PAMOLA Core Team
@@ -117,7 +116,8 @@ class TaskDirectoryManager:
         """
         Initialize the directory manager with task configuration.
 
-        Args:
+        Parameters
+        ----------
             task_config: Task configuration object containing directory information.
                          Must provide task_id, project_root, and get_task_dir() method.
             logger: Logger for directory operations (optional)
@@ -153,10 +153,12 @@ class TaskDirectoryManager:
         """
         Resolve the task directory path from configuration.
 
-        Returns:
+        Returns
+        -------
             Path to the task directory
 
-        Raises:
+        Raises
+        ------
             DirectoryManagerError: If task directory cannot be resolved
         """
         try:
@@ -225,10 +227,12 @@ class TaskDirectoryManager:
         Creates the task directory and all standard subdirectories based on
         the configured directory suffixes.
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping directory types to their paths
 
-        Raises:
+        Raises
+        ------
             DirectoryCreationError: If directory creation fails
             PathValidationError: If a path fails security validation
         """
@@ -245,10 +249,12 @@ class TaskDirectoryManager:
         This method creates the task directory structure with visual progress
         tracking, ensuring all paths are secure and properly created.
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping directory types to their paths
 
-        Raises:
+        Raises
+        ------
             DirectoryCreationError: If directory creation fails
             PathValidationError: If a path fails security validation
         """
@@ -366,10 +372,12 @@ class TaskDirectoryManager:
         This method creates the task directory structure without visual progress tracking,
         ensuring all paths are secure and properly created.
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping directory types to their paths
 
-        Raises:
+        Raises
+        ------
             DirectoryCreationError: If directory creation fails
             PathValidationError: If a path fails security validation
         """
@@ -456,13 +464,16 @@ class TaskDirectoryManager:
         """
         Get path to a specific directory type.
 
-        Args:
+        Parameters
+        ----------
             dir_type: Directory type (e.g., "input", "output", "temp")
 
-        Returns:
+        Returns
+        -------
             Path to the requested directory
 
-        Raises:
+        Raises
+        ------
             DirectoryManagerError: If directory type is unknown or not created
         """
         # Check if directories have been initialized
@@ -490,16 +501,19 @@ class TaskDirectoryManager:
         """
         Generate standardized path for an artifact.
 
-        Args:
+        Parameters
+        ----------
             artifact_name: Name of the artifact
             artifact_type: Type/extension of the artifact (without dot)
             subdir: Subdirectory for the artifact (e.g., "output", "visualizations")
             include_timestamp: Whether to include a timestamp in the filename
 
-        Returns:
+        Returns
+        -------
             Path to the artifact
 
-        Raises:
+        Raises
+        ------
             PathValidationError: If artifact path fails validation
             DirectoryManagerError: If subdirectory does not exist
         """
@@ -546,7 +560,8 @@ class TaskDirectoryManager:
 
         Removes all files and subdirectories in the task's temp directory.
 
-        Returns:
+        Returns
+        -------
             True if cleaning was successful or no cleanup needed,
             False if errors occurred during cleanup
         """
@@ -581,10 +596,12 @@ class TaskDirectoryManager:
         """
         Clean temporary directory with progress tracking.
 
-        Args:
+        Parameters
+        ----------
             temp_dir: Path to the temporary directory
 
-        Returns:
+        Returns
+        -------
             True if successful, False if errors occurred
         """
         try:
@@ -645,10 +662,12 @@ class TaskDirectoryManager:
         """
         Clean temporary directory without progress tracking.
 
-        Args:
+        Parameters
+        ----------
             temp_dir: Path to the temporary directory
 
-        Returns:
+        Returns
+        -------
             True if successful, False if errors occurred
         """
         # Remove all files and subdirectories
@@ -682,11 +701,13 @@ class TaskDirectoryManager:
         """
         Generate a timestamped filename.
 
-        Args:
+        Parameters
+        ----------
             base_name: Base name for the file
             extension: File extension (without dot)
 
-        Returns:
+        Returns
+        -------
             Timestamped filename
         """
         # Ensure extension does not start with a dot
@@ -704,7 +725,8 @@ class TaskDirectoryManager:
 
         Checks that all required directories exist and are accessible.
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping directory types to validation results
         """
         validation_results = {}
@@ -723,14 +745,17 @@ class TaskDirectoryManager:
         """
         List artifacts in a specific subdirectory.
 
-        Args:
+        Parameters
+        ----------
             subdir: Subdirectory to search (e.g., "output", "visualizations")
             pattern: Glob pattern for filtering files
 
-        Returns:
+        Returns
+        -------
             List of paths to matching artifacts
 
-        Raises:
+        Raises
+        ------
             DirectoryManagerError: If subdirectory does not exist
         """
         try:
@@ -764,15 +789,18 @@ class TaskDirectoryManager:
         """
         Import an external file into the task directory structure.
 
-        Args:
+        Parameters
+        ----------
             source_path: Path to the source file
             subdir: Target subdirectory (e.g., "input", "dictionaries")
             new_name: New name for the file (optional)
 
-        Returns:
+        Returns
+        -------
             Path to the imported file
 
-        Raises:
+        Raises
+        ------
             PathValidationError: If source path fails security validation
             DirectoryManagerError: If import fails
         """
@@ -833,13 +861,16 @@ class TaskDirectoryManager:
         """
         Normalize a path and validate its security.
 
-        Args:
+        Parameters
+        ----------
             path: Path to normalize and validate
 
-        Returns:
+        Returns
+        -------
             Normalized Path object
 
-        Raises:
+        Raises
+        ------
             PathValidationError: If the path fails security validation
         """
         # Convert to Path object if string
@@ -867,7 +898,8 @@ class TaskDirectoryManager:
         This method should be called when the directory manager is no longer needed,
         especially in cases where the context manager cannot be used.
 
-        Returns:
+        Returns
+        -------
             True if cleanup was successful, False otherwise
         """
         # Clean temp directory if enabled in configuration
@@ -907,17 +939,20 @@ def create_directory_manager(
     """
     Create a directory manager for a task.
 
-    Args:
+    Parameters
+    ----------
         task_config: Task configuration object
         logger: Logger for directory operations (optional)
         progress_manager: Progress manager for tracking directory operations (optional)
         initialize: Whether to initialize directories immediately
         task_dir: Override path for the task directory (optional)
 
-    Returns:
+    Returns
+    -------
         TaskDirectoryManager instance
 
-    Raises:
+    Raises
+    ------
         DirectoryManagerError: If directory manager creation fails
     """
     try:

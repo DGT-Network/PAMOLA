@@ -28,7 +28,7 @@ class TransactionPurposeExtractor(BaseEntityExtractor):
         """
         Initialize the transaction purpose extractor.
 
-        Additional parameters:
+        Additional parameters
         -----------
         remove_account_numbers : bool
             Whether to remove account numbers and IDs from text
@@ -85,7 +85,7 @@ class TransactionPurposeExtractor(BaseEntityExtractor):
         """
         Get the entity type for this extractor.
 
-        Returns:
+        Returns
         --------
         str
             Entity type string
@@ -96,7 +96,7 @@ class TransactionPurposeExtractor(BaseEntityExtractor):
         """
         Extract transaction purposes using patterns and NER.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Original text
@@ -105,7 +105,7 @@ class TransactionPurposeExtractor(BaseEntityExtractor):
         language : str
             Language of the text
 
-        Returns:
+        Returns
         --------
         EntityMatchResult or None
             Match result if found, None otherwise
@@ -202,12 +202,12 @@ class TransactionPurposeExtractor(BaseEntityExtractor):
         """
         Clean transaction text by removing irrelevant information.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Text to clean
 
-        Returns:
+        Returns
         --------
         str
             Cleaned text
@@ -232,12 +232,12 @@ class TransactionPurposeExtractor(BaseEntityExtractor):
         """
         Determine the transaction category from text.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Transaction text
 
-        Returns:
+        Returns
         --------
         Tuple[str, float]
             Category name and confidence score

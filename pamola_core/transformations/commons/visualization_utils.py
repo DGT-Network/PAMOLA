@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Transformation Visualization Utilities
 
 This module provides utility functions for visualizing and analyzing the impact of data transformation operations on datasets.
@@ -43,7 +42,7 @@ def generate_visualization_filename(
     """
     Generate a standardized filename for a visualization.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation creating the visualization
@@ -56,7 +55,7 @@ def generate_visualization_filename(
     include_timestamp : bool, optional
         Timestamp for file naming. If None, current timestamp is used.
 
-    Returns:
+    Returns
     --------
     str
         Standardized filename
@@ -82,13 +81,15 @@ def create_field_count_comparison(
     """
     Generate a comparison of field (column) counts before and after a transformation.
 
-    Parameters:
+    Parameters
+    ----------
         original_df (pd.DataFrame): The original dataset before transformation.
         transformed_df (pd.DataFrame): The dataset after transformation.
         operation_name (str): Name of the transformation operation.
         output_path (Path): Path to save visualizations or reports (not used yet).
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: Dictionary with count comparison, added/removed fields,
                         and chart recommendation.
     """
@@ -133,13 +134,15 @@ def create_record_count_comparison(
     Create a record count comparison summary between the original dataset
     and one or more transformed datasets.
 
-    Args:
+    Parameters
+    ----------
         original_df (pd.DataFrame): The original input DataFrame.
         transformed_dfs (Dict[str, pd.DataFrame]): A dictionary mapping output names to transformed DataFrames.
         operation_name (str): The name of the operation being analyzed.
         output_path (Path): Path to where visualizations or logs may be stored (currently unused).
 
-    Returns:
+    Returns
+    -------
         Dict[str, Any]: A dictionary containing:
             - operation_name (str): Name of the transformation operation.
             - original_record_count (int): Number of records in the original dataset.
@@ -306,7 +309,7 @@ def create_dataset_overview(
     Generate a comprehensive overview of a dataset including statistics
     for different data types and profiling information.
 
-    Parameters:
+    Parameters
     ----------
     df : pd.DataFrame
         The input dataset to be profiled.
@@ -315,7 +318,7 @@ def create_dataset_overview(
     output_path : Path
         The path where any generated reports or visualizations may be saved.
 
-    Returns:
+    Returns
     -------
     Dict[str, Any]
         A dictionary containing:

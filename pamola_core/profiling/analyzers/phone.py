@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Phone Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -91,7 +90,7 @@ class PhoneAnalyzer:
         """
         Analyze a phone field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -112,7 +111,7 @@ class PhoneAnalyzer:
         **kwargs : dict
             Additional parameters for the analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -205,7 +204,7 @@ class PhoneAnalyzer:
         """
         Create a frequency dictionary for country codes.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -216,7 +215,7 @@ class PhoneAnalyzer:
         **kwargs : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with country code frequency data and metadata
@@ -236,7 +235,7 @@ class PhoneAnalyzer:
         """
         Create a frequency dictionary for operator codes.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -249,7 +248,7 @@ class PhoneAnalyzer:
         **kwargs : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with operator code frequency data and metadata
@@ -272,7 +271,7 @@ class PhoneAnalyzer:
         """
         Create a frequency dictionary for messenger mentions in phone comments.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -285,7 +284,7 @@ class PhoneAnalyzer:
         **kwargs : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with messenger frequency data and metadata
@@ -299,14 +298,14 @@ class PhoneAnalyzer:
         """
         Estimate resources needed for analyzing the phone field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -384,7 +383,7 @@ class PhoneOperation(FieldOperation):
         """
         Execute the phone analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -397,7 +396,7 @@ class PhoneOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -962,12 +961,12 @@ class PhoneOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -1006,7 +1005,7 @@ class PhoneOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
@@ -1017,7 +1016,7 @@ class PhoneOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1063,7 +1062,7 @@ class PhoneOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -1082,7 +1081,7 @@ class PhoneOperation(FieldOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -1106,7 +1105,7 @@ class PhoneOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -1129,7 +1128,7 @@ class PhoneOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         List[Dict[str, Path]]
             Dictionary with visualization types and paths

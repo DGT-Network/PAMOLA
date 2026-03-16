@@ -28,7 +28,7 @@ def register_provider(provider_class: Type[CryptoProvider]) -> None:
     """
     Register a new crypto provider.
 
-    Parameters:
+    Parameters
     -----------
     provider_class : Type[CryptoProvider]
         Provider class to register
@@ -42,17 +42,17 @@ def get_provider(mode: str) -> CryptoProvider:
     """
     Get a provider instance for the specified mode.
 
-    Parameters:
+    Parameters
     -----------
     mode : str
         Encryption mode identifier
 
-    Returns:
+    Returns
     --------
     CryptoProvider
         Provider instance
 
-    Raises:
+    Raises
     -------
     ModeError
         If the mode is not supported
@@ -68,7 +68,7 @@ def get_all_providers() -> List[CryptoProvider]:
     """
     Get instances of all registered providers.
 
-    Returns:
+    Returns
     --------
     List[CryptoProvider]
         List of provider instances
@@ -118,7 +118,8 @@ def try_detect_json_structure(file_path: Path) -> Optional[str]:
     Returns
     -------
     Optional[str]
-        Returns:
+        Returns
+        -------
         - A provider mode string (e.g., 'aws', 'azure') if detected.
         - "simple" if the file matches the expected simple JSON key structure.
         - None if the file does not appear to be JSON or the structure is unrecognized.
@@ -224,7 +225,7 @@ def encrypt_file_router(
     """
     Encrypt a file using the specified mode.
 
-    Parameters:
+    Parameters
     -----------
     source_path : str or Path
         Path to the file to encrypt
@@ -237,7 +238,7 @@ def encrypt_file_router(
     **kwargs : dict
         Additional provider-specific parameters
 
-    Returns:
+    Returns
     --------
     Path
         Path to the encrypted file
@@ -258,7 +259,7 @@ def decrypt_file_router(
     """
     Decrypt a file, detecting the mode if not specified.
 
-    Parameters:
+    Parameters
     -----------
     source_path : str or Path
         Path to the encrypted file
@@ -271,7 +272,7 @@ def decrypt_file_router(
     **kwargs : dict
         Additional provider-specific parameters
 
-    Returns:
+    Returns
     --------
     Path
         Path to the decrypted file
@@ -292,7 +293,7 @@ def encrypt_data_router(
     """
     Encrypt data using the specified mode.
 
-    Parameters:
+    Parameters
     -----------
     data : str or bytes
         Data to encrypt
@@ -303,7 +304,7 @@ def encrypt_data_router(
     **kwargs : dict
         Additional provider-specific parameters
 
-    Returns:
+    Returns
     --------
     Union[str, bytes, Dict[str, Any]]
         Encrypted data
@@ -330,7 +331,7 @@ def decrypt_data_router(
     """
     Decrypt data, detecting the mode if not specified.
 
-    Parameters:
+    Parameters
     -----------
     data : str, bytes, or Dict[str, Any]
         Data to decrypt
@@ -341,7 +342,7 @@ def decrypt_data_router(
     **kwargs : dict
         Additional provider-specific parameters
 
-    Returns:
+    Returns
     --------
     Union[str, bytes]
         Decrypted data

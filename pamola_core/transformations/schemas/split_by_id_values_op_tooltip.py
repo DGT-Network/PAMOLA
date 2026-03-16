@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Split By ID Values Operation Tooltips
 Package:       pamola_core.transformations.schemas
 Version:       1.0.0

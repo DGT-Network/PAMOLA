@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Task Reporting
 Description: Task execution reporting and artifact tracking
 Author: PAMOLA Core Team
@@ -41,7 +40,8 @@ class ArtifactGroup:
         """
         Initialize an artifact group.
 
-        Args:
+        Parameters
+        ----------
             name: Name of the group
             description: Description of the group
         """
@@ -54,7 +54,8 @@ class ArtifactGroup:
         """
         Add an artifact to the group.
 
-        Args:
+        Parameters
+        ----------
             artifact: Artifact information dictionary
         """
         self.artifacts.append(artifact)
@@ -63,7 +64,8 @@ class ArtifactGroup:
         """
         Convert the group to a dictionary for serialization.
 
-        Returns:
+        Returns
+        -------
             Dictionary representation of the group
         """
         return {
@@ -95,7 +97,8 @@ class TaskReporter:
         """
         Initialize the task reporter.
 
-        Args:
+        Parameters
+        ----------
             task_id: ID of the task
             task_type: Type of the task
             description: Description of the task
@@ -146,7 +149,8 @@ class TaskReporter:
         """
         Get system information for the report.
 
-        Returns:
+        Returns
+        -------
             Dictionary with system information
         """
         return {
@@ -162,7 +166,8 @@ class TaskReporter:
         """
         Get current memory usage of the process.
 
-        Returns:
+        Returns
+        -------
             Memory usage in MB
         """
         try:
@@ -180,7 +185,8 @@ class TaskReporter:
         """
         Add an operation to the report.
 
-        Args:
+        Parameters
+        ----------
             name: Name of the operation
             status: Status of the operation (success, warning, error)
             details: Additional details about the operation
@@ -238,7 +244,8 @@ class TaskReporter:
         """
         Add an artifact to the report.
 
-        Args:
+        Parameters
+        ----------
             artifact_type: Type of the artifact (e.g., "json", "csv", "png")
             path: Path to the artifact
             description: Description of the artifact
@@ -307,7 +314,8 @@ class TaskReporter:
         """
         Process and add an artifact to the report (internal helper method).
 
-        Args:
+        Parameters
+        ----------
             artifact_type: Type of the artifact
             path: Path to the artifact
             description: Description of the artifact
@@ -356,11 +364,13 @@ class TaskReporter:
         """
         Add or get an artifact group.
 
-        Args:
+        Parameters
+        ----------
             name: Name of the group
             description: Description of the group
 
-        Returns:
+        Returns
+        -------
             The artifact group
         """
         if name not in self.artifact_groups:
@@ -376,10 +386,12 @@ class TaskReporter:
         """
         Get an artifact group by name.
 
-        Args:
+        Parameters
+        ----------
             name: Name of the group
 
-        Returns:
+        Returns
+        -------
             The artifact group if it exists, None otherwise
         """
         return self.artifact_groups.get(name)
@@ -388,10 +400,12 @@ class TaskReporter:
         """
         Get all artifacts with a specific tag.
 
-        Args:
+        Parameters
+        ----------
             tag: Tag to filter by
 
-        Returns:
+        Returns
+        -------
             List of artifacts with the specified tag
         """
         return [a for a in self.artifacts if tag in a.get("tags", [])]
@@ -400,10 +414,12 @@ class TaskReporter:
         """
         Get all artifacts in a specific category.
 
-        Args:
+        Parameters
+        ----------
             category: Category to filter by
 
-        Returns:
+        Returns
+        -------
             List of artifacts in the specified category
         """
         return [a for a in self.artifacts if a.get("category") == category]
@@ -412,10 +428,12 @@ class TaskReporter:
         """
         Get all artifacts of a specific type.
 
-        Args:
+        Parameters
+        ----------
             artifact_type: Type to filter by
 
-        Returns:
+        Returns
+        -------
             List of artifacts of the specified type
         """
         return [a for a in self.artifacts if a.get("type") == artifact_type]
@@ -424,7 +442,8 @@ class TaskReporter:
         """
         Add a metric to the report.
 
-        Args:
+        Parameters
+        ----------
             name: Name of the metric
             value: Value of the metric
         """
@@ -438,7 +457,8 @@ class TaskReporter:
         """
         Add a nested metric under a category.
 
-        Args:
+        Parameters
+        ----------
             category: Category for the metric
             name: Name of the metric
             value: Value of the metric
@@ -464,7 +484,8 @@ class TaskReporter:
         """
         Add task summary to the report.
 
-        Args:
+        Parameters
+        ----------
             success: Whether the task executed successfully
             execution_time: Task execution time in seconds
             metrics: Additional metrics to include in the report
@@ -558,7 +579,8 @@ class TaskReporter:
         """
         Generate the task report.
 
-        Returns:
+        Returns
+        -------
             Report as a dictionary
         """
         # Use progress manager for report generation if available
@@ -616,10 +638,12 @@ class TaskReporter:
         """
         Generate and save the report to disk.
 
-        Returns:
+        Returns
+        -------
             Path to the saved report
 
-        Raises:
+        Raises
+        ------
             ReportingError: If saving fails
         """
         # Use progress manager for report saving if available

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Mean Squared Error Metric
----------------------------------------
 This module provides a class for calculating the Mean Squared Error (MSE)
 between real and synthetic datasets. MSE is a measure of the average squared
 difference between the estimated values and the actual value.
@@ -52,7 +51,7 @@ class MeanSquaredError:
         """
         Calculate Mean Squared Error (MSE).
 
-        Parameters:
+        Parameters
         -----------
         real_data : pd.DataFrame
             The actual data.
@@ -61,7 +60,7 @@ class MeanSquaredError:
         columns : list
             List of columns to calculate MSE.
 
-        Returns:
+        Returns
         --------
         dict
             {'mse': Dict[str, float], 'overall_mse': float} - MSE values for each column and overall MSE.

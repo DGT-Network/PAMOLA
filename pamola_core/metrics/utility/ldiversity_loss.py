@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - l-Diversity Information Loss Metrics
--------------------------------------------------
 This module provides specialized metrics for quantifying information loss
 due to l-diversity constraints in anonymized datasets. These metrics help
 evaluate the utility-privacy tradeoff specific to l-diversity anonymization.
@@ -48,7 +47,7 @@ class LDiversityLossMetric:
         """
         Initialize the l-diversity loss metric.
 
-        Parameters:
+        Parameters
         -----------
         diversity_type : str, optional
             Type of l-diversity for evaluation ("distinct", "entropy", "recursive").
@@ -69,7 +68,7 @@ class LDiversityLossMetric:
         """
         Calculate loss for predictive modeling tasks.
 
-        Returns:
+        Returns
         --------
         float
             Loss as a percentage (0-100).
@@ -98,7 +97,7 @@ class LDiversityLossMetric:
         based on quasi-identifiers. It evaluates how much information loss
         occurs when comparing the original dataset to the anonymized dataset.
 
-        Parameters:
+        Parameters
         -----------
         orig_data : pd.DataFrame
             The original dataset.
@@ -109,7 +108,7 @@ class LDiversityLossMetric:
         quasi_identifiers : List[str]
             The list of quasi-identifiers.
 
-        Returns:
+        Returns
         --------
         float
             Loss as a percentage (0-100).

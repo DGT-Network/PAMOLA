@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - F1 Score Metric
------------------------------
 This module provides a class for calculating the F1 Score between real and
 synthetic datasets. The F1 Score is a measure of a test's accuracy and is
 used to evaluate the performance of classification models.

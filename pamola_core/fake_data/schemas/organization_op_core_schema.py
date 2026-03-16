@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Fake Organization Core Schema
 Package:       pamola_core.fake_data.schemas
 Version:       1.0.0

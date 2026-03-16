@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Bar Plot Visualization Implementation
 Description: Thread-safe bar plot visualization capabilities
 Author: PAMOLA Core Team
@@ -62,7 +61,7 @@ class PlotlyBarPlot(PlotlyFigure):
         """
         Create a bar plot using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict[str, Any], pd.Series]
             Data to visualize
@@ -93,7 +92,7 @@ class PlotlyBarPlot(PlotlyFigure):
         **kwargs :
             Additional plotting parameters
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly bar plot figure
@@ -246,7 +245,7 @@ class PlotlyBarPlot(PlotlyFigure):
         """
         Update an existing Plotly bar plot.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Existing Plotly figure to update
@@ -259,7 +258,7 @@ class PlotlyBarPlot(PlotlyFigure):
         **kwargs :
             Update parameters
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated Plotly figure
@@ -372,7 +371,7 @@ class MatplotlibBarPlot(MatplotlibFigure):
         """
         Create a bar plot using Matplotlib.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict[str, Any], pd.Series]
             Data to visualize
@@ -401,7 +400,7 @@ class MatplotlibBarPlot(MatplotlibFigure):
         **kwargs :
             Additional plotting parameters
 
-        Returns:
+        Returns
         --------
         matplotlib.figure.Figure
             Matplotlib bar plot figure
@@ -566,7 +565,7 @@ class MatplotlibBarPlot(MatplotlibFigure):
         """
         Update an existing Matplotlib bar plot.
 
-        Parameters:
+        Parameters
         -----------
         fig : matplotlib.figure.Figure
             Existing Matplotlib figure to update
@@ -579,7 +578,7 @@ class MatplotlibBarPlot(MatplotlibFigure):
         **kwargs :
             Update parameters
 
-        Returns:
+        Returns
         --------
         matplotlib.figure.Figure
             Updated Matplotlib figure

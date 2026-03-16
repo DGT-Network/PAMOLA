@@ -37,7 +37,7 @@ def get_config_path() -> Path:
     """
     Получает путь к файлу конфигурации проекта.
 
-    Returns:
+    Returns
     --------
     Path
         Путь к файлу конфигурации
@@ -75,7 +75,7 @@ def load_config() -> Dict[str, Any]:
     """
     Загружает конфигурацию проекта.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Словарь с конфигурацией проекта
@@ -109,12 +109,12 @@ def save_config(config: Dict[str, Any]) -> bool:
     """
     Сохраняет конфигурацию проекта.
 
-    Parameters:
+    Parameters
     -----------
     config : Dict[str, Any]
         Конфигурация для сохранения
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -145,7 +145,7 @@ def update_project_metadata(name: Optional[str] = None,
     """
     Обновляет метаданные проекта в конфигурации.
 
-    Parameters:
+    Parameters
     -----------
     name : str, optional
         Название проекта
@@ -154,7 +154,7 @@ def update_project_metadata(name: Optional[str] = None,
     version : str, optional
         Версия проекта
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -183,7 +183,7 @@ def get_reporting_settings() -> Dict[str, Any]:
     """
     Получает настройки системы отчетности.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Словарь с настройками отчетности
@@ -207,7 +207,7 @@ def update_reporting_settings(template: Optional[str] = None,
     """
     Обновляет настройки системы отчетности.
 
-    Parameters:
+    Parameters
     -----------
     template : str, optional
         Имя шаблона отчета по умолчанию
@@ -216,7 +216,7 @@ def update_reporting_settings(template: Optional[str] = None,
     include_resources : bool, optional
         Включать ли ресурсы в отчет
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -242,7 +242,7 @@ def get_task_dependencies() -> Dict[str, List[str]]:
     """
     Получает зависимости между задачами из конфигурации.
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Словарь {задача: [зависимости]}
@@ -259,12 +259,12 @@ def update_task_dependencies(dependencies: Dict[str, List[str]]) -> bool:
     """
     Обновляет зависимости между задачами в конфигурации.
 
-    Parameters:
+    Parameters
     -----------
     dependencies : Dict[str, List[str]]
         Словарь {задача: [зависимости]}
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -283,14 +283,14 @@ def add_task_dependency(task_id: str, dependency_id: str) -> bool:
     """
     Добавляет зависимость между задачами.
 
-    Parameters:
+    Parameters
     -----------
     task_id : str
         Идентификатор зависимой задачи
     dependency_id : str
         Идентификатор задачи, от которой зависит
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -310,14 +310,14 @@ def remove_task_dependency(task_id: str, dependency_id: str) -> bool:
     """
     Удаляет зависимость между задачами.
 
-    Parameters:
+    Parameters
     -----------
     task_id : str
         Идентификатор зависимой задачи
     dependency_id : str
         Идентификатор задачи, от которой зависит
 
-    Returns:
+    Returns
     --------
     bool
         True в случае успеха, False в случае ошибки
@@ -337,7 +337,7 @@ def get_templates_dir() -> Path:
     """
     Получает директорию с шаблонами отчетов.
 
-    Returns:
+    Returns
     --------
     Path
         Путь к директории с шаблонами
@@ -360,12 +360,12 @@ def get_template_path(template_name: Optional[str] = None) -> Path:
     """
     Получает путь к шаблону отчета.
 
-    Parameters:
+    Parameters
     -----------
     template_name : str, optional
         Имя шаблона (если не указано, используется шаблон по умолчанию)
 
-    Returns:
+    Returns
     --------
     Path
         Путь к директории с шаблоном
@@ -386,7 +386,7 @@ def get_reports_dir() -> Path:
     """
     Получает директорию для хранения отчетов.
 
-    Returns:
+    Returns
     --------
     Path
         Путь к директории с отчетами
@@ -409,12 +409,12 @@ def detect_task_type(task_id: str) -> str:
     """
     Определяет тип задачи на основе ее идентификатора.
 
-    Parameters:
+    Parameters
     -----------
     task_id : str
         Идентификатор задачи
 
-    Returns:
+    Returns
     --------
     str
         Тип задачи (профилирование, очистка, анонимизация и т. д.)
@@ -450,12 +450,12 @@ def categorize_tasks(task_ids: List[str]) -> Dict[str, List[str]]:
     """
     Категоризирует задачи по типам.
 
-    Parameters:
+    Parameters
     -----------
     task_ids : List[str]
         Список идентификаторов задач
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Словарь {категория: [задачи]}

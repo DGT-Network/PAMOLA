@@ -22,17 +22,17 @@ def prepare_correlation_data(
     """
     Prepare data for correlation matrix visualization.
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame, np.ndarray, or Tuple
         Correlation matrix data or tuple of (correlations, methods)
 
-    Returns:
+    Returns
     --------
     Tuple[np.ndarray, List[str], List[str], Optional[Union[pd.DataFrame, np.ndarray]]]
         Tuple containing (matrix, x_labels, y_labels, methods)
 
-    Raises:
+    Raises
     -------
     TypeError
         If data type is not supported
@@ -69,7 +69,7 @@ def create_correlation_mask(
     """
     Create a mask for correlation matrix visualization.
 
-    Parameters:
+    Parameters
     -----------
     matrix : np.ndarray
         Correlation matrix
@@ -78,7 +78,7 @@ def create_correlation_mask(
     mask_diagonal : bool
         Whether to mask the diagonal
 
-    Returns:
+    Returns
     --------
     np.ndarray
         Boolean mask where True indicates values to keep
@@ -102,14 +102,14 @@ def apply_mask(matrix: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """
     Apply a mask to a correlation matrix.
 
-    Parameters:
+    Parameters
     -----------
     matrix : np.ndarray
         Correlation matrix
     mask : np.ndarray
         Boolean mask where True indicates values to keep
 
-    Returns:
+    Returns
     --------
     np.ndarray
         Masked correlation matrix with NaN in masked positions
@@ -121,12 +121,12 @@ def get_text_color(value: float) -> str:
     """
     Determine the appropriate text color for a correlation value.
 
-    Parameters:
+    Parameters
     -----------
     value : float
         Correlation value
 
-    Returns:
+    Returns
     --------
     str
         Color code for the text
@@ -146,12 +146,12 @@ def create_text_colors_array(matrix: np.ndarray) -> np.ndarray:
     This method determines appropriate text colors for each cell in the correlation
     matrix to ensure optimal readability against the background color.
 
-    Parameters:
+    Parameters
     -----------
     matrix : np.ndarray
         Correlation matrix with float values between -1 and 1
 
-    Returns:
+    Returns
     --------
     np.ndarray
         Array of text colors matching the dimensions of the input matrix
@@ -175,7 +175,7 @@ def create_significance_mask(
     """
     Create a mask highlighting significant correlations.
 
-    Parameters:
+    Parameters
     -----------
     matrix : np.ndarray
         Original correlation matrix
@@ -184,7 +184,7 @@ def create_significance_mask(
     threshold : float
         Threshold value to consider correlations significant
 
-    Returns:
+    Returns
     --------
     np.ndarray
         Boolean mask where True indicates significant correlations
@@ -202,7 +202,7 @@ def prepare_hover_texts(
     """
     Prepare hover texts for correlation matrix.
 
-    Parameters:
+    Parameters
     -----------
     matrix : np.ndarray
         Correlation matrix
@@ -215,7 +215,7 @@ def prepare_hover_texts(
     method_labels : Dict[str, str], optional
         Dictionary mapping method codes to display labels
 
-    Returns:
+    Returns
     --------
     List[List[str]]
         2D array of hover text strings
@@ -248,12 +248,12 @@ def parse_annotation_format(annotation_format: str) -> str:
     """
     Parse annotation format string and convert to Plotly format.
 
-    Parameters:
+    Parameters
     -----------
     annotation_format : str
         Format string for annotations (e.g., ".2f")
 
-    Returns:
+    Returns
     --------
     str
         Plotly format string for annotations
@@ -271,12 +271,12 @@ def calculate_symmetric_colorscale_range(matrix: np.ndarray) -> Tuple[float, flo
     """
     Calculate symmetric range for colorscale centered at zero.
 
-    Parameters:
+    Parameters
     -----------
     matrix : np.ndarray
         Correlation matrix
 
-    Returns:
+    Returns
     --------
     Tuple[float, float]
         (vmin, vmax) for colorscale
@@ -290,14 +290,14 @@ def calculate_correlation(x: np.ndarray, y: np.ndarray) -> Optional[float]:
     """
     Calculate correlation coefficient between two arrays.
 
-    Parameters:
+    Parameters
     -----------
     x : np.ndarray
         First array of values
     y : np.ndarray
         Second array of values
 
-    Returns:
+    Returns
     --------
     Optional[float]
         Correlation coefficient or None if calculation fails

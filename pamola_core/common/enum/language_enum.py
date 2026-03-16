@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Language Enumeration
-----------------------------------
 Module:        language.py
 Package:       pamola_core.common.enum
 Version:       1.0.0

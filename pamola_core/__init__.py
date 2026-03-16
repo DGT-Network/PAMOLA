@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -83,10 +82,6 @@ __all__ = [
     "read_json",
     "read_excel",
     "read_parquet",
-    # common
-    "EncryptionMode",
-    # errors
-    "TaskInitializationError",
     # utilities
     "decrypt_file",
     "decrypt_data",
@@ -187,12 +182,6 @@ from pamola_core.io import (
     read_json,
     read_parquet,
 )
-
-# ── common ─────────────────────────────────────────────────────────────────
-from pamola_core.common import EncryptionMode
-
-# ── errors ─────────────────────────────────────────────────────────────────
-from pamola_core.errors import TaskInitializationError
 
 # ── utilities ──────────────────────────────────────────────────────────────
 from pamola_core.utils import (

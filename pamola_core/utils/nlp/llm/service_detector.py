@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        LLM Service Response Detector
 Package:       pamola_core.utils.nlp.llm.service_detector
 Version:       1.0.0
@@ -36,14 +35,13 @@ Framework:
 Part of PAMOLA.CORE LLM utilities, providing essential quality control
 for LLM response processing pipelines.
 
-Usage:
-```python
-detector = ServiceResponseDetector()
-is_service, confidence, category = detector.detect_with_confidence(response_text)
-if is_service:
-    # Handle service response
-    pass
-```
+Usage::
+
+    detector = ServiceResponseDetector()
+    is_service, confidence, category = detector.detect_with_confidence(response_text)
+    if is_service:
+        # Handle service response
+        pass
 
 Changelog:
 1.0.0 - Initial implementation

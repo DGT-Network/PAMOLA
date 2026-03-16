@@ -60,7 +60,7 @@ class AgeProvider(CryptoProvider):
         """
         Ensure the age binary is available, checking only once.
 
-        Raises:
+        Raises
         -------
         RuntimeError
             If age is not available when needed
@@ -90,7 +90,7 @@ class AgeProvider(CryptoProvider):
         """
         Check if the 'age' command-line tool is installed.
 
-        Raises:
+        Raises
         -------
         ConfigurationError
             If 'age' is not installed or not found
@@ -120,12 +120,12 @@ class AgeProvider(CryptoProvider):
         """
         Get the list of recipients for encryption.
 
-        Returns:
+        Returns
         --------
         List[str]
             List of recipient arguments for age
 
-        Raises:
+        Raises
         -------
         ConfigurationError
             If no recipients are available
@@ -163,12 +163,12 @@ class AgeProvider(CryptoProvider):
         """
         Get the identity for decryption.
 
-        Returns:
+        Returns
         --------
         List[str]
             Identity arguments for age
 
-        Raises:
+        Raises
         -------
         ConfigurationError
             If no identity file is available
@@ -198,7 +198,7 @@ class AgeProvider(CryptoProvider):
         """
         Encrypt a file using the age tool with public key cryptography.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the file to encrypt
@@ -210,12 +210,12 @@ class AgeProvider(CryptoProvider):
             Additional parameters:
             - file_info: Dict with metadata about the file
 
-        Returns:
+        Returns
         --------
         Path
             Path to the encrypted file
 
-        Raises:
+        Raises
         -------
         EncryptionError
             If encryption fails
@@ -299,7 +299,7 @@ class AgeProvider(CryptoProvider):
         """
         Decrypt a file using the age tool with private key cryptography.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the encrypted file
@@ -310,12 +310,12 @@ class AgeProvider(CryptoProvider):
         **kwargs : dict
             Additional parameters (unused)
 
-        Returns:
+        Returns
         --------
         Path
             Path to the decrypted file
 
-        Raises:
+        Raises
         -------
         DecryptionError
             If decryption fails
@@ -383,7 +383,7 @@ class AgeProvider(CryptoProvider):
         """
         Encrypt data using the age tool with public key cryptography.
 
-        Parameters:
+        Parameters
         -----------
         data : str or bytes
             Data to encrypt
@@ -392,12 +392,12 @@ class AgeProvider(CryptoProvider):
         **kwargs : dict
             Additional parameters (unused)
 
-        Returns:
+        Returns
         --------
         bytes
             Encrypted data
 
-        Raises:
+        Raises
         -------
         EncryptionError
             If encryption fails
@@ -459,7 +459,7 @@ class AgeProvider(CryptoProvider):
         """
         Decrypt data using the age tool with private key cryptography.
 
-        Parameters:
+        Parameters
         -----------
         data : str, bytes, or Dict[str, Any]
             Data to decrypt
@@ -468,12 +468,12 @@ class AgeProvider(CryptoProvider):
         **kwargs : dict
             Additional parameters (unused)
 
-        Returns:
+        Returns
         --------
         bytes
             Decrypted data
 
-        Raises:
+        Raises
         -------
         DecryptionError
             If decryption fails
@@ -538,12 +538,12 @@ class AgeProvider(CryptoProvider):
         """
         Check if this provider can decrypt the given file.
 
-        Parameters:
+        Parameters
         -----------
         source_path : str or Path
             Path to the file to check
 
-        Returns:
+        Returns
         --------
         bool
             True if this provider can decrypt the file, False otherwise
@@ -581,7 +581,7 @@ class AgeProvider(CryptoProvider):
         """
         Check if age is available without raising exceptions.
 
-        Returns:
+        Returns
         --------
         bool
             True if age is available, False otherwise

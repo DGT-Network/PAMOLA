@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Numeric Generalization Operation
 Package:       pamola_core.anonymization.generalization
 Version:       3.0.2
@@ -239,7 +238,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         Execute the numeric generalization operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -252,7 +251,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -677,12 +676,12 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         Process a batch of data to generalize numeric values.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame batch with generalized values
@@ -737,12 +736,12 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
-        Parameters:
+        Parameters
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
 
-        Returns:
+        Returns
         --------
         dd.DataFrame
             Processed Dask DataFrame
@@ -816,12 +815,12 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         Apply binning with specific parameters.
 
-        Parameters:
+        Parameters
         -----------
         series : pd.Series
             Series to generalize
 
-        Returns:
+        Returns
         --------
         pd.Series
             Binned series
@@ -906,12 +905,12 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         Apply rounding with specific precision.
 
-        Parameters:
+        Parameters
         -----------
         series : pd.Series
             Series to round
 
-        Returns:
+        Returns
         --------
         pd.Series
             Rounded series
@@ -941,12 +940,12 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         Apply range-based generalization to a series.
 
-        Parameters:
+        Parameters
         -----------
         series : pd.Series
             Series to generalize
 
-        Returns:
+        Returns
         --------
         pd.Series
             Range-generalized series
@@ -1054,7 +1053,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             The original data before anonymization
@@ -1267,7 +1266,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         This is a base implementation that provides a basic distribution comparison.
         Subclasses should override to provide operation-specific visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             Original data before anonymization
@@ -1290,7 +1289,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1424,7 +1423,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         Collect all metrics using commons utilities.
 
-        Parameters:
+        Parameters
         -----------
         original_series : pd.Series
             Original data
@@ -1433,7 +1432,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         full_df : pd.DataFrame
             Full dataframe for k-anonymity metrics
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Comprehensive metrics
@@ -1522,7 +1521,7 @@ class NumericGeneralizationOperation(AnonymizationOperation):
         """
         Get operation-specific parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Strategy-specific parameters for numeric generalization
@@ -1556,14 +1555,14 @@ def create_numeric_generalization_operation(
     """
     Create a numeric generalization operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Field to generalize
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     NumericGeneralizationOperation
         Configured numeric generalization operation

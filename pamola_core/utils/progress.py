@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Progress Tracking Utilities
 Package:       pamola_core.utils
 Version:       2.1.0+refactor.2025.05.23
@@ -83,17 +82,17 @@ def get_progress_logger() -> logging.Logger:
     This function ensures consistent logger configuration across
     the progress tracking module using the centralized logging system.
 
-    Returns:
+    Returns
     --------
     logging.Logger
         Configured logger for progress tracking
 
-    Examples:
+    Examples
     ---------
     >>> logger = get_progress_logger()
     >>> logger.info("Processing started")
 
-    Notes:
+    Notes
     ------
     For custom logging configuration, use pamola_core.logging_config:
     >>> from pamola_core.logging_config import configure_logging
@@ -139,7 +138,7 @@ def deprecated(func=None, *, alternative=None):
     """
     Mark functions or classes as deprecated to warn users.
 
-    Parameters:
+    Parameters
     -----------
     func : callable
         The function or class to mark as deprecated
@@ -178,7 +177,7 @@ class ProgressBase:
         """
         Initialize progress tracker base.
 
-        Parameters:
+        Parameters
         -----------
         total : int, optional
             Total number of items to process
@@ -234,7 +233,7 @@ class ProgressBase:
         """
         Set total expected iterations and refresh the progress bar.
 
-        Parameters:
+        Parameters
         -----------
         value : int, optional
             New total value for the progress bar
@@ -261,7 +260,7 @@ class ProgressBase:
         """
         Update progress by n units.
 
-        Parameters:
+        Parameters
         -----------
         n : int
             Number of units to increment progress by
@@ -324,7 +323,7 @@ class SimpleProgressBar(ProgressBase):
         """
         Initialize simple progress bar.
 
-        Parameters:
+        Parameters
         -----------
         total : int, optional
             Total number of items to process
@@ -365,7 +364,7 @@ class ProgressBar(ProgressBase):
         """
         Initialize progress bar.
 
-        Parameters:
+        Parameters
         -----------
         total : int, optional
             Total number of items to process
@@ -395,7 +394,7 @@ class ProgressBar(ProgressBase):
         """
         Update progress by n units.
 
-        Parameters:
+        Parameters
         -----------
         n : int
             Number of units to increment progress by
@@ -429,7 +428,7 @@ class HierarchicalProgressTracker(ProgressBase):
         """
         Initialize hierarchical progress tracker.
 
-        Parameters:
+        Parameters
         -----------
         total : int
             Total number of items to process
@@ -488,7 +487,7 @@ class HierarchicalProgressTracker(ProgressBase):
         """
         Create a subtask with its own progress tracking.
 
-        Parameters:
+        Parameters
         -----------
         total : int
             Total items in the subtask
@@ -499,7 +498,7 @@ class HierarchicalProgressTracker(ProgressBase):
         track_memory : bool, optional
             Whether to track memory (defaults to parent setting)
 
-        Returns:
+        Returns
         --------
         HierarchicalProgressTracker
             A new progress tracker for the subtask
@@ -546,7 +545,7 @@ def track_operation_safely(
     """
     Context manager for tracking an operation with error handling.
 
-    Parameters:
+    Parameters
     -----------
     description : str
         Description of the operation
@@ -559,7 +558,7 @@ def track_operation_safely(
     on_error : callable, optional
         Function to call when an exception occurs
 
-    Yields:
+    Yields
     -------
     HierarchicalProgressTracker
         Progress tracker object
@@ -591,7 +590,7 @@ def process_dataframe_in_chunks_enhanced(
     """
     Enhanced version: Process a large DataFrame in chunks with progress tracking.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -606,7 +605,7 @@ def process_dataframe_in_chunks_enhanced(
     error_handling : str
         How to handle errors: "fail" (raise), "ignore" (skip), "log" (log and skip)
 
-    Returns:
+    Returns
     --------
     list
         List of results from processing each chunk
@@ -668,7 +667,7 @@ def iterate_dataframe_chunks_enhanced(
     """
     Enhanced generator that yields chunks of a dataframe with progress tracking.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process in chunks
@@ -679,7 +678,7 @@ def iterate_dataframe_chunks_enhanced(
     track_memory : bool
         Whether to track memory usage
 
-    Yields:
+    Yields
     -------
     pd.DataFrame
         Chunk of the original dataframe
@@ -718,7 +717,7 @@ def process_dataframe_in_parallel_enhanced(
     """
     Enhanced function to process a DataFrame in parallel with progress tracking.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -735,7 +734,7 @@ def process_dataframe_in_parallel_enhanced(
     on_error : callable, optional
         Function to call when an exception occurs
 
-    Returns:
+    Returns
     --------
     list
         List of results from processing each chunk
@@ -791,7 +790,7 @@ def multi_stage_process(
     """
     Create a tracker for a multi-stage process.
 
-    Parameters:
+    Parameters
     -----------
     total_stages : int
         Total number of processing stages
@@ -802,7 +801,7 @@ def multi_stage_process(
     track_memory : bool
         Whether to track memory usage
 
-    Returns:
+    Returns
     --------
     HierarchicalProgressTracker
         Main progress tracker for the entire process
@@ -855,7 +854,7 @@ class ProgressTracker:
         """
         Initialize progress tracker.
 
-        Parameters:
+        Parameters
         -----------
         total : int
             Total number of items to process
@@ -915,7 +914,7 @@ class ProgressTracker:
         """
         Update progress by n units.
 
-        Parameters:
+        Parameters
         -----------
         n : int
             Number of units to increment progress by
@@ -942,7 +941,7 @@ class ProgressTracker:
         """
         Create a subtask with its own progress tracking.
 
-        Parameters:
+        Parameters
         -----------
         total : int
             Total items in the subtask
@@ -951,7 +950,7 @@ class ProgressTracker:
         unit : str
             Unit for the subtask progress
 
-        Returns:
+        Returns
         --------
         ProgressTracker
             A new progress tracker for the subtask
@@ -1005,7 +1004,7 @@ def track_operation(description: str, total: int, unit: str = "items"):
     """
     Context manager for tracking an operation.
 
-    Parameters:
+    Parameters
     -----------
     description : str
         Description of the operation
@@ -1014,7 +1013,7 @@ def track_operation(description: str, total: int, unit: str = "items"):
     unit : str
         Unit for the progress bar
 
-    Yields:
+    Yields
     -------
     ProgressTracker
         Progress tracker object
@@ -1037,7 +1036,7 @@ def process_dataframe_in_chunks(
     """
     Process a large DataFrame in chunks with progress tracking.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -1048,7 +1047,7 @@ def process_dataframe_in_chunks(
     chunk_size : int
         Size of chunks to process at once
 
-    Returns:
+    Returns
     --------
     list
         List of results from processing each chunk
@@ -1070,7 +1069,7 @@ def iterate_dataframe_chunks(
     """
     Generator that yields chunks of a dataframe with progress tracking.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process in chunks
@@ -1079,7 +1078,7 @@ def iterate_dataframe_chunks(
     description : str
         Description for the progress bar
 
-    Yields:
+    Yields
     -------
     pd.DataFrame
         Chunk of the original dataframe
@@ -1099,7 +1098,7 @@ def process_dataframe_in_parallel(
     """
     Process a DataFrame in parallel with progress tracking.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to process
@@ -1112,7 +1111,7 @@ def process_dataframe_in_parallel(
     n_jobs : int
         Number of parallel jobs (-1 for all processors)
 
-    Returns:
+    Returns
     --------
     list
         List of results from processing each chunk

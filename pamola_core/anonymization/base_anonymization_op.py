@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Base Anonymization Operation
 Package:       pamola_core.anonymization
 Version:       3.0.0
@@ -203,7 +202,7 @@ class AnonymizationOperation(FieldOperation):
         """
         Execute the anonymization operation with enhanced features including Dask support.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -216,7 +215,7 @@ class AnonymizationOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -619,7 +618,7 @@ class AnonymizationOperation(FieldOperation):
         """
         Validate data source and retrieve the main dataframe.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             The data source to validate
@@ -628,12 +627,12 @@ class AnonymizationOperation(FieldOperation):
         **kwargs : Any
             Additional keyword arguments to pass to the data loading function
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The validated dataframe
 
-        Raises:
+        Raises
         -------
         ValueError
             If no valid dataframe is found or the field is missing
@@ -675,12 +674,12 @@ class AnonymizationOperation(FieldOperation):
         """
         Load data and optimize memory usage.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame to optimize
 
-        Returns:
+        Returns
         --------
         Optional[pd.DataFrame]
             Loaded and optimized DataFrame or None if error
@@ -713,7 +712,7 @@ class AnonymizationOperation(FieldOperation):
         """
         Adjust chunk size based on available memory.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame to process
@@ -741,12 +740,12 @@ class AnonymizationOperation(FieldOperation):
         """
         Validate and generate the output field name.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to check field names against
 
-        Returns:
+        Returns
         --------
         str
             The validated output field name
@@ -771,7 +770,7 @@ class AnonymizationOperation(FieldOperation):
         """
         Report details of the operation to the reporter.
 
-        Parameters:
+        Parameters
         -----------
         reporter : Any
             The reporter to log details to
@@ -797,12 +796,12 @@ class AnonymizationOperation(FieldOperation):
         """
         Apply conditional filtering based on conditions and profiling results.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame to filter
 
-        Returns:
+        Returns
         --------
         Tuple[pd.Series, pd.DataFrame]
             (mask, filtered_dataframe)
@@ -858,14 +857,14 @@ class AnonymizationOperation(FieldOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to process
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The processed dataframe
@@ -1025,14 +1024,14 @@ class AnonymizationOperation(FieldOperation):
         """
         Handle records identified as vulnerable by k-anonymity analysis.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame with processed data
         output_field : str
             Output field name
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             DataFrame with vulnerable records handled
@@ -1063,7 +1062,7 @@ class AnonymizationOperation(FieldOperation):
         """
         Collect comprehensive metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             Original data
@@ -1072,7 +1071,7 @@ class AnonymizationOperation(FieldOperation):
         mask : pd.Series, optional
             Processing mask
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Collected metrics
@@ -1147,7 +1146,7 @@ class AnonymizationOperation(FieldOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             The original data before anonymization
@@ -1356,7 +1355,7 @@ class AnonymizationOperation(FieldOperation):
         This is a base implementation that provides a basic distribution comparison.
         Subclasses should override to provide operation-specific visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             Original data before anonymization
@@ -1377,7 +1376,7 @@ class AnonymizationOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1493,7 +1492,7 @@ class AnonymizationOperation(FieldOperation):
         """
         Save the processed output data.
 
-        Parameters:
+        Parameters
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
@@ -1577,7 +1576,7 @@ class AnonymizationOperation(FieldOperation):
         For large datasets, explicitly free memory by deleting
         references and optionally calling garbage collection.
 
-        Parameters:
+        Parameters
         -----------
         processed_df : pd.DataFrame, optional
             Processed DataFrame to clear from memory
@@ -1601,12 +1600,12 @@ class AnonymizationOperation(FieldOperation):
         """
         Determine if a record should be processed based on conditions.
 
-        Parameters:
+        Parameters
         -----------
         record : pd.Series
             Record to check
 
-        Returns:
+        Returns
         --------
         bool
             True if record should be processed
@@ -1629,12 +1628,12 @@ class AnonymizationOperation(FieldOperation):
         """
         Process a batch of data. Must be implemented by subclasses.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame batch
@@ -1647,12 +1646,12 @@ class AnonymizationOperation(FieldOperation):
         """
         Process Dask DataFrame. Should be overridden by subclasses for optimal performance.
 
-        Parameters:
+        Parameters
         -----------
         ddf : dd.DataFrame
             Dask DataFrame to process
 
-        Returns:
+        Returns
         --------
         dd.DataFrame
             Processed Dask DataFrame
@@ -1668,12 +1667,12 @@ class AnonymizationOperation(FieldOperation):
         """
         Process a single value. Must be implemented by subclasses.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Value to process
 
-        Returns:
+        Returns
         --------
         Any
             Processed value
@@ -1688,14 +1687,14 @@ class AnonymizationOperation(FieldOperation):
         """
         Collect operation-specific metrics. Should be overridden by subclasses.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             Original data
         anonymized_data : pd.Series
             Anonymized data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Operation-specific metrics
@@ -1792,7 +1791,7 @@ class AnonymizationOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series or pd.DataFrame
             Original input data
@@ -1803,7 +1802,7 @@ class AnonymizationOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1935,7 +1934,7 @@ class AnonymizationOperation(FieldOperation):
         """
         Save metrics.
 
-        Parameters:
+        Parameters
         -----------
         metrics : dict
             The metrics of operation

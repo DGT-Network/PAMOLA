@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Base Classes
 Description: Base operation classes for defining modular privacy-enhancing tasks
 Author: PAMOLA Core Team
@@ -41,7 +40,7 @@ from pamola_core.utils.progress import HierarchicalProgressTracker
 import pamola_core.utils.logging as pamola_logging
 from pamola_core.utils.io import ensure_directory
 from pamola_core.errors.codes import ErrorCode
-from pamola_core.errors import BasePamolaError
+from pamola_core.errors.base import BasePamolaError
 from pamola_core.errors.error_handler import ErrorHandler
 from pamola_core.errors.exceptions import ConfigSaveError
 
@@ -66,7 +65,7 @@ class OperationScope:
         """
         Initialize an operation scope.
 
-        Parameters:
+        Parameters
         -----------
         datasets : List[str], optional
             List of dataset names to operate on
@@ -310,17 +309,17 @@ class BaseOperation(ABC):
         Writes the configuration to {task_dir}/config.json atomically,
         including operation name and version information.
 
-        Parameters:
+        Parameters
         -----------
         task_dir : Path
             Directory where the configuration file should be saved
 
-        Raises:
+        Raises
         -------
         ConfigSaveError
             If the configuration cannot be saved
 
-        Satisfies:
+        Satisfies
         ----------
         REQ-OPS-004: BaseOperation.save_config(task_dir) writes config.json
                     atomically before execution begins.
@@ -365,7 +364,7 @@ class BaseOperation(ABC):
         """
         Execute the operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation (dataframes or file paths)
@@ -378,7 +377,7 @@ class BaseOperation(ABC):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation including status, artifacts, and metrics
@@ -389,7 +388,7 @@ class BaseOperation(ABC):
         """
         Check if Dask is available for use.
 
-        Returns:
+        Returns
         --------
         bool
             True if Dask is available, False otherwise
@@ -411,14 +410,14 @@ class BaseOperation(ABC):
         """
         Determine whether to use Dask based on data size and configuration.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation (dataframes or file paths)
         dataset_name : str, optional
             Name of the DataFrame
 
-        Returns:
+        Returns
         --------
         bool
             True if Dask should be used, False otherwise
@@ -438,12 +437,12 @@ class BaseOperation(ABC):
         """
         Prepare directories for artifacts following PAMOLA.CORE conventions.
 
-        Parameters:
+        Parameters
         -----------
         task_dir : Path
             Root task directory
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with prepared directories
@@ -530,7 +529,7 @@ class BaseOperation(ABC):
         This is a wrapper around execute() that adds timing, error handling,
         and progress tracking.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -545,7 +544,7 @@ class BaseOperation(ABC):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -847,7 +846,7 @@ class BaseOperation(ABC):
         This method should be overridden by subclasses to provide
         operation-specific parameters for caching.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -861,12 +860,12 @@ class BaseOperation(ABC):
         """
         Generate a deterministic cache key based on operation parameters and data characteristics.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.Series, pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
 
-        Returns:
+        Returns
         --------
         str
             Unique cache key
@@ -942,7 +941,7 @@ class FieldOperation(BaseOperation, ABC):
         """
         Add a related field to the operation's scope.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Name of the related field
@@ -953,12 +952,12 @@ class FieldOperation(BaseOperation, ABC):
         """
         Validate that the main field exists in the DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : DataFrameType
             DataFrame to check
 
-        Returns:
+        Returns
         --------
         bool
             True if field exists, False otherwise
@@ -1006,7 +1005,7 @@ class DataFrameOperation(BaseOperation, ABC):
         """
         Add a group of fields to process together.
 
-        Parameters:
+        Parameters
         -----------
         group_name : str
             Name of the field group
@@ -1019,12 +1018,12 @@ class DataFrameOperation(BaseOperation, ABC):
         """
         Get the fields in a specific group.
 
-        Parameters:
+        Parameters
         -----------
         group_name : str
             Name of the field group
 
-        Returns:
+        Returns
         --------
         List[str]
             List of field names in the group

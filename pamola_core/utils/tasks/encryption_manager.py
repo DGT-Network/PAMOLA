@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Encryption Manager
 Description: Secure encryption key management and handling
 Author: PAMOLA Core Team
@@ -117,7 +116,8 @@ class EncryptionContext:
         """
         Initialize encryption context.
 
-        Args:
+        Parameters
+        ----------
             mode: Encryption mode to use
             key_fingerprint: Fingerprint of the encryption key (not the key itself)
         """
@@ -134,7 +134,8 @@ class EncryptionContext:
         """
         Convert context to dictionary for serialization.
 
-        Returns:
+        Returns
+        -------
             Dict with context information (no sensitive data)
         """
         return {
@@ -156,7 +157,8 @@ class MemoryProtectedKey:
         """
         Initialize with key material.
 
-        Args:
+        Parameters
+        ----------
             key_material: Raw key bytes
             key_id: Optional identifier for the key
         """
@@ -175,10 +177,12 @@ class MemoryProtectedKey:
         """
         Generate a fingerprint of the key for identification without exposing the key.
 
-        Args:
+        Parameters
+        ----------
             key_material: Key bytes
 
-        Returns:
+        Returns
+        -------
             String fingerprint
         """
         if CRYPTOGRAPHY_AVAILABLE:
@@ -282,7 +286,8 @@ class TaskEncryptionManager:
         """
         Initialize encryption manager with task configuration.
 
-        Args:
+        Parameters
+        ----------
             task_config: Task configuration object containing encryption settings
             logger: Logger for encryption operations (optional)
             progress_manager: Progress manager for tracking initialization (optional)
@@ -321,7 +326,8 @@ class TaskEncryptionManager:
         """
         Initialize encryption based on configuration.
 
-        Returns:
+        Returns
+        -------
             True if initialization successful, False otherwise
         """
         # If already initialized, return cached result
@@ -510,10 +516,12 @@ class TaskEncryptionManager:
         """
         Resolve the encryption key path safely.
 
-        Returns:
+        Returns
+        -------
             Path object for the encryption key
 
-        Raises:
+        Raises
+        ------
             PathSecurityError: If the path fails security validation
         """
         if isinstance(self._encryption_key_path, str):
@@ -548,10 +556,12 @@ class TaskEncryptionManager:
         """
         Get encryption key from key store.
 
-        Returns:
+        Returns
+        -------
             Key bytes if available, None otherwise
 
-        Raises:
+        Raises
+        ------
             KeyLoadingError: If key store is available but returned an error
         """
         if not KEY_STORE_AVAILABLE:
@@ -596,10 +606,12 @@ class TaskEncryptionManager:
         """
         Generate a new encryption key.
 
-        Returns:
+        Returns
+        -------
             New key bytes
 
-        Raises:
+        Raises
+        ------
             KeyGenerationError: If key generation fails
         """
         try:
@@ -634,7 +646,8 @@ class TaskEncryptionManager:
         This method provides a safe way to pass encryption capabilities
         to operations without exposing the raw key.
 
-        Returns:
+        Returns
+        -------
             EncryptionContext with necessary info for operations
         """
         # Ensure encryption is initialized
@@ -654,13 +667,16 @@ class TaskEncryptionManager:
         """
         Encrypt binary data using the configured encryption method.
 
-        Args:
+        Parameters
+        ----------
             data: Data to encrypt
 
-        Returns:
+        Returns
+        -------
             Encrypted data
 
-        Raises:
+        Raises
+        ------
             EncryptionError: If encryption fails
         """
         # Ensure encryption is initialized
@@ -701,13 +717,16 @@ class TaskEncryptionManager:
         """
         Decrypt binary data using the configured encryption method.
 
-        Args:
+        Parameters
+        ----------
             encrypted_data: Data to decrypt
 
-        Returns:
+        Returns
+        -------
             Decrypted data
 
-        Raises:
+        Raises
+        ------
             EncryptionError: If decryption fails
         """
         # Ensure encryption is initialized
@@ -748,7 +767,8 @@ class TaskEncryptionManager:
         """
         Add parameter names that should be treated as sensitive.
 
-        Args:
+        Parameters
+        ----------
             param_names: Single name or list of parameter names
         """
         if isinstance(param_names, str):
@@ -761,10 +781,12 @@ class TaskEncryptionManager:
         """
         Check if a parameter name should be treated as sensitive.
 
-        Args:
+        Parameters
+        ----------
             param_name: Parameter name to check
 
-        Returns:
+        Returns
+        -------
             True if parameter is sensitive, False otherwise
         """
         # Check in sensitive parameter set (case-insensitive)
@@ -777,14 +799,17 @@ class TaskEncryptionManager:
         This method recursively processes dictionaries, lists, and other data
         structures to redact sensitive values based on key names.
 
-        Args:
+        Parameters
+        ----------
             data: Data structure to redact
             redact_keys: Whether to redact dictionary keys (default: True)
 
-        Returns:
+        Returns
+        -------
             Redacted copy of the data structure
 
-        Raises:
+        Raises
+        ------
             DataRedactionError: If redaction fails
         """
         try:
@@ -845,10 +870,12 @@ class TaskEncryptionManager:
         """
         Check if a string looks like a key or sensitive data.
 
-        Args:
+        Parameters
+        ----------
             text: String to check
 
-        Returns:
+        Returns
+        -------
             True if string looks like a key, False otherwise
         """
         # Simple heuristics to identify potential keys
@@ -874,10 +901,12 @@ class TaskEncryptionManager:
 
         This is a convenience method specifically for configuration dictionaries.
 
-        Args:
+        Parameters
+        ----------
             config_dict: Configuration dictionary to redact
 
-        Returns:
+        Returns
+        -------
             Redacted copy of the configuration
         """
         return self.redact_sensitive_data(config_dict, redact_keys=False)
@@ -886,7 +915,8 @@ class TaskEncryptionManager:
         """
         Get information about the encryption configuration.
 
-        Returns:
+        Returns
+        -------
             Dictionary with encryption information (no sensitive data)
         """
         # Ensure encryption is initialized
@@ -907,10 +937,12 @@ class TaskEncryptionManager:
         """
         Check if datasets in the data source are encrypted.
 
-        Args:
+        Parameters
+        ----------
             data_source: Data source containing file paths
 
-        Returns:
+        Returns
+        -------
             True if all datasets appear to be properly encrypted (when encryption is enabled)
         """
         # If encryption is disabled, no need to check
@@ -979,10 +1011,12 @@ class TaskEncryptionManager:
         """
         Check if a file appears to be encrypted.
 
-        Args:
+        Parameters
+        ----------
             file_path: Path to the file to check
 
-        Returns:
+        Returns
+        -------
             True if the file appears to be encrypted, False otherwise
         """
         path_obj = Path(file_path) if isinstance(file_path, str) else file_path
@@ -1019,10 +1053,12 @@ class TaskEncryptionManager:
         """
         Check if the requested encryption mode is supported.
 
-        Args:
+        Parameters
+        ----------
             mode: Encryption mode to check
 
-        Returns:
+        Returns
+        -------
             True if mode is supported, False otherwise
         """
         # Convert string to enum if needed

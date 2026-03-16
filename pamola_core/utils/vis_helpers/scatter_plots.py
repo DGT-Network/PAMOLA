@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Scatter Plot Visualization Implementation
 Description: Thread-safe scatter plot visualization capabilities
 Author: PAMOLA Core Team
@@ -61,14 +60,14 @@ class BaseScatterPlot:
         """
         Prepare and clean scatter plot data.
 
-        Parameters:
+        Parameters
         -----------
         x_data : Union[List[float], np.ndarray, pd.Series]
             Data for x-axis
         y_data : Union[List[float], np.ndarray, pd.Series]
             Data for y-axis
 
-        Returns:
+        Returns
         --------
         Tuple[np.ndarray, np.ndarray]
             Cleaned x and y data arrays
@@ -98,14 +97,14 @@ class BaseScatterPlot:
         """
         Calculate linear regression trendline.
 
-        Parameters:
+        Parameters
         -----------
         x : np.ndarray
             X-axis data
         y : np.ndarray
             Y-axis data
 
-        Returns:
+        Returns
         --------
         Tuple[Optional[float], Optional[float], Optional[np.ndarray], Optional[np.ndarray]]
             Slope, intercept, x_range, y_range for trendline
@@ -156,7 +155,7 @@ class PlotlyScatterPlot(PlotlyFigure, BaseScatterPlot):
         """
         Create a scatter plot using Plotly with comprehensive customization.
 
-        Parameters:
+        Parameters
         -----------
         x_data : Union[List[float], np.ndarray, pd.Series]
             Data for x-axis
@@ -191,7 +190,7 @@ class PlotlyScatterPlot(PlotlyFigure, BaseScatterPlot):
         **kwargs:
             Additional customization parameters
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly scatter plot figure
@@ -368,7 +367,7 @@ class PlotlyScatterPlot(PlotlyFigure, BaseScatterPlot):
         """
         Update an existing Plotly scatter plot.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Plotly figure to update
@@ -381,7 +380,7 @@ class PlotlyScatterPlot(PlotlyFigure, BaseScatterPlot):
         **kwargs:
             Parameters to update
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated figure

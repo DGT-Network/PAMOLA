@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Dataset Summary Analyzer
 Package:       pamola_core.analysis
 Version:       1.0.0
@@ -54,7 +53,8 @@ class DatasetAnalyzer:
         """
         Initialize the analyzer.
 
-        Args:
+        Parameters
+        ----------
             numeric_threshold: Minimum ratio of convertible values to consider column numeric-like
             logger: Optional logger instance
         """
@@ -69,10 +69,12 @@ class DatasetAnalyzer:
         """
         Analyze and categorize field types with improved numeric detection.
 
-        Args:
+        Parameters
+        ----------
             df: Input DataFrame
 
-        Returns:
+        Returns
+        -------
             Tuple of (numeric_cols, categorical_cols, coerced_numeric_series)
         """
         try:
@@ -140,12 +142,14 @@ class DatasetAnalyzer:
         """
         Detect outliers in numeric columns with robust error handling.
 
-        Args:
+        Parameters
+        ----------
             df: Input DataFrame
             numeric_cols: List of numeric column names
             coerced_numeric_series: Dictionary of coerced numeric series
 
-        Returns:
+        Returns
+        -------
             Tuple of (outlier_count, outlier_fields)
         """
         from pamola_core.profiling.commons.statistical_analysis import (
@@ -184,13 +188,16 @@ class DatasetAnalyzer:
         """
         Analyze dataset and return comprehensive summary with improved error handling.
 
-        Args:
+        Parameters
+        ----------
             df: Input DataFrame to analyze
 
-        Returns:
+        Returns
+        -------
             Dictionary containing comprehensive dataset analysis
 
-        Raises:
+        Raises
+        ------
             ValueError: If DataFrame is invalid
         """
         try:
@@ -250,10 +257,12 @@ def analyze_dataset_summary(
     """
     Backward compatible function wrapper.
 
-    Args:
+    Parameters
+    ----------
         df: Input DataFrame to analyze
 
-    Returns:
+    Returns
+    -------
         Dictionary containing dataset analysis results
     """
     analyzer = DatasetAnalyzer()

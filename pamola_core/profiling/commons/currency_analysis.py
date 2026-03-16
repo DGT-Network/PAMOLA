@@ -34,7 +34,7 @@ def analyze_currency_field(
     """
     Analyze a currency field, potentially with an accompanying currency code field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -51,7 +51,7 @@ def analyze_currency_field(
         - perform_conversion: bool, optional
           Whether to perform currency conversion (default: True if exchange_rates provided)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Results of the analysis
@@ -100,7 +100,7 @@ def analyze_salary_field(
     """
     Specialized analysis for salary fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -111,7 +111,7 @@ def analyze_salary_field(
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Results of the analysis
@@ -129,7 +129,7 @@ def convert_currencies(
     """
     Convert currency values to a base currency using exchange rates.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame containing the data
@@ -142,7 +142,7 @@ def convert_currencies(
     base_currency : str, optional
         Base currency for conversion (default: 'RUB')
 
-    Returns:
+    Returns
     --------
     pd.Series
         Series with converted values

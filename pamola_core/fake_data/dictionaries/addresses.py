@@ -17,7 +17,8 @@ def get_ru_street_names() -> List[str]:
     """
     Returns Russian street names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Russian street names
     """
     if 'ru_streets' not in _dictionary_cache:
@@ -34,7 +35,8 @@ def get_ru_cities() -> List[str]:
     """
     Returns Russian city names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Russian city names
     """
     if 'ru_cities' not in _dictionary_cache:
@@ -51,7 +53,8 @@ def get_ru_regions() -> List[str]:
     """
     Returns Russian region names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Russian region names
     """
     if 'ru_regions' not in _dictionary_cache:
@@ -69,7 +72,8 @@ def get_ru_postal_codes() -> Dict[str, List[str]]:
     """
     Returns Russian postal codes by city.
 
-    Returns:
+    Returns
+    -------
         Dict[str, List[str]]: Dictionary mapping cities to postal codes
     """
     if 'ru_postcodes' not in _dictionary_cache:
@@ -87,7 +91,8 @@ def get_ru_postal_codes() -> Dict[str, List[str]]:
 
 def get_us_street_names() -> List[str]:
     """
-    Returns:
+    Returns
+    -------
         List[str]: List of US street names
     """
     if 'us_streets' not in _dictionary_cache:
@@ -103,7 +108,8 @@ def get_us_cities() -> List[str]:
     """
     Returns US city names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of US city names
     """
     if 'us_cities' not in _dictionary_cache:
@@ -119,7 +125,8 @@ def get_us_states() -> Dict[str, str]:
     """
     Returns US states with their abbreviations.
 
-    Returns:
+    Returns
+    -------
         Dict[str, str]: Dictionary mapping state names to abbreviations
     """
     if 'us_states' not in _dictionary_cache:
@@ -141,7 +148,8 @@ def get_us_zip_codes() -> Dict[str, List[str]]:
     """
     Returns US ZIP codes by city.
 
-    Returns:
+    Returns
+    -------
         Dict[str, List[str]]: Dictionary mapping cities to ZIP codes
     """
     if 'us_zipcodes' not in _dictionary_cache:
@@ -160,7 +168,8 @@ def get_vn_street_names() -> List[str]:
     """
     Returns Vietnamese street names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Vietnamese street names
     """
     if 'vn_streets' not in _dictionary_cache:
@@ -175,7 +184,8 @@ def get_vn_cities() -> List[str]:
     """
     Returns Vietnamese city names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Vietnamese city names
     """
     if 'vn_cities' not in _dictionary_cache:
@@ -189,7 +199,8 @@ def get_vn_districts() -> Dict[str, List[str]]:
     """
     Returns Vietnamese districts by city.
 
-    Returns:
+    Returns
+    -------
         Dict[str, List[str]]: Dictionary mapping cities to districts
     """
     if 'vn_districts' not in _dictionary_cache:
@@ -204,7 +215,8 @@ def get_vn_postal_codes() -> Dict[str, str]:
     """
     Returns Vietnamese postal codes by city.
 
-    Returns:
+    Returns
+    -------
         Dict[str, str]: Dictionary mapping cities to postal codes
     """
     if 'vn_postcodes' not in _dictionary_cache:
@@ -223,11 +235,13 @@ def get_address_component(country_code: str, component_type: str) -> List[str]:
     """
     Returns address components for a specific country.
 
-    Args:
+    Parameters
+    ----------
         country_code: ISO country code (e.g., "RU", "US", "VN")
         component_type: Type of component ("street", "city", "region", "postal_code")
 
-    Returns:
+    Returns
+    -------
         List[str]: List of address components
     """
     country_code = country_code.upper()
@@ -266,11 +280,13 @@ def get_postal_code_for_city(country_code: str, city: str) -> str:
     """
     Returns a postal code for a specific city.
 
-    Args:
+    Parameters
+    ----------
         country_code: ISO country code
         city: City name
 
-    Returns:
+    Returns
+    -------
         str: A postal code for the specified city
     """
     country_code = country_code.upper()

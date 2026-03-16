@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -19,10 +18,5 @@ Type: Internal (Non-Public API)
 Author: Realm Inveo Inc. & DGT Network Inc.
 """
 
-__all__ = [
-    # encryption_mode/
-    "EncryptionMode",
-]
-
-from pamola_core.common.enum.encryption_mode import EncryptionMode
+__all__ = []
 

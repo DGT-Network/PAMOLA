@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Data Writer
 Description: Unified data writing interface for operations
 Author: PAMOLA Core Team
@@ -84,7 +83,7 @@ class DataWriter:
         """
         Initialize a DataWriter instance with the specified task directory.
 
-        Parameters:
+        Parameters
         -----------
         task_dir : Union[str, Path]
             Base directory for task outputs and artifacts
@@ -149,7 +148,7 @@ class DataWriter:
         """
         Generate the complete output path for a file.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Base name for the output file (without extension)
@@ -160,7 +159,7 @@ class DataWriter:
         timestamp_in_name : bool
             Whether to include a timestamp in the filename
 
-        Returns:
+        Returns
         --------
         Path
             Complete path for the output file
@@ -199,7 +198,7 @@ class DataWriter:
         """
         Write a DataFrame to a file within the task directory structure.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame or Dask DataFrame to be written
@@ -218,12 +217,12 @@ class DataWriter:
         **kwargs
             Additional arguments for the specific writer function
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
 
-        Raises:
+        Raises
         -------
         DataWriteError
             If the write operation fails
@@ -338,7 +337,7 @@ class DataWriter:
         """
         Write a Dask DataFrame, handling partitioning appropriately.
 
-        Parameters:
+        Parameters
         -----------
         df : dd.DataFrame
             Dask DataFrame to write
@@ -353,7 +352,7 @@ class DataWriter:
         **kwargs
             Additional arguments for the writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result with path and metadata
@@ -480,7 +479,7 @@ class DataWriter:
         """
         Write a JSON object to a file within the task directory structure.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             JSON-serializable data to write
@@ -499,12 +498,12 @@ class DataWriter:
         **kwargs
             Additional arguments for the json writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
 
-        Raises:
+        Raises
         -------
         DataWriteError
             If the write operation fails
@@ -571,7 +570,7 @@ class DataWriter:
         """
         Append an item to a JSON array file.
 
-        Parameters:
+        Parameters
         -----------
         item : Any
             JSON-serializable item to append
@@ -588,12 +587,12 @@ class DataWriter:
         **kwargs
             Additional arguments for the json writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
 
-        Raises:
+        Raises
         -------
         DataWriteError
             If the append operation fails
@@ -660,7 +659,7 @@ class DataWriter:
         """
         Merge data with an existing JSON object file.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             JSON-serializable data to merge
@@ -681,12 +680,12 @@ class DataWriter:
         **kwargs
             Additional arguments for the json writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
 
-        Raises:
+        Raises
         -------
         DataWriteError
             If the merge operation fails
@@ -754,7 +753,7 @@ class DataWriter:
         """
         Save a visualization figure to a file.
 
-        Parameters:
+        Parameters
         -----------
         figure : Any
             Visualization figure (matplotlib, plotly, etc.)
@@ -773,12 +772,12 @@ class DataWriter:
         **kwargs
             Additional arguments for the visualization saver
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
 
-        Raises:
+        Raises
         -------
         DataWriteError
             If the save operation fails
@@ -852,7 +851,7 @@ class DataWriter:
         """
         Save a dictionary to the dictionaries subdirectory.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Dictionary to save
@@ -869,12 +868,12 @@ class DataWriter:
         **kwargs
             Additional arguments for the writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
 
-        Raises:
+        Raises
         -------
         DataWriteError
             If the save operation fails
@@ -938,7 +937,7 @@ class DataWriter:
         """
         Save metrics to the root task directory.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Metrics data to save
@@ -953,12 +952,12 @@ class DataWriter:
         **kwargs
             Additional arguments for the writer
 
-        Returns:
+        Returns
         --------
         WriterResult
             Result object with path and metadata
 
-        Raises:
+        Raises
         -------
         DataWriteError
             If the save operation fails
@@ -993,7 +992,7 @@ class DataWriter:
         """
         Get information about the calling operation/class.
 
-        Returns:
+        Returns
         --------
         Dict[str, str]
             Information about the caller

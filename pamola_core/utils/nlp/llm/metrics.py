@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        LLM Metrics and Results
 Package:       pamola_core.utils.nlp.llm.metrics
 Version:       1.0.0

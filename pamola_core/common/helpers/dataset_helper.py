@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Dataset Splitting Utility.
----------------------------------------------------------
 This module provides a function to split a dataset into training and testing sets
 using the `train_test_split` method from scikit-learn.
 
@@ -38,14 +37,16 @@ def split_dataset(
     """
     Splits a dataset into training and testing sets.
 
-    Parameters:
+    Parameters
+    ----------
         df (pd.DataFrame): The input DataFrame containing the dataset.
         feature_cols (list): List of column names to be used as features (X).
         target_cols (list): List of column names to be used as target labels (y).
         test_size (float): Proportion of the dataset to include in the test split. Default is 0.2.
         random_state (int): Random seed for reproducibility. Default is 42.
 
-    Returns:
+    Returns
+    -------
         Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
             - X_train (pd.DataFrame): Training set features.
             - X_test (pd.DataFrame): Testing set features.

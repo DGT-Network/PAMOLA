@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Visualization Theme System
 Description: Thread-safe theme management for visualization capabilities
 Author: PAMOLA Core Team
@@ -160,14 +159,14 @@ def set_theme(theme_name: str, strict: bool = False) -> None:
     are isolated between concurrent execution contexts, preventing
     interference when multiple visualization operations run in parallel.
 
-    Parameters:
+    Parameters
     -----------
     theme_name : str
         Name of the theme to use
     strict : bool
         If True, raise exceptions for invalid themes; otherwise log warnings
 
-    Raises:
+    Raises
     -------
     ValueError
         If strict=True and theme is not found
@@ -188,7 +187,7 @@ def get_current_theme_name() -> str:
     """
     Get the name of the current theme for the current execution context.
 
-    Returns:
+    Returns
     --------
     str
         Current theme name
@@ -200,7 +199,7 @@ def get_current_theme() -> Dict[str, Any]:
     """
     Get the current theme configuration for the current execution context.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Current theme configuration
@@ -215,7 +214,7 @@ def create_custom_theme(
     """
     Create a custom theme.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Name for the custom theme
@@ -224,7 +223,7 @@ def create_custom_theme(
     strict : bool
         If True, raise exceptions for missing required keys; otherwise fill with defaults
 
-    Raises:
+    Raises
     -------
     ValueError
         If strict=True and required keys are missing
@@ -253,12 +252,12 @@ def get_theme_colors(n_colors: int = 10) -> List[str]:
     """
     Get a list of colors from the current theme in the current execution context.
 
-    Parameters:
+    Parameters
     -----------
     n_colors : int
         Number of colors to return
 
-    Returns:
+    Returns
     --------
     List[str]
         List of hex color codes
@@ -279,14 +278,14 @@ def apply_theme_to_plotly_figure(
     """
     Apply theme settings to a Plotly figure.
 
-    Parameters:
+    Parameters
     -----------
     fig : plotly.graph_objects.Figure
         Plotly figure to apply theme to
     theme : Dict[str, Any], optional
         Theme configuration (uses current theme if None)
 
-    Returns:
+    Returns
     --------
     plotly.graph_objects.Figure
         Themed figure
@@ -344,14 +343,14 @@ def apply_theme_to_matplotlib_figure(
     """
     Apply theme settings to a Matplotlib figure.
 
-    Parameters:
+    Parameters
     -----------
     fig : Figure
         Matplotlib figure to apply theme to
     theme : dict, optional
         Theme configuration (uses current theme if None)
 
-    Returns:
+    Returns
     --------
     Figure
         Themed figure
@@ -420,12 +419,12 @@ def get_colorscale(
     """
     Get a colorscale from the current theme for the current execution context.
 
-    Parameters:
+    Parameters
     -----------
     theme : Dict[str, Any], optional
         Theme configuration (uses current theme if None)
 
-    Returns:
+    Returns
     --------
     List[List[Union[float, str]]]
         Colorscale in Plotly format
@@ -484,12 +483,12 @@ def get_matplotlib_colormap(
     """
     Get a Matplotlib colormap from the current theme for the current execution context.
 
-    Parameters:
+    Parameters
     -----------
     theme : dict, optional
         Theme configuration (uses current theme if None)
 
-    Returns:
+    Returns
     --------
     Optional[Colormap]
         Matplotlib colormap, or None if Matplotlib is unavailable

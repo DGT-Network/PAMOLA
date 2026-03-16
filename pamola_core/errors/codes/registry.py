@@ -249,7 +249,8 @@ class ErrorCode:
         """
         Get list of all error codes.
 
-        Returns:
+        Returns
+        -------
             Sorted list of all error code strings
         """
         codes = []
@@ -263,13 +264,16 @@ class ErrorCode:
         """
         Return codes whose prefix matches category.
 
-        Args:
+        Parameters
+        ----------
             category: Category name (case-insensitive)
 
-        Returns:
+        Returns
+        -------
             Sorted list of error codes in that category
 
-        Example:
+        Examples
+        --------
             >>> ErrorCode.get_codes_by_category("data")
             ['DATA_EMPTY', 'DATA_FRAME_PROCESSING_ERROR', 'DATA_LOAD_FAILED', ...]
         """
@@ -281,10 +285,12 @@ class ErrorCode:
         """
         Check if a code is defined.
 
-        Args:
+        Parameters
+        ----------
             code: Error code to validate
 
-        Returns:
+        Returns
+        -------
             True if code exists in registry
         """
         return code in cls.get_all_codes()
@@ -294,10 +300,12 @@ class ErrorCode:
         """
         Raise InvalidParameterError if code is not defined.
 
-        Args:
+        Parameters
+        ----------
             code: Error code to validate
 
-        Raises:
+        Raises
+        ------
             InvalidParameterError: If code is not in registry
         """
         if not cls.is_valid_code(code):
@@ -313,10 +321,12 @@ class ErrorCode:
         """
         Get all validation-related error codes.
 
-        Returns:
+        Returns
+        -------
             Sorted list of validation error codes
 
-        Example:
+        Examples
+        --------
             >>> codes = ErrorCode.get_validation_codes()
             >>> "FIELD_NOT_FOUND" in codes
             True
@@ -338,10 +348,12 @@ class ErrorCode:
         """
         Get all error codes that allow retry.
 
-        Returns:
+        Returns
+        -------
             Sorted list of retriable error codes
 
-        Example:
+        Examples
+        --------
             >>> codes = ErrorCode.get_retriable_codes()
             >>> "PROCESSING_TIMEOUT" in codes
             True
@@ -363,10 +375,12 @@ class ErrorCode:
         """
         Get all error codes that should be shown to end users.
 
-        Returns:
+        Returns
+        -------
             Sorted list of user-facing error codes
 
-        Example:
+        Examples
+        --------
             >>> codes = ErrorCode.get_user_facing_codes()
             >>> "FILE_NOT_FOUND" in codes
             True
@@ -388,13 +402,16 @@ class ErrorCode:
         """
         Check if error code should be shown to end users.
 
-        Args:
+        Parameters
+        ----------
             code: Error code to check
 
-        Returns:
+        Returns
+        -------
             True if error should be shown to users, False otherwise
 
-        Example:
+        Examples
+        --------
             >>> ErrorCode.is_user_facing("FILE_NOT_FOUND")
             True
             >>> ErrorCode.is_user_facing("ENCRYPTION_FAILED")
@@ -409,13 +426,16 @@ class ErrorCode:
         """
         Check if error code allows retry.
 
-        Args:
+        Parameters
+        ----------
             code: Error code to check
 
-        Returns:
+        Returns
+        -------
             True if retry is allowed for this error, False otherwise
 
-        Example:
+        Examples
+        --------
             >>> ErrorCode.is_retriable("NETWORK_TIMEOUT")
             True
             >>> ErrorCode.is_retriable("PARAM_INVALID")
@@ -430,13 +450,16 @@ class ErrorCode:
         """
         Get all error codes with specified severity level.
 
-        Args:
+        Parameters
+        ----------
             severity: Severity level (critical, error, warning, info, debug)
 
-        Returns:
+        Returns
+        -------
             Sorted list of error codes with that severity
 
-        Example:
+        Examples
+        --------
             >>> critical_codes = ErrorCode.get_codes_by_severity("critical")
             >>> "KEY_INVALID" in critical_codes
             True

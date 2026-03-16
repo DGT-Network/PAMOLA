@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Data Quality Scoring Utilities
 Package:       pamola_core.metrics.commons.quality_scoring
 Version:       1.0.0

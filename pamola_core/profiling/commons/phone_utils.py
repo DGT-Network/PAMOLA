@@ -142,12 +142,12 @@ def is_valid_phone(value: Any) -> bool:
     - +country_code-operator_code-number
     - (country_code) operator_code-number
 
-    Parameters:
+    Parameters
     -----------
     value : Any
         The value to validate
 
-    Returns:
+    Returns
     --------
     bool
         True if the value is a valid phone number, False otherwise
@@ -188,12 +188,12 @@ def load_messenger_patterns(csv_path: Optional[str] = None) -> Dict[str, List[st
 
     CSV format should have two columns: messenger_type and pattern
 
-    Parameters:
+    Parameters
     -----------
     csv_path : str, optional
         Path to the CSV file with patterns. If None, uses default patterns.
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Dictionary mapping messenger types to regex patterns
@@ -232,14 +232,14 @@ def detect_messenger_references(comment: str, patterns_csv: Optional[str] = None
     """
     Detect references to messengers in a comment.
 
-    Parameters:
+    Parameters
     -----------
     comment : str
         The comment to analyze
     patterns_csv : str, optional
         Path to CSV with custom patterns. If None, uses default patterns.
 
-    Returns:
+    Returns
     --------
     Dict[str, bool]
         Dictionary indicating presence of each messenger type
@@ -273,12 +273,12 @@ def parse_phone_number(phone: Any) -> Dict[str, Any]:
     - +country_code-operator_code-number
     - (country_code) operator_code-number
 
-    Parameters:
+    Parameters
     -----------
     phone : Any
         The phone number to parse
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with parsed components or None if invalid
@@ -319,12 +319,12 @@ def identify_country_code(phone: Any) -> Optional[str]:
     """
     Extract the country code from a phone number.
 
-    Parameters:
+    Parameters
     -----------
     phone : Any
         The phone number
 
-    Returns:
+    Returns
     --------
     Optional[str]
         The country code, or None if not found
@@ -339,14 +339,14 @@ def identify_operator_code(phone: Any, country_code: Optional[str] = None) -> Op
     """
     Extract the operator code from a phone number.
 
-    Parameters:
+    Parameters
     -----------
     phone : Any
         The phone number
     country_code : str, optional
         Specific country code to match, if None any country is accepted
 
-    Returns:
+    Returns
     --------
     Optional[str]
         The operator code, or None if not found
@@ -369,12 +369,12 @@ def normalize_phone(country_code: str, operator_code: str, number: str) -> Optio
     """
     Normalize a phone number to E.164 international format.
 
-    Parameters:
+    Parameters
     -----------
     phone : Any
         The phone number to normalize
 
-    Returns:
+    Returns
     --------
     Optional[str]
         Normalized phone number or None if normalization fails
@@ -398,7 +398,7 @@ def analyze_phone_field(df: pd.DataFrame,
     """
     Analyze a phone number field in the given DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data to analyze
@@ -409,7 +409,7 @@ def analyze_phone_field(df: pd.DataFrame,
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The results of the analysis
@@ -522,7 +522,7 @@ def analyze_phone_chunk(chunk_df: pd.DataFrame, field_name: str,
     """
     Analyze a phone number field in the given DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     chunk_df : pd.DataFrame
         The DataFrame containing the data to analyze
@@ -533,7 +533,7 @@ def analyze_phone_chunk(chunk_df: pd.DataFrame, field_name: str,
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The results of the analysis
@@ -605,7 +605,7 @@ def analyze_phone_field_with_chunk(df: pd.DataFrame, field_name: str, patterns_c
     """
     Analyze a phone number field in the given DataFrame using chunk.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data to analyze
@@ -618,7 +618,7 @@ def analyze_phone_field_with_chunk(df: pd.DataFrame, field_name: str, patterns_c
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The results of the analysis
@@ -677,7 +677,7 @@ def analyze_phone_field_with_joblib(df: pd.DataFrame, field_name: str, patterns_
     """
     Analyze a phone number field in the given DataFrame using Joblib.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data to analyze
@@ -692,7 +692,7 @@ def analyze_phone_field_with_joblib(df: pd.DataFrame, field_name: str, patterns_
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The results of the analysis
@@ -750,7 +750,7 @@ def analyze_phone_field_with_dask(df: pd.DataFrame, field_name: str, patterns_cs
     """
     Analyze a phone number field in the given DataFrame using Joblib.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data to analyze
@@ -765,7 +765,7 @@ def analyze_phone_field_with_dask(df: pd.DataFrame, field_name: str, patterns_cs
     **kwargs : dict
         Additional parameters for the analysis
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         The results of the analysis
@@ -828,7 +828,7 @@ def create_country_code_dictionary(
     """
     Create a frequency dictionary for country codes.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -839,7 +839,7 @@ def create_country_code_dictionary(
     **kwargs : dict
         Additional parameters
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with country code frequency data and metadata
@@ -897,7 +897,7 @@ def create_operator_code_dictionary(df: pd.DataFrame,
     """
     Create a frequency dictionary for operator codes.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -910,7 +910,7 @@ def create_operator_code_dictionary(df: pd.DataFrame,
     **kwargs : dict
         Additional parameters
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with operator code frequency data and metadata
@@ -1020,7 +1020,7 @@ def create_messenger_dictionary(
     """
     Create a frequency dictionary for messenger mentions in phone comments.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
@@ -1033,7 +1033,7 @@ def create_messenger_dictionary(
     **kwargs : dict
         Additional parameters
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with messenger frequency data and metadata
@@ -1104,14 +1104,14 @@ def estimate_resources(df: pd.DataFrame, field_name: str) -> Dict[str, Any]:
     """
     Estimate resources needed for analyzing the phone field.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the data
     field_name : str
         The name of the field to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Estimated resource requirements
@@ -1204,14 +1204,14 @@ def _parse_by_regex(phone: str, extension: Optional[str]) -> Optional[Dict[str, 
     Parse phone number using common regex patterns.
     Supports formats: +country-operator-number or (country) operator-number.
 
-    Parameters:
+    Parameters
     -----------
     phone : str
         Cleaned phone string.
     extension : str or None
         Phone extension if present.
 
-    Returns:
+    Returns
     --------
     dict or None
         Parsed components or None if not matched.
@@ -1259,7 +1259,7 @@ def _parse_by_phonenumbers(
     Parse phone number using the phonenumbers library.
     Tries detected region first, then None.
 
-    Parameters:
+    Parameters
     -----------
     phone_ : str
         Phone string.
@@ -1268,7 +1268,7 @@ def _parse_by_phonenumbers(
     detected_region : str or None
         Region code detected from phone.
 
-    Returns:
+    Returns
     --------
     dict or None
         Parsed components or None if not valid.
@@ -1319,13 +1319,13 @@ def _detect_country_code(phone: str) -> Optional[str]:
     This function takes a phone number string and attempts to extract its country code
     using multiple strategies to handle various formats and representations.
 
-    Parameters:
+    Parameters
     -----------
     phone : str
         The phone number string from which to extract the country code.
         Can be in various formats (E.164, national, with/without formatting).
 
-    Returns:
+    Returns
     --------
     Optional[str]
         The extracted country code as a string (without '+' prefix), or None if detection fails.
@@ -1443,14 +1443,14 @@ def _fallback_split(
     Fallback manual split for phone numbers when other methods fail.
     Only for digit-only strings, tries common country/operator code lengths.
 
-    Parameters:
+    Parameters
     -----------
     phone : str
         Phone string.
     extension : str or None
         Phone extension if present.
 
-    Returns:
+    Returns
     --------
     dict or None
         Parsed components or None if not valid.
@@ -1485,20 +1485,21 @@ def _fallback_split(
 def _split_phone_and_comment(phone_str: str) -> Tuple[str, str]:
     """
     Split phone string into phone part and comment part.
-    Parameters:
+    Parameters
     -----------
     phone_str : str
         The input string containing phone number and potentially a comment.
         Can be in various formats with different separators.
 
-    Returns:
+    Returns
     --------
     Tuple[str, str]
         A tuple containing:
         - phone (str): The extracted phone number part
         - comment (str): The extracted comment part, empty string if no comment found
 
-    Examples:
+    Examples
+    --------
     - "447529138400 via Viber"       -> ("447529138400", "via Viber")
     - "(7,950,1234567,\"viber\")"    -> ("(7,950,1234567,\"viber\")", "")
     - "+33 6 70 70 40 39, telegram"  -> ("+33 6 70 70 40 39", "telegram")
@@ -1523,13 +1524,13 @@ def _extract_extension(phone_str: str) -> Tuple[str, Optional[str]]:
     """
     Extracts a phone extension from a phone number string if present.
 
-    Parameters:
+    Parameters
     -----------
     phone_str : str
         The input phone number string, which may contain an extension in various formats
         (e.g., "ext123", "x123", "poste 123", etc.).
 
-    Returns:
+    Returns
     --------
     Tuple[str, Optional[str]]
         - The cleaned phone number string with the extension removed
@@ -1591,18 +1592,18 @@ def _normalize_phone_number(phone: str) -> str:
     the international access code "00" to the standard "+" format used in E.164
     international numbering plan.
     
-    Parameters:
+    Parameters
     -----------
     phone : str
         The phone number string to normalize. Can contain various formats
         including international prefixes like "00" or "+"
         
-    Returns:
+    Returns
     --------
     str
         The normalized phone number with "00" prefix converted to "+" format
         
-    Examples:
+    Examples
     ---------
     >>> normalize_phone_number("0033612345678")
     "+33612345678"
@@ -1611,7 +1612,7 @@ def _normalize_phone_number(phone: str) -> str:
     >>> normalize_phone_number("612345678")
     "612345678"
     
-    Notes:
+    Notes
     ------
     - Only handles "00" to "+" conversion, does not perform full E.164 normalization
     - Preserves original format if it doesn't start with "00"
@@ -1636,12 +1637,12 @@ def _detect_region_for_phone(phone: str) -> Optional[str]:
     """
     Detect the most likely region (country) for a phone number.
     
-    Parameters:
+    Parameters
     -----------
     phone : str
         Cleaned phone number string (can be with or without country code)
         
-    Returns:
+    Returns
     --------
     Optional[str]
         ISO country code (e.g., 'US', 'RU', 'FR') or None if detection fails
@@ -1714,12 +1715,12 @@ def _parse_phone_components(phone: str) -> Optional[Dict[str, Optional[str]]]:
     4. Uses phonenumbers library for advanced parsing
     5. Falls back to heuristic parsing if needed
     
-    Parameters:
+    Parameters
     -----------
     phone : str
         The phone number string to parse
         
-    Returns:
+    Returns
     --------
     Optional[Dict[str, Optional[str]]]
         Dictionary with phone components or None if parsing fails

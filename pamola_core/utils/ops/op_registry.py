@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Operation Registry
 Description: Registration and discovery system for operations
 Author: PAMOLA Core Team
@@ -52,12 +51,12 @@ def _is_base_operation(operation_class) -> bool:
     Duck-typing check: is the class a subclass of BaseOperation
     within pamola_core.utils.ops (needed to avoid direct import of BaseOperation).
 
-    Parameters:
+    Parameters
     -----------
     operation_class : Type
         Class to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the class inherits from BaseOperation, False otherwise
@@ -76,7 +75,7 @@ def register_operation(operation_class,
 
     Satisfies REQ-OPS-007: Provides operation registration for discovery.
 
-    Parameters:
+    Parameters
     -----------
     operation_class : Type
         The operation class to register
@@ -87,7 +86,7 @@ def register_operation(operation_class,
     version : str, optional
         Version of the operation (defaults to the class's version attribute if present)
 
-    Returns:
+    Returns
     --------
     bool
         True if registration was successful, False otherwise
@@ -140,12 +139,12 @@ def unregister_operation(operation_name: str) -> bool:
     """
     Unregister an operation from the registry.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation to unregister
 
-    Returns:
+    Returns
     --------
     bool
         True if unregistered successfully, False if not found
@@ -169,12 +168,12 @@ def get_operation_class(operation_name: str) -> Optional[Type]:
     """
     Get an operation class by name.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation to retrieve
 
-    Returns:
+    Returns
     --------
     Optional[Type]
         The requested operation class, or None if not found
@@ -186,12 +185,12 @@ def get_operation_metadata(operation_name: str) -> Optional[Dict[str, Any]]:
     """
     Get metadata for an operation.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation to get metadata for
 
-    Returns:
+    Returns
     --------
     Optional[Dict[str, Any]]
         Metadata dictionary, or None if operation not found
@@ -203,12 +202,12 @@ def get_operation_version(operation_name: str) -> Optional[str]:
     """
     Get the version of an operation.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation
 
-    Returns:
+    Returns
     --------
     Optional[str]
         Version string, or None if operation not found
@@ -220,12 +219,12 @@ def get_operation_dependencies(operation_name: str) -> List[Dict[str, str]]:
     """
     Get the dependencies of an operation.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation
 
-    Returns:
+    Returns
     --------
     List[Dict[str, str]]
         List of dependencies, each with 'name' and 'version' keys
@@ -237,12 +236,12 @@ def check_dependencies(operation_name: str) -> Tuple[bool, List[str]]:
     """
     Check if all dependencies of an operation are satisfied.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation
 
-    Returns:
+    Returns
     --------
     Tuple[bool, List[str]]
         (all_satisfied, unsatisfied_dependencies)
@@ -274,14 +273,14 @@ def check_version_compatibility(version_str: str, constraint: str) -> bool:
     """
     Check if a version string satisfies a version constraint.
 
-    Parameters:
+    Parameters
     -----------
     version_str : str
         Version to check
     constraint : str
         Version constraint (e.g., ">=1.0.0", "1.x.x")
 
-    Returns:
+    Returns
     --------
     bool
         True if version satisfies constraint, False otherwise
@@ -307,12 +306,12 @@ def list_operations(category: Optional[str] = None) -> List[str]:
     """
     List all registered operations, optionally filtered by category.
 
-    Parameters:
+    Parameters
     -----------
     category : str, optional
         Category to filter by
 
-    Returns:
+    Returns
     --------
     List[str]
         List of operation names
@@ -330,7 +329,7 @@ def list_categories() -> List[str]:
     """
     List all available operation categories.
 
-    Returns:
+    Returns
     --------
     List[str]
         List of distinct operation categories
@@ -347,7 +346,7 @@ def get_operations_by_category() -> Dict[str, List[str]]:
     """
     Get all operations organized by category.
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Dictionary mapping categories to lists of operation names
@@ -374,12 +373,12 @@ def lazily_load_operation(operation_name: str) -> bool:
     This function tries to locate and import a module that might contain the specified
     operation by checking common package paths.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation to load
 
-    Returns:
+    Returns
     --------
     bool
         True if the operation was successfully loaded, False otherwise
@@ -429,14 +428,14 @@ def create_operation_instance(operation_name: str, **kwargs) -> Optional[Any]:
     """
     Create an instance of an operation by name.
 
-    Parameters:
+    Parameters
     -----------
     operation_name : str
         Name of the operation to create
     **kwargs : dict
         Parameters to pass to the operation constructor
 
-    Returns:
+    Returns
     --------
     Optional[Any]
         The created operation instance, or None if operation not found
@@ -474,12 +473,12 @@ def discover_operations(package_name: str = 'pamola_core') -> int:
     Recursively imports modules in the specified package and registers
     all found operation classes.
 
-    Parameters:
+    Parameters
     -----------
     package_name : str
         Name of the package to scan for operations
 
-    Returns:
+    Returns
     --------
     int
         Number of operations registered
@@ -533,7 +532,7 @@ def initialize_registry() -> int:
     """
     Initialize the registry by discovering all operations in the PAMOLA Core package.
 
-    Returns:
+    Returns
     --------
     int
         Number of operations registered
@@ -552,7 +551,7 @@ def register(override: bool = False, version: str = None, dependencies: List[Dic
     """
     Decorator to register an operation class.
 
-    Parameters:
+    Parameters
     -----------
     override : bool
         Whether to override existing registrations
@@ -561,7 +560,7 @@ def register(override: bool = False, version: str = None, dependencies: List[Dic
     dependencies : List[Dict[str, str]], optional
         List of dependencies for the operation
 
-    Returns:
+    Returns
     --------
     Callable
         Decorator function
@@ -578,12 +577,12 @@ def _is_valid_semver(ver_str: str) -> bool:
     """
     Check if a string is a valid semantic version.
 
-    Parameters:
+    Parameters
     -----------
     ver_str : str
         Version string to check
 
-    Returns:
+    Returns
     --------
     bool
         True if valid semantic version format, False otherwise
@@ -601,12 +600,12 @@ def _extract_init_parameters(operation_class: Type) -> Dict[str, Dict[str, Any]]
     """
     Extract parameter information from the operation class's __init__ method.
 
-    Parameters:
+    Parameters
     -----------
     operation_class : Type
         The operation class to extract parameters from
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Dictionary mapping parameter names to their metadata
@@ -639,12 +638,12 @@ def _determine_operation_category(operation_class: Type) -> str:
     """
     Determine the category of an operation based on its class hierarchy and module.
 
-    Parameters:
+    Parameters
     -----------
     operation_class : Type
         The operation class to categorize
 
-    Returns:
+    Returns
     --------
     str
         The determined category
@@ -678,12 +677,12 @@ def _parse_version_constraint(constraint: str) -> Tuple[str, str]:
     """
     Parse a version constraint into operator and version.
 
-    Parameters:
+    Parameters
     -----------
     constraint : str
         Version constraint (e.g., ">=1.0.0")
 
-    Returns:
+    Returns
     --------
     Tuple[str, str]
         (operator, version)
@@ -700,7 +699,7 @@ def _compare_versions(version_str: str, op: str, constraint_ver: str) -> bool:
     """
     Compare two versions using the specified operator.
 
-    Parameters:
+    Parameters
     -----------
     version_str : str
         Version to check
@@ -709,7 +708,7 @@ def _compare_versions(version_str: str, op: str, constraint_ver: str) -> bool:
     constraint_ver : str
         Version to compare against
 
-    Returns:
+    Returns
     --------
     bool
         Result of the comparison
@@ -735,14 +734,14 @@ def _check_wildcard_compatibility(version_str: str, constraint: str) -> bool:
     """
     Check if a version satisfies a wildcard constraint.
 
-    Parameters:
+    Parameters
     -----------
     version_str : str
         Version to check
     constraint : str
         Wildcard constraint (e.g., "1.x.x")
 
-    Returns:
+    Returns
     --------
     bool
         True if version satisfies constraint, False otherwise

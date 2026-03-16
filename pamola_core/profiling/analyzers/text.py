@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Text Semantic Categorization Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -179,7 +178,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Execute the text semantic categorization operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -192,7 +191,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -475,12 +474,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -518,7 +517,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input data for the operation
@@ -527,7 +526,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -572,7 +571,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -606,7 +605,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Perform basic analysis of text field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the field
@@ -615,7 +614,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         chunk_size : int, optional
             Size of chunks for processing large datasets
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Results of basic analysis
@@ -713,12 +712,12 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Initialize categorization results structure with defaults.
 
-        Parameters:
+        Parameters
         -----------
         text_values : List[str]
             List of text values
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Default categorization results structure
@@ -760,7 +759,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Perform semantic categorization using the entity extraction framework.
 
-        Parameters:
+        Parameters
         -----------
         text_values : List[str]
             List of text values to categorize
@@ -779,7 +778,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         clustering_threshold : float
             Similarity threshold for clustering
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Categorization results
@@ -1004,7 +1003,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Process large text datasets in chunks to improve memory efficiency.
 
-        Parameters:
+        Parameters
         -----------
         text_values : List[str]
             List of text values
@@ -1023,7 +1022,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         clustering_threshold : float
             Similarity threshold for clustering
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Combined categorization results
@@ -1237,7 +1236,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Combine basic analysis and categorization results into a complete results object.
 
-        Parameters:
+        Parameters
         -----------
         basic_analysis : Dict[str, Any]
             Results of basic text analysis
@@ -1246,7 +1245,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         field_name : str
             Name of the analyzed field
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Complete analysis results
@@ -1321,7 +1320,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Save main analysis artifacts.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Analysis results to save
@@ -1334,7 +1333,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         reporter : Any
             Reporter to add artifacts to
 
-        Returns:
+        Returns
         --------
         Dict[str, str]
             Information of artifact
@@ -1377,7 +1376,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Save artifacts specific to categorization.
 
-        Parameters:
+        Parameters
         -----------
         categorization_results : Dict[str, Any]
             Categorization results to save
@@ -1394,7 +1393,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         reporter : Any
             Reporter to add artifacts to
 
-        Returns:
+        Returns
         --------
         List[Dict[str, str]]
             Information of artifacts
@@ -1530,7 +1529,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Add metrics from analysis results to the operation result.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Analysis results containing metrics
@@ -1596,7 +1595,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Create and register an artifact in the result and reporter.
 
-        Parameters:
+        Parameters
         -----------
         artifact_type : str
             Type of artifact (e.g., "json", "csv", "png")
@@ -1638,7 +1637,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -1661,7 +1660,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         List[Dict[str, Path]]
             Dictionary with visualization types and paths
@@ -1832,7 +1831,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Generate visualizations for the text analysis.
 
-        Parameters:
+        Parameters
         -----------
         analysis_results : Dict[str, Any]
             Results of the analysis
@@ -1851,7 +1850,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         vis_strict : bool, optional
             If True, raise exceptions for configuration errors
 
-        Returns:
+        Returns
         --------
         List[Dict[str, str]]
             Information of visualizations
@@ -1980,7 +1979,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         """
         Create a visualization and register it as an artifact.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict[str, Any]
             Data for the visualization
@@ -2009,7 +2008,7 @@ class TextSemanticCategorizerOperation(FieldOperation):
         additional_params : Dict[str, Any], optional
             Additional parameters for the visualization function
 
-        Returns:
+        Returns
         --------
         Tuple[str, bool]
             Information of visualization

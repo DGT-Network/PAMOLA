@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - L-Diversity Attribute Disclosure Risk
----------------------------------------------------
 This module provides specialized functions for evaluating attribute disclosure
 risk in l-diversity anonymized datasets. It focuses on the risk of revealing
 sensitive attribute values even when identities are protected by k-anonymity.
@@ -48,7 +47,7 @@ class AttributeDisclosureRiskAnalyzer:
         """
         Initialize Attribute Disclosure Risk Analyzer
 
-        Parameters:
+        Parameters
         -----------
         l_threshold : int, optional
             The minimum l value considered acceptable (default: 3)
@@ -75,7 +74,7 @@ class AttributeDisclosureRiskAnalyzer:
         """
         Calculate comprehensive attribute disclosure risk
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -86,7 +85,7 @@ class AttributeDisclosureRiskAnalyzer:
         **kwargs : dict
             Additional risk assessment parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Comprehensive attribute disclosure risk metrics
@@ -177,7 +176,7 @@ class AttributeDisclosureRiskAnalyzer:
         """
         Calculate diversity metrics for the attribute
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -192,7 +191,7 @@ class AttributeDisclosureRiskAnalyzer:
         c_value : float
             Parameter for recursive (c,l)-diversity
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Diversity metrics
@@ -294,7 +293,7 @@ class AttributeDisclosureRiskAnalyzer:
         """
         Calculate predictability metrics for the attribute
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -303,7 +302,7 @@ class AttributeDisclosureRiskAnalyzer:
         sensitive_attribute : str
             Sensitive attribute column to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Predictability metrics
@@ -384,14 +383,14 @@ class AttributeDisclosureRiskAnalyzer:
         """
         Calculate value distribution metrics for the attribute
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
         sensitive_attribute : str
             Sensitive attribute column to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Distribution metrics
@@ -451,7 +450,7 @@ class AttributeDisclosureRiskAnalyzer:
         """
         Calculate vulnerability metrics for the attribute
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -464,7 +463,7 @@ class AttributeDisclosureRiskAnalyzer:
         predictability_metrics : Dict[str, Any]
             Previously calculated predictability metrics
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Vulnerability metrics
@@ -537,7 +536,7 @@ class AttributeDisclosureRiskAnalyzer:
         """
         Calculate overall attribute disclosure risk
 
-        Parameters:
+        Parameters
         -----------
         diversity_metrics : Dict[str, Any]
             Previously calculated diversity metrics
@@ -546,7 +545,7 @@ class AttributeDisclosureRiskAnalyzer:
         distribution_metrics : Dict[str, Any]
             Previously calculated distribution metrics
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Overall risk assessment
@@ -601,7 +600,7 @@ class AttributeDisclosureRiskAnalyzer:
         """
         Interpret attribute disclosure risk
 
-        Parameters:
+        Parameters
         -----------
         risk_score : float
             Overall risk score
@@ -612,7 +611,7 @@ class AttributeDisclosureRiskAnalyzer:
         compliant : bool
             Whether the attribute is compliant
 
-        Returns:
+        Returns
         --------
         str
             Human-readable risk interpretation
@@ -653,7 +652,7 @@ class AttributeDisclosureRiskAnalyzer:
         """
         Calculate detailed metrics for each quasi-identifier group
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -668,7 +667,7 @@ class AttributeDisclosureRiskAnalyzer:
         c_value : float
             Parameter for recursive (c,l)-diversity
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Detailed group metrics
@@ -785,7 +784,7 @@ def calculate_attribute_disclosure_risk(
     """
     Calculate attribute disclosure risk for a specific attribute
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -804,7 +803,7 @@ def calculate_attribute_disclosure_risk(
     **kwargs : dict
         Additional parameters for risk calculation
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Comprehensive attribute disclosure risk metrics
@@ -830,7 +829,7 @@ def identify_vulnerable_attributes(
     """
     Identify sensitive attributes with high vulnerability
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -847,7 +846,7 @@ def identify_vulnerable_attributes(
     risk_threshold : float, optional
         Threshold for high risk (default: 50.0)
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Risk assessment for each attribute, sorted by risk level
@@ -899,7 +898,7 @@ def compare_attribute_risks(
     """
     Compare attribute risks under different diversity configurations
 
-    Parameters:
+    Parameters
     -----------
     data : pd.DataFrame
         Input dataset
@@ -911,7 +910,7 @@ def compare_attribute_risks(
         List of diversity configurations to compare
         Each config should have 'diversity_type', 'l_threshold', 'c_value'
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Comparison of risks under different configurations

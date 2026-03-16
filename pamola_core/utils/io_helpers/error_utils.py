@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Error Handling Utilities
 Description: Centralized error information and structured exception management for I/O operations
 Author: PAMOLA Core Team
@@ -20,7 +19,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast
 
 from pamola_core.errors.codes import ErrorCode
-from pamola_core.errors import BasePamolaError
+from pamola_core.errors.base import BasePamolaError
 from pamola_core.errors.exceptions import ProcessingError, PamolaFileNotFoundError
 
 # Configure module logger
@@ -40,7 +39,7 @@ def create_error_info(
     """
     Create a standardized error information dictionary.
 
-    Parameters:
+    Parameters
     -----------
     error_type : str
         Type of error (e.g., "FileNotFoundError", "DecryptionError")
@@ -53,7 +52,7 @@ def create_error_info(
     details : Dict[str, Any], optional
         Additional error details or context
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Standardized error information dictionary
@@ -83,12 +82,12 @@ def handle_io_errors(func: Callable[..., T]) -> Callable[..., Union[T, Dict[str,
     This decorator catches exceptions, logs them appropriately, and returns
     standardized error information dictionaries.
 
-    Parameters:
+    Parameters
     -----------
     func : Callable
         Function to decorate
 
-    Returns:
+    Returns
     --------
     Callable
         Decorated function with standardized error handling
@@ -176,12 +175,12 @@ def extract_error_message(error_info: Dict[str, Any]) -> str:
     """
     Extract a user-friendly error message from error information.
 
-    Parameters:
+    Parameters
     -----------
     error_info : Dict[str, Any]
         Error information dictionary
 
-    Returns:
+    Returns
     --------
     str
         User-friendly error message
@@ -212,12 +211,12 @@ def is_error_info(result: Any) -> bool:
     """
     Check if a result is an error information dictionary.
 
-    Parameters:
+    Parameters
     -----------
     result : Any
         Result to check
 
-    Returns:
+    Returns
     --------
     bool
         True if the result is an error information dictionary, False otherwise
@@ -229,12 +228,12 @@ def is_recoverable_error(error_info: Dict[str, Any]) -> bool:
     """
     Check if an error is potentially recoverable.
 
-    Parameters:
+    Parameters
     -----------
     error_info : Dict[str, Any]
         Error information dictionary
 
-    Returns:
+    Returns
     --------
     bool
         True if the error is potentially recoverable, False otherwise
@@ -268,14 +267,14 @@ def combine_error_infos(
     This is useful for operations that process multiple files and encounter
     different errors for each file.
 
-    Parameters:
+    Parameters
     -----------
     error_infos : List[Dict[str, Any]]
         List of error information dictionaries
     operation_name : str
         Name of the operation that generated the errors
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Combined error information dictionary with aggregated details
@@ -312,17 +311,17 @@ def raise_if_error(result: Any) -> Any:
     """
     Raise an exception if the result is an error information dictionary.
 
-    Parameters:
+    Parameters
     -----------
     result : Any
         Result to check
 
-    Returns:
+    Returns
     --------
     Any
         The result if it's not an error information dictionary
 
-    Raises:
+    Raises
     -------
     Exception
         If the result is an error information dictionary

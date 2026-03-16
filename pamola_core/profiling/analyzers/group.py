@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Group Analyzer Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -87,7 +86,7 @@ class GroupAnalyzer:
         """
         Analyze grouped data to compute variance and duplication metrics for anonymization.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The input DataFrame to analyze.
@@ -116,7 +115,7 @@ class GroupAnalyzer:
         **kwargs
             Additional keyword arguments passed to downstream utilities.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
         """
@@ -339,7 +338,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Execute the email analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -352,7 +351,7 @@ class GroupAnalyzerOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -643,12 +642,12 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Calculate the variance and duplication ratio for a single field.
 
-        Parameters:
+        Parameters
         -----------
         field_series : pd.Series
             Series containing values for a single field
 
-        Returns:
+        Returns
         --------
         Tuple[float, float]
             (variance, duplication_ratio)
@@ -679,12 +678,12 @@ class GroupAnalyzerOperation(FieldOperation):
         Get unique values from a field series, handling text and NULL values.
         Improved version with better categorical data handling.
 
-        Parameters:
+        Parameters
         -----------
         field_series : pd.Series
             Series containing values for a single field
 
-        Returns:
+        Returns
         --------
         Tuple[Set[Any], Dict[Any, int]]
             Set of unique values and dictionary with value counts
@@ -808,12 +807,12 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Cluster similar MinHash signature keys.
 
-        Parameters:
+        Parameters
         -----------
         signature_keys : List[str]
             List of MinHash signature keys to cluster
 
-        Returns:
+        Returns
         --------
         List[List[str]]
             List of clusters, where each cluster is a list of similar signature keys
@@ -868,14 +867,14 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Calculate a simple Jaccard similarity between two signatures.
 
-        Parameters:
+        Parameters
         -----------
         sig1 : List[int]
             First signature
         sig2 : List[int]
             Second signature
 
-        Returns:
+        Returns
         --------
         float
             Jaccard similarity (0-1)
@@ -900,7 +899,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Generate a histogram of variance distribution.
 
-        Parameters:
+        Parameters
         -----------
         variance_distribution : Dict[str, int]
             Dictionary with variance ranges and their counts
@@ -991,7 +990,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Generate a heatmap of field variances.
 
-        Parameters:
+        Parameters
         -----------
         field_metrics : Dict[str, Dict[str, float]]
             Dictionary with metrics for each field
@@ -1095,12 +1094,12 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -1142,7 +1141,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -1151,7 +1150,7 @@ class GroupAnalyzerOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1191,7 +1190,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -1228,7 +1227,7 @@ class GroupAnalyzerOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         threshold_metrics : Dict[str, Any]
             Dictionary containing variance distribution metrics (e.g., group counts by variance range).
@@ -1251,7 +1250,7 @@ class GroupAnalyzerOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths

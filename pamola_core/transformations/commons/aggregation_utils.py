@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Aggregate Records Visualization & Utility Functions
 
 This module provides utility functions for:
@@ -522,9 +521,11 @@ def flatten_multiindex_columns(columns) -> List[str]:
 def _get_aggregation_function(agg_name: str) -> Callable:
     """Get the aggregation function by name.
 
-    Args:
+    Parameters
+    ----------
         agg_name: Name of the aggregation function
-    Returns:
+    Returns
+    -------
         Callable aggregation function
     """
     if agg_name in STANDARD_AGGREGATIONS:

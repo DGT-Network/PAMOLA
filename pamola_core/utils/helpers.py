@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Utility Functions
-----------------------------------------------------
 Module: Helpers
 Description:
     Collection of utility functions for common operations such as:
@@ -52,12 +51,14 @@ def cleanup_memory(instance: Optional[Any] = None, force_gc: bool = True) -> Non
     - Clears the `filter_mask` attribute if it exists.
     - Additionally, it removes any attributes that start with `_temp_` from the instance.
     - If `force_gc` is set to True, it triggers garbage collection.
-    Args:
+    Parameters
+    ----------
         instance (Optional[Any]): The instance from which to clear attributes.
                                    If None, only class-level attributes will be cleared.
         force_gc (bool): A flag indicating whether to force garbage collection.
                          Defaults to True.
-    Returns:
+    Returns
+    -------
         None: This function does not return any value.
     """
     try:

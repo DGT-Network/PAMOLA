@@ -223,12 +223,12 @@ class FieldCategory:
         """
         Determine the category for a field based on its name.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             The name of the field
 
-        Returns:
+        Returns
         --------
         str
             The category name or "UNKNOWN"

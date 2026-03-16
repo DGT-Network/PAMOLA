@@ -15,12 +15,12 @@ def is_numeric_dtype(series_or_dtype):
     """
     Check if series or dtype is numeric.
 
-    Parameters:
+    Parameters
     -----------
     series_or_dtype : pd.Series, np.dtype, or type
         Series or dtype to check
 
-    Returns:
+    Returns
     --------
     bool
         True if numeric, False otherwise
@@ -49,12 +49,12 @@ def is_bool_dtype(series_or_dtype):
     """
     Check if series or dtype is boolean.
 
-    Parameters:
+    Parameters
     -----------
     series_or_dtype : pd.Series, np.dtype, or type
         Series or dtype to check
 
-    Returns:
+    Returns
     --------
     bool
         True if boolean, False otherwise
@@ -82,12 +82,12 @@ def is_object_dtype(series_or_dtype):
     """
     Check if series or dtype is object.
 
-    Parameters:
+    Parameters
     -----------
     series_or_dtype : pd.Series, np.dtype, or type
         Series or dtype to check
 
-    Returns:
+    Returns
     --------
     bool
         True if object, False otherwise
@@ -112,12 +112,12 @@ def is_string_dtype(series_or_dtype):
     """
     Check if series or dtype is string.
 
-    Parameters:
+    Parameters
     -----------
     series_or_dtype : pd.Series, np.dtype, or type
         Series or dtype to check
 
-    Returns:
+    Returns
     --------
     bool
         True if string, False otherwise
@@ -145,12 +145,12 @@ def is_datetime64_dtype(series_or_dtype):
     """
     Check if series or dtype is datetime64.
 
-    Parameters:
+    Parameters
     -----------
     series_or_dtype : pd.Series, np.dtype, or type
         Series or dtype to check
 
-    Returns:
+    Returns
     --------
     bool
         True if datetime64, False otherwise
@@ -178,12 +178,12 @@ def is_categorical_dtype(series_or_dtype):
     """
     Check if series or dtype is categorical.
 
-    Parameters:
+    Parameters
     -----------
     series_or_dtype : pd.Series, np.dtype, or type
         Series or dtype to check
 
-    Returns:
+    Returns
     --------
     bool
         True if categorical, False otherwise
@@ -208,12 +208,12 @@ def is_integer_dtype(series_or_dtype):
     """
     Check if series or dtype is integer.
 
-    Parameters:
+    Parameters
     -----------
     series_or_dtype : pd.Series, np.dtype, or type
         Series or dtype to check
 
-    Returns:
+    Returns
     --------
     bool
         True if integer, False otherwise
@@ -241,12 +241,12 @@ def is_float_dtype(series_or_dtype):
     """
     Check if series or dtype is float.
 
-    Parameters:
+    Parameters
     -----------
     series_or_dtype : pd.Series, np.dtype, or type
         Series or dtype to check
 
-    Returns:
+    Returns
     --------
     bool
         True if float, False otherwise
@@ -274,12 +274,12 @@ def is_list_like(obj):
     """
     Check if object is list-like (an iterable but not a string/bytes).
 
-    Parameters:
+    Parameters
     -----------
     obj : any
         Object to check
 
-    Returns:
+    Returns
     --------
     bool
         True if list-like, False otherwise
@@ -295,12 +295,12 @@ def is_dict_like(obj):
     """
     Check if object is dict-like (has keys and __getitem__).
 
-    Parameters:
+    Parameters
     -----------
     obj : any
         Object to check
 
-    Returns:
+    Returns
     --------
     bool
         True if dict-like, False otherwise

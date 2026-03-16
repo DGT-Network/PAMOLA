@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Anonymization Validation Utilities (Complete Facade)
 Package:       pamola_core.anonymization.commons
 Version:       3.2.0
@@ -137,11 +136,13 @@ class LegacyValidationSupport:
         """
         Convert new ValidationResult to legacy format.
 
-        Args:
+        Parameters
+        ----------
             result: ValidationResult from new system
             return_bool: If True, return only boolean; if False, return tuple
 
-        Returns:
+        Returns
+        -------
             Boolean or tuple based on legacy API expectations
         """
         if return_bool:
@@ -169,7 +170,7 @@ def validate_field_exists(
 
     DEPRECATED: Use check_field_exists() or requires_field decorator instead.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to check
@@ -178,7 +179,7 @@ def validate_field_exists(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     bool
         True if the field exists, False otherwise
@@ -200,7 +201,7 @@ def validate_multiple_fields_exist(
 
     DEPRECATED: Use check_multiple_fields_exist() instead.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to check
@@ -209,7 +210,7 @@ def validate_multiple_fields_exist(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     Tuple[bool, List[str]]
         (True if all fields exist, list of missing fields)
@@ -231,7 +232,7 @@ def validate_numeric_field(
 
     DEPRECATED: Use NumericFieldValidator instead for more features.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the field
@@ -246,12 +247,12 @@ def validate_numeric_field(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     bool
         True if the field is numeric and meets all criteria, False otherwise
 
-    Raises:
+    Raises
     -------
     FieldNotFoundError
         If field doesn't exist in DataFrame
@@ -390,7 +391,7 @@ def validate_hierarchy_dictionary(
 
     DEPRECATED: Use HierarchyFileValidator instead.
 
-    Parameters:
+    Parameters
     -----------
     hierarchy_dict : Union[Any, Dict[str, Any], str, Path]
         Hierarchy dictionary to validate (object, dict, or file path)
@@ -403,7 +404,7 @@ def validate_hierarchy_dictionary(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     Tuple[bool, Dict[str, Any]]
         (True if valid, validation details)
@@ -465,7 +466,7 @@ def validate_datetime_field(
 
     DEPRECATED: Use DateTimeFieldValidator instead.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame containing the field
@@ -480,7 +481,7 @@ def validate_datetime_field(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored, uses module logger)
 
-    Returns:
+    Returns
     --------
     bool
         True if the field is datetime and meets all criteria, False otherwise
@@ -515,7 +516,7 @@ def validate_generalization_strategy(
     DEPRECATED: Use validate_strategy() from new system.
     This is a legacy wrapper for backward compatibility.
 
-    Parameters:
+    Parameters
     -----------
     strategy : str
         The strategy to validate
@@ -524,7 +525,7 @@ def validate_generalization_strategy(
     logger_instance : Optional[logging.Logger]
         Logger instance (ignored)
 
-    Returns:
+    Returns
     --------
     bool
         True if the strategy is valid, False otherwise
@@ -549,7 +550,7 @@ def create_validator(field_type: str, **params) -> BaseValidator:
     This is a convenience wrapper that provides a simpler interface
     for creating validators of various types.
 
-    Parameters:
+    Parameters
     -----------
     field_type : str
         Type of field validator to create:
@@ -567,12 +568,12 @@ def create_validator(field_type: str, **params) -> BaseValidator:
     **params : dict
         Parameters specific to the validator type
 
-    Returns:
+    Returns
     --------
     BaseValidator
         Configured validator instance
 
-    Examples:
+    Examples
     ---------
     >>> # Create numeric validator
     >>> num_validator = create_validator('numeric', min_value=0, max_value=100)
@@ -610,14 +611,14 @@ def create_validation_pipeline(
     This is a convenience function for creating composite validators
     with a more intuitive interface.
 
-    Parameters:
+    Parameters
     -----------
     *validators : BaseValidator
         Variable number of validators to chain together
     stop_on_first_error : bool
         Whether to stop validation chain on first error
 
-    Returns:
+    Returns
     --------
     CompositeValidator
         Composite validator that runs all validators in sequence
@@ -631,7 +632,7 @@ def validate_dataframe_schema(
     """
     Validate entire DataFrame against a schema definition.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to validate
@@ -641,7 +642,7 @@ def validate_dataframe_schema(
     strict : bool
         If True, unexpected columns cause validation failure
 
-    Returns:
+    Returns
     --------
     ValidationResult
         Aggregated validation result for all columns
@@ -706,19 +707,19 @@ def create_cross_validator(
     This is useful for complex validation scenarios where you need to validate
     type, then format, then business rules, etc.
 
-    Parameters:
+    Parameters
     -----------
     validators : Dict[str, BaseValidator]
         Dictionary of named validators
     validation_order : Optional[List[str]]
         Order to execute validators (if None, uses dict order)
 
-    Returns:
+    Returns
     --------
     BaseValidator
         Composite validator with ordered execution
 
-    Examples:
+    Examples
     ---------
     >>> type_validator = create_validator('numeric')
     >>> range_validator = create_validator('numeric', min_value=0, max_value=100)
@@ -877,7 +878,7 @@ def get_validation_error_result(
 
     DEPRECATED: Use ValidationResult directly.
 
-    Parameters:
+    Parameters
     -----------
     error_message : str
         The error message
@@ -886,7 +887,7 @@ def get_validation_error_result(
     error_type : str, optional
         The type of error (default: "ValidationError")
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation error result with standardized structure
@@ -908,14 +909,14 @@ def get_validation_success_result(
 
     DEPRECATED: Use ValidationResult directly.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str, optional
         The field name that was validated
     additional_info : Optional[Dict[str, Any]]
         Additional validation information
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Validation success result with standardized structure

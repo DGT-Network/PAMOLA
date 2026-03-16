@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Type-Specific Validators
 Package:       pamola_core.anonymization.commons.validation
 Version:       1.0.0
@@ -152,7 +151,8 @@ class NetworkValidator(BaseValidator):
         """
         Initialize network validator.
 
-        Args:
+        Parameters
+        ----------
             network_type: Type of network data (ipv4, ipv6, mac, url, email)
             sample_size: Number of records to sample for validation
             strict: Whether to validate all records or just sample
@@ -170,11 +170,13 @@ class NetworkValidator(BaseValidator):
         """
         Validate network identifier format.
 
-        Args:
+        Parameters
+        ----------
             data: Series containing network identifiers
             **kwargs: Additional validation parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -255,12 +257,14 @@ def validate_network_identifiers(
     """
     Validate network identifier format.
 
-    Args:
+    Parameters
+    ----------
         data: Network identifier data
         network_type: Type of network identifier
         strict: Whether to validate all records
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     validator = NetworkValidator(network_type=network_type, strict=strict)
@@ -279,7 +283,8 @@ class GeographicValidator(BaseValidator):
         """
         Initialize geographic validator.
 
-        Args:
+        Parameters
+        ----------
             geo_type: Type of geographic data
             sample_size: Number of records to sample
         """
@@ -299,11 +304,13 @@ class GeographicValidator(BaseValidator):
         """
         Validate geographic data format.
 
-        Args:
+        Parameters
+        ----------
             data: Geographic data to validate
             **kwargs: Additional parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -438,11 +445,13 @@ def validate_geographic_data(data: pd.Series, geo_type: str) -> ValidationResult
     """
     Validate geographic data format.
 
-    Args:
+    Parameters
+    ----------
         data: Geographic data to validate
         geo_type: Type of geographic data
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     validator = GeographicValidator(geo_type=geo_type)
@@ -466,7 +475,8 @@ class TemporalValidator(BaseValidator):
         """
         Initialize temporal validator.
 
-        Args:
+        Parameters
+        ----------
             min_date: Minimum allowed date
             max_date: Maximum allowed date
             check_sequence: Whether to check temporal ordering
@@ -481,11 +491,13 @@ class TemporalValidator(BaseValidator):
         """
         Validate temporal data.
 
-        Args:
+        Parameters
+        ----------
             data: Temporal data to validate
             **kwargs: Additional parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -553,11 +565,13 @@ def validate_temporal_sequence(
     """
     Validate temporal sequence data.
 
-    Args:
+    Parameters
+    ----------
         data: Temporal data to validate
         check_sequence: Whether to check ordering
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     validator = TemporalValidator(check_sequence=check_sequence)
@@ -581,7 +595,8 @@ class FinancialValidator(BaseValidator):
         """
         Initialize financial validator.
 
-        Args:
+        Parameters
+        ----------
             financial_type: Type of financial data
             allow_negative: Whether negative values are allowed
             currency: Expected currency code
@@ -603,11 +618,13 @@ class FinancialValidator(BaseValidator):
         """
         Validate financial data.
 
-        Args:
+        Parameters
+        ----------
             data: Financial data to validate
             **kwargs: Additional parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         result = ValidationResult(is_valid=True)
@@ -759,12 +776,14 @@ def validate_financial_data(
     """
     Validate financial data format.
 
-    Args:
+    Parameters
+    ----------
         data: Financial data to validate
         financial_type: Type of financial data
         allow_negative: Whether negative amounts are allowed
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     validator = FinancialValidator(
@@ -787,7 +806,8 @@ class SpecializedTypeValidator(BaseValidator):
         """
         Initialize specialized type validator.
 
-        Args:
+        Parameters
+        ----------
             data_type: Type of specialized data
             validation_params: Additional validation parameters
         """
@@ -812,11 +832,13 @@ class SpecializedTypeValidator(BaseValidator):
         """
         Validate specialized data type.
 
-        Args:
+        Parameters
+        ----------
             data: Data to validate
             **kwargs: Additional parameters
 
-        Returns:
+        Returns
+        -------
             ValidationResult with validation outcome
         """
         # Find appropriate validator
@@ -868,13 +890,15 @@ def validate_specialized_type(
     """
     Validate specialized data types.
 
-    Args:
+    Parameters
+    ----------
         data: Data to validate
         data_type: Type of specialized data
         validation_params: Additional validation parameters
         field_name: Field name for reporting
 
-    Returns:
+    Returns
+    -------
         ValidationResult with validation outcome
     """
     validator = SpecializedTypeValidator(

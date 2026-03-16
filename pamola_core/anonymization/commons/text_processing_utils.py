@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Text Processing Utilities for Anonymization
 Package:       pamola_core.anonymization.commons
 Version:       1.0.0
@@ -82,7 +81,7 @@ def normalize_text(text: str, level: str = "basic", preserve_case: bool = False)
     anonymization-specific defaults. It does not use stopword removal
     by default as this could affect category matching.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to normalize
@@ -95,12 +94,12 @@ def normalize_text(text: str, level: str = "basic", preserve_case: bool = False)
     preserve_case : bool, optional
         Whether to preserve original case (default: False)
 
-    Returns:
+    Returns
     --------
     str
         Normalized text suitable for anonymization
 
-    Examples:
+    Examples
     ---------
     >>> normalize_text("  Sales & Marketing  ")
     'sales & marketing'
@@ -125,7 +124,7 @@ def clean_category_name(
     to ensure generated field names are safe for databases and downstream
     processing systems.
 
-    Parameters:
+    Parameters
     -----------
     name : str
         Category name to clean
@@ -136,12 +135,12 @@ def clean_category_name(
     separator : str, optional
         Character to use as separator (default: "_")
 
-    Returns:
+    Returns
     --------
     str
         Cleaned category name safe for anonymization
 
-    Examples:
+    Examples
     ---------
     >>> clean_category_name("Sales & Marketing")
     'Sales_Marketing'
@@ -186,7 +185,7 @@ def find_closest_category(
     This function extends the basic find_closest_category with fallback
     handling and normalization options specific to anonymization needs.
 
-    Parameters:
+    Parameters
     -----------
     value : str
         Value to categorize
@@ -201,12 +200,12 @@ def find_closest_category(
     fallback : str, optional
         Fallback category if no match found (default: "OTHER")
 
-    Returns:
+    Returns
     --------
     str
         Best matching category or fallback value
 
-    Examples:
+    Examples
     ---------
     >>> categories = ["Software Engineer", "Data Scientist"]
     >>> find_closest_category("Software Dev", categories)
@@ -240,7 +239,7 @@ def split_composite_value(
     This function limits the number of components to prevent data explosion
     and applies anonymization-friendly normalization.
 
-    Parameters:
+    Parameters
     -----------
     value : str
         Composite value to split
@@ -251,12 +250,12 @@ def split_composite_value(
     max_components : int, optional
         Maximum number of components to return (default: 10)
 
-    Returns:
+    Returns
     --------
     List[str]
         List of components (limited to max_components)
 
-    Examples:
+    Examples
     ---------
     >>> split_composite_value("IT|Finance|HR")
     ['it', 'finance', 'hr']
@@ -294,7 +293,7 @@ def extract_tokens(
     This function uses a higher minimum length and limits the number of
     tokens to prevent information leakage through numerous small tokens.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to tokenize
@@ -307,12 +306,12 @@ def extract_tokens(
     max_tokens : int, optional
         Maximum number of tokens to return (default: 50)
 
-    Returns:
+    Returns
     --------
     List[str]
         List of tokens (limited to max_tokens)
 
-    Examples:
+    Examples
     ---------
     >>> extract_tokens("Senior Software Engineer in NYC")
     ['senior', 'software', 'engineer', 'nyc']
@@ -340,7 +339,7 @@ def merge_composite_categories(
     This function is specific to anonymization for handling cases where
     multiple categories need to be combined into one.
 
-    Parameters:
+    Parameters
     -----------
     categories : List[str]
         List of categories to merge
@@ -355,12 +354,12 @@ def merge_composite_categories(
     max_length : int, optional
         Maximum length for merged category (default: 40)
 
-    Returns:
+    Returns
     --------
     str
         Merged category name
 
-    Examples:
+    Examples
     ---------
     >>> merge_composite_categories(["IT", "Finance"], strategy="all")
     'IT_Finance'
@@ -411,7 +410,7 @@ def prepare_value_for_matching(
     This function is specific to anonymization for improving matching accuracy
     by removing common job title prefixes/suffixes, location indicators, etc.
 
-    Parameters:
+    Parameters
     -----------
     value : str
         Value to prepare
@@ -420,12 +419,12 @@ def prepare_value_for_matching(
     remove_common_suffixes : bool, optional
         Whether to remove common suffixes (default: True)
 
-    Returns:
+    Returns
     --------
     str
         Prepared value for matching
 
-    Examples:
+    Examples
     ---------
     >>> prepare_value_for_matching("Senior Software Engineer")
     'software engineer'
@@ -509,7 +508,7 @@ def validate_hierarchy_value(
     This function ensures values are appropriate for their hierarchy level,
     with more general categories at higher levels having stricter constraints.
 
-    Parameters:
+    Parameters
     -----------
     value : str
         Value to validate
@@ -518,12 +517,12 @@ def validate_hierarchy_value(
     max_length_by_level : Dict[int, int], optional
         Maximum lengths per level
 
-    Returns:
+    Returns
     --------
     Tuple[bool, Optional[str]]
         (is_valid, error_message)
 
-    Examples:
+    Examples
     ---------
     >>> validate_hierarchy_value("Technology", level=0)
     (True, None)
@@ -570,7 +569,7 @@ def create_safe_hierarchy_path(
     This function creates a human-readable hierarchy path while ensuring
     it's safe for storage and display in anonymized outputs.
 
-    Parameters:
+    Parameters
     -----------
     components : List[str]
         Hierarchy components from general to specific
@@ -579,12 +578,12 @@ def create_safe_hierarchy_path(
     max_length : int, optional
         Maximum total length (default: 100)
 
-    Returns:
+    Returns
     --------
     str
         Safe hierarchy path string
 
-    Examples:
+    Examples
     ---------
     >>> create_safe_hierarchy_path(["Technology", "Software", "Engineering"])
     'Technology > Software > Engineering'

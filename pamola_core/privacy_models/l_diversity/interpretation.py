@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - L-Diversity Risk Interpretation
----------------------------------------------
 This module provides interpretation functionality for l-diversity risk metrics.
 It translates numeric risk values into human-readable assessments and
 contextualizes them based on various privacy requirements.
@@ -42,7 +41,7 @@ class RiskInterpreter:
         """
         Initialize Risk Interpreter
 
-        Parameters:
+        Parameters
         -----------
         domain : str, optional
             Data domain for context-specific interpretation (default: "general")
@@ -100,14 +99,14 @@ class RiskInterpreter:
         """
         Provide human-readable interpretation of risk values
 
-        Parameters:
+        Parameters
         -----------
         risk_value : float
             Risk percentage (0-100)
         risk_type : str, optional
             Type of risk being interpreted (default: "general")
 
-        Returns:
+        Returns
         --------
         str
             Human-readable risk interpretation
@@ -134,12 +133,12 @@ class RiskInterpreter:
         """
         Get appropriate thresholds for a risk type and domain
 
-        Parameters:
+        Parameters
         -----------
         risk_type : str
             Type of risk being interpreted
 
-        Returns:
+        Returns
         --------
         List[float]
             List of threshold values
@@ -159,12 +158,12 @@ class RiskInterpreter:
         """
         Interpret risk values for different attack models
 
-        Parameters:
+        Parameters
         -----------
         risk_metrics : Dict[str, float]
             Dictionary with risk values for different attack models
 
-        Returns:
+        Returns
         --------
         Dict[str, str]
             Dictionary with human-readable interpretations
@@ -185,7 +184,7 @@ class RiskInterpreter:
         """
         Interpret l-diversity compliance for regulatory frameworks
 
-        Parameters:
+        Parameters
         -----------
         min_diversity : float
             Minimum diversity value across the dataset
@@ -194,7 +193,7 @@ class RiskInterpreter:
         regulation : str, optional
             Specific regulation to check (overrides instance regulation)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Compliance assessment
@@ -257,7 +256,7 @@ class RiskInterpreter:
         """
         Get recommendation for improving compliance
 
-        Parameters:
+        Parameters
         -----------
         compliant : bool
             Whether the dataset is compliant
@@ -268,7 +267,7 @@ class RiskInterpreter:
         target_l : int
             Target l-value for compliance
 
-        Returns:
+        Returns
         --------
         str
             Recommendation for compliance
@@ -301,7 +300,7 @@ class RiskInterpreter:
         """
         Interpret a diversity value
 
-        Parameters:
+        Parameters
         -----------
         diversity_value : float
             L-diversity value to interpret
@@ -312,7 +311,7 @@ class RiskInterpreter:
         c_value : float, optional
             C parameter for recursive diversity (default: 1.0)
 
-        Returns:
+        Returns
         --------
         str
             Human-readable interpretation
@@ -359,14 +358,14 @@ class RiskInterpreter:
         """
         Get domain-specific risk assessment
 
-        Parameters:
+        Parameters
         -----------
         risk_metrics : Dict[str, Any]
             Dictionary with risk values and metrics
         domain : str, optional
             Data domain (overrides instance domain)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Domain-specific risk assessment
@@ -450,14 +449,14 @@ def interpret_risk_value(risk_value: float, domain: str = "general") -> str:
     """
     Interpret a risk value with default settings
 
-    Parameters:
+    Parameters
     -----------
     risk_value : float
         Risk percentage (0-100)
     domain : str, optional
         Data domain for context-specific interpretation (default: "general")
 
-    Returns:
+    Returns
     --------
     str
         Human-readable risk interpretation
@@ -472,7 +471,7 @@ def interpret_risk_metrics(risk_metrics: Dict[str, Any],
     """
     Comprehensive interpretation of risk metrics
 
-    Parameters:
+    Parameters
     -----------
     risk_metrics : Dict[str, Any]
         Dictionary with risk values and metrics
@@ -481,7 +480,7 @@ def interpret_risk_metrics(risk_metrics: Dict[str, Any],
     regulation : str, optional
         Regulatory framework for compliance assessment
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Comprehensive risk interpretation
@@ -516,12 +515,12 @@ def get_regulatory_requirements(regulation: str) -> Dict[str, Any]:
     """
     Get l-diversity requirements for different privacy regulations
 
-    Parameters:
+    Parameters
     -----------
     regulation : str
         Regulation to get requirements for ('GDPR', 'HIPAA', 'CCPA', etc.)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with recommended l-diversity parameters for the regulation

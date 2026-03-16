@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Base Transformation Operation
 Description: Base class for all data transformation operations in PAMOLA Core.
 
@@ -70,7 +69,7 @@ class TransformationOperation(BaseOperation):
     ):
         """Initialize the transformation operation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation (default: "transformation_operation")
@@ -111,7 +110,7 @@ class TransformationOperation(BaseOperation):
         """
         Execute the transformation operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -124,7 +123,7 @@ class TransformationOperation(BaseOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -636,14 +635,14 @@ class TransformationOperation(BaseOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The dataframe to process
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The processed dataframe
@@ -735,7 +734,7 @@ class TransformationOperation(BaseOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.Series
             The original data before transformation
@@ -965,7 +964,7 @@ class TransformationOperation(BaseOperation):
         **kwargs : Any
             Additional keyword arguments for visualization functions.
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1179,7 +1178,7 @@ class TransformationOperation(BaseOperation):
         """
         Save the processed output data.
 
-        Parameters:
+        Parameters
         -----------
         result_df : pd.DataFrame
             The processed dataframe to save
@@ -1249,14 +1248,14 @@ class TransformationOperation(BaseOperation):
         """
         Check if a cached result exists for this operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame to check in the cache
         reporter : Any
             Reporter to log cache hits/misses
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -1390,7 +1389,7 @@ class TransformationOperation(BaseOperation):
         For large datasets, explicitly free memory by deleting
         references and optionally calling garbage collection.
 
-        Parameters:
+        Parameters
         -----------
         result_df : pd.DataFrame, optional
             Processed DataFrame to clear from memory
@@ -1433,12 +1432,12 @@ class TransformationOperation(BaseOperation):
         """
         Process a batch of data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame batch
@@ -1528,7 +1527,7 @@ class TransformationOperation(BaseOperation):
         transformed_data : pd.Series or pd.DataFrame
             Transformed data after processing.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with operation-specific metrics
@@ -1623,7 +1622,7 @@ class TransformationOperation(BaseOperation):
         """
         Save metrics.
 
-        Parameters:
+        Parameters
         -----------
         metrics : dict
             The metrics of operation

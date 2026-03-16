@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Schema Management System
 Package:       pamola_core.metrics.commons.schema_manager
 Version:       1.0.0

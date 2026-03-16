@@ -36,12 +36,12 @@ def prepare_task_reports(task_reports: Dict[str, Dict[str, Any]]) -> Dict[str, D
     """
     Подготавливает отчеты задач для отображения.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Подготовленный словарь отчетов
@@ -65,14 +65,14 @@ def prepare_artifacts_for_report(task_reports: Dict[str, Dict[str, Any]],
     """
     Подготавливает артефакты для отчета, добавляя относительные пути.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
     report_dir : Path
         Директория отчета
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Подготовленный словарь отчетов
@@ -104,14 +104,14 @@ def create_json_preview(data: Any, max_depth: int = 2) -> str:
     """
     Создает HTML-предпросмотр для JSON-данных.
 
-    Parameters:
+    Parameters
     -----------
     data : Any
         JSON-данные
     max_depth : int
         Максимальная глубина вложенности для отображения
 
-    Returns:
+    Returns
     --------
     str
         HTML-код предпросмотра
@@ -168,12 +168,12 @@ def create_dashboard_data(task_reports: Dict[str, Dict[str, Any]]) -> Dict[str, 
     """
     Создает данные для панели мониторинга.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Данные для панели мониторинга
@@ -256,7 +256,7 @@ def create_html_report(task_reports: Dict[str, Dict[str, Any]],
     """
     Создает HTML-отчет на основе отчетов задач.
 
-    Parameters:
+    Parameters
     -----------
     task_reports : Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}
@@ -265,7 +265,7 @@ def create_html_report(task_reports: Dict[str, Dict[str, Any]],
     template_name : str, optional
         Имя шаблона (если не указано, используется шаблон по умолчанию)
 
-    Returns:
+    Returns
     --------
     Tuple[Path, bool]
         Путь к созданному отчету и флаг успешности
@@ -378,12 +378,12 @@ def load_task_report(report_path: Union[str, Path]) -> Dict[str, Any]:
     """
     Загружает отчет задачи из JSON-файла.
 
-    Parameters:
+    Parameters
     -----------
     report_path : str or Path
         Путь к файлу отчета
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Загруженный отчет или пустой словарь в случае ошибки
@@ -401,12 +401,12 @@ def load_all_task_reports(reports_dir: Optional[Path] = None) -> Dict[str, Dict[
     """
     Загружает все отчеты задач из директории.
 
-    Parameters:
+    Parameters
     -----------
     reports_dir : Path, optional
         Путь к директории с отчетами (если не указан, используется директория по умолчанию)
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Словарь {id_задачи: отчет}

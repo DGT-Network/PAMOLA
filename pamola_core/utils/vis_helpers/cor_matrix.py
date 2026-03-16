@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
----------------------------------------------------
 Module: Correlation Matrix Visualization Implementation
 
 Description:
@@ -74,7 +73,7 @@ class PlotlyCorrelationMatrix(PlotlyFigure):
         """
         Create a correlation matrix visualization using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame or np.ndarray
             Correlation matrix data. If DataFrame, index and columns used as labels.
@@ -110,12 +109,12 @@ class PlotlyCorrelationMatrix(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to go.Heatmap
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the correlation matrix
 
-        Raises:
+        Raises
         -------
         ValueError
             If the input data is empty or invalid
@@ -297,7 +296,7 @@ class PlotlyCorrelationMatrix(PlotlyFigure):
         """
         Update an existing Plotly correlation matrix.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Plotly figure to update
@@ -319,7 +318,7 @@ class PlotlyCorrelationMatrix(PlotlyFigure):
             - colorbar_title: Title for the colorbar
             - significant_threshold: Threshold for highlighting significant correlations
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated figure

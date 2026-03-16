@@ -253,7 +253,8 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Cache group statistics with memory management.
 
-        Args:
+        Parameters
+        ----------
             group_val: Group identifier
             stats: Statistics to cache
         """
@@ -274,13 +275,16 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Process Dask DataFrame for distributed computing.
 
-        Args:
+        Parameters
+        ----------
             ddf: Dask DataFrame
 
-        Returns:
+        Returns
+        -------
             Dask DataFrame with cells suppressed
 
-        Raises:
+        Raises
+        ------
             ImportError: If Dask is not available
         """
         # For group-based strategies, compute global statistics first
@@ -348,7 +352,7 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -361,7 +365,7 @@ class CellSuppressionOperation(AnonymizationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -1028,11 +1032,13 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Collect cell suppression specific metrics.
 
-        Args:
+        Parameters
+        ----------
             original_data: Original data series
             anonymized_data: Anonymized data series
 
-        Returns:
+        Returns
+        -------
             Dictionary of suppression metrics
         """
         # Calculate suppression rate based on non-null cells
@@ -1205,14 +1211,16 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Generate visualization showing distribution changes.
 
-        Args:
+        Parameters
+        ----------
             input_data: Original DataFrame
             output_data: Processed DataFrame
             task_dir: Directory to save visualization
             result: OperationResult to register artifacts
             operation_timestamp: Timestamp string for file naming
 
-        Returns:
+        Returns
+        -------
             Path to saved visualization or None
         """
 
@@ -1429,7 +1437,8 @@ class CellSuppressionOperation(AnonymizationOperation):
         Get cache-relevant parameters for CellSuppressionOperation to uniquely
         identify this configuration and support caching.
 
-        Returns:
+        Returns
+        -------
             Dict[str, Any]: Dictionary of relevant parameters for cache identity.
         """
         return {
@@ -1449,10 +1458,12 @@ class CellSuppressionOperation(AnonymizationOperation):
         """
         Validate that required input parameters and fields exist in the DataFrame.
 
-        Args:
+        Parameters
+        ----------
             df (pd.DataFrame): Input data.
 
-        Returns:
+        Returns
+        -------
             bool: True if all validations pass, False otherwise.
         """
         # Validate presence of field_name
@@ -1629,7 +1640,8 @@ def build_suppression_mask(
     """
     Build boolean mask indicating which cells to suppress based on various criteria.
 
-    Parameters:
+    Parameters
+    ----------
         df: DataFrame to process
         field_name: Field to apply suppression logic
         suppress_if: Built-in condition ('outlier', 'rare', 'null', or None)
@@ -1641,7 +1653,8 @@ def build_suppression_mask(
         outlier_threshold: Threshold multiplier for outlier detection
         suppression_counter: Optional dictionary to track suppression reasons
 
-    Returns:
+    Returns
+    -------
         Boolean Series indicating which cells should be suppressed
     """
     mask = pd.Series(False, index=df.index)
@@ -1696,12 +1709,14 @@ def detect_outliers(
     """
     Detect outliers in a numeric Series using IQR or Z-score method.
 
-    Parameters:
+    Parameters
+    ----------
         series: The input Series to analyze
         method: Method for outlier detection ("iqr" or "zscore")
         threshold: Threshold multiplier (IQR or Z-score)
 
-    Returns:
+    Returns
+    -------
         Boolean Series where True indicates an outlier
     """
     if not pd.api.types.is_numeric_dtype(series):
@@ -1752,7 +1767,8 @@ def apply_group_mean(
     """
     Apply group-based mean suppression, falling back to global mean if needed.
 
-    Parameters:
+    Parameters
+    ----------
         df : DataFrame
         field_name : Column to suppress
         suppress_mask : Boolean Series indicating which cells to suppress
@@ -1760,7 +1776,8 @@ def apply_group_mean(
         min_group_size : Minimum number of records in a group to use group mean
         global_mean : Value to use if group size is too small
 
-    Returns:
+    Returns
+    -------
         Series with suppressed values
     """
     result_series = df[field_name].copy(deep=True)
@@ -1800,7 +1817,8 @@ def apply_group_mode(
     """
     Apply group-based mode suppression, falling back to global mode if needed.
 
-    Parameters:
+    Parameters
+    ----------
         df: Input DataFrame
         field_name: Column to modify
         suppress_mask: Boolean Series indicating which rows to suppress
@@ -1808,7 +1826,8 @@ def apply_group_mode(
         min_group_size: Minimum group size to apply group mode
         global_mode: Precomputed global mode for fallback
 
-    Returns:
+    Returns
+    -------
         Series with updated suppressed values
     """
     result_series = df[field_name].copy(deep=True)

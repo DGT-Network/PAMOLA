@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: validation_utils.py
 Description: Validation utilities for transformation operations, ensuring parameter integrity,
              schema correctness, and constraint enforcement.
@@ -295,11 +294,13 @@ def validate_dataframe(df: pd.DataFrame, columns: List[str]) -> None:
     """
     Helper function to validate if specified columns exist in the DataFrame.
 
-    Parameters:
+    Parameters
+    ----------
         df (pd.DataFrame): The pandas DataFrame to validate.
         columns (List[str]): A list of column names to check for existence in the DataFrame.
 
-    Raises:
+    Raises
+    ------
         ValueError: If one or more specified columns are missing from the DataFrame.
     """
     missing_columns = [col for col in columns if col not in df.columns]
@@ -353,11 +354,13 @@ def validate_join_type(join_type: str) -> None:
     """
     Helper function to validate join type.
 
-    Parameters:
+    Parameters
+    ----------
         join_type (str): The type of join to validate. Expected values are
         left", "right", "inner", or "outer".
 
-    Raises:
+    Raises
+    ------
         ValueError: If the provided join_type is not one of the valid options.
     """
     valid_join_types = ["left", "right", "inner", "outer"]

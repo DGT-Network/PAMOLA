@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Metric Normalization Utilities
 Package:       pamola_core.metrics.commons.normalize
 Version:       1.0.0
@@ -180,14 +179,14 @@ def round_metric_values(metrics: Dict[str, Any], decimals: int = 2) -> Dict[str,
     """
     Round numeric values in a metrics dictionary for better readability.
 
-    Parameters:
+    Parameters
     -----------
     metrics : dict
         Dictionary containing metric values.
     decimals : int, optional
         Number of decimal places to round to (default: 2).
 
-    Returns:
+    Returns
     --------
     dict
         Dictionary with rounded metric values.

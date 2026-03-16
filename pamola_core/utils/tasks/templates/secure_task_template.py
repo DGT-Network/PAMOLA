@@ -1,6 +1,5 @@
 """
 PAMOLA Project - PAMOLA Core
-------------------------
 Encryption Task Template
 Version: 1.0.0
 Created: 2025-05-10
@@ -98,10 +97,12 @@ class EncryptionTask(BaseTask):
         security checks and encryption setup, including key management and
         security validation.
 
-        Args:
+        Parameters
+        ----------
             args: Command line arguments to override configuration
 
-        Returns:
+        Returns
+        -------
             True if initialization is successful, False otherwise
         """
         # First perform standard initialization
@@ -153,7 +154,8 @@ class EncryptionTask(BaseTask):
         - Input data security
         - Key management
 
-        Returns:
+        Returns
+        -------
             True if security configuration is valid, False otherwise
         """
         self.logger.info("Validating security configuration")
@@ -198,7 +200,8 @@ class EncryptionTask(BaseTask):
         """
         Create a dedicated directory for encrypted outputs.
 
-        Returns:
+        Returns
+        -------
             Path to the encrypted output directory
         """
         encrypted_dir = self.task_dir / "encrypted_output"
@@ -293,7 +296,8 @@ class EncryptionTask(BaseTask):
         This method extends the default execution with additional security
         logging and validation to ensure sensitive data is properly protected.
 
-        Returns:
+        Returns
+        -------
             True if execution is successful, False otherwise
         """
         self.logger.info(f"Executing {len(self.operations)} secure operations")
@@ -405,10 +409,12 @@ class EncryptionTask(BaseTask):
         cleanup procedures to ensure no sensitive data remains in
         temporary storage.
 
-        Args:
+        Parameters
+        ----------
             success: Whether the task executed successfully
 
-        Returns:
+        Returns
+        -------
             True if finalization was successful, False otherwise
         """
         self.logger.info(f"Finalizing encryption task (success: {success})")
@@ -437,7 +443,8 @@ class EncryptionTask(BaseTask):
         This method securely removes temporary files by overwriting
         their content before deletion to prevent data recovery.
 
-        Args:
+        Parameters
+        ----------
             temp_dir: Path to the temporary directory
         """
         self.logger.info(f"Performing secure cleanup of {temp_dir}")

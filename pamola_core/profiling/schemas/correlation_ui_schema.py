@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Correlation Profiler UI Schema
 Package:       pamola_core.profiling.schemas
 Version:       1.0.0

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Pie Chart Visualization Implementation
 Description: Thread-safe pie chart visualization capabilities
 Author: PAMOLA Core Team
@@ -63,7 +62,7 @@ class PlotlyPieChart(PlotlyFigure):
         """
         Create a pie chart using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict[str, float], pd.Series, List[float]]
             Data to visualize. If dict or Series, keys are used as labels.
@@ -101,7 +100,7 @@ class PlotlyPieChart(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to the Plotly trace
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the pie chart
@@ -237,7 +236,7 @@ class PlotlyPieChart(PlotlyFigure):
         """
         Update an existing Plotly pie chart.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Existing Plotly figure to update
@@ -250,7 +249,7 @@ class PlotlyPieChart(PlotlyFigure):
         **kwargs:
             Parameters to update (same as create method)
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated Plotly figure
@@ -411,7 +410,7 @@ class PlotlySunburstChart(PlotlyFigure):
         Converts nested dictionary structure into flat lists of labels, parents, and values
         suitable for Plotly Sunburst visualization.
 
-        Parameters:
+        Parameters
         -----------
         data : Dict
             Hierarchical dictionary where leaf nodes have numeric values.
@@ -419,7 +418,7 @@ class PlotlySunburstChart(PlotlyFigure):
         parent : str
             Parent node name (used for recursion)
 
-        Returns:
+        Returns
         --------
         Tuple[List[str], List[str], List[float]]
             Tuple of (labels, parents, values) where:
@@ -472,7 +471,7 @@ class PlotlySunburstChart(PlotlyFigure):
         """
         Prepare parameters for the sunburst chart based on input data type.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict, pd.DataFrame]
             Data for the visualization
@@ -489,12 +488,12 @@ class PlotlySunburstChart(PlotlyFigure):
         **kwargs
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for creating the sunburst chart
 
-        Raises:
+        Raises
         -------
         ValueError
             If required columns are missing for DataFrame input
@@ -583,7 +582,7 @@ class PlotlySunburstChart(PlotlyFigure):
         """
         Create a sunburst chart using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict, pd.DataFrame]
             Data to visualize.
@@ -615,7 +614,7 @@ class PlotlySunburstChart(PlotlyFigure):
         **kwargs:
             Additional arguments to pass to the Plotly trace
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly figure with the sunburst chart
@@ -691,7 +690,7 @@ class PlotlySunburstChart(PlotlyFigure):
         """
         Update an existing Plotly sunburst chart.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Existing Plotly figure to update
@@ -704,7 +703,7 @@ class PlotlySunburstChart(PlotlyFigure):
         **kwargs:
             Parameters to update
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated Plotly figure

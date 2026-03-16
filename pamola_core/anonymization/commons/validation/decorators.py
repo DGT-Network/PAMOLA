@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Validation Decorators
 Package:       pamola_core.anonymization.commons.validation
 Version:       1.0.0
@@ -78,14 +77,17 @@ def validation_handler(
     Catches ValidationError exceptions and converts them to ValidationResult
     objects. Optionally catches all exceptions for robustness.
 
-    Args:
+    Parameters
+    ----------
         default_field_name: Default field name for results
         catch_all_exceptions: Whether to catch all exceptions or just ValidationError
 
-    Returns:
+    Returns
+    -------
         Decorator function
 
-    Example:
+    Examples
+    --------
         @validation_handler(default_field_name="email")
         def validate_email(value):
             if not "@" in value:
@@ -155,13 +157,16 @@ def validate_types(**type_hints):
     Checks that arguments match expected types before executing
     the function. Raises FieldTypeError for type mismatches.
 
-    Args:
+    Parameters
+    ----------
         **type_hints: Parameter names and their expected types
 
-    Returns:
+    Returns
+    -------
         Decorator function
 
-    Example:
+    Examples
+    --------
         @validate_types(df=pd.DataFrame, field_name=str, threshold=(int, float, type(None)))
         def validate_field(df, field_name, threshold=None):
             # df is guaranteed to be DataFrame
@@ -230,14 +235,17 @@ def sanitize_inputs(strip_strings: bool = True, normalize_none: bool = True):
     Performs common input cleaning operations like stripping
     whitespace from strings and normalizing None values.
 
-    Args:
+    Parameters
+    ----------
         strip_strings: Strip whitespace from string inputs
         normalize_none: Convert empty strings to None
 
-    Returns:
+    Returns
+    -------
         Decorator function
 
-    Example:
+    Examples
+    --------
         @sanitize_inputs(strip_strings=True)
         def validate_text(text: str):
             # text is guaranteed to be stripped
@@ -286,14 +294,17 @@ def skip_if_empty(return_valid: bool = True, check_field: Optional[str] = None):
     Useful for optional field validation where empty values
     are acceptable and don't need validation.
 
-    Args:
+    Parameters
+    ----------
         return_valid: Return valid result for empty inputs
         check_field: Specific field to check in DataFrame
 
-    Returns:
+    Returns
+    -------
         Decorator function
 
-    Example:
+    Examples
+    --------
         @skip_if_empty(return_valid=True)
         def validate_optional_field(value):
             # Won't be called if value is None or empty
@@ -351,14 +362,17 @@ def requires_field(field_name: str, raise_error: bool = True):
     """
     Ensure DataFrame has required field before validation.
 
-    Args:
+    Parameters
+    ----------
         field_name: Required field name
         raise_error: Raise FieldNotFoundError if True, else return ValidationResult
 
-    Returns:
+    Returns
+    -------
         Decorator function
 
-    Example:
+    Examples
+    --------
         @requires_field("email")
         def validate_email_format(df):
             # df is guaranteed to have 'email' column
@@ -404,14 +418,17 @@ def requires_fields(field_names: List[str], all_required: bool = True):
     """
     Ensure DataFrame has required fields before validation.
 
-    Args:
+    Parameters
+    ----------
         field_names: List of required field names
         all_required: If True, all fields must exist; if False, at least one
 
-    Returns:
+    Returns
+    -------
         Decorator function
 
-    Example:
+    Examples
+    --------
         @requires_fields(["name", "email"], all_required=True)
         def validate_user_data(df):
             # df has both 'name' and 'email' columns
@@ -466,15 +483,18 @@ def standard_validator(
     - Input sanitization
     - Exception handling
 
-    Args:
+    Parameters
+    ----------
         field_name: Default field name for results
         strip_inputs: Strip string inputs
         catch_all: Catch all exceptions
 
-    Returns:
+    Returns
+    -------
         Decorator function
 
-    Example:
+    Examples
+    --------
         @standard_validator(field_name="username")
         def validate_username(value):
             if len(value) < 3:
@@ -512,13 +532,16 @@ def aggregate_results(stop_on_first_error: bool = False):
     Allows validation functions to yield multiple results which are
     then aggregated into a single result.
 
-    Args:
+    Parameters
+    ----------
         stop_on_first_error: Stop validation on first error
 
-    Returns:
+    Returns
+    -------
         Decorator function
 
-    Example:
+    Examples
+    --------
         @aggregate_results()
         def validate_multiple_fields(df):
             for field in ['name', 'email', 'phone']:

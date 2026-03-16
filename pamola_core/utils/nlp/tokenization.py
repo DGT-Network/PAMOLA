@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Text Tokenization Utilities
 Description: Classes and functions for tokenizing text across multiple libraries
 Author: PAMOLA Core Team
@@ -165,7 +164,7 @@ class NGramExtractor:
         """
         Initialize the n-gram extractor.
 
-        Parameters:
+        Parameters
         -----------
         n : int
             Size of n-grams to extract (default: 3)
@@ -281,12 +280,12 @@ class NGramExtractor:
         """
         Extract character n-grams from text.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Text to extract n-grams from
 
-        Returns:
+        Returns
         --------
         List[str]
             List of character n-grams
@@ -313,12 +312,12 @@ class NGramExtractor:
         """
         Extract token n-grams from a list of tokens.
 
-        Parameters:
+        Parameters
         -----------
         tokens : List[str]
             List of tokens to extract n-grams from
 
-        Returns:
+        Returns
         --------
         List[List[str]]
             List of token n-grams, where each n-gram is a list of tokens
@@ -361,14 +360,14 @@ class NGramExtractor:
         """
         Extract token n-grams and join them with a separator.
 
-        Parameters:
+        Parameters
         -----------
         tokens : List[str]
             List of tokens to extract n-grams from
         separator : str
             Separator to join tokens in each n-gram (default: ' ')
 
-        Returns:
+        Returns
         --------
         List[str]
             List of token n-grams as strings
@@ -380,14 +379,14 @@ class NGramExtractor:
         """
         Extract token n-grams from text, first tokenizing then extracting n-grams.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Text to extract n-grams from
         tokenizer : callable, optional
             Function to tokenize the text (default: None, uses simple whitespace splitting)
 
-        Returns:
+        Returns
         --------
         List[str]
             List of token n-grams as strings
@@ -408,12 +407,12 @@ class NGramExtractor:
         """
         Iterate over character n-grams from text (memory-efficient).
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Text to extract n-grams from
 
-        Yields:
+        Yields
         -------
         str
             Character n-grams
@@ -437,14 +436,14 @@ class NGramExtractor:
         """
         Get a set of unique n-grams from text or tokens.
 
-        Parameters:
+        Parameters
         -----------
         text_or_tokens : str or List[str]
             Text or list of tokens to extract n-grams from
         is_tokens : bool
             Whether input is already tokenized (default: False)
 
-        Returns:
+        Returns
         --------
         Set[str]
             Set of unique n-grams
@@ -468,14 +467,14 @@ class NGramExtractor:
         """
         Count occurrences of n-grams in text or tokens.
 
-        Parameters:
+        Parameters
         -----------
         text_or_tokens : str or List[str]
             Text or list of tokens to extract n-grams from
         is_tokens : bool
             Whether input is already tokenized (default: False)
 
-        Returns:
+        Returns
         --------
         Dict[str, int]
             Dictionary mapping n-grams to their counts
@@ -508,7 +507,7 @@ class NGramExtractor:
         """
         Create a vocabulary of n-grams from multiple texts.
 
-        Parameters:
+        Parameters
         -----------
         texts : List[str]
             List of texts to analyze
@@ -519,7 +518,7 @@ class NGramExtractor:
         max_vocab_size : int, optional
             Maximum vocabulary size (default: None, no limit)
 
-        Returns:
+        Returns
         --------
         Dict[str, int]
             Dictionary mapping n-grams to their counts in the corpus
@@ -1627,7 +1626,7 @@ def calculate_word_frequencies(
     """
     Calculate word frequencies across multiple texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings
@@ -1638,7 +1637,7 @@ def calculate_word_frequencies(
     max_words : int, optional
         Maximum number of words to include in the result
 
-    Returns:
+    Returns
     --------
     Dict[str, int]
         Dictionary mapping words to their frequencies
@@ -1681,7 +1680,7 @@ def calculate_term_frequencies(
     """
     Calculate term frequencies with optional lemmatization.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings
@@ -1694,7 +1693,7 @@ def calculate_term_frequencies(
     max_terms : int, optional
         Maximum number of terms to include in the result
 
-    Returns:
+    Returns
     --------
     Dict[str, int]
         Dictionary mapping terms to their frequencies
@@ -2069,7 +2068,7 @@ def extract_ngrams(
 
     This is a convenience function that uses NGramExtractor internally.
 
-    Parameters:
+    Parameters
     -----------
     tokens : List[str]
         List of tokens to extract n-grams from
@@ -2088,7 +2087,7 @@ def extract_ngrams(
     skip_stopwords : bool
         Whether to skip stopwords when extracting n-grams (default: False)
 
-    Returns:
+    Returns
     --------
     Union[List[str], List[List[str]]]
         List of n-grams (as strings or token lists)
@@ -2115,7 +2114,7 @@ def extract_character_ngrams(
 
     This is a convenience function that uses NGramExtractor internally.
 
-    Parameters:
+    Parameters
     -----------
     text : str
         Text to extract n-grams from
@@ -2126,7 +2125,7 @@ def extract_character_ngrams(
     pad_text : bool
         Whether to pad text with underscore characters (default: True)
 
-    Returns:
+    Returns
     --------
     List[str]
         List of character n-grams

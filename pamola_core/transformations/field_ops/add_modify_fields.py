@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Add Or Modify Fields Operation
 Description: Operation for add/modify field based on lookups or conditions.
 Author: PAMOLA Core Team
@@ -70,14 +69,15 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Initialize operation.
 
-        Parameters:
+        Parameters
         -----------
         name : str
             Name of the operation (default: "add_modify_fields_operation")
         field_operations : dict, optional
             Fields operations
         lookup_tables : dict, optional
-        **kwargs: dict
+            Lookup tables keyed by name.
+        **kwargs : dict
             Additional keyword arguments passed to TransformationOperation.
         """
         # Ensure default metadata
@@ -120,7 +120,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Execute the operation with timing and error handling.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -133,7 +133,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -434,12 +434,12 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Process a batch of data.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             Batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed batch
@@ -578,14 +578,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Process a single value.
 
-        Parameters:
+        Parameters
         -----------
         value : Any
             Value to process
         **params : dict
             Additional parameters for processing
 
-        Returns:
+        Returns
         --------
         Any
             Processed value
@@ -596,7 +596,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Operation parameters
@@ -617,14 +617,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Handle processing of the dataframe, including chunk-wise or full processing.
 
-        Parameters:
+        Parameters
         -----------
         df : Union[pd.DataFrame, dd.DataFrame]
             DataFrame for the operation
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Union[pd.DataFrame, dd.DataFrame]
             Processed DataFrame
@@ -1007,14 +1007,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Calculate all metrics for operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original data
         processed_df : Union[pd.DataFrame, dd.DataFrame]
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -1045,14 +1045,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Collect metrics for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original data
         processed_df : Union[pd.DataFrame, dd.DataFrame]
             The processed data
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             A dictionary of calculated metrics
@@ -1153,14 +1153,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Calculate metrics comparing two datasets.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original DataFrame before transformation.
         transformed_df : Union[pd.DataFrame, dd.DataFrame]
             The transformed DataFrame after processing.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing comparison metrics.
@@ -1210,14 +1210,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Compare the row counts between the original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original DataFrame.
         transformed_df : Union[pd.DataFrame, dd.DataFrame]
             The transformed DataFrame.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing row count differences and percentage change.
@@ -1253,14 +1253,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Compare the column counts between the original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original DataFrame.
         transformed_df : pd.DataFrame
             The transformed DataFrame.
 
-        Returns:
+        Returns
         --------
         Tuple containing:
             - Dict with column count differences and percentage change.
@@ -1299,14 +1299,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Compare values and nulls in common columns between the original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original DataFrame.
         transformed_df : Union[pd.DataFrame, dd.DataFrame]
             The transformed DataFrame.
 
-        Returns:
+        Returns
         --------
         Tuple containing:
             - Dictionary of value changes for common columns.
@@ -1385,14 +1385,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Count the value changes between the original and transformed columns.
 
-        Parameters:
+        Parameters
         -----------
         original_col : pd.Series
             The original column values.
         transformed_col : pd.Series
             The transformed column values.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing the number of changes and the percentage change.
@@ -1421,14 +1421,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Count the null value changes between the original and transformed columns.
 
-        Parameters:
+        Parameters
         -----------
         original_col : pd.Series
             The original column values.
         transformed_col : pd.Series
             The transformed column values.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing the number of null changes and the percentage change.
@@ -1455,14 +1455,14 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Compare the memory usage between the original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original DataFrame.
         transformed_df : Union[pd.DataFrame, dd.DataFrame]
             The transformed DataFrame.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing memory usage comparison.
@@ -1517,7 +1517,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original data
@@ -1544,7 +1544,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         operation_timestamp : str, optional
             Timestamp of the operation, if any  (default: None)
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1733,7 +1733,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         """
         Generate visualizations for the operation.
 
-        Parameters:
+        Parameters
         -----------
         original_df : Union[pd.DataFrame, dd.DataFrame]
             The original data before processing
@@ -1754,7 +1754,7 @@ class AddOrModifyFieldsOperation(TransformationOperation):
         operation_timestamp : str, optional
             Timestamp of the operation, if any  (default: None)
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1935,12 +1935,12 @@ def create_add_modify_fields_operation(**kwargs) -> AddOrModifyFieldsOperation:
     """
     Create add or modify fields operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     AddOrModifyFieldsOperation
         Configured add or modify fields operation

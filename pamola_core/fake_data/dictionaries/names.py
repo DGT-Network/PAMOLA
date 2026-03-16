@@ -18,7 +18,8 @@ def get_ru_male_first_names() -> List[str]:
     """
     Returns Russian male first names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Russian male first names
     """
     if 'ru_m_first' not in _dictionary_cache:
@@ -76,7 +77,8 @@ def get_ru_female_first_names() -> List[str]:
     """
     Returns Russian female first names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Russian female first names
     """
     if 'ru_f_first' not in _dictionary_cache:
@@ -147,7 +149,8 @@ def get_ru_male_last_names() -> List[str]:
     """
     Returns Russian male last names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Russian male last names
     """
     if 'ru_m_last' not in _dictionary_cache:
@@ -256,7 +259,8 @@ def get_ru_female_last_names() -> List[str]:
     """
     Returns Russian female last names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Russian female last names
     """
     if 'ru_f_last' not in _dictionary_cache:
@@ -365,7 +369,8 @@ def get_ru_male_middle_names() -> List[str]:
     """
     Returns Russian male middle names (patronymics).
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Russian male middle names
     """
     if 'ru_m_middle' not in _dictionary_cache:
@@ -430,7 +435,8 @@ def get_ru_female_middle_names() -> List[str]:
     """
     Returns Russian female middle names (patronymics).
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Russian female middle names
     """
     if 'ru_f_middle' not in _dictionary_cache:
@@ -497,7 +503,8 @@ def get_en_male_first_names() -> List[str]:
     """
     Returns English male first names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of English male first names
     """
     if 'en_m_first' not in _dictionary_cache:
@@ -622,7 +629,8 @@ def get_en_female_first_names() -> List[str]:
     """
     Returns English female first names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of English female first names
     """
     if 'en_f_first' not in _dictionary_cache:
@@ -751,7 +759,8 @@ def get_en_last_names() -> List[str]:
     """
     Returns English last names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of English last names
     """
     if 'en_last' not in _dictionary_cache:
@@ -884,7 +893,8 @@ def get_vn_male_names() -> List[str]:
     """
     Returns Vietnamese male names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Vietnamese male names
     """
     if 'vn_m_names' not in _dictionary_cache:
@@ -1045,7 +1055,8 @@ def get_vn_female_names() -> List[str]:
     """
     Returns Vietnamese female names.
 
-    Returns:
+    Returns
+    -------
         List[str]: List of Vietnamese female names
     """
     if 'vn_f_names' not in _dictionary_cache:
@@ -1204,12 +1215,14 @@ def get_names(language: str = "ru",
     """
     Get names based on language, gender, and name type.
 
-    Args:
+    Parameters
+    ----------
         language: Language code ("ru", "en", "vn")
         gender: Gender code ("M", "F" or None)
         name_type: Type of name ("first_name", "last_name", "middle_name", "full_name")
 
-    Returns:
+    Returns
+    -------
         List[str]: List of names matching the criteria
     """
     language = language.lower()

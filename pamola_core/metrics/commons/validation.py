@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Dataset and Metric Validators
 Package:       pamola_core.metrics.commons.validation
 Version:       1.0.0

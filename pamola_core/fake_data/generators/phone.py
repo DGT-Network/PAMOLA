@@ -30,7 +30,8 @@ class PhoneGenerator(BaseGenerator):
         """
         Initialize phone generator with configuration.
 
-        Args:
+        Parameters
+        ----------
             config: Configuration parameters including:
                 - country_codes: Used country codes (list or dict with weights)
                 - operator_codes_dict: Path to dictionary of operator codes
@@ -77,10 +78,12 @@ class PhoneGenerator(BaseGenerator):
         """
         Process and normalize country codes configuration.
 
-        Args:
+        Parameters
+        ----------
             country_codes: Country codes as list, dict, or None
 
-        Returns:
+        Returns
+        -------
             Dict[str, float]: Normalized dictionary of country codes with weights
         """
         # Get all available country codes
@@ -147,7 +150,8 @@ class PhoneGenerator(BaseGenerator):
         """
         Load operator codes from dictionary or embedded source.
 
-        Returns:
+        Returns
+        -------
             Dict[str, List[str]]: Dictionary of operator codes by country code
         """
         # Initialize empty dictionary for operator codes
@@ -195,10 +199,12 @@ class PhoneGenerator(BaseGenerator):
         """
         Validate phone number format.
 
-        Args:
+        Parameters
+        ----------
             phone: Phone number to validate
 
-        Returns:
+        Returns
+        -------
             bool: True if valid, False otherwise
         """
         if not phone or not isinstance(phone, str):
@@ -225,10 +231,12 @@ class PhoneGenerator(BaseGenerator):
         """
         Extract country code from phone number.
 
-        Args:
+        Parameters
+        ----------
             phone: Phone number
 
-        Returns:
+        Returns
+        -------
             Optional[str]: Country code or None if not found
         """
         if not phone or not isinstance(phone, str):
@@ -270,11 +278,13 @@ class PhoneGenerator(BaseGenerator):
         """
         Extract operator/area code from phone number.
 
-        Args:
+        Parameters
+        ----------
             phone: Phone number
             country_code: Country code (detected if not provided)
 
-        Returns:
+        Returns
+        -------
             Optional[str]: Operator code or None if not found
         """
         if not phone or not isinstance(phone, str):
@@ -311,10 +321,12 @@ class PhoneGenerator(BaseGenerator):
         """
         Generate country code based on configuration.
 
-        Args:
+        Parameters
+        ----------
             original_country_code: Original country code to possibly preserve
 
-        Returns:
+        Returns
+        -------
             str: Generated country code
         """
         # If original provided and preservation enabled, use it
@@ -355,10 +367,12 @@ class PhoneGenerator(BaseGenerator):
         """
         Get country code for a region name.
 
-        Args:
+        Parameters
+        ----------
             region: Region name (e.g., "us", "ru")
 
-        Returns:
+        Returns
+        -------
             str: Country code
         """
         country_codes = phones.get_country_codes()
@@ -374,11 +388,13 @@ class PhoneGenerator(BaseGenerator):
         """
         Generate operator code for a country.
 
-        Args:
+        Parameters
+        ----------
             country_code: Country code
             original_operator_code: Original operator code to possibly preserve
 
-        Returns:
+        Returns
+        -------
             Optional[str]: Generated operator code or None if not available
         """
         # If original provided and preservation enabled, use it if valid
@@ -411,11 +427,13 @@ class PhoneGenerator(BaseGenerator):
         """
         Generate random digits.
 
-        Args:
+        Parameters
+        ----------
             length: Number of digits to generate
             original_value: Original value for deterministic generation
 
-        Returns:
+        Returns
+        -------
             str: Generated digits
         """
         if length <= 0:
@@ -439,13 +457,15 @@ class PhoneGenerator(BaseGenerator):
         """
         Format phone number components according to template.
 
-        Args:
+        Parameters
+        ----------
             country_code: Country code
             operator_code: Operator code
             number: Remaining digits
             format_template: Format template to use
 
-        Returns:
+        Returns
+        -------
             str: Formatted phone number
         """
         # Get the format to use
@@ -528,10 +548,12 @@ class PhoneGenerator(BaseGenerator):
         """
         Get country name for a country code.
 
-        Args:
+        Parameters
+        ----------
             country_code: Country code (e.g., "1", "7")
 
-        Returns:
+        Returns
+        -------
             str: Country name (e.g., "us", "ru")
         """
         country_codes = phones.get_country_codes()
@@ -556,10 +578,12 @@ class PhoneGenerator(BaseGenerator):
         """
         Determine appropriate phone number length for a country.
 
-        Args:
+        Parameters
+        ----------
             country_code: Country code
 
-        Returns:
+        Returns
+        -------
             int: Appropriate length for phone number digits
         """
         country_name = self._get_country_name_for_code(country_code)
@@ -587,12 +611,14 @@ class PhoneGenerator(BaseGenerator):
         """
         Generate a complete phone number.
 
-        Args:
+        Parameters
+        ----------
             country_code: Country code (generated if None)
             operator_code: Operator code (generated if None)
             original_number: Original number for deterministic generation
 
-        Returns:
+        Returns
+        -------
             str: Generated phone number
         """
         # Generate country code if not provided
@@ -628,7 +654,8 @@ class PhoneGenerator(BaseGenerator):
         """
         Generate specified number of synthetic phone numbers.
 
-        Args:
+        Parameters
+        ----------
             count: Number of values to generate
             **params: Additional parameters including:
                 - country_code: Specific country code to use
@@ -636,7 +663,8 @@ class PhoneGenerator(BaseGenerator):
                 - format: Override configured format
                 - region: Region for formatting
 
-        Returns:
+        Returns
+        -------
             List[str]: Generated phone numbers
         """
         result = []
@@ -651,14 +679,16 @@ class PhoneGenerator(BaseGenerator):
         """
         Generate a single phone number based on parameters.
 
-        Args:
+        Parameters
+        ----------
             **params: Parameters including:
                 - country_code: Specific country code to use
                 - operator_code: Specific operator code to use
                 - format: Override configured format
                 - region: Region for formatting
 
-        Returns:
+        Returns
+        -------
             str: Generated phone number
         """
         # Extract parameters
@@ -678,11 +708,13 @@ class PhoneGenerator(BaseGenerator):
         """
         Generate a synthetic phone number similar to the original one.
 
-        Args:
+        Parameters
+        ----------
             original_value: Original phone number
             **params: Additional parameters
 
-        Returns:
+        Returns
+        -------
             str: Generated phone number
         """
         # Handle None / NA / NaN / empty
@@ -730,11 +762,13 @@ class PhoneGenerator(BaseGenerator):
         """
         Transform a list of original values into synthetic ones.
 
-        Args:
+        Parameters
+        ----------
             values: List of original values
             **params: Additional parameters for generation
 
-        Returns:
+        Returns
+        -------
             List[str]: List of transformed values
         """
         return [self.generate_like(value, **params) for value in values]
@@ -743,10 +777,12 @@ class PhoneGenerator(BaseGenerator):
         """
         Check if a value is a valid phone number.
 
-        Args:
+        Parameters
+        ----------
             value: Value to validate
 
-        Returns:
+        Returns
+        -------
             bool: True if valid, False otherwise
         """
         return self.validate_phone(value)

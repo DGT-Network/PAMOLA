@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy Risk Assessment Module
-------------------------------------------------
 Module:        Privacy Risk Assessment
 Package:       pamola_core.analysis
 Version:       1.0.0

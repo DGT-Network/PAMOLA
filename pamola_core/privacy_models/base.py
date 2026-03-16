@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 This file is part of the PAMOLA ecosystem, a comprehensive suite for
 anonymization-enhancing technologies. PAMOLA.CORE serves as the open-source
 foundation for anonymization-preserving data processing.
@@ -14,7 +13,6 @@ For details, see the LICENSE file or visit:
     https://github.com/DGT-Network/PAMOLA/blob/main/LICENSE
 
 Module: Privacy Models Base Processor
---------------------------------------
 This module defines an abstract base class for **anonymization models**
 used in anonymization-preserving data processing. It provides a
 structured interface for evaluating anonymization risks and applying
@@ -51,7 +49,7 @@ class BasePrivacyModelProcessor(ABC):
     Privacy models define the mathematical principles for ensuring
     data anonymization while preserving statistical utility.
 
-    Methods:
+    Methods
     --------
     - evaluate_privacy(): Assesses anonymization risks and model compliance.
     - apply_model(): Applies the anonymization model to a dataset.
@@ -62,12 +60,12 @@ class BasePrivacyModelProcessor(ABC):
         """
         Process the input data.
 
-        Parameters:
+        Parameters
         -----------
         data : Any
             The input data to be processed.
 
-        Returns:
+        Returns
         --------
         Processed data, transformed according to the specific processor logic.
         """
@@ -79,7 +77,7 @@ class BasePrivacyModelProcessor(ABC):
         Evaluate anonymization risks and compliance of the dataset based on
         the specific anonymization model.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The dataset to be evaluated.
@@ -88,7 +86,7 @@ class BasePrivacyModelProcessor(ABC):
         kwargs : dict
             Additional parameters for model evaluation.
 
-        Returns:
+        Returns
         --------
         dict
             A dictionary containing anonymization metrics and evaluation results.
@@ -101,7 +99,7 @@ class BasePrivacyModelProcessor(ABC):
         Apply the anonymization model to transform the dataset while maintaining
         compliance with anonymization constraints.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The input dataset to be transformed.
@@ -112,7 +110,7 @@ class BasePrivacyModelProcessor(ABC):
         kwargs : dict
             Additional parameters for model application.
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The transformed dataset with anonymization guarantees applied.

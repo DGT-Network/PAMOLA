@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Validation Rules Framework
 Package:       pamola_core.metrics.commons.validation_rules
 Version:       1.0.0

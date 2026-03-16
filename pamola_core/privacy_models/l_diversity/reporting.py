@@ -56,7 +56,7 @@ class LDiversityReport(PrivacyReport):
         """
         Initialize reporter with processor for cache access
 
-        Parameters:
+        Parameters
         -----------
         processor : object, optional
             L-Diversity processor instance for cached calculations
@@ -101,14 +101,14 @@ class LDiversityReport(PrivacyReport):
         """
         Collect report data from processor with cache awareness
 
-        Parameters:
+        Parameters
         -----------
         processor : object
             L-Diversity processor instance
         report_data : Dict[str, Any], optional
             Explicit report data (if not using processor)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Collected report data
@@ -163,7 +163,7 @@ class LDiversityReport(PrivacyReport):
         """
         Generate comprehensive l-diversity report
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame, optional
             Input dataset (if not already processed by processor)
@@ -174,7 +174,7 @@ class LDiversityReport(PrivacyReport):
         include_visualizations : bool, optional
             Whether to include visualization paths (default: True)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Comprehensive anonymization report
@@ -242,7 +242,7 @@ class LDiversityReport(PrivacyReport):
         """
         Generate dataset information
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -251,7 +251,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dataset information
@@ -294,7 +294,7 @@ class LDiversityReport(PrivacyReport):
         """
         Calculate privacy risks from processor cache or directly
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame, optional
             Input dataset (if not already processed by processor)
@@ -303,7 +303,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str], optional
             Sensitive attribute columns (required if data provided)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Privacy risk metrics
@@ -348,7 +348,7 @@ class LDiversityReport(PrivacyReport):
         """
         Calculate basic privacy metrics when processor not available
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -357,7 +357,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Basic privacy metrics
@@ -444,7 +444,7 @@ class LDiversityReport(PrivacyReport):
         """
         Calculate risk under different attack models
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -455,7 +455,7 @@ class LDiversityReport(PrivacyReport):
         l_values : List[float]
             List of l-values for each group and sensitive attribute
 
-        Returns:
+        Returns
         --------
         Dict[str, float]
             Risk values for different attack models
@@ -494,7 +494,7 @@ class LDiversityReport(PrivacyReport):
         """
         Calculate diversity metrics based on diversity type
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame, optional
             Input dataset
@@ -503,7 +503,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str], optional
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Diversity metrics
@@ -569,14 +569,14 @@ class LDiversityReport(PrivacyReport):
         """
         Extract distinct diversity metrics from group diversity data
 
-        Parameters:
+        Parameters
         -----------
         group_diversity : pd.DataFrame
             Group diversity data from cache
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Distinct diversity metrics
@@ -627,7 +627,7 @@ class LDiversityReport(PrivacyReport):
         """
         Calculate recursive diversity metrics directly from data
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -636,7 +636,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Recursive diversity metrics
@@ -743,7 +743,7 @@ class LDiversityReport(PrivacyReport):
         """
         Calculate information loss metrics
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame, optional
             Input dataset
@@ -752,7 +752,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str], optional
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Information loss metrics
@@ -765,7 +765,7 @@ class LDiversityReport(PrivacyReport):
         """
         Collect visualization paths if available
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Visualization paths
@@ -781,7 +781,7 @@ class LDiversityReport(PrivacyReport):
         """
         Generate compliance report for specific regulations
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame, optional
             Input dataset
@@ -792,7 +792,7 @@ class LDiversityReport(PrivacyReport):
         regulation : str, optional
             Regulatory framework (default: GDPR)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Compliance assessment report
@@ -934,7 +934,7 @@ class LDiversityReport(PrivacyReport):
         """
         Generate recommendations for improving compliance
 
-        Parameters:
+        Parameters
         -----------
         compliance_status : str
             Current compliance status
@@ -943,7 +943,7 @@ class LDiversityReport(PrivacyReport):
         criteria : Dict[str, Any]
             Compliance criteria
 
-        Returns:
+        Returns
         --------
         List[str]
             Recommendations for improving compliance
@@ -990,7 +990,7 @@ class LDiversityReport(PrivacyReport):
         """
         Generate detailed technical report with comprehensive metrics
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame, optional
             Input dataset
@@ -999,7 +999,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str], optional
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Detailed technical report
@@ -1056,7 +1056,7 @@ class LDiversityReport(PrivacyReport):
         """
         Generate detailed technical analysis
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame, optional
             Input dataset
@@ -1065,7 +1065,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str], optional
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Technical analysis
@@ -1086,7 +1086,7 @@ class LDiversityReport(PrivacyReport):
         """
         Export report to file
 
-        Parameters:
+        Parameters
         -----------
         report : Dict[str, Any]
             Report to export
@@ -1095,7 +1095,7 @@ class LDiversityReport(PrivacyReport):
         format : str, optional
             Format to save report (json or csv, default: json)
 
-        Returns:
+        Returns
         --------
         str
             Path to saved report
@@ -1135,7 +1135,7 @@ class LDiversityReport(PrivacyReport):
         """
         Convenience function for generating and exporting l-diversity report
 
-        Parameters:
+        Parameters
         -----------
         processor : object
             L-Diversity processor instance
@@ -1152,7 +1152,7 @@ class LDiversityReport(PrivacyReport):
         include_visualizations : bool, optional
             Whether to include visualization paths (default: True)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Generated report
@@ -1186,7 +1186,7 @@ class LDiversityReport(PrivacyReport):
         """
         Convenience function for generating and exporting compliance report
 
-        Parameters:
+        Parameters
         -----------
         processor : object
             L-Diversity processor instance
@@ -1201,7 +1201,7 @@ class LDiversityReport(PrivacyReport):
         output_path : str or Path, optional
             Path to save report (if None, report is only returned)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Generated compliance report
@@ -1234,7 +1234,7 @@ class LDiversityReport(PrivacyReport):
         """
         Convenience function for generating and exporting technical report
 
-        Parameters:
+        Parameters
         -----------
         processor : object
             L-Diversity processor instance
@@ -1247,7 +1247,7 @@ class LDiversityReport(PrivacyReport):
         output_path : str or Path, optional
             Path to save report (if None, report is only returned)
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Generated technical report
@@ -1274,14 +1274,14 @@ class LDiversityReport(PrivacyReport):
         """
         Extract entropy diversity metrics from group diversity data
 
-        Parameters:
+        Parameters
         -----------
         group_diversity : pd.DataFrame
             Group diversity data from cache
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Entropy diversity metrics
@@ -1344,14 +1344,14 @@ class LDiversityReport(PrivacyReport):
         """
         Extract recursive diversity metrics from group diversity data
 
-        Parameters:
+        Parameters
         -----------
         group_diversity : pd.DataFrame
             Group diversity data from cache
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Recursive diversity metrics
@@ -1380,7 +1380,7 @@ class LDiversityReport(PrivacyReport):
         """
         Calculate distinct diversity metrics directly from data
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -1389,7 +1389,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Distinct diversity metrics
@@ -1449,7 +1449,7 @@ class LDiversityReport(PrivacyReport):
         """
         Calculate entropy diversity metrics directly from data.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             Input dataset
@@ -1458,7 +1458,7 @@ class LDiversityReport(PrivacyReport):
         sensitive_attributes : List[str]
             Sensitive attribute columns
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Entropy diversity metrics

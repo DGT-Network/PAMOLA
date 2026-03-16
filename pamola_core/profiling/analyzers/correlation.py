@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Correlation Analysis Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -94,7 +93,7 @@ class CorrelationAnalyzer:
         """
         Analyze the correlation between two fields in a DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The input DataFrame containing the data.
@@ -111,7 +110,7 @@ class CorrelationAnalyzer:
         **kwargs : dict
             Additional keyword arguments for correlation analysis.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary containing the results of the correlation analysis, including method, coefficient, p-value, and plot data.
@@ -137,7 +136,7 @@ class CorrelationAnalyzer:
         """
         Create a correlation matrix for multiple fields.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -148,7 +147,7 @@ class CorrelationAnalyzer:
         **kwargs : dict
             Additional parameters for analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with correlation matrix and supporting information
@@ -164,7 +163,7 @@ class CorrelationAnalyzer:
         """
         Estimate resources needed for correlation analysis.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -173,7 +172,7 @@ class CorrelationAnalyzer:
         field2 : str
             Name of the second field
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -259,7 +258,7 @@ class CorrelationOperation(FieldOperation):
         """
         Execute the correlation analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -272,7 +271,7 @@ class CorrelationOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -880,7 +879,7 @@ class CorrelationOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -905,7 +904,7 @@ class CorrelationOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1087,7 +1086,7 @@ class CorrelationOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -1096,7 +1095,7 @@ class CorrelationOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1139,12 +1138,12 @@ class CorrelationOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -1199,12 +1198,12 @@ class CorrelationOperation(FieldOperation):
         Validate that all specified fields in field_groups exist in the DataFrame.
         Optionally check if the ID field exists.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             Input dataset to validate.
 
-        Returns:
+        Returns
         --------
         bool
             True if all fields are valid; False otherwise.
@@ -1314,7 +1313,7 @@ class CorrelationMatrixOperation(BaseOperation):
         """
         Execute the correlation matrix analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -1327,7 +1326,7 @@ class CorrelationMatrixOperation(BaseOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation

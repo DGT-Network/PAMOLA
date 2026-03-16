@@ -29,7 +29,7 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Initialize the skill extractor.
 
-        Additional parameters:
+        Additional parameters
         -----------
         skill_type : str
             Type of skills to extract ('technical', 'soft', 'language', etc.)
@@ -79,7 +79,7 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Get the entity type for this extractor.
 
-        Returns:
+        Returns
         --------
         str
             Entity type string
@@ -90,7 +90,7 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Extract skills using NER models and keyword matching.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Original text
@@ -99,7 +99,7 @@ class SkillExtractor(BaseEntityExtractor):
         language : str
             Language of the text
 
-        Returns:
+        Returns
         --------
         EntityMatchResult or None
             Match result if found, None otherwise
@@ -178,12 +178,12 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Extract skills from text using keyword matching.
 
-        Parameters:
+        Parameters
         -----------
         text : str
             Text to extract skills from
 
-        Returns:
+        Returns
         --------
         List[str]
             List of extracted skills
@@ -212,12 +212,12 @@ class SkillExtractor(BaseEntityExtractor):
         """
         Determine the most likely skill category from a list of skills.
 
-        Parameters:
+        Parameters
         -----------
         skills : List[str]
             List of extracted skills
 
-        Returns:
+        Returns
         --------
         Tuple[str, float]
             Category name and confidence score

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: processing_utils.py
 Description: Utility functions for efficient and scalable DataFrame processing.
 
@@ -1240,12 +1239,14 @@ def _determine_partitions(
     """
     Determine the number of partitions for Dask DataFrame.
 
-    Args:
+    Parameters
+    ----------
         df: The input DataFrame.
         chunk_size: The size of each chunk (default is 10000).
         npartitions: Optional number of partitions.
 
-    Returns:
+    Returns
+    -------
         int: The number of partitions.
     """
     # Convert to Dask DataFrame

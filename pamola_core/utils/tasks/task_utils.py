@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Task Utilities
 Description: Utility functions for working with tasks
 Author: PAMOLA Core Team
@@ -44,10 +43,12 @@ def create_task_directories(task_dir: Path) -> Dict[str, Path]:
     This function creates the standard directory structure used by tasks,
     including directories for outputs, dictionaries, visualizations, and logs.
 
-    Args:
+    Parameters
+    ----------
         task_dir: Base directory for the task
 
-    Returns:
+    Returns
+    -------
         Dictionary with paths to standard directories
     """
     # Validate task_dir for security
@@ -84,11 +85,13 @@ def prepare_data_source_from_paths(
     This function creates a DataSource with the provided file paths,
     which can then be used with operations.
 
-    Args:
+    Parameters
+    ----------
         file_paths: Dictionary mapping dataset names to file paths
         show_progress: Whether to show a progress bar during loading
 
-    Returns:
+    Returns
+    -------
         DataSource with file paths added
     """
     from pamola_core.utils.ops.op_data_source import DataSource
@@ -134,10 +137,12 @@ def format_execution_time(seconds: float) -> str:
     """
     Format execution time in seconds to a human-readable string.
 
-    Args:
+    Parameters
+    ----------
         seconds: Execution time in seconds
 
-    Returns:
+    Returns
+    -------
         Formatted execution time string
     """
     if seconds < 0.1:
@@ -166,14 +171,16 @@ def get_artifact_path(
     """
     Get a standardized path for a task artifact.
 
-    Args:
+    Parameters
+    ----------
         task_dir: Base directory for the task
         artifact_name: Name of the artifact
         artifact_type: Type/extension of the artifact
         sub_dir: Subdirectory for the artifact
         include_timestamp: Whether to include a timestamp in the filename
 
-    Returns:
+    Returns
+    -------
         Path to the artifact
     """
     # Validate task_dir and artifact_name for security
@@ -219,13 +226,15 @@ def find_previous_output(
     This function searches for output files from a previous task,
     either in the standardized location or by pattern matching.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the previous task
         data_repository: Path to the data repository (optional)
         project_root: Path to the project root (optional)
         file_pattern: Glob pattern to match specific files (optional)
 
-    Returns:
+    Returns
+    -------
         List of paths to output files
     """
     # Validate task_id and file_pattern for security
@@ -295,12 +304,14 @@ def find_task_report(
     """
     Find the report file from a previous task.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the previous task
         data_repository: Path to the data repository (optional)
         project_root: Path to the project root (optional)
 
-    Returns:
+    Returns
+    -------
         Path to the report file or None if not found
     """
     # Validate task_id for security
@@ -358,10 +369,12 @@ def get_temp_dir(task_dir: Path) -> Path:
     """
     Get a temporary directory for the task.
 
-    Args:
+    Parameters
+    ----------
         task_dir: Base directory for the task
 
-    Returns:
+    Returns
+    -------
         Path to the temporary directory
     """
     # Validate task_dir for security
@@ -381,10 +394,12 @@ def clean_temp_dir(task_dir: Path) -> bool:
     """
     Clean the temporary directory for the task.
 
-    Args:
+    Parameters
+    ----------
         task_dir: Base directory for the task
 
-    Returns:
+    Returns
+    -------
         True if cleaning was successful, False otherwise
     """
     import shutil
@@ -417,10 +432,12 @@ def format_error_for_report(error: Exception) -> Dict[str, Any]:
     """
     Format an exception for inclusion in a task report.
 
-    Args:
+    Parameters
+    ----------
         error: Exception to format
 
-    Returns:
+    Returns
+    -------
         Dictionary with formatted error information
     """
     import traceback
@@ -440,10 +457,12 @@ def ensure_secure_directory(path: Union[str, Path]) -> Path:
     This function creates a directory with permissions that ensure
     only the current user can access it.
 
-    Args:
+    Parameters
+    ----------
         path: Path to the directory
 
-    Returns:
+    Returns
+    -------
         Path to the created directory
     """
     # Validate path for security
@@ -476,7 +495,8 @@ def is_master_key_exposed() -> bool:
     """
     Check if the master encryption key has insecure permissions.
 
-    Returns:
+    Returns
+    -------
         True if the master key has insecure permissions, False otherwise
     """
     try:
@@ -499,11 +519,13 @@ def extract_previous_output_info(
     This function extracts metadata about outputs from a previous task
     by reading its report file.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the previous task
         data_repository: Path to the data repository (optional)
 
-    Returns:
+    Returns
+    -------
         Dictionary with information about previous outputs
     """
     # Validate task_id for security

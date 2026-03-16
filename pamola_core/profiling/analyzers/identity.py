@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Identity Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -84,7 +83,7 @@ class IdentityAnalyzer:
         """
         Analyze the distribution of entities per identifier.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -95,7 +94,7 @@ class IdentityAnalyzer:
         top_n : int
             Number of top examples to include
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Analysis results including distribution statistics
@@ -109,7 +108,7 @@ class IdentityAnalyzer:
         """
         Analyze consistency between an identifier and reference fields.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -118,7 +117,7 @@ class IdentityAnalyzer:
         reference_fields : List[str]
             Fields that define an entity's identity
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Analysis results including consistency statistics
@@ -136,7 +135,7 @@ class IdentityAnalyzer:
         """
         Find cases where reference fields match but identifiers differ.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -149,7 +148,7 @@ class IdentityAnalyzer:
         fuzzy_matching : bool
             Whether to use fuzzy matching
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Cross-matching analysis results
@@ -165,7 +164,7 @@ class IdentityAnalyzer:
         """
         Compute basic statistics about an identifier field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -174,7 +173,7 @@ class IdentityAnalyzer:
         entity_field : str, optional
             Entity identifier field for relation analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Basic statistics about the identifier
@@ -271,7 +270,7 @@ class IdentityAnalysisOperation(FieldOperation):
         """
         Execute the identity analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -284,7 +283,7 @@ class IdentityAnalysisOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -899,7 +898,7 @@ class IdentityAnalysisOperation(FieldOperation):
         This method should be overridden by subclasses to provide
         operation-specific parameters for caching.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -926,7 +925,7 @@ class IdentityAnalysisOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             Original input data
@@ -937,7 +936,7 @@ class IdentityAnalysisOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1062,7 +1061,7 @@ class IdentityAnalysisOperation(FieldOperation):
         """
         Generate and save visualizations with thread-safe context support.
 
-        Parameters:
+        Parameters
         -----------
         identifier_stats : Dict[str, Any]
             Statistics related to the identifier
@@ -1450,11 +1449,13 @@ class IdentityAnalysisOperation(FieldOperation):
         """
         Check if a given field exists in the DataFrame.
 
-        Parameters:
+        Parameters
+        ----------
         - df (pd.DataFrame): The DataFrame to check.
         - field (str): The field/column name.
 
-        Returns:
+        Returns
+        -------
         - bool: True if field exists, False otherwise.
         """
         return field in df.columns
@@ -1465,10 +1466,12 @@ class IdentityAnalysisOperation(FieldOperation):
         """
         Validate which reference fields exist in the DataFrame.
 
-        Parameters:
+        Parameters
+        ----------
         - df (pd.DataFrame): The input DataFrame.
 
-        Returns:
+        Returns
+        -------
         - Tuple[List[str], List[str]]: A tuple containing the list of valid and missing reference fields.
         """
         valid = [f for f in self.reference_fields if f in df.columns]
@@ -1481,7 +1484,8 @@ class IdentityAnalysisOperation(FieldOperation):
         """
         Log a warning and report missing fields.
 
-        Parameters:
+        Parameters
+        ----------
         - reporter: Reporter object to log and track operations.
         - label (str): A human-readable label for the type of fields (e.g. "reference fields", "ID field").
         - field_list (List[str]): List of missing fields.
@@ -1503,7 +1507,7 @@ def analyze_identities(
     """
     Analyze multiple identity fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1519,7 +1523,7 @@ def analyze_identities(
         - top_n: int, number of top entries to include (default: 15)
         - check_cross_matches: bool, whether to analyze cross matches (default: True)
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results

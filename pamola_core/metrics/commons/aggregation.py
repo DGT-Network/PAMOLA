@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Metric Aggregation Utilities
 Package:       pamola_core.metrics.commons.aggregation
 Version:       1.0.0

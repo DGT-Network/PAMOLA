@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Base Task
 Description: Foundation class for all task implementations
 Author: PAMOLA Core Team
@@ -58,7 +57,7 @@ if TYPE_CHECKING:
     from pamola_core.utils.ops.op_base import BaseOperation
     from pamola_core.utils.ops.op_data_source import DataSource
     from pamola_core.utils.ops.op_data_writer import DataWriter
-    from pamola_core.utils.ops.op_result import OperationResult
+    from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
 
 # Import component managers
 from pamola_core.utils.tasks.directory_manager import create_directory_manager
@@ -144,7 +143,8 @@ class BaseTask:
         """
         Initialize the task with basic information and defaults.
 
-        Args:
+        Parameters
+        ----------
             task_id: Unique identifier for the task. Used to locate configuration and create directories.
             task_type: Type of task (e.g., profiling, anonymization). Used for categorization and logging.
             description: Human-readable description of the task's purpose.
@@ -227,7 +227,8 @@ class BaseTask:
         The default implementation provides basic values based on task metadata.
         Subclasses should extend this to include task-specific default settings.
 
-        Returns:
+        Returns
+        -------
             Dictionary containing default configuration values.
         """
         return {
@@ -268,7 +269,8 @@ class BaseTask:
         This is the first phase of the task lifecycle. It prepares the environment
         for task execution.
 
-        Args:
+        Parameters
+        ----------
             args: Command line arguments to override configuration.
                  These take highest priority in the configuration cascade.
             force_restart: Whether to ignore existing checkpoints and start fresh.
@@ -276,10 +278,12 @@ class BaseTask:
             enable_checkpoints: Whether to enable checkpoint restoration.
                               If None, uses the value from configuration.
 
-        Returns:
+        Returns
+        -------
             True if initialization is successful, False otherwise.
 
-        Raises:
+        Raises
+        ------
             TaskDependencyError: If task dependencies are not satisfied and continue_on_error is False.
         """
         try:
@@ -514,7 +518,8 @@ class BaseTask:
         This extension point allows subclasses to supply a custom dependency manager
         implementation while retaining the standard interface.
 
-        Returns:
+        Returns
+        -------
             TaskDependencyManager: A dependency manager instance
         """
         return TaskDependencyManager(task_config=self.config, logger=self.logger)
@@ -526,11 +531,13 @@ class BaseTask:
         This method centralizes dependency checking logic and handles
         continue_on_error behavior consistently.
 
-        Returns:
+        Returns
+        -------
             bool: True if dependencies are satisfied or continue_on_error is enabled,
                   False otherwise (should never return False, as it raises an exception instead)
 
-        Raises:
+        Raises
+        ------
             TaskDependencyError: If dependencies are not satisfied and continue_on_error is False
         """
         try:
@@ -737,27 +744,27 @@ class BaseTask:
         operations that the task will execute. It should populate the
         self.operations list with operation instances.
 
-        Example implementation:
-        ```python
-        def configure_operations(self) -> None:
-            # Add profiling operation
-            self.add_operation(
-                "ProfileOperation",
-                dataset_name="customers",
-                output_prefix="profile_results"
-            )
+        Example implementation::
 
-            # Add anonymization operation
-            self.add_operation(
-                "AnonymizeOperation",
-                input_dataset="customers",
-                method="k-anonymity",
-                k=5,
-                quasi_identifiers=["age", "zipcode", "gender"]
-            )
-        ```
+            def configure_operations(self) -> None:
+                # Add profiling operation
+                self.add_operation(
+                    "ProfileOperation",
+                    dataset_name="customers",
+                    output_prefix="profile_results"
+                )
 
-        Raises:
+                # Add anonymization operation
+                self.add_operation(
+                    "AnonymizeOperation",
+                    input_dataset="customers",
+                    method="k-anonymity",
+                    k=5,
+                    quasi_identifiers=["age", "zipcode", "gender"]
+                )
+
+        Raises
+        ------
             NotImplementedError: If not overridden in a subclass.
         """
         raise FeatureNotImplementedError(
@@ -771,10 +778,12 @@ class BaseTask:
         This method handles the actual execution of operations, including progress tracking,
         checkpointing, and error handling.
 
-        Args:
+        Parameters
+        ----------
             start_idx: Index of the first operation to execute
 
-        Returns:
+        Returns
+        -------
             True if all operations executed successfully, False otherwise
         """
         # Execute operations using the operation executor
@@ -883,10 +892,10 @@ class BaseTask:
         This is the main phase of the task lifecycle where the actual data processing
         occurs through configured operations.
 
-        Returns:
+        Returns
+        -------
             True if execution is successful, False otherwise.
         """
-        from pamola_core.utils.ops.op_result import OperationStatus
 
         try:
             self.logger.info(f"Executing task: {self.task_id}")
@@ -978,10 +987,12 @@ class BaseTask:
         Prepare parameters for an operation, including system parameters and
         operation-specific parameters.
 
-        Args:
+        Parameters
+        ----------
             operation: The operation to prepare parameters for
 
-        Returns:
+        Returns
+        -------
             Dictionary of parameters for the operation
         """
         # Start with empty parameters dictionary
@@ -1051,10 +1062,12 @@ class BaseTask:
         This method uses efficient caching to avoid repeated inspections
         of the same operation classes.
 
-        Args:
+        Parameters
+        ----------
             operation: Operation instance or class
 
-        Returns:
+        Returns
+        -------
             Set of parameter names that the operation accepts
         """
         # Handle both instances and classes
@@ -1097,10 +1110,12 @@ class BaseTask:
         - Registering execution in the execution log
         - Releasing resources
 
-        Args:
+        Parameters
+        ----------
             success: Whether the task executed successfully.
 
-        Returns:
+        Returns
+        -------
             True if finalization is successful, False otherwise.
         """
         try:
@@ -1224,14 +1239,16 @@ class BaseTask:
         It's typically the only method that needs to be called externally
         to run a task.
 
-        Args:
+        Parameters
+        ----------
             args: Command line arguments to override configuration.
             force_restart: If True, ignores existing checkpoints and starts from beginning.
                           Defaults to False to respect the configuration value.
             enable_checkpoints: Whether to enable checkpoint restoration.
                               If None, uses the value from configuration.
 
-        Returns:
+        Returns
+        -------
             True if the task executed successfully, False otherwise.
         """
         try:
@@ -1315,12 +1332,14 @@ class BaseTask:
         by the actual class. Parameters for the operation are passed
         as keyword arguments.
 
-        Args:
+        Parameters
+        ----------
             operation_class: Name of the operation class or the class itself.
                         If a string is provided, the operation is loaded from the registry.
             **kwargs: Parameters for the operation constructor.
 
-        Returns:
+        Returns
+        -------
             True if operation was added successfully, False otherwise.
         """
         import pamola_core.utils.ops.op_registry as op_registry
@@ -1403,7 +1422,8 @@ class BaseTask:
         This method returns the results of all operations that
         were executed by the task, mapped by operation name.
 
-        Returns:
+        Returns
+        -------
             Dictionary mapping operation names to their results.
         """
         return self.results
@@ -1416,7 +1436,8 @@ class BaseTask:
         and its operations. They can include output datasets, visualizations,
         dictionaries, and other files.
 
-        Returns:
+        Returns
+        -------
             List of artifact objects with metadata.
         """
         return self.artifacts
@@ -1428,7 +1449,8 @@ class BaseTask:
         Metrics include statistical information, performance measurements,
         and other quantitative data produced by the task and its operations.
 
-        Returns:
+        Returns
+        -------
             Dictionary containing metrics organized by category.
         """
         return self.metrics
@@ -1440,7 +1462,8 @@ class BaseTask:
         This method returns the current status of the task execution
         and detailed error information if an error occurred.
 
-        Returns:
+        Returns
+        -------
             Tuple containing:
                 - Status string (e.g., "pending", "success", "error")
                 - Error information dictionary (or None if no error)
@@ -1451,7 +1474,8 @@ class BaseTask:
         """
         Get information about the task's encryption settings.
 
-        Returns:
+        Returns
+        -------
             Dictionary with encryption information including mode and status.
         """
         if self.encryption_manager:
@@ -1467,7 +1491,8 @@ class BaseTask:
         """
         Get information about the checkpoint status of the task.
 
-        Returns:
+        Returns
+        -------
             Dictionary with checkpoint information including restoration status.
         """
         return {
@@ -1489,7 +1514,8 @@ class BaseTask:
         with the 'with' statement, ensuring proper finalization even
         if an exception occurs.
 
-        Returns:
+        Returns
+        -------
             The task instance.
         """
         return self
@@ -1501,12 +1527,14 @@ class BaseTask:
         This method is called when exiting the 'with' statement context.
         It ensures the task is properly finalized even if an exception occurs.
 
-        Args:
+        Parameters
+        ----------
             exc_type: The type of the exception if one occurred, or None
             exc_val: The exception instance if one occurred, or None
             exc_tb: The traceback if an exception occurred, or None
 
-        Returns:
+        Returns
+        -------
             False to allow exception propagation, True to suppress exceptions.
         """
         if exc_type is not None:

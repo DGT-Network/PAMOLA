@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Metric Preprocessing Utilities
 Package:       pamola_core.metrics.commons.preprocessing
 Version:       1.0.0
@@ -42,12 +41,12 @@ def prepare_data_for_distance_metrics(df: pd.DataFrame) -> pd.DataFrame:
     Preprocess the input DataFrame for distance-based metric calculations.
     Converts boolean, datetime, string, and categorical columns to numeric.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Input dataset. Each row is a record, columns are features.
 
-    Returns:
+    Returns
     --------
     pd.DataFrame
         Preprocessed DataFrame with all features converted to numeric types.

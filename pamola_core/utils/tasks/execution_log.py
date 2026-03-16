@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Execution Log
 Description: Manage persistent task execution history
 Author: PAMOLA Core Team
@@ -75,7 +74,8 @@ def _get_execution_log_path() -> Path:
     """
     Get the path to the execution log file.
 
-    Returns:
+    Returns
+    -------
         Path to the execution log file
     """
     # Find project root
@@ -101,14 +101,17 @@ def initialize_execution_log(project_path: Optional[Path] = None,
 
     Creates or initializes the execution log file with empty data.
 
-    Args:
+    Parameters
+    ----------
         project_path: Path to the project root (optional, auto-detected if None)
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         Path to the execution log file
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If initialization fails
     """
     # Get project path if not provided
@@ -196,13 +199,16 @@ def _load_execution_log(progress_manager: Optional[ProgressManagerProtocol] = No
     """
     Load the execution log.
 
-    Args:
+    Parameters
+    ----------
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         Execution log data
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If log cannot be loaded
     """
     log_path = _get_execution_log_path()
@@ -272,11 +278,13 @@ def _save_execution_log(data: Dict[str, Any],
     """
     Save the execution log.
 
-    Args:
+    Parameters
+    ----------
         data: Execution log data
         progress_manager: Progress manager for tracking (optional)
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If log cannot be saved
     """
     log_path = _get_execution_log_path()
@@ -341,7 +349,8 @@ def record_task_execution(task_id: str,
     """
     Record a task execution in the execution log.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         task_type: Type of the task
         success: Whether the task executed successfully
@@ -351,10 +360,12 @@ def record_task_execution(task_id: str,
         output_artifacts: List of output artifacts (optional)
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         Task run UUID or None if recording fails
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If recording fails
     """
     # Generate a unique ID for this execution
@@ -587,16 +598,19 @@ def get_task_execution_history(task_id: Optional[str] = None,
     """
     Get execution history for a specific task or all tasks.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task (None for all tasks)
         limit: Maximum number of executions to return
         success_only: Whether to include only successful executions
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         List of execution records
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If history cannot be retrieved
     """
     # Use progress tracking if progress manager is provided
@@ -666,15 +680,18 @@ def find_latest_execution(task_id: str, success_only: bool = True,
     """
     Find the most recent execution of a task.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         success_only: Whether to include only successful executions
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         Execution record or None if not found
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If execution cannot be found
     """
     # Use progress tracking if progress manager is provided
@@ -717,14 +734,17 @@ def find_task_by_output(file_path: Union[str, Path],
     """
     Find the task that produced a specific output file.
 
-    Args:
+    Parameters
+    ----------
         file_path: Path to the output file
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         Task execution record or None if not found
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If task cannot be found
     """
     # Normalize file path
@@ -795,15 +815,18 @@ def track_input_files(task_id: str, file_paths: List[Union[str, Path]],
     This function updates the task's input files in the execution log,
     which can be used to trace data flow.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         file_paths: List of input file paths
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         True if successful, False otherwise
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If tracking fails
     """
     # Use progress tracking if progress manager is provided
@@ -912,15 +935,18 @@ def track_output_files(task_id: str, file_paths: List[Union[str, Path]],
     This function updates the task's output files in the execution log,
     which can be used to trace data flow.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         file_paths: List of output file paths
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         True if successful, False otherwise
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If tracking fails
     """
     # Use progress tracking if progress manager is provided
@@ -1030,15 +1056,18 @@ def update_execution_record(task_run_id: str, updates: Dict[str, Any],
     """
     Update an existing execution record.
 
-    Args:
+    Parameters
+    ----------
         task_run_id: Unique ID for the task execution
         updates: Dictionary of updates to apply
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         True if successful, False otherwise
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If update fails
     """
     # Use progress tracking if progress manager is provided
@@ -1132,14 +1161,17 @@ def remove_execution_record(task_run_id: str,
     """
     Remove an execution record from the log.
 
-    Args:
+    Parameters
+    ----------
         task_run_id: Unique ID for the task execution
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         True if successful, False otherwise
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If removal fails
     """
     # Use progress tracking if progress manager is provided
@@ -1213,18 +1245,21 @@ def cleanup_old_executions(max_age_days: int = 30,
     """
     Clean up old execution records.
 
-    Args:
+    Parameters
+    ----------
         max_age_days: Maximum age of execution records to keep (in days)
         max_per_task: Maximum number of executions to keep per task
         dry_run: Whether to perform a dry run (don't actually delete)
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         Tuple containing:
             - Number of records removed
             - List of removed task run IDs
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If cleanup fails
     """
     # Use progress tracking if progress manager is provided
@@ -1356,15 +1391,18 @@ def validate_execution_log(progress_manager: Optional[ProgressManagerProtocol] =
 
     Checks for inconsistencies, missing fields, and other issues.
 
-    Args:
+    Parameters
+    ----------
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         Tuple containing:
             - Whether the log is valid
             - List of validation errors
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If validation fails
     """
     # Use progress tracking if progress manager is provided
@@ -1476,15 +1514,18 @@ def export_execution_log(output_path: Optional[Path] = None,
     """
     Export the execution log to a file.
 
-    Args:
+    Parameters
+    ----------
         output_path: Path to save the export (optional)
         format: Export format ("json" or "csv")
         progress_manager: Progress manager for tracking (optional)
 
-    Returns:
+    Returns
+    -------
         Path to the exported file
 
-    Raises:
+    Raises
+    ------
         ExecutionLogError: If export fails
     """
     # Use progress tracking if progress manager is provided
@@ -1625,15 +1666,18 @@ def import_execution_log(input_path: Path, merge: bool = False,
    """
    Import an execution log from a file.
 
-   Args:
+   Parameters
+   ----------
        input_path: Path to the file to import
        merge: Whether to merge with existing log (True) or replace (False)
        progress_manager: Progress manager for tracking (optional)
 
-   Returns:
+   Returns
+   -------
        True if successful, False otherwise
 
-   Raises:
+   Raises
+   ------
        ExecutionLogError: If import fails
    """
    # Use progress tracking if progress manager is provided

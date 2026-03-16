@@ -37,7 +37,7 @@ def extract_entities(
     This function serves as the main entry point for entity extraction,
     delegating to specialized extractors based on the entity type.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -58,7 +58,7 @@ def extract_entities(
     **kwargs
         Additional parameters for specific extractors
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results containing entities, categories, and statistics
@@ -87,7 +87,7 @@ def extract_job_positions(
     """
     Extract job positions from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -102,7 +102,7 @@ def extract_job_positions(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -129,7 +129,7 @@ def extract_organizations(
     """
     Extract organization names from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -144,7 +144,7 @@ def extract_organizations(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -170,7 +170,7 @@ def extract_universities(
     """
     Extract university and educational institution names from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -183,7 +183,7 @@ def extract_universities(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -210,7 +210,7 @@ def extract_skills(
     """
     Extract skills from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -225,7 +225,7 @@ def extract_skills(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -251,7 +251,7 @@ def extract_transaction_purposes(
     """
     Extract transaction purposes from texts.
 
-    Parameters:
+    Parameters
     -----------
     texts : List[str]
         List of text strings to process
@@ -264,7 +264,7 @@ def extract_transaction_purposes(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Extraction results
@@ -290,7 +290,7 @@ def create_custom_entity_extractor(
     """
     Create a custom entity extractor for a specific use case.
 
-    Parameters:
+    Parameters
     -----------
     entity_type : str
         Type of entities to extract
@@ -305,7 +305,7 @@ def create_custom_entity_extractor(
     **kwargs
         Additional parameters for the extractor
 
-    Returns:
+    Returns
     --------
     BaseEntityExtractor
         An entity extractor instance

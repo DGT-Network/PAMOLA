@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Email Field Profiler Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -91,7 +90,7 @@ class EmailAnalyzer:
         """
         Analyze an email field in the given DataFrame.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data to analyze
@@ -102,7 +101,7 @@ class EmailAnalyzer:
         **kwargs : dict
             Additional parameters for the analysis
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             The results of the analysis
@@ -128,7 +127,7 @@ class EmailAnalyzer:
         """
         Create a frequency dictionary for email domains.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
@@ -139,7 +138,7 @@ class EmailAnalyzer:
         **kwargs : dict
             Additional parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Dictionary with domain frequency data and metadata
@@ -153,14 +152,14 @@ class EmailAnalyzer:
         """
         Estimate resources needed for analyzing the email field.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the field to analyze
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Estimated resource requirements
@@ -244,7 +243,7 @@ class EmailOperation(FieldOperation):
         """
         Execute the email analysis operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -257,7 +256,7 @@ class EmailOperation(FieldOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -680,14 +679,14 @@ class EmailOperation(FieldOperation):
         """
         Assess privacy risk based on email uniqueness.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The DataFrame containing the data
         field_name : str
             The name of the email field
 
-        Returns:
+        Returns
         --------
         Optional[Dict[str, Any]]
             Privacy risk assessment results or None if assessment cannot be performed
@@ -770,7 +769,7 @@ class EmailOperation(FieldOperation):
         """
         Create visualizations for k-anonymity metrics.
 
-        Parameters:
+        Parameters
         -----------
         ka_metrics : Dict[str, Dict[str, Any]]
             Dictionary mapping KA indices to their computed metrics.
@@ -847,7 +846,7 @@ class EmailOperation(FieldOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Data source for the operation
@@ -856,7 +855,7 @@ class EmailOperation(FieldOperation):
         data_source_name: str
             Dataset name
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -898,7 +897,7 @@ class EmailOperation(FieldOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -907,7 +906,7 @@ class EmailOperation(FieldOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -947,7 +946,7 @@ class EmailOperation(FieldOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -982,7 +981,7 @@ class EmailOperation(FieldOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -1005,7 +1004,7 @@ class EmailOperation(FieldOperation):
         progress_tracker : Optional[HierarchicalProgressTracker]
             Optional progress tracker
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -1188,7 +1187,7 @@ def analyze_email_fields(
     """
     Analyze multiple email fields in a dataset.
 
-    Parameters:
+    Parameters
     -----------
     data_source : DataSource
         Source of data for the operations
@@ -1205,7 +1204,7 @@ def analyze_email_fields(
         - generate_visualization: bool, whether to generate visualization (default: True)
         - profile_type: str, type of profiling for organizing artifacts (default: 'email')
 
-    Returns:
+    Returns
     --------
     Dict[str, OperationResult]
         Dictionary mapping field names to their operation results

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - t-Closeness Privacy Model
-----------------------------------------
 This module provides a class for implementing the t-Closeness privacy model.
 t-Closeness ensures that the distribution of a sensitive attribute in any
 equivalence class is close to the distribution of the attribute in the overall dataset.
@@ -41,7 +40,7 @@ class TCloseness(BasePrivacyModelProcessor):
 
     def __init__(self, quasi_identifiers: List[str], sensitive_column: str, t: float):
         """
-        Parameters:
+        Parameters
         -----------
         quasi_identifiers : List[str]
             Attributes used to group the data.
@@ -60,12 +59,12 @@ class TCloseness(BasePrivacyModelProcessor):
         """
         Calculate t-Closeness.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The data to check.
 
-        Returns:
+        Returns
         --------
         dict
             {'max_t_value': float, 'is_t_close': bool} - The t-Closeness value and validity status.
@@ -113,7 +112,7 @@ class TCloseness(BasePrivacyModelProcessor):
         """
         Apply the t-Closeness model to the dataset.
 
-        Parameters:
+        Parameters
         -----------
         data : pd.DataFrame
             The input dataset to be transformed.
@@ -124,7 +123,7 @@ class TCloseness(BasePrivacyModelProcessor):
         kwargs : dict
             Additional parameters for model application.
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             The transformed dataset with t-closeness guarantees applied.

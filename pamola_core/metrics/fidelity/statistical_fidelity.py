@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Statistical Fidelity Metrics
-------------------------------------------
 This module provides metrics for assessing the statistical fidelity
 of anonymized or synthetic datasets compared to original data. These
 metrics measure how well statistical properties and relationships
@@ -60,7 +59,7 @@ class StatisticalFidelityMetric:
         """
         Initialize the statistical fidelity metric.
 
-        Parameters:
+        Parameters
         -----------
         mean_weight : float, optional
             Weight for mean preservation in overall calculation (default: 0.4).
@@ -96,7 +95,7 @@ class StatisticalFidelityMetric:
         """
         Calculate statistical fidelity metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             The original dataset.
@@ -107,7 +106,7 @@ class StatisticalFidelityMetric:
         **kwargs : dict
             Additional parameters for calculation.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with statistical fidelity metrics:
@@ -291,7 +290,7 @@ class StatisticalFidelityMetric:
         """
         Calculate distribution similarity metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             The original dataset.
@@ -300,7 +299,7 @@ class StatisticalFidelityMetric:
         columns : list[str]
             List of columns to evaluate.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with distribution similarity metrics for each column.
@@ -371,12 +370,12 @@ class StatisticalFidelityMetric:
         """
         Interpret a statistical fidelity value.
 
-        Parameters:
+        Parameters
         -----------
         value : float
             The statistical fidelity value (percentage).
 
-        Returns:
+        Returns
         --------
         str
             Human-readable interpretation of the statistical fidelity.
@@ -422,7 +421,7 @@ class DistributionFidelityMetric:
         """
         Calculate distribution fidelity metrics.
 
-        Parameters:
+        Parameters
         -----------
         original_data : pd.DataFrame
             The original dataset.
@@ -433,7 +432,7 @@ class DistributionFidelityMetric:
         **kwargs : dict
             Additional parameters for calculation.
 
-        Returns:
+        Returns
         --------
         dict
             Dictionary with distribution fidelity metrics:
@@ -637,14 +636,14 @@ def _jensen_shannon_divergence(p: np.ndarray, q: np.ndarray) -> float:
     """
     Calculate the Jensen-Shannon divergence between two probability distributions.
 
-    Parameters:
+    Parameters
     -----------
     p : np.ndarray
         First probability distribution.
     q : np.ndarray
         Second probability distribution.
 
-    Returns:
+    Returns
     --------
     float
         Jensen-Shannon divergence value.
@@ -678,7 +677,7 @@ def calculate_fidelity_metrics(
     """
     Calculate multiple fidelity metrics for anonymized data.
 
-    Parameters:
+    Parameters
     -----------
     original_data : pd.DataFrame
         The original dataset.
@@ -687,7 +686,7 @@ def calculate_fidelity_metrics(
     **kwargs : dict
         Additional parameters for calculation.
 
-    Returns:
+    Returns
     --------
     dict
         Dictionary with results from all fidelity metrics.

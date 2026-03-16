@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Task Context Manager
 Description: Task execution state management with checkpoint support
 Author: PAMOLA Core Team
@@ -102,7 +101,8 @@ class TaskContextManager:
         """
         Initialize the context manager.
 
-        Args:
+        Parameters
+        ----------
             task_id: ID of the task
             task_dir: Path to the task directory
             log_directory: Optional directory for logs and checkpoints (defaults to task_dir)
@@ -173,10 +173,12 @@ class TaskContextManager:
         """
         Calculate a hash of the configuration dictionary.
 
-        Args:
+        Parameters
+        ----------
             config_dict: Configuration dictionary to hash. If None, uses an empty dict.
 
-        Returns:
+        Returns
+        -------
             String representation of the configuration hash
         """
         if config_dict is None:
@@ -196,7 +198,8 @@ class TaskContextManager:
         """
         Get the checkpoint directory path.
 
-        Returns:
+        Returns
+        -------
             Path to the checkpoint directory
         """
         return self.checkpoint_dir
@@ -210,7 +213,8 @@ class TaskContextManager:
         If removal fails for any reason (e.g., locked files, permission issues),
         logs an error and returns False, indicating the directory may not be empty.
 
-        Returns:
+        Returns
+        -------
             bool: True if clearing was completely successful, False otherwise.
         """
         # Main try block to handle lock timeout and other unexpected errors
@@ -321,12 +325,14 @@ class TaskContextManager:
         """
         Check if a checkpoint is still valid based on configuration and task version.
 
-        Args:
+        Parameters
+        ----------
             checkpoint_name: Name of the checkpoint to validate
             config_hash: Optional hash of current configuration to compare with checkpoint
             task_version: Optional task version to compare with checkpoint
 
-        Returns:
+        Returns
+        -------
             bool: True if checkpoint is valid, False otherwise
         """
         try:
@@ -418,11 +424,13 @@ class TaskContextManager:
         """
         Write JSON data to a file atomically.
 
-        Args:
+        Parameters
+        ----------
             data: JSON data to write
             path: Target file path
 
-        Raises:
+        Raises
+        ------
             StateSerializationError: If writing fails
         """
         try:
@@ -462,14 +470,17 @@ class TaskContextManager:
         """
         Save execution state to a checkpoint file.
 
-        Args:
+        Parameters
+        ----------
             state: Execution state to save
             checkpoint_name: Name for the checkpoint (optional)
 
-        Returns:
+        Returns
+        -------
             Path to the saved checkpoint file under .checkpoints directory
 
-        Raises:
+        Raises
+        ------
             StateSerializationError: If saving the state fails
         """
         # Create progress tracker if available
@@ -631,13 +642,16 @@ class TaskContextManager:
         """
         Restore execution state from a checkpoint file.
 
-        Args:
+        Parameters
+        ----------
             checkpoint_name: Name of the checkpoint to restore (optional, uses latest if None)
 
-        Returns:
+        Returns
+        -------
             Restored execution state dictionary
 
-        Raises:
+        Raises
+        ------
             StateRestorationError: If restoring the state fails
         """
         # Create progress tracker if available
@@ -868,14 +882,17 @@ class TaskContextManager:
         """
         Create an automatic checkpoint at the current execution point.
 
-        Args:
+        Parameters
+        ----------
             operation_index: Index of the current operation
             metrics: Metrics collected up to this point
 
-        Returns:
+        Returns
+        -------
             Name of the created checkpoint
 
-        Raises:
+        Raises
+        ------
             CheckpointError: If creating the checkpoint fails
         """
         try:
@@ -922,7 +939,8 @@ class TaskContextManager:
         """
         Get the current task configuration if available through the progress manager.
 
-        Returns:
+        Returns
+        -------
             Dict containing configuration or empty dict if not available
         """
         # Try to get config from progress manager's task
@@ -937,7 +955,8 @@ class TaskContextManager:
         """
         Get the current task version if available through the progress manager.
 
-        Returns:
+        Returns
+        -------
             Task version string or "unknown" if not available
         """
         # Try to get version from progress manager's task
@@ -952,10 +971,12 @@ class TaskContextManager:
         """
         Update the current execution state.
 
-        Args:
+        Parameters
+        ----------
             updates: Dictionary of updates to apply to the current state
 
-        Raises:
+        Raises
+        ------
             ContextManagerError: If updating the state fails
         """
         try:
@@ -994,12 +1015,14 @@ class TaskContextManager:
         """
         Record the completion of an operation.
 
-        Args:
+        Parameters
+        ----------
             operation_index: Index of the completed operation
             operation_name: Name of the completed operation
             result_metrics: Metrics from the operation result
 
-        Raises:
+        Raises
+        ------
             ContextManagerError: If recording the operation fails
         """
         try:
@@ -1053,12 +1076,14 @@ class TaskContextManager:
         """
         Record the failure of an operation.
 
-        Args:
+        Parameters
+        ----------
             operation_index: Index of the failed operation
             operation_name: Name of the failed operation
             error_info: Information about the error
 
-        Raises:
+        Raises
+        ------
             ContextManagerError: If recording the failure fails
         """
         try:
@@ -1127,12 +1152,14 @@ class TaskContextManager:
         """
         Record an artifact created during task execution.
 
-        Args:
+        Parameters
+        ----------
             artifact_path: Path to the artifact
             artifact_type: Type of the artifact
             description: Description of the artifact
 
-        Raises:
+        Raises
+        ------
             ContextManagerError: If recording the artifact fails
         """
         try:
@@ -1189,12 +1216,14 @@ class TaskContextManager:
         """
         Check if task execution can be resumed from a checkpoint.
 
-        Returns:
+        Returns
+        -------
             Tuple containing:
                 - Boolean indicating if execution can be resumed
                 - Name of the checkpoint to resume from (or None)
 
-        Raises:
+        Raises
+        ------
             ContextManagerError: If checking for resumable execution fails
         """
         # Create progress tracker if available
@@ -1295,7 +1324,8 @@ class TaskContextManager:
         """
         Get the name of the latest checkpoint from the execution log.
 
-        Returns:
+        Returns
+        -------
             Name of the latest checkpoint or None if not found
         """
         try:
@@ -1326,7 +1356,8 @@ class TaskContextManager:
         """
         Get the current execution state.
 
-        Returns:
+        Returns
+        -------
             Current execution state dictionary
         """
         return self.current_state.copy()
@@ -1335,7 +1366,8 @@ class TaskContextManager:
         """
         Get a list of available checkpoints with timestamps.
 
-        Returns:
+        Returns
+        -------
             List of tuples containing checkpoint names and timestamps, sorted by creation time (newest first)
         """
         try:
@@ -1367,10 +1399,12 @@ class TaskContextManager:
         """
         Sanitize a checkpoint name to ensure it's safe to use as a filename.
 
-        Args:
+        Parameters
+        ----------
             name: Checkpoint name to sanitize
 
-        Returns:
+        Returns
+        -------
             Sanitized checkpoint name
         """
         # Replace unsafe characters
@@ -1391,13 +1425,16 @@ class TaskContextManager:
         """
         Remove old checkpoints to manage disk space.
 
-        Args:
+        Parameters
+        ----------
             max_checkpoints: Maximum number of checkpoints to keep
 
-        Returns:
+        Returns
+        -------
             Number of checkpoints removed
 
-        Raises:
+        Raises
+        ------
             ContextManagerError: If cleaning up checkpoints fails
         """
         # Create progress tracker if available
@@ -1510,7 +1547,8 @@ class TaskContextManager:
         """
         Enter the context manager.
 
-        Returns:
+        Returns
+        -------
             Self for use in with-statement
         """
         return self
@@ -1521,12 +1559,14 @@ class TaskContextManager:
 
         Creates a final checkpoint if an exception occurred, and cleans up old checkpoints.
 
-        Args:
+        Parameters
+        ----------
             exc_type: Exception type if an exception occurred, None otherwise
             exc_val: Exception value if an exception occurred, None otherwise
             exc_tb: Exception traceback if an exception occurred, None otherwise
 
-        Returns:
+        Returns
+        -------
             False to allow exception propagation (do not suppress exceptions)
         """
         try:
@@ -1616,17 +1656,20 @@ def create_task_context_manager(
     """
     Create a context manager for a task.
 
-    Args:
+    Parameters
+    ----------
         task_id: ID of the task
         task_dir: Path to the task directory
         log_directory: Optional path to store logs and checkpoints centrally
         max_state_size: Maximum state size in bytes before pruning older checkpoints
         progress_manager: Optional progress manager for visual feedback during operations
 
-    Returns:
+    Returns
+    -------
         TaskContextManager instance
 
-    Raises:
+    Raises
+    ------
         ContextManagerError: If context manager creation fails
     """
     try:

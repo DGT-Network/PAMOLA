@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        K-Anonymity Profiling Operation
 Package:       pamola.pamola_core.profiling.analyzers
 Version:       2.0.0
@@ -196,7 +195,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         Execute k-anonymity profiling operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -209,7 +208,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -799,7 +798,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         Calculate k-values representing group sizes for k-anonymity analysis
         based on specified combinations of fields.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             The input DataFrame containing the data to analyze.
@@ -816,7 +815,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         npartitions : int, optional
             Number of Dask partitions (used only if use_dask is True).
 
-        Returns:
+        Returns
         --------
         np.ndarray
             An array of group sizes (frequencies) representing the k-values.
@@ -1237,12 +1236,12 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         Check if a cached result exists for operation.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Data source for the operation
 
-        Returns:
+        Returns
         --------
         Optional[OperationResult]
             Cached result if found, None otherwise
@@ -1281,7 +1280,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         Save operation results to cache.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             Original input data
@@ -1290,7 +1289,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         task_dir : Path
             Task directory
 
-        Returns:
+        Returns
         --------
         bool
             True if successfully saved to cache, False otherwise
@@ -1332,7 +1331,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         Get operation parameters for cache key generation.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation
@@ -1365,7 +1364,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         """
         Generate and save visualizations.
 
-        Parameters:
+        Parameters
         -----------
         df : pd.DataFrame
             DataFrame containing the data
@@ -1390,7 +1389,7 @@ class KAnonymityProfilerOperation(BaseOperation):
         operation_timestamp : str, optional
             Timestamp for operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths

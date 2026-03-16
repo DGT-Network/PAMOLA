@@ -909,10 +909,12 @@ def get_error_metadata(error_code: str) -> Dict[str, Any]:
     """
     Return metadata for an error code; falls back to sensible defaults.
 
-    Args:
+    Parameters
+    ----------
         error_code: Error code string (e.g., "DATA_LOAD_FAILED")
 
-    Returns:
+    Returns
+    -------
         Dictionary with severity, category, retry_allowed, user_facing,
         exception_type. Returns safe defaults for unknown codes.
     """

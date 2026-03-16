@@ -1,6 +1,5 @@
 """
 PAMOLA Task Template Generator
------------------------------
 Utility script to generate new PAMOLA tasks from templates.
 
 This script creates a new task file from a template, customizing it with
@@ -53,12 +52,14 @@ def create_directory_structure(project_root, data_repository, task_id):
     """
     Create the necessary directory structure for the task.
 
-    Args:
+    Parameters
+    ----------
         project_root: Path to the project root
         data_repository: Path to the data repository
         task_id: Task ID
 
-    Returns:
+    Returns
+    -------
         Dictionary with paths to created directories
     """
     project_root = Path(project_root)
@@ -94,7 +95,8 @@ def generate_task_file(template_path, output_path, task_id, task_type, descripti
     """
     Generate a new task file from the template.
 
-    Args:
+    Parameters
+    ----------
         template_path: Path to the template file
         output_path: Path where the new file will be created
         task_id: Task ID
@@ -102,7 +104,8 @@ def generate_task_file(template_path, output_path, task_id, task_type, descripti
         description: Task description
         author: Author name
 
-    Returns:
+    Returns
+    -------
         Path to the created file
     """
     # Read template content
@@ -162,13 +165,15 @@ def create_basic_config(project_root, task_id, task_type, description):
     """
     Create a basic configuration file for the task.
 
-    Args:
+    Parameters
+    ----------
         project_root: Path to the project root
         task_id: Task ID
         task_type: Task type
         description: Task description
 
-    Returns:
+    Returns
+    -------
         Path to the created config file
     """
     import json

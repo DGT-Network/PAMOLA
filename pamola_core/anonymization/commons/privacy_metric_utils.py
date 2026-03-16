@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Privacy Process Metrics
 Package:       pamola_core.anonymization.commons
 Version:       2.0.0
@@ -74,14 +73,14 @@ def calculate_anonymization_coverage(
     Fast metric to track what percentage of values were successfully anonymized
     vs. suppressed or left unchanged.
 
-    Parameters:
+    Parameters
     -----------
     original : pd.Series
         Original data before anonymization
     anonymized : pd.Series
         Data after anonymization
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Coverage metrics including:
@@ -149,14 +148,14 @@ def calculate_suppression_rate(
     Quick check for how many values were suppressed (set to null) during
     the anonymization process.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Anonymized data series
     original_nulls : Optional[int]
         Number of nulls in original data (if known)
 
-    Returns:
+    Returns
     --------
     float
         Suppression rate [0.0, 1.0]
@@ -195,7 +194,7 @@ def get_group_size_distribution(
     Fast calculation of how records are distributed across equivalence classes.
     Limited to top groups for performance.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Data to analyze
@@ -204,7 +203,7 @@ def get_group_size_distribution(
     max_groups : int
         Maximum number of groups to analyze (for performance)
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Distribution info including group sizes and counts
@@ -247,7 +246,7 @@ def calculate_min_group_size(
     Fast check of the minimum k-anonymity level. Uses sampling for large
     datasets to maintain performance.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Data to analyze
@@ -256,7 +255,7 @@ def calculate_min_group_size(
     sample_size : Optional[int]
         Sample size for large datasets (None = use all data)
 
-    Returns:
+    Returns
     --------
     int
         Minimum group size (k value)
@@ -295,7 +294,7 @@ def calculate_vulnerable_records_ratio(
     Quick assessment of how many records are in small groups that don't
     meet the k-anonymity threshold.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Data to analyze
@@ -306,7 +305,7 @@ def calculate_vulnerable_records_ratio(
     sample_size : Optional[int]
         Sample size for large datasets
 
-    Returns:
+    Returns
     --------
     float
         Ratio of vulnerable records [0.0, 1.0]
@@ -350,14 +349,14 @@ def calculate_generalization_level(
     Simple metric showing how much the cardinality was reduced through
     generalization.
 
-    Parameters:
+    Parameters
     -----------
     original : pd.Series
         Original data
     generalized : pd.Series
         Generalized data
 
-    Returns:
+    Returns
     --------
     float
         Generalization level [0.0, 1.0] where 1.0 = maximum generalization
@@ -387,14 +386,14 @@ def calculate_value_reduction_ratio(
 
     Quick metric for how much the diversity of values was reduced.
 
-    Parameters:
+    Parameters
     -----------
     original : pd.Series
         Original data
     anonymized : pd.Series
         Anonymized data
 
-    Returns:
+    Returns
     --------
     float
         Value reduction ratio [0.0, 1.0]
@@ -420,12 +419,12 @@ def calculate_uniqueness_score(series: pd.Series) -> float:
 
     Fast indicator of how unique/identifying a field might be.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Data to analyze
 
-    Returns:
+    Returns
     --------
     float
         Uniqueness score [0.0, 1.0] where 1.0 = all values unique
@@ -452,14 +451,14 @@ def calculate_simple_disclosure_risk(
     Basic risk indicator based on the proportion of unique combinations
     in quasi-identifiers.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         Data to analyze
     quasi_identifiers : List[str]
         List of quasi-identifier columns
 
-    Returns:
+    Returns
     --------
     float
         Simple risk score [0.0, 1.0] where 1.0 = maximum risk
@@ -495,14 +494,14 @@ def check_anonymization_thresholds(
 
     Quick validation of process metrics against target thresholds.
 
-    Parameters:
+    Parameters
     -----------
     metrics : Dict[str, float]
         Current process metrics
     thresholds : Optional[Dict[str, float]]
         Target thresholds (uses defaults if not provided)
 
-    Returns:
+    Returns
     --------
     Dict[str, bool]
         Pass/fail status for each threshold
@@ -546,12 +545,12 @@ def get_process_summary(metrics: Dict[str, Any]) -> Dict[str, str]:
 
     Quick summary for logging and monitoring dashboards.
 
-    Parameters:
+    Parameters
     -----------
     metrics : Dict[str, Any]
         Process metrics
 
-    Returns:
+    Returns
     --------
     Dict[str, str]
         Summary messages
@@ -610,7 +609,7 @@ def calculate_batch_metrics(
     Convenience function to get all key metrics in one call during
     batch processing.
 
-    Parameters:
+    Parameters
     -----------
     original_batch : pd.DataFrame
         Original data batch
@@ -623,7 +622,7 @@ def calculate_batch_metrics(
     quasi_identifiers : Optional[List[str]]
         List of quasi-identifier columns
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Complete set of process metrics

@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Aware Management of Large Anonymization
-------------------------------------------------------------
 Module:        Categorical Generalization Strategy Implementations
 Package:       pamola_core.anonymization.generalization
 Version:       1.2.0
@@ -44,8 +43,8 @@ Dependencies:
    - logging: For operational diagnostics
    - pamola_core.anonymization.commons: Utility functions
 
-Usage:
-   ```python
+Usage::
+
    # Apply hierarchy strategy
    result = apply_hierarchy(
        series=data['city'],
@@ -59,7 +58,6 @@ Usage:
        null_strategy=NullStrategy.PRESERVE,
        unknown_value="OTHER"
    )
-   ```
 
 Changelog:
    1.2.0 (2025-01-23):
@@ -130,7 +128,7 @@ def _check_enrich_mode_safety(
     """
     Check for ENRICH mode field conflicts and issue warnings.
 
-    Parameters:
+    Parameters
     -----------
     context : Dict[str, Any]
         Processing context
@@ -165,7 +163,7 @@ def apply_hierarchy(
     This strategy maps values to higher-level categories based on a
     predefined hierarchy (e.g., city → state → country).
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to generalize
@@ -189,12 +187,12 @@ def apply_hierarchy(
     logger : Optional[logging.Logger]
         Logger instance for diagnostics
 
-    Returns:
+    Returns
     --------
     pd.Series
         Generalized series
 
-    Raises:
+    Raises
     -------
     ValueError
         If hierarchy not provided or invalid configuration
@@ -350,7 +348,7 @@ def apply_merge_low_freq(
     This strategy identifies and groups rare categories based on
     frequency thresholds to improve k-anonymity.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to process
@@ -368,7 +366,7 @@ def apply_merge_low_freq(
     logger : Optional[logging.Logger]
         Logger instance
 
-    Returns:
+    Returns
     --------
     pd.Series
         Series with merged categories
@@ -467,7 +465,7 @@ def apply_frequency_based(
     This strategy preserves the top K most frequent categories and
     groups the rest based on the configured strategy.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to process
@@ -484,7 +482,7 @@ def apply_frequency_based(
     logger : Optional[logging.Logger]
         Logger instance
 
-    Returns:
+    Returns
     --------
     pd.Series
         Series with frequency-based generalization
@@ -612,7 +610,7 @@ def apply_null_and_unknown_strategy(
     This function handles NULL values according to the specified strategy
     and can apply template-based formatting for unknown values.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The series to process
@@ -631,12 +629,12 @@ def apply_null_and_unknown_strategy(
     logger : Optional[logging.Logger]
         Logger instance
 
-    Returns:
+    Returns
     --------
     pd.Series
         Series with NULL/unknown handling applied
 
-    Raises:
+    Raises
     -------
     ValueError
         If null_strategy is "ERROR" and NULLs are found
@@ -687,14 +685,14 @@ def format_rare_value(template: str, index: int) -> str:
     """
     Format a rare value using the provided template.
 
-    Parameters:
+    Parameters
     -----------
     template : str
         Template string containing {n} placeholder
     index : int
         Index to insert
 
-    Returns:
+    Returns
     --------
     str
         Formatted value
@@ -711,7 +709,7 @@ def _apply_rare_value_template(
     """
     Apply template formatting to rare/grouped values.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         Series with values to format
@@ -720,7 +718,7 @@ def _apply_rare_value_template(
     prefix_pattern : Union[str, None]
         Pattern to match values to format (None = use default)
 
-    Returns:
+    Returns
     --------
     pd.Series
         Series with formatted values

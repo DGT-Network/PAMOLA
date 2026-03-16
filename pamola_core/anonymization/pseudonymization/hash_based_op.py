@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Hash-based Pseudonymization Operation
 Package:       pamola_core.anonymization.pseudonymization
 Version:       1.0.0
@@ -250,7 +249,7 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
         """
         Initialize hash-based pseudonymization operation.
 
-        Parameters:
+        Parameters
         -----------
         field_name : str
             Primary field to pseudonymize
@@ -808,12 +807,12 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
         """
         Process a batch of data to pseudonymize values.
 
-        Parameters:
+        Parameters
         -----------
         batch : pd.DataFrame
             DataFrame batch to process
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Processed DataFrame with pseudonymized values
@@ -941,12 +940,12 @@ class HashBasedPseudonymizationOperation(AnonymizationOperation):
         """
         Generate a pseudonym for a single value.
 
-        Parameters:
+        Parameters
         -----------
         value : str
             Value to pseudonymize
 
-        Returns:
+        Returns
         --------
         str
             Generated pseudonym
@@ -1122,14 +1121,14 @@ def create_hash_pseudonymization_operation(
     """
     Create a hash-based pseudonymization operation with default settings.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Field to pseudonymize
     **kwargs : dict
         Additional parameters to override defaults
 
-    Returns:
+    Returns
     --------
     HashBasedPseudonymizationOperation
         Configured hash pseudonymization operation

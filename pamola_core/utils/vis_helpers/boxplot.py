@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Boxplot Visualization Implementation
 Description: Thread-safe boxplot visualization capabilities
 Author: PAMOLA Core Team
@@ -53,12 +52,12 @@ class PlotlyBoxPlot(PlotlyFigure):
         """
         Convert input data to a standardized DataFrame format.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict[str, List[float]], pd.DataFrame, pd.Series]
             Input data in various formats
 
-        Returns:
+        Returns
         --------
         pd.DataFrame
             Standardized DataFrame for box plot
@@ -99,7 +98,7 @@ class PlotlyBoxPlot(PlotlyFigure):
         """
         Prepare comprehensive arguments for a box trace.
 
-        Parameters:
+        Parameters
         -----------
         column : str
             Column/category name
@@ -112,7 +111,7 @@ class PlotlyBoxPlot(PlotlyFigure):
         kwargs : dict
             Additional customization parameters
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Prepared box trace arguments
@@ -218,7 +217,7 @@ class PlotlyBoxPlot(PlotlyFigure):
         """
         Create a box plot using Plotly.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict[str, List[float]], pd.DataFrame, pd.Series]
             Data to visualize
@@ -247,7 +246,7 @@ class PlotlyBoxPlot(PlotlyFigure):
         **kwargs :
             Additional parameters for customization
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Plotly box plot figure
@@ -369,7 +368,7 @@ class PlotlyBoxPlot(PlotlyFigure):
         """
         Update an existing Plotly box plot.
 
-        Parameters:
+        Parameters
         -----------
         fig : plotly.graph_objects.Figure
             Existing Plotly figure to update
@@ -382,7 +381,7 @@ class PlotlyBoxPlot(PlotlyFigure):
         **kwargs :
             Update parameters (same as create method)
 
-        Returns:
+        Returns
         --------
         plotly.graph_objects.Figure
             Updated Plotly figure
@@ -526,7 +525,7 @@ class MatplotlibBoxPlot(MatplotlibFigure):
         """
         Create a box plot using Matplotlib.
 
-        Parameters:
+        Parameters
         -----------
         data : Union[Dict[str, List[float]], pd.DataFrame, pd.Series]
             Data to visualize
@@ -553,7 +552,7 @@ class MatplotlibBoxPlot(MatplotlibFigure):
         **kwargs :
             Additional parameters for customization
 
-        Returns:
+        Returns
         --------
         matplotlib.figure.Figure
             Matplotlib box plot figure
@@ -690,7 +689,7 @@ class MatplotlibBoxPlot(MatplotlibFigure):
         """
         Update an existing Matplotlib box plot.
 
-        Parameters:
+        Parameters
         -----------
         fig : matplotlib.figure.Figure
             Existing Matplotlib figure to update
@@ -703,7 +702,7 @@ class MatplotlibBoxPlot(MatplotlibFigure):
         **kwargs :
             Update parameters (same as create method)
 
-        Returns:
+        Returns
         --------
         matplotlib.figure.Figure
             Updated Matplotlib figure

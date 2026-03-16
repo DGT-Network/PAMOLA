@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module:        Fidelity Metric Operation
 Package:       pamola_core.metrics
 Version:       4.0.0
@@ -135,7 +134,7 @@ class FidelityOperation(MetricsOperation):
         """
         Execute the metrics operation with enhanced features including Dask support.
 
-        Parameters:
+        Parameters
         -----------
         data_source : DataSource
             Source of data for the operation
@@ -148,7 +147,7 @@ class FidelityOperation(MetricsOperation):
         **kwargs : dict
             Additional parameters including profiling_results
 
-        Returns:
+        Returns
         --------
         OperationResult
             Results of the operation
@@ -183,7 +182,7 @@ class FidelityOperation(MetricsOperation):
         """
         Calculate multiple fidelity metrics between original and transformed DataFrames.
 
-        Parameters:
+        Parameters
         -----------
         original_df : pd.DataFrame
             The original dataset.
@@ -200,7 +199,7 @@ class FidelityOperation(MetricsOperation):
             - metric_params: Dict[str, Dict]
                 Mapping of metric type to its specific configuration params.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             - result: Dict of metric_name → metric_result
@@ -299,7 +298,7 @@ class FidelityOperation(MetricsOperation):
 
         This implementation generates separate visualizations for KS and KL metrics if present.
 
-        Parameters:
+        Parameters
         -----------
         metrics : Dict[str, Any]
             Collected metrics for visualization (may include 'ks', 'kl')
@@ -314,7 +313,7 @@ class FidelityOperation(MetricsOperation):
         **kwargs : dict
             Additional parameters for the operation
 
-        Returns:
+        Returns
         --------
         Dict[str, Path]
             Dictionary with visualization types and paths
@@ -413,7 +412,7 @@ class FidelityOperation(MetricsOperation):
         This method should be overridden by subclasses to provide
         operation-specific parameters for caching.
 
-        Returns:
+        Returns
         --------
         Dict[str, Any]
             Parameters for cache key generation

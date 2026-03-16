@@ -24,7 +24,7 @@ def setup_audit_logging(log_path: Optional[Union[str, Path]] = None) -> None:
     """
     Set up audit logging for cryptographic operations.
 
-    Parameters:
+    Parameters
     -----------
     log_path : str or Path, optional
         Path to the audit log file. If not provided, uses AUDIT_LOG_PATH env var
@@ -67,7 +67,7 @@ def log_crypto_operation(
     """
     Log a cryptographic operation for audit purposes.
 
-    Parameters:
+    Parameters
     -----------
     operation : str
         Type of operation (e.g., 'encrypt', 'decrypt', 'key_generation')
@@ -137,7 +137,7 @@ def log_key_access(
     """
     Log a key access operation for audit purposes.
 
-    Parameters:
+    Parameters
     -----------
     operation : str
         Type of operation (e.g., 'create', 'read', 'update', 'delete')

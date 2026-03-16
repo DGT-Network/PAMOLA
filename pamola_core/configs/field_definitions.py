@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE (Privacy-Preserving AI Data Processors) - Anonymization) - Field Definitions
---------------------------------------------------
 This module defines the metadata for all fields in the resume dataset,
 including field types, privacy categories, anonymization strategies,
 and profiling tasks.
@@ -778,12 +777,12 @@ def get_fields_by_table(table_name: str) -> Dict[str, Dict[str, Any]]:
     """
     Get all field definitions for a specific table.
 
-    Parameters:
+    Parameters
     -----------
     table_name : str
         Name of the table
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Dictionary of field definitions for the specified table
@@ -799,12 +798,12 @@ def get_fields_by_category(category: PrivacyCategory) -> Dict[str, Dict[str, Any
     """
     Get all field definitions for a specific privacy category.
 
-    Parameters:
+    Parameters
     -----------
     category : PrivacyCategory
         Privacy category to filter by
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Dictionary of field definitions for the specified category
@@ -820,12 +819,12 @@ def get_fields_by_strategy(strategy: AnonymizationStrategy) -> Dict[str, Dict[st
     """
     Get all field definitions for a specific anonymization strategy.
 
-    Parameters:
+    Parameters
     -----------
     strategy : AnonymizationStrategy
         Anonymization strategy to filter by
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Dictionary of field definitions for the specified strategy
@@ -841,12 +840,12 @@ def get_fields_by_type(field_type: FieldType) -> Dict[str, Dict[str, Any]]:
     """
     Get all field definitions for a specific field type.
 
-    Parameters:
+    Parameters
     -----------
     field_type : FieldType
         Field type to filter by
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Dictionary of field definitions for the specified type
@@ -862,12 +861,12 @@ def get_profiling_tasks_for_field(field_name: str) -> List[ProfilingTask]:
     """
     Get all profiling tasks for a specific field.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Name of the field
 
-    Returns:
+    Returns
     --------
     List[ProfilingTask]
         List of profiling tasks for the field
@@ -883,12 +882,12 @@ def get_field_definition(field_name: str) -> Dict[str, Any]:
     """
     Get the definition for a specific field.
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Name of the field
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Field definition dictionary or empty dict if not found
@@ -900,12 +899,12 @@ def is_identifier(field_name: str) -> bool:
     """
     Check if a field is any type of identifier (direct, indirect, or quasi).
 
-    Parameters:
+    Parameters
     -----------
     field_name : str
         Name of the field
 
-    Returns:
+    Returns
     --------
     bool
         True if the field is any kind of identifier, False otherwise
@@ -926,12 +925,12 @@ def get_table_structure(table_name: str) -> Dict[str, List[str]]:
     """
     Get the structure of a specific table including all fields.
 
-    Parameters:
+    Parameters
     -----------
     table_name : str
         Name of the table
 
-    Returns:
+    Returns
     --------
     Dict[str, List[str]]
         Dictionary with field names and their properties
@@ -969,7 +968,7 @@ def get_all_tables() -> List[str]:
     """
     Get a list of all table names.
 
-    Returns:
+    Returns
     --------
     List[str]
         List of all table names

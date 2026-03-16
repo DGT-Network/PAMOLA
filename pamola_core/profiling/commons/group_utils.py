@@ -24,7 +24,7 @@ def calculate_field_variation(
     """
     Calculate variation for a single field within a group.
 
-    Parameters:
+    Parameters
     -----------
     group : pd.DataFrame
         Group of records (typically with same group_id)
@@ -34,7 +34,7 @@ def calculate_field_variation(
         How to handle nulls: 'as_value' treats nulls as a separate value,
         'exclude' excludes nulls from calculation
 
-    Returns:
+    Returns
     --------
     float
         Variation value from 0 to 1, where 0 means all values are identical
@@ -92,7 +92,7 @@ def calculate_weighted_variation(
     """
     Calculate weighted variation across multiple fields within a group.
 
-    Parameters:
+    Parameters
     -----------
     group : pd.DataFrame
         Group of records (typically with same group_id)
@@ -101,7 +101,7 @@ def calculate_weighted_variation(
     handle_nulls : str
         How to handle nulls: 'as_value' or 'exclude'
 
-    Returns:
+    Returns
     --------
     float
         Weighted variation value from 0 to 1
@@ -131,7 +131,7 @@ def calculate_change_frequency(
     """
     Calculate how often fields change within a group.
 
-    Parameters:
+    Parameters
     -----------
     group : pd.DataFrame
         Group of records (typically with same group_id)
@@ -140,7 +140,7 @@ def calculate_change_frequency(
     handle_nulls : str
         How to handle nulls: 'as_value' or 'exclude'
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         Dictionary mapping field names to change frequencies (0 to 1)
@@ -180,14 +180,14 @@ def create_identifier_hash(row: pd.Series, fields: List[str]) -> Optional[str]:
     """
     Create a hash-based identifier from specified fields.
 
-    Parameters:
+    Parameters
     -----------
     row : pd.Series
         Row with data
     fields : List[str]
         Fields to use for hash creation
 
-    Returns:
+    Returns
     --------
     Optional[str]
         Hash-based identifier or None if required fields are missing
@@ -212,7 +212,7 @@ def analyze_cross_groups(
     """
     Analyze relationships between different group identifiers.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
@@ -227,7 +227,7 @@ def analyze_cross_groups(
     threshold : float
         Minimum confidence threshold for secondary identification
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis results containing relationships between identifiers
@@ -317,14 +317,14 @@ def extract_group_metadata(
     """
     Extract metadata about a group based on specified fields.
 
-    Parameters:
+    Parameters
     -----------
     group : pd.DataFrame
         Group of records (typically with same group_id)
     metadata_fields : List[str]
         Fields to extract metadata from
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with group metadata
@@ -350,14 +350,14 @@ def analyze_collapsibility(
     """
     Analyze potential for collapsing records within groups.
 
-    Parameters:
+    Parameters
     -----------
     variation_results : List[Dict[str, Any]]
         List of group variation results
     threshold : float
         Maximum variation threshold for collapsibility
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis of collapsibility potential
@@ -408,12 +408,12 @@ def identify_change_patterns(variation_results: List[Dict[str, Any]]) -> Dict[st
     """
     Identify common patterns in how fields change within groups.
 
-    Parameters:
+    Parameters
     -----------
     variation_results : List[Dict[str, Any]]
         List of group variation results
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Analysis of change patterns
@@ -479,14 +479,14 @@ def calculate_variation_distribution(
     """
     Calculate distribution of variation values.
 
-    Parameters:
+    Parameters
     -----------
     variations : List[float]
         List of variation values
     bins : int
         Number of bins for distribution
 
-    Returns:
+    Returns
     --------
     Dict[str, int]
         Distribution of variation values
@@ -518,7 +518,7 @@ def analyze_group_in_chunks(
     """
     Analyze groups in chunks for large datasets.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
@@ -533,7 +533,7 @@ def analyze_group_in_chunks(
     handle_nulls : str
         How to handle nulls
 
-    Returns:
+    Returns
     --------
     Tuple[List[Dict[str, Any]], Dict[str, Any]]
         Tuple containing:
@@ -638,7 +638,7 @@ def estimate_resources(
     """
     Estimate resources needed for group analysis.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         DataFrame to analyze
@@ -647,7 +647,7 @@ def estimate_resources(
     fields_weights : Dict[str, float]
         Dictionary of fields and their weights
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Estimated resource requirements
@@ -720,7 +720,7 @@ def calculate_field_variance(
     """
     Calculate the variance and duplication ratio for a single field.
 
-    Parameters:
+    Parameters
     -----------
     field_series : pd.Series
         Series containing values for a single field
@@ -737,7 +737,7 @@ def calculate_field_variance(
     logger : logging.Logger
         Logger instance
 
-    Returns:
+    Returns
     --------
     Tuple[float, float]
         (variance, duplication_ratio)
@@ -783,7 +783,7 @@ def get_unique_values_improved(
     Get unique values from a field series, handling text and NULL values.
     Improved version with better categorical data handling.
 
-    Parameters:
+    Parameters
     -----------
     field_series : pd.Series
         Series containing values for a single field
@@ -800,7 +800,7 @@ def get_unique_values_improved(
     logger : logging.Logger
         Logger instance
 
-    Returns:
+    Returns
     --------
     Tuple[Set[Any], Dict[Any, int]]
         Set of unique values and dictionary with value counts
@@ -903,14 +903,14 @@ def cluster_minhash_signatures_from_keys(
     """
     Cluster similar MinHash signature keys.
 
-    Parameters:
+    Parameters
     -----------
     signature_keys : List[str]
         List of MinHash signature keys to cluster
     minhash_similarity_threshold : float
         Similarity threshold for clustering
 
-    Returns:
+    Returns
     --------
     List[List[str]]
         List of clusters, where each cluster is a list of similar signature keys
@@ -966,14 +966,14 @@ def calculate_simple_jaccard(sig1: List[int], sig2: List[int]) -> float:
     """
     Calculate a simple Jaccard similarity between two signatures.
 
-    Parameters:
+    Parameters
     -----------
     sig1 : List[int]
         First signature
     sig2 : List[int]
         Second signature
 
-    Returns:
+    Returns
     --------
     float
         Jaccard similarity (0-1)
@@ -999,14 +999,14 @@ def calculate_weighted_variance(
     """
     Calculate weighted variance across all fields.
 
-    Parameters:
+    Parameters
     -----------
     field_variances : Dict[str, float]
         Dictionary mapping field names to their variance values
     fields_config : Dict[str, int]
         Configuration mapping field names to their weights
 
-    Returns:
+    Returns
     --------
     float
         Weighted variance across all fields
@@ -1032,7 +1032,7 @@ def should_aggregate(
     """
     Determine if a group should be aggregated based on variance and size.
 
-    Parameters:
+    Parameters
     -----------
     weighted_variance : float
         Weighted variance of the group
@@ -1045,7 +1045,7 @@ def should_aggregate(
     large_group_variance_threshold : float
         Variance threshold for large groups
 
-    Returns:
+    Returns
     --------
     bool
         True if the group should be aggregated, False otherwise
@@ -1063,14 +1063,14 @@ def calculate_field_metrics(
     """
     Calculate metrics for each field across all groups.
 
-    Parameters:
+    Parameters
     -----------
     group_metrics : Dict[str, Dict[str, Any]]
         Dictionary with metrics for each group
     fields : List[str]
         List of fields to analyze
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, float]]
         Dictionary with metrics for each field
@@ -1136,7 +1136,7 @@ def analyze_group(
     """
     Analyze a single group of records.
 
-    Parameters:
+    Parameters
     -----------
     group_df : pd.DataFrame
         DataFrame containing records for a single group.
@@ -1161,7 +1161,7 @@ def analyze_group(
     variance_threshold : float
         Variance threshold for normal groups.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary with group metrics
@@ -1221,7 +1221,7 @@ def is_group_aggregatable(
     """
     Determine if a group should be aggregated based on variance and size.
 
-    Parameters:
+    Parameters
     -----------
     weighted_variance : float
         Weighted variance of the group
@@ -1234,7 +1234,7 @@ def is_group_aggregatable(
     large_group_variance_threshold : float
         Variance threshold for large groups
 
-    Returns:
+    Returns
     --------
     bool
         True if the group should be aggregated, False otherwise

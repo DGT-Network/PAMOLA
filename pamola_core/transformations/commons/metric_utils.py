@@ -1,6 +1,5 @@
 """
 PAMOLA.CORE - Privacy-Preserving AI Data Processors
-----------------------------------------------------
 Module: Transformation Metric Utilities
 Description: Common metric utilities for transformation operations
 Author: PAMOLA Core Team
@@ -36,14 +35,14 @@ def calculate_dataset_comparison(
     """
     Calculate metrics comparing two datasets.
 
-    Parameters:
+    Parameters
     -----------
     original_df : pd.DataFrame
         The original DataFrame before transformation.
     transformed_df : pd.DataFrame
         The transformed DataFrame after processing.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing comparison metrics.
@@ -94,14 +93,14 @@ def _compare_row_counts(
     """
     Compare the row counts between the original and transformed DataFrames.
 
-    Parameters:
+    Parameters
     -----------
     original_df : pd.DataFrame
         The original DataFrame.
     transformed_df : pd.DataFrame
         The transformed DataFrame.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing row count differences and percentage change.
@@ -127,14 +126,14 @@ def _compare_column_counts(
     """
     Compare the column counts between the original and transformed DataFrames.
 
-    Parameters:
+    Parameters
     -----------
     original_df : pd.DataFrame
         The original DataFrame.
     transformed_df : pd.DataFrame
         The transformed DataFrame.
 
-    Returns:
+    Returns
     --------
     Tuple containing:
         - Dict with column count differences and percentage change.
@@ -168,14 +167,14 @@ def _compare_values_and_nulls(
     """
     Compare values and nulls in common columns between the original and transformed DataFrames.
 
-    Parameters:
+    Parameters
     -----------
     original_df : pd.DataFrame
         The original DataFrame.
     transformed_df : pd.DataFrame
         The transformed DataFrame.
 
-    Returns:
+    Returns
     --------
     Tuple containing:
         - Dictionary of value changes for common columns.
@@ -228,14 +227,14 @@ def _count_value_changes(
     """
     Count the value changes between the original and transformed columns.
 
-    Parameters:
+    Parameters
     -----------
     original_col : pd.Series
         The original column values.
     transformed_col : pd.Series
         The transformed column values.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing the number of changes and the percentage change.
@@ -271,14 +270,14 @@ def _count_null_changes(
     """
     Count the null value changes between the original and transformed columns.
 
-    Parameters:
+    Parameters
     -----------
     original_col : pd.Series
         The original column values.
     transformed_col : pd.Series
         The transformed column values.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing the number of null changes and the percentage change.
@@ -304,14 +303,14 @@ def _compare_memory_usage(
     """
     Compare the memory usage between the original and transformed DataFrames.
 
-    Parameters:
+    Parameters
     -----------
     original_df : pd.DataFrame
         The original DataFrame.
     transformed_df : pd.DataFrame
         The transformed DataFrame.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing memory usage comparison.
@@ -339,14 +338,14 @@ def calculate_field_statistics(
     """
     Calculate statistical metrics for specified fields.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze.
     fields : Optional[List[str]]
         List of field names to analyze. If None, all columns are analyzed.
 
-    Returns:
+    Returns
     --------
     Dict[str, Dict[str, Any]]
         Dictionary mapping field names to statistics dictionaries containing:
@@ -420,14 +419,14 @@ def _validate_fields(df: pd.DataFrame, fields: Optional[List[str]]) -> List[str]
     """
     Validate the field names provided for the analysis.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze.
     fields : Optional[List[str]]
         List of field names to analyze. If None, all columns are considered.
 
-    Returns:
+    Returns
     --------
     List[str]
         List of valid field names from the DataFrame columns.
@@ -446,12 +445,12 @@ def _calculate_basic_stats(series: pd.Series) -> Dict[str, Any]:
     """
     Calculate basic statistics for a field (count, mean, std, min, etc.).
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The data series to calculate statistics for.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing basic statistics for the field.
@@ -485,14 +484,14 @@ def _calculate_null_stats(series: pd.Series, df_length: int) -> Dict[str, Any]:
     """
     Calculate the statistics for null values in a field.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The data series to calculate null statistics for.
     df_length : int
         The total number of rows in the DataFrame.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing null value statistics.
@@ -508,14 +507,14 @@ def _calculate_unique_stats(series: pd.Series, df_length: int) -> Dict[str, Any]
     """
     Calculate statistics for unique values in a field.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The data series to calculate unique value statistics for.
     df_length : int
         The total number of rows in the DataFrame.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing unique value statistics.
@@ -535,12 +534,12 @@ def _calculate_top_values(series: pd.Series) -> Dict[str, Any]:
     """
     Calculate the top values for non-numeric fields or fields with few unique values.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The data series to calculate top values for.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing the top values and their counts.
@@ -557,12 +556,12 @@ def _detect_patterns(series: pd.Series) -> Dict[str, Any]:
     """
     Detect patterns in string fields, such as date/time, numeric strings, and email addresses.
 
-    Parameters:
+    Parameters
     -----------
     series : pd.Series
         The data series to detect patterns in.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing detected patterns in the data.
@@ -604,14 +603,14 @@ def calculate_transformation_impact(
     """
     Calculate metrics showing the impact of data transformation on the dataset.
 
-    Parameters:
+    Parameters
     -----------
     original_df : pd.DataFrame
         The original DataFrame before transformation.
     transformed_df : pd.DataFrame
         The transformed DataFrame after processing.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing the transformation impact metrics.
@@ -685,12 +684,12 @@ def _calculate_null_percentage(df: pd.DataFrame) -> float:
     """
     Calculate the percentage of null values in the DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze.
 
-    Returns:
+    Returns
     --------
     float
         The percentage of null values in the DataFrame.
@@ -702,12 +701,12 @@ def _calculate_duplicate_percentage(df: pd.DataFrame) -> float:
     """
     Calculate the percentage of duplicate rows in the DataFrame.
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze.
 
-    Returns:
+    Returns
     --------
     float
         The percentage of duplicate rows in the DataFrame.
@@ -719,12 +718,12 @@ def _calculate_completeness(df: pd.DataFrame) -> pd.Series:
     """
     Calculate completeness for each column (percentage of non-null values).
 
-    Parameters:
+    Parameters
     -----------
     df : pd.DataFrame
         The DataFrame to analyze.
 
-    Returns:
+    Returns
     --------
     pd.Series
         A Series representing the completeness percentage for each column.
@@ -738,14 +737,14 @@ def _calculate_distribution_metrics(
     """
     Calculate distribution metrics for a numeric field, comparing original vs. transformed data.
 
-    Parameters:
+    Parameters
     -----------
     original_series : pd.Series
         The original series to analyze.
     transformed_series : pd.Series
         The transformed series to compare with the original series.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing the distribution metrics and results of statistical tests.
@@ -826,7 +825,7 @@ def _calculate_correlation_changes(
     """
     Calculate the changes in correlation between numeric columns of the original and transformed datasets.
 
-    Parameters:
+    Parameters
     -----------
     original_df : pd.DataFrame
         The original DataFrame to compare.
@@ -835,7 +834,7 @@ def _calculate_correlation_changes(
     numeric_cols : list
         A list of numeric column names to compute correlations for.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing the correlation changes for each pair of numeric columns.
@@ -867,7 +866,7 @@ def _calculate_field_impact(
     """
     Calculate the impact of transformation on individual fields such as null values, unique values, and data types.
 
-    Parameters:
+    Parameters
     -----------
     original_df : pd.DataFrame
         The original DataFrame.
@@ -876,7 +875,7 @@ def _calculate_field_impact(
     common_cols : set
         A set of common columns between the original and transformed DataFrames.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         A dictionary containing the impact metrics for each field.
@@ -936,7 +935,7 @@ def calculate_performance_metrics(
     """
     Calculate performance metrics for the operation.
 
-    Parameters:
+    Parameters
     -----------
     start_time : float
         Start time of the operation in seconds (from time.time()).
@@ -947,7 +946,7 @@ def calculate_performance_metrics(
     output_rows : int
         Number of output rows produced.
 
-    Returns:
+    Returns
     --------
     Dict[str, Any]
         Dictionary containing performance metrics:
@@ -996,14 +995,14 @@ def _validate_times(start_time: float, end_time: float) -> None:
     """
     Validate the provided start and end times.
 
-    Parameters:
+    Parameters
     -----------
     start_time : float
         Start time of the operation in seconds.
     end_time : float
         End time of the operation in seconds.
 
-    Raises:
+    Raises
     -------
     ValueError
         If start_time is None or greater than end_time.
@@ -1019,14 +1018,14 @@ def _calculate_elapsed_time(start_time: float, end_time: float) -> float:
     """
     Calculate the elapsed time between start and end times.
 
-    Parameters:
+    Parameters
     -----------
     start_time : float
         Start time of the operation in seconds.
     end_time : float
         End time of the operation in seconds.
 
-    Returns:
+    Returns
     --------
     float
         The elapsed time in seconds.
@@ -1038,14 +1037,14 @@ def _calculate_rows_per_second(input_rows: int, elapsed_time: float) -> float:
     """
     Calculate the processing speed in rows per second.
 
-    Parameters:
+    Parameters
     -----------
     input_rows : int
         Number of input rows processed.
     elapsed_time : float
         Total time taken for processing in seconds.
 
-    Returns:
+    Returns
     --------
     float
         The processing speed in rows per second. Returns infinity if elapsed_time is zero.
@@ -1057,14 +1056,14 @@ def _calculate_throughput_ratio(input_rows: int, output_rows: int) -> Dict[str, 
     """
     Calculate the throughput ratio and percent change between input and output rows.
 
-    Parameters:
+    Parameters
     -----------
     input_rows : int
         Number of input rows processed.
     output_rows : int
         Number of output rows produced.
 
-    Returns:
+    Returns
     --------
     Dict[str, float]
         A dictionary containing:
@@ -1087,12 +1086,12 @@ def _determine_performance_rating(rows_per_second: float) -> str:
     """
     Determine the performance rating based on rows processed per second.
 
-    Parameters:
+    Parameters
     -----------
     rows_per_second : float
         The processing speed in rows per second.
 
-    Returns:
+    Returns
     --------
     str
         The performance rating: "Excellent", "Good", "Average", "Below Average", or "Poor".
@@ -1113,12 +1112,12 @@ def format_time_duration(seconds: float) -> str:
     """
     Format time duration in a human-readable format.
 
-    Parameters:
+    Parameters
     -----------
     seconds : float
         The time duration in seconds.
 
-    Returns:
+    Returns
     --------
     str
         The formatted time duration as a string.
@@ -1145,7 +1144,7 @@ def save_metrics_json(
     """
     Save metrics to a JSON file using DataWriter if available, otherwise direct file write.
 
-    Parameters:
+    Parameters
     -----------
     metrics : Dict[str, Any]
         Metrics to save
@@ -1162,7 +1161,7 @@ def save_metrics_json(
     use_encryption : bool, optional
         Whether to use encryption when saving the file (default is False)
 
-    Returns:
+    Returns
     --------
     Path
         Path to the saved metrics file

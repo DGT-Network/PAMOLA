@@ -15,7 +15,8 @@ def get_country_codes() -> Dict[str, str]:
     """
     Returns a dictionary of country codes.
 
-    Returns:
+    Returns
+    -------
         Dict[str, str]: Dictionary mapping country codes to dial codes
     """
     if 'country_codes' not in _dictionary_cache:
@@ -47,10 +48,12 @@ def get_operator_codes(country_code: str) -> List[str]:
     """
     Returns operator codes for a specific country.
 
-    Args:
+    Parameters
+    ----------
         country_code: Country code (e.g., "us", "ru")
 
-    Returns:
+    Returns
+    -------
         List[str]: List of operator codes for the country
     """
     cache_key = f'operator_codes_{country_code}'
@@ -128,7 +131,8 @@ def get_phone_formats() -> Dict[str, str]:
     - AAA/AAAA: Operator/area code
     - XXXX/XXX/XX: Random digits
 
-    Returns:
+    Returns
+    -------
         Dict[str, str]: Dictionary of format templates
     """
     if 'phone_formats' not in _dictionary_cache:
@@ -160,10 +164,12 @@ def get_phone_format_for_country(country_code: str) -> str:
     """
     Returns the appropriate phone format for a specific country.
 
-    Args:
+    Parameters
+    ----------
         country_code: Country code (e.g., "us", "ru")
 
-    Returns:
+    Returns
+    -------
         str: Format template for the country
     """
     formats = get_phone_formats()
@@ -181,7 +187,8 @@ def get_phone_length_ranges() -> Dict[str, Tuple[int, int]]:
     """
     Returns typical ranges for phone number lengths (excluding country code).
 
-    Returns:
+    Returns
+    -------
         Dict[str, Tuple[int, int]]: Dictionary mapping country codes to (min, max) length ranges
     """
     if 'phone_lengths' not in _dictionary_cache:

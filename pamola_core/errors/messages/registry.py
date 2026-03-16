@@ -511,11 +511,13 @@ class ErrorMessages:
         """
         Format a message template by name with given parameters.
 
-        Args:
+        Parameters
+        ----------
             template_name: Attribute name on ErrorMessages (e.g., "DATA_LOAD_FAILED")
             **kwargs: Template parameters
 
-        Returns:
+        Returns
+        -------
             Formatted message string, or descriptive error if formatting fails
         """
         from pamola_core.errors.messages.utils import format_message
@@ -530,7 +532,8 @@ class ErrorMessages:
         """
         Get all available message templates.
 
-        Returns:
+        Returns
+        -------
             Dictionary of {template_name: template_string}
         """
         return {
@@ -546,11 +549,13 @@ class ErrorMessages:
         """
         Validate that all required parameters are provided for a template.
 
-        Args:
+        Parameters
+        ----------
             template: Template name (e.g., "DATA_LOAD_FAILED")
             **kwargs: Parameters to validate
 
-        Returns:
+        Returns
+        -------
             Tuple of (is_valid, list_of_missing_params)
         """
         from pamola_core.errors.messages.utils import validate_template_params_str
