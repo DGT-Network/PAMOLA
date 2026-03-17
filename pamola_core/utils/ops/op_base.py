@@ -172,6 +172,8 @@ class BaseOperation(ABC):
         force_recalculation: bool = False,
         generate_visualization: bool = True,
         save_output: bool = True,
+        # Reproducibility
+        seed: Optional[int] = None,
     ):
         """
         Initialize a new BaseOperation instance.
@@ -285,6 +287,7 @@ class BaseOperation(ABC):
         self.force_recalculation = force_recalculation
         self.generate_visualization = generate_visualization
         self.save_output = save_output
+        self.seed = seed
 
         # Internal runtime state
         self.logger = pamola_logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -450,10 +453,13 @@ class BaseOperation(ABC):
         # Create standard directories following PAMOLA.CORE conventions
         directories = {
             "root": task_dir,
+            "input": task_dir / "input",
             "output": task_dir / "output",
+            "temp": task_dir / "temp",
             "dictionaries": task_dir / "dictionaries",
             "visualizations": task_dir / "visualizations",
             "metrics": task_dir / "metrics",
+            "attacks": task_dir / "attacks",
             "cache": task_dir / "cache",
             "logs": task_dir / "logs",
             "reports": task_dir / "reports",

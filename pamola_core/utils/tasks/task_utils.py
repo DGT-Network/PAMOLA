@@ -59,13 +59,19 @@ def create_task_directories(task_dir: Path) -> Dict[str, Path]:
             error_code=ErrorCode.PATH_SECURITY_VIOLATION,
         )
 
-    # Define standard directories
+    # Define standard directories per FR-EP3-CORE-041
     directories = {
+        "root": task_dir,
+        "input": task_dir / "input",
         "output": task_dir / "output",
+        "temp": task_dir / "temp",
         "dictionaries": task_dir / "dictionaries",
         "visualizations": task_dir / "visualizations",
         "metrics": task_dir / "metrics",
-        "logs": task_dir.parent.parent / "logs",
+        "attacks": task_dir / "attacks",
+        "cache": task_dir / "cache",
+        "logs": task_dir / "logs",
+        "reports": task_dir / "reports",
     }
 
     # Create directories

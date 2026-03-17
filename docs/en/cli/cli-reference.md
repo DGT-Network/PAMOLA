@@ -44,7 +44,7 @@ pamola-core list-ops [OPTIONS]
 
 | Option | Short | Type | Default | Description |
 |---|---|---|---|---|
-| `--category` | `-c` | `str` | — | Filter by category (`profiling`, `anonymization`, `field`, `dataframe`) |
+| `--category` | `-c` | `str` | — | Filter by category (`profiling`, `anonymization`, `transformations`, `metrics`, `attacks`, `fake_data`) |
 | `--format` | `-f` | `table\|json` | `table` | Output format |
 
 ### Examples
@@ -79,14 +79,20 @@ pamola-core run [OPTIONS]
 | Option | Short | Type | Required | Description |
 |---|---|---|---|---|
 | `--task` | `-t` | `path` | ✓ | Path to task JSON file |
-| `--output` | `-o` | `path` | — | Output directory (auto-generated if omitted) |
+| `--output` | `-o` | `path` | — | Output root directory (auto-generated if omitted) |
 | `--seed` | — | `int` | — | Random seed for reproducibility |
 
 ```bash
-pamola-core run --task configs/demo_task.json
-pamola-core run --task configs/demo_task.json --output ./results
-pamola-core run --task configs/demo_task.json --output ./results --seed 42
+pamola-core run --task configs/task.json
+pamola-core run --task configs/task.json --output ./output/task_a
+pamola-core run --task configs/task.json --output task_a          # → ./output/task_a/
+pamola-core run --task configs/task.json --output ./output/task_a --seed 42
 ```
+
+> **Plain name rule:** If `--output` has no path separator (e.g. `task_a`), it is automatically placed under `./output/task_a/`.
+
+> **Output structure:** `{output}/processed/{task_id}/`
+> e.g. `./output/task_a/processed/demo_anonymization/`
 
 ### Mode 2 — Single Operation
 
@@ -94,14 +100,15 @@ pamola-core run --task configs/demo_task.json --output ./results --seed 42
 |---|---|---|---|---|
 | `--op` | — | `str` | ✓ | Operation class name |
 | `--input` | — | `path` | ✓ | Input CSV/Parquet file |
-| `--config` | — | `path` | — | Operation parameters JSON |
-| `--output` | `-o` | `path` | — | Output directory |
+| `--config` | — | `path` | — | Operation config JSON (parameters + scope) |
+| `--output` | `-o` | `path` | — | Output directory (default: `./output/single_{op}`) |
+| `--seed` | — | `int` | — | Random seed |
 
 ```bash
 pamola-core run --op AttributeSuppressionOperation \
                 --input data/sample.csv \
-                --config configs/op_config.json \
-                --output ./results
+                --config configs/config.json \
+                --output ./output/single_test
 ```
 
 ### Task JSON Format
@@ -176,9 +183,39 @@ pamola-core run --op AttributeSuppressionOperation \
 | `operation` | ✓ | Operation type label |
 | `dataset_name` | ✓ | Which dataset alias to process |
 | `parameters` | — | Operation-specific config |
-| `scope.target` | — | List of field names to apply the operation to |
+| `scope.target` | — | List of field names to apply the operation to (`field_name` is injected at runtime) |
 | `task_operation_id` | — | Unique ID for this step |
 | `task_operation_order_index` | — | Execution order (1-based) |
+
+### Single-Op Config JSON Format (`--config`)
+
+Supports two formats:
+
+**Structured** (recommended):
+```json
+{
+  "operation": "AttributeSuppressionOperation",
+  "parameters": {
+    "suppression_mode": "REMOVE",
+    "save_suppressed_schema": true
+  },
+  "scope": {
+    "target": ["email", "phone"]
+  }
+}
+```
+
+**Flat** (parameters only):
+```json
+{
+  "suppression_mode": "REMOVE",
+  "scope": {
+    "target": ["email", "phone"]
+  }
+}
+```
+
+> `scope.target` defines which fields the operation runs on. If omitted, the operation runs without `field_name` (only valid for operations that do not require it).
 
 ---
 
@@ -194,14 +231,21 @@ pamola-core validate-config [OPTIONS]
 |---|---|---|
 | `--config` | `path` | Path to single-operation config JSON |
 | `--task` | `path` | Path to task pipeline JSON |
+| `--format` / `-f` | `table\|json` | Output format (default: `table`) |
 
 ```bash
 # Validate a task pipeline
-pamola-core validate-config --task configs/demo_task.json
+pamola-core validate-config --task configs/task.json
 
 # Validate a single-operation config
-pamola-core validate-config --config configs/op_config.json
+pamola-core validate-config --config configs/config.json
+
+# JSON output (for scripting/CI)
+pamola-core validate-config --task configs/task.json --format json
+pamola-core validate-config --config configs/config.json --format json
 ```
+
+> `field_name` is a runtime-injected parameter (from `scope.target`) and is excluded from required-field validation.
 
 ---
 
@@ -222,8 +266,9 @@ pamola-core schema OPERATION [OPTIONS]
 # Pretty table (default)
 pamola-core schema AttributeSuppressionOperation
 
-# JSON output (for tooling/docs)
+# JSON output — --format can appear before or after the operation name
 pamola-core schema AttributeSuppressionOperation --format json
+pamola-core schema --format json AttributeSuppressionOperation
 ```
 
 ---
@@ -238,6 +283,38 @@ pamola-core schema AttributeSuppressionOperation --format json
 
 ---
 
+## Auto-Generated Files
+
+Each run produces files in the **output directory** automatically:
+
+| File | Generated by | Behaviour |
+|---|---|---|
+| `{output}/{task_id}.json` | `load_task_config()` | Created once on first run, reused on subsequent runs (not overwritten) |
+| `configs/execution_log.json` | `ExecutionLog` | Single file, updated (appended) after every run |
+
+> Bootstrap config files (`{task_id}.json`) are saved in the output directory (not in `configs/`), keeping `configs/` clean for user-managed files.
+
+These runtime artifacts should be added to `.gitignore`:
+
+```
+configs/execution_log.json
+output/
+```
+
+---
+
+## Reproducibility (`--seed`)
+
+Passing `--seed` injects a global seed into `TaskContext`, which derives a per-operation seed via SHA-256:
+
+```bash
+# Both runs produce identical output files
+pamola-core run --task configs/task.json --output ./output/run_1 --seed 42
+pamola-core run --task configs/task.json --output ./output/run_2 --seed 42
+```
+
+---
+
 ## Debugging
 
 ### VSCode (breakpoints)
@@ -248,7 +325,7 @@ Available configs:
 - `CLI: --version`
 - `CLI: list-ops`
 - `CLI: list-ops --category profiling`
-- `CLI: run --task (demo)`
+- `CLI: run --task`
 - `CLI: run --op (single)`
 - `CLI: validate-config`
 - `CLI: schema <operation>`
@@ -260,17 +337,27 @@ pamola-core --verbose <command>
 
 # Examples
 pamola-core --verbose list-ops
-pamola-core --verbose run --task configs/demo_task.json
+pamola-core --verbose run --task configs/task.json
 ```
 
 ---
 
 ## Demo Config
 
-A working demo is available at [`configs/demo_task.json`](../../configs/demo_task.json).
+A working demo is available at [`configs/task.json`](../../configs/task.json) and [`configs/config.json`](../../configs/config.json).
 
 ```bash
-pamola-core run --task configs/demo_task.json --output ./output/demo
+# Full pipeline
+pamola-core run --task configs/task.json --output ./output/demo
+
+# Plain name → ./output/demo_single/
+pamola-core run --task configs/task.json --output demo_single
+
+# Single operation
+pamola-core run --op AttributeSuppressionOperation \
+                --config configs/config.json \
+                --input data/sample.csv \
+                --output ./output/single_demo
 ```
 
-> Update `input_datasets.main` in the JSON to point to your actual CSV file.
+> Update `input_datasets.main` in the task JSON to point to your actual CSV file.

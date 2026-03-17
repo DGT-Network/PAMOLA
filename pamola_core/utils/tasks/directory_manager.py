@@ -37,8 +37,9 @@ from pamola_core.utils.tasks.path_security import (
 )
 from pamola_core.utils.paths import get_project_root
 
-# Default directory suffixes if not specified in configuration
+# Default directory suffixes per FR-EP3-CORE-041 (task_dir/ standard structure)
 DEFAULT_DIRECTORY_SUFFIXES = [
+    "root",       # task_dir itself, for reference
     "input",
     "output",
     "temp",
@@ -46,6 +47,9 @@ DEFAULT_DIRECTORY_SUFFIXES = [
     "dictionaries",
     "visualizations",
     "metrics",
+    "attacks",     # FR-EP3-CORE-041
+    "cache",       # FR-EP3-CORE-041
+    "reports",     # FR-EP3-CORE-041
 ]
 
 

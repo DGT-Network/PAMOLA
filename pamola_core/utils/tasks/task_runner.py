@@ -7,6 +7,7 @@ from pamola_core.utils.ops.op_result import OperationStatus
 from pamola_core.utils.ops.op_data_source import DataSource
 
 from pamola_core.utils.tasks import TaskInitializationError
+from pamola_core.utils.tasks.task_context import TaskContext
 
 
 from pamola_core.fake_data import (
@@ -117,10 +118,17 @@ class TaskRunner(BaseTask):
         self.lst_result = []
         self.lst_final_output = []
 
-        self.additional_options = additional_options
+        self.additional_options = additional_options or {}
         self.use_encryption = use_encryption
-        self.encryption_keys = encryption_keys
-        self.data_types = data_types
+        self.encryption_keys = encryption_keys or {}
+        self.data_types = data_types or {}
+
+        # FR-EP3-CORE-043: reproducibility via TaskContext seed propagation
+        seed = self.additional_options.get("seed")
+        self.task_context = TaskContext(
+            seed=int(seed) if seed is not None else None,
+            task_dir=Path(task_dir) if task_dir else None,
+        )
 
         self.operations_sequence: List[str] = [
             FakeEmailOperation.__name__,
@@ -267,8 +275,13 @@ class TaskRunner(BaseTask):
             for operation in self.operation_configs:
                 operation_type = operation.get("operation", "").lower()
                 op_class = operation.get("class_name", "")
-                parameters = operation.get("parameters", {})
+                parameters = dict(operation.get("parameters", {}))
                 scope = operation.get("scope", {})
+
+                # FR-EP3-CORE-043: inject per-operation seed from TaskContext
+                op_seed = self.task_context.get_operation_seed(op_class)
+                if op_seed is not None:
+                    parameters.setdefault("seed", op_seed)
                 target_fields = scope.get("target", [])
 
                 # profiling_anonymity has output if mode in [AnalysisMode.ENRICH, AnalysisMode.BOTH]
@@ -356,9 +369,7 @@ class TaskRunner(BaseTask):
             )
 
             # Prepare operation parameters
-            operation_params = self._prepare_operation_parameters(
-                self.lst_result[i]["parameters"], operation
-            )
+            operation_params = self._prepare_operation_parameters(operation)
 
             op_class_name = self.lst_result[i]["class_name"]
 

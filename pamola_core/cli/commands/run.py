@@ -11,6 +11,7 @@ import typer
 from rich.console import Console
 
 from pamola_core.utils.tasks.task_runner import TaskRunner
+from pamola_core.utils.ops.op_registry import discover_operations
 from pamola_core.cli.utils.exit_codes import EXIT_ERROR, EXIT_VALIDATION
 
 app = typer.Typer(help="Execute a task or single operation.")
@@ -40,7 +41,7 @@ def run(
         "--seed",
         help="Random seed for reproducible results.",
     ),
-    # ── Single-op mode ─────────────────────────────────────────────────────
+    # ── Single-Operation mode ─────────────────────────────────────────────────────
     op: Optional[str] = typer.Option(
         None,
         "--op",
@@ -72,7 +73,7 @@ def run(
 
       pamola-core run --task task.json --output ./results --seed 42
 
-    [bold]Single-op mode:[/bold]
+    [bold]Single-Operation mode:[/bold]
 
       pamola-core run --op AttributeSuppressionOperation --config cfg.json --input data.csv
     """
@@ -121,7 +122,14 @@ def _run_task(task_path: Path, output: Optional[Path], seed: Optional[int]):
         console.print("[yellow]⚠ Task has no operations defined.[/yellow]")
         raise typer.Exit(EXIT_VALIDATION)
 
-    task_dir = str(output) if output else None
+    # If output is a plain name (no path separators), place it under ./output/
+    if output:
+        p = Path(output)
+        if p == Path(p.name):  # no directory component
+            p = Path("output") / p
+        task_dir = str(p)
+    else:
+        task_dir = None
 
     console.print(
         f"\n[bold]Task:[/bold] {task_path.name}  |  "
@@ -129,7 +137,8 @@ def _run_task(task_path: Path, output: Optional[Path], seed: Optional[int]):
         f"[bold]Output:[/bold] {task_dir or 'auto'}\n"
     )
 
-    # 4. Run via TaskRunner
+    # 4. Run via TaskRunner (discover ops first so registry is populated)
+    discover_operations("pamola_core")
     try:
         runner = TaskRunner(
             task_id=task_id,
@@ -157,7 +166,7 @@ def _run_task(task_path: Path, output: Optional[Path], seed: Optional[int]):
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# Single-op mode
+# Single-Operation mode
 # ─────────────────────────────────────────────────────────────────────────
 
 
@@ -181,21 +190,32 @@ def _run_single_op(
             console.print(f"[red]✗ Invalid config JSON:[/red] {e}")
             raise typer.Exit(EXIT_VALIDATION)
 
+    # Support structured config format: {"operation":..., "parameters":{...}, "scope":{...}}
+    # or flat format: {"param1": val, "scope": {...}}
+    if "parameters" in op_kwargs:
+        scope = op_kwargs.pop("scope", {"target": []})
+        op_kwargs.pop("operation", None)
+        op_kwargs = op_kwargs.pop("parameters", {})
+    else:
+        scope = op_kwargs.pop("scope", {"target": []})
+        op_kwargs.pop("operation", None)
+
     if seed is not None:
         op_kwargs["seed"] = seed
 
     input_name = input_path.stem
-    task_dir = str(output) if output else None
+    task_dir = str(output) if output else f"./output/single_{op_name.lower()}"
 
     console.print(
-        f"\n[bold]Single-op:[/bold] {op_name}  |  [bold]Input:[/bold] {input_path}\n"
+        f"\n[bold]Single-Operation:[/bold] {op_name}  |  [bold]Input:[/bold] {input_path}\n"
     )
 
     # Wrap in a minimal TaskRunner execution
+    discover_operations("pamola_core")
     try:
         runner = TaskRunner(
             task_id=f"single_{op_name.lower()}",
-            task_type="single_op",
+            task_type="anonymization",
             description=f"Single operation: {op_name}",
             input_datasets={input_name: str(input_path)},
             auxiliary_datasets={},
@@ -204,7 +224,7 @@ def _run_single_op(
                     "operation": "single_op",
                     "class_name": op_name,
                     "parameters": op_kwargs,
-                    "scope": {"target": []},
+                    "scope": scope,
                     "dataset_name": input_name,
                     "task_operation_id": "op_001",
                     "task_operation_order_index": 1,

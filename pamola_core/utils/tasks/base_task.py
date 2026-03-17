@@ -34,10 +34,13 @@ Tasks follow a standard lifecycle:
 
 from __future__ import annotations
 
+import hashlib
 import inspect
+import json
 import logging
 import sys
 import time
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Dict, Any, Optional, List, Union, Tuple, Type, TypeVar
 from pathlib import Path
 import os
@@ -250,9 +253,10 @@ class BaseTask:
             "report_path": "",
             # Default for checkpointing
             "enable_checkpoints": False,
-            "data_repository": (
-                str(self._override_task_dir) if self._override_task_dir else None
-            ),
+            **({
+                "data_repository": str(self._override_task_dir),
+                "config_save_dir": str(self._override_task_dir),
+            } if self._override_task_dir else {}),
         }
 
     def initialize(
@@ -1180,6 +1184,12 @@ class BaseTask:
                 self.status = "report_error"
                 return False
 
+            # FR-EP3-CORE-042: generate manifest.json
+            try:
+                self._write_manifest(success)
+            except Exception as e:
+                self.logger.warning(f"Could not write manifest.json: {e}")
+
             # Register task execution - continue even if this fails
             try:
                 record_task_execution(
@@ -1223,6 +1233,60 @@ class BaseTask:
             self.error_info = {"type": "finalization_error", "message": str(e)}
             self.status = "finalization_error"
             return False
+
+    def _write_manifest(self, success: bool) -> None:
+        """
+        Write manifest.json to task_dir root.
+        FR-EP3-CORE-042: artifact registry, checksums, verdict, schema_version.
+        NFR-EP3-CORE-130: formal_dp flag in privacy_guarantees.
+        """
+        verdict = "PASS" if success else "FAIL"
+
+        # Build artifact entries with checksums
+        artifact_entries = []
+        for artifact in self.artifacts:
+            artifact_path = Path(artifact.path) if hasattr(artifact, "path") else None
+            checksum = None
+            if artifact_path and artifact_path.is_file():
+                try:
+                    h = hashlib.sha256()
+                    h.update(artifact_path.read_bytes())
+                    checksum = h.hexdigest()
+                except Exception:
+                    pass
+            artifact_entries.append({
+                "path": str(artifact_path) if artifact_path else "",
+                "type": getattr(artifact, "artifact_type", "unknown"),
+                "category": getattr(artifact, "category", ""),
+                "description": getattr(artifact, "description", ""),
+                "sha256": checksum,
+            })
+
+        # Build pipeline steps from results dict
+        steps = [
+            {"operation": name, "metrics": m if isinstance(m, dict) else {}}
+            for name, m in (self.metrics or {}).items()
+        ]
+
+        manifest = {
+            "schema_version": "1.0",
+            "task_id": self.task_id,
+            "task_type": self.task_type,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "execution_time_seconds": round(getattr(self, "execution_time", 0.0), 3),
+            "verdict": verdict,
+            "pipeline_steps": steps,
+            "artifacts": artifact_entries,
+            "input_datasets": list(self.input_datasets.keys()) if self.input_datasets else [],
+            "privacy_guarantees": {
+                "formal_dp": False,  # NFR-EP3-CORE-130: set True when DP operations are used
+            },
+            "error_info": self.error_info or None,
+        }
+
+        manifest_path = self.task_dir / "manifest.json"
+        manifest_path.write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
+        self.logger.info(f"manifest.json written to: {manifest_path}")
 
     def run(
         self,

@@ -1,7 +1,7 @@
 {
-  "task_id": "demo_anonymization",
+  "task_id": "anonymization_01",
   "task_type": "anonymization",
-  "description": "Demo anonymization pipeline — suppresses and masks PII fields",
+  "description": "Anonymization pipeline — suppresses and masks PII fields",
 
   "input_datasets": {
     "main": "data/sample.csv"
@@ -62,8 +62,7 @@
       "class_name": "NumericGeneralizationOperation",
       "dataset_name": "main",
       "parameters": {
-        "interval": 10,
-        "mode": "REPLACE"
+        "bin_count": 10
       },
       "scope": {
         "target": ["age", "salary"]

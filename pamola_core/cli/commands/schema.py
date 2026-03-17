@@ -5,7 +5,6 @@ from enum import Enum
 
 import typer
 from rich.console import Console
-from rich.syntax import Syntax
 from rich.table import Table
 
 from pamola_core.utils.ops.op_registry import (
@@ -16,7 +15,6 @@ from pamola_core.utils.ops.op_registry import (
 )
 from pamola_core.cli.utils.exit_codes import EXIT_ERROR
 
-app = typer.Typer(help="Show parameter schema for an operation.")
 console = Console()
 
 
@@ -25,7 +23,6 @@ class SchemaFormat(str, Enum):
     json = "json"
 
 
-@app.callback(invoke_without_command=True)
 def show_schema(
     operation: str = typer.Argument(
         ..., help="Operation class name, e.g. AggregateRecordsOperation."

@@ -18,10 +18,9 @@ app = typer.Typer(
 )
 
 
-
 def _version_callback(value: bool):
     if value:
-        from pamola_core import __version__  # adjust if your version lives elsewhere
+        from pamola_core import __version__
 
         typer.echo(f"pamola-core {__version__}")
         raise typer.Exit(0)
@@ -59,16 +58,20 @@ def _root(
     """PAMOLA.CORE CLI — Privacy-Preserving Data Processing Framework."""
 
 
-# ── Register sub-commands ──────────────────────────────────────────────────
-from pamola_core.cli.commands.list_ops import app as list_ops_app  # noqa: E402
-from pamola_core.cli.commands.run import app as run_app  # noqa: E402
-from pamola_core.cli.commands.validate import app as validate_app  # noqa: E402
-from pamola_core.cli.commands.schema import app as schema_app  # noqa: E402
+# ── Register sub-commands (lazy imports to keep startup fast) ──────────────
+def _register_commands() -> None:
+    from pamola_core.cli.commands.list_ops import app as list_ops_app
+    from pamola_core.cli.commands.run import app as run_app
+    from pamola_core.cli.commands.validate import app as validate_app
+    from pamola_core.cli.commands.schema import show_schema
 
-app.add_typer(list_ops_app, name="list-ops")
-app.add_typer(run_app, name="run")
-app.add_typer(validate_app, name="validate-config")
-app.add_typer(schema_app, name="schema")
+    app.add_typer(list_ops_app, name="list-ops")
+    app.add_typer(run_app, name="run")
+    app.add_typer(validate_app, name="validate-config")
+    app.command("schema", help="Show parameter schema for an operation.")(show_schema)
+
+
+_register_commands()
 
 if __name__ == "__main__":
     app()
