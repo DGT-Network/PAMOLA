@@ -413,7 +413,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             if progress_tracker:
                 progress_tracker.total = self._compute_total_steps()
                 progress_tracker.update(
-                    1, {"step": step, "operation": self.operation_name}
+                    1, {"step": "Preparation", "operation": self.operation_name}
                 )
 
             # Report preparation success
