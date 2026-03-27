@@ -1077,17 +1077,6 @@ class PhoneOperation(FieldOperation):
 
         return parameters
 
-    def _get_cache_parameters(self) -> Dict[str, Any]:
-        """
-        Get operation-specific parameters for cache key generation.
-
-        Returns
-        --------
-        Dict[str, Any]
-            Parameters for cache key generation
-        """
-        return {}
-
     def _handle_visualizations(
         self,
         analysis_results: Dict[str, Any],

@@ -25,6 +25,8 @@ Provides a unified interface for evaluating the utility of data transformations 
   - class ClassificationUtility
     - __init__
     - calculate_metric
+    - _calculate_model
+    - _calculate_precision_recall_tradeoff
 
 ## 3. Architecture & Data Flow
 - Used by operation wrappers to evaluate classification utility
@@ -38,8 +40,10 @@ Provides a unified interface for evaluating the utility of data transformations 
 ## 5. API Reference & Key Methods
 | Method | Description |
 |--------|-------------|
-| `__init__(models, metrics, cv_folds, stratified, test_size)` | Constructor |
+| `__init__(models, test_size, stratified, random_state)` | Constructor |
 | `calculate_metric(original_df, transformed_df, value_field)` | Computes utility metrics |
+| `_calculate_model(...)` | Trains and evaluates classification models |
+| `_calculate_precision_recall_tradeoff(...)` | Calculates precision-recall metrics |
 
 ## 6. Usage Examples
 ```python

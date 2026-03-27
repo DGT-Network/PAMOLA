@@ -1,92 +1,159 @@
 # Full Masking Operation
-**Module:** pamola_core.anonymization.masking.full_masking_op  
-**Version:** 1.0.0  
-**Last Updated:** 2025-07-29
 
-## Table of Contents
-1. [Module Overview](#1-module-overview)
-2. [Source Code Hierarchy](#2-source-code-hierarchy)
-3. [Architecture & Data Flow](#3-architecture--data-flow)
-4. [Main Functionalities & Features](#4-main-functionalities--features)
-5. [API Reference & Key Methods](#5-api-reference--key-methods)
-6. [Usage Examples](#6-usage-examples)
-7. [Troubleshooting & Investigation Guide](#7-troubleshooting--investigation-guide)
-8. [Unit Test Coverage](#unit-test-coverage)
-9. [Summary Analysis](#8-summary-analysis)
-10. [Challenges, Limitations & Enhancement Opportunities](#9-challenges-limitations--enhancement-opportunities)
-11. [Related Components & References](#10-related-components--references)
-12. [Change Log & Contributors](#11-change-log--contributors)
+**Module:** `pamola_core.anonymization.masking.full_masking_op`
+**Version:** 4.0.0
+**Last Updated:** 2025-03-27
+**Status:** Stable
 
-## 1. Module Overview
-Full Masking Operation replaces all characters in a sensitive data field with a mask character, ensuring complete anonymization. Used for strict privacy compliance.
+## Overview
 
-## 2. Source Code Hierarchy
-- pamola_core/anonymization/masking/full_masking_op.py
-  - class FullMaskingOperation
-    - mask_full_value
-    - ... (add other methods as needed)
+The `FullMaskingOperation` replaces all characters in a field value with a configurable mask character, providing complete obfuscation of sensitive data. This operation supports both fixed and random masking strategies, optional format preservation, and comprehensive metrics collection.
 
-## 3. Architecture & Data Flow
-- Inherits from BaseAnonymizationOperation
-- Utilizes internal masking utilities
-- Supports configuration-driven masking logic
+## Constructor Signature
 
-```mermaid
-flowchart TD
-    A[Input Data] --> B[FullMaskingOperation.execute()]
-    B --> C[mask_full_value]
-    C --> D[Output Masked Data]
+```python
+def __init__(
+    self,
+    field_name: str,
+    # ==== Masking configuration ====
+    mask_char: str = "*",
+    preserve_length: bool = True,
+    fixed_length: Optional[int] = None,
+    random_mask: bool = False,
+    mask_char_pool: Optional[str] = None,
+    # Format handling
+    preserve_format: bool = False,
+    format_patterns: Optional[Dict[str, str]] = None,
+    # Type-specific handling
+    numeric_output: str = "string",  # string, numeric, preserve
+    date_format: Optional[str] = None,
+    **kwargs,
+):
 ```
 
-## 4. Main Functionalities & Features
-- Masks all characters in a string or value
-- Supports custom mask characters
-- Integrates with anonymization pipeline
+## Parameters
 
-## 5. API Reference & Key Methods
-| Method | Description |
-|--------|-------------|
-| `mask_full_value(value, config)` | Masks all of the input value according to config |
-| `execute(data, config)` | Applies full masking to input data |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Name of the field to apply masking |
+| `mask_char` | str | "*" | Character used for masking field values |
+| `preserve_length` | bool | True | Whether to preserve original string length of masked values |
+| `fixed_length` | Optional[int] | None | Fixed output length for all masked values; if None, uses input length |
+| `random_mask` | bool | False | Whether to use random characters from a pool instead of fixed mask_char |
+| `mask_char_pool` | Optional[str] | None | Pool of characters to randomly sample from if `random_mask=True` |
+| `preserve_format` | bool | False | Whether to preserve data format or structure (e.g., keep dashes or parentheses) |
+| `format_patterns` | Optional[Dict[str, str]] | None | Custom regex patterns for identifying and preserving data formats |
+| `numeric_output` | str | "string" | Defines output type for numeric fields: "string", "numeric", or "preserve" |
+| `date_format` | Optional[str] | None | Date format string to use when masking datetime fields |
+| `**kwargs` | dict | - | Additional keyword arguments passed to `AnonymizationOperation` |
 
-## 6. Usage Examples
+## Key Methods
+
+### execute()
+Executes the full masking operation on the input data source.
+
+```python
+def execute(
+    self,
+    data_source: DataSource,
+    task_dir: Path,
+    reporter: Any,
+    progress_tracker: Optional[HierarchicalProgressTracker] = None,
+    **kwargs,
+) -> OperationResult:
+```
+
+**Features:**
+- Full integration with PAMOLA framework (caching, progress tracking, metrics collection)
+- Support for both pandas and Dask DataFrames with automatic engine switching
+- Conditional processing based on field values
+- Comprehensive metrics collection (suppression rate, effectiveness, disclosure risk)
+- Visualization generation for before/after comparisons
+- Error handling with detailed logging
+
+### process_batch()
+Processes a batch of data rows.
+
+**Parameters:**
+- `batch : pd.DataFrame` - DataFrame batch to process
+
+**Returns:**
+- `pd.DataFrame` - Processed batch with masking applied
+
+### process_value()
+Processes a single value (abstract method - implemented by subclass).
+
+## Usage Examples
+
+### Basic Full Masking
 ```python
 from pamola_core.anonymization.masking.full_masking_op import FullMaskingOperation
-op = FullMaskingOperation(mask_char='*')
-masked = op.mask_full_value('SensitiveData', {'mask_char': '*'})
-# masked -> '*************'
+from pamola_core.utils.ops.op_data_source import DataSource
+
+# Create operation
+op = FullMaskingOperation(
+    field_name="ssn",
+    mask_char="*",
+    preserve_length=True
+)
+
+# Execute
+data_source = DataSource.from_file_path("data.csv", name="main")
+result = op.execute(
+    data_source=data_source,
+    task_dir=Path("output/task_001"),
+    reporter=None
+)
 ```
 
-## 7. Troubleshooting & Investigation Guide
-- Ensure configuration parameters (mask_char) are valid
-- Check for empty or null input values
-- Review logs for pipeline integration errors
+### Random Masking
+```python
+op = FullMaskingOperation(
+    field_name="credit_card",
+    random_mask=True,
+    mask_char_pool="0123456789",
+    fixed_length=16
+)
+```
 
-## Unit Test Coverage
+### Format-Preserving Masking
+```python
+op = FullMaskingOperation(
+    field_name="phone",
+    mask_char="X",
+    preserve_format=True,  # Preserves dashes and parentheses
+    format_patterns={
+        "phone": r"(\d{3})-(\d{3})-(\d{4})"
+    }
+)
+```
 
-All actionable tests validate output artifacts and business logic for string, numeric, and date fields. No skips, xfails, or untestable tests remain. All tests pass and coverage is complete. File is marked as 'Full' per Metrics template.
+## Integration with Base Class
 
-## 8. Summary Analysis
+**Reference:** This operation inherits from the abstract base class documented in [base_anonymization_op.md](../base_anonymization_op.md). See that file for all shared parameters, methods, conditional processing, and k-anonymity integration details.
 
-- Implements full-field masking for sensitive data, ensuring maximum privacy
-- Supports configurable mask characters and integration with base anonymization logic
-- Designed for high performance and compatibility with large datasets
-- Enables business-compliant, auditable masking for regulated fields
-- Integrates with metrics and visualization for traceability
-- Reference implementation for full masking in PAMOLA.CORE
+## Metrics
 
-## 9. Challenges, Limitations & Enhancement Opportunities
-- Only supports string masking (future: add numeric/structured masking)
-- Enhancement: support regex-based masking
+The operation collects:
+- **Suppression Rate:** Percentage of values that were masked
+- **Anonymization Effectiveness:** Information loss ratio
+- **Disclosure Risk:** Simple disclosure risk assessment
+- **Performance Metrics:** Processing time and throughput
 
-## 10. Related Components & References
-- pamola_core/anonymization/masking/base_anonymization_op.py
-- pamola_core/anonymization/commons/masking_patterns.py
+## Related Components
 
-## 11. Change Log & Contributors
-- 2025-07-25: Initial auto-generated documentation.
-- 2025-07-28: Migrated to strict Metrics package template for compliance.
+- `AnonymizationOperation` (base class)
+- `MaskingPatterns` (pattern utilities)
+- `FullMaskingConfig` (configuration schema)
 
----
+## Changelog
 
-*This documentation is auto-generated as part of the PAMOLA Core Metrics package coverage process.*
+**v4.0.0 (2025-06-15)**
+- Full support for random masking with character pools
+- Format preservation using custom regex patterns
+- Type-specific handling for numeric and datetime fields
+- Enhanced metrics collection
+- Full Dask support for large datasets
+
+**v3.0.0 (2025-03-15)**
+- Initial stable release with core masking functionality

@@ -188,7 +188,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             raise InvalidStrategyError(
                 strategy=suppression_strategy,
                 valid_strategies=valid_strategies,
-                operation_type=self.operation_name,
+                operation_type=self.__class__.__name__,
             )
 
         # Validate strategy-specific requirements

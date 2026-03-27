@@ -23,7 +23,13 @@ The Kolmogorov-Smirnov (KS) test is a nonparametric test that compares the distr
 ## 2. Source Code Hierarchy
 - pamola_core/metrics/fidelity/distribution/ks_test.py
   - class KolmogorovSmirnovTest
-    - ks_test (static)
+    - __init__
+    - calculate_metric
+    - _calculate_ks_from_dicts
+    - _calculate_effect_size
+    - _calculate_confidence_interval
+    - _get_normalization_description
+    - _interpret_ks
 
 ## 3. Architecture & Data Flow
 - Used by fidelity metric operations and wrappers
@@ -36,7 +42,13 @@ The Kolmogorov-Smirnov (KS) test is a nonparametric test that compares the distr
 ## 5. API Reference & Key Methods
 | Method | Description |
 |--------|-------------|
-| `ks_test(data1, data2)` | Computes KS statistic and p-value |
+| `__init__(normalize_features)` | Constructor |
+| `calculate_metric(original_df, transformed_df)` | Computes KS test between distributions |
+| `_calculate_ks_from_dicts(...)` | Calculate KS test from value dictionaries |
+| `_calculate_effect_size(ks_stat, n)` | Interprets effect size from KS statistic |
+| `_calculate_confidence_interval(...)` | Calculates confidence intervals |
+| `_get_normalization_description()` | Gets normalization information |
+| `_interpret_ks(p_value)` | Interprets KS p-value as similarity |
 
 ## 6. Usage Examples
 ```python

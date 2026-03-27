@@ -38,7 +38,7 @@ Implements the Nearest Neighbor Distance Ratio (NNDR) privacy metric, quantifyin
 ## 5. API Reference & Key Methods
 | Method | Description |
 |--------|-------------|
-| `__init__(distance_metric, n_neighbors, normalize_features, threshold, realistic_threshold, at_risk_threshold)` | Constructor |
+| `__init__(normalize_features, distance_metric, n_neighbors, batch_size)` | Constructor |
 | `calculate_metric(original_df, transformed_df)` | Computes NNDR statistics |
 | `_interpret_nndr(nndr_stats, high_risk_count)` | Returns privacy risk interpretation |
 

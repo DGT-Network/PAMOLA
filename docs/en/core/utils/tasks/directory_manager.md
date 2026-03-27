@@ -356,7 +356,8 @@ def create_directory_manager(
     task_config: Any,
     logger: Optional[logging.Logger] = None,
     progress_manager: Optional[TaskProgressManager] = None,
-    initialize: bool = True
+    initialize: bool = True,
+    task_dir: Optional[str] = None,
 ) -> TaskDirectoryManager
 ```
 
@@ -366,7 +367,8 @@ Create a directory manager for a task.
 - `task_config`: Task configuration object
 - `logger`: Logger for directory operations (optional)
 - `progress_manager`: Progress manager for tracking directory operations (optional)
-- `initialize`: Whether to initialize directories immediately
+- `initialize`: Whether to initialize directories immediately (default: True)
+- `task_dir`: Override path for the task directory (optional). Useful for testing or custom directory structures.
 
 **Returns:**
 - TaskDirectoryManager instance

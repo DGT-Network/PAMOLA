@@ -142,6 +142,10 @@ class LDiversityCalculator(BasePrivacyModelProcessor):
         """
         return self.adaptive_l.get(group_key, self.l)
 
+    def process(self, data):
+        """Process the input data."""
+        return None
+
     def calculate_group_diversity(
         self,
         data: Union[pd.DataFrame, dd.DataFrame],

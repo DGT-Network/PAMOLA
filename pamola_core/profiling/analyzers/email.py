@@ -959,9 +959,6 @@ class EmailOperation(FieldOperation):
             "analyze_privacy_risk": self.analyze_privacy_risk,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
 
     def _handle_visualizations(

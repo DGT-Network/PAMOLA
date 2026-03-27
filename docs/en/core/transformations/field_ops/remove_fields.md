@@ -81,37 +81,25 @@ Implements the field removal operation.
 ```python
 def __init__(
     self,
+    name: str = "remove_fields_operation",
     fields_to_remove: Optional[List[str]] = None,
     pattern: Optional[str] = None,
-    output_format: str = "csv",
-    name: str = "remove_fields_operation",
-    description: str = "Remove fields from dataset",
-    field_name: str = "",
-    mode: str = "REPLACE",
-    output_field_name: Optional[str] = None,
-    column_prefix: str = "_",
-    batch_size: int = 10000,
-    use_cache: bool = True,
-    use_dask: bool = False,
-    use_encryption: bool = False,
-    encryption_key: Optional[Union[str, Path]] = None
+    **kwargs,
 )
 ```
 **Parameters:**
-- `fields_to_remove`: List of field names to remove.
-- `pattern`: Regex pattern for field selection.
-- `output_format`: Output file format (`csv`, `json`, `parquet`).
-- `name`: Operation name.
-- `description`: Operation description.
-- `field_name`: Field name to transform (not used in this op).
-- `mode`: "REPLACE" or "ENRICH" (not used in this op).
-- `output_field_name`: Name for output field if enriching (not used).
-- `column_prefix`: Prefix for new columns (not used).
-- `batch_size`: Batch size for processing.
-- `use_cache`: Enable/disable caching.
-- `use_dask`: Enable/disable Dask for distributed processing.
-- `use_encryption`: Enable/disable output encryption.
-- `encryption_key`: Key or path for encryption.
+- `name` (str): Operation name (default: "remove_fields_operation").
+- `fields_to_remove` (Optional[List[str]]): List of field names to remove.
+- `pattern` (Optional[str]): Regex pattern to match field names for removal.
+- `**kwargs` (dict): Additional parameters passed to `TransformationOperation`, including:
+  - `field_name`: Field name (not typically used for this operation).
+  - `mode`: "REPLACE" or "ENRICH" (not typically used for this operation).
+  - `output_field_name`: Not used for this operation.
+  - `column_prefix`: Not used for this operation.
+  - `description`: Operation description.
+  - `output_format`: Output file format (`csv`, `json`, `parquet`).
+  - `batch_size`: Batch size for processing.
+  - `use_cache`, `use_dask`, `use_encryption`, `encryption_key`: Performance and security options.
 
 #### Key Attributes
 - `fields_to_remove`: List of fields to remove.

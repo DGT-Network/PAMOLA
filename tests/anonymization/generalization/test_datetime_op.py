@@ -23,16 +23,18 @@ from unittest.mock import Mock, patch, MagicMock
 from pamola_core.anonymization.generalization.datetime_op import (
     DateTimeGeneralizationOperation,
     create_datetime_generalization_operation,
+    DateTimeConstants,
+)
+from pamola_core.errors.exceptions import (
     DateTimeParsingError,
     DateTimeGeneralizationError,
     InsufficientPrivacyError,
-    DateTimeConstants,
 )
 from pamola_core.anonymization.commons.categorical_config import NullStrategy
 from pamola_core.anonymization.schemas.datetime_op_core_schema import DateTimeGeneralizationConfig
 from pamola_core.utils.ops.op_data_source import DataSource
 from pamola_core.utils.ops.op_result import OperationResult, OperationStatus
-from pamola_core.utils.ops.op_config import ConfigError
+from pamola_core.errors.exceptions import ConfigurationError as ConfigError
 from pamola_core.utils.progress import HierarchicalProgressTracker
 
 # Test data file path - dynamically resolved relative to this test file location  
@@ -59,7 +61,10 @@ class TestDateTimeGeneralizationConfig:
         valid_config = {
             "field_name": "datetime_field",
             "strategy": "rounding",
-            "rounding_unit": "day"
+            "rounding_unit": "day",
+            "interval_size": 1,
+            "custom_bins": None,
+            "default_timezone": "UTC",
         }
         config = DateTimeGeneralizationConfig(**valid_config)
         assert config.get("strategy") == "rounding"
@@ -70,7 +75,9 @@ class TestDateTimeGeneralizationConfig:
             "field_name": "datetime_field",
             "strategy": "binning",
             "bin_type": "hour_range",
-            "interval_size": 6
+            "interval_size": 6,
+            "default_timezone": "UTC",
+            "custom_bins": None,
         }
         config = DateTimeGeneralizationConfig(**valid_config)
         assert config.get("bin_type") == "hour_range"
@@ -80,7 +87,10 @@ class TestDateTimeGeneralizationConfig:
         valid_config = {
             "field_name": "datetime_field",
             "strategy": "component",
-            "keep_components": ["year", "month"]
+            "keep_components": ["year", "month"],
+            "interval_size": 1,
+            "custom_bins": None,
+            "default_timezone": "UTC",
         }
         config = DateTimeGeneralizationConfig(**valid_config)
         assert config.get("keep_components") == ["year", "month"]
@@ -90,6 +100,7 @@ class TestDateTimeGeneralizationConfig:
             invalid_config = {
                 "field_name": "datetime_field",
                 "strategy": "invalid_strategy",
+                "interval_size": 1,
             }
             DateTimeGeneralizationConfig(**invalid_config)
 
@@ -114,7 +125,9 @@ class TestDateTimeGeneralizationOperation:
         self.data_source.settings = {}
         self.data_source.encryption_modes = {}
         self.data_source.data_source_name = "test_data_source"
-        
+        # apply_data_types must return the dataframe unchanged
+        self.data_source.apply_data_types.side_effect = lambda df, *args, **kwargs: df
+
         yield
         
         # Cleanup after test
@@ -394,16 +407,16 @@ class TestDateTimeGeneralizationOperation:
     def test_process_batch_method(self):
         """Test process_batch method."""
         test_df = self.get_fresh_basic_df()
-        
-        batch_result = DateTimeGeneralizationOperation.process_batch(
-            batch=test_df,
+
+        operation = DateTimeGeneralizationOperation(
             field_name="datetime_field",
             strategy="rounding",
             rounding_unit="day",
             mode="REPLACE",
             null_strategy="PRESERVE"
         )
-        
+        batch_result = operation.process_batch(test_df)
+
         assert isinstance(batch_result, pd.DataFrame)
         assert "datetime_field" in batch_result.columns
     
@@ -411,19 +424,19 @@ class TestDateTimeGeneralizationOperation:
         """Test process_batch_dask method."""
         try:
             import dask.dataframe as dd
-            
+
             test_df = self.get_fresh_basic_df()
             dask_df = dd.from_pandas(test_df, npartitions=2)
-            
-            result = DateTimeGeneralizationOperation.process_batch_dask(
-                ddf=dask_df,
+
+            operation = DateTimeGeneralizationOperation(
                 field_name="datetime_field",
                 strategy="rounding",
                 rounding_unit="day",
                 mode="REPLACE",
                 null_strategy="PRESERVE"
             )
-            
+            result = operation.process_batch_dask(dask_df)
+
             assert hasattr(result, 'compute')
         except ImportError:
             # Skip if dask not available
@@ -432,28 +445,28 @@ class TestDateTimeGeneralizationOperation:
     def test_process_value_method(self):
         """Test process_value method - should work for datetime operation."""
         test_date = pd.Timestamp("2023-05-15 14:30:00")
-        
-        # Test rounding strategy
-        result = DateTimeGeneralizationOperation.process_value(
-            value=test_date,
+
+        # Create operation instance and call process_value
+        operation = DateTimeGeneralizationOperation(
             field_name="datetime_field",
             strategy="rounding",
             rounding_unit="day"
         )
+        result = operation.process_value(test_date)
         assert result is not None
         assert isinstance(result, pd.Timestamp)
         # Should round to start of day
         expected = pd.Timestamp("2023-05-15 00:00:00")
         assert result == expected
-        
+
         # Test null handling
-        null_result = DateTimeGeneralizationOperation.process_value(
-            value=None,
+        operation_preserve = DateTimeGeneralizationOperation(
             field_name="datetime_field",
             strategy="rounding",
             rounding_unit="day",
             null_strategy="PRESERVE"
         )
+        null_result = operation_preserve.process_value(None)
         assert pd.isna(null_result)
     
     def test_complex_execute_parameters(self):

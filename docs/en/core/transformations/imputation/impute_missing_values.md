@@ -57,31 +57,27 @@ Configuration schema for the operation. Used internally for parameter validation
 
 ```python
 def __init__(
+    self,
+    name: str = "impute_missing_values_operation",
     field_strategies: Optional[Dict[str, Dict[str, Any]]] = None,
     invalid_values: Optional[Dict[str, List[Any]]] = None,
-    output_format: str = "csv",
-    name: str = "impute_missing_values_operation",
-    description: str = "Impute missing or invalid values",
-    field_name: str = "",
-    mode: str = "REPLACE",
-    output_field_name: Optional[str] = None,
-    column_prefix: str = "_",
-    batch_size: int = 10000,
-    use_cache: bool = True,
-    use_dask: bool = False,
-    use_encryption: bool = False,
-    encryption_key: Optional[Union[str, Path]] = None
+    **kwargs,
 )
 ```
 
 **Parameters:**
-- `field_strategies`: Per-field imputation strategies and parameters
-- `invalid_values`: Per-field list of values to treat as missing
-- `output_format`: Output file format (`csv`, `json`, `parquet`)
-- `name`, `description`: Operation metadata
-- `field_name`, `mode`, `output_field_name`, `column_prefix`: Field selection and output control
-- `batch_size`: Batch size for chunked processing
-- `use_cache`, `use_dask`, `use_encryption`, `encryption_key`: Performance and security options
+- `name` (str): Operation name (default: "impute_missing_values_operation").
+- `field_strategies` (Optional[Dict]): Per-field imputation strategies and parameters mapping field names to strategy configs.
+- `invalid_values` (Optional[Dict[str, List]]): Per-field list of values to treat as missing.
+- `**kwargs` (dict): Additional parameters passed to `TransformationOperation`, including:
+  - `field_name`: Field name to transform.
+  - `mode`: "REPLACE" (in-place) or "ENRICH" (add new columns).
+  - `output_field_name`: Name for new field (ENRICH mode).
+  - `column_prefix`: Prefix for new columns.
+  - `description`: Operation description.
+  - `output_format`: Output file format (`csv`, `json`, `parquet`).
+  - `batch_size`: Batch size for chunked processing.
+  - `use_cache`, `use_dask`, `use_encryption`, `encryption_key`: Performance and security options.
 
 #### Key Attributes
 - `field_strategies`, `invalid_values`, `version`

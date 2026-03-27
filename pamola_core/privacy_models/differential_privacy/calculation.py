@@ -58,6 +58,12 @@ class DifferentialPrivacyProcessor(BasePrivacyModelProcessor):
         if self.mechanism not in ["laplace", "gaussian"]:
             raise ValidationError("Mechanism must be 'laplace' or 'gaussian'")
 
+    def process(self, data):
+        """Process the input data by applying differential privacy."""
+        if isinstance(data, pd.DataFrame):
+            return self.apply_model(data, [])
+        return data
+
     def add_noise(self, value: float) -> float:
         """Add noise to a value based on the selected mechanism."""
         if self.mechanism == "laplace":

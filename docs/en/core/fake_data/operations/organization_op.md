@@ -1,37 +1,34 @@
-# Organization Operation Module Documentation
+# FakeOrganizationOperation Module Documentation
 
 ## Overview
 
-The `organization_op.py` module provides the `OrganizationOperation` class, which implements a data processing operation for generating synthetic organization names within the PAMOLA CORE framework. This operation can be used in data anonymization workflows to replace real organization names with realistic synthetic alternatives while preserving statistical properties and organizational characteristics.
+The `organization_op.py` module provides the `FakeOrganizationOperation` class for generating synthetic organization names within the PAMOLA CORE framework. This operation replaces real organization names with realistic synthetic alternatives while preserving organizational type characteristics and regional specificity.
 
 ## Purpose
 
 This module serves as the operational bridge between the PAMOLA.CORE data processing pipeline and the underlying organization name generation functionality. It handles:
 
-- Processing data in batches for efficiency
-- Maintaining consistency across replacements
-- Applying null value strategies
+- Processing organization names with configurable organization type preservation
+- Prefix/suffix application with configurable probabilities
+- Regional and industry-aware name generation
 - Collecting detailed metrics for quality analysis
-- Managing mapping storage for future reference
+- Deterministic generation through PRGN with context_salt
 - Generating comprehensive reports and visualizations
 
 ## Architecture
 
 ### Inheritance Hierarchy
 
-The `OrganizationOperation` class follows the PAMOLA.CORE operations framework inheritance hierarchy:
+The `FakeOrganizationOperation` class follows the PAMOLA.CORE operations framework inheritance hierarchy:
 
 ```
 pamola_core.utils.ops.op_base.BaseOperation
       ↑
       │
-pamola_core.utils.ops.op_base.FieldOperation
-      ↑
-      │
 pamola_core.fake_data.base_generator_op.GeneratorOperation
       ↑
       │
-pamola_core.fake_data.operations.organization_op.OrganizationOperation
+pamola_core.fake_data.operations.organization_op.FakeOrganizationOperation
 ```
 
 ### Component Relationships

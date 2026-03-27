@@ -43,6 +43,61 @@ The Categorical Generalization module provides privacy-preserving transformation
 4. **Extensibility**: Easy to add new strategies or customize behavior
 5. **Observability**: Comprehensive logging with trace IDs and metrics
 
+## Constructor Signature
+
+```python
+def __init__(
+    self,
+    field_name: str,
+    strategy: str = "hierarchy",
+    external_dictionary_path: Optional[str] = None,
+    dictionary_format: str = "auto",
+    hierarchy_level: int = 1,
+    min_group_size: int = 5,
+    freq_threshold: float = 0.01,
+    max_categories: int = 100,
+    allow_unknown: bool = True,
+    unknown_value: str = "OTHER",
+    group_rare_as: str = "OTHER",
+    rare_value_template: str = "OTHER_{n}",
+    text_normalization: str = "basic",
+    case_sensitive: bool = False,
+    fuzzy_matching: bool = False,
+    similarity_threshold: float = 0.85,
+    privacy_check_enabled: bool = True,
+    min_acceptable_k: int = 5,
+    max_acceptable_disclosure_risk: float = 0.2,
+    quasi_identifiers: Optional[List[str]] = None,
+    **kwargs,
+):
+```
+
+### Key Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Target field name for generalization |
+| `strategy` | str | "hierarchy" | Generalization strategy: "hierarchy", "merge_low_freq", or "frequency_based" |
+| `external_dictionary_path` | Optional[str] | None | Path to external hierarchy dictionary file |
+| `dictionary_format` | str | "auto" | Dictionary file format: "auto", "json", or "csv" |
+| `hierarchy_level` | int | 1 | Target hierarchy level to generalize to (1 to MAX_HIERARCHY_LEVELS) |
+| `min_group_size` | int | 5 | Minimum group size for privacy |
+| `freq_threshold` | float | 0.01 | Frequency threshold for category preservation (0–1) |
+| `max_categories` | int | 100 | Maximum number of categories to preserve |
+| `allow_unknown` | bool | True | Allow unknown values in output |
+| `unknown_value` | str | "OTHER" | Placeholder for unknown values |
+| `group_rare_as` | str | "OTHER" | Rare category grouping strategy |
+| `rare_value_template` | str | "OTHER_{n}" | Template for numbered rare values (must contain {n}) |
+| `text_normalization` | str | "basic" | Text normalization level: "none", "basic", "aggressive" |
+| `case_sensitive` | bool | False | Whether category matching is case-sensitive |
+| `fuzzy_matching` | bool | False | Enable fuzzy string matching for similar categories |
+| `similarity_threshold` | float | 0.85 | Similarity threshold for fuzzy matching (0–1) |
+| `privacy_check_enabled` | bool | True | Enable privacy validation checks |
+| `min_acceptable_k` | int | 5 | Minimum k-anonymity threshold (≥2) |
+| `max_acceptable_disclosure_risk` | float | 0.2 | Maximum disclosure risk threshold (0–1) |
+| `quasi_identifiers` | Optional[List[str]] | None | List of quasi-identifier field names |
+| `**kwargs` | dict | - | Additional parameters passed to `AnonymizationOperation` |
+
 ## Architecture
 
 ### Module Structure
@@ -51,7 +106,7 @@ The Categorical Generalization module provides privacy-preserving transformation
 pamola_core/anonymization/
 ├── base_anonymization_op.py        # Base class for all anonymization operations (v3.0.0)
 ├── generalization/
-│   └── categorical.py              # Main facade (v4.0.0)
+│   └── categorical_op.py           # Main facade (v4.0.0)
 └── commons/
     ├── __init__.py
     ├── categorical_config.py       # Configuration management

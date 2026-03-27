@@ -3,16 +3,14 @@
     "description": "Basic attribute suppression configuration",
     "config": {
       "field_name": "sensitive_field",
-      "mode": "REMOVE",
       "save_suppressed_schema": true
     }
   },
   "multiple_fields_suppression": {
     "description": "Multiple fields suppression configuration",
     "config": {
-      "field_name": "primary_field", 
+      "field_name": "primary_field",
       "additional_fields": ["secondary_field", "tertiary_field"],
-      "mode": "REMOVE",
       "save_suppressed_schema": true
     }
   },
@@ -20,7 +18,6 @@
     "description": "Conditional suppression based on field values",
     "config": {
       "field_name": "sensitive_field",
-      "mode": "REMOVE",
       "condition_field": "category",
       "condition_values": ["high_risk", "confidential"],
       "condition_operator": "in",
@@ -31,7 +28,6 @@
     "description": "Risk-based suppression using k-anonymity threshold",
     "config": {
       "field_name": "k_anonymity_score",
-      "mode": "REMOVE",
       "ka_risk_field": "k_anonymity_score",
       "risk_threshold": 3.0,
       "save_suppressed_schema": true
@@ -41,7 +37,6 @@
     "description": "Complex conditional suppression with multiple conditions",
     "config": {
       "field_name": "sensitive_field",
-      "mode": "REMOVE",
       "condition_field": "status",
       "condition_values": ["active", "inactive"],
       "condition_operator": "in",
@@ -52,7 +47,6 @@
     "description": "Performance optimized suppression with memory optimization",
     "config": {
       "field_name": "large_field",
-      "mode": "REMOVE",
       "optimize_memory": true,
       "adaptive_chunk_size": true,
       "chunk_size": 5000,
@@ -63,7 +57,6 @@
     "description": "Distributed processing with Dask",
     "config": {
       "field_name": "distributed_field",
-      "mode": "REMOVE",
       "use_dask": true,
       "npartitions": 4,
       "dask_partition_size": "100MB",
@@ -74,7 +67,6 @@
     "description": "Parallel processing with joblib",
     "config": {
       "field_name": "parallel_field",
-      "mode": "REMOVE",
       "use_vectorization": true,
       "parallel_processes": 2,
       "chunk_size": 1000,
@@ -85,7 +77,6 @@
     "description": "Suppression with visualization generation",
     "config": {
       "field_name": "visual_field",
-      "mode": "REMOVE",
       "generate_visualization": true,
       "visualization_backend": "plotly",
       "visualization_theme": "light",
@@ -96,9 +87,7 @@
     "description": "Suppression with encrypted output",
     "config": {
       "field_name": "encrypted_field",
-      "mode": "REMOVE",
       "use_encryption": true,
-      "encryption_mode": "AES",
       "save_output": true,
       "output_format": "csv",
       "save_suppressed_schema": true
@@ -108,7 +97,6 @@
     "description": "Suppression with caching enabled",
     "config": {
       "field_name": "cached_field",
-      "mode": "REMOVE",
       "use_cache": true,
       "force_recalculation": false,
       "save_suppressed_schema": true
@@ -118,7 +106,7 @@
     "description": "Invalid mode configuration for error testing",
     "config": {
       "field_name": "test_field",
-      "mode": "INVALID_MODE",
+      "suppression_mode": "INVALID_MODE",
       "save_suppressed_schema": true
     }
   },
@@ -126,7 +114,6 @@
     "description": "Range-based conditional suppression",
     "config": {
       "field_name": "numeric_field",
-      "mode": "REMOVE",
       "condition_field": "score",
       "condition_values": [0.5, 0.8],
       "condition_operator": "range",
@@ -136,8 +123,7 @@
   "minimal_config": {
     "description": "Minimal configuration with just required parameters",
     "config": {
-      "field_name": "minimal_field",
-      "mode": "REMOVE"
+      "field_name": "minimal_field"
     }
   }
 }

@@ -32,6 +32,7 @@ Base class for all privacy metric operations, defining common functionality, int
     - _generate_dcr_visualizations
     - _generate_nndr_visualizations
     - _generate_uniqueness_visualizations
+    - _generate_visualizations
     - _get_cache_parameters
 
 ## 3. Architecture
@@ -84,6 +85,7 @@ flowchart TD
 | `PrivacyMetricOperation._generate_dcr_visualizations(...)` | DCR visualizations |
 | `PrivacyMetricOperation._generate_nndr_visualizations(...)` | NNDR visualizations |
 | `PrivacyMetricOperation._generate_uniqueness_visualizations(...)` | Uniqueness visualizations |
+| `PrivacyMetricOperation._generate_visualizations(...)` | Generates all visualizations |
 | `PrivacyMetricOperation._get_cache_parameters()` | Returns cache parameters |
 
 ## 7. Usage Examples

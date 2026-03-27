@@ -23,7 +23,17 @@ KL Divergence (Kullback-Leibler Divergence) measures how one probability distrib
 ## 2. Source Code Hierarchy
 - pamola_core/metrics/fidelity/distribution/kl_divergence.py
   - class KLDivergence
-    - kl_divergence (static)
+    - __init__
+    - calculate_metric
+    - _calculate_kl_from_dicts
+    - _prepare_distributions
+    - _safe_entropy
+    - _jensen_shannon_distance
+    - _calculate_effect_size
+    - _calculate_confidence_interval
+    - _is_statistically_significant
+    - _get_normalization_description
+    - _interpret_kl
 
 ## 3. Architecture & Data Flow
 - Used by fidelity metric operations and wrappers
@@ -36,7 +46,17 @@ KL Divergence (Kullback-Leibler Divergence) measures how one probability distrib
 ## 5. API Reference & Key Methods
 | Method | Description |
 |--------|-------------|
-| `kl_divergence(p, q)` | Computes KL divergence between p and q |
+| `__init__(normalize_features)` | Constructor |
+| `calculate_metric(original_df, transformed_df)` | Computes KL divergence between distributions |
+| `_calculate_kl_from_dicts(...)` | Calculate KL from value dictionaries |
+| `_prepare_distributions(...)` | Prepares and normalizes distributions |
+| `_safe_entropy(p, q)` | Safely computes entropy |
+| `_jensen_shannon_distance(p, q)` | Computes Jensen-Shannon distance |
+| `_calculate_effect_size(kl_value)` | Interprets effect size |
+| `_calculate_confidence_interval(...)` | Calculates confidence intervals |
+| `_is_statistically_significant(kl_value)` | Tests statistical significance |
+| `_get_normalization_description()` | Gets normalization information |
+| `_interpret_kl(kl_value)` | Interprets KL value as similarity |
 
 ## 6. Usage Examples
 ```python

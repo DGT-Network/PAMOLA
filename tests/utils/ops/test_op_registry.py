@@ -28,8 +28,6 @@ from pamola_core.utils.ops.op_registry import (
     create_operation_instance,
     discover_operations,
     initialize_registry,
-    OpsError,
-    RegistryError,
     _OPERATION_REGISTRY,
     _OPERATION_METADATA,
     _OPERATION_DEPENDENCIES,
@@ -41,6 +39,7 @@ from pamola_core.utils.ops.op_registry import (
     _compare_versions,
     _check_wildcard_compatibility
 )
+from pamola_core.errors.exceptions import OpsError, TaskRegistryError as RegistryError
 
 
 class TestOperationRegistry(unittest.TestCase):

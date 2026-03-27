@@ -75,9 +75,39 @@ RecordSuppressionOperation
 ### 3.1 Constructor Signature
 
 ```python
-RecordSuppressionOperation(
+def __init__(
+    self,
     field_name: str,
+    suppression_mode: str = "REMOVE",
     suppression_condition: str = "null",
+    suppression_values: Optional[List[Any]] = None,
+    suppression_range: Optional[Tuple[Any, Any]] = None,
+    save_suppressed_records: bool = False,
+    suppression_reason_field: str = "_suppression_reason",
+    **kwargs,
+):
+```
+
+### 3.2 Key Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Field/column to evaluate for record suppression |
+| `suppression_mode` | str | "REMOVE" | Operation mode; only "REMOVE" supported |
+| `suppression_condition` | str | "null" | Suppression condition type: "null", "value", "range", "risk", or "custom" |
+| `suppression_values` | Optional[List[Any]] | None | List of values matching "value" condition |
+| `suppression_range` | Optional[Tuple] | None | Tuple (min, max) for "range" condition |
+| `save_suppressed_records` | bool | False | Whether to save suppressed records for audit trail |
+| `suppression_reason_field` | str | "_suppression_reason" | Field name for storing suppression reason |
+| `**kwargs` | dict | - | Additional parameters passed to `AnonymizationOperation` |
+
+### 3.3 Suppression Conditions
+
+- **`"null"`**: Suppress records where field_name is null/NaN
+- **`"value"`**: Suppress records where field_name equals any value in suppression_values
+- **`"range"`**: Suppress records where field_name falls within suppression_range
+- **`"risk"`**: Suppress based on k-anonymity risk scores (requires ka_risk_field from base class)
+- **`"custom"`**: Use custom multi-field conditions via multi_conditions from base class
     suppression_values: Optional[List[Any]] = None,
     suppression_range: Optional[Tuple[Any, Any]] = None,
     mode: str = "REMOVE",
