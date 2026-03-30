@@ -1,0 +1,83 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history to check branches
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag is on main branch
+        run: |
+          TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }})
+          if ! git branch -r --contains "$TAG_COMMIT" | grep -q "origin/main"; then
+            echo "ERROR: Tag must be created from main branch"
+            echo "This tag points to commit $TAG_COMMIT which is NOT on main"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e . 2>/dev/null || pip install .
+          pip install pytest build
+
+      - name: Extract tag version
+        id: tag
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches pyproject.toml
+        run: |
+          TAG_VERSION="${{ steps.tag.outputs.version }}"
+          PKG_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "Tag version: $TAG_VERSION"
+          echo "Package version: $PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "ERROR: Tag v$TAG_VERSION does not match pyproject.toml version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Verify version in CHANGELOG
+        run: |
+          PKG_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          grep -q "$PKG_VERSION" CHANGELOG.md || (echo "ERROR: version $PKG_VERSION not in CHANGELOG.md" && exit 1)
+
+      - name: Run tests
+        run: python -m pytest tests/ --tb=short -q
+
+  publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*
