@@ -1,4 +1,5 @@
 import shutil
+import sys
 import unittest
 import pandas as pd
 from unittest.mock import patch, MagicMock
@@ -453,11 +454,12 @@ class TestEmailOperation(unittest.TestCase):
             if self.task_dir.exists():
                 shutil.rmtree(self.task_dir)
 
+    @unittest.skipIf(sys.platform != "win32", "Z:\\ path only invalid on Windows")
     def test_prepare_directories_with_invalid_path(self):
         """Test directory preparation with invalid base path"""
-        # Test with a path that should be invalid
+        # Test with a path that should be invalid (Windows-only: Z:\ drive doesn't exist)
         invalid_path = Path('Z:\\nonexistent\\path')
-        
+
         # Execute and verify it raises an exception
         with self.assertRaises((OSError, Exception)) as context:
             self.operation._prepare_directories(invalid_path)

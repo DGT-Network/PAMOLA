@@ -32,9 +32,9 @@ class TestDictionaryPathFunctions(unittest.TestCase):
     def test_get_dictionaries_path_from_config(self, mock_makedirs, mock_exists, mock_open_file):
         # Mock file lookup order: no env var, no default found, config exists
         def exists_side_effect(path):
-            if "configs\\prj_config.json" in path:
+            if "configs" in path and "prj_config.json" in path:
                 return True
-            if "external_dictionaries\\entities" in path:
+            if "external_dictionaries" in path and "entities" in path:
                 return True
             return False
 
@@ -42,14 +42,16 @@ class TestDictionaryPathFunctions(unittest.TestCase):
 
         with patch.dict(os.environ, {}, clear=True):
             path = get_dictionaries_path()
-            self.assertIn("external_dictionaries\\entities", str(path))
+            path_str = str(path)
+            self.assertTrue("external_dictionaries" in path_str and "entities" in path_str)
 
     @patch("os.path.exists", return_value=False)
     @patch("os.makedirs")
     def test_get_dictionaries_path_default(self, mock_makedirs, mock_exists):
         with patch.dict(os.environ, {}, clear=True):
             path = get_dictionaries_path()
-            self.assertIn("resources\\entities", str(path))
+            path_str = str(path)
+            self.assertTrue("resources" in path_str and "entities" in path_str)
             self.assertTrue(mock_makedirs.called)
 
     @patch("pamola_core.utils.nlp.entity.base.get_dictionaries_path", return_value=Path("/mock/dictionaries"))

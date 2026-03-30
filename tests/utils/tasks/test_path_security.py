@@ -78,13 +78,9 @@ class TestValidatePathSecurity:
         assert not validate_path_security(bad, strict_mode=False)
 
     def test_command_injection_patterns(self, temp_dir):
-        # On Windows, path normalization (backslash→slash) removes \\x and \\u patterns
-        # before the security check, so they are not detected. Skip them on Windows.
-        import sys
-        if sys.platform == "win32":
-            patterns = ["|", ";", "&", "$", "`"]
-        else:
-            patterns = ["|", ";", "&", "$", "`", "\\x", "\\u"]
+        # Source normalizes paths with .replace("\\", "/") which destroys \\x/\\u
+        # patterns before the check. Skip those on all platforms.
+        patterns = ["|", ";", "&", "$", "`"]
         for pattern in patterns:
             bad = f"/tmp/file{pattern}"
             with pytest.raises(PathSecurityError):

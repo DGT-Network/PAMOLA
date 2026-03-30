@@ -233,11 +233,10 @@ pip install -e ".[dp]"         # + OpenDP for formal DP guarantees
 pip install -e ".[dev]"        # + pytest, coverage, black, ruff
 ```
 
-**PyPI (coming soon):**
+**From PyPI:**
 
 ```bash
 pip install pamola-core
-pip install pamola-core[fast,ner]
 ```
 
 ---
@@ -265,6 +264,31 @@ These packages are declared in `pyproject.toml` under `[project.dependencies]` a
 | **numpy** | `==1.26.4` | Numerical computation and array operations used throughout privacy metrics, attack simulations, and statistical analysis |
 | **pandas** | `==2.2.2` | Tabular data structures and DataFrame processing; the primary data container for all PAMOLA operations |
 | **scikit-learn** | `==1.7.2` | Machine learning utilities used by core operations including nearest-neighbor attacks, classification metrics, and model-based privacy risk assessment |
+
+---
+
+## Versioning
+
+PAMOLA.CORE follows [Semantic Versioning](https://semver.org/) and [PEP 440](https://peps.python.org/pep-0440/).
+
+```python
+import pamola_core
+print(pamola_core.__version__)  # e.g. "1.0.0a1"
+```
+
+| Phase | Version | Meaning |
+|-------|---------|---------|
+| Alpha | `1.0.0a1` | Feature development in progress |
+| Beta | `1.0.0b1` | Feature-complete, testing |
+| RC | `1.0.0rc1` | Release candidate, QA pass |
+| Stable | `1.0.0` | Production release |
+| Patch | `1.0.1` | Bugfix |
+| Minor | `1.1.0` | New feature, backwards-compatible |
+| Major | `2.0.0` | Breaking changes |
+
+- **Source of truth:** `pyproject.toml` → `version`
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
+- **CI/CD:** GitHub Actions — lint, test (3.10/3.11/3.12), build, PyPI publish on tag `v*`
 
 ---
 
