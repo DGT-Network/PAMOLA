@@ -125,3 +125,17 @@ class Constants:
         "pd": pd,
         "np": np,
     }
+    # Task runner
+    ORIENT = "orient"
+    ENCODING = "encoding"
+    SEP = "sep"
+    DELIMITER = "delimiter"
+    QUOTE_CHAR = "quotechar"
+    TRANSFORMED_DATASET_NAME = "transformed_dataset_name"
+    DELIMITER_COMMA = ","
+    DOUBLE_QUOTE = '"'
+    COLUMNS_ORIENT = "columns"
+    UTF_8 = "utf-8"
+    ANALYSIS_MODE = "analysis_mode"
+    ENRICH = "ENRICH"
+    BOTH = "BOTH"

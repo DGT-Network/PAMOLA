@@ -2240,9 +2240,6 @@ class CurrencyOperation(FieldOperation):
             "test_normality": self.test_normality,
         }
 
-        # Add operation-specific parameters
-        parameters.update(self._get_cache_parameters())
-
         return parameters
 
     def _handle_visualizations(

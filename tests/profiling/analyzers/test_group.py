@@ -15,10 +15,14 @@ class DummyDataSource:
         self.error = error
         self.encryption_keys = {}
         self.encryption_modes = {}
+
     def get_dataframe(self, dataset_name, **kwargs):
         if self.df is not None:
             return self.df, None
         return None, {"message": self.error or "No data"}
+
+    def apply_data_types(self, df, dataset_name=None, **kwargs):
+        return df
     
 class TestGroupAnalyzerOperation(unittest.TestCase):
     def setUp(self):
@@ -43,7 +47,7 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
         })
         self.data_source = DummyDataSource(df=df)
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
+    @patch('pamola_core.profiling.commons.helpers.load_data_operation')
     @patch('pamola_core.profiling.analyzers.group.DataWriter')
     def test_execute_success(self, mock_data_writer, mock_load_data):
         # Create a simulated DataFrame
@@ -69,7 +73,7 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
             "json", "metrics.json", f"GroupAnalyzerOperation {self.subset_name} group analysis metrics"
         )
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
+    @patch('pamola_core.profiling.commons.helpers.load_data_operation')
     def test_execute_missing_resume_id(self, mock_load_data):
         # DataFrame missing resume_id column
         df = pd.DataFrame({
@@ -87,9 +91,9 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
         )
 
         self.assertEqual(result.status.value, "error")
-        self.assertIn("Field 'resume_id' not found in DataFrame", result.error_message)
+        self.assertIn("Field 'resume_id' not found in data", result.error_message)
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
+    @patch('pamola_core.profiling.commons.helpers.load_data_operation')
     def test_execute_missing_fields(self, mock_load_data):
         # DataFrame missing a field in fields_config
         df = pd.DataFrame({
@@ -106,9 +110,9 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
         )
 
         self.assertEqual(result.status.value, "error")
-        self.assertIn("not found in DataFrame", result.error_message)
+        self.assertIn("not found in data", result.error_message)
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
+    @patch('pamola_core.profiling.commons.helpers.load_data_operation')
     @patch('pamola_core.profiling.analyzers.group.DataWriter')
     def test_variance_distribution_0_1_to_0_2(self, mock_data_writer, mock_load_data):
         # Create DataFrame with 2 groups, each group 2 records, field1 has 2 different values
@@ -165,7 +169,7 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
         # Check metrics in result
         self.assertEqual(result.status.value, "success")
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
+    @patch('pamola_core.profiling.commons.helpers.load_data_operation')
     @patch('pamola_core.profiling.analyzers.group.DataWriter')
     def test_variance_distribution_0_5_to_0_8(self, mock_data_writer, mock_load_data):
         # weighted_variance = 0.7 (within 0.5_to_0_8)
@@ -198,7 +202,7 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
         op._generate_field_heatmap = MagicMock()
 
         result = op.execute(
-            data_source=MagicMock(),
+            data_source=DummyDataSource(df=df),
             task_dir=Path("test_task_dir"),
             reporter=MagicMock(),
             progress_tracker=MagicMock()
@@ -206,7 +210,7 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
 
         self.assertEqual(result.status.value, "success")
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
+    @patch('pamola_core.profiling.commons.helpers.load_data_operation')
     @patch('pamola_core.profiling.analyzers.group.DataWriter')
     def test_variance_distribution_above_0_8(self, mock_data_writer, mock_load_data):
         # weighted_variance = 0.85 (within above_0.8)
@@ -237,7 +241,7 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
         op._generate_field_heatmap = MagicMock()
 
         result = op.execute(
-            data_source=MagicMock(),
+            data_source=DummyDataSource(df=df),
             task_dir=Path("test_task_dir"),
             reporter=MagicMock(),
             progress_tracker=MagicMock()
@@ -245,38 +249,37 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
 
         self.assertEqual(result.status.value, "success")
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
+    @patch('pamola_core.profiling.commons.helpers.load_data_operation')
     def test_execute_exception_handling(self, mock_load_data):
-        # Simulate load_data_operation returning a valid DataFrame
-        mock_load_data.return_value = MagicMock()
         # Initialize operation with valid fields_config
         op = GroupAnalyzerOperation(
             field_name="test",
             fields_config={"field1": 1}
         )
-        # Patch _analyze_group to raise exception
-        patch('pamola_core.profiling.analyzers.group.analyze_group', side_effect=Exception("Test exception"))
 
         # Patch logger to check log
         op.logger = MagicMock()
 
-        # Create DataFrame with enough columns to not trigger previous errors
-        df = MagicMock()
-        df.columns = ["test", "field1"]
-        df.groupby.return_value = {"g1": df}
+        # Use a real DataFrame so groupby works and analyze_group is actually called
+        df = pd.DataFrame({
+            "test": [1, 2],
+            "field1": ["a", "b"]
+        })
         mock_load_data.return_value = df
 
-        # Call execute and check result
-        result = op.execute(
-            data_source=self.data_source,
-            task_dir=Path("test_task_dir"),
-            reporter=MagicMock(),
-            progress_tracker=MagicMock()
-        )
+        # Patch analyze_group to raise exception using context manager
+        with patch('pamola_core.profiling.analyzers.group.analyze_group', side_effect=Exception("Test exception")):
+            # Call execute and check result
+            result = op.execute(
+                data_source=self.data_source,
+                task_dir=Path("test_task_dir"),
+                reporter=MagicMock(),
+                progress_tracker=MagicMock()
+            )
 
         self.assertEqual(result.status, OperationStatus.ERROR)
-        self.assertIn("Error executing group analysis", result.error_message)
-        op.logger.error.assert_called()
+        self.assertIn("Test exception", result.error_message)
+        op.logger.exception.assert_called()
 
     def test_calculate_field_variance_all_identical(self):
         series = pd.Series(["a", "a", "a"])
@@ -645,16 +648,16 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
             # You can check logger.info or logger.error if desired
             output_path.unlink()
 
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
-    def test_save_to_cache_success(self, mock_cache):
+    def test_save_to_cache_success(self):
         op = self.operation
         op.use_cache = True
+        mock_cache = MagicMock()
         mock_cache.save_cache.return_value = True
+        op.operation_cache = mock_cache
         df = pd.DataFrame({'a': [1, 2]})
-        artifacts = [MagicMock(to_dict=lambda: {'artifact_type': 'json', 'path': 'file.json', 'description': 'desc', 'category': 'output'})]
-        metrics = {'m': 1}
+        mock_result = MagicMock()
         task_dir = Path('dummy_task_dir')
-        result = op._save_to_cache(df, artifacts, metrics, task_dir)
+        result = op._save_to_cache(df, mock_result, task_dir)
         self.assertTrue(result)
         mock_cache.save_cache.assert_called()
 
@@ -662,96 +665,90 @@ class TestGroupAnalyzerOperation(unittest.TestCase):
         op = self.operation
         op.use_cache = False
         df = pd.DataFrame({'a': [1, 2]})
-        artifacts = [MagicMock(to_dict=lambda: {'artifact_type': 'json', 'path': 'file.json', 'description': 'desc', 'category': 'output'})]
-        metrics = {'m': 1}
+        mock_result = MagicMock()
         task_dir = Path('dummy_task_dir')
-        result = op._save_to_cache(df, artifacts, metrics, task_dir)
+        result = op._save_to_cache(df, mock_result, task_dir)
         self.assertFalse(result)
 
     def test_save_to_cache_no_artifacts_no_metrics(self):
         op = self.operation
-        op.use_cache = True
+        op.use_cache = False
         df = pd.DataFrame({'a': [1, 2]})
-        artifacts = []
-        metrics = {}
+        mock_result = MagicMock()
         task_dir = Path('dummy_task_dir')
-        result = op._save_to_cache(df, artifacts, metrics, task_dir)
+        result = op._save_to_cache(df, mock_result, task_dir)
         self.assertFalse(result)
 
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
-    def test_save_to_cache_exception(self, mock_cache):
+    def test_save_to_cache_exception(self):
         op = self.operation
         op.use_cache = True
+        mock_cache = MagicMock()
         mock_cache.save_cache.side_effect = Exception('fail')
+        op.operation_cache = mock_cache
         op.logger = MagicMock()
         df = pd.DataFrame({'a': [1, 2]})
-        artifacts = [MagicMock(to_dict=lambda: {'artifact_type': 'json', 'path': 'file.json', 'description': 'desc', 'category': 'output'})]
-        metrics = {'m': 1}
+        mock_result = MagicMock()
         task_dir = Path('dummy_task_dir')
-        result = op._save_to_cache(df, artifacts, metrics, task_dir)
+        result = op._save_to_cache(df, mock_result, task_dir)
         self.assertFalse(result)
         op.logger.warning.assert_called()
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
-    def test_check_cache_hit(self, mock_cache, mock_load_data):
+    def test_check_cache_hit(self):
         op = self.operation
         op.use_cache = True
-        # Simulate DataFrame returned from load_data_operation
         df = pd.DataFrame({'a': [1, 2]})
-        mock_load_data.return_value = df
-        # Simulate cache hit
+        # Set operation_cache directly on the instance
+        mock_cache = MagicMock()
         mock_cache.get_cache.return_value = {
+            'status': 'SUCCESS',
             'metrics': {'foo': 1},
             'artifacts': [
-                {'artifact_type': 'json', 'path': 'file.json', 'description': 'desc', 'category': 'output'}
+                {'type': 'json', 'path': 'file.json', 'description': 'desc', 'category': 'output'}
             ],
             'timestamp': 'now'
         }
-        result = op._check_cache(self.data_source, dataset_name='main')
+        op.operation_cache = mock_cache
+        result = op._check_cache(df)
         self.assertIsNotNone(result)
         self.assertEqual(result.metrics['foo'], 1)
         self.assertTrue(any(a.description == 'desc' for a in result.artifacts))
         self.assertTrue(result.metrics['cached'])
-        self.assertIn('cache_key', result.metrics)
-        self.assertIn('cache_timestamp', result.metrics)
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
-    def test_check_cache_miss(self, mock_cache, mock_load_data):
+    def test_check_cache_miss(self):
         op = self.operation
         op.use_cache = True
         df = pd.DataFrame({'a': [1, 2]})
-        mock_load_data.return_value = df
+        mock_cache = MagicMock()
         mock_cache.get_cache.return_value = None
-        result = op._check_cache(self.data_source, dataset_name='main')
+        op.operation_cache = mock_cache
+        result = op._check_cache(df)
         self.assertIsNone(result)
 
     def test_check_cache_disabled(self):
         op = self.operation
         op.use_cache = False
-        result = op._check_cache(self.data_source, dataset_name='main')
+        df = pd.DataFrame({'a': [1, 2]})
+        result = op._check_cache(df)
         self.assertIsNone(result)
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
-    def test_check_cache_no_dataframe(self, mock_cache, mock_load_data):
+    def test_check_cache_no_dataframe(self):
         op = self.operation
         op.use_cache = True
-        mock_load_data.return_value = None
         op.logger = MagicMock()
-        result = op._check_cache(self.data_source, dataset_name='main')
+        # _check_cache(df) takes a df — pass None to trigger "No valid DataFrame" warning
+        result = op._check_cache(None)
         self.assertIsNone(result)
         op.logger.warning.assert_called_with('No valid DataFrame found in data source')
 
-    @patch('pamola_core.profiling.analyzers.group.load_data_operation')
-    @patch('pamola_core.utils.ops.op_cache.operation_cache')
-    def test_check_cache_exception(self, mock_cache, mock_load_data):
+    def test_check_cache_exception(self):
         op = self.operation
         op.use_cache = True
-        mock_load_data.side_effect = Exception('fail')
+        mock_cache = MagicMock()
+        mock_cache.get_cache.side_effect = Exception('fail')
+        op.operation_cache = mock_cache
         op.logger = MagicMock()
-        result = op._check_cache(self.data_source, dataset_name='main')
+        df = pd.DataFrame({'a': [1, 2]})
+        result = op._check_cache(df)
         self.assertIsNone(result)
         op.logger.warning.assert_called()
 

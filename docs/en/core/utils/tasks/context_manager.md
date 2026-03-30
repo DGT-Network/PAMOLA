@@ -68,14 +68,16 @@ def __init__(
     self,
     task_id: str,
     task_dir: Path,
+    log_directory: Optional[Path] = None,
     max_state_size: int = DEFAULT_MAX_STATE_SIZE,
-    progress_manager: Optional[Any] = None
+    progress_manager: Optional[Any] = None,
 )
 ```
 
 **Parameters:**
 - `task_id`: ID of the task
 - `task_dir`: Path to the task directory
+- `log_directory`: Optional directory for logs and checkpoints (defaults to task_dir). If provided, checkpoints will be stored in a centralized location under this directory.
 - `max_state_size`: Maximum state size in bytes before pruning older checkpoints
 - `progress_manager`: Optional progress manager for visual feedback during operations
 

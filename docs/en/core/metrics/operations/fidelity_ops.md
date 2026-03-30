@@ -24,7 +24,6 @@ Base class for all fidelity metric operations, defining common functionality, in
 
 ## 2. Source Code Hierarchy
 - pamola_core/metrics/operations/fidelity_ops.py
-  - class FidelityConfig
   - class FidelityOperation
     - __init__
     - execute
@@ -71,8 +70,7 @@ flowchart TD
 ## 6. API Reference & Key Methods
 | Class/Method | Description |
 |--------------|-------------|
-| `FidelityConfig` | Configuration schema |
-| `FidelityOperation.__init__` | Constructor with config fields |
+| `FidelityOperation.__init__` | Constructor with fidelity_metrics parameter |
 | `FidelityOperation.execute(...)` | Runs the operation |
 | `FidelityOperation.calculate_metrics(...)` | Computes fidelity metrics |
 | `FidelityOperation._generate_visualizations(...)` | Creates visualizations |

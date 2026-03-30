@@ -68,6 +68,7 @@ dependencies = [
     "base58==2.1.1",
     "cryptography==46.0.3",
     "PyYAML==6.0.2",
+    "typer[all]==0.24.1",
 ]
 
 [build-system]
@@ -81,3 +82,9 @@ include = ["pamola_core*"]
 [tool.setuptools.package-data]
 "pamola_core.errors.context" = ["*.yaml"]
 "pamola_core" = ["resources/**/*"]
+"pamola_core.catalogs" = ["*.yaml"]
+
+# ── CLI entry point ────────────────────────────────────────────────────────
+# After `pip install pamola-core`, the `pamola-core` command becomes available
+[project.scripts]
+pamola-core = "pamola_core.cli.main:app"

@@ -75,29 +75,27 @@ Configuration schema for the aggregation operation.
 def __init__(
     self,
     name: str = "aggregate_records_operation",
-    description: str = "Group and aggregate records",
     group_by_fields: List[str] = None,
     aggregations: Dict[str, List[str]] = None,
     custom_aggregations: Optional[Dict[str, Callable]] = None,
-    output_format: str = "csv",
-    use_cache: bool = True,
-    use_encryption: bool = False,
-    encryption_key: Optional[Union[str, Path]] = None,
-    use_dask: bool = False,
+    **kwargs,
 )
 ```
 
 **Parameters:**
-- `name`: Name of the operation.
-- `description`: Description of the operation.
-- `group_by_fields`: List of fields to group by.
-- `aggregations`: Dictionary mapping field names to aggregation functions.
-- `custom_aggregations`: Dictionary mapping field names to custom aggregation callables.
-- `output_format`: Output file format (`csv`, `json`, or `parquet`).
-- `use_cache`: Whether to enable result caching.
-- `use_encryption`: Whether to encrypt output files.
-- `encryption_key`: Key for encryption (if enabled).
-- `use_dask`: Whether to use Dask for distributed computation.
+- `name` (str): Operation name (default: "aggregate_records_operation").
+- `group_by_fields` (List[str]): List of fields to group by for aggregation.
+- `aggregations` (Dict[str, List[str]]): Dictionary mapping field names to lists of aggregation function names.
+- `custom_aggregations` (Optional[Dict[str, Callable]]): Dictionary mapping field names to custom aggregation callable functions.
+- `**kwargs` (dict): Additional parameters passed to `TransformationOperation`, including:
+  - `field_name`: Field name to transform.
+  - `mode`: "REPLACE" or "ENRICH".
+  - `output_field_name`: Name for new field (ENRICH mode).
+  - `column_prefix`: Prefix for new columns.
+  - `description`: Operation description.
+  - `output_format`: Output file format (`csv`, `json`, `parquet`).
+  - `use_cache`, `use_encryption`, `encryption_key`: Performance and security options.
+  - `use_dask`: Use Dask for distributed computation.
 
 #### Key Attributes
 - `name`, `description`, `group_by_fields`, `aggregations`, `custom_aggregations`, `output_format`, `use_cache`, `use_encryption`, `encryption_key`, `use_dask`

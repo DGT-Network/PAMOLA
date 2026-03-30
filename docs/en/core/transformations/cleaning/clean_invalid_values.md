@@ -88,43 +88,28 @@ except (IOError, OSError) as e:
 ```python
 def __init__(
     self,
+    name: str = "clean_invalid_values_operation",
     field_constraints: Optional[Dict[str, Dict[str, Any]]] = None,
     whitelist_path: Optional[Dict[str, Path]] = None,
     blacklist_path: Optional[Dict[str, Path]] = None,
     null_replacement: Optional[Union[str, Dict[str, Any]]] = None,
-    output_format: str = "csv",
-    name: str = "clean_invalid_values_operation",
-    description: str = "Clean values violating constraints",
-    field_name: str = "",
-    mode: str = "REPLACE",
-    output_field_name: Optional[str] = None,
-    column_prefix: str = "_",
-    visualization_theme: Optional[str] = None,
-    visualization_backend: Optional[str] = None,
-    visualization_strict: bool = False,
-    visualization_timeout: int = 120,
-    chunk_size: int = 10000,
-    use_dask: bool = False,
-    npartitions: int = 2,
-    use_vectorization: bool = False,
-    parallel_processes: int = 2,
-    use_cache: bool = True,
-    use_encryption: bool = False,
-    encryption_key: Optional[Union[str, Path]] = None,
-    encryption_mode: Optional[str] = None,
+    **kwargs,
 )
 ```
 **Parameters:**
-- `field_constraints`: Field-level constraint definitions.
-- `whitelist_path`: Dict mapping columns to whitelist files.
-- `blacklist_path`: Dict mapping columns to blacklist files.
-- `null_replacement`: Strategy or mapping for null value replacement.
-- `output_format`: Output file format (csv, json, parquet).
-- `name`, `description`: Operation metadata.
-- `field_name`, `output_field_name`, `column_prefix`: Field transformation options.
-- `mode`: `REPLACE` (in-place) or `ENRICH` (add new columns).
-- `chunk_size`, `use_dask`, `parallel_processes`: Performance tuning.
-- `use_cache`, `use_encryption`, `encryption_key`: Performance and security options.
+- `name` (str): Operation name (default: "clean_invalid_values_operation").
+- `field_constraints` (Optional[Dict]): Field-level constraint definitions mapping field names to constraint configs.
+- `whitelist_path` (Optional[Dict[str, Path]]): Dict mapping columns to whitelist file paths.
+- `blacklist_path` (Optional[Dict[str, Path]]): Dict mapping columns to blacklist file paths.
+- `null_replacement` (Optional[Union[str, Dict]]): Strategy or mapping for null value replacement.
+- `**kwargs` (dict): Additional parameters passed to `TransformationOperation`, including:
+  - `field_name`: Field name to transform.
+  - `mode`: `REPLACE` (in-place) or `ENRICH` (add new columns).
+  - `output_field_name`: Name for new field (ENRICH mode).
+  - `column_prefix`: Prefix for new columns.
+  - `description`: Operation description.
+  - `output_format`: Output file format (csv, json, parquet).
+  - `use_cache`, `use_dask`, `use_encryption`, `encryption_key`: Performance and security options.
 
 ### Key Attributes
 - `field_constraints`, `whitelist_path`, `blacklist_path`, `null_replacement`

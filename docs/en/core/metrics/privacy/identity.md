@@ -39,7 +39,7 @@ Implements core privacy metrics for assessing uniqueness and re-identification r
 ## 5. API Reference & Key Methods
 | Method | Description |
 |--------|-------------|
-| `__init__(quasi_identifiers, sensitives, k_values, l_diversity, t_closeness)` | Constructor |
+| `__init__(quasi_identifiers, sensitive_columns)` | Constructor |
 | `calculate_metric(df)` | Computes all enabled privacy metrics |
 | `_calculate_l_diversity(df)` | l-diversity statistics |
 | `_calculate_t_closeness(df)` | t-closeness statistics |

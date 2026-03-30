@@ -23,6 +23,7 @@ import json
 # Import module under test
 from pamola_core.utils import io
 from pamola_core.utils.io_helpers import error_utils
+from pamola_core.errors.exceptions import PamolaFileNotFoundError
 
 
 class TestIODirectoryManagement(unittest.TestCase):
@@ -217,9 +218,9 @@ class TestIOEncryptionSupport(unittest.TestCase):
         self.mock_safe_remove = patcher5.start()
 
         # Configure mocks
-        self.mock_decrypt.side_effect = lambda source_path, destination_path, key: shutil.copy(source_path,
+        self.mock_decrypt.side_effect = lambda source_path, destination_path, key, **kwargs: shutil.copy(source_path,
                                                                                                destination_path)
-        self.mock_encrypt.side_effect = lambda source_path, destination_path, key: shutil.copy(source_path,
+        self.mock_encrypt.side_effect = lambda source_path, destination_path, key, **kwargs: shutil.copy(source_path,
                                                                                                destination_path)
         self.mock_get_temp_decrypt.return_value = os.path.join(self.temp_dir, "temp_decrypted.csv")
         self.mock_get_temp_encrypt.return_value = os.path.join(self.temp_dir, "temp_encrypted.csv")
@@ -522,8 +523,9 @@ class TestIOErrorHandling(unittest.TestCase):
 
     def test_file_not_found_handling(self):
         """Test handling of FileNotFoundError."""
-        # Attempt to read non-existent file, expect exception
-        with self.assertRaises(FileNotFoundError):
+        # Attempt to read non-existent file; source raises PamolaFileNotFoundError
+        # which is NOT a subclass of built-in FileNotFoundError
+        with self.assertRaises((FileNotFoundError, PamolaFileNotFoundError)):
             io.read_full_csv(self.nonexistent_file)
 
     def test_helper_module_error_propagation(self):

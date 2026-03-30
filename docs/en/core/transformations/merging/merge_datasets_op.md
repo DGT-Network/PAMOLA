@@ -77,38 +77,32 @@ Implements the main logic for merging datasets.
 def __init__(
     self,
     name: str = "merge_datasets_operation",
-    description: str = "Merge datasets by key field",
     left_dataset_name: str = "main",
-    right_dataset_name: str = None,
+    right_dataset_name: Optional[str] = None,
     right_dataset_path: Optional[Path] = None,
-    left_key: str = None,
+    left_key: Optional[str] = None,
     right_key: Optional[str] = None,
     join_type: str = "left",
     relationship_type: str = "auto",
     suffixes: Tuple[str, str] = ("_x", "_y"),
-    output_format: str = "csv",
-    use_cache: bool = True,
-    use_encryption: bool = False,
-    encryption_key: Optional[Union[str, Path]] = None,
-    use_dask: bool = False,
+    **kwargs,
 )
 ```
 **Parameters:**
-- `name`: Name of the operation.
-- `description`: Description of the operation.
-- `left_dataset_name`: Name of the left (main) dataset.
-- `right_dataset_name`: Name of the right (lookup) dataset.
-- `right_dataset_path`: Path to the right dataset (if not named).
-- `left_key`: Key field in the left dataset.
-- `right_key`: Key field in the right dataset.
-- `join_type`: Join strategy ("inner", "left", "right", "outer").
-- `relationship_type`: Relationship type ("auto", "one-to-one", "one-to-many").
-- `suffixes`: Suffixes for overlapping columns.
-- `output_format`: Output format ("csv", "json", "parquet").
-- `use_cache`: Enable/disable caching.
-- `use_encryption`: Enable/disable output encryption.
-- `encryption_key`: Key for encryption.
-- `use_dask`: Use Dask for distributed computation.
+- `name` (str): Operation name (default: "merge_datasets_operation").
+- `left_dataset_name` (str): Name of the left (main) dataset (default: "main").
+- `right_dataset_name` (Optional[str]): Name of the right (lookup) dataset.
+- `right_dataset_path` (Optional[Path]): Path to the right dataset file (if not in data source).
+- `left_key` (Optional[str]): Key field in the left dataset.
+- `right_key` (Optional[str]): Key field in the right dataset.
+- `join_type` (str): Join strategy ("inner", "left", "right", "outer") (default: "left").
+- `relationship_type` (str): Relationship type ("auto", "one-to-one", "one-to-many") (default: "auto").
+- `suffixes` (Tuple[str, str]): Suffixes for overlapping columns (default: ("_x", "_y")).
+- `**kwargs` (dict): Additional parameters passed to `TransformationOperation`, including:
+  - `description`: Operation description.
+  - `output_format`: Output format ("csv", "json", "parquet").
+  - `use_cache`, `use_encryption`, `encryption_key`: Performance and security options.
+  - `use_dask`: Use Dask for distributed computation.
 
 #### Key Attributes
 - `config`: Operation configuration object.

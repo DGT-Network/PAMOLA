@@ -64,33 +64,25 @@ except ValueError as e:
 ```python
 def __init__(
     self,
-    field_name: str = "",
     name: str = "transformation_operation",
-    mode: str = "REPLACE",
-    output_field_name: Optional[str] = None,
-    column_prefix: str = "_",
-    description: str = "",
-    batch_size: int = 10000,
-    use_cache: bool = False,
-    use_dask: bool = False,
-    use_encryption: bool = False,
-    encryption_key: Optional[Union[str, Path]] = None,
-    output_format: str = "csv",
+    field_name: Optional[str] = None,
+    **kwargs,
 )
 ```
 **Parameters:**
-- `field_name`: Name of the field to transform.
-- `name`: Operation name.
-- `mode`: "REPLACE" (in-place) or "ENRICH" (add new field).
-- `output_field_name`: Name for the new field (ENRICH mode).
-- `column_prefix`: Prefix for new columns (ENRICH mode).
-- `description`: Operation description.
-- `batch_size`: Batch size for processing.
-- `use_cache`: Enable/disable caching.
-- `use_dask`: Enable/disable Dask parallelism.
-- `use_encryption`: Enable/disable output encryption.
-- `encryption_key`: Key or path for encryption.
-- `output_format`: Output file format (csv, parquet, json).
+- `name` (str): Operation name (default: "transformation_operation").
+- `field_name` (Optional[str]): Name of the field to transform. If not provided, operation applies to all applicable fields (default: None).
+- `**kwargs` (dict): Additional parameters passed to `BaseOperation`, including:
+  - `mode`: "REPLACE" (in-place) or "ENRICH" (add new field).
+  - `output_field_name`: Name for the new field (ENRICH mode).
+  - `column_prefix`: Prefix for new columns (ENRICH mode).
+  - `description`: Operation description.
+  - `batch_size`: Batch size for processing.
+  - `use_cache`: Enable/disable caching.
+  - `use_dask`: Enable/disable Dask parallelism.
+  - `use_encryption`: Enable/disable output encryption.
+  - `encryption_key`: Key or path for encryption.
+  - `output_format`: Output file format (csv, parquet, json).
 
 ### Key Attributes
 - `field_name`, `mode`, `output_field_name`, `column_prefix`, `batch_size`, `use_cache`, `use_dask`, `use_encryption`, `encryption_key`, `output_format`, `version`, `parallel_processes`

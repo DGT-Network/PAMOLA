@@ -33,6 +33,68 @@ The DateTime Generalization Operation is a privacy-preserving transformation tha
   - Caching support for repeated operations
   - Memory-efficient processing
 
+## Constructor Signature
+
+```python
+def __init__(
+    self,
+    field_name: str,
+    strategy: str = "rounding",
+    # Rounding parameters
+    rounding_unit: str = "day",
+    # Binning parameters
+    bin_type: str = "day_range",
+    interval_size: int = 7,
+    reference_date: Optional[Union[str, datetime]] = None,
+    custom_bins: Optional[List[Union[str, datetime]]] = None,
+    # Component parameters
+    keep_components: Optional[List[str]] = None,
+    strftime_output_format: Optional[str] = None,
+    timezone_handling: str = "preserve",
+    default_timezone: str = "UTC",
+    input_formats: Optional[List[str]] = None,
+    min_privacy_threshold: float = 0.3,
+    quasi_identifiers: Optional[List[str]] = None,
+    **kwargs,
+):
+```
+
+### Key Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Name of the datetime field to generalize |
+| `strategy` | str | "rounding" | Generalization strategy: "rounding", "binning", "component", or "relative" |
+| `rounding_unit` | str | "day" | Unit for rounding: "year", "quarter", "month", "week", "day", "hour" |
+| `bin_type` | str | "day_range" | Type of binning: "day_range", "month_range", "hour_range", "business_hours", "season", "custom" |
+| `interval_size` | int | 7 | Size of each binning interval (in days/hours depending on bin_type) |
+| `reference_date` | Optional[Union[str, datetime]] | None | Reference date for binning alignment |
+| `custom_bins` | Optional[List] | None | User-defined bin boundaries for binning |
+| `keep_components` | Optional[List[str]] | None | Components to keep for component strategy: "year", "month", "day", "hour", "minute", "second" |
+| `strftime_output_format` | Optional[str] | None | Custom strftime format string for output |
+| `timezone_handling` | str | "preserve" | How to handle timezones: "preserve", "convert", "remove" |
+| `default_timezone` | str | "UTC" | Default timezone to use for naive datetimes |
+| `input_formats` | Optional[List[str]] | None | List of possible input datetime formats |
+| `min_privacy_threshold` | float | 0.3 | Minimum 30% reduction in unique values for privacy validation |
+| `quasi_identifiers` | Optional[List[str]] | None | Quasi-identifiers for privacy risk evaluation |
+| `**kwargs` | dict | - | Additional parameters passed to `AnonymizationOperation` |
+
+### Generalization Strategies
+
+- **`"rounding"`**: Reduce precision to specified unit
+  - `rounding_unit`: Year, quarter, month, week, day, or hour
+
+- **`"binning"`**: Group into time intervals
+  - `bin_type`: Day/month/hour ranges, business hours, seasons, or custom
+  - `interval_size`: Size of each interval
+  - `custom_bins`: User-defined boundaries
+
+- **`"component"`**: Keep only specific datetime components
+  - `keep_components`: List of components to preserve
+
+- **`"relative"`**: Express as relative to reference date
+  - `reference_date`: Date to measure relative to
+
 ## Installation
 
 The DateTime Generalization Operation is included in the PAMOLA.CORE package:
@@ -47,6 +109,8 @@ pip install pamola-core
 
 ```python
 from pamola_core.anonymization.generalization.datetime_op import DateTimeGeneralizationOperation
+from pamola_core.utils.ops.op_data_source import DataSource
+from pathlib import Path
 
 # Create operation to round dates to month
 operation = DateTimeGeneralizationOperation(
@@ -55,8 +119,13 @@ operation = DateTimeGeneralizationOperation(
     rounding_unit="month"
 )
 
-# Process a DataFrame
-anonymized_df = operation.process(df)
+# Execute on data
+data_source = DataSource.from_file_path("patients.csv", name="main")
+result = operation.execute(
+    data_source=data_source,
+    task_dir=Path("output/task_001"),
+    reporter=None
+)
 ```
 
 ### Strategy Examples

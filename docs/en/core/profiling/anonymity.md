@@ -2,128 +2,75 @@
 
 ## Overview
 
-The K-Anonymity Profiling Module provides tools for analyzing data privacy and re-identification risks in datasets. It implements preliminary k-anonymity profiling to identify quasi-identifiers and assess their potential for re-identification attacks.
+The K-Anonymity Profiling Module provides tools for analyzing data privacy and re-identification risks in datasets. The `KAnonymityProfilerOperation` performs k-anonymity analysis to identify quasi-identifiers and assess their re-identification potential.
 
-This module is part of the PAMOLA.CORE (Privacy-Preserving AI Data Processors) project's data anonymization framework, focusing on the initial assessment phase before applying anonymization techniques.
+This operation can work in three analysis modes: ANALYZE (metrics only), ENRICH (add k-value column), or BOTH.
 
 ## Features
 
-- **KA Index Generation**: Creates human-readable identifiers for field combinations
-- **Automated Field Combination Analysis**: Assesses various combinations of quasi-identifiers
-- **K-Anonymity Metrics**: Calculates minimum, maximum, mean, and median k values
-- **Shannon Entropy Calculation**: Evaluates information content and distribution
-- **Vulnerability Detection**: Identifies records at risk of re-identification
-- **Comprehensive Visualizations**: Generates graphs for k-distributions, thresholds, and field comparisons
-- **Spider/Radar Charts**: Presents multi-metric comparisons across different field combinations
+- **Multi-mode Analysis**: ANALYZE, ENRICH, or BOTH modes
+- **K-Anonymity Metrics**: Calculates k-value distributions and vulnerability thresholds
+- **Automatic QI Detection**: Identifies quasi-identifier combinations automatically
+- **Threshold-based Risk Scoring**: Identifies vulnerable records below k-threshold
+- **Metrics Export**: Exports detailed metrics to CSV/JSON
+- **Visualization Support**: Generates distribution and comparison charts
+- **Chunked Processing**: Efficient memory management for large datasets
+- **Caching**: Optional result caching for repeated operations
 
-## Pamola Core Components
+## Class Reference
 
-The module consists of two main components:
+### `KAnonymityProfilerOperation`
 
-1. **`anonymity_utils.py`**: Utility functions for k-anonymity calculations and metrics
-2. **`anonymity.py`**: Operation class implementing the k-anonymity profiling workflow
+Main operation class for k-anonymity profiling and enrichment.
 
-## Functions and Classes
+**Inheritance**: Extends `BaseOperation`
 
-### anonymity_utils.py
+**Constructor Parameters**:
 
-#### `generate_ka_index(fields, prefix_length=2, max_prefix_length=4, existing_indices=None)`
-
-Generates a readable identifier for a combination of fields, handling potential collisions.
-
-**Parameters**:
-- `fields`: List of field names
-- `prefix_length`: Initial number of characters from field names
-- `max_prefix_length`: Maximum characters when resolving collisions
-- `existing_indices`: Set of existing indices to avoid duplicates
-
-**Returns**: String identifier in format "KA_field1_field2"
-
-#### `get_field_combinations(fields, min_size=2, max_size=4, excluded_combinations=None)`
-
-Generates all possible combinations of fields within specified size constraints.
-
-**Parameters**:
-- `fields`: List of field names to generate combinations from
-- `min_size`: Minimum number of fields per combination
-- `max_size`: Maximum number of fields per combination
-- `excluded_combinations`: List of specific combinations to exclude
-
-**Returns**: List of field combinations
-
-#### `calculate_k_anonymity(df, fields, progress_tracker=None)`
-
-Calculates k-anonymity metrics for a specific combination of fields.
-
-**Parameters**:
-- `df`: DataFrame containing the data
-- `fields`: List of field names (quasi-identifiers)
-- `progress_tracker`: Optional progress tracker object
-
-**Returns**: Dictionary of metrics including min_k, max_k, mean_k, uniqueness percentages, and distributions
-
-#### `calculate_shannon_entropy(df, fields)`
-
-Calculates Shannon entropy for a combination of fields.
-
-**Parameters**:
-- `df`: DataFrame containing the data
-- `fields`: List of field names
-
-**Returns**: Entropy value in bits
-
-#### `normalize_entropy(entropy, unique_values_count)`
-
-Normalizes entropy to a [0,1] range for easier comparison.
-
-**Parameters**:
-- `entropy`: Raw entropy value
-- `unique_values_count`: Number of unique value combinations
-
-**Returns**: Normalized entropy value
-
-#### Other Utility Functions
-
-- `create_ka_index_map`: Maps field combinations to their KA indices
-- `find_vulnerable_records`: Identifies records vulnerable to re-identification
-- `prepare_metrics_for_spider_chart`: Prepares metrics for visualization
-- `save_ka_metrics`: Exports metrics to CSV format
-- `save_vulnerable_records`: Exports vulnerable records information to JSON
-
-### anonymity.py
-
-#### `KAnonymityProfilerOperation`
-
-Main operation class that implements the k-anonymity profiling workflow.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | str | "KAnonymityProfiler" | Operation name |
+| `quasi_identifiers` | List[str] | None | List of QI fields to analyze |
+| `analysis_mode` | str | "ANALYZE" | Mode: "ANALYZE", "ENRICH", or "BOTH" |
+| `threshold_k` | int | 5 | K-value threshold (records with k < threshold are vulnerable) |
+| `export_metrics` | bool | True | Export metrics to CSV/JSON |
+| `max_combinations` | int | 50 | Maximum number of QI combinations to analyze |
+| `output_field_suffix` | str | "k_anon" | Suffix for k-value column in ENRICH mode |
+| `quasi_identifier_sets` | Optional[List[List[str]]] | None | Pre-defined QI sets (alternative to auto-detection) |
+| `id_fields` | Optional[List[str]] | None | ID columns for record tracking |
+| `**kwargs` | dict | - | Additional BaseOperation parameters (chunk_size, etc.) |
 
 **Key Methods**:
-- `execute`: Performs the full profiling operation
-- `_create_visualizations`: Generates visualizations of the profiling results
-- `_prepare_directories`: Sets up directory structure for artifacts
 
-**Parameters**:
-- `min_combination_size`: Minimum fields per combination
-- `max_combination_size`: Maximum fields per combination
-- `treshold_k`: Threshold for considering records vulnerable
+- `execute(data_source, task_dir, reporter, progress_tracker, **kwargs) -> OperationResult`
+  - Main execution method for k-anonymity profiling
+  - Returns OperationResult with metrics, artifacts, and optionally enriched data
+
+**Operation Modes**:
+
+- **ANALYZE**: Generates k-anonymity metrics and reports without modifying data
+- **ENRICH**: Adds a k-anonymity column to the dataset
+- **BOTH**: Performs both analysis and enrichment
 
 ## Usage Examples
 
-### Basic Usage
+### Basic ANALYZE Mode
 
 ```python
+from pamola_core.profiling.analyzers.anonymity import KAnonymityProfilerOperation
 from pamola_core.utils.ops.op_data_source import DataSource
-from pamola_core.utils.ops.op_registry import create_operation_instance
 from pathlib import Path
 
 # Create data source
 data_source = DataSource.from_file_path("resume_data.csv", load=True)
 
-# Create operation
-operation = create_operation_instance(
-    "KAnonymityProfilerOperation",
-    min_combination_size=2,
-    max_combination_size=3,
-    treshold_k=5
+# Create operation in ANALYZE mode
+operation = KAnonymityProfilerOperation(
+    quasi_identifiers=["first_name", "last_name", "gender", "birth_date"],
+    analysis_mode="ANALYZE",
+    threshold_k=5,
+    max_combinations=30,
+    export_metrics=True
 )
 
 # Define output directory
@@ -131,109 +78,108 @@ task_dir = Path("output/anonymity_analysis")
 task_dir.mkdir(parents=True, exist_ok=True)
 
 # Execute operation
-reporter = {}  # Replace with actual reporter implementation
-result = operation.run(
+result = operation.execute(
     data_source=data_source,
     task_dir=task_dir,
-    reporter=reporter,
-    track_progress=True,
-    id_fields=["resume_id", "ID"]
+    reporter=None  # Optional task reporter
 )
 
 # Access results
 print(f"Operation status: {result.status}")
-print(f"Artifacts generated: {len(result.artifacts)}")
+print(f"Metrics generated: {result.metrics}")
 ```
 
-### Specifying Field Combinations
+### ENRICH Mode: Add K-Value Column
 
 ```python
-# Define specific field combinations to analyze
-quasi_identifiers = [
-    ["first_name", "last_name", "birth_day"],
-    ["gender", "birth_day", "area_name"],
-    ["education_level", "salary_range", "area_name"]
-]
+# Create operation in ENRICH mode
+operation = KAnonymityProfilerOperation(
+    quasi_identifiers=["gender", "birth_date", "zipcode"],
+    analysis_mode="ENRICH",
+    output_field_suffix="k_anon",
+    id_fields=["person_id"]
+)
 
-# Execute with specific combinations
-result = operation.run(
+# Execute - returns enriched DataFrame
+result = operation.execute(
     data_source=data_source,
     task_dir=task_dir,
-    reporter=reporter,
-    track_progress=True,
-    fields_combinations=quasi_identifiers,
-    id_fields=["resume_id"]
+    reporter=None
 )
+
+# Access enriched data
+enriched_df = result.data
+print(enriched_df.columns)  # Contains new 'k_anon' column
 ```
 
-### Using Utility Functions Directly
+### BOTH Mode: Analysis + Enrichment
 
 ```python
-import pandas as pd
-from pamola_core.profiling.commons.anonymity_utils import (
-    calculate_k_anonymity,
-    calculate_shannon_entropy,
-    find_vulnerable_records
+# Create operation in BOTH mode
+operation = KAnonymityProfilerOperation(
+    quasi_identifiers=["first_name", "last_name", "gender"],
+    analysis_mode="BOTH",
+    threshold_k=3,
+    quasi_identifier_sets=[
+        ["first_name", "last_name"],
+        ["gender", "birth_date"],
+        ["first_name", "gender", "birth_date"]
+    ],
+    id_fields=["id"]
 )
 
-# Load data
-df = pd.read_csv("resume_data.csv")
+# Execute - performs analysis AND adds k_anon column
+result = operation.execute(
+    data_source=data_source,
+    task_dir=task_dir,
+    reporter=None
+)
 
-# Analyze specific combination
-fields = ["gender", "birth_day", "area_name"]
-metrics = calculate_k_anonymity(df, fields)
-
-# Calculate entropy
-entropy = calculate_shannon_entropy(df, fields)
-print(f"Shannon entropy: {entropy:.4f} bits")
-
-# Find vulnerable records
-vulnerable = find_vulnerable_records(df, fields, k_threshold=5, id_field="resume_id")
-print(f"Vulnerable records: {vulnerable['vulnerable_count']} ({vulnerable['vulnerable_percentage']:.2f}%)")
+# Both metrics and enriched data are available
+print(f"Metrics: {result.metrics}")
+print(f"Enriched data shape: {result.data.shape}")
 ```
 
 ## Generated Artifacts
 
-The module produces several artifacts:
+In ANALYZE or BOTH mode, the operation produces:
 
 1. **Metrics Files**:
-   - `ka_metrics.csv`: Comprehensive metrics for each KA combination
-   - `ka_vulnerable_records.json`: Details on vulnerable records
-   - `field_uniqueness.json`: Uniqueness statistics for individual fields
+   - `ka_metrics.json`: K-anonymity metrics by QI combination
+   - `ka_vulnerable_records.json`: Records below threshold_k
 
 2. **Visualizations**:
-   - `ka_k_distribution.png`: Distribution of records across k-value ranges
-   - `ka_vulnerable_curve.png`: Percentage of records meeting k-anonymity thresholds
-   - `ka_comparison_spider.png`: Spider chart comparing metrics across combinations
-   - `ka_field_uniqueness.png`: Uniqueness analysis of individual fields
+   - `ka_k_distribution.png`: K-value distribution histogram
+   - `ka_threshold_compliance.png`: Threshold compliance curves
+   - `ka_comparison.png`: Cross-combination comparison charts
 
-3. **Dictionary Files**:
-   - `ka_index_map.csv`: Mapping between KA indices and field combinations
+3. **Output Data** (in ENRICH or BOTH mode):
+   - DataFrame with new k-anonymity column (default suffix: `k_anon`)
 
-## Integration
+## Integration with PAMOLA Pipeline
 
-This module integrates with the broader PAMOLA CORE framework through:
+`KAnonymityProfilerOperation` integrates with:
 
-- The `DataSource` abstraction for data access
-- `OperationResult` for standardized result reporting
-- `ProgressTracker` for operation progress monitoring
-- `TaskReporter` for logging operations and artifacts
-- Visualization utility functions for creating standardized charts
+- `DataSource` abstraction for flexible input handling
+- `TaskRunner` for orchestrated workflows
+- `OperationResult` for standardized output and metrics
+- PAMOLA's attack and metrics suite for risk assessment
 
-## Performance Considerations
+## Performance Notes
 
-- For large datasets (>100,000 records), consider using chunking or Dask
-- Analysis of many field combinations can be computationally intensive
-- Memory usage increases with the number of unique value combinations
-- Consider limiting the number of field combinations for initial analysis
+- **Memory**: Chunking enabled for large datasets; respects chunk_size parameter
+- **Combinations**: max_combinations limits analysis scope (default: 50)
+- **Caching**: Results cached with configurable cache parameters
+- **Large Datasets**: Chunked k-value calculation available for >100K rows
 
 ## Best Practices
 
-1. Start with a small set of potential quasi-identifiers
-2. Focus on fields with high uniqueness percentages
-3. Pay special attention to combinations with low minimum k values
-4. Use the spider chart to identify the most problematic combinations
-5. Export vulnerable record IDs for further investigation
-6. Consider field combinations with high entropy as candidates for anonymization
+1. Start with 3-5 fields as candidate QIs
+2. Use ANALYZE mode first to explore k-value distributions
+3. Focus on combinations with low minimum k values
+4. Switch to ENRICH mode once QI set is finalized
+5. Use BOTH mode for comprehensive assessment + data preparation
+6. Compare metrics across combinations to identify highest-risk QI sets
+7. Use threshold_k based on acceptable re-identification risk level
 
-The K-Anonymity Profiling Module provides a foundation for understanding re-identification risks in your dataset before applying more complex anonymization techniques like generalization, suppression, or noise addition.
+The K-Anonymity Profiler is essential for initial privacy risk assessment and prerequisite for selecting anonymization strategies.

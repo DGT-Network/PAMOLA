@@ -1238,7 +1238,13 @@ def load_task_config(
                 project_task_config = project_config.get("tasks", {}).get(task_id, {})
 
                 # Step 3: Try to load task-specific config JSON
-                task_config_path = project_root / DEFAULT_CONFIG_DIR / f"{task_id}.json"
+                # Use config_save_dir from default_config if provided (task output dir)
+                _config_save_dir = (default_config or {}).get("config_save_dir")
+                task_config_path = (
+                    Path(_config_save_dir) / f"{task_id}.json"
+                    if _config_save_dir
+                    else project_root / DEFAULT_CONFIG_DIR / f"{task_id}.json"
+                )
                 should_bootstrap = True
 
                 if not force_recreate_config_file and task_config_path.exists():
@@ -1362,8 +1368,13 @@ def load_task_config(
             # Find project root
             project_root = find_project_root()
 
-            # Task-specific config path
-            task_config_path = project_root / DEFAULT_CONFIG_DIR / f"{task_id}.json"
+            # Task-specific config path — use config_save_dir if provided
+            _config_save_dir = (default_config or {}).get("config_save_dir")
+            task_config_path = (
+                Path(_config_save_dir) / f"{task_id}.json"
+                if _config_save_dir
+                else project_root / DEFAULT_CONFIG_DIR / f"{task_id}.json"
+            )
 
             # Load project config
             try:

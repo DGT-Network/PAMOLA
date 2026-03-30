@@ -152,21 +152,23 @@ class TestSpacyTokenizer(unittest.TestCase):
 
 class TestTransformersTokenizer(unittest.TestCase):
 
+    @patch("pamola_core.utils.nlp.tokenization._TRANSFORMERS_AVAILABLE", True)
     @patch("pamola_core.utils.nlp.base.DependencyManager.get_module")
-    @patch("transformers.AutoTokenizer")
-    def test_transformers_tokenize_success(self, mock_auto_tokenizer_class, mock_get_module):
-        # Simulate tokenizer.tokenize()
-        mock_tokenizer = MagicMock()
-        mock_tokenizer.tokenize.return_value = ["[CLS]", "hello", "world", "[SEP]"]
-        mock_auto_tokenizer_class.from_pretrained.return_value = mock_tokenizer
+    def test_transformers_tokenize_success(self, mock_get_module):
+        # Simulate availability of transformers
         mock_get_module.return_value = MagicMock()
 
         tokenizer = TransformersTokenizer(language="en")
+        # Inject mock tokenizer directly to bypass from_pretrained network call
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.tokenize.return_value = ["[CLS]", "hello", "world", "[SEP]"]
+        tokenizer._tokenizer = mock_tokenizer
+
         tokens = tokenizer.tokenize("hello world", add_special_tokens=True)
         self.assertIn("hello", tokens)
 
-    @patch("pamola_core.utils.nlp.base.DependencyManager.get_module", return_value=None)
-    def test_transformers_fallback(self, mock_get_module):
+    @patch("pamola_core.utils.nlp.tokenization._TRANSFORMERS_AVAILABLE", False)
+    def test_transformers_fallback(self):
         tokenizer = TransformersTokenizer(language="en")
         tokens = tokenizer.tokenize("Fallback test.")
         self.assertIn("fallback", tokens)

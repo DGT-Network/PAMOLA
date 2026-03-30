@@ -297,7 +297,7 @@ def test_progress_context_exit_tracker_close_exception(monkeypatch):
         def error(self, msg): self.records.append(("error", msg))
     mgr = progress_manager.TaskProgressManager("tid", "ttype", BadLogger(), None, 1, False)
     ctx = progress_manager.ProgressContext(mgr, "op", 0)
-    ctx.tracker = mock.Mock()
+    ctx.tracker = mock.Mock(metrics={})  # metrics must be a dict for self.metrics.update()
     ctx.tracker.close.side_effect = Exception("fail")
     ctx.empty_operation = True
     ctx.__exit__(None, None, None)  # Should log error, not raise
@@ -370,9 +370,11 @@ def test_noop_progress_tracker_parent_update_exception():
 def test_progress_tracker_parent_update_exception(monkeypatch):
     monkeypatch.setattr(progress_manager, "tqdm", mock.MagicMock())
     class BadParent:
+        def __init__(self):
+            self.children = []  # Required by ProgressTracker.__init__ for registration
         def update(self, steps): raise Exception("fail")
     tracker = progress_manager.ProgressTracker(1, "desc", parent=BadParent())
-    tracker.close()  # Should not raise   
+    tracker.close()  # Should not raise
     
 if __name__ == "__main__":
     pytest.main()

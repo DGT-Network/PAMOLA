@@ -37,8 +37,9 @@ from pamola_core.utils.tasks.path_security import (
 )
 from pamola_core.utils.paths import get_project_root
 
-# Default directory suffixes if not specified in configuration
+# Default directory suffixes per FR-EP3-CORE-041 (task_dir/ standard structure)
 DEFAULT_DIRECTORY_SUFFIXES = [
+    "root",       # task_dir itself, for reference
     "input",
     "output",
     "temp",
@@ -46,6 +47,9 @@ DEFAULT_DIRECTORY_SUFFIXES = [
     "dictionaries",
     "visualizations",
     "metrics",
+    "attacks",     # FR-EP3-CORE-041
+    "cache",       # FR-EP3-CORE-041
+    "reports",     # FR-EP3-CORE-041
 ]
 
 
@@ -111,6 +115,7 @@ class TaskDirectoryManager:
         task_config: Any,
         logger: Optional[logging.Logger] = None,
         progress_manager: Optional[TaskProgressManager] = None,
+        task_dir: Optional[str] = None,
     ):
         """
         Initialize the directory manager with task configuration.
@@ -121,6 +126,8 @@ class TaskDirectoryManager:
                          Must provide task_id, project_root, and get_task_dir() method.
             logger: Logger for directory operations (optional)
             progress_manager: Progress manager for tracking directory operations (optional)
+            task_dir: Override path for the task directory. When provided, skips
+                      config-based resolution entirely.
         """
         self.config = task_config
         self.logger = logger or logging.getLogger(__name__)
@@ -129,7 +136,7 @@ class TaskDirectoryManager:
         # Store references to key directories
         self.task_id = getattr(task_config, "task_id", "unknown")
         self.project_root = getattr(task_config, "project_root", get_project_root())
-        self.task_dir = self._resolve_task_dir()
+        self.task_dir = Path(task_dir) / "processed" / self.task_id if task_dir else self._resolve_task_dir()
 
         # Store reference to log_directory if available, for centralized logs/checkpoints/temp
         self.log_directory = getattr(task_config, "log_directory", None)
@@ -931,6 +938,7 @@ def create_directory_manager(
     logger: Optional[logging.Logger] = None,
     progress_manager: Optional[TaskProgressManager] = None,
     initialize: bool = True,
+    task_dir: Optional[str] = None,
 ) -> TaskDirectoryManager:
     """
     Create a directory manager for a task.
@@ -941,6 +949,7 @@ def create_directory_manager(
         logger: Logger for directory operations (optional)
         progress_manager: Progress manager for tracking directory operations (optional)
         initialize: Whether to initialize directories immediately
+        task_dir: Override path for the task directory (optional)
 
     Returns
     -------
@@ -952,7 +961,7 @@ def create_directory_manager(
     """
     try:
         # Create directory manager
-        manager = TaskDirectoryManager(task_config, logger, progress_manager)
+        manager = TaskDirectoryManager(task_config, logger, progress_manager, task_dir)
 
         # Initialize directories if requested
         if initialize:

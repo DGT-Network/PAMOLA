@@ -18,48 +18,80 @@
 11. [Change Log & Contributors](#11-change-log--contributors)
 
 ## 1. Module Overview
-Suite of distance-based privacy metrics for evaluating similarity/dissimilarity between records, distributions, or datasets. Essential for privacy-preserving data analysis, synthetic data validation, and disclosure risk assessment.
+Implements Distance to Closest Record (DCR) privacy metric, which measures the minimum distance from synthetic records to real records. Lower DCR values indicate higher privacy risk. Supports multiple distance metrics (Euclidean, Manhattan, Cosine, Mahalanobis), feature normalization, and efficient nearest neighbor search using FAISS for large-scale datasets.
 
 ## 2. Source Code Hierarchy
 - pamola_core/metrics/privacy/distance.py
-  - distance_metric
-  - aggregate_distances
-  - normalize_distance
+  - class DistanceToClosestRecord
+    - __init__
+    - calculate_metric
+    - _calculate_dcr_faiss
+    - _interpret_dcr
+    - _calculate_dcr_sklearn
+    - _calculate_privacy_score
 
 ## 3. Architecture & Data Flow
-- Implements distance-based metrics as standalone functions
-- Used by privacy metric operations and wrappers
+- DCR class calculates minimum distances from synthetic to original records
+- Supports optional feature normalization via StandardScaler
+- FAISS integration for large-scale datasets
+- Returns detailed risk assessment with percentile-based statistics
 
 ## 4. Main Functionalities & Features
-- Compute distance between records (Euclidean, Manhattan, Cosine, etc.)
-- Aggregate and normalize distances
-- Handles missing/NaN values gracefully
+- Calculate DCR (Distance to Closest Record) for privacy assessment
+- Support for multiple distance metrics: euclidean, manhattan, cosine, mahalanobis
+- Optional feature normalization using StandardScaler
+- Multiple aggregation methods: min, mean_k (k-nearest neighbors), percentile-based
+- FAISS support for efficient large-scale nearest neighbor search
+- Percentile distribution calculation for risk assessment
+- Human-readable risk interpretation and recommendations
 
 ## 5. API Reference & Key Methods
-| Function | Description |
-|----------|-------------|
-| `distance_metric(record1, record2, metric, normalize, ...)` | Computes distance between two records |
-| `aggregate_distances(distances, method)` | Aggregates distance values |
-| `normalize_distance(value, min_val, max_val)` | Normalizes a distance value |
+| Method | Description |
+|--------|-------------|
+| `__init__(normalize_features, distance_metric, n_neighbors, batch_size)` | Initialize DCR metric with configuration |
+| `calculate_metric(original_df, transformed_df)` | Compute DCR between original and synthetic datasets |
+| `_calculate_dcr_faiss(...)` | Calculate DCR using FAISS index for efficient nearest neighbors |
+| `_interpret_dcr(dcr_stats)` | Interpret DCR statistics into risk level |
+| `_calculate_dcr_sklearn(...)` | Calculate DCR using scikit-learn |
+| `_calculate_privacy_score(...)` | Calculate privacy score based on DCR stats |
 
 ## 6. Usage Examples
 ```python
-from pamola_core.metrics.privacy.distance import distance_metric, aggregate_distances
-score = distance_metric([1, 2, 3], [4, 5, 6], metric='euclidean')
-agg = aggregate_distances([0.1, 0.2, 0.3], method='mean')
+from pamola_core.metrics.privacy.distance import DistanceToClosestRecord
+import pandas as pd
+
+# Create DCR metric instance
+dcr = DistanceToClosestRecord(
+    distance_metric='euclidean',
+    normalize_features=True,
+    aggregation='min',
+    percentiles=[5, 25, 50, 75, 95]
+)
+
+# Calculate DCR between original and synthetic data
+original = pd.DataFrame({'age': [25, 35, 45], 'income': [50000, 75000, 100000]})
+synthetic = pd.DataFrame({'age': [26, 34, 44], 'income': [51000, 74000, 99000]})
+result = dcr.calculate_metric(original, synthetic)
+print(result['dcr'])  # DCR score
+print(result['risk_level'])  # Risk assessment
 ```
 
 ## 7. Troubleshooting & Investigation Guide
-- Ensure input arrays are compatible and metric is supported
-- Handles NaN/missing values by returning np.nan or skipping
+- Ensure original and synthetic DataFrames have matching columns
+- For Mahalanobis metric, ensure covariance matrix is full-rank
+- FAISS requires faiss installation (pip install faiss-cpu or faiss-gpu)
+- Check data preprocessing for NaN/missing values before calculation
 
 ## 8. Summary Analysis
-- Robust, efficient for large arrays
-- Fully covered by unit tests
+- Enterprise-grade DCR implementation with FAISS acceleration
+- Comprehensive risk assessment with multiple aggregation strategies
+- Production-ready for synthetic data validation and privacy assessment
 
 ## 9. Challenges, Limitations & Enhancement Opportunities
-- Custom metrics require user implementation
-- Future: add more distance metrics and aggregation methods
+- FAISS integration requires faiss-cpu or faiss-gpu installation
+- Mahalanobis metric requires full-rank covariance matrix
+- Feature preprocessing impacts DCR interpretation
+- Future: add GPU acceleration and batch processing improvements
 
 ## 10. Related Components & References
 - pamola_core/metrics/privacy/identity.py

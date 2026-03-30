@@ -188,7 +188,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             raise InvalidStrategyError(
                 strategy=suppression_strategy,
                 valid_strategies=valid_strategies,
-                operation_type=self.operation_name,
+                operation_type=self.__class__.__name__,
             )
 
         # Validate strategy-specific requirements
@@ -413,7 +413,7 @@ class CellSuppressionOperation(AnonymizationOperation):
             if progress_tracker:
                 progress_tracker.total = self._compute_total_steps()
                 progress_tracker.update(
-                    1, {"step": step, "operation": self.operation_name}
+                    1, {"step": "Preparation", "operation": self.operation_name}
                 )
 
             # Report preparation success

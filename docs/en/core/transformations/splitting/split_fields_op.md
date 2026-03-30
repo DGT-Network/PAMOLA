@@ -70,24 +70,28 @@ except Exception as e:
 
 #### Constructor
 ```python
-SplitFieldsOperation(
+def __init__(
+    self,
     name: str = "split_fields_operation",
-    description: str = "Split dataset by fields",
-    id_field: str = None,
+    id_field: Optional[str] = None,
     field_groups: Optional[Dict[str, List[str]]] = None,
     include_id_field: bool = True,
-    output_format: str = OutputFormat.CSV.value,
-    **kwargs
+    **kwargs,
 )
 ```
 **Parameters:**
-- `name`: Name of the operation.
-- `description`: Short description.
-- `id_field`: Field used as a unique identifier.
-- `field_groups`: Mapping of group names to lists of field names.
-- `include_id_field`: Whether to include the ID field in each output.
-- `output_format`: Output file format ("csv" or "json").
-- `**kwargs`: Additional configuration.
+- `name` (str): Operation name (default: "split_fields_operation").
+- `id_field` (Optional[str]): Field used as a unique identifier for records in each subset.
+- `field_groups` (Optional[Dict[str, List[str]]]): Mapping of group names to lists of field names to be grouped together.
+- `include_id_field` (bool): Whether to include the `id_field` in each output subset (default: True).
+- `**kwargs` (dict): Additional parameters passed to `TransformationOperation`, including:
+  - `field_name`: Field name to transform.
+  - `mode`: "REPLACE" or "ENRICH".
+  - `output_field_name`: Name for new field (ENRICH mode).
+  - `column_prefix`: Prefix for new columns.
+  - `description`: Operation description.
+  - `output_format`: Output file format (csv or json).
+  - `use_cache`, `use_encryption`, `encryption_key`: Performance and security options.
 
 #### Key Attributes
 - `id_field`: The unique identifier field.

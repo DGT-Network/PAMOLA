@@ -83,48 +83,26 @@ Implements the add/modify fields operation.
 #### Constructor
 ```python
 def __init__(
+    self,
+    name: str = "add_modify_fields_operation",
     field_operations: Optional[Dict[str, Dict[str, Any]]] = None,
     lookup_tables: Optional[Dict[str, Union[Path, Dict[Any, Any]]]] = None,
-    output_format: str = "csv",
-    name: str = "add_modify_fields_operation",
-    description: str = "Add or modify fields",
-    field_name: str = "",
-    mode: str = "REPLACE",
-    output_field_name: Optional[str] = None,
-    column_prefix: str = "_",
-    visualization_theme: Optional[str] = None,
-    visualization_backend: Optional[str] = None,
-    visualization_strict: bool = False,
-    visualization_timeout: int = 120,
-    chunk_size: int = 10000,
-    use_dask: bool = False,
-    npartitions: int = 2,
-    use_vectorization: bool = False,
-    parallel_processes: int = 2,
-    use_cache: bool = True,
-    use_encryption: bool = False,
-    encryption_key: Optional[Union[str, Path]] = None,
-    encryption_mode: Optional[str] = None,
+    **kwargs,
 )
 ```
 **Parameters:**
-- `field_operations`: Dict of field operation configs.
-- `lookup_tables`: Dict of lookup tables (as dict or file path).
-- `output_format`: Output file format (`csv`, `json`, `parquet`).
-- `name`: Operation name.
-- `description`: Operation description.
-- `field_name`: Name of the field to transform.
-- `mode`: `REPLACE` (in-place) or `ENRICH` (add new field).
-- `output_field_name`: Name for new field (if `ENRICH`).
-- `column_prefix`: Prefix for new columns.
-- `batch_size`: Batch size for chunked processing.
-- `use_cache`: Enable/disable caching.
-- `use_dask`: Use Dask for distributed processing.
-- `use_encryption`: Encrypt output files.
-- `encryption_key`: Key or path for encryption.
-- `encryption_mode`: mode for encryption.
-- `visualization_*`: Visualization settings.
-- `chunk_size`, `npartitions`, `use_vectorization`, `parallel_processes`: Performance tuning.
+- `name` (str): Operation name (default: "add_modify_fields_operation").
+- `field_operations` (Optional[Dict]): Dict mapping field names to operation configs (e.g., type, value, lookup_table).
+- `lookup_tables` (Optional[Dict[str, Union[Path, Dict]]]): Dict of lookup tables, either as file paths or inline dicts.
+- `**kwargs` (dict): Additional parameters passed to `TransformationOperation`, including:
+  - `field_name`: Field name to transform.
+  - `mode`: `REPLACE` (in-place) or `ENRICH` (add new field).
+  - `output_field_name`: Name for new field (if `ENRICH`).
+  - `column_prefix`: Prefix for new columns.
+  - `description`: Operation description.
+  - `output_format`: Output file format (`csv`, `json`, `parquet`).
+  - `use_cache`, `use_dask`, `use_encryption`, `encryption_key`: Performance and security options.
+  - `chunk_size`, `npartitions`, `use_vectorization`, `parallel_processes`: Performance tuning.
 
 #### Key Attributes
 - `field_operations`, `lookup_tables`, `output_format`, `mode`, `visualization_theme`, `visualization_backend`, `visualization_strict`, `visualization_timeout`, `chunk_size`, `use_dask`, `npartitions`, `use_vectorization`, `parallel_processes`, `use_cache`, `use_encryption`, `encryption_key`, `encryption_mode`

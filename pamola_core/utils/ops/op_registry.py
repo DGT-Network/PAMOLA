@@ -615,9 +615,11 @@ def _extract_init_parameters(operation_class: Type) -> Dict[str, Dict[str, Any]]
         signature = inspect.signature(operation_class.__init__)
         parameters = {}
 
-        # Skip 'self' parameter
+        # Skip 'self' parameter and variadic params (**kwargs, *args)
         for name, param in signature.parameters.items():
             if name == 'self':
+                continue
+            if param.kind in (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL):
                 continue
 
             # Extract parameter metadata
@@ -655,6 +657,14 @@ def _determine_operation_category(operation_class: Type) -> str:
         return 'profiling'
     elif 'anonymization' in module:
         return 'anonymization'
+    elif 'transformations' in module:
+        return 'transformations'
+    elif 'attacks' in module:
+        return 'attacks'
+    elif 'metrics' in module:
+        return 'metrics'
+    elif 'fake_data' in module:
+        return 'fake_data'
     elif 'security' in module:
         return 'security'
     elif 'quality' in module:

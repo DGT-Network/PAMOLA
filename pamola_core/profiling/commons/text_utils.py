@@ -1005,6 +1005,8 @@ def find_dictionary_file(
         Path to the dictionary file if found, None otherwise
     """
     # Initialize task logger
+    import logging
+    logger = logging.getLogger(__name__)
     if task_logger:
         logger = task_logger
 

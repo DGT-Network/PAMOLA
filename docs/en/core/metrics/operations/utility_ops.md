@@ -30,6 +30,7 @@ Provides a unified interface for evaluating the utility of transformed datasets 
     - execute
     - calculate_metrics
     - _generate_visualizations
+    - _get_cache_parameters
 
 ## 3. Architecture
 **Inheritance Tree:**
@@ -75,6 +76,7 @@ flowchart TD
 | `UtilityMetricOperation.execute(...)` | Runs the operation |
 | `UtilityMetricOperation.calculate_metrics(...)` | Computes utility metrics |
 | `UtilityMetricOperation._generate_visualizations(...)` | Creates visualizations |
+| `UtilityMetricOperation._get_cache_parameters()` | Returns cache parameters |
 
 ## 7. Usage Examples
 ```python

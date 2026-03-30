@@ -62,11 +62,61 @@ The operation requires these PAMOLA.CORE modules:
 - `pamola_core.utils.crypto_helpers.pseudonymization`
 - `pamola_core.utils.ops.*`
 
+## Constructor Signature
+
+```python
+def __init__(
+    self,
+    field_name: str,
+    additional_fields: Optional[List[str]] = None,
+    algorithm: str = "sha3_256",
+    salt_config: Optional[Dict[str, Any]] = None,
+    salt_file: Optional[Path] = None,
+    use_pepper: bool = True,
+    pepper_length: int = 32,
+    output_format: str = "hex",
+    output_length: Optional[int] = None,
+    output_prefix: Optional[str] = None,
+    output_suffix: Optional[str] = None,
+    cache_size: int = 100000,
+    output_file_format: str = "csv",
+    quasi_identifiers: Optional[List[str]] = None,
+    compound_mode: bool = False,
+    compound_separator: str = "|",
+    compound_null_handling: str = "skip",
+    **kwargs,
+):
+```
+
+### Key Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Primary field to pseudonymize |
+| `additional_fields` | Optional[List[str]] | None | Additional fields for compound pseudonymization |
+| `algorithm` | str | "sha3_256" | Hash algorithm: "sha3_256" or "sha3_512" |
+| `salt_config` | Optional[Dict] | None | Salt configuration with 'source' and 'value'/'field_name' |
+| `salt_file` | Optional[Path] | None | Path to salt file (for file-based salt) |
+| `use_pepper` | bool | True | Whether to use session-based pepper for enhanced security |
+| `pepper_length` | int | 32 | Length of pepper in bytes |
+| `output_format` | str | "hex" | Output format: "hex", "base64", "base32", "base58", or "uuid" |
+| `output_length` | Optional[int] | None | Truncate output to specified length |
+| `output_prefix` | Optional[str] | None | Prefix for pseudonyms |
+| `output_suffix` | Optional[str] | None | Suffix for pseudonyms |
+| `cache_size` | int | 100000 | Maximum pseudonym cache size |
+| `output_file_format` | str | "csv" | Output format: "csv", "parquet", or "arrow" |
+| `quasi_identifiers` | Optional[List[str]] | None | Quasi-identifiers for privacy metrics |
+| `compound_mode` | bool | False | Whether to create compound pseudonyms from multiple fields |
+| `compound_separator` | str | "\|" | Separator for compound identifiers |
+| `compound_null_handling` | str | "skip" | How to handle nulls in compound mode: "skip" or "include" |
+| `**kwargs` | dict | - | Additional parameters passed to `AnonymizationOperation` |
+
 ## Basic Usage
 
 ### Simple Example
 ```python
 from pamola_core.anonymization.pseudonymization.hash_based_op import HashBasedPseudonymizationOperation
+from pamola_core.utils.ops.op_data_source import DataSource
 
 # Create operation with default settings
 operation = HashBasedPseudonymizationOperation(
@@ -76,6 +126,14 @@ operation = HashBasedPseudonymizationOperation(
         "source": "parameter",
         "value": "0123456789abcdef" * 4  # 32-byte salt as hex
     }
+)
+
+# Execute on data
+data_source = DataSource.from_file_path("customers.csv", name="main")
+result = operation.execute(
+    data_source=data_source,
+    task_dir=Path("output/task_001"),
+    reporter=None
 )
 
 # Execute operation

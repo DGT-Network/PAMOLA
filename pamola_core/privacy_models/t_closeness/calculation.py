@@ -53,6 +53,12 @@ class TCloseness(BasePrivacyModelProcessor):
         self.sensitive_column = sensitive_column
         self.t = t
 
+    def process(self, data):
+        """Process the input data by evaluating t-closeness."""
+        if isinstance(data, pd.DataFrame):
+            return self.evaluate_privacy(data, self.quasi_identifiers)
+        return None
+
     def evaluate_privacy(
         self, data: pd.DataFrame, quasi_identifiers: List[str], **kwargs
     ) -> Dict[str, Any]:

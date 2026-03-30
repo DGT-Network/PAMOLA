@@ -40,6 +40,59 @@ The UniformTemporalNoiseOperation adds controlled random time shifts to datetime
 - **Secure Generation**: Cryptographically secure random shifts
 - **Large-scale Support**: Integrated Dask support for big data
 
+## Constructor & Parameters
+
+```python
+def __init__(
+    self,
+    field_name: str,
+    # Temporal noise parameters
+    noise_range_days: Optional[float] = None,
+    noise_range_hours: Optional[float] = None,
+    noise_range_minutes: Optional[float] = None,
+    noise_range_seconds: Optional[float] = None,
+    noise_range: Optional[Dict[str, Optional[float]]] = None,
+    # Direction control
+    direction: str = "both",
+    # Boundary constraints
+    min_datetime: Optional[Union[str, pd.Timestamp]] = None,
+    max_datetime: Optional[Union[str, pd.Timestamp]] = None,
+    # Special date handling
+    preserve_special_dates: bool = False,
+    special_dates: Optional[List[Union[str, pd.Timestamp]]] = None,
+    preserve_weekends: bool = False,
+    preserve_time_of_day: bool = False,
+    # Granularity
+    output_granularity: Optional[str] = None,
+    # Reproducibility
+    random_seed: Optional[int] = None,
+    use_secure_random: bool = True,
+    **kwargs,
+):
+```
+
+### Key Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Field to which temporal noise will be applied |
+| `noise_range_days` | Optional[float] | None | Range of time shift in days |
+| `noise_range_hours` | Optional[float] | None | Range of time shift in hours |
+| `noise_range_minutes` | Optional[float] | None | Range of time shift in minutes |
+| `noise_range_seconds` | Optional[float] | None | Range of time shift in seconds |
+| `noise_range` | Optional[Dict] | None | Dictionary specifying noise ranges for multiple units |
+| `direction` | str | "both" | Direction of shift: "both", "forward", or "backward" |
+| `min_datetime` | Optional[Union[str, pd.Timestamp]] | None | Minimum datetime allowed after noise |
+| `max_datetime` | Optional[Union[str, pd.Timestamp]] | None | Maximum datetime allowed after noise |
+| `preserve_special_dates` | bool | False | Whether to preserve special/important dates unchanged |
+| `special_dates` | Optional[List] | None | List of dates to preserve if preserve_special_dates=True |
+| `preserve_weekends` | bool | False | Whether to preserve weekend/weekday pattern |
+| `preserve_time_of_day` | bool | False | Whether to preserve time-of-day patterns |
+| `output_granularity` | Optional[str] | None | Granularity to round output to: "day", "hour", "minute", "second", or None |
+| `random_seed` | Optional[int] | None | Seed for reproducible results (ignored if secure random used) |
+| `use_secure_random` | bool | True | Whether to use cryptographically secure random generator |
+| `**kwargs` | dict | - | Additional parameters passed to `AnonymizationOperation` |
+
 ## Installation & Import
 
 ```python

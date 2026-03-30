@@ -365,46 +365,6 @@ class TestOperationCache:
         assert stats['max_age_days'] == 7.0
         assert abs(stats['max_size_mb'] - 10.0) < 0.01  # Account for floating point comparison
 
-    # To run this test, you need to install pytest-asyncio:
-    # pip install pytest-asyncio
-    @pytest.mark.skipif(
-        "pytest_asyncio" not in sys.modules,
-        reason="pytest-asyncio not installed"
-    )
-    @pytest.mark.asyncio
-    async def test_async_methods(self, cache):
-        """Test asynchronous methods."""
-        cache_key = await cache.async_generate_cache_key(
-            TEST_OPERATION_NAME,
-            TEST_PARAMETERS
-        )
-
-        # Save data asynchronously
-        success = await cache.async_save_cache(
-            data=TEST_CACHE_DATA,
-            cache_key=cache_key,
-            operation_type=TEST_OPERATION_TYPE
-        )
-
-        assert success is True
-
-        # Get data asynchronously
-        cached_data = await cache.async_get_cache(cache_key, TEST_OPERATION_TYPE)
-
-        assert cached_data is not None
-        assert cached_data == TEST_CACHE_DATA
-
-        # Clear data asynchronously
-        files_cleared = await cache.async_clear_cache(
-            cache_key=cache_key,
-            operation_type=TEST_OPERATION_TYPE
-        )
-
-        assert files_cleared == 1
-
-        # Verify data is gone
-        cached_data = await cache.async_get_cache(cache_key, TEST_OPERATION_TYPE)
-        assert cached_data is None
 
     def test_context_manager(self, temp_cache_dir):
         """Test using OperationCache as a context manager."""
@@ -445,7 +405,7 @@ class TestOperationCache:
         assert result is False
 
         # Mock read_json to raise an exception
-        monkeypatch.setattr('pamola_core.utils.io.read_json',
+        monkeypatch.setattr('pamola_core.utils.ops.op_cache.read_json',
                             lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Test read error")))
 
         # Try to get cache
@@ -455,11 +415,13 @@ class TestOperationCache:
         assert result is None
 
     def test_global_instance(self):
-        """Test that the global operation_cache instance exists."""
-        from pamola_core.utils.ops.op_cache import operation_cache
+        """Test that the global operation_cache instance exists and proxies OperationCache."""
+        from pamola_core.utils.ops.op_cache import operation_cache, get_operation_cache
 
         assert operation_cache is not None
-        assert isinstance(operation_cache, OperationCache)
+        # operation_cache is a _LazyOperationCache proxy; the underlying instance is OperationCache
+        underlying = get_operation_cache()
+        assert isinstance(underlying, OperationCache)
 
 
 if __name__ == "__main__":

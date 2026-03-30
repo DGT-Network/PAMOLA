@@ -36,7 +36,7 @@ class TestOperationArtifact(unittest.TestCase):
         """Clean up temporary directory."""
         self.temp_dir.cleanup()
 
-    @patch('pamola_core.utils.ops.op_result.get_file_metadata')
+    @patch('pamola_core.utils.io.get_file_metadata')
     def test_get_file_size(self, mock_get_file_metadata):
         """Test _get_file_size method."""
         # Mock the get_file_metadata function
@@ -55,7 +55,7 @@ class TestOperationArtifact(unittest.TestCase):
         mock_get_file_metadata.assert_called_once_with(self.test_file)
         self.assertEqual(size, 1024)
 
-    @patch('pamola_core.utils.ops.op_result.calculate_checksum')
+    @patch('pamola_core.utils.io.calculate_checksum')
     def test_calculate_checksum(self, mock_calculate_checksum):
         """Test calculate_checksum method."""
         # Mock the calculate_checksum function
@@ -84,7 +84,7 @@ class TestOperationArtifact(unittest.TestCase):
         artifact = OperationArtifact("csv", non_existent_file, "Non-existent artifact")
         self.assertFalse(artifact.exists())
 
-    @patch('pamola_core.utils.ops.op_result.get_file_metadata')
+    @patch('pamola_core.utils.io.get_file_metadata')
     def test_validate(self, mock_get_file_metadata):
         """Test validate method."""
         # Mock the get_file_metadata function

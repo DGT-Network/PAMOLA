@@ -43,6 +43,61 @@ The `ConsistentMappingPseudonymizationOperation` class implements reversible pse
 - Conditional processing support
 - Risk-based processing integration
 
+## Constructor Signature
+
+```python
+def __init__(
+    self,
+    field_name: str,
+    encryption_key: Union[str, bytes],
+    additional_fields: Optional[List[str]] = None,
+    mapping_file: Optional[Union[str, Path]] = None,
+    mapping_format: str = "csv",
+    pseudonym_type: str = "uuid",
+    pseudonym_prefix: Optional[str] = None,
+    pseudonym_suffix: Optional[str] = None,
+    pseudonym_length: int = 36,
+    create_if_not_exists: bool = True,
+    backup_on_update: bool = True,
+    persist_frequency: int = 1000,
+    output_file_format: str = "csv",
+    quasi_identifiers: Optional[List[str]] = None,
+    compound_mode: bool = False,
+    compound_separator: str = "|",
+    compound_null_handling: str = "skip",
+    **kwargs,
+):
+```
+
+### Key Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_name` | str | Required | Primary field to pseudonymize |
+| `encryption_key` | Union[str, bytes] | Required | 256-bit encryption key (hex string or bytes) |
+| `additional_fields` | Optional[List[str]] | None | Additional fields for compound pseudonymization |
+| `mapping_file` | Optional[Union[str, Path]] | None | Custom mapping file name (auto-generated if None) |
+| `mapping_format` | str | "csv" | Format for mapping storage: "csv" or "json" |
+| `pseudonym_type` | str | "uuid" | Type of pseudonym: "uuid", "sequential", or "random_string" |
+| `pseudonym_prefix` | Optional[str] | None | Prefix for all generated pseudonyms |
+| `pseudonym_suffix` | Optional[str] | None | Suffix for all generated pseudonyms |
+| `pseudonym_length` | int | 36 | Length for random_string type (4–64 characters) |
+| `create_if_not_exists` | bool | True | Whether to create mapping file if missing |
+| `backup_on_update` | bool | True | Whether to backup mapping before updates |
+| `persist_frequency` | int | 1000 | Save mappings every N records processed |
+| `output_file_format` | str | "csv" | Output format: "csv", "parquet", or "arrow" |
+| `quasi_identifiers` | Optional[List[str]] | None | Quasi-identifiers for privacy metrics |
+| `compound_mode` | bool | False | Whether to create compound pseudonyms from multiple fields |
+| `compound_separator` | str | "\|" | Separator for compound identifiers |
+| `compound_null_handling` | str | "skip" | How to handle nulls in compound mode: "skip", "empty", or "null" |
+| `**kwargs` | dict | - | Additional parameters passed to `AnonymizationOperation` |
+
+### Pseudonym Types
+
+- **`"uuid"`**: Generate standard UUID v4 (36 characters with hyphens)
+- **`"sequential"`**: Generate sequential numbers (1, 2, 3, ...)
+- **`"random_string"`**: Generate random alphanumeric strings (length specified by pseudonym_length)
+
 ## Installation & Dependencies
 
 ### Required Dependencies
